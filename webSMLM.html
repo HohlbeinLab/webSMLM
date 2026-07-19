@@ -1380,11 +1380,12 @@ function buildStructure(w,h){
   return pts;
 }
 
-function generateSynthetic(){
+async function generateSynthetic(){
   const w=128,h=128;
   const n=+$('frames').value, pOn=+$('dens').value, photons=+$('phot').value;
   const px=+$('pxnm').value, sigma=1.3, bg=40, readNoise=8;
   const gt=buildStructure(w,h), frames=[], rad=Math.ceil(sigma*3);
+  let lastYield=performance.now();
   for(let fi=0; fi<n; fi++){
     const img=new Float32Array(w*h).fill(bg);
     for(let m=0;m<gt.length;m++){ if(Math.random()>pOn) continue;
@@ -1394,7 +1395,12 @@ function generateSynthetic(){
         img[y*w+x]+=A*Math.exp(-((x-mx)**2+(y-my)**2)/(2*sigma*sigma)); } }
     for(let i=0;i<img.length;i++){ img[i]=poisson(img[i])+readNoise*gauss(); if(img[i]<0)img[i]=0; }
     frames.push(img);
+    if(performance.now()-lastYield > 50){          // yield on a time budget to keep the UI responsive
+      $('prog').style.width=(100*fi/n).toFixed(0)+'%';
+      await tick(); lastYield=performance.now();
+    }
   }
+  $('prog').style.width='0%';
   groundTruth=gt;
   return makeStack(w,h,n,px, fi=>frames[fi]);
 }
@@ -1403,9 +1409,12 @@ function generateSynthetic(){
 function ifdToFloat(ifd,w,h){
   const bps=(ifd.t258&&ifd.t258[0])||8, spp=(ifd.t277&&ifd.t277[0])||1, fmt=(ifd.t339&&ifd.t339[0])||1;
   const b=ifd.data, g=new Float32Array(w*h), dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  // UTIF normalises 16-bit samples to LE in-place, but leaves 32-bit samples in
+  // the file's byte order, so read those with the IFD's endianness (ifd.isLE).
+  const le32 = ifd.isLE!==false;
   if(bps===16)              for(let i=0;i<w*h;i++) g[i]=dv.getUint16(i*2*spp,true);
   else if(bps===8)          for(let i=0;i<w*h;i++) g[i]=b[i*spp];
-  else if(bps===32&&fmt===3)for(let i=0;i<w*h;i++) g[i]=dv.getFloat32(i*4*spp,true);
+  else if(bps===32&&fmt===3)for(let i=0;i<w*h;i++) g[i]=dv.getFloat32(i*4*spp,le32);
   else { const r=UTIF.toRGBA8(ifd); for(let i=0;i<w*h;i++) g[i]=r[i*4]; }
   return g;
 }
@@ -1475,19 +1484,29 @@ async function loadTiff(fileBuf, fileSize){
 /* ===========================================================================
    MODULE: detect  (DoG band-pass + local maxima)
    =========================================================================== */
-function blur(src,w,h,sigma){
+// separable Gaussian, writing into caller-supplied dst (tmp is reused scratch).
+function blurInto(src,dst,tmp,w,h,sigma){
   const rad=Math.max(1,Math.ceil(sigma*3)), k=new Float32Array(2*rad+1); let s=0;
   for(let i=-rad;i<=rad;i++){k[i+rad]=Math.exp(-i*i/(2*sigma*sigma));s+=k[i+rad];}
   for(let i=0;i<k.length;i++)k[i]/=s;
-  const tmp=new Float32Array(w*h), out=new Float32Array(w*h);
   const cl=(v,hi)=>v<0?-v:(v>=hi?2*hi-2-v:v);
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){let a=0;for(let i=-rad;i<=rad;i++)a+=src[y*w+cl(x+i,w)]*k[i+rad];tmp[y*w+x]=a;}
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let a=0;for(let i=-rad;i<=rad;i++)a+=tmp[cl(y+i,h)*w+x]*k[i+rad];out[y*w+x]=a;}
-  return out;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let a=0;for(let i=-rad;i<=rad;i++)a+=tmp[cl(y+i,h)*w+x]*k[i+rad];dst[y*w+x]=a;}
+  return dst;
 }
+// allocating wrapper (used by the one-shot super-res render)
+function blur(src,w,h,sigma){ return blurInto(src,new Float32Array(w*h),new Float32Array(w*h),w,h,sigma); }
+
+// Band-pass reuses three persistent frame-sized buffers so the per-frame hot
+// path allocates nothing. Buffers reallocate only when frame dimensions change.
+let _bpW=0,_bpH=0,_bpSm=null,_bpLg=null,_bpTmp=null;
 function bandpass(img,w,h,sigma){
-  const sm=blur(img,w,h,sigma*0.8), lg=blur(img,w,h,sigma*3.0), out=new Float32Array(w*h);
-  for(let i=0;i<w*h;i++) out[i]=sm[i]-lg[i]; return out;
+  if(w!==_bpW||h!==_bpH){ _bpW=w;_bpH=h;
+    _bpSm=new Float32Array(w*h); _bpLg=new Float32Array(w*h); _bpTmp=new Float32Array(w*h); }
+  blurInto(img,_bpSm,_bpTmp,w,h,sigma*0.8);
+  blurInto(img,_bpLg,_bpTmp,w,h,sigma*3.0);
+  for(let i=0;i<w*h;i++) _bpSm[i]-=_bpLg[i];
+  return _bpSm;                                    // valid until the next bandpass() call
 }
 function findMaxima(filt,w,h,k,border){
   let mean=0; for(let i=0;i<filt.length;i++)mean+=filt[i]; mean/=filt.length;
@@ -1574,7 +1593,14 @@ function renderSuperRes(locs,w,h,mag,blurPx){
 }
 function fitZoom(){ const d=$('sr'); return Math.min(d.width/srFull.width, d.height/srFull.height); }
 function fitView(){ view.zoom=fitZoom(); view.cx=srFull.width/2; view.cy=srFull.height/2; }
-function clampView(){ view.cx=Math.max(0,Math.min(srFull.width,view.cx)); view.cy=Math.max(0,Math.min(srFull.height,view.cy)); }
+// keep the visible window inside the reconstruction: clamp the centre by the
+// current half-window, or recentre on the axis where the view is wider than the image.
+function clampView(){
+  if(!srFull) return;
+  const d=$('sr'), halfW=d.width/view.zoom/2, halfH=d.height/view.zoom/2;
+  view.cx = 2*halfW>=srFull.width  ? srFull.width/2  : Math.max(halfW, Math.min(srFull.width-halfW, view.cx));
+  view.cy = 2*halfH>=srFull.height ? srFull.height/2 : Math.max(halfH, Math.min(srFull.height-halfH, view.cy));
+}
 function drawView(){
   const d=$('sr'), ctx=d.getContext('2d'), DW=d.width, DH=d.height;
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
@@ -1590,7 +1616,8 @@ function drawScaleBar(ctx,DW,DH){
   const nice=[10,20,50,100,200,250,500,1000,2000,5000,10000,20000,50000];
   const target=DW*0.22*nmPerDisp; let bar=nice[0]; for(const v of nice) if(v<=target) bar=v;
   const barPx=bar/nmPerDisp, x=DW-24-barPx, y=DH-26;
-  ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(x-10,y-20,barPx+20,34);
+  const bgx=Math.max(2,x-10), bgw=Math.min(DW-2,x+barPx+10)-bgx;   // clamp backing rect to canvas
+  ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(bgx,y-20,bgw,34);
   ctx.fillStyle='#fff'; ctx.fillRect(x,y,barPx,4);
   ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
   ctx.fillText(bar>=1000?(bar/1000)+' µm':bar+' nm', x+barPx/2, y-3);
@@ -1624,38 +1651,46 @@ function drawRaw(frame,w,h,spots){
 async function run(){
   if(!stack){ log('No data loaded.'); return; }
   $('runBtn').disabled=true;
-  const {w,h,n,px}=stack;
-  const sigma=+$('psf').value, k=+$('thr').value, win=+$('win').value, method=$('method').value;
-  const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null;
-  log(`\nRun: ${n} frames · ${method==='phasor'?'phasor':'Gaussian LS'} fit · σ=${sigma} · k=${k} · win=${win}`);
-  const t0=performance.now();
-  for(let fi=0; fi<n; fi++){
-    const img=stack.getFrame(fi);
-    const filt=bandpass(img,w,h,sigma);
-    const maxima=findMaxima(filt,w,h,k,border);
-    for(const [cx,cy] of maxima){
-      const L = method==='phasor' ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
-      if(L){ L.frame=fi; locs.push(L); }
+  try{
+    const {w,h,n,px}=stack;
+    const sigma=+$('psf').value, k=+$('thr').value, win=+$('win').value, method=$('method').value;
+    const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null;
+    log(`\nRun: ${n} frames · ${method==='phasor'?'phasor':'Gaussian LS'} fit · σ=${sigma} · k=${k} · win=${win}`);
+    const t0=performance.now(); let lastYield=t0;
+    for(let fi=0; fi<n; fi++){
+      const img=stack.getFrame(fi);
+      const filt=bandpass(img,w,h,sigma);
+      const maxima=findMaxima(filt,w,h,k,border);
+      for(const [cx,cy] of maxima){
+        const L = method==='phasor' ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
+        if(L){ L.frame=fi; locs.push(L); }
+      }
+      if(fi % 100 === 0){                          // refresh the raw view every 100th frame
+        drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img;
+        $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`;
+      }
+      if(performance.now()-lastYield > 50){        // yield on a time budget to keep the UI responsive
+        $('prog').style.width=(100*fi/n).toFixed(1)+'%';
+        await tick(); lastYield=performance.now();
+      }
     }
-    if(fi % 100 === 0){                          // display only every 100th frame
-      drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img;
-      $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`;
-      $('prog').style.width=(100*fi/n).toFixed(1)+'%';
-      await tick();                               // yield to keep UI responsive
-    }
+    $('prog').style.width='100%';
+    if(lastFrame) drawRaw(lastFrame,w,h,lastSpots);
+    const dt=performance.now()-t0;
+
+    lastResult={locs,w,h,px,mag:+$('mag').value};
+    rerender();
+
+    $('sFrames').textContent=n; $('sLoc').textContent=locs.length.toLocaleString();
+    $('sDens').textContent=(locs.length/n).toFixed(1); $('sTime').textContent=Math.round(dt).toLocaleString();
+    log(`Done: ${locs.length} localizations in ${Math.round(dt)} ms (${(dt/n).toFixed(2)} ms/frame, ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+    if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
+  }catch(err){
+    log(`⚠ Run failed: ${err.name}: ${err.message}`);
+    $('prog').style.width='0%';
+  }finally{
+    $('runBtn').disabled=false;                    // always re-enable, even on error
   }
-  $('prog').style.width='100%';
-  if(lastFrame) drawRaw(lastFrame,w,h,lastSpots);
-  const dt=performance.now()-t0;
-
-  lastResult={locs,w,h,px,mag:+$('mag').value};
-  rerender();
-
-  $('sFrames').textContent=n; $('sLoc').textContent=locs.length.toLocaleString();
-  $('sDens').textContent=(locs.length/n).toFixed(1); $('sTime').textContent=Math.round(dt).toLocaleString();
-  log(`Done: ${locs.length} localizations in ${Math.round(dt)} ms (${(dt/n).toFixed(2)} ms/frame, ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
-  if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
-  $('runBtn').disabled=false;
 }
 
 /* ===========================================================================
@@ -1665,20 +1700,27 @@ async function run(){
 (function initSR(){ const d=$('sr'); d.width=640; d.height=640;
   const ctx=d.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,640,640); })();
 
-$('genBtn').addEventListener('click',()=>{
+$('genBtn').addEventListener('click',async()=>{
   log('Generating synthetic stack…');
-  stack=generateSynthetic(); lastResult=null; srFull=null;
-  const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
-  drawRaw(stack.frames?stack.frames[0]:stack.getFrame(0),stack.w,stack.h,null);
-  $('rawInfo').textContent=`frame 1/${stack.n}`; $('sFrames').textContent=stack.n;
-  $('loadInfo').textContent=`Synthetic: ${stack.n} frames · ${stack.w}×${stack.h} · ${stack.px} nm/px`;
-  $('runBtn').disabled=false;
-  log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localization”.`);
+  $('genBtn').disabled=true; $('runBtn').disabled=true;
+  try{
+    stack=await generateSynthetic(); lastResult=null; srFull=null;
+    const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
+    drawRaw(stack.getFrame(0),stack.w,stack.h,null);
+    $('rawInfo').textContent=`frame 1/${stack.n}`; $('sFrames').textContent=stack.n;
+    $('loadInfo').textContent=`Synthetic: ${stack.n} frames · ${stack.w}×${stack.h} · ${stack.px} nm/px`;
+    $('runBtn').disabled=false;
+    log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localization”.`);
+  }catch(err){
+    log(`⚠ Generation failed: ${err.name}: ${err.message}`); $('prog').style.width='0%';
+  }finally{
+    $('genBtn').disabled=false;
+  }
 });
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; log(`Loading ${f.name}…`);
+  $('runBtn').disabled=true; lastResult=null; srFull=null; groundTruth=null; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiff(await f.arrayBuffer(), f.size);
     drawRaw(stack.getFrame(0),stack.w,stack.h,null);
