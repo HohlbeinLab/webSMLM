@@ -1329,6 +1329,11 @@ X.B(E,Y);return E}return J}())
         <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
       <label class="row">Stream heap (MB)
         <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
+      <div class="hint"><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then
+        skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and
+        discarded (“streaming”), so memory stays bounded but re-runs re-decode.<br>
+        <b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF
+        decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</div>
       <div id="loadInfo" class="hint"></div>
     </div>
 
@@ -2423,7 +2428,9 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
     <h3>1 · Loading &amp; memory</h3>
     <p>TIFF headers are parsed first to get the frame count and dimensions, then the decoded working-set size is estimated (<code>frames × width × height × 4 bytes</code>).</p>
     <p><b>If it fits the memory budget</b> (default 3 GB, adjustable) all frames are decoded into RAM with a progress bar — changing the threshold and re-running is then instant (no re-decode).</p>
-    <p><b>If it exceeds the budget</b>, the loader streams in <b>heaps</b> of ~500 MB (adjustable): one heap is decoded, localized, freed, then the next. This keeps memory bounded for multi-GB stacks — and is exactly the pattern that would let you localize a live camera buffer in real time. Trade-off: re-running re-decodes.</p>
+    <p><b>If it exceeds the budget</b>, the loader <b>streams</b>: frames are decoded as the analysis reaches them and discarded again, so memory stays bounded no matter how long the stack is. Trade-off: re-running re-decodes. For ordinary TIFFs this happens in <b>heaps</b> of ~500 MB (adjustable) because every frame must pass through the TIFF decoder; one heap is decoded, localized, freed, then the next. This is exactly the pattern that would let you localize a live camera buffer in real time.</p>
+    <p><b>Large ImageJ stacks</b> (above ~4 GB) are written with a single directory entry and all frames laid out contiguously after it, because 32-bit TIFF offsets cannot address further. webSMLM detects this from the <code>images=N</code> record and indexes frames arithmetically, decoding one at a time — no heaps needed.</p>
+    <p><small>Note: “streaming” currently refers to decoded frames. The file itself is still read into memory in full, so a 5 GB stack occupies 5 GB while open.</small></p>
     <p><small>Bit depth (8/16/32-bit) and endianness are handled automatically; 16-bit is preserved (not flattened to 8-bit).</small></p>
 
     <h3>2 · Detection — finding ROIs</h3>
