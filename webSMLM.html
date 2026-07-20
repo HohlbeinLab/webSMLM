@@ -1301,7 +1301,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.3.0-dev · build 2026-07-20f · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.3.0-dev · build 2026-07-20g · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1431,7 +1431,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.3.0-dev · build 2026-07-20f
+      <div class="log" id="log">webSMLM v0.3.0-dev · build 2026-07-20g
 [features: worker pool · contiguous ImageJ stacks · CSV export]
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
@@ -2348,16 +2348,21 @@ async function run(){
     // where the time actually goes — drives the Phase 2 optimisation order.
     // In parallel mode detect/fit are summed ACROSS workers, so they are CPU
     // time and legitimately exceed the wall clock; report them as such.
-    const base=useWorkers ? Math.max(tGet+tDetect+tFit,1e-9) : Math.max(dt,1e-9);
+    // In parallel mode detect/fit are worker CPU (summed across workers) while
+    // frame access is main-thread time spent inside an await that overlaps other
+    // dispatches — not CPU, and not comparable. Keep them apart.
+    const base=useWorkers ? Math.max(tDetect+tFit,1e-9) : Math.max(dt,1e-9);
     const pc=v=>(100*v/base).toFixed(0).padStart(2)+'%';
-    log(`  frame access ${Math.round(tGet).toString().padStart(5)} ms ${pc(tGet)}`);
-    log(`  detect       ${Math.round(tDetect).toString().padStart(5)} ms ${pc(tDetect)}   (band-pass + maxima)`);
-    log(`  fit          ${Math.round(tFit).toString().padStart(5)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
+    const ms=v=>Math.round(v).toLocaleString().padStart(7);
+    if(useWorkers) log(`  frame I/O   ${ms(tGet)} ms        (overlapped with compute, not CPU time)`);
+    else           log(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
+    log(`  detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
+    log(`  fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
     if(useWorkers){
-      const cpu=tGet+tDetect+tFit, ratio=cpu/Math.max(dt,1e-9);
-      log(`  ↑ aggregate worker CPU ${Math.round(cpu)} ms vs ${Math.round(dt)} ms wall clock (${ratio.toFixed(1)}×).`);
-      log(`    Not the speed-up: efficiency cores take longer for the same work, inflating`);
-      log(`    measured CPU, so this over-states the gain (it can even exceed the core count).`);
+      const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*dt,1e-9);
+      log(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(dt).toLocaleString()} ms wall).`);
+      log(`    Utilisation near 100% means workers stayed fed; low would mean they starved.`);
+      log(`    Note E-cores inflate measured CPU, so this is an upper bound.`);
     }
     if(stopped) log('Partial result shown — press “Run localisations” to start over.');
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
