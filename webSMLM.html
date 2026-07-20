@@ -1462,7 +1462,7 @@ bind('frames','framesV',x=>x); bind('dens','densV',x=>x.toFixed(3)); bind('phot'
 bind('thr','thrV',x=>x.toFixed(1)); bind('psf','psfV',x=>x.toFixed(1)); bind('win','winV',x=>x);
 bind('mag','magV',x=>x+'×'); bind('rblur','rblurV',x=>x.toFixed(2));
 
-let stack=null, groundTruth=null, lastResult=null;
+let stack=null, groundTruth=null, lastResult=null, stackName='webSMLM';
 const readBudget = ()=> (+$('memgb').value||3)*1073741824;   // frame-cache memory budget
 
 /* ===========================================================================
@@ -1535,6 +1535,21 @@ async function loadTiff(fileBuf, fileSize){
   const w=ifds[0].width, h=ifds[0].height, n=ifds.length, px=+$('pxnm').value;
   const frameBytes=w*h*4, need=n*frameBytes, budget=readBudget();
   log(`File: ${n} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
+  // ImageJ/Micro-Manager record the true frame count in the description. If that
+  // disagrees with the number of IFDs we found, the file uses a contiguous
+  // layout whose frames we are not indexing — and we would otherwise silently
+  // analyse only the frames we did find.
+  try{
+    const raw=ifds[0].t270, desc=raw?(typeof raw==='string'?raw:String.fromCharCode.apply(null,raw.slice(0,400))):'';
+    const m=/images=(\d+)/i.exec(desc);
+    const declared=m?+m[1]:0;
+    if(declared>n){
+      log(`⚠ File declares images=${declared} but only ${n} IFD${n===1?'':'s'} were found —`);
+      log(`   ${declared-n} frame(s) will be MISSED. This is the ImageJ/contiguous`);
+      log(`   stack layout (common above ~4 GB, where 32-bit TIFF offsets run out).`);
+      log(`   Bytes on disk suggest ~${Math.floor(fileSize/(w*h*2))} frames at 16-bit.`);
+    }
+  }catch(_){}
   log(`Decoded working set if fully cached: ~${fmtBytes(need)} (budget ${fmtBytes(budget)}).`);
   $('sFrames').textContent=n;
 
@@ -1915,7 +1930,7 @@ function precisionNm(sNm,aNm,N,bPh){
   const s2=sNm*sNm, a2=aNm*aNm;
   return Math.sqrt((s2+a2/12)/N + (8*Math.PI*s2*s2*bPh*bPh)/(a2*N*N));
 }
-function exportCSV(){
+async function exportCSV(){
   if(!lastResult||!lastResult.locs.length){ log('Nothing to export — run localisations first.'); return; }
   const {locs,px}=lastResult;
   const gain=+$('gain').value||1, camoff=+$('camoff').value||0, sigPSF=+$('psf').value;
@@ -1937,11 +1952,28 @@ function exportCSV(){
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
   const blob=new Blob(parts,{type:'text/csv;charset=utf-8'});
+  // name after the source stack: "foo.ome.tif" -> "foo_locs.csv"
+  const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs.csv';
+  // Prefer a real Save-As dialog; fall back to the browser's download folder
+  // where the File System Access API is unavailable (Firefox, Safari).
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({suggestedName,
+        types:[{description:'CSV (ThunderSTORM)',accept:{'text/csv':['.csv']}}]});
+      const ws=await handle.createWritable();
+      await ws.write(blob); await ws.close();
+      log(`Saved ${locs.length.toLocaleString()} localizations to ${handle.name} (${(blob.size/1048576).toFixed(1)} MB).`);
+      return;
+    }catch(err){
+      if(err&&err.name==='AbortError'){ log('Export cancelled.'); return; }
+      log(`  (save dialog unavailable: ${err&&err.message||err} — using downloads folder)`);
+    }
+  }
   const url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url; a.download='webSMLM_localizations.csv';
+  a.href=url; a.download=suggestedName;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-  log(`Exported ${locs.length.toLocaleString()} localizations (${(blob.size/1048576).toFixed(1)} MB CSV).`);
+  log(`Exported ${locs.length.toLocaleString()} localizations as ${suggestedName} (${(blob.size/1048576).toFixed(1)} MB).`);
   if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
   if(gain===1&&camoff===0){
     log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
@@ -2199,7 +2231,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; stackName='webSMLM_simulated';
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw(stack.getFrame(0),stack.w,stack.h,null);
     $('rawInfo').textContent=`frame 1/${stack.n}`; $('sFrames').textContent=stack.n;
@@ -2215,7 +2247,8 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; groundTruth=null; log(`Loading ${f.name}…`);
+  $('runBtn').disabled=true; lastResult=null; srFull=null; groundTruth=null;
+  stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiff(await f.arrayBuffer(), f.size);
     drawRaw(stack.getFrame(0),stack.w,stack.h,null);
