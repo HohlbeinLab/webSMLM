@@ -53,6 +53,31 @@ Two reasons this file is a good fixture beyond raw speed:
   Phase 4 (FRC) be validated against a known distance rather than only
   self-consistency.
 
+## Second benchmark dataset — large format
+
+`Sample2_L.lactis_10ng-mlNR_1000f_50msft_30%green_greenfilt_1_MMStack_Pos0.ome.tif`
+— Nile Red PAINT on *Lactococcus lactis*, Micro-Manager OME-TIFF.
+
+| Property | Value |
+|---|---|
+| Frames | 1000 |
+| Frame size | 256 × 256 px (**9.6× the pixels/frame of the GATTA crop**) |
+| Bit depth | 16-bit, uncompressed |
+| Byte order | big-endian (MM) |
+| **Pixel size** | **~120 nm** |
+| Exposure | 50 ms |
+| On disk | 147 MB (**over GitHub's 100 MB limit — never commit**) |
+| Decoded Float32 working set | ~262 MB — fits the default 3 GB budget, loads fully into RAM |
+
+This is the dataset that decides the **Web Worker** question. On the 82 × 83 GATTA
+crop the per-frame work (~0.36 ms) is small enough that worker message-passing
+overhead would dominate. At 256 × 256 the per-frame work is roughly 10× larger,
+which is the regime where distributing frames across cores actually pays.
+
+Note on σ_PSF: at 120 nm/px with a typical high-NA objective the diffraction-limited
+PSF is only ~0.75 px, at or below the slider's 0.8 minimum. Start at 0.8–1.0 and
+tune by eye against the green detection boxes.
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which Phase 2 optimizations
