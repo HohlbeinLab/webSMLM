@@ -172,11 +172,29 @@ a 186-265x ratio, not the ~100x previously claimed in the UI.
   whole frames, should scale near-linearly. `Float32Array` frames are
   *transferable*, so hand-off is zero-copy. Interacts with the streaming loader
   (decode and fit would need to pipeline); design carefully.
-- ☐ **Seed the Gaussian LS fit with the phasor estimate.** Currently
-  `gaussianFit()` initialises x₀,y₀ at the integer maximum and can run up to 20
-  Gauss–Newton iterations, each with a 25-step line search. Phasor is ~100×
-  cheaper and already gives a sub-pixel start → should cut iterations severalfold
-  for free. **High value, very low effort.**
+- ✗ **Seed the Gaussian LS fit with the phasor estimate — rejected.** The idea
+  was that phasor is ~100x cheaper and gives a sub-pixel start, so Gauss-Newton
+  would need fewer iterations. It does not survive contact with dense data:
+
+  Phasor takes the first Fourier coefficient of the ROI row/column sums, i.e. an
+  intensity-weighted position over the whole window. With a second emitter in
+  that window it returns a point *between* the two, so it is no better than the
+  local maximum as a starting guess and can be worse — the maximum at least sits
+  on a real emitter.
+
+  More fundamentally, on overlapping emitters the optimiser is not slow because
+  the start is poor; it is slow because **there is no good single-emitter
+  optimum to find**. A better initial guess cannot fix model mismatch.
+
+  The optimisation therefore has the wrong shape: it helps least exactly where
+  fit cost is highest. Measured per-candidate LS cost was **56 us on the sparse
+  GATTA stack vs 211 us on the dense Nile Red stack** — the 3.8x difference is
+  iterations spent on emitters the model cannot describe.
+
+  The real answer for dense data is **multi-emitter fitting** (or stricter
+  rejection of candidates whose fit residual stays high), not a faster
+  single-emitter fit. Speeding up a fit that returns biased positions optimises
+  the wrong thing.
 - ☐ **Exploit separability of the Gaussian in the fit inner loop.** `exp()` is
   called win² times per iteration (49 for win=7); since
   exp(−d²/2s²) = exp(−dx²/2s²)·exp(−dy²/2s²), precomputing 2·win row/column
