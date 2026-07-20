@@ -1972,8 +1972,12 @@ async function run(){
     let tGet=0, tDetect=0, tFit=0, nCand=0;        // Phase 2 instrumentation
 
     if(useWorkers){
-      log(`  parallel: ${pool.length} workers × 32-frame batches`);
-      const BATCH=32; let next=0, doneF=0, inflight=0, lastPrev=0, err=null;
+      // Aim for ~8 batches per worker. Too coarse and one slow core (E-cores on
+      // Apple Silicon are much slower than P-cores) strands the others waiting;
+      // too fine and the per-message overhead starts to show.
+      const BATCH=Math.max(8, Math.min(64, Math.ceil(n/(pool.length*8))));
+      log(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
+      let next=0, doneF=0, inflight=0, lastPrev=0, err=null;
       await new Promise(resolve=>{
         const finish=()=>{ if(inflight===0 && (stopRequested||next>=n||err)) resolve(); };
         const dispatch=wk=>{
