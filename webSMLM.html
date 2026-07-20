@@ -1364,6 +1364,10 @@ X.B(E,Y);return E}return J}())
         <input type="number" id="gain" value="1" min="0.001" max="1000" step="0.01" class="num"></label>
       <label class="row">Camera offset (ADU)
         <input type="number" id="camoff" value="0" min="0" max="65535" step="1" class="num"></label>
+      <div class="hint">With gain 1 the exported “intensity [photon]” is really <b>ADU</b>, and the
+        uncertainty column (∝ 1/√N) is not physically meaningful. A single scalar gain suits
+        <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is
+        only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</div>
       <label class="row">Magnification <span class="val" id="magV">10×</span></label>
       <input type="range" id="mag" min="4" max="16" step="1" value="10">
       <label class="row">Render blur σ_render (px) <span class="val" id="rblurV">0.25</span></label>
@@ -1939,7 +1943,11 @@ function exportCSV(){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
   log(`Exported ${locs.length.toLocaleString()} localizations (${(blob.size/1048576).toFixed(1)} MB CSV).`);
   if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
-  if(gain===1&&camoff===0) log('  note: gain 1 / offset 0 — intensities are in ADU, not photons.');
+  if(gain===1&&camoff===0){
+    log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
+    log('    The uncertainty column scales as 1/√N and is therefore not physically');
+    log('    meaningful until a real ADU→photon conversion is entered.');
+  }
 }
 
 /* ===========================================================================

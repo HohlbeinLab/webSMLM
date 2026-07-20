@@ -231,9 +231,59 @@ ThunderSTORM-based workflows.
   **mask-based estimation from the original pSMLM paper**: estimate background
   from a perimeter/annulus mask of the ROI, subtract, and integrate the
   remainder for the photon count. This is the main technical work of the phase.
-- ☐ Photon calibration: intensities are only in photons if gain/offset/ADU
-  conversion is applied — expose camera gain + offset, or document that values
-  are in ADU.
+- ◐ Photon calibration: **exposed as scalar gain + offset (v0.3.0-dev), but see
+  the caveat below** — with gain=1 the exported "intensity [photon]" is really
+  ADU, and the log says so.
+
+### 3a · The ADU-to-photon problem (open)
+
+Everything downstream of the photon count inherits its errors. `uncertainty [nm]`
+scales as 1/sqrt(N), so a wrong conversion factor silently produces
+plausible-looking but wrong precision figures — on the GATTA stack the exported
+uncertainty came out at ~5 nm, which is optimistic for DNA-PAINT and is most
+likely an ADU/photon artefact rather than a real result.
+
+**Without a known conversion the column is not physically meaningful.** Options,
+in increasing order of rigour:
+
+1. Document loudly that values are ADU unless gain is set (**done**).
+2. Let the user enter a scalar gain/offset from the camera datasheet (**done**).
+3. Estimate gain from the data itself via a photon-transfer curve
+   (variance-vs-mean across frames is linear with slope = gain). Feasible here
+   since we already stream every frame, and it would remove the need for the
+   user to know their camera.
+4. Per-pixel calibration maps — see below.
+
+**Why this is harder than it looks on modern cameras.** ThunderSTORM and much of
+the surrounding convention date from the **EMCCD** era, where a single scalar
+gain describes the whole chip reasonably well. Most current SMLM is done on
+**sCMOS**, where gain, offset and read noise are all **pixel-dependent**. A single
+scalar is therefore an approximation that is wrong pixel-by-pixel, and sCMOS read
+noise additionally varies across the chip, which affects both detection (a noisy
+pixel can masquerade as an emitter) and the precision estimate.
+
+Doing this properly means per-pixel gain/offset/variance maps and a noise model
+that uses them, as in Huang et al., "Video-rate nanoscopy using sCMOS
+camera-specific single-molecule localization algorithms", *Nat. Methods* **10**,
+653-658 (2013), https://doi.org/10.1038/nmeth.2488.
+
+That is a substantial piece of work and probably belongs with Poisson MLE
+fitting rather than with the exporter, but it is the honest answer to "is my
+intensity column in photons?".
+
+### 3b · Note on cross-validation against ThunderSTORM
+
+Comparing localization-by-localization against ThunderSTORM is not
+apples-to-apples, for two independent reasons:
+
+- **Different detection**: ThunderSTORM's default is a wavelet filter, webSMLM
+  uses a DoG band-pass with a mean+k*sigma threshold. The candidate sets differ
+  before any fitting happens.
+- **Unknown ADU/photon**: without the conversion, intensity and uncertainty
+  cannot be compared on an absolute scale in either direction.
+
+Useful comparisons are therefore *relative* — distributions, spatial patterns,
+and whether the same structures appear — not absolute per-localization values.
 - ☐ Uncertainty column: use Thompson/Mortensen precision formula from
   intensity, background and σ_PSF (cross-check against Phase 4's FRC).
 - ☐ Streaming CSV writer so multi-million-localization exports don't build one
