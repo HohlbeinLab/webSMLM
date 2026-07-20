@@ -1200,16 +1200,18 @@ X.B(E,Y);return E}return J}())
     --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950; --warn:#d29922;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);
+  body{margin:0;background:var(--bg);color:var(--fg);min-height:100vh;
+    display:flex;flex-direction:column;            /* no hard-coded header height */
     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   header{padding:16px 20px;border-bottom:1px solid var(--line)}
   h1{font-size:18px;margin:0 0 2px}
   header p{margin:0;color:var(--muted);font-size:13px}
-  .wrap{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 64px)}
+  .wrap{display:grid;grid-template-columns:300px 1fr;gap:0;flex:1;min-height:0}
   .sidebar{border-right:1px solid var(--line);padding:16px 18px;overflow:auto}
   .main{padding:18px 20px;overflow:auto}
-  .group{margin-bottom:18px}
-  .group h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+  .group{margin-bottom:16px}
+  /* plain grey rule as the section separator (replaces numbered headings) */
+  hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0 14px}
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:13px}
   label.row span.val{color:var(--accent);font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
   input[type=range]{width:100%}
@@ -1219,7 +1221,21 @@ X.B(E,Y);return E}return J}())
   button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
   button.primary:disabled{opacity:.5;cursor:not-allowed}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
-  input.num{width:70px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px;text-align:right}
+  /* extra right padding so digits don't collide with the native spinner arrows */
+  input.num{width:82px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 12px 4px 8px;font-size:13px;text-align:right}
+  /* two equal buttons side by side (Load / Simulate) */
+  .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btnrow button{margin:0;padding:8px 6px;font-size:12px}
+  /* collapsed-by-default simulation settings */
+  details.sim{margin-top:10px}
+  details.sim>summary{cursor:pointer;list-style:none;color:var(--muted);font-size:12px;
+    padding:5px 0;user-select:none}
+  details.sim>summary::-webkit-details-marker{display:none}
+  details.sim>summary::before{content:'▸ ';display:inline-block;transition:transform .15s}
+  details.sim[open]>summary::before{content:'▾ '}
+  details.sim>summary:hover{color:var(--fg)}
+  sub{font-size:.72em;line-height:0}
   select.sel{width:100%;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font-size:13px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -1227,6 +1243,9 @@ X.B(E,Y);return E}return J}())
   .card h4{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between}
   .card h4 small{color:var(--muted);font-weight:400}
   canvas{width:100%;image-rendering:pixelated;background:#000;border-radius:6px;display:block}
+  /* we handle pan/pinch ourselves; stop the browser claiming the gestures */
+  canvas#sr{touch-action:none;cursor:grab}
+  canvas#sr:active{cursor:grabbing}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
   .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
   .stat .n{font-size:20px;font-weight:600;color:var(--accent2);font-variant-numeric:tabular-nums}
@@ -1249,6 +1268,22 @@ X.B(E,Y);return E}return J}())
   .modal ol{margin:6px 0 6px 18px;padding:0;font-size:13px;line-height:1.6}
   .modal .close{float:right;cursor:pointer;color:var(--muted);font-size:24px;line-height:1;border:none;background:none;width:auto;padding:0;margin:-4px -6px 0 0}
   .modal .close:hover{color:var(--fg)}
+
+  /* ---- small screens / mobile ---------------------------------------- */
+  @media (max-width:860px){
+    .wrap{grid-template-columns:1fr}
+    .sidebar{border-right:none;border-bottom:1px solid var(--line);overflow:visible}
+    .canvases{grid-template-columns:1fr}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .main{padding:14px 14px}
+    header{padding:12px 14px}
+  }
+  @media (max-width:420px){
+    .stats{grid-template-columns:1fr 1fr;gap:8px}
+    .stat .n{font-size:17px}
+    .sidebar{padding:14px}
+    .modal{padding:18px 16px}
+  }
 </style>
 </head>
 <body>
@@ -1261,54 +1296,67 @@ X.B(E,Y);return E}return J}())
 <div class="wrap">
   <aside class="sidebar">
     <button id="helpBtn" class="helpbtn">❓ Help &amp; guide</button>
+    <hr class="sep">
+
     <div class="group">
-      <h3>1 · Data</h3>
-      <button id="genBtn">Generate synthetic stack</button>
-      <label class="row">Frames <span class="val" id="framesV">300</span></label>
-      <input type="range" id="frames" min="50" max="800" step="50" value="300">
-      <label class="row">Blink density <span class="val" id="densV">0.010</span></label>
-      <input type="range" id="dens" min="0.003" max="0.04" step="0.001" value="0.010">
-      <label class="row">Photons <span class="val" id="photV">900</span></label>
-      <input type="range" id="phot" min="200" max="2500" step="50" value="900">
-      <label class="row" style="margin-top:12px">Pixel size (nm)
-        <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
-      <label class="row">Memory budget (GB)
+      <div class="btnrow">
+        <button id="loadBtn">Load movie</button>
+        <button id="genBtn">Simulate movie</button>
+      </div>
+      <input type="file" id="file" accept=".tif,.tiff" hidden>
+
+      <details class="sim" id="simBox">
+        <summary>Simulation settings</summary>
+        <label class="row">Frames <span class="val" id="framesV">300</span></label>
+        <input type="range" id="frames" min="50" max="800" step="50" value="300">
+        <label class="row">Blink density <span class="val" id="densV">0.010</span></label>
+        <input type="range" id="dens" min="0.003" max="0.04" step="0.001" value="0.010">
+        <label class="row">Photons <span class="val" id="photV">900</span></label>
+        <input type="range" id="phot" min="200" max="2500" step="50" value="900">
+      </details>
+
+      <label class="row" style="margin-top:12px">Memory budget (GB)
         <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
       <label class="row">Stream heap (MB)
         <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
-      <div style="margin-top:10px">
-        <small style="color:var(--muted)">…or load a real TIFF stack:</small>
-        <input type="file" id="file" accept=".tif,.tiff">
-      </div>
       <div id="loadInfo" class="hint"></div>
     </div>
 
+    <hr class="sep">
+
     <div class="group">
-      <h3>2 · Detection &amp; fit</h3>
-      <label class="row">Threshold (k·σ) <span class="val" id="thrV">4.0</span></label>
-      <input type="range" id="thr" min="1" max="8" step="0.5" value="4">
-      <label class="row">PSF σ (px) <span class="val" id="psfV">1.3</span></label>
-      <input type="range" id="psf" min="0.8" max="2.5" step="0.1" value="1.3">
-      <label class="row">Fit window (px) <span class="val" id="winV">7</span></label>
-      <input type="range" id="win" min="5" max="11" step="2" value="7">
-      <label class="row" style="margin-top:12px">Fit method
+      <label class="row">Fit method
         <select id="method" class="sel">
           <option value="phasor">Phasor (fast)</option>
           <option value="gaussls">Gaussian (least-squares)</option>
         </select></label>
-      <div class="hint">Phasor ≈ 100× faster; Gaussian LS ≈ slightly better precision. (Current Gaussian is least-squares, not MLE.)</div>
+      <label class="row" style="margin-top:12px">Threshold (k·σ<sub>noise</sub>) <span class="val" id="thrV">4.0</span></label>
+      <input type="range" id="thr" min="1" max="8" step="0.5" value="4">
+      <label class="row">σ<sub>PSF</sub> (px) <span class="val" id="psfV">1.3</span></label>
+      <input type="range" id="psf" min="0.8" max="2.5" step="0.1" value="1.3">
+      <label class="row">Fit window (px) <span class="val" id="winV">7</span></label>
+      <input type="range" id="win" min="5" max="11" step="2" value="7">
+      <div class="hint">Phasor ≈ 100× faster; Gaussian LS ≈ slightly better precision. (Current Gaussian is least-squares, not MLE.)
+        σ<sub>noise</sub> is the spread of the band-passed image, not the PSF width.</div>
     </div>
+
+    <hr class="sep">
 
     <div class="group">
-      <h3>3 · Render</h3>
+      <label class="row">Pixel size (nm)
+        <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <label class="row">Magnification <span class="val" id="magV">8×</span></label>
       <input type="range" id="mag" min="4" max="16" step="1" value="8">
-      <label class="row">Render blur (px) <span class="val" id="rblurV">1.0</span></label>
+      <label class="row">Render blur σ<sub>render</sub> (px) <span class="val" id="rblurV">1.0</span></label>
       <input type="range" id="rblur" min="0" max="3" step="0.25" value="1">
-      <div class="hint">Magnification &amp; blur re-render instantly after localization — no refit. Scroll to zoom, drag to pan, double-click to reset.</div>
+      <div class="hint">Pixel size sets the physical scale for the scale bar and export.
+        Magnification &amp; blur re-render instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</div>
     </div>
 
-    <button class="primary" id="runBtn" disabled>Run localization ▶</button>
+    <hr class="sep">
+
+    <button class="primary" id="runBtn" disabled>Run localisations ▶</button>
+    <button id="saveBtn" disabled title="CSV export arrives with Phase 3 (needs background &amp; photon estimation)">Save localisations</button>
     <div class="bar"><i id="prog"></i></div>
   </aside>
 
@@ -1333,7 +1381,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">Ready. Click “Generate synthetic stack”, then “Run localization”.</div>
+      <div class="log" id="log">Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
 </div>
@@ -1700,21 +1748,25 @@ async function run(){
 (function initSR(){ const d=$('sr'); d.width=640; d.height=640;
   const ctx=d.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,640,640); })();
 
+// "Load movie" just proxies to the hidden file input, so both data sources
+// present as equal-weight buttons.
+$('loadBtn').addEventListener('click',()=>$('file').click());
+
 $('genBtn').addEventListener('click',async()=>{
-  log('Generating synthetic stack…');
-  $('genBtn').disabled=true; $('runBtn').disabled=true;
+  log('Simulating movie…');
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw(stack.getFrame(0),stack.w,stack.h,null);
     $('rawInfo').textContent=`frame 1/${stack.n}`; $('sFrames').textContent=stack.n;
-    $('loadInfo').textContent=`Synthetic: ${stack.n} frames · ${stack.w}×${stack.h} · ${stack.px} nm/px`;
+    $('loadInfo').textContent=`Simulated: ${stack.n} frames · ${stack.w}×${stack.h} · ${stack.px} nm/px`;
     $('runBtn').disabled=false;
-    log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localization”.`);
+    log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localisations”.`);
   }catch(err){
-    log(`⚠ Generation failed: ${err.name}: ${err.message}`); $('prog').style.width='0%';
+    log(`⚠ Simulation failed: ${err.name}: ${err.message}`); $('prog').style.width='0%';
   }finally{
-    $('genBtn').disabled=false;
+    $('genBtn').disabled=false; $('loadBtn').disabled=false;
   }
 });
 
@@ -1736,28 +1788,83 @@ $('runBtn').addEventListener('click',run);
 $('mag').addEventListener('change',()=>{ if(lastResult) rerender(); });
 $('rblur').addEventListener('change',()=>{ if(lastResult) rerender(); });
 
-// zoom + pan on the super-res canvas
+/* ---------------------------------------------------------------------------
+   Navigation on the super-res canvas — Pointer Events so mouse, trackpad, pen
+   and touch share one path: drag/1-finger = pan, wheel/2-finger pinch = zoom,
+   double-click or double-tap = reset.
+   --------------------------------------------------------------------------- */
 const sr=$('sr');
-sr.addEventListener('wheel',e=>{
-  e.preventDefault(); if(!srFull) return;
-  const rect=sr.getBoundingClientRect();
-  const dx=(e.clientX-rect.left)*sr.width/rect.width, dy=(e.clientY-rect.top)*sr.height/rect.height;
+// client coords -> canvas backing-store coords
+const toCanvas=(cx_,cy_)=>{ const r=sr.getBoundingClientRect();
+  return {x:(cx_-r.left)*sr.width/r.width, y:(cy_-r.top)*sr.height/r.height}; };
+// canvas coords -> point in the srFull reconstruction
+const toSr=(px,py)=>{ const sw=sr.width/view.zoom, sh=sr.height/view.zoom;
+  return {x:view.cx+sw*(px/sr.width-0.5), y:view.cy+sh*(py/sr.height-0.5)}; };
+// zoom to `z`, keeping the reconstruction point under (px,py) pinned
+function zoomAbout(px,py,z){
+  const u=toSr(px,py);
+  view.zoom=Math.max(fitZoom(), Math.min(fitZoom()*60, z));
   const sw=sr.width/view.zoom, sh=sr.height/view.zoom;
-  const ux=view.cx + sw*(dx/sr.width-0.5), uy=view.cy + sh*(dy/sr.height-0.5);   // srFull point under cursor
-  const f=Math.exp(-e.deltaY*0.0015);
-  view.zoom=Math.max(fitZoom(), Math.min(fitZoom()*60, view.zoom*f));
-  const sw2=sr.width/view.zoom, sh2=sr.height/view.zoom;
-  view.cx=ux - sw2*(dx/sr.width-0.5); view.cy=uy - sh2*(dy/sr.height-0.5);
+  view.cx=u.x - sw*(px/sr.width-0.5); view.cy=u.y - sh*(py/sr.height-0.5);
   clampView(); drawView();
+}
+
+sr.addEventListener('wheel',e=>{
+  if(!srFull) return; e.preventDefault();
+  const p=toCanvas(e.clientX,e.clientY);
+  zoomAbout(p.x,p.y, view.zoom*Math.exp(-e.deltaY*0.0015));
 },{passive:false});
-sr.addEventListener('mousedown',e=>{ dragging={x:e.clientX,y:e.clientY,cx:view.cx,cy:view.cy}; });
-window.addEventListener('mousemove',e=>{ if(!dragging||!srFull) return;
-  const rect=sr.getBoundingClientRect();
-  const sw=sr.width/view.zoom, sh=sr.height/view.zoom;
-  view.cx=dragging.cx-(e.clientX-dragging.x)*sr.width/rect.width/sr.width*sw;
-  view.cy=dragging.cy-(e.clientY-dragging.y)*sr.height/rect.height/sr.height*sh;
-  clampView(); drawView(); });
-window.addEventListener('mouseup',()=>dragging=null);
+
+const ptrs=new Map();                       // active pointers, by pointerId
+let pinch=null, lastTap=0;
+const midpoint=()=>{ const p=[...ptrs.values()];
+  return {x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2}; };
+const spread=()=>{ const p=[...ptrs.values()];
+  return Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y); };
+
+sr.addEventListener('pointerdown',e=>{
+  if(!srFull) return;
+  sr.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1){
+    const now=performance.now();
+    if(now-lastTap<300){ fitView(); drawView(); lastTap=0; return; }   // double-tap resets
+    lastTap=now;
+    dragging={x:e.clientX,y:e.clientY,cx:view.cx,cy:view.cy}; pinch=null;
+  }else if(ptrs.size===2){
+    dragging=null;
+    const m=toCanvas(midpoint().x,midpoint().y);
+    pinch={d0:spread(), z0:view.zoom, px:m.x, py:m.y};
+  }
+});
+
+sr.addEventListener('pointermove',e=>{
+  if(!srFull||!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  e.preventDefault();
+  if(pinch && ptrs.size>=2){
+    const d=spread(); if(d<=0) return;
+    zoomAbout(pinch.px, pinch.py, pinch.z0*(d/pinch.d0));
+  }else if(dragging && ptrs.size===1){
+    const r=sr.getBoundingClientRect();
+    const sw=sr.width/view.zoom, sh=sr.height/view.zoom;
+    view.cx=dragging.cx-(e.clientX-dragging.x)/r.width*sw;
+    view.cy=dragging.cy-(e.clientY-dragging.y)/r.height*sh;
+    clampView(); drawView();
+  }
+});
+
+const endPtr=e=>{
+  ptrs.delete(e.pointerId);
+  if(ptrs.size<2) pinch=null;
+  if(ptrs.size===0) dragging=null;
+  else if(ptrs.size===1){                    // one finger lifted mid-pinch → resume panning
+    const p=[...ptrs.values()][0];
+    dragging={x:p.x,y:p.y,cx:view.cx,cy:view.cy};
+  }
+};
+sr.addEventListener('pointerup',endPtr);
+sr.addEventListener('pointercancel',endPtr);
 sr.addEventListener('dblclick',()=>{ if(srFull){ fitView(); drawView(); } });   // reset zoom
 
 // help modal — wire after full DOM parse (the modal markup follows this script,
@@ -1783,10 +1890,10 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
 
     <h3>Guided workflow</h3>
     <ol>
-      <li><b>Get data.</b> Click <b>Generate synthetic stack</b> for a test dataset, or load a real <code>.tif</code>/<code>.tiff</code> stack. Set <b>Pixel size (nm)</b> first (e.g. 100 or 160) — it defines the physical scale used for the scale bar and all nm figures.</li>
-      <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b>, adjust <b>Threshold</b> if too many/few spots are boxed in the raw view.</li>
-      <li><b>Run localization.</b> The raw view shows every 100th frame with detected ROIs (green boxes); the right panel builds the super-resolution image.</li>
-      <li><b>Explore the result.</b> Change <b>Magnification</b>/<b>Render blur</b> to re-render instantly (no refit). Scroll to zoom, drag to pan, double-click to reset. Read distances off the scale bar.</li>
+      <li><b>Get data.</b> Click <b>Load movie</b> for a real <code>.tif</code>/<code>.tiff</code> stack, or <b>Simulate movie</b> for a test dataset (open <b>Simulation settings</b> to adjust frames, blink density and photons).</li>
+      <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. Adjust <b>Threshold (k·σ<sub>noise</sub>)</b> if too many/few spots are boxed in the raw view, and set <b>σ<sub>PSF</sub></b> to match your spot size.</li>
+      <li><b>Run localisations.</b> The raw view shows every 100th frame with detected ROIs (green boxes); the right panel builds the super-resolution image.</li>
+      <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ<sub>render</sub></b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
     </ol>
 
     <h3>1 · Loading &amp; memory</h3>
