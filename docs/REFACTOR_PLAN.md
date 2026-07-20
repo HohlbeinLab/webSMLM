@@ -124,8 +124,24 @@ Separable, so cost ≈ 2·(2r+1) multiply-adds per pixel per blur:
 MACs/frame; at 512² it is ~18M/frame. The **large-scale blur alone is ~75% of
 detection cost**, and its kernel grows linearly with σ_PSF.
 
-### 2b · Optimizations, roughly by value/effort
-- ☐ **Replace the large-scale Gaussian with a box-filter cascade.** Three passes
+### 2b · Measured results (GATTA-PAINT 80R: 1999 frames, 82x83, 16-bit BE)
+
+| | Baseline | After index maps + box cascade + MessageChannel yield |
+|---|---|---|
+| Phasor total | 5377 ms | **797 ms (6.7x)** |
+| Gaussian LS total | 5803 ms | **1391 ms (4.2x)** |
+| detect | 4872 / 4671 ms | **769 / 765 ms (~6.2x)** |
+| localizations | 10891 / 10890 | 10850 / 10849 (**-0.38%**) |
+| yield overhead | ~500 ms (9%) | ~25 ms (3%) |
+
+Profile after these changes: **phasor is 96% detect** (fit irrelevant);
+**Gaussian LS is 55% detect / 43% fit** (fit optimisation now worthwhile).
+
+Per-candidate fit cost measured at **0.3 us (phasor) vs 55.8 us (Gaussian LS)** —
+a 186-265x ratio, not the ~100x previously claimed in the UI.
+
+### 2c · Optimizations, roughly by value/effort
+- ☑ **Replace the large-scale Gaussian with a box-filter cascade.** Three passes
   of a running-sum box filter approximate a Gaussian closely and cost **O(1) per
   pixel independent of σ** (~6 ops/px vs ~50). The large blur is only a
   *background estimate* for DoG subtraction — exact Gaussian shape is not
@@ -159,8 +175,13 @@ detection cost**, and its kernel grows linearly with σ_PSF.
   effort — worth prototyping only after workers.
 - ☑ *(done in v0.1.0 follow-up)* Band-pass scratch buffers hoisted; hot path no
   longer allocates per frame.
+- ☑ **Precomputed mirrored index maps in `blurInto`.** The clamp closure was
+  called once per tap (~925M calls per 2000-frame run); replaced by lookup
+  tables plus a direct-indexed interior. Bit-identical output.
+- ☑ **Unclamped yield.** `setTimeout(0)` is throttled to ~4 ms by browsers and
+  cost ~9% of runtime; replaced with a MessageChannel round-trip.
 
-### 2c · Assumptions worth challenging
+### 2d · Assumptions worth challenging
 These are correctness/robustness assumptions that also interact with speed:
 - ☐ **`mean + k·σ_noise` is computed over the whole filtered frame, signal
   included.** At high blink density the emitters inflate σ_noise, raising the
