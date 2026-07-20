@@ -1301,7 +1301,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.3.0-dev · build 2026-07-20e · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.3.0-dev · build 2026-07-20f · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1431,7 +1431,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.3.0-dev · build 2026-07-20e
+      <div class="log" id="log">webSMLM v0.3.0-dev · build 2026-07-20f
 [features: worker pool · contiguous ImageJ stacks · CSV export]
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
@@ -2354,8 +2354,10 @@ async function run(){
     log(`  detect       ${Math.round(tDetect).toString().padStart(5)} ms ${pc(tDetect)}   (band-pass + maxima)`);
     log(`  fit          ${Math.round(tFit).toString().padStart(5)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
     if(useWorkers){
-      const cpu=tGet+tDetect+tFit;
-      log(`  ↑ CPU time across ${pool.length} workers = ${Math.round(cpu)} ms; wall clock ${Math.round(dt)} ms → ${(cpu/Math.max(dt,1e-9)).toFixed(1)}× parallel speed-up`);
+      const cpu=tGet+tDetect+tFit, ratio=cpu/Math.max(dt,1e-9);
+      log(`  ↑ aggregate worker CPU ${Math.round(cpu)} ms vs ${Math.round(dt)} ms wall clock (${ratio.toFixed(1)}×).`);
+      log(`    Not the speed-up: efficiency cores take longer for the same work, inflating`);
+      log(`    measured CPU, so this over-states the gain (it can even exceed the core count).`);
     }
     if(stopped) log('Partial result shown — press “Run localisations” to start over.');
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
