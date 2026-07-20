@@ -1301,7 +1301,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.3.0-dev · phase-3 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.3.0-dev · build 2026-07-20b · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1431,7 +1431,8 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.3.0-dev (phase-3 build)
+      <div class="log" id="log">webSMLM v0.3.0-dev · build 2026-07-20b
+[features: worker pool · contiguous ImageJ stacks · CSV export]
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -1550,7 +1551,20 @@ async function loadTiff(fileBuf, fileSize){
 
   const descOf=t=>{ const v=ifds[0][t]; return !v?'' : (typeof v==='string'?v : (v.join?v.join(''):String(v))); };
   const mImg=/images=(\d+)/i.exec(descOf('t270'));
-  const declared=mImg?+mImg[1]:0;
+  let declared=mImg?+mImg[1]:0;
+  // Safety net: even without an images= record, a single IFD in a file far
+  // larger than one frame means frames are going unread. Infer the count from
+  // the file size rather than silently analysing a fraction of the data.
+  if(!declared && n===1){
+    const bps0=(ifds[0].t258&&ifds[0].t258[0])||8, spp0=(ifds[0].t277&&ifds[0].t277[0])||1;
+    const raw0=w*h*(bps0>>3)*spp0, base0=(ifds[0].t273&&ifds[0].t273[0])||0;
+    const guess=raw0>0?Math.floor((fileBuf.byteLength-base0)/raw0):0;
+    if(guess>1){
+      declared=guess;
+      log(`⚠ Only 1 IFD, but the file holds ~${guess} frames of raw data.`);
+      log(`   No images= record found; inferring the count from the file size.`);
+    }
+  }
   if(declared>n){
     const bps=(ifds[0].t258&&ifds[0].t258[0])||8, spp=(ifds[0].t277&&ifds[0].t277[0])||1;
     const rawBytes=w*h*(bps>>3)*spp, base=(ifds[0].t273&&ifds[0].t273[0])||0;
