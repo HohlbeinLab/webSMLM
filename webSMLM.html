@@ -1795,14 +1795,19 @@ async function run(){
     const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null;
     log(`\nRun: ${n} frames · ${method==='phasor'?'phasor':'Gaussian LS'} fit · σ=${sigma} · k=${k} · win=${win}`);
     const t0=performance.now(); let lastYield=t0, previewMs=0;
+    let tGet=0, tDetect=0, tFit=0, nCand=0;        // Phase 2 instrumentation
     for(let fi=0; fi<n; fi++){
+      const ta=performance.now();
       const img=stack.getFrame(fi);
+      const tb=performance.now(); tGet+=tb-ta;
       const filt=bandpass(img,w,h,sigma);
       const maxima=findMaxima(filt,w,h,k,border);
+      const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
       for(const [cx,cy] of maxima){
         const L = method==='phasor' ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
         if(L){ L.frame=fi; locs.push(L); }
       }
+      tFit+=performance.now()-tc;
       if(fi % 100 === 0){                          // refresh both views every 100th frame
         drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img;
         $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`;
@@ -1834,6 +1839,11 @@ async function run(){
     $('sLoc').textContent=locs.length.toLocaleString();
     $('sDens').textContent=(locs.length/per).toFixed(1); $('sTime').textContent=Math.round(dt).toLocaleString();
     log(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames in ${Math.round(dt)} ms (${(dt/per).toFixed(2)} ms/frame, ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+    // where the time actually goes — drives the Phase 2 optimisation order
+    const pc=v=>(100*v/Math.max(dt,1e-9)).toFixed(0).padStart(2)+'%';
+    log(`  frame access ${Math.round(tGet).toString().padStart(5)} ms ${pc(tGet)}`);
+    log(`  detect       ${Math.round(tDetect).toString().padStart(5)} ms ${pc(tDetect)}   (band-pass + maxima)`);
+    log(`  fit          ${Math.round(tFit).toString().padStart(5)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
     if(stopped) log('Partial result shown — press “Run localisations” to start over.');
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
