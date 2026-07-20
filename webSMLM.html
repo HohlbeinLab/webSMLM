@@ -1221,12 +1221,13 @@ X.B(E,Y);return E}return J}())
   button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
   button.primary:disabled{opacity:.5;cursor:not-allowed}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
-  input.num{width:90px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:4px 8px;font-size:13px;text-align:right}
-  /* the spinner is laid out over the padding box, so padding alone doesn't
-     separate it — give the spin button itself a left margin */
+  /* Native spinners are dropped entirely: on Chrome they render black-on-black
+     until hovered, and on Firefox they crowd the digits. Type the value instead. */
+  input.num{width:80px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 9px;font-size:13px;text-align:right;
+    -moz-appearance:textfield;appearance:textfield}
   input.num::-webkit-inner-spin-button,
-  input.num::-webkit-outer-spin-button{margin-left:12px}
+  input.num::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
   /* two equal buttons side by side (Load / Simulate) */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .btnrow button{margin:0;padding:8px 6px;font-size:12px}
@@ -1238,7 +1239,8 @@ X.B(E,Y);return E}return J}())
   details.sim>summary::before{content:'▸ ';display:inline-block;transition:transform .15s}
   details.sim[open]>summary::before{content:'▾ '}
   details.sim>summary:hover{color:var(--fg)}
-  select.sel{width:100%;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font-size:13px}
+  /* flex:1 (not width:100%) so the select shares one line with its label */
+  select.sel{flex:1;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:13px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
@@ -1297,9 +1299,6 @@ X.B(E,Y);return E}return J}())
 
 <div class="wrap">
   <aside class="sidebar">
-    <button id="helpBtn" class="helpbtn">❓ Help &amp; guide</button>
-    <hr class="sep">
-
     <div class="group">
       <div class="btnrow">
         <button id="loadBtn">Load movie</button>
@@ -1330,7 +1329,7 @@ X.B(E,Y);return E}return J}())
       <label class="row">Fit method
         <select id="method" class="sel">
           <option value="phasor">Phasor (fast)</option>
-          <option value="gaussls">Gaussian (least-squares)</option>
+          <option value="gaussls">Gaussian (LS)</option>
         </select></label>
       <label class="row" style="margin-top:12px">Threshold (k·σ_noise) <span class="val" id="thrV">4.0</span></label>
       <input type="range" id="thr" min="1" max="8" step="0.5" value="4">
@@ -1360,6 +1359,9 @@ X.B(E,Y);return E}return J}())
     <button class="primary" id="runBtn" disabled>Run localisations ▶</button>
     <button id="saveBtn" disabled title="CSV export arrives with Phase 3 (needs background &amp; photon estimation)">Save localisations</button>
     <div class="bar"><i id="prog"></i></div>
+
+    <hr class="sep">
+    <button id="helpBtn" class="helpbtn">❓ Help &amp; guide</button>
   </aside>
 
   <main class="main">
