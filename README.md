@@ -45,6 +45,31 @@ walk-through of every step.
 - **Works on small screens**: single-column layout on phones and tablets, with
   drag/pinch-to-zoom navigation of the reconstruction (plus a scale bar).
 
+## Performance
+
+Detection and fitting run in parallel across a pool of Web Workers (one per
+logical core), with the band-pass filter optimised for the common case. Measured
+on a laptop, running the single HTML file directly from `file://`:
+
+| Dataset | Frames | Frame size | Time | Rate |
+|---|---|---|---|---|
+| GATTA-PAINT 80R | 1999 | 82 × 82 | ~0.71 s | ~15,000 loc/s |
+| Nile Red / *L. lactis* | 1173 | 256 × 256 | ~0.77 s | ~113,000 loc/s |
+
+Both are ~7× and ~27× faster respectively than v0.2.0. Notes:
+
+- **Workers are probed before use**, with a self-test that exercises the whole
+  numeric path. If they are unavailable — some browsers restrict workers on
+  `file://` — the app falls back to single-threaded automatically and says so
+  in the log.
+- **Small frames stay single-threaded** on purpose: below ~20k pixels per frame
+  the cost of handing a frame to a worker outweighs the work itself.
+- The band-pass background term uses a **box-filter approximation** by default
+  (~2× faster, changes ~0.4% of detections on the test data). Tick
+  **Exact band-pass** for a true Gaussian when you need exact reproducibility.
+- The run log reports a **timing breakdown** (frame access / detect / fit) so
+  you can see where time goes on your own data.
+
 ## Data & privacy
 
 The application is a single static HTML file. Your image data is read locally by
