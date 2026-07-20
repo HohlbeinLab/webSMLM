@@ -1260,7 +1260,9 @@ X.B(E,Y);return E}return J}())
   .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
   .stat .n{font-size:20px;font-weight:600;color:var(--accent2);font-variant-numeric:tabular-nums}
   .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-  .bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin:10px 0}
+  /* progress track is hidden at rest so it doesn't read as a stray rule */
+  .bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin:10px 0;display:none}
+  .bar.on{display:block}
   .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
     background:#010409;border:1px solid var(--line);border-radius:8px;padding:10px;height:120px;overflow:auto;white-space:pre-wrap}
@@ -1383,7 +1385,7 @@ X.B(E,Y);return E}return J}())
       <button class="danger" id="stopBtn" disabled>Stop</button>
     </div>
     <button id="saveBtn" disabled title="CSV export arrives with Phase 3 (needs background &amp; photon estimation)">Save localisations</button>
-    <div class="bar"><i id="prog"></i></div>
+    <div class="bar" id="bar"><i id="prog"></i></div>
 
     <hr class="sep">
     <button id="helpBtn" class="helpbtn">❓ Help &amp; guide</button>
@@ -1425,6 +1427,10 @@ X.B(E,Y);return E}return J}())
 const $  = id => document.getElementById(id);
 const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; };
 const tick = ()=>new Promise(r=>setTimeout(r,0));
+// progress bar: pass a percentage to show it, null to hide it again
+const setProg = pct => { const b=$('bar');
+  if(pct==null){ b.classList.remove('on'); $('prog').style.width='0%'; }
+  else { b.classList.add('on'); $('prog').style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+'%'; } };
 const fmtBytes = b => b>1073741824 ? (b/1073741824).toFixed(2)+' GB' : (b/1048576).toFixed(0)+' MB';
 
 // live slider labels
@@ -1473,11 +1479,11 @@ async function generateSynthetic(){
     for(let i=0;i<img.length;i++){ img[i]=poisson(img[i])+readNoise*gauss(); if(img[i]<0)img[i]=0; }
     frames.push(img);
     if(performance.now()-lastYield > 50){          // yield on a time budget to keep the UI responsive
-      $('prog').style.width=(100*fi/n).toFixed(0)+'%';
+      setProg(100*fi/n);
       await tick(); lastYield=performance.now();
     }
   }
-  $('prog').style.width='0%';
+  setProg(null);
   groundTruth=gt;
   return makeStack(w,h,n,px, fi=>frames[fi]);
 }
@@ -1541,14 +1547,14 @@ async function loadTiff(fileBuf, fileSize){
         if(fi>0) UTIF.decodeImage(fileBuf, ifds[fi]);
         frames[fi]=ifdToFloat(ifds[fi],w,h);
         ifds[fi].data=null;                           // free raw bytes as we go
-        if(fi%20===0){ $('prog').style.width=(100*fi/n).toFixed(0)+'%';
+        if(fi%20===0){ setProg(100*fi/n);
           $('loadInfo').textContent=`Loading ${fi+1}/${n} (${fmtBytes(fi*frameBytes)})…`; await tick(); }
       }
-      $('prog').style.width='0%'; $('loadInfo').textContent=`Loaded ${n} frames into memory.`;
+      setProg(null); $('loadInfo').textContent=`Loaded ${n} frames into memory.`;
       log('Loaded into memory — re-runs will not re-decode.');
       return makeStack(w,h,n,px, fi=>frames[fi]);
     }catch(err){
-      $('prog').style.width='0%';
+      setProg(null);
       for(let i=0;i<n;i++) if(ifds[i]) ifds[i].data=null;   // drop partial raw data
       if(!isAlloc(err)) throw err;
       log(`⚠ In-memory load hit a memory limit (${err.name}: ${err.message}). Falling back to streaming — the browser tab likely capped RAM below the budget.`);
@@ -1809,14 +1815,14 @@ async function run(){
       }
       processed=fi+1;
       if(performance.now()-lastYield > 50){        // yield on a time budget to keep the UI responsive
-        $('prog').style.width=(100*fi/n).toFixed(1)+'%';
+        setProg(100*fi/n);
         await tick(); lastYield=performance.now();
         // A Stop click can only be delivered while we're yielding, so this is
         // the earliest point it can be observed — no need to poll elsewhere.
         if(stopRequested){ stopped=true; break; }
       }
     }
-    $('prog').style.width = stopped ? (100*processed/n).toFixed(1)+'%' : '100%';
+    setProg(stopped ? 100*processed/n : 100);
     if(lastFrame) drawRaw(lastFrame,w,h,lastSpots);
     const dt=performance.now()-t0-previewMs;       // localization work only
     const per=Math.max(1,processed);
@@ -1832,11 +1838,10 @@ async function run(){
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
-    $('prog').style.width='0%';
   }finally{
     $('runBtn').disabled=false;                    // always re-enable, even on error
     $('loadBtn').disabled=false; $('genBtn').disabled=false;
-    $('stopBtn').disabled=true; stopRequested=false;
+    $('stopBtn').disabled=true; stopRequested=false; setProg(null);
   }
 }
 
@@ -1844,8 +1849,16 @@ async function run(){
    Wiring
    =========================================================================== */
 // SR canvas fixed backing resolution; CSS scales it to the column width
-(function initSR(){ const d=$('sr'); d.width=640; d.height=640;
-  const ctx=d.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,640,640); })();
+// Both canvases start square. Without an explicit size the raw canvas would
+// fall back to the 300x150 HTML default and render as a wide black box next to
+// the square reconstruction. drawRaw() resizes it to the real frame dimensions
+// once data is loaded (so non-square stacks still display correctly).
+(function initCanvases(){
+  for(const id of ['sr','raw']){
+    const d=$(id); d.width=640; d.height=640;
+    const ctx=d.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,640,640);
+  }
+})();
 
 // "Load movie" just proxies to the hidden file input, so both data sources
 // present as equal-weight buttons.
@@ -1863,7 +1876,7 @@ $('genBtn').addEventListener('click',async()=>{
     $('runBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localisations”.`);
   }catch(err){
-    log(`⚠ Simulation failed: ${err.name}: ${err.message}`); $('prog').style.width='0%';
+    log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
   }finally{
     $('genBtn').disabled=false; $('loadBtn').disabled=false;
   }
