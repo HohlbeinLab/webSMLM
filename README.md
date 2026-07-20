@@ -53,10 +53,11 @@ on a laptop, running the single HTML file directly from `file://`:
 
 | Dataset | Frames | Frame size | Time | Rate |
 |---|---|---|---|---|
-| GATTA-PAINT 80R | 1999 | 82 × 82 | ~0.71 s | ~15,000 loc/s |
-| Nile Red / *L. lactis* | 1173 | 256 × 256 | ~0.77 s | ~113,000 loc/s |
+| GATTA-PAINT 80R | 1999 | 82 × 83 | ~0.71 s | ~15,000 loc/s |
+| Nile Red / *L. lactis* | 1173 | 256 × 256 | ~0.68 s | ~129,000 loc/s |
 
-Both are ~7× and ~27× faster respectively than v0.2.0. Notes:
+That is ~7× and ~30× faster respectively than v0.2.0, with identical
+localization counts. Notes:
 
 - **Workers are probed before use**, with a self-test that exercises the whole
   numeric path. If they are unavailable — some browsers restrict workers on

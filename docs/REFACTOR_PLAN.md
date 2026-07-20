@@ -16,7 +16,7 @@ technical grounding in the current single-file implementation (`webSMLM.html`).
 | # | Phase | Depends on | Notes |
 |---|-------|-----------|-------|
 | 1 | UI / responsive redesign | — | **☑ Done — shipped in v0.2.0** |
-| 2 | Speed & bottleneck review | — | Independent; **core priority** |
+| 2 | Speed & bottleneck review | — | **☑ Done — 7x / 30x, shipped in v0.3.0** |
 | 3 | CSV export (ThunderSTORM style) | background/photon estimation | Needs phasor mask-based estimation |
 | 4 | Precision estimation via FRC | 3 (localization list) | 3D variant needs Phase 5 |
 | 5 | 3D phasor (astigmatism) | — | **Unblocks 3D in Phases 4 and 6** |
@@ -107,7 +107,7 @@ Current blockers found in the CSS and event wiring:
 
 ---
 
-## Phase 2 — Speed review (core priority)
+## Phase 2 — Speed review (core priority)  ☑ *(v0.3.0)*
 
 **Speed is a primary design goal.** Below: measured/structural bottlenecks, then
 the assumptions worth challenging.
@@ -137,6 +137,22 @@ detection cost**, and its kernel grows linearly with σ_PSF.
 Profile after these changes: **phasor is 96% detect** (fit irrelevant);
 **Gaussian LS is 55% detect / 43% fit** (fit optimisation now worthwhile).
 
+**Final Phase 2 results** (adding kernel symmetry + Web Worker pool), measured
+from `file://`:
+
+| Dataset | v0.2.0 | v0.3.0 | Speed-up |
+|---|---|---|---|
+| GATTA-PAINT 80R (82x83 x 1999) | 5377 ms | ~714 ms | **7.5x** |
+| Nile Red / *L. lactis* (256x256 x 1173) | 20493 ms | **677 ms** | **30.3x** |
+
+Localization counts are identical before/after the worker pool, confirming
+parallelism does not perturb the numerics. Note the reported "CPU time across
+workers" over-states the benefit on Apple Silicon, because efficiency cores
+inflate summed CPU time; wall-clock is the honest measure.
+
+Remaining, deliberately not done (~10% combined, exact): fuse the DoG subtract
+into the blur's vertical pass; fuse `findMaxima`'s two statistics passes.
+
 Per-candidate fit cost measured at **0.3 us (phasor) vs 55.8 us (Gaussian LS)** —
 a 186-265x ratio, not the ~100x previously claimed in the UI.
 
@@ -151,7 +167,7 @@ a 186-265x ratio, not the ~100x previously claimed in the UI.
 - ☐ **Compute the background blur on a downsampled image.** The large-scale term
   is smooth by construction; compute at ½ or ¼ resolution and bilinearly
   upsample for a further 4–16× saving with negligible error.
-- ☐ **Web Worker pool — the biggest structural win.** Frames are embarrassingly
+- ☑ **Web Worker pool — the biggest structural win.** Frames are embarrassingly
   parallel. A pool of `navigator.hardwareConcurrency` workers, each handling
   whole frames, should scale near-linearly. `Float32Array` frames are
   *transferable*, so hand-off is zero-copy. Interacts with the streaming loader
