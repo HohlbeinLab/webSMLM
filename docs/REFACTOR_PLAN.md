@@ -15,7 +15,7 @@ technical grounding in the current single-file implementation (`webSMLM.html`).
 
 | # | Phase | Depends on | Notes |
 |---|-------|-----------|-------|
-| 1 | UI / responsive redesign | — | Independent; highest immediate user value |
+| 1 | UI / responsive redesign | — | **☑ Done — shipped in v0.2.0** |
 | 2 | Speed & bottleneck review | — | Independent; **core priority** |
 | 3 | CSV export (ThunderSTORM style) | background/photon estimation | Needs phasor mask-based estimation |
 | 4 | Precision estimation via FRC | 3 (localization list) | 3D variant needs Phase 5 |
@@ -28,65 +28,82 @@ technical grounding in the current single-file implementation (`webSMLM.html`).
 
 ---
 
-## Phase 1 — UI improvements & small-screen support
+## Phase 1 — UI improvements & small-screen support  ☑ *(v0.2.0)*
 
 **Goal:** a layout that works on phones/tablets, with controls ordered to match
 the actual analysis workflow.
 
 ### 1a · Data acquisition controls
-- ☐ **"Load movie" and "Simulate movie" as two smaller side-by-side buttons.**
+- ☑ **"Load movie" and "Simulate movie" as two smaller side-by-side buttons.**
   Simulation matters (demo, validation, teaching) but is *not* a core function
   and should not dominate the panel.
-- ☐ **Collapse simulation parameters behind a disclosure** (`<details>` or a
+- ☑ **Collapse simulation parameters behind a disclosure** (`<details>` or a
   toggle), hidden until "Simulate movie" is chosen. Currently frames / blink
   density / photons sliders are always visible and visually outweigh the real
   data path.
 
 ### 1b · Action buttons
-- ☐ Dedicated **"Run localisations"** button (exists; keep prominent).
-- ☐ Dedicated **"Save localisations"** button — wired up in **Phase 3**;
+- ☑ Dedicated **"Run localisations"** button (exists; keep prominent).
+- ☑ Dedicated **"Save localisations"** button — wired up in **Phase 3**;
   ship it disabled-until-results in this phase so the layout is final.
 
 ### 1c · Control ordering & labelling
-- ☐ **Fit method selector must come *before* fitting parameters.** The relevant
+- ☑ **Fit method selector must come *before* fitting parameters.** The relevant
   parameters differ per method, so choosing the method first is the correct
   information hierarchy (and lets us show/hide method-specific parameters).
-- ☐ **Disambiguate the sigmas with subscripts.** Three distinct quantities are
+- ☑ **Disambiguate the sigmas with subscripts.** Three distinct quantities are
   currently all called "σ", which is genuinely confusing:
   | Current label | Should be | Meaning |
   |---|---|---|
   | "PSF σ (px)" | **σ_PSF** | PSF width, drives DoG scales + fit init |
   | threshold "k·σ" | **σ_noise** | std-dev of the *band-passed* image |
   | "Render blur (px)" | **σ_render** | display-only smoothing |
-  Use real subscripts (`<sub>`), e.g. σ<sub>PSF</sub>.
-- ☐ **Replace numbered section headers** ("1 · Data", "2 · Detection & fit",
+  *Implemented as plain underscores* (`σ_PSF`, `σ_noise`, `σ_render`) — `<sub>`
+  markup rendered unreliably, and the underscore form reads correctly everywhere.
+- ☑ **Replace numbered section headers** ("1 · Data", "2 · Detection & fit",
   "3 · Render") **with simple grey separator lines.** The numbering implies a
   rigid order that no longer holds once controls are regrouped.
-- ☐ **Move "Pixel size (nm)" into the rendering group.** It affects the scale
+- ☑ **Move "Pixel size (nm)" into the rendering group.** It affects the scale
   bar, nm-space rendering and data export — not detection or fitting, which
   operate in pixel units.
 
 ### 1d · Input affordances
-- ☐ **Add padding between the value and the spinner arrows** in all number
-  inputs (`input.num`). Currently `text-align:right` pushes digits flush against
-  the native up/down control. Fix via `padding-right` (plus, if we want
-  consistency across browsers, custom stepper styling).
+- ☑ **Add padding between the value and the spinner arrows** in all number
+  inputs (`input.num`). *Resolved by removing the native spinners entirely* —
+  padding alone cannot separate them (the spinner is laid out over the padding
+  box), and the arrows rendered black-on-black in Chrome and crowded the digits
+  in Firefox. Values are typed; arrow keys still step them.
 
 ### 1e · Responsive / mobile (structural)
 Current blockers found in the CSS and event wiring:
-- ☐ `.wrap` is a hard `grid-template-columns:300px 1fr` → must collapse to a
+- ☑ `.wrap` is a hard `grid-template-columns:300px 1fr` → must collapse to a
   single column under a breakpoint (~768px), sidebar above or in a drawer.
-- ☐ `.canvases` is `1fr 1fr` → stack vertically on narrow screens.
-- ☐ `.stats` is `repeat(4,1fr)` → wrap to 2×2 on small screens.
-- ☐ `.wrap` uses `min-height:calc(100vh - 64px)`, hard-coding the header height;
+- ☑ `.canvases` is `1fr 1fr` → stack vertically on narrow screens.
+- ☑ `.stats` is `repeat(4,1fr)` → wrap to 2×2 on small screens.
+- ☑ `.wrap` uses `min-height:calc(100vh - 64px)`, hard-coding the header height;
   brittle if the header wraps on mobile. Prefer flex/auto sizing.
-- ☐ **Touch support is entirely missing.** The zoom/pan handlers on the SR canvas
+- ☑ **Touch support is entirely missing.** The zoom/pan handlers on the SR canvas
   bind `wheel`, `mousedown`, `mousemove`, `mouseup`, `dblclick` only — there is
   no touch path at all, so pan/zoom is unusable on mobile. Migrate to
   **Pointer Events** (`pointerdown`/`pointermove`/`pointerup`) and add
   **pinch-to-zoom** (two-pointer distance ratio) plus double-tap to reset.
-- ☐ Sidebar `overflow:auto` inside a fixed-height grid can trap scrolling on
+- ☑ Sidebar `overflow:auto` inside a fixed-height grid can trap scrolling on
   touch; verify with `-webkit-overflow-scrolling`.
+
+### 1f · Also delivered in v0.2.0 (beyond the original scope)
+- ☑ **Colour-map selector** — Fire (default), Inferno, Viridis, Grey. The two
+  matplotlib maps are perceptually uniform (verified monotonic luminance).
+- ☑ **Percentile display scaling** ("Display max", default 99.9 %) via a
+  4096-bin histogram, so one hot pixel no longer dims the reconstruction.
+- ☑ **Live reconstruction preview** — the super-res view refreshes every 100
+  frames alongside the raw view; preview cost is excluded from the reported
+  compute time so the speed metric stays honest.
+- ☑ **Stop button** — aborts a run and keeps partial results; statistics report
+  frames actually processed so ms/frame and loc/frame remain correct.
+- ☑ *Bug:* Load/Simulate were clickable mid-run and could swap the stack out
+  from under the loop; both are now locked for the duration of a run.
+- ☑ *Bug:* the raw canvas had no initial size and fell back to the 300×150
+  canvas default, drawing a 2:1 black placeholder next to a square one.
 
 ---
 

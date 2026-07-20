@@ -36,8 +36,14 @@ walk-through of every step.
   `mean + k·σ` threshold on the filtered image.
 - **Localizes** with either **phasor** fitting (very fast, no iteration) or a
   **least-squares 2D Gaussian** fit.
-- **Renders** a super-resolution image with adjustable magnification and blur
-  (re-renders instantly without refitting), plus zoom, pan, and a scale bar.
+- **Renders** a super-resolution image with adjustable magnification and blur,
+  a choice of colour maps (Fire, Inferno, Viridis, Grey) and percentile-based
+  display scaling. All render settings apply instantly without refitting.
+- **Builds up live**: the raw frame and the reconstruction both refresh during a
+  run, and a **Stop** button ends the analysis early while keeping the
+  localizations gathered so far.
+- **Works on small screens**: single-column layout on phones and tablets, with
+  drag/pinch-to-zoom navigation of the reconstruction (plus a scale bar).
 
 ## Data & privacy
 
@@ -69,11 +75,18 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   gradients favour a local threshold.
 - Precision figures shown in the app are for the built-in synthetic model.
 
-## Roadmap ideas
+## Roadmap
 
-- Web Worker pool / WebGPU to remove the band-pass bottleneck on large stacks
-- Poisson MLE fitting; 3D (astigmatism) via the phasor magnitude ratio
-- Drift correction, localization filtering, and export (CSV of localizations)
+Planned work is tracked in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md):
+
+1. ~~UI improvements and small-screen support~~ (done in 0.2.0)
+2. Speed review — band-pass bottleneck, Web Worker pool, WebGPU
+3. CSV export in ThunderSTORM format (needs background/photon estimation)
+4. Localization precision via FRC
+5. 3D phasor (astigmatism) via the magnitude ratio
+6. Drift correction (2D, then 3D)
+
+Also on the list: Poisson MLE fitting and localization filtering.
 
 ## Distribution & citation
 
