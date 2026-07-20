@@ -1221,9 +1221,12 @@ X.B(E,Y);return E}return J}())
   button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
   button.primary:disabled{opacity:.5;cursor:not-allowed}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
-  /* extra right padding so digits don't collide with the native spinner arrows */
-  input.num{width:82px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:4px 12px 4px 8px;font-size:13px;text-align:right}
+  input.num{width:90px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 8px;font-size:13px;text-align:right}
+  /* the spinner is laid out over the padding box, so padding alone doesn't
+     separate it — give the spin button itself a left margin */
+  input.num::-webkit-inner-spin-button,
+  input.num::-webkit-outer-spin-button{margin-left:12px}
   /* two equal buttons side by side (Load / Simulate) */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .btnrow button{margin:0;padding:8px 6px;font-size:12px}
@@ -1235,7 +1238,6 @@ X.B(E,Y);return E}return J}())
   details.sim>summary::before{content:'▸ ';display:inline-block;transition:transform .15s}
   details.sim[open]>summary::before{content:'▾ '}
   details.sim>summary:hover{color:var(--fg)}
-  sub{font-size:.72em;line-height:0}
   select.sel{width:100%;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font-size:13px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -1330,14 +1332,14 @@ X.B(E,Y);return E}return J}())
           <option value="phasor">Phasor (fast)</option>
           <option value="gaussls">Gaussian (least-squares)</option>
         </select></label>
-      <label class="row" style="margin-top:12px">Threshold (k·σ<sub>noise</sub>) <span class="val" id="thrV">4.0</span></label>
+      <label class="row" style="margin-top:12px">Threshold (k·σ_noise) <span class="val" id="thrV">4.0</span></label>
       <input type="range" id="thr" min="1" max="8" step="0.5" value="4">
-      <label class="row">σ<sub>PSF</sub> (px) <span class="val" id="psfV">1.3</span></label>
+      <label class="row">σ_PSF (px) <span class="val" id="psfV">1.3</span></label>
       <input type="range" id="psf" min="0.8" max="2.5" step="0.1" value="1.3">
       <label class="row">Fit window (px) <span class="val" id="winV">7</span></label>
       <input type="range" id="win" min="5" max="11" step="2" value="7">
       <div class="hint">Phasor ≈ 100× faster; Gaussian LS ≈ slightly better precision. (Current Gaussian is least-squares, not MLE.)
-        σ<sub>noise</sub> is the spread of the band-passed image, not the PSF width.</div>
+        σ_noise is the spread of the band-passed image, not the PSF width.</div>
     </div>
 
     <hr class="sep">
@@ -1345,10 +1347,10 @@ X.B(E,Y);return E}return J}())
     <div class="group">
       <label class="row">Pixel size (nm)
         <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
-      <label class="row">Magnification <span class="val" id="magV">8×</span></label>
-      <input type="range" id="mag" min="4" max="16" step="1" value="8">
-      <label class="row">Render blur σ<sub>render</sub> (px) <span class="val" id="rblurV">1.0</span></label>
-      <input type="range" id="rblur" min="0" max="3" step="0.25" value="1">
+      <label class="row">Magnification <span class="val" id="magV">10×</span></label>
+      <input type="range" id="mag" min="4" max="16" step="1" value="10">
+      <label class="row">Render blur σ_render (px) <span class="val" id="rblurV">1.00</span></label>
+      <input type="range" id="rblur" min="0" max="1" step="0.05" value="1">
       <div class="hint">Pixel size sets the physical scale for the scale bar and export.
         Magnification &amp; blur re-render instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</div>
     </div>
@@ -1891,9 +1893,9 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
     <h3>Guided workflow</h3>
     <ol>
       <li><b>Get data.</b> Click <b>Load movie</b> for a real <code>.tif</code>/<code>.tiff</code> stack, or <b>Simulate movie</b> for a test dataset (open <b>Simulation settings</b> to adjust frames, blink density and photons).</li>
-      <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. Adjust <b>Threshold (k·σ<sub>noise</sub>)</b> if too many/few spots are boxed in the raw view, and set <b>σ<sub>PSF</sub></b> to match your spot size.</li>
+      <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
       <li><b>Run localisations.</b> The raw view shows every 100th frame with detected ROIs (green boxes); the right panel builds the super-resolution image.</li>
-      <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ<sub>render</sub></b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
+      <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
     </ol>
 
     <h3>1 · Loading &amp; memory</h3>
