@@ -1307,7 +1307,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.4.0 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.4.0-dev · build 2026-07-20i · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1441,7 +1441,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.4.0 — parallel detection · large-stack streaming · CSV export
+      <div class="log" id="log">webSMLM v0.4.0-dev · build 2026-07-20i
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2252,7 +2252,7 @@ async function run(){
       // too fine and the per-message overhead starts to show.
       const BATCH=Math.max(8, Math.min(64, Math.ceil(n/(pool.length*8))));
       log(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
-      let next=0, doneF=0, inflight=0, lastPrev=0, err=null;
+      let next=0, doneF=0, inflight=0, lastPrev=0, err=null, shown=null;
       await new Promise(resolve=>{
         const finish=()=>{ if(inflight===0 && (stopRequested||next>=n||err)) resolve(); };
         // async because sliced stacks read their frames from disk. `next` is
@@ -2267,6 +2267,9 @@ async function run(){
           try{ frames=await stack.getFrames(s,e); }
           catch(ex){ err=ex; inflight--; finish(); return; }
           tGet+=performance.now()-ta;
+          // keep one frame back for the raw view: postMessage clones, so the
+          // main-thread copy stays valid after dispatch
+          if(frames.length) shown={img:frames[0],fi:s};
           // no transfer list: frames are cloned, so any RAM cache survives
           wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP});
         };
@@ -2278,10 +2281,15 @@ async function run(){
             tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
             doneF+=d.count; processed=doneF; inflight--;
             setProg(100*doneF/n);
-            if(doneF-lastPrev>=100 && locs.length){   // live preview, same cadence as serial
+            if(doneF-lastPrev>=100){                  // refresh both views, as the serial path does
               lastPrev=doneF; const tp=performance.now();
-              lastResult={locs,w,h,px,mag:+$('mag').value}; rerender(true);
-              previewMs+=performance.now()-tp;
+              if(shown){                              // raw frame + detected ROIs
+                const mx=findMaxima(bandpass(shown.img,w,h,sigma,exactBP),w,h,k,border);
+                drawRaw(shown.img,w,h,mx); lastSpots=mx; lastFrame=shown.img;
+                $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${mx.length} spots`;
+              }
+              if(locs.length){ lastResult={locs,w,h,px,mag:+$('mag').value}; rerender(true); }
+              previewMs+=performance.now()-tp;        // display only, not compute time
             }
             dispatch(wk);
           };
@@ -2295,11 +2303,11 @@ async function run(){
       // Batches complete out of order; sort so results don't depend on
       // worker scheduling (stable sort keeps within-frame order).
       locs.sort((p,q)=>p.frame-q.frame);
-      if(n>0){ const fi=Math.min(processed,n)-1;
-        if(fi>=0){ const tp=performance.now();     // display only — not compute time
-          const img=(await stack.getFrames(fi,fi+1))[0]; lastFrame=img;
-          lastSpots=findMaxima(bandpass(img,w,h,sigma,exactBP),w,h,k,border);
-          previewMs+=performance.now()-tp; } }
+      if(shown){ const tp=performance.now();       // display only — not compute time
+        lastFrame=shown.img;
+        lastSpots=findMaxima(bandpass(shown.img,w,h,sigma,exactBP),w,h,k,border);
+        $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${lastSpots.length} spots`;
+        previewMs+=performance.now()-tp; }
     } else {
     // Fetch in blocks rather than per frame: sliced stacks read from disk, so
     // one request per block instead of one per frame.
