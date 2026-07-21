@@ -19,7 +19,7 @@ technical grounding in the current single-file implementation (`webSMLM.html`).
 | 2 | Speed & bottleneck review | — | **☑ Done — 7x / 30x, shipped in v0.3.0** |
 | 3 | CSV export (ThunderSTORM style) | background/photon estimation | Needs phasor mask-based estimation |
 | 4 | Precision estimation via FRC | 3 (localization list) | 3D variant needs Phase 5 |
-| 5 | 3D phasor (astigmatism) | — | **Unblocks 3D in Phases 4 and 6** |
+| 5 | 3D phasor (astigmatism) | — | **☑ Done — shipped in v0.5.0** |
 | 6 | Drift correction | 3 | 3D variant needs Phase 5 |
 
 > **Suggested reordering:** Phase 5 (3D phasor) is a prerequisite for the 3D

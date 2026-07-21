@@ -19,9 +19,9 @@ needed is inside that one file.
 
 **Option B — hosted.** If served via GitHub Pages, open the published URL.
 
-Then: click **Generate synthetic stack** to try it immediately, or load your own
-`.tif`/`.tiff` stack. Set the **pixel size (nm)** first, pick a **fit method**,
-and press **Run localization**. Open **Help & guide** in the app for a full
+Then: click **Simulate movie** to try it immediately, or **Load movie** for your
+own `.tif`/`.tiff` stack. Set the **pixel size (nm)**, pick a **fit method**, and
+press **Run localisations**. Open **Help & guide** in the app for a full
 walk-through of every step.
 
 ## What it does
@@ -38,11 +38,17 @@ walk-through of every step.
   automatically if an in-memory load hits the browser's memory ceiling.
 - **Detects** ROIs with a Difference-of-Gaussians band-pass filter and a
   `mean + k·σ` threshold on the filtered image.
-- **Localizes** with either **phasor** fitting (very fast, no iteration) or a
+- **Localizes** with **phasor** fitting (very fast, no iteration) or a
   **least-squares 2D Gaussian** fit.
+- **3D astigmatism** (**Phasor 3D**): calibrate a bead z-stack — detect every
+  spot per plane, fit elliptical σ_x/σ_y vs z, and fit σ = a(z−c)² + b to each —
+  then assign **z per localization** from the phasor width ratio. Calibrations
+  save/load as JSON, and the reconstruction can be **depth-coded** (hue = z,
+  brightness = density) with an adjustable z range.
 - **Renders** a super-resolution image with adjustable magnification and blur,
-  a choice of colour maps (Fire, Inferno, Viridis, Grey) and percentile-based
-  display scaling. All render settings apply instantly without refitting.
+  a choice of colour maps (Fire, Inferno, Viridis, Turbo, Grey) and
+  percentile-based display scaling. All render settings apply instantly without
+  refitting.
 - **Builds up live**: the raw frame and the reconstruction both refresh during a
   run, and a **Stop** button ends the analysis early while keeping the
   localizations gathered so far.
@@ -104,7 +110,9 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
 
 ## Known limitations
 
-- 2D only; the Gaussian fit is **least-squares, not Poisson MLE**.
+- 3D is astigmatism via **Phasor 3D** only; the Gaussian fit is 2D and
+  **least-squares, not Poisson MLE**. The astigmatism calibration uses a
+  vertex-quadratic per axis, a local approximation best over a cropped z-range.
 - **Intensities are in ADU unless a camera gain is entered**, in which case the
   exported `intensity [photon]` and `uncertainty [nm]` columns are not on a
   physical scale. A single scalar gain also suits EMCCD better than sCMOS, where
@@ -124,7 +132,7 @@ Planned work is tracked in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md):
 2. ~~Speed review — band-pass bottleneck, Web Worker pool~~ (done in 0.3.0)
 3. ~~CSV export in ThunderSTORM format~~ (done in 0.4.0)
 4. Localization precision via FRC
-5. 3D phasor (astigmatism) via the magnitude ratio
+5. ~~3D phasor (astigmatism)~~ (done in 0.5.0)
 6. Drift correction (2D, then 3D)
 
 Also on the list: Poisson MLE fitting and localization filtering.
