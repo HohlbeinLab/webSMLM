@@ -376,3 +376,14 @@ Implements the 3D half of the pSMLM-3D paper the 2D fitter already follows.
 - **Branching.** `main` is the live GitHub Pages site and Zenodo release line;
   do this work on `webSMLM_local` (or per-phase branches) and merge when a phase
   is complete and validated.
+
+
+### Phase 5 — future ideas
+- ☐ **3D point-cloud view.** The depth-coded render is a 2D projection: where
+  localizations at different z overlap in x/y, the colour blends. An interactive
+  rotatable point cloud (orthographic scatter, colour = z) would show the true 3D
+  distribution. Needs a small 3D projection/rotation on a canvas (no external
+  library, to stay single-file) — possibly a separate view mode alongside the
+  reconstruction and calibration plot.
+- ☐ Gaussian 3D (elliptical fit → z via σx/σy distance-minimisation) as an exact
+  counterpart to Phasor 3D.

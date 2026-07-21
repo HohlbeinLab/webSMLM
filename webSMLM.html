@@ -1309,7 +1309,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21j · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21k · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1423,6 +1423,7 @@ X.B(E,Y);return E}return J}())
           <option value="fire">Fire (hot)</option>
           <option value="inferno">Inferno</option>
           <option value="viridis">Viridis</option>
+          <option value="bluegreen">Blue–Green</option>
           <option value="grey">Grey</option>
         </select></label>
       <label class="row">Display max
@@ -1434,6 +1435,11 @@ X.B(E,Y);return E}return J}())
         </select></label>
       <label class="row" id="zcolorRow" style="display:none;margin-top:8px">Colour by depth (z)
         <input type="checkbox" id="zcolor"></label>
+      <div id="zrangeRow" style="display:none">
+        <label class="row">z min (nm) <input type="number" id="zmin" step="10" class="num" placeholder="auto"></label>
+        <label class="row">z max (nm) <input type="number" id="zmax" step="10" class="num" placeholder="auto"></label>
+        <div class="hint">Localizations with z outside [min, max] render black.</div>
+      </div>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">Pixel size sets the physical scale for the scale bar and export.
         Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.
@@ -1473,14 +1479,14 @@ X.B(E,Y);return E}return J}())
         </div>
       </div>
       <div class="card">
-        <h4><span id="srTitle">Super-resolution reconstruction</span> <small id="srInfo">— run localization to reconstruct</small></h4>
+        <h4><span id="srTitle">SMLM reconstruction</span> <small id="srInfo">— run localization to reconstruct</small></h4>
         <canvas id="sr"></canvas>
       </div>
     </div>
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21j (phase 5: 3D astigmatism)
+      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21k (phase 5: 3D astigmatism)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2065,7 +2071,9 @@ const LUT_CPS={
   inferno:[[0,0,4],[22,11,57],[66,10,104],[106,23,110],[147,38,103],
            [188,55,84],[221,81,58],[243,120,25],[252,165,10],[246,215,70],[252,255,164]],
   viridis:[[68,1,84],[72,40,120],[62,73,137],[49,104,142],[38,130,142],
-           [31,158,137],[53,183,121],[110,206,88],[181,222,43],[216,226,25],[253,231,37]]
+           [31,158,137],[53,183,121],[110,206,88],[181,222,43],[216,226,25],[253,231,37]],
+  bluegreen:[[8,24,120],[16,70,175],[20,110,205],[24,160,200],[28,190,165],
+             [45,205,120],[95,215,70],[160,225,45],[205,230,40],[230,235,60],[245,240,120]]
 };
 const _lutCache={};
 function getLUT(name){
@@ -2100,9 +2108,12 @@ function displayMax(buf,pct){
 
 function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi){
   const W=w*mag, H=h*mag, acc=new Float32Array(W*H), zacc=zColor?new Float32Array(W*H):null;
-  for(const L of locs){ const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
+  for(const L of locs){
+    // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
+    if(zColor && (!isFinite(L.z)||L.z<zlo||L.z>zhi)) continue;
+    const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
     if(ix<0||iy<0||ix>=W||iy>=H) continue; const idx=iy*W+ix;
-    acc[idx]+=1; if(zColor&&isFinite(L.z)) zacc[idx]+=L.z; }
+    acc[idx]+=1; if(zColor) zacc[idx]+=L.z; }
   // Blur density and z-sum together, so the depth hue is the density-weighted
   // mean z over the neighbourhood: meanz = blur(Σz)/blur(count).
   const buf = blurPx>0 ? blur(acc,W,H,blurPx*mag*0.3) : acc;
@@ -2174,22 +2185,28 @@ function zRange(locs){
 }
 function rerender(keepView){
   if(!lastResult) return;
-  $('srTitle').textContent='Super-resolution reconstruction';
+  $('srTitle').textContent='SMLM reconstruction';
   const mag=+$('mag').value, rblur=+$('rblur').value;
   lastResult.mag=mag;
   const has3d=lastResult.locs.some(L=>isFinite(L.z));
   $('zcolorRow').style.display = has3d ? 'flex' : 'none';
   const zColor = has3d && $('zcolor').checked;
-  if(zColor && !lastResult.zr) lastResult.zr=zRange(lastResult.locs);
-  const zr=lastResult.zr||{lo:0,hi:1};
+  $('zrangeRow').style.display = zColor ? 'block' : 'none';
+  if(!lastResult.zr) lastResult.zr=zRange(lastResult.locs);
+  const auto=lastResult.zr||{lo:0,hi:1};
+  // populate the min/max fields from the auto range the first time depth is enabled
+  if(zColor){ if($('zmin').value==='') $('zmin').value=Math.floor(auto.lo);
+              if($('zmax').value==='') $('zmax').value=Math.ceil(auto.hi); }
+  let zlo=+$('zmin').value, zhi=+$('zmax').value;
+  if(!(zhi>zlo)){ zlo=auto.lo; zhi=auto.hi; }        // fall back if the range is invalid
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   srFull=renderSuperRes(lastResult.locs, lastResult.w, lastResult.h, mag, rblur,
-                        $('lut').value, +$('lutpct').value, zColor, zr.lo, zr.hi);
-  srFull._zColor=zColor; srFull._zlo=zr.lo; srFull._zhi=zr.hi;
+                        $('lut').value, +$('lutpct').value, zColor, zlo, zhi);
+  srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi;
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
   $('srInfo').textContent=`${lastResult.locs.length.toLocaleString()} locs · ${mag}× · ${lastResult.px} nm/px`+
-    (zColor?` · z ${zr.lo.toFixed(0)}…${zr.hi.toFixed(0)} nm`:'')+` · scroll to zoom, drag to pan`;
+    (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+` · scroll to zoom, drag to pan`;
 }
 
 /* ===========================================================================
@@ -2558,7 +2575,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; calib=null;
+  $('stopBtn').disabled=false; calib=null; $('zmin').value=''; $('zmax').value='';
   let processed=0, stopped=false;
   try{
     const {w,h,n,px}=stack;
@@ -2845,6 +2862,8 @@ $('rblur').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lut').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lutpct').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('zcolor').addEventListener('change',()=>{ if(lastResult) rerender(true); });
+$('zmin').addEventListener('input',()=>{ if(lastResult) rerender(true); });
+$('zmax').addEventListener('input',()=>{ if(lastResult) rerender(true); });
 
 /* ---------------------------------------------------------------------------
    Navigation on the super-res canvas — Pointer Events so mouse, trackpad, pen
