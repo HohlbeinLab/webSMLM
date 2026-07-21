@@ -1309,7 +1309,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21h · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21i · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1478,7 +1478,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21h (phase 5: 3D astigmatism)
+      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21i (phase 5: 3D astigmatism)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2172,6 +2172,33 @@ function drawRaw(frame,w,h,spots){
 /* ===========================================================================
    MODULE: export — ThunderSTORM-compatible CSV
    =========================================================================== */
+// Save a Blob with a real "Save As" dialog where possible. The File System
+// Access API is blocked by browsers on file:// pages, so a double-clicked local
+// file always falls back to a plain download; served over http(s) it shows a
+// picker. To make the fallback prompt for a location, enable the browser's
+// "Ask where to save each file" download setting. Returns the saved name, or
+// null if the user cancelled the dialog.
+let _dlHintShown=false;
+async function saveBlob(blob,name,desc,mime,ext){
+  if(window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({suggestedName:name,
+        types:[{description:desc,accept:{[mime]:[ext]}}]});
+      const ws=await h.createWritable(); await ws.write(blob); await ws.close();
+      return h.name;
+    }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
+      log(`  (save dialog unavailable: ${err&&err.message||err})`); }
+  } else if(!_dlHintShown){
+    _dlHintShown=true;
+    log('  (Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
+    log('   Enable “Ask where to save each file” in your browser to be prompted for a location.)');
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  return name;
+}
+
 // Thompson/Larson/Webb localization precision, with the pixelation and
 // background terms: sigma^2 = (s^2 + a^2/12)/N + 8*pi*s^4*b^2/(a^2*N^2)
 // s, a in nm; N in photons; b = background std in photons.
@@ -2207,26 +2234,9 @@ async function exportCSV(){
   const blob=new Blob(parts,{type:'text/csv;charset=utf-8'});
   // name after the source stack: "foo.ome.tif" -> "foo_locs.csv"
   const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs.csv';
-  // Prefer a real Save-As dialog; fall back to the browser's download folder
-  // where the File System Access API is unavailable (Firefox, Safari).
-  if(window.showSaveFilePicker){
-    try{
-      const handle=await window.showSaveFilePicker({suggestedName,
-        types:[{description:'CSV (ThunderSTORM)',accept:{'text/csv':['.csv']}}]});
-      const ws=await handle.createWritable();
-      await ws.write(blob); await ws.close();
-      log(`Saved ${locs.length.toLocaleString()} localizations to ${handle.name} (${(blob.size/1048576).toFixed(1)} MB).`);
-      return;
-    }catch(err){
-      if(err&&err.name==='AbortError'){ log('Export cancelled.'); return; }
-      log(`  (save dialog unavailable: ${err&&err.message||err} — using downloads folder)`);
-    }
-  }
-  const url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url; a.download=suggestedName;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-  log(`Exported ${locs.length.toLocaleString()} localizations as ${suggestedName} (${(blob.size/1048576).toFixed(1)} MB).`);
+  const saved=await saveBlob(blob,suggestedName,'CSV (ThunderSTORM)','text/csv','.csv');
+  if(!saved){ log('Export cancelled.'); return; }
+  log(`Exported ${locs.length.toLocaleString()} localizations as ${saved} (${(blob.size/1048576).toFixed(1)} MB).`);
   if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
   if(gain===1&&camoff===0){
     log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
@@ -2496,16 +2506,8 @@ async function exportCalibration(){
          'phasor_z_from_ratio: z[nm] = Σ coef_i·(magY/magX)^i, valid for ratio in [rmin,rmax]. Used by Phasor 3D.' };
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_calib.json';
-  if(window.showSaveFilePicker){
-    try{ const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'JSON',accept:{'application/json':['.json']}}]});
-      const ws=await h.createWritable(); await ws.write(blob); await ws.close();
-      log(`Saved calibration to ${h.name}.`); return;
-    }catch(err){ if(err&&err.name==='AbortError'){ log('Save cancelled.'); return; }
-      log(`  (save dialog unavailable: ${err&&err.message||err} — using downloads folder)`); }
-  }
-  const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=name;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-  log(`Saved calibration as ${name}.`);
+  const saved=await saveBlob(blob,name,'JSON calibration','application/json','.json');
+  log(saved?`Saved calibration as ${saved}.`:'Save cancelled.');
 }
 
 /* ===========================================================================
