@@ -1307,7 +1307,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.4.1 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21a · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1432,6 +1432,10 @@ X.B(E,Y);return E}return J}())
       <div class="card">
         <h4>Raw frame <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <canvas id="raw"></canvas>
+        <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+          <input type="range" id="scrub" min="0" max="0" step="1" value="0" style="flex:1">
+          <span class="val" id="scrubV" style="min-width:96px;text-align:right">1</span>
+        </div>
       </div>
       <div class="card">
         <h4>Super-resolution reconstruction <small id="srInfo">— run localization to reconstruct</small></h4>
@@ -1441,7 +1445,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.4.1 — parallel detection · large-stack streaming · CSV export
+      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21a (phase 5: 3D astigmatism)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -1566,10 +1570,11 @@ async function loadTiffFile(file){
     const bps=(hifds[0].t258&&hifds[0].t258[0])||8, spp=(hifds[0].t277&&hifds[0].t277[0])||1;
     const cmpr=(hifds[0].t259&&hifds[0].t259[0])||1;
     const rawBytes=w*h*(bps>>3)*spp, base=(hifds[0].t273&&hifds[0].t273[0])||0;
-    // Exact fit is the ImageJ big-stack signature: one IFD, then every frame
-    // laid out back to back to the last byte. Anything else falls through to
-    // the ordinary whole-file path.
-    if(declared>1 && cmpr===1 && rawBytes>0 && base+declared*rawBytes===fileSize){
+    // ImageJ big-stack signature: one IFD, then every frame laid out back to
+    // back starting at `base`. The frames must FIT in the file (<=), not end
+    // exactly at EOF — ImageJ often appends ROI/overlay metadata after the
+    // pixel data (a 161-frame calibration stack had 27 kB of trailing tags).
+    if(declared>1 && cmpr===1 && rawBytes>0 && base+declared*rawBytes<=fileSize){
       const fmt=(hifds[0].t339&&hifds[0].t339[0])||1;
       const isLE=new DataView(head,0,2).getUint16(0,true)===0x4949;
       const px=+$('pxnm').value;
@@ -2418,7 +2423,7 @@ $('genBtn').addEventListener('click',async()=>{
     stack=await generateSynthetic(); lastResult=null; srFull=null; stackName='webSMLM_simulated';
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
-    $('rawInfo').textContent=`frame 1/${stack.n}`; $('sFrames').textContent=stack.n;
+    $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub(); $('sFrames').textContent=stack.n;
     $('loadInfo').textContent=`Simulated: ${stack.n} frames · ${stack.w}×${stack.h} · ${stack.px} nm/px`;
     $('runBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localisations”.`);
@@ -2436,7 +2441,7 @@ $('file').addEventListener('change',async e=>{
   try{
     stack=await loadTiffFile(f);
     drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
-    $('rawInfo').textContent=`frame 1/${stack.n}`;
+    $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub();
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     $('runBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px).`);
@@ -2444,6 +2449,32 @@ $('file').addEventListener('change',async e=>{
 });
 
 $('runBtn').addEventListener('click',run);
+
+// Frame scrubber: scroll through the loaded stack in the raw panel. Reads are
+// coalesced so dragging over a sliced (on-demand) stack does not queue a read
+// per intermediate value.
+let scrubBusy=false, scrubPending=null;
+async function showFrame(i){
+  if(!stack) return;
+  i=Math.max(0,Math.min(stack.n-1,i|0));
+  $('scrubV').textContent=`${i+1}/${stack.n}`;
+  if(scrubBusy){ scrubPending=i; return; }
+  scrubBusy=true;
+  try{
+    const img=(await stack.getFrames(i,i+1))[0];
+    drawRaw(img,stack.w,stack.h,null);
+    $('rawInfo').textContent=`frame ${i+1}/${stack.n}`;
+  }catch(_){}
+  scrubBusy=false;
+  if(scrubPending!==null && scrubPending!==i){ const nx=scrubPending; scrubPending=null; showFrame(nx); }
+  else scrubPending=null;
+}
+function initScrub(){
+  const row=$('scrubRow'), s=$('scrub');
+  if(stack && stack.n>1){ row.style.display='flex'; s.max=stack.n-1; s.value=0; $('scrubV').textContent=`1/${stack.n}`; }
+  else row.style.display='none';
+}
+$('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('saveBtn').addEventListener('click',exportCSV);
 $('stopBtn').addEventListener('click',()=>{
   if($('stopBtn').disabled) return;
