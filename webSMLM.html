@@ -1309,7 +1309,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21i · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.5.0-dev · build 2026-07-21j · proof-of-concept</span></h1>
   <p>Raw frames → band-pass detection → phasor / Gaussian fitting → zoomable super-resolution render. All client-side, no upload.</p>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
@@ -1432,6 +1432,8 @@ X.B(E,Y);return E}return J}())
           <option value="99">99 %</option>
           <option value="100">Max</option>
         </select></label>
+      <label class="row" id="zcolorRow" style="display:none;margin-top:8px">Colour by depth (z)
+        <input type="checkbox" id="zcolor"></label>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">Pixel size sets the physical scale for the scale bar and export.
         Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.
@@ -1478,7 +1480,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21i (phase 5: 3D astigmatism)
+      <div class="log" id="log">webSMLM v0.5.0-dev · build 2026-07-21j (phase 5: 3D astigmatism)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2096,17 +2098,26 @@ function displayMax(buf,pct){
   return mx;
 }
 
-function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct){
-  const W=w*mag, H=h*mag, acc=new Float32Array(W*H);
+function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi){
+  const W=w*mag, H=h*mag, acc=new Float32Array(W*H), zacc=zColor?new Float32Array(W*H):null;
   for(const L of locs){ const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
-    if(ix<0||iy<0||ix>=W||iy>=H) continue; acc[iy*W+ix]+=1; }
+    if(ix<0||iy<0||ix>=W||iy>=H) continue; const idx=iy*W+ix;
+    acc[idx]+=1; if(zColor&&isFinite(L.z)) zacc[idx]+=L.z; }
+  // Blur density and z-sum together, so the depth hue is the density-weighted
+  // mean z over the neighbourhood: meanz = blur(Σz)/blur(count).
   const buf = blurPx>0 ? blur(acc,W,H,blurPx*mag*0.3) : acc;
-  const norm=displayMax(buf,pct), lut=getLUT(lutName);
+  const zbuf = zColor ? (blurPx>0 ? blur(zacc,W,H,blurPx*mag*0.3) : zacc) : null;
+  const norm=displayMax(buf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo);
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const ctx=cv.getContext('2d'), out=ctx.createImageData(W,H);
   for(let i=0;i<buf.length;i++){
-    const t=norm>0?Math.min(1,Math.sqrt(buf[i]/norm)):0, j=(t*255)|0;   // sqrt stretch
-    out.data[i*4]=lut[j*3]; out.data[i*4+1]=lut[j*3+1]; out.data[i*4+2]=lut[j*3+2]; out.data[i*4+3]=255; }
+    const t=norm>0?Math.min(1,Math.sqrt(buf[i]/norm)):0;                // density → brightness
+    let j;
+    if(zColor){ const meanz=buf[i]>0?zbuf[i]/buf[i]:zlo;                // hue → depth
+      j=(Math.max(0,Math.min(1,(meanz-zlo)/zspan))*255)|0;
+      out.data[i*4]=lut[j*3]*t; out.data[i*4+1]=lut[j*3+1]*t; out.data[i*4+2]=lut[j*3+2]*t; }
+    else{ j=(t*255)|0; out.data[i*4]=lut[j*3]; out.data[i*4+1]=lut[j*3+1]; out.data[i*4+2]=lut[j*3+2]; }
+    out.data[i*4+3]=255; }
   ctx.putImageData(out,0,0); return cv;
 }
 function fitZoom(){ const d=$('sr'); return Math.min(d.width/srFull.width, d.height/srFull.height); }
@@ -2127,6 +2138,19 @@ function drawView(){
   const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
   ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
   drawScaleBar(ctx,DW,DH);
+  if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
+}
+// vertical depth colourbar (top-left), mapping the current LUT to the z range
+function drawDepthBar(ctx,DW,DH,zlo,zhi){
+  const lut=getLUT($('lut').value), x=16, y=16, bw=12, bh=140;
+  for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
+    ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
+  ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
+  ctx.fillStyle='#fff'; ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(`${zhi.toFixed(0)} nm`, x+bw+5, y+5);
+  ctx.fillText(`${zlo.toFixed(0)} nm`, x+bw+5, y+bh-5);
+  ctx.save(); ctx.translate(x-4,y+bh/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.fillText('z (depth)',0,0); ctx.restore();
 }
 function drawScaleBar(ctx,DW,DH){
   if(!lastResult) return;
@@ -2142,17 +2166,30 @@ function drawScaleBar(ctx,DW,DH){
 }
 // keepView: used by the live preview during a run, so the reconstruction can
 // refresh without yanking the user's zoom/pan back to fit on every update.
+// 1st–99th z percentiles as a robust colour range (once per result)
+function zRange(locs){
+  const zs=[]; for(const L of locs) if(isFinite(L.z)) zs.push(L.z);
+  if(zs.length<2) return null; zs.sort((a,b)=>a-b);
+  return {lo:zs[Math.floor(zs.length*0.01)], hi:zs[Math.floor(zs.length*0.99)]};
+}
 function rerender(keepView){
   if(!lastResult) return;
   $('srTitle').textContent='Super-resolution reconstruction';
   const mag=+$('mag').value, rblur=+$('rblur').value;
   lastResult.mag=mag;
+  const has3d=lastResult.locs.some(L=>isFinite(L.z));
+  $('zcolorRow').style.display = has3d ? 'flex' : 'none';
+  const zColor = has3d && $('zcolor').checked;
+  if(zColor && !lastResult.zr) lastResult.zr=zRange(lastResult.locs);
+  const zr=lastResult.zr||{lo:0,hi:1};
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   srFull=renderSuperRes(lastResult.locs, lastResult.w, lastResult.h, mag, rblur,
-                        $('lut').value, +$('lutpct').value);
+                        $('lut').value, +$('lutpct').value, zColor, zr.lo, zr.hi);
+  srFull._zColor=zColor; srFull._zlo=zr.lo; srFull._zhi=zr.hi;
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
-  $('srInfo').textContent=`${lastResult.locs.length.toLocaleString()} locs · ${mag}× · ${lastResult.px} nm/px · scroll to zoom, drag to pan`;
+  $('srInfo').textContent=`${lastResult.locs.length.toLocaleString()} locs · ${mag}× · ${lastResult.px} nm/px`+
+    (zColor?` · z ${zr.lo.toFixed(0)}…${zr.hi.toFixed(0)} nm`:'')+` · scroll to zoom, drag to pan`;
 }
 
 /* ===========================================================================
@@ -2807,6 +2844,7 @@ $('mag').addEventListener('change',()=>{ if(lastResult) rerender(); });
 $('rblur').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lut').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lutpct').addEventListener('change',()=>{ if(lastResult) rerender(true); });
+$('zcolor').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 
 /* ---------------------------------------------------------------------------
    Navigation on the super-res canvas — Pointer Events so mouse, trackpad, pen
