@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.6.3 · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.7.0-dev · build 2026-07-22r · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1352,6 +1352,9 @@ X.B(E,Y);return E}return J}())
         <label class="row">Frames <input type="number" id="frames" min="50" max="800" step="50" value="300" class="num"></label>
         <label class="row">Blink density <input type="number" id="dens" min="0.003" max="0.04" step="0.001" value="0.010" class="num"></label>
         <label class="row">Photons <input type="number" id="phot" min="200" max="2500" step="50" value="900" class="num"></label>
+        <label class="row">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
+        <div class="hint">Total sample drift over all frames, in a random direction (linear from frame 0).
+          0 = none. Used to test drift correction — the true drift is stored for scoring.</div>
       </details>
       <details class="sim" id="calibBox">
         <summary>3D astigmatism calibration</summary>
@@ -1473,7 +1476,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.6.3 — calibration overlays, robust large-stack loading
+      <div class="log" id="log">webSMLM v0.7.0-dev · build 2026-07-22r (phase 6: drift correction)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -1507,6 +1510,7 @@ const fmtBytes = b => b>1073741824 ? (b/1073741824).toFixed(2)+' GB' : (b/104857
 // (former slider value-labels removed — those controls are now number inputs)
 
 let stack=null, groundTruth=null, lastResult=null, stackName='webSMLM';
+let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for scoring drift correction)
 const readBudget = ()=> (+$('memgb').value||3)*1073741824;   // frame-cache memory budget
 
 /* ===========================================================================
@@ -1540,12 +1544,18 @@ async function generateSynthetic(){
   const w=128,h=128;
   const n=+$('frames').value, pOn=+$('dens').value, photons=+$('phot').value;
   const px=+$('pxnm').value, sigma=1.3, bg=40, readNoise=8;
+  // optional linear sample drift accumulating to driftPx over all frames, in a
+  // random direction — the ground truth for testing drift correction.
+  const driftPx=+$('driftpx').value||0, dang=Math.random()*2*Math.PI;
+  const ddx=Math.cos(dang), ddy=Math.sin(dang);
+  const driftAt=fi=> n>1 ? fi/(n-1)*driftPx : 0;   // magnitude at frame fi
   const gt=buildStructure(w,h), frames=[], rad=Math.ceil(sigma*3);
   let lastYield=performance.now();
   for(let fi=0; fi<n; fi++){
+    const dmag=driftAt(fi), drx=dmag*ddx, dry=dmag*ddy;
     const img=new Float32Array(w*h).fill(bg);
     for(let m=0;m<gt.length;m++){ if(Math.random()>pOn) continue;
-      const [mx,my]=gt[m], A=photons/(2*Math.PI*sigma*sigma), x0=Math.round(mx), y0=Math.round(my);
+      const mx=gt[m][0]+drx, my=gt[m][1]+dry, A=photons/(2*Math.PI*sigma*sigma), x0=Math.round(mx), y0=Math.round(my);
       for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
         const x=x0+dx,y=y0+dy; if(x<0||y<0||x>=w||y>=h) continue;
         img[y*w+x]+=A*Math.exp(-((x-mx)**2+(y-my)**2)/(2*sigma*sigma)); } }
@@ -1558,6 +1568,9 @@ async function generateSynthetic(){
   }
   setProg(null);
   groundTruth=gt;
+  // store the true per-frame drift (nm) so drift correction can be scored
+  simTrueDrift = driftPx>0 ? {n, px, dx:fi=>driftAt(fi)*ddx, dy:fi=>driftAt(fi)*ddy, total:driftPx} : null;
+  if(driftPx>0) log(`Simulated ${driftPx} px total drift along (${ddx.toFixed(2)}, ${ddy.toFixed(2)}).`);
   return makeStack(w,h,n,px, fi=>frames[fi]);
 }
 
@@ -2889,7 +2902,7 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; calib=null; groundTruth=null; $('saveBtn').disabled=true;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; calib=null; groundTruth=null; simTrueDrift=null; $('saveBtn').disabled=true;
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
@@ -2965,7 +2978,7 @@ function updateCalStatus(){
 // Load settings: apply a JSON of control values. (Full version with editable
 // defaults/min/max is planned; this imports plain {id: value} pairs.)
 const SETTING_IDS=['method','thr','psf','winr','exactbp','pxnm','gain','camoff','mag','rblur',
-  'lut','lutpct','memgb','chunkmb','frames','dens','phot','calStep','calRef'];
+  'lut','lutpct','memgb','chunkmb','frames','dens','phot','driftpx','calStep','calRef'];
 $('loadSetBtn').addEventListener('click',()=>$('setFile').click());
 $('setFile').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
