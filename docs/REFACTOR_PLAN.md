@@ -9,6 +9,10 @@ technical grounding in the current single-file implementation (`webSMLM.html`).
 
 **Status legend:** ☐ not started · ◐ in progress · ☑ done
 
+> This is the forward-looking phase plan. For the per-release history (including
+> non-phase releases like the 0.6.x UI / robustness series) see
+> [`../CHANGELOG.md`](../CHANGELOG.md).
+
 ---
 
 ## Phase overview & dependencies

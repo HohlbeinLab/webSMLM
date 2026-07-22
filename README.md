@@ -152,8 +152,11 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
 
 Planned work is tracked in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md):
 
-Phases are numbered in **release order** (so the list reads chronologically;
-the plan keeps *was Phase N* tags mapping the earlier numbering):
+Past releases are logged in [`CHANGELOG.md`](CHANGELOG.md) (not every release
+maps to a numbered phase — e.g. the 0.6.x series was UI / robustness polish).
+Phases below are numbered in **release order** (so the list reads
+chronologically; the plan keeps *was Phase N* tags mapping the earlier
+numbering):
 
 1. ~~UI improvements and small-screen support~~ (done in 0.2.0)
 2. ~~Speed review — band-pass bottleneck, Web Worker pool~~ (done in 0.3.0)
