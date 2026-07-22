@@ -61,6 +61,13 @@ walk-through of every step.
 - **Save/Load settings** as JSON to reproduce an analysis configuration.
 - **Works on small screens**: single-column layout on phones and tablets, with
   drag/pinch-to-zoom navigation of the reconstruction (plus a scale bar).
+- **Corrects drift** with **AIM** (adaptive intersection maximization) — a
+  point-based estimator that needs no image rendering and **no FFT**, so it fits
+  the single-file design and works natively in **3D** (x/y grid search + a
+  separate z search on the Phasor-3D output). It re-estimates from the raw
+  localizations on every run, so segment size and search radius can be swept and
+  compared; corrected coordinates drive the render and CSV, the raw ones are
+  kept, and the drift-vs-frame curve can be plotted.
 - **Exports** localizations as ThunderSTORM-compatible CSV, including
   background-subtracted intensity, background level and a Thompson/Larson/Webb
   uncertainty estimate. See the caveat on ADU-to-photon conversion below.
@@ -112,6 +119,16 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   (2010). https://doi.org/10.1038/nmeth.1447 — and localization-precision
   theory: R. E. Thompson, D. R. Larson, W. W. Webb, *Biophys. J.* **82**,
   2775–2783 (2002). https://doi.org/10.1016/S0006-3495(02)75618-X
+- **Drift correction (AIM)** (the estimator implemented here): H. Ma, M. Chen,
+  P. Nguyen, Y. Liu, *Toward drift-free high-throughput nanoscopy through
+  adaptive intersection maximization*, *Sci. Adv.* **10**(21), eadm7765 (2024).
+  https://doi.org/10.1126/sciadv.adm7765 — adapted from the reference
+  implementation in **Picasso** (`picasso/aim.py`,
+  https://github.com/jungmannlab/picasso; J. Schnitzbauer et al.,
+  *Super-resolution microscopy with DNA-PAINT*, *Nat. Protoc.* **12**,
+  1198–1228, 2017, https://doi.org/10.1038/nprot.2017.024): a parabolic
+  sub-pixel peak fit replaces the FFT phase refinement and linear interpolation
+  replaces the spline.
 - **Overview**: M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021).
   https://doi.org/10.1038/s43586-021-00038-x
 
@@ -140,7 +157,7 @@ Planned work is tracked in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md):
 3. ~~CSV export in ThunderSTORM format~~ (done in 0.4.0)
 4. Localization precision via FRC
 5. ~~3D phasor (astigmatism)~~ (done in 0.5.0)
-6. Drift correction (2D, then 3D)
+6. ~~Drift correction (2D, then 3D)~~ (done in 0.7.0 — AIM)
 
 Also on the list: Poisson MLE fitting and localization filtering.
 

@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.7.0-dev · build 2026-07-22w · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.7.0 · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1389,9 +1389,11 @@ X.B(E,Y);return E}return J}())
         </div>
         <div class="bar" id="driftBar"><i id="driftProg"></i></div>
         <details class="info"><summary>…further info…</summary>
-          <div class="hint">Point-based drift correction (AIM). Run localisations first, then Correct drift.
+          <div class="hint">Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024,
+          after <code>picasso/aim.py</code>; see Help &amp; guide → References). Run localisations first, then Correct drift.
           The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for
-          faster drift. Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</div></details>
+          faster drift. Each run re-estimates from the raw localisations, so segment size / search radius can be
+          swept and compared. Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</div></details>
       </details>
     </div>
 
@@ -1478,7 +1480,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="canvases">
       <div class="card">
-        <h4>Raw frame <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span id="rawTitle">Raw frame</span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <canvas id="raw"></canvas>
         <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
           <span style="color:var(--muted);font-size:12px">Frame</span>
@@ -1494,7 +1496,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.7.0-dev · build 2026-07-22w (phase 6: drift correction)
+      <div class="log" id="log">webSMLM v0.7.0 · drift correction (AIM, 2D + 3D)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2334,6 +2336,7 @@ function drawRawView(){
       ctx.stroke(); } }
 }
 function drawRaw(frame,w,h,spots,locs){
+  { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
   if(sizeChanged){ rawFull.width=w; rawFull.height=h; }
@@ -2477,9 +2480,10 @@ function workerSource(){
           const L = isPh ? phasorFit(img,w,h,mm[0],mm[1],win)
                          : gaussianFit(img,w,h,mm[0],mm[1],win,sigma);
           if(L){
-            let z=NaN;
-            if(method==='phasor3d'&&zcal){ const r=Math.max(zcal.rmin,Math.min(zcal.rmax,L.pratio)); z=polyEval(zcal.coef,r); }
-            out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,start+i);
+            let z=NaN, cl=0;
+            if(method==='phasor3d'&&zcal){ const raw=L.pratio; cl=(raw<zcal.rmin||raw>zcal.rmax)?1:0;
+              z=polyEval(zcal.coef, Math.max(zcal.rmin,Math.min(zcal.rmax,raw))); }
+            out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,cl,start+i);   // cl: z clamped out-of-range
           }
         }
         tF+=performance.now()-t1;
@@ -2695,11 +2699,22 @@ async function exportCalibration(){
 }
 
 /* ===========================================================================
-   MODULE: drift — AIM (Adaptive Intersection Maximization), point-based, 2D
-   Sci. Adv. 2024 (doi:10.1126/sciadv.adm7765); ref impl. picasso/aim.py.
+   MODULE: drift — AIM (Adaptive Intersection Maximization), point-based, 2D+z
+   Ma, Chen, Nguyen & Liu, "Toward drift-free high-throughput nanoscopy through
+   adaptive intersection maximization", Sci. Adv. 10(21), eadm7765 (2024),
+   doi:10.1126/sciadv.adm7765. Reference implementation: picasso/aim.py
+   (github.com/jungmannlab/picasso; Schnitzbauer et al., Nat. Protoc. 12, 2017).
+   Adaptations here: parabolic sub-pixel peak fit instead of Picasso's FFT phase
+   refinement; linear interpolation of per-segment drift instead of a spline.
    Quantize localizations, maximize the count of coincident points across a
    small shift search — no rendered images, no FFT (sub-pixel by parabola).
    =========================================================================== */
+// Light [1,2,1] smoothing of a per-segment drift array (in place). Removes the
+// 2-segment sawtooth that a broad (noisy) intersection peak produces, while
+// leaving linear/smooth drift unchanged (so sharp 2D estimates are untouched).
+function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
+  for(let k=1;k<a.length-1;k++) a[k]=0.25*p[k-1]+0.5*p[k]+0.25*p[k+1]; }
+
 // Returns {fdx,fdy}: the per-frame drift CORRECTION to ADD to each localization
 // (corrected = observed + fd[frame]), plus the per-segment estimates.
 // px = camera pixel size (nm); intersect/roi in nm.
@@ -2727,8 +2742,7 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onPr
     }
     const at=(sx,sy)=> (sx<-R||sx>R||sy<-R||sy>R)?0:grid[(sy+R)*W+(sx+R)];
     const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
-    return [ (bsx+par(at(bsx-1,bsy),best,at(bsx+1,bsy)))*iD,
-             (bsy+par(at(bsx,bsy-1),best,at(bsx,bsy+1)))*iD ];
+    return [ (bsx+par(at(bsx-1,bsy),best,at(bsx+1,bsy)))*iD, (bsy+par(at(bsx,bsy-1),best,at(bsx,bsy+1)))*iD ];
   }
   // Round 1: seg 0 is the reference (drift 0); align each later segment to the
   // accumulated corrected reference, starting from the previous cumulative drift.
@@ -2752,6 +2766,7 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onPr
   // Drift is defined up to a constant → zero-reference by removing the mean.
   let mx=0,my=0; for(let k=0;k<nSeg;k++){ mx+=dx2[k]; my+=dy2[k]; } mx/=nSeg; my/=nSeg;
   for(let k=0;k<nSeg;k++){ dx2[k]-=mx; dy2[k]-=my; }
+  _smoothSeg(dx2); _smoothSeg(dy2);
   // Linear interpolation of the per-segment drift (at segment centres) to frames.
   const fdx=new Float64Array(nFrames), fdy=new Float64Array(nFrames);
   for(let f=0;f<nFrames;f++){
@@ -2771,7 +2786,13 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
   const qd=1/binNm, R=Math.max(1,Math.round(roiNm/binNm));
   const nSeg=Math.max(1,Math.ceil(nFrames/segFrames));
   const seg=Array.from({length:nSeg},()=>[]);
-  for(const L of locs){ if(!isFinite(L.z)) continue; let s=(L.frame/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
+  // exclude clamped z (out of the calibrated range): those pile up at the z
+  // boundaries as fixed, non-drifting spikes that otherwise dominate and
+  // corrupt the estimate (a sawtooth).
+  let nz=0, ncl=0;
+  for(const L of locs){ if(!isFinite(L.z)) continue; if(L.zClamped){ ncl++; continue; }
+    nz++; let s=(L.frame/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
+  if(onProgress && ncl) log(`  z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1,k*segFrames+segFrames/2));
   const addTo=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd); map.set(b,(map.get(b)||0)+1); } return map; };
   function bestShift(list,o,ref){
@@ -2789,6 +2810,7 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
   const dz2=new Float64Array(nSeg);
   for(let k=0;k<nSeg;k++){ dz2[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg); }
   let m=0; for(let k=0;k<nSeg;k++) m+=dz2[k]; m/=nSeg; for(let k=0;k<nSeg;k++) dz2[k]-=m;
+  _smoothSeg(dz2); _smoothSeg(dz2);
   const fdz=new Float64Array(nFrames);
   for(let f=0;f<nFrames;f++){
     if(nSeg===1||f<=centers[0]){ fdz[f]=dz2[0]; continue; }
@@ -2796,7 +2818,7 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
     let k=0; while(k<nSeg-1&&centers[k+1]<f) k++;
     fdz[f]=dz2[k]+(dz2[k+1]-dz2[k])*(f-centers[k])/(centers[k+1]-centers[k]);
   }
-  return {fdz, segdz:dz2, nSeg};
+  return {fdz, segdz:dz2, nSeg, nz, ncl};
 }
 
 let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
@@ -2808,6 +2830,12 @@ async function correctDrift(){
   // stack.n adds empty segments that corrupt the drift estimate.
   let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
   const segF=Math.max(2,+$('driftSeg').value|0), roiNm=Math.max(10,+$('driftRoi').value||120), intD=15;
+  // Each run is INDEPENDENT: always estimate from the raw, uncorrected
+  // localizations. If a previous correction is in place, restore the raw
+  // coordinates first — otherwise a second run would estimate the residual of
+  // the already-corrected data and under-correct. This makes it safe to sweep
+  // segment size / search radius and compare results directly.
+  for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
   $('driftBtn').disabled=true;
   try{
     log(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
@@ -2824,6 +2852,12 @@ async function correctDrift(){
     if(has3d && $('driftZ').checked){
       const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm,
         p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
+      // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
+      // boundary, so it carries no drift and is excluded. A large clamped
+      // fraction means the sample's z-range exceeds the calibration: the
+      // in-range population is truncated and z-drift is under-estimated.
+      const clFrac=(dz.nz+dz.ncl)?dz.ncl/(dz.nz+dz.ncl):0;
+      if(clFrac>0.2) log(`  ⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
       for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
         L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,L.frame|0))]; }
       d.fdz=dz.fdz; lastResult.zr=null;
@@ -2847,15 +2881,16 @@ async function correctDrift(){
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
   finally{ $('driftBtn').disabled=false; }
 }
-// Plot the estimated drift (nm) vs frame on the SR canvas (measured drift = −correction).
+// Plot the estimated drift (nm) vs frame on the RAW (left) canvas (measured drift = −correction).
 function drawDriftCurve(){
   if(!lastDrift||!lastResult) return;
   const d=lastDrift, px=lastResult.px, n=d.fdx.length;
-  const cv=$('sr'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
-  srFull=null; $('srTitle').textContent='Drift vs frame';
+  const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  rawFull=null; $('rawTitle').textContent='Drift vs frame';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=60,mR=16,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
-  let lo=0,hi=0; for(let f=0;f<n;f++){ const a=-d.fdx[f]*px,b=-d.fdy[f]*px; lo=Math.min(lo,a,b); hi=Math.max(hi,a,b); }
+  let lo=0,hi=0; for(let f=0;f<n;f++){ const a=-d.fdx[f]*px,b=-d.fdy[f]*px; lo=Math.min(lo,a,b); hi=Math.max(hi,a,b);
+    if(d.fdz){ const c=-d.fdz[f]; lo=Math.min(lo,c); hi=Math.max(hi,c); } }
   const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
   const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
   ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif';
@@ -2873,7 +2908,7 @@ function drawDriftCurve(){
   ctx.textAlign='left'; ctx.fillStyle='#0a7d32'; ctx.fillText('drift x', mL+pw-90, mT-6);
   ctx.fillStyle='#c81cc8'; ctx.fillText('drift y', mL+pw-40, mT-6);
   if(d.fdz){ ctx.fillStyle='#3572b0'; ctx.fillText('drift z', mL+pw-140, mT-6); }
-  $('srInfo').textContent=`estimated drift · ${d.nSeg} segments · change a render setting to return to the reconstruction`;
+  $('rawInfo').textContent=`— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
 }
 
 /* ===========================================================================
@@ -2936,8 +2971,8 @@ async function run(){
         pool.forEach(wk=>{
           wk.onmessage=ev=>{
             const d=ev.data, a=d.arr;
-            for(let i=0;i<a.length;i+=8) locs.push({x:a[i],y:a[i+1],photons:a[i+2],
-                bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],frame:a[i+7]});
+            for(let i=0;i<a.length;i+=9) locs.push({x:a[i],y:a[i+1],photons:a[i+2],
+                bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8]});
             tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
             doneF+=d.count; processed=doneF; inflight--;
             setProg(100*doneF/n);
@@ -2986,7 +3021,8 @@ async function run(){
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         for(const [cx,cy] of maxima){
           const L = (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
-          if(L){ if(method==='phasor3d'&&zcal){ const r=Math.max(zcal.rmin,Math.min(zcal.rmax,L.pratio)); L.z=polyEval(zcal.coef,r); }
+          if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
+                   L.z=polyEval(zcal.coef, Math.max(zcal.rmin,Math.min(zcal.rmax,raw))); }
                  L.frame=fi; locs.push(L); }
         }
         tFit+=performance.now()-tc;
@@ -3339,6 +3375,9 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
       R. E. Thompson, D. R. Larson, W. W. Webb, “Precise nanometer localization analysis for individual fluorescent probes,” <i>Biophys. J.</i> <b>82</b>(5), 2775–2783 (2002). <a href="https://doi.org/10.1016/S0006-3495(02)75618-X" target="_blank">doi:10.1016/S0006-3495(02)75618-X</a><br>
       K. I. Mortensen, L. S. Churchman, J. A. Spudich, H. Flyvbjerg, “Optimized localization analysis for single-molecule tracking and super-resolution microscopy,” <i>Nat. Methods</i> <b>7</b>, 377–381 (2010) — shows MLE is near-optimal and unweighted least-squares wastes ~⅓ of the information. <a href="https://doi.org/10.1038/nmeth.1447" target="_blank">doi:10.1038/nmeth.1447</a></p>
     <p><b>Measuring precision on real data</b> — U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, “A simple method to estimate the average localization precision of a single-molecule localization microscopy experiment” (NeNA), <i>Histochem. Cell Biol.</i> <b>141</b>, 629–638 (2014). <a href="https://doi.org/10.1007/s00418-014-1192-3" target="_blank">doi:10.1007/s00418-014-1192-3</a></p>
+    <p><b>Drift correction (AIM)</b> — the point-based, FFT-free x/y/z drift estimator here implements adaptive intersection maximization:<br>
+      H. Ma, M. Chen, P. Nguyen, Y. Liu, “Toward drift-free high-throughput nanoscopy through adaptive intersection maximization,” <i>Sci. Adv.</i> <b>10</b>(21), eadm7765 (2024). <a href="https://doi.org/10.1126/sciadv.adm7765" target="_blank">doi:10.1126/sciadv.adm7765</a><br>
+      <small>Adapted from the reference implementation in <b>Picasso</b> (<code>picasso/aim.py</code>, <a href="https://github.com/jungmannlab/picasso" target="_blank">github.com/jungmannlab/picasso</a>): a parabolic sub-pixel peak fit replaces the FFT phase refinement and linear interpolation replaces the spline. Picasso — J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, “Super-resolution microscopy with DNA-PAINT,” <i>Nat. Protoc.</i> <b>12</b>, 1198–1228 (2017). <a href="https://doi.org/10.1038/nprot.2017.024" target="_blank">doi:10.1038/nprot.2017.024</a></small></p>
     <p><b>Overview</b> — M. Lelek et al., “Single-molecule localization microscopy,” <i>Nat. Rev. Methods Primers</i> <b>1</b>, 39 (2021). <a href="https://doi.org/10.1038/s43586-021-00038-x" target="_blank">doi:10.1038/s43586-021-00038-x</a></p>
 
     <h3>License &amp; author</h3>

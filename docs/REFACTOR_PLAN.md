@@ -366,8 +366,26 @@ between segment centres instead of SciPy cubic spline.
 - ☑ **6b — AIM 2D**: validated vs. simulated drift (RMS ~3-4 nm). *(v0.7.0-dev)*
 - ☑ **6c — apply + display**: reversible correction (raw kept), drift-vs-time
   curve, corrected coords drive render + CSV. Progress bar. *(v0.7.0-dev)*
-- ☑ **6d — z drift**: 1-D intersection-max on z; validated (RMS ~15 nm at
-  130 nm axial noise). *(v0.7.0-dev)*
+- ☑ **6d — z drift**: 1-D intersection-max on z. Validated vs. simulated drift
+  (RMS ~6–8 nm at a realistic ~40 nm axial precision; ~18 nm at a pessimistic
+  130 nm). *(v0.7.0-dev)*
+  - **Sawtooth fix.** A broad/noisy z intersection peak gave the parabola
+    sub-pixel fit a near-zero curvature term, so it flipped to ±0.5-bin offsets
+    on alternating segments — a visible sawtooth (reported on the large 3D
+    stack, 500-frame window). Fixed by a linear-preserving `[1,2,1]` segment
+    smooth (`_smoothSeg`, applied once on x/y, twice on the noisier z) that
+    removes the 2-segment oscillation without touching a genuine linear ramp.
+    Same parabola is kept — it is essential for the sharp 2D peaks (2D stays
+    2.7/4.4 nm).
+  - **Clamped-z exclusion.** Phasor-3D z is clamped to the calibrated
+    `[rmin,rmax]`; those locs pile into the two boundary bins as fixed,
+    non-drifting spikes that dominate the intersection and both suppress and
+    oscillate the estimate. They are excluded (`zClamped` flag from the fitter).
+  - **Known limitation.** If the sample's z-range exceeds the calibration, a
+    large clamped fraction truncates the in-range population and z-drift is
+    under-estimated (validated: even a few % clamp with poor axial precision
+    compresses the recovered drift). `correctDrift` warns when >20% of z is
+    clamped and recommends widening the z-calibration range.
 - ☐ Optional **fiducial-based** correction when beads are present (simpler, more
   accurate).
 - ☐ Cross-check: FRC (Phase 4) should measurably improve after correction — an
