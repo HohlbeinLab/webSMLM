@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.6.1-dev · build 2026-07-22n · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.6.1-dev · build 2026-07-22o · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1473,7 +1473,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.6.1-dev · build 2026-07-22n
+      <div class="log" id="log">webSMLM v0.6.1-dev · build 2026-07-22o
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -1584,6 +1584,11 @@ function ifdToFloat(ifd,w,h){
 async function loadTiffFile(file){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const fileSize=file.size;
+  // The on-demand slice paths only exist for files too big to load into one
+  // ArrayBuffer; smaller files go through the cached whole-file path (faster,
+  // and UTIF handles multi-IFD correctly). Function-scoped so both the
+  // contiguous check and the multi-IFD fallback can see it.
+  const SLICE_MIN = 1.5*1073741824;              // ~1.5 GB
   const head=await file.slice(0, Math.min(fileSize, 1<<24)).arrayBuffer();   // 16 MB
   let hifds=null; try{ hifds=UTIF.decode(head); }catch(_){}
   if(hifds && hifds.length===1){
@@ -1601,7 +1606,6 @@ async function loadTiffFile(file){
     // Below that size the ordinary whole-file path decodes multi-IFD stacks
     // correctly AND caches frames in RAM, so it is both correct and faster —
     // routing e.g. a 147 MB MMStack through slicing was a needless regression.
-    const SLICE_MIN = 1.5*1073741824;              // ~1.5 GB
     // ImageJ big-stack signature: one IFD, then every frame laid out back to
     // back starting at `base`; frames must FIT in the file (ImageJ appends
     // ROI/overlay metadata after the pixels, so <= not ==).
