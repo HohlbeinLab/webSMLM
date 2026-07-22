@@ -20,7 +20,7 @@ technical grounding in the current single-file implementation (`webSMLM.html`).
 | 3 | CSV export (ThunderSTORM style) | background/photon estimation | Needs phasor mask-based estimation |
 | 4 | Precision estimation via FRC | 3 (localization list) | 3D variant needs Phase 5 |
 | 5 | 3D phasor (astigmatism) | — | **☑ Done — shipped in v0.5.0** |
-| 6 | Drift correction | 3 | 3D variant needs Phase 5 |
+| 6 | Drift correction | 3 | **☑ Done (AIM, 2D+3D) — v0.7.0-dev** |
 
 > **Suggested reordering:** Phase 5 (3D phasor) is a prerequisite for the 3D
 > parts of both Phase 4 (FSC) and Phase 6 (3D drift). Consider promoting it
@@ -343,7 +343,7 @@ Implements the 3D half of the pSMLM-3D paper the 2D fitter already follows.
 
 ---
 
-## Phase 6 — Drift correction  ◐ *(in progress)*
+## Phase 6 — Drift correction  ☑ *(v0.7.0-dev; 2D + 3D)*
 
 **Method: AIM** (Adaptive Intersection Maximization; Sci. Adv. 2024,
 doi:10.1126/sciadv.adm7765; ref impl. picasso/aim.py). Chosen over RCC because
@@ -363,12 +363,11 @@ between segment centres instead of SciPy cubic spline.
 - ☑ **6a — simulated drift** (ground truth): linear total drift over all frames
   in a random direction; true per-frame drift stored (`simTrueDrift`) for
   scoring. *(v0.7.0-dev)*
-- ☐ **6b — AIM 2D**: segment → intersection-max shift → parabola sub-pixel →
-  interpolate → apply. Validate recovered vs. simulated drift (RMS).
-- ☐ **6c — apply + display**: correct the stored localizations (keep raw +
-  corrected so it is reversible), show the drift-vs-time curve, re-render; add
-  corrected coords to CSV export.
-- ☐ **6d — z drift**: the extra 1D search; test on Phasor 3D data.
+- ☑ **6b — AIM 2D**: validated vs. simulated drift (RMS ~3-4 nm). *(v0.7.0-dev)*
+- ☑ **6c — apply + display**: reversible correction (raw kept), drift-vs-time
+  curve, corrected coords drive render + CSV. Progress bar. *(v0.7.0-dev)*
+- ☑ **6d — z drift**: 1-D intersection-max on z; validated (RMS ~15 nm at
+  130 nm axial noise). *(v0.7.0-dev)*
 - ☐ Optional **fiducial-based** correction when beads are present (simpler, more
   accurate).
 - ☐ Cross-check: FRC (Phase 4) should measurably improve after correction — an
