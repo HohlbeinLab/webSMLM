@@ -2528,7 +2528,7 @@ async function runCalibration(){
       for(const [cx,cy] of maxima){
         const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
         const P=phasorFit(img,w,h,cx,cy,win);
-        pts.push({fi,sx:L.sx,sy:L.sy,pr:P.pratio,rrel:L.rrel});
+        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,rrel:L.rrel});
         frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
       }
       if(performance.now()-lastYield>50){
@@ -2568,7 +2568,11 @@ async function runCalibration(){
       if(coef){ let e2=0; for(let i=0;i<prc.length;i++){ const d=zrc[i]-polyEval(coef,prc[i]); e2+=d*d; }
         const sr=prc.slice().sort((a,b)=>a-b);
         zcal={coef,rmin:sr[0],rmax:sr[sr.length-1],rms:Math.sqrt(e2/prc.length)}; } }
+    // per-frame accepted fits, so the raw panel can overlay them while scrubbing
+    const fitsByFrame=new Map();
+    for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
     calib={ first,last,step,px,zref, qx,qy,qpr, zcal,
+            det:{sigma,k,win,border,exactBP}, fitsByFrame,
             pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr})),
             zmin:Math.min(...zr), zmax:Math.max(...zr) };
     cal3d=zcal;                               // make it immediately usable by Phasor 3D
@@ -2870,7 +2874,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
     $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub(); $('sFrames').textContent=stack.n;
@@ -2885,7 +2889,7 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; groundTruth=null; $('saveBtn').disabled=true;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; calib=null; groundTruth=null; $('saveBtn').disabled=true;
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
@@ -2919,12 +2923,17 @@ async function showFrame(i){
   scrubBusy=true;
   try{
     const img=(await stack.getFrames(i,i+1))[0];
-    // if a result exists (same stack), re-detect boxes and overlay its locs
-    let spots=null, locsF=null;
+    // re-detect boxes and overlay the fits from whichever is current: a
+    // localization result, else a calibration (same stack).
+    let spots=null, locsF=null, det=null, getLocs=null;
     if(lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h){
-      const d=lastResult.det;
-      spots=findMaxima(bandpass(img,stack.w,stack.h,d.sigma,d.exactBP),stack.w,stack.h,d.k,d.border);
-      locsF=locsForFrame(i);
+      det=lastResult.det; getLocs=locsForFrame;
+    }else if(calib && calib.det){
+      det=calib.det; getLocs=fi=>(calib.fitsByFrame.get(fi)||[]);
+    }
+    if(det){
+      spots=findMaxima(bandpass(img,stack.w,stack.h,det.sigma,det.exactBP),stack.w,stack.h,det.k,det.border);
+      locsF=getLocs(i);
     }
     drawRaw(img,stack.w,stack.h,spots,locsF);
     $('rawInfo').textContent=`frame ${i+1}/${stack.n}`+(locsF?` — ${spots.length} spots, ${locsF.length} locs`:'');
