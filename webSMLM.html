@@ -1309,7 +1309,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22i · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22j · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1477,7 +1477,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22i
+      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22j
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2219,12 +2219,25 @@ function clampRawView(){ if(!rawFull) return;
   const d=$('raw'), hw=d.width/rawView.zoom/2, hh=d.height/rawView.zoom/2;
   rawView.cx = 2*hw>=rawFull.width  ? rawFull.width/2  : Math.max(hw, Math.min(rawFull.width-hw, rawView.cx));
   rawView.cy = 2*hh>=rawFull.height ? rawFull.height/2 : Math.max(hh, Math.min(rawFull.height-hh, rawView.cy)); }
+let rawSpots=null, rawLocs=null;                 // overlays for the current frame (native coords)
 function drawRawView(){
   const d=$('raw'), ctx=d.getContext('2d'), DW=d.width, DH=d.height;
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH); if(!rawFull) return;
   ctx.imageSmoothingEnabled=false;
-  const sw=DW/rawView.zoom, sh=DH/rawView.zoom;
-  ctx.drawImage(rawFull, rawView.cx-sw/2, rawView.cy-sh/2, sw,sh, 0,0,DW,DH);
+  const z=rawView.zoom, sw=DW/z, sh=DH/z, sx=rawView.cx-sw/2, sy=rawView.cy-sh/2;
+  ctx.drawImage(rawFull, sx,sy,sw,sh, 0,0,DW,DH);
+  // Overlays are drawn HERE (display resolution), not baked into the frame
+  // buffer, so they stay a fixed on-screen size and keep sub-pixel position
+  // however far you zoom in. A pixel centre maps to native coord i+0.5.
+  const TX=nx=>(nx-sx)*z, TY=ny=>(ny-sy)*z;
+  if(rawSpots&&rawSpots.length){ ctx.strokeStyle='#3fb950'; ctx.lineWidth=1;
+    const r=Math.max(2, 2.5*z);                 // ROI box tracks the ~5 px window
+    for(const [x,y] of rawSpots) ctx.strokeRect(TX(x+0.5)-r, TY(y+0.5)-r, 2*r, 2*r); }
+  if(rawLocs&&rawLocs.length){ ctx.strokeStyle='#ff3bff'; ctx.lineWidth=1.4;
+    for(const L of rawLocs){ const dx=TX(L.x+0.5), dy=TY(L.y+0.5); ctx.beginPath();  // sub-pixel crosshair
+      ctx.moveTo(dx-6,dy); ctx.lineTo(dx-2,dy); ctx.moveTo(dx+2,dy); ctx.lineTo(dx+6,dy);
+      ctx.moveTo(dx,dy-6); ctx.lineTo(dx,dy-2); ctx.moveTo(dx,dy+2); ctx.lineTo(dx,dy+6);
+      ctx.stroke(); } }
 }
 function drawRaw(frame,w,h,spots,locs){
   if(!rawFull) rawFull=document.createElement('canvas');
@@ -2234,11 +2247,8 @@ function drawRaw(frame,w,h,spots,locs){
   let mn=Infinity,mx=-Infinity; for(const v of frame){if(v<mn)mn=v;if(v>mx)mx=v;}
   for(let i=0;i<frame.length;i++){ const t=mx>mn?(frame[i]-mn)/(mx-mn):0, g=t*255;
     im.data[i*4]=g;im.data[i*4+1]=g;im.data[i*4+2]=g;im.data[i*4+3]=255; }
-  ctx.putImageData(im,0,0);
-  if(spots){ ctx.strokeStyle='#3fb950'; ctx.lineWidth=0.6;
-    for(const [x,y] of spots) ctx.strokeRect(x-2.5,y-2.5,5,5); }
-  if(locs&&locs.length){ ctx.fillStyle='#ff3bff';        // accepted localizations, sub-pixel
-    for(const L of locs){ ctx.beginPath(); ctx.arc(L.x,L.y,0.8,0,7); ctx.fill(); } }
+  ctx.putImageData(im,0,0);                      // frame buffer holds ONLY the grayscale image
+  rawSpots=spots||null; rawLocs=locs||null;
   if(sizeChanged || !rawView.zoom) fitRawView();          // refit only on a new frame size; keep zoom while scrubbing
   clampRawView(); drawRawView();
 }
