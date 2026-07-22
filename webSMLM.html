@@ -1309,7 +1309,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22h · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22i · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1477,7 +1477,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22h
+      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22i
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2604,7 +2604,7 @@ async function run(){
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     if(method==='phasor3d' && !zcal){ log('Phasor 3D needs a calibration — run Calibrate or load a *_calib.json first.'); return; }
     const label = method==='phasor'?'phasor 2D':method==='phasor3d'?'phasor 3D':'Gaussian LS';
-    const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null;
+    const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1;
     log(`\nRun: ${n} frames · ${label} fit · σ=${sigma} · k=${k} · win=${win} · band-pass ${exactBP?'exact':'fast (box)'}`);
     const pool = await getPool();
     // Workers only pay off when per-frame work clearly exceeds the cost of
@@ -2652,7 +2652,7 @@ async function run(){
               lastPrev=doneF; const tp=performance.now();
               if(shown){                              // raw frame + detected ROIs
                 const mx=findMaxima(bandpass(shown.img,w,h,sigma,exactBP),w,h,k,border);
-                drawRaw(shown.img,w,h,mx); lastSpots=mx; lastFrame=shown.img;
+                drawRaw(shown.img,w,h,mx); lastSpots=mx; lastFrame=shown.img; lastFrameIdx=shown.fi;
                 $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${mx.length} spots`;
               }
               if(locs.length){ lastResult={locs,w,h,px,mag:+$('mag').value,det:{sigma,k,win,border,exactBP}}; rerender(true); }
@@ -2671,7 +2671,7 @@ async function run(){
       // worker scheduling (stable sort keeps within-frame order).
       locs.sort((p,q)=>p.frame-q.frame);
       if(shown){ const tp=performance.now();       // display only — not compute time
-        lastFrame=shown.img;
+        lastFrame=shown.img; lastFrameIdx=shown.fi;
         lastSpots=findMaxima(bandpass(shown.img,w,h,sigma,exactBP),w,h,k,border);
         $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${lastSpots.length} spots`;
         previewMs+=performance.now()-tp; }
@@ -2697,7 +2697,7 @@ async function run(){
         }
         tFit+=performance.now()-tc;
         if(fi % 100 === 0){                        // refresh both views every 100th frame
-          drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img;
+          drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img; lastFrameIdx=fi;
           $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`;
           if(locs.length){                         // live super-res preview
             const tp=performance.now();
@@ -2718,12 +2718,14 @@ async function run(){
     }
     }
     setProg(stopped ? 100*processed/n : 100);
-    if(lastFrame) drawRaw(lastFrame,w,h,lastSpots);
     const dt=performance.now()-t0-previewMs;       // localization work only
     const per=Math.max(1,processed);
 
     lastResult={locs,w,h,px,mag:+$('mag').value,det:{sigma,k,win,border,exactBP}};
     rerender(true);
+    // refresh the raw panel with the accepted localizations (magenta) overlaid,
+    // now that lastResult exists so locsForFrame() can index them
+    if(lastFrame) drawRaw(lastFrame,w,h,lastSpots, lastFrameIdx>=0?locsForFrame(lastFrameIdx):null);
 
     $('saveBtn').disabled = locs.length===0;
     $('sFrames').textContent = stopped ? `${processed}/${n}` : n;
