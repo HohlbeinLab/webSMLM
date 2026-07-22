@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22l · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22m · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1333,6 +1333,7 @@ X.B(E,Y);return E}return J}())
         <button class="danger" id="stopBtn" disabled>Stop ⏹</button>
       </div>
       <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save localisations ⭳</button>
+      <button id="helpBtn" class="helpbtn" style="margin-top:6px">❓ Help &amp; guide</button>
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="file" accept=".tif,.tiff" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
@@ -1362,7 +1363,7 @@ X.B(E,Y);return E}return J}())
           <input type="number" id="calStep" value="10" min="0.1" step="1" class="num"></label>
         <label class="row">z=0 ref frame (0=auto)
           <input type="number" id="calRef" value="0" min="0" step="1" class="num"></label>
-        <div class="btnrow runrow">
+        <div class="btnrow">
           <button class="primary" id="calBtn">Calibrate ▶</button>
           <button id="calSaveBtn" disabled title="Save the calibration curves as JSON">Save calib.</button>
         </div>
@@ -1444,9 +1445,6 @@ X.B(E,Y);return E}return J}())
         black — narrow the window to optically section through the volume.
         All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</div></details>
     </div>
-
-    <hr class="sep">
-    <button id="helpBtn" class="helpbtn">❓ Help &amp; guide</button>
   </aside>
 
   <main class="main">
@@ -1475,7 +1473,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22l
+      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22m
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2605,7 +2603,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; calib=null; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; calib=null; $('zmin').value=''; $('zmax').value='';
   let processed=0, stopped=false;
   try{
     const {w,h,n,px}=stack;
@@ -2806,7 +2804,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; stackName='webSMLM_simulated';
+    stack=await generateSynthetic(); lastResult=null; srFull=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
     $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub(); $('sFrames').textContent=stack.n;
@@ -2821,7 +2819,7 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; groundTruth=null;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; groundTruth=null; $('saveBtn').disabled=true;
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
