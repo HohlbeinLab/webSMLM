@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.6.0 · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.6.1-dev · build 2026-07-22n · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1473,7 +1473,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.6.0 — UI overhaul, sub-pixel overlays, faster previews
+      <div class="log" id="log">webSMLM v0.6.1-dev · build 2026-07-22n
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -1635,8 +1635,65 @@ async function loadTiffFile(file){
               getFrame(){ throw new Error('sliced stack: use getFrames()'); }};
     }
   }
-  // Not a contiguous stack — fall back to reading the whole file.
+  // Too big to hold in one ArrayBuffer, and not a single-IFD contiguous stack
+  // (e.g. a multi-GB Micro-Manager MMStack, where per-frame IFDs sit between the
+  // frames at a varying stride) — index the IFD chain and stream frames.
+  if(fileSize>SLICE_MIN) return loadMultiIfdStreaming(file, fileSize);
+  // Otherwise read the whole file (UTIF handles multi-IFD and caches frames).
   return loadTiff(await file.arrayBuffer(), fileSize);
+}
+
+// Stream a large multi-IFD TIFF: follow the IFD chain via File.slice to build a
+// per-frame strip-offset table (frames stay on disk), then read each frame on
+// demand. Uncompressed strips only. Validated against a 4.1 GB MMStack.
+async function loadMultiIfdStreaming(file, fileSize){
+  const rd=async(o,n)=>new DataView(await file.slice(o,Math.min(fileSize,o+n)).arrayBuffer());
+  const hd=await rd(0,8), isLE=hd.getUint16(0,true)===0x4949;
+  const u16=(dv,o)=>dv.getUint16(o,isLE), u32=(dv,o)=>dv.getUint32(o,isLE);
+  if(hd.getUint16(2,isLE)!==42) throw new Error('BigTIFF not supported');
+  let off=u32(hd,4);
+  // IFD_0 → dimensions / format
+  let w=0,h=0,bps=8,spp=1,fmt=1;
+  { const dv=await rd(off,8192), n=u16(dv,0);
+    for(let i=0;i<n;i++){ const e=2+i*12, tag=u16(dv,e), vh=u16(dv,e+8);
+      if(tag===256)w=vh; else if(tag===257)h=vh; else if(tag===258)bps=vh;
+      else if(tag===277)spp=vh; else if(tag===339)fmt=vh;
+      else if(tag===259&&vh!==1) throw new Error('compressed multi-IFD stacks are not supported'); } }
+  if(!w||!h) throw new Error('could not read image dimensions');
+  const rawBytes=w*h*(bps>>3)*spp, px=+$('pxnm').value;
+  log(`Large multi-IFD stack (${fmtBytes(fileSize)}) — indexing frame offsets…`);
+  const offsets=[]; let lastYield=performance.now();
+  while(off>0 && off+2<=fileSize){                 // follow the IFD chain
+    const dv=await rd(off,8192), n=u16(dv,0);
+    if(n<=0 || 2+n*12+4>dv.byteLength) break;
+    let so=0; for(let i=0;i<n;i++){ const e=2+i*12; if(u16(dv,e)===273){ so=u32(dv,e+8); break; } }
+    if(so>0 && so+rawBytes<=fileSize) offsets.push(so);
+    off=u32(dv,2+n*12);
+    if(performance.now()-lastYield>60){ setProg(100*(offsets[offsets.length-1]||0)/fileSize);
+      $('rawInfo').textContent=`indexing frame ${offsets.length.toLocaleString()}…`; await tick(); lastYield=performance.now(); }
+  }
+  setProg(null);
+  const n=offsets.length;
+  if(!n) throw new Error('no image frames found');
+  log(`  indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
+  $('sFrames').textContent=n;
+  const decodeInto=(buf,byteOff,g)=>{
+    if(bps===8){ const u=new Uint8Array(buf,byteOff,rawBytes); for(let i=0;i<w*h;i++) g[i]=u[i*spp]; return g; }
+    const d=new DataView(buf,byteOff,rawBytes);
+    if(bps===16)               for(let i=0;i<w*h;i++) g[i]=d.getUint16(i*2*spp,isLE);
+    else if(bps===32&&fmt===3) for(let i=0;i<w*h;i++) g[i]=d.getFloat32(i*4*spp,isLE);
+    else if(bps===32)          for(let i=0;i<w*h;i++) g[i]=d.getUint32(i*4*spp,isLE);
+    else throw new Error(`unsupported bit depth ${bps}`);
+    return g;
+  };
+  // One slice per batch: frames are near-contiguous (small IFD gaps between),
+  // so read [firstOffset, lastOffset+frame] once and index within it.
+  const getFrames=async(s,e)=>{ e=Math.min(e,n); if(e<=s) return [];
+    const start=offsets[s], end=offsets[e-1]+rawBytes;
+    const buf=await file.slice(start,end).arrayBuffer(), out=new Array(e-s);
+    for(let i=s;i<e;i++) out[i-s]=decodeInto(buf, offsets[i]-start, new Float32Array(w*h));
+    return out; };
+  return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('sliced stack: use getFrames()'); }};
 }
 
 async function loadTiff(fileBuf, fileSize){
