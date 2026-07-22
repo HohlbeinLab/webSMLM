@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.7.0-dev · build 2026-07-22v · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.7.0-dev · build 2026-07-22w · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1381,6 +1381,8 @@ X.B(E,Y);return E}return J}())
           <input type="number" id="driftSeg" value="100" min="5" max="2000" step="5" class="num"></label>
         <label class="row">Search radius (nm)
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
+        <label class="row" id="driftZRow" style="display:none">Correct z too (3D)
+          <input type="checkbox" id="driftZ" checked></label>
         <div class="btnrow">
           <button class="primary" id="driftBtn" disabled>Correct drift ▶</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
@@ -1492,7 +1494,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.7.0-dev · build 2026-07-22v (phase 6: drift correction)
+      <div class="log" id="log">webSMLM v0.7.0-dev · build 2026-07-22w (phase 6: drift correction)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2271,6 +2273,7 @@ function rerender(keepView){
   lastResult.mag=mag;
   const has3d=lastResult.locs.some(L=>isFinite(L.z));
   $('zcolorRow').style.display = has3d ? 'flex' : 'none';
+  { const zr=$('driftZRow'); if(zr) zr.style.display = has3d ? 'flex' : 'none'; }
   const zColor = has3d && $('zcolor').checked;
   $('zrangeRow').style.display = zColor ? 'block' : 'none';
   // z range only matters (and is only computed) in depth mode. Doing it
@@ -2761,6 +2764,41 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onPr
   return {fdx, fdy, segCenters:centers, segdx:dx2, segdy:dy2, nSeg};
 }
 
+// z drift: the same intersection-maximization, but a 1-D search on z (nm).
+async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
+  let _yld=performance.now();
+  const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
+  const qd=1/binNm, R=Math.max(1,Math.round(roiNm/binNm));
+  const nSeg=Math.max(1,Math.ceil(nFrames/segFrames));
+  const seg=Array.from({length:nSeg},()=>[]);
+  for(const L of locs){ if(!isFinite(L.z)) continue; let s=(L.frame/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
+  const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1,k*segFrames+segFrames/2));
+  const addTo=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd); map.set(b,(map.get(b)||0)+1); } return map; };
+  function bestShift(list,o,ref){
+    const bs=[],cs=[]; const m=addTo(new Map(),list,o);
+    for(const [b,c] of m){ bs.push(b); cs.push(c); }
+    const W=2*R+1, grid=new Float64Array(W); let best=-1,bb=0;
+    for(let sx=-R;sx<=R;sx++){ let t=0; for(let i=0;i<bs.length;i++){ const cr=ref.get(bs[i]+sx); if(cr) t+=Math.min(cs[i],cr); } grid[sx+R]=t; if(t>best){best=t;bb=sx;} }
+    const at=sx=>(sx<-R||sx>R)?0:grid[sx+R];
+    const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
+    return (bb+par(at(bb-1),best,at(bb+1)))*binNm;
+  }
+  const dz=new Float64Array(nSeg); const ref=addTo(new Map(),seg[0],0);
+  for(let k=1;k<nSeg;k++){ dz[k]=dz[k-1]+bestShift(seg[k],dz[k-1],ref); addTo(ref,seg[k],dz[k]); await yieldMaybe(0.5*k/nSeg); }
+  const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full,seg[k],dz[k]);
+  const dz2=new Float64Array(nSeg);
+  for(let k=0;k<nSeg;k++){ dz2[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg); }
+  let m=0; for(let k=0;k<nSeg;k++) m+=dz2[k]; m/=nSeg; for(let k=0;k<nSeg;k++) dz2[k]-=m;
+  const fdz=new Float64Array(nFrames);
+  for(let f=0;f<nFrames;f++){
+    if(nSeg===1||f<=centers[0]){ fdz[f]=dz2[0]; continue; }
+    if(f>=centers[nSeg-1]){ fdz[f]=dz2[nSeg-1]; continue; }
+    let k=0; while(k<nSeg-1&&centers[k+1]<f) k++;
+    fdz[f]=dz2[k]+(dz2[k+1]-dz2[k])*(f-centers[k])/(centers[k+1]-centers[k]);
+  }
+  return {fdz, segdz:dz2, nSeg};
+}
+
 let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
 async function correctDrift(){
   if(!lastResult||!lastResult.locs.length){ log('Run localisations first.'); return; }
@@ -2777,16 +2815,26 @@ async function correctDrift(){
     const bar=$('driftBar'), prog=$('driftProg');
     const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm,
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
-    bar.classList.remove('on'); prog.style.width='0%';
     // apply reversibly — keep the raw coordinates in x0/y0
     for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
       const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
     lastDrift=d; lastResult.byFrame=null;          // positions changed
+    // z drift (Phasor 3D): independent 1-D correction on z (nm)
+    const has3d=locs.some(L=>isFinite(L.z));
+    if(has3d && $('driftZ').checked){
+      const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm,
+        p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
+      for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
+        L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,L.frame|0))]; }
+      d.fdz=dz.fdz; lastResult.zr=null;
+    }
+    bar.classList.remove('on'); prog.style.width='0%';
     rerender(true);
     let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
     for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
       if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
-    log(`  drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
+    log(`  drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm`+
+        (d.fdz?`, z ${(Math.max(...d.fdz)-Math.min(...d.fdz)).toFixed(0)} nm`:'')+` · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
     if(simTrueDrift){                              // score against the simulator's ground truth
       // per-axis RMS after removing the best constant offset
       const rms=(rec,tru)=>{ let a=0,b=0; for(let f=0;f<nFrames;f++){a+=rec(f);b+=tru(f);} a/=nFrames;b/=nFrames;
@@ -2818,11 +2866,13 @@ function drawDriftCurve(){
   const line=(get,col)=>{ ctx.strokeStyle=col; ctx.lineWidth=1.6; ctx.beginPath();
     for(let f=0;f<n;f++){ const x=X(f),y=Y(get(f)); f?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
   line(f=>-d.fdx[f]*px,'#0a7d32'); line(f=>-d.fdy[f]*px,'#c81cc8');
+  if(d.fdz) line(f=>-d.fdz[f],'#3572b0');   // z drift is already in nm
   ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center';
   ctx.fillText('frame', mL+pw/2, H-12);
   ctx.save(); ctx.translate(15,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('drift (nm)',0,0); ctx.restore();
   ctx.textAlign='left'; ctx.fillStyle='#0a7d32'; ctx.fillText('drift x', mL+pw-90, mT-6);
   ctx.fillStyle='#c81cc8'; ctx.fillText('drift y', mL+pw-40, mT-6);
+  if(d.fdz){ ctx.fillStyle='#3572b0'; ctx.fillText('drift z', mL+pw-140, mT-6); }
   $('srInfo').textContent=`estimated drift · ${d.nSeg} segments · change a render setting to return to the reconstruction`;
 }
 
