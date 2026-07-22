@@ -49,9 +49,14 @@ walk-through of every step.
   a choice of colour maps (Fire, Inferno, Viridis, Turbo, Grey) and
   percentile-based display scaling. All render settings apply instantly without
   refitting.
-- **Builds up live**: the raw frame and the reconstruction both refresh during a
-  run, and a **Stop** button ends the analysis early while keeping the
-  localizations gathered so far.
+- **Builds up live**: the raw frame refreshes during a run with detected ROIs
+  (green) and accepted localizations (magenta sub-pixel crosshairs); the
+  reconstruction previews on a time budget. A **Stop** button ends the analysis
+  early while keeping the localizations gathered so far.
+- **Navigate both panels**: independent zoom/pan (wheel or pinch, drag,
+  double-click to reset) on the raw frame and the reconstruction, plus a frame
+  slider to scrub the stack.
+- **Save/Load settings** as JSON to reproduce an analysis configuration.
 - **Works on small screens**: single-column layout on phones and tablets, with
   drag/pinch-to-zoom navigation of the reconstruction (plus a scale bar).
 - **Exports** localizations as ThunderSTORM-compatible CSV, including
