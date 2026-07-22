@@ -1309,7 +1309,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22f · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.5.1-dev · build 2026-07-22g · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1477,7 +1477,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22f
+      <div class="log" id="log">webSMLM v0.5.1-dev · build 2026-07-22g
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2176,19 +2176,24 @@ function zRange(locs){
 function rerender(keepView){
   if(!lastResult) return;
   $('srTitle').textContent='SMLM reconstruction';
-  const mag=+$('mag').value, rblur=+$('rblur').value;
+  const mag=Math.max(1,+$('mag').value||10), rblur=Math.max(0,+$('rblur').value||0);
   lastResult.mag=mag;
   const has3d=lastResult.locs.some(L=>isFinite(L.z));
   $('zcolorRow').style.display = has3d ? 'flex' : 'none';
   const zColor = has3d && $('zcolor').checked;
   $('zrangeRow').style.display = zColor ? 'block' : 'none';
-  if(!lastResult.zr) lastResult.zr=zRange(lastResult.locs);
-  const auto=lastResult.zr||{lo:0,hi:1};
-  // populate the min/max fields from the auto range the first time depth is enabled
-  if(zColor){ if($('zmin').value==='') $('zmin').value=Math.floor(auto.lo);
-              if($('zmax').value==='') $('zmax').value=Math.ceil(auto.hi); }
-  let zlo=+$('zmin').value, zhi=+$('zmax').value;
-  if(!(zhi>zlo)){ zlo=auto.lo; zhi=auto.hi; }        // fall back if the range is invalid
+  // z range only matters (and is only computed) in depth mode. Doing it
+  // unconditionally sorted the whole loc list on every live-preview render —
+  // O(n log n) growing per preview, which crawled to a halt on big 3D stacks.
+  let zlo=0, zhi=1;
+  if(zColor){
+    if(!lastResult.zr) lastResult.zr=zRange(lastResult.locs);
+    const auto=lastResult.zr||{lo:0,hi:1};
+    if($('zmin').value==='') $('zmin').value=Math.floor(auto.lo);
+    if($('zmax').value==='') $('zmax').value=Math.ceil(auto.hi);
+    zlo=+$('zmin').value; zhi=+$('zmax').value;
+    if(!(zhi>zlo)){ zlo=auto.lo; zhi=auto.hi; }
+  }
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   srFull=renderSuperRes(lastResult.locs, lastResult.w, lastResult.h, mag, rblur,
                         $('lut').value, +$('lutpct').value, zColor, zlo, zhi);
@@ -2767,6 +2772,15 @@ async function run(){
     const d=$(id); d.width=640; d.height=640;
     const ctx=d.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,640,640);
   }
+})();
+
+// Browsers restore form fields across reloads, which can override the HTML
+// default with a blank the user left in an earlier session — an empty
+// Magnification then reads 0 and crashes the render. Reset any blank control
+// to its HTML default on load.
+(function restoreDefaults(){
+  for(const el of document.querySelectorAll('input[type=number], input[type=range]'))
+    if(el.value==='' && el.defaultValue!=='') el.value=el.defaultValue;
 })();
 
 // "Load movie" just proxies to the hidden file input, so both data sources
