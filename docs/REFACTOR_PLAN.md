@@ -343,19 +343,36 @@ Implements the 3D half of the pSMLM-3D paper the 2D fitter already follows.
 
 ---
 
-## Phase 6 — Drift correction
+## Phase 6 — Drift correction  ◐ *(in progress)*
 
-- ☐ **2D: redundant cross-correlation (RCC).** Bin localizations into temporal
-  blocks, reconstruct each, cross-correlate all block pairs, and least-squares
-  solve for the drift trajectory (more robust than sequential correlation).
-- ☐ **3D drift.** ThunderSTORM currently only corrects in 2D; published code
-  exists for 3D — evaluate and adapt rather than reimplement. Depends on Phase 5.
-- ☐ Optional **fiducial-based** correction as a simpler, more accurate path when
-  beads are present.
-- ☐ Apply correction to the stored localization list so the render and CSV export
-  both reflect it; keep raw + corrected coordinates so it stays reversible.
-- ☐ Cross-check: FRC (Phase 4) should measurably improve after drift correction —
-  a good end-to-end validation of both phases.
+**Method: AIM** (Adaptive Intersection Maximization; Sci. Adv. 2024,
+doi:10.1126/sciadv.adm7765; ref impl. picasso/aim.py). Chosen over RCC because
+it is **point-based** — no image rendering and **no FFT** for the core estimate
+(fits the single-file, no-dependency constraint that RCC/FFT would break, and
+that Phase 4 FRC still has to solve) — and it is **natively 3D** (x/y as a 2D
+grid search, z as a separate 1D search), matching the Phasor 3D output.
+
+AIM core: segment localizations in time (~100 frames); for each segment count
+**coincident localizations** with the accumulated reference over a small search
+window (~60 nm) at a quantization of ~20 nm; the shift that maximizes the count
+is the drift. Two passes (first segment as reference, then the whole undrifted
+set). Adaptations for webSMLM: **parabola peak fit** for sub-pixel instead of
+Picasso's FFT phase refinement; **linear / Catmull-Rom** interpolation of drift
+between segment centres instead of SciPy cubic spline.
+
+- ☑ **6a — simulated drift** (ground truth): linear total drift over all frames
+  in a random direction; true per-frame drift stored (`simTrueDrift`) for
+  scoring. *(v0.7.0-dev)*
+- ☐ **6b — AIM 2D**: segment → intersection-max shift → parabola sub-pixel →
+  interpolate → apply. Validate recovered vs. simulated drift (RMS).
+- ☐ **6c — apply + display**: correct the stored localizations (keep raw +
+  corrected so it is reversible), show the drift-vs-time curve, re-render; add
+  corrected coords to CSV export.
+- ☐ **6d — z drift**: the extra 1D search; test on Phasor 3D data.
+- ☐ Optional **fiducial-based** correction when beads are present (simpler, more
+  accurate).
+- ☐ Cross-check: FRC (Phase 4) should measurably improve after correction — an
+  end-to-end validation of both phases.
 
 ---
 
