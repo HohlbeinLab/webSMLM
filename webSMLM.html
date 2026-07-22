@@ -1312,7 +1312,7 @@ X.B(E,Y);return E}return J}())
 </head>
 <body>
 <header>
-  <h1>webSMLM <span class="pill">v0.7.0-dev · build 2026-07-22t · proof-of-concept</span> All client-side, no upload.</h1>
+  <h1>webSMLM <span class="pill">v0.7.0-dev · build 2026-07-22u · proof-of-concept</span> All client-side, no upload.</h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · see <b>Help &amp; guide</b> for methods &amp; references</p>
 </header>
 
@@ -1385,6 +1385,7 @@ X.B(E,Y);return E}return J}())
           <button class="primary" id="driftBtn" disabled>Correct drift ▶</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
         </div>
+        <div class="bar" id="driftBar"><i id="driftProg"></i></div>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">Point-based drift correction (AIM). Run localisations first, then Correct drift.
           The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for
@@ -1491,7 +1492,7 @@ X.B(E,Y);return E}return J}())
 
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
-      <div class="log" id="log">webSMLM v0.7.0-dev · build 2026-07-22t (phase 6: drift correction)
+      <div class="log" id="log">webSMLM v0.7.0-dev · build 2026-07-22u (phase 6: drift correction)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2699,7 +2700,9 @@ async function exportCalibration(){
 // Returns {fdx,fdy}: the per-frame drift CORRECTION to ADD to each localization
 // (corrected = observed + fd[frame]), plus the per-segment estimates.
 // px = camera pixel size (nm); intersect/roi in nm.
-function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onProgress){
+async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onProgress){
+  let _yld=performance.now();
+  const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const iD=intersectNm/px, qd=1/iD;                // quantization step (px) and its inverse
   const R=Math.max(1, Math.round(roiNm/intersectNm));    // search radius, in bins
   const nSeg=Math.max(1, Math.ceil(nFrames/segFrames));
@@ -2732,7 +2735,7 @@ function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onProgress
     const [sx,sy]=bestShift(seg[k], dx[k-1], dy[k-1], ref);
     dx[k]=dx[k-1]+sx; dy[k]=dy[k-1]+sy;
     addTo(ref, seg[k], dx[k], dy[k]);
-    if(onProgress) onProgress(0.5*k/nSeg);
+    await yieldMaybe(0.5*k/nSeg);
   }
   // Round 2: reference = ALL localizations corrected by round 1; re-estimate each
   // segment's ABSOLUTE drift (fixes segment 0 and limits error accumulation).
@@ -2741,7 +2744,7 @@ function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onProgress
   for(let k=0;k<nSeg;k++){
     const [sx,sy]=bestShift(seg[k], dx[k], dy[k], full);
     dx2[k]=dx[k]+sx; dy2[k]=dy[k]+sy;
-    if(onProgress) onProgress(0.5+0.5*k/nSeg);
+    await yieldMaybe(0.5+0.5*k/nSeg);
   }
   // Drift is defined up to a constant → zero-reference by removing the mean.
   let mx=0,my=0; for(let k=0;k<nSeg;k++){ mx+=dx2[k]; my+=dy2[k]; } mx/=nSeg; my/=nSeg;
@@ -2769,7 +2772,10 @@ async function correctDrift(){
   try{
     log(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
     const t0=performance.now();
-    const d=aimDrift2D(locs,nFrames,px,segF,intD,roiNm);
+    const bar=$('driftBar'), prog=$('driftProg');
+    const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm,
+      p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
+    bar.classList.remove('on'); prog.style.width='0%';
     // apply reversibly — keep the raw coordinates in x0/y0
     for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
       const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
