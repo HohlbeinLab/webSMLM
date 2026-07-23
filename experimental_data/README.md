@@ -81,6 +81,13 @@ Note on σ_PSF: at 120 nm/px with a typical high-NA objective the diffraction-li
 PSF is only ~0.75 px, at or below the slider's 0.8 minimum. Start at 0.8–1.0 and
 tune by eye against the green detection boxes.
 
+**Not a good NeNA sample.** Nile Red is a solvatochromic membrane probe: it
+partitions into and **diffuses within the membrane** during binding events, so
+consecutive-frame displacements carry that motion on top of the localization
+error. NeNA assumes a *static* structure, so it would report an inflated σ here.
+Use a fixed-target sample for precision — e.g. the DNA-PAINT nanoruler above,
+where the imager binds a static docking strand.
+
 ## Third benchmark dataset — 3D STORM (very large, ~4.9 GB)
 
 3D STORM of spectrin rings in neurons, by **Christophe Leterrier**, on figshare:
