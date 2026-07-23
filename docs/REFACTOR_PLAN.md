@@ -32,12 +32,14 @@ their historical "Phase N" headings as a record; new work is version-keyed.
 | v0.5.0 | 3D phasor (astigmatism) |
 | v0.6.0–0.6.x | UI overhaul & pipeline polish; large multi-IFD stacks; TIFF fixes |
 | v0.7.0 | Drift correction (AIM, 2D + 3D) |
+| v0.7.1–0.7.7 | JS-disabled warning; wavelet detection filter (default); UI polish; PNG image export + raw scale bar |
+| v0.8.0 | Localization precision — **NeNA** + **FRC** (2D), experimental |
 
 **Next:**
 
 | Version | Plan |
 |---|---|
-| **v0.8.0** | Localization precision — **FRC / FSC** and/or **NeNA** (see below) |
+| **v0.8.x / 0.9.0** | **FSC** (3D FRC over spherical shells) · cross-validate NeNA/FRC against established tools |
 | later | Scriptable / headless pipeline (see below) · Poisson MLE fitting · localization filtering · 3D point-cloud view |
 
 ---
@@ -390,7 +392,7 @@ between segment centres instead of SciPy cubic spline.
 
 ---
 
-## v0.8.0 (next) — localization precision: FRC / FSC and/or NeNA
+## v0.8.0 — localization precision: NeNA + FRC  ☑ *(experimental)*
 
 Well-timed after drift correction (v0.7.0): resolution should measurably improve
 after AIM, so FRC doubles as an end-to-end validation of the drift work.
@@ -401,29 +403,27 @@ no CRLB / Thompson–Larson–Webb-style uncertainty as there is for a Gaussian-
 fit, and its photon/background estimates are crude. So for precision on
 phasor localizations, prefer **empirical / resolution** measures:
 
-- ☐ **NeNA** — empirical per-localization precision from nearest-neighbour
-  analysis of the localization list (data-driven, no PSF model). The most
-  honest single-number precision for the phasor path; a good first deliverable.
-- ☐ **2D FRC** — split localizations into two statistically independent halves
-  (**odd/even frames** — temporally interleaved, so it captures drift better
-  than a random 50/50), render both, compute the Fourier Ring Correlation curve,
-  and report resolution at the **1/7 threshold**.
-- ☐ **3D FSC** (Fourier Shell Correlation) — unblocked now that v0.5.0 provides
-  z; same idea over spherical shells.
-- ☐ Report the precision/resolution figure(s) in the stats bar alongside the
-  localization count.
-- ☐ **Note on interpretation:** FRC measures *image resolution* (which folds in
+- ☑ **NeNA** — per-localization precision from the nearest-neighbour distance to
+  the *next frame* (grid index, exact NN). The distance histogram (signal
+  Rayleigh, scale √2·σ, + smooth background) is fit by Levenberg–Marquardt and
+  σ = b/√2 reported with a covariance error; the histogram+fit is plotted.
+  Endesfelder et al., *Histochem. Cell Biol.* 141, 629 (2014). Validated vs.
+  synthetic (recovers injected σ within ~2%). **Assumes a static structure** —
+  a diffusing probe (e.g. Nile Red membrane PAINT) inflates it.
+- ☑ **2D FRC** — split localizations into two **random** halves, render + Hann
+  window, 2D-FFT and correlate over frequency rings; resolution = 1/(1/7
+  crossing), error = spread over random splits. Compact inline radix-2 FFT
+  (Float32, no dependency); reports "< Nyquist" when finer than the sampling.
+  Nieuwenhuizen et al., *Nat. Methods* 10, 557 (2013).
+- ☐ **3D FSC** (Fourier Shell Correlation) — same idea over spherical shells,
+  once the 3D voxel-grid memory is bounded. *Not yet implemented.*
+- ☐ **Cross-validate** NeNA and FRC against established tools (ThunderSTORM,
+  Picasso, FRCbar) and previously-analysed datasets before treating the numbers
+  as authoritative — this is why 0.8.0 ships marked **experimental**.
+- **Note on interpretation:** FRC measures *image resolution* (folds in
   labelling density and drift); NeNA measures *per-localization* precision.
-  Ideally report both — disagreement between them is itself diagnostic (e.g.
-  residual drift). The app's existing exported `uncertainty [nm]` column
-  (Thompson/Larson/Webb) is only meaningful on the Gaussian-fit path.
-- ☐ **On the FFT.** FRC needs a 2D FFT of the two half-reconstructions. This is
-  *not* a real obstacle to the single-file constraint: a compact radix-2
-  Cooley–Tukey FFT (row/column 1-D passes) is ~40 self-contained lines — no
-  dependency, no WebGPU, no build step. Add a Tukey/Hann window before the
-  transform to suppress edge artefacts, then radially bin the ring correlation.
-- ☐ Validate against the **synthetic generator** (known positions), same harness
-  used for AIM.
+  Reporting both is diagnostic — disagreement flags residual drift. Run after
+  drift correction.
 
 ---
 

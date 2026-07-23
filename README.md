@@ -73,6 +73,14 @@ walk-through of every step.
   localizations on every run, so segment size and search radius can be swept and
   compared; corrected coordinates drive the render and CSV, the raw ones are
   kept, and the drift-vs-frame curve can be plotted.
+- **Measures precision & resolution** (*experimental*, new in 0.8.0):
+  **NeNA** — the mean per-localization precision from the nearest-neighbour
+  distance distribution (with a fitted histogram plotted); and **FRC** — image
+  resolution at the 1/7 threshold by Fourier ring correlation of two independent
+  halves (a compact inline FFT, no dependency), with the curve plotted. Both
+  report an error estimate. NeNA needs a *static* structure (a diffusing probe
+  inflates it); FRC folds in labelling density and drift, so run it after drift
+  correction.
 - **Exports** localizations as ThunderSTORM-compatible CSV, including
   background-subtracted intensity, background level and a Thompson/Larson/Webb
   uncertainty estimate. See the caveat on ADU-to-photon conversion below.
@@ -147,6 +155,15 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   1198–1228, 2017, https://doi.org/10.1038/nprot.2017.024): a parabolic
   sub-pixel peak fit replaces the FFT phase refinement and linear interpolation
   replaces the spline.
+- **Localization precision (NeNA)** (the estimator implemented here):
+  U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, *A simple method to
+  estimate the average localization precision of a single-molecule localization
+  microscopy experiment*, *Histochem. Cell Biol.* **141**, 629–638 (2014).
+  https://doi.org/10.1007/s00418-014-1192-3
+- **Image resolution (FRC)** (the measure implemented here): R. P. J.
+  Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga,
+  B. Rieger, *Measuring image resolution in optical nanoscopy*, *Nat. Methods*
+  **10**, 557–562 (2013). https://doi.org/10.1038/nmeth.2448
 - **Overview**: M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021).
   https://doi.org/10.1038/s43586-021-00038-x
 
