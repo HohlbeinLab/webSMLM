@@ -1321,7 +1321,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.7.6 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.7.7-dev · build 2026-07-23c · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1341,7 +1341,10 @@ X.B(E,Y);return E}return J}())
         <button class="primary" id="runBtn" disabled>Run</button>
         <button class="danger" id="stopBtn" disabled>Stop</button>
       </div>
-      <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save localisations</button>
+      <div class="btnrow">
+        <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save locs</button>
+        <button id="saveImgBtn" disabled title="Save the current reconstruction view as a PNG">Save image</button>
+      </div>
       <button id="helpBtn" class="helpbtn" style="margin-top:6px">Help &amp; guide</button>
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="file" accept=".tif,.tiff" hidden>
@@ -1512,7 +1515,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.7.6 · detection filters (wavelet / DoG) · drift (AIM)
+</span></noscript>webSMLM v0.7.7-dev · build 2026-07-23c · PNG image export
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2346,6 +2349,7 @@ function rerender(keepView){
   srFull=renderSuperRes(lastResult.locs, lastResult.w, lastResult.h, mag, rblur,
                         $('lut').value, +$('lutpct').value, zColor, zlo, zhi);
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi;
+  $('saveImgBtn').disabled=false;                  // a reconstruction is now on screen
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
   // reconstruction pixel = camera pixel / magnification (e.g. 160 nm / 10× = 16 nm)
@@ -2476,6 +2480,35 @@ async function exportCSV(){
     log('    The uncertainty column scales as 1/√N and is therefore not physically');
     log('    meaningful until a real ADU→photon conversion is entered.');
   }
+}
+
+// Save the reconstruction EXACTLY as shown in the SR panel (current zoom/pan,
+// scale bar and depth bar included) as a PNG. srFull holds the full-resolution
+// render (w·mag × h·mag); when the view is fit/zoomed-out it is DENSER than the
+// screen, so we export at that native resolution (s = 1/zoom > 1), down to a
+// floor of the on-screen size. Overlays are drawn at fixed pixel sizes, so they
+// are scaled by s to stay proportional to the enlarged image.
+async function exportImage(){
+  if(!srFull){ log('Nothing to save — render a reconstruction first.'); return; }
+  const d=$('sr'), DW=d.width, DH=d.height;
+  const s=Math.max(1, 1/view.zoom);                       // >1 ⇒ srFull denser than the screen
+  const outW=Math.round(DW*s), outH=Math.round(DH*s);
+  const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
+  const cv=document.createElement('canvas'); cv.width=outW; cv.height=outH;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,outW,outH);      // match the panel's letterboxing
+  ctx.imageSmoothingEnabled=false;                        // nearest-neighbour, as on screen
+  ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,outW,outH);
+  ctx.save(); ctx.scale(s,s);                             // scale the fixed-px overlays to the export
+  drawScaleBar(ctx,DW,DH);
+  if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
+  ctx.restore();
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  if(!blob){ log('Image export failed.'); return; }
+  const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_SMLM.png';
+  const saved=await saveBlob(blob,name,'PNG image','image/png','.png');
+  if(!saved){ log('Image save cancelled.'); return; }
+  log(`Saved reconstruction view as ${saved} (${outW}×${outH} px${s>1?` — ${s.toFixed(1)}× the on-screen size`:''}, ${(blob.size/1048576).toFixed(1)} MB).`);
 }
 
 /* ===========================================================================
@@ -2667,7 +2700,7 @@ async function runCalibration(){
             zmin:Math.min(...zr), zmax:Math.max(...zr) };
     cal3d=zcal;                               // make it immediately usable by Phasor 3D
     updateCalStatus();
-    srFull=null;                              // hand the SR panel over to the plot
+    srFull=null; $('saveImgBtn').disabled=true;   // hand the SR panel over to the plot
     drawCalibration(); $('calSaveBtn').disabled=false;
     const f=q=>`a=${q.a.toExponential(2)} c=${q.c.toFixed(0)}nm b=${q.b.toFixed(1)}nm`;
     log(`  σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
@@ -2976,7 +3009,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; lastDrift=null; calib=null; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('saveImgBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; lastDrift=null; calib=null; $('zmin').value=''; $('zmax').value='';
   let processed=0, stopped=false;
   try{
     const {w,h,n,px}=stack;
@@ -3184,7 +3217,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('saveImgBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; lastDrift=null;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
     $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub(); $('sFrames').textContent=stack.n;
@@ -3199,7 +3232,7 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('saveImgBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true;
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
@@ -3322,6 +3355,7 @@ $('calFile').addEventListener('change',async e=>{
   e.target.value='';
 });
 $('saveBtn').addEventListener('click',exportCSV);
+$('saveImgBtn').addEventListener('click',exportImage);
 $('stopBtn').addEventListener('click',()=>{
   if($('stopBtn').disabled) return;
   stopRequested=true; $('stopBtn').disabled=true; log('Stopping…');
