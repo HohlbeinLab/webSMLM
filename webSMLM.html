@@ -1321,7 +1321,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.0-dev · build 2026-07-23f · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.0-dev · build 2026-07-23g · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1427,7 +1427,7 @@ X.B(E,Y);return E}return J}())
           into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b>
           is the 3D shell version, once z exists. FRC folds in labelling density and drift while NeNA does not, so
           reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations
-          first. <i>(NeNA implemented; FRC/FSC still in development.)</i></div></details>
+          first. <i>(NeNA and FRC implemented; FSC 3D still in development.)</i></div></details>
       </details>
     </div>
 
@@ -1537,7 +1537,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.0-dev · build 2026-07-23f · precision (NeNA / FRC) scaffold
+</span></noscript>webSMLM v0.8.0-dev · build 2026-07-23g · precision (NeNA / FRC) scaffold
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -3135,7 +3135,13 @@ function fitRayleighScale(d,y){
     }
     if(!ok) break;
   }
-  return p;                                          // [A, b, c1, c2]
+  // standard error of b from the fit covariance  s²·(JᵀJ)⁻¹  (s² = residual var)
+  const JtJ=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]; let sse=0;
+  for(let i=0;i<n;i++){ const di=d[i], J=[gr(di,p[1]),p[0]*dgr(di,p[1]),di,di*di], e=f(di,p)-y[i]; sse+=e*e;
+    for(let a=0;a<4;a++)for(let bb=0;bb<4;bb++) JtJ[a][bb]+=J[a]*J[bb]; }
+  const s2=sse/Math.max(1,n-4), col=solveLin(JtJ,[0,1,0,0]);   // (JᵀJ)⁻¹ b-column → its diagonal
+  const errB=(col&&col[1]>0)?Math.sqrt(s2*col[1]):NaN;
+  return {p, errB};                                  // p=[A, b, c1, c2]
 }
 // NeNA: mean single-localization precision (nm). onProgress(0..1) optional.
 async function nenaPrecision(locs, px, onProgress){
@@ -3155,8 +3161,8 @@ async function nenaPrecision(locs, px, onProgress){
   const nb=120, binW=maxD/nb, d=new Float64Array(nb), y=new Float64Array(nb);
   for(let i=0;i<nb;i++) d[i]=(i+0.5)*binW;
   for(const v of dists){ if(v<maxD) y[(v/binW)|0]++; }
-  const p=fitRayleighScale(d,y);
-  return {sigma:p[1]/Math.SQRT2, nPairs:dists.length, d, y, binW, p};   // p=[A,b,c1,c2]
+  const {p,errB}=fitRayleighScale(d,y);
+  return {sigma:p[1]/Math.SQRT2, sigErr:isFinite(errB)?errB/Math.SQRT2:NaN, nPairs:dists.length, d, y, binW, p};
 }
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
@@ -3185,8 +3191,9 @@ function drawNenaPlot(res){
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('pairs',0,0); ctx.restore();
   ctx.textAlign='left'; ctx.fillStyle='#d1242f'; ctx.fillText('fit', mL+8, mT-4);
   ctx.fillStyle='#0a7d32'; ctx.fillText('signal', mL+38, mT-4);
-  ctx.fillStyle='#24292f'; ctx.fillText(`σ = ${sigma.toFixed(1)} nm`, mL+pw-96, mT-4);
-  $('rawInfo').textContent=`— NeNA · ${res.nPairs.toLocaleString()} pairs · σ = ${sigma.toFixed(1)} nm · scrub a frame to return`;
+  const serr=isFinite(res.sigErr)?' ± '+res.sigErr.toFixed(1):'';
+  ctx.fillStyle='#24292f'; ctx.fillText(`σ = ${sigma.toFixed(1)}${serr} nm`, mL+pw-118, mT-4);
+  $('rawInfo').textContent=`— NeNA · ${res.nPairs.toLocaleString()} pairs · σ = ${sigma.toFixed(1)}${serr} nm · scrub a frame to return`;
   syncSaveImg();
 }
 async function computeNeNA(){
@@ -3199,11 +3206,114 @@ async function computeNeNA(){
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
     bar.classList.remove('on'); prog.style.width='0%';
     if(r.err){ log('  '+r.err+'.'); return; }
-    log(`  σ = ${r.sigma.toFixed(1)} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
+    log(`  σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
     log('  Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
     drawNenaPlot(r);                                  // histogram + fit on the left panel
   }catch(err){ log(`⚠ NeNA failed: ${err.name}: ${err.message}`); }
   finally{ $('nenaBtn').disabled=false; }
+}
+
+/* ---- FRC (Fourier Ring Correlation) — image resolution at the 1/7 threshold.
+   Split localizations into two random halves, render, window, 2D-FFT and
+   correlate over frequency rings; resolution = 1/(1/7-crossing). No dependency:
+   a compact radix-2 FFT applied separably (Nieuwenhuizen et al., Nat. Methods
+   10, 557, 2013). Error = spread over independent random splits. ---- */
+function fft1d(re,im,n,sign){
+  for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit;
+    if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){ const ang=sign*2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){ let cr=1,ci=0;
+      for(let k=0;k<len>>1;k++){ const a=i+k,b=a+(len>>1);
+        const vr=re[b]*cr-im[b]*ci, vi=re[b]*ci+im[b]*cr;
+        re[b]=re[a]-vr; im[b]=im[a]-vi; re[a]+=vr; im[a]+=vi;
+        const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } }
+}
+function fft2d(re,im,N,sign){ const rr=new Float64Array(N), ri=new Float64Array(N);
+  for(let y=0;y<N;y++){ const o=y*N; for(let x=0;x<N;x++){rr[x]=re[o+x];ri[x]=im[o+x];} fft1d(rr,ri,N,sign);
+    for(let x=0;x<N;x++){re[o+x]=rr[x];im[o+x]=ri[x];} }
+  for(let x=0;x<N;x++){ for(let y=0;y<N;y++){rr[y]=re[y*N+x];ri[y]=im[y*N+x];} fft1d(rr,ri,N,sign);
+    for(let y=0;y<N;y++){re[y*N+x]=rr[y];im[y*N+x]=ri[y];} } }
+function _hann2d(img,N){ const w=new Float64Array(N); for(let i=0;i<N;i++) w[i]=0.5*(1-Math.cos(2*Math.PI*i/(N-1)));
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++) img[y*N+x]*=w[y]*w[x]; }
+function _frcRings(A,B,N,pixNm){                       // A,B consumed (FFT in place)
+  const ai=new Float64Array(N*N); fft2d(A,ai,N,-1);
+  const bi=new Float64Array(N*N); fft2d(B,bi,N,-1);
+  const nR=N>>1, num=new Float64Array(nR), d1=new Float64Array(nR), d2=new Float64Array(nR);
+  for(let y=0;y<N;y++){ const ky=y<N/2?y:y-N; for(let x=0;x<N;x++){ const kx=x<N/2?x:x-N;
+    const r=Math.round(Math.hypot(kx,ky)); if(r>=nR) continue; const i=y*N+x;
+    num[r]+=A[i]*B[i]+ai[i]*bi[i]; d1[r]+=A[i]*A[i]+ai[i]*ai[i]; d2[r]+=B[i]*B[i]+bi[i]*bi[i]; } }
+  const frc=new Float64Array(nR), freq=new Float64Array(nR);
+  for(let r=0;r<nR;r++){ const den=Math.sqrt(d1[r]*d2[r]); frc[r]=den>0?num[r]/den:0; freq[r]=r/(N*pixNm); }
+  return {frc,freq};
+}
+function _resFromFRC(frc,freq){
+  const s=frc.slice(); for(let i=1;i<frc.length-1;i++) s[i]=(frc[i-1]+2*frc[i]+frc[i+1])/4;
+  for(let r=3;r<s.length;r++){ if(s[r]<1/7){ const f0=freq[r-1],f1=freq[r],v0=s[r-1],v1=s[r];
+    const fc=v1!==v0? f0+(f1-f0)*((1/7)-v0)/(v1-v0):f1; return fc>0?1/fc:NaN; } }
+  return NaN;                                          // never crosses → finer than Nyquist
+}
+async function frcResolution(locs, px, mag, onProgress){
+  if(locs.length<200) return {err:`only ${locs.length.toLocaleString()} localizations — too few for FRC`};
+  let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
+  for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
+  const extPx=Math.max(xmax-xmin,ymax-ymin)*1.02;      // square extent (camera px)
+  let N=1; const want=Math.max(64, extPx*mag); while(N<want) N<<=1; N=Math.max(256,Math.min(1024,N));
+  const pixNm=extPx*px/N, res=[]; let curve=null;      // FRC image pixel size (nm)
+  for(let s=0;s<4;s++){
+    const A=new Float64Array(N*N), B=new Float64Array(N*N);
+    for(const L of locs){ const ix=Math.min(N-1,Math.max(0,((L.x-xmin)/extPx*N)|0)), iy=Math.min(N-1,Math.max(0,((L.y-ymin)/extPx*N)|0));
+      (Math.random()<0.5?A:B)[iy*N+ix]++; }
+    _hann2d(A,N); _hann2d(B,N);
+    curve=_frcRings(A,B,N,pixNm); res.push(_resFromFRC(curve.frc,curve.freq));
+    if(onProgress){ onProgress((s+1)/4); await tick(); }
+  }
+  const good=res.filter(isFinite), mean=good.length?good.reduce((a,b)=>a+b,0)/good.length:NaN;
+  const sd=good.length>1?Math.sqrt(good.reduce((a,b)=>a+(b-mean)**2,0)/good.length):NaN;
+  return {res:mean, err:sd, nResolved:good.length, nSplit:4, curve, pixNm, N, nyquist:2*pixNm};
+}
+// Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
+function drawFrcPlot(r){
+  const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  rawFull=null; rawIsPlot=true; rawPlotName='frc'; $('rawTitle').textContent='FRC';
+  ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
+  const mL=52,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
+  const {frc,freq}=r.curve, nR=frc.length, fmax=freq[nR-1]||1, lo=-0.2, hi=1.05;
+  const X=v=>mL+pw*v/Math.max(1e-9,fmax), Y=v=>mT+ph*(1-(v-lo)/(hi-lo));
+  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const v of [0,0.2,0.4,0.6,0.8,1.0]){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.fillText(v.toFixed(1),mL-6,yy); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const v of niceTicks(0,fmax,6)){ const xx=X(v); ctx.fillText(v.toFixed(3),xx,mT+ph+6); }
+  ctx.strokeStyle='#8250df'; ctx.lineWidth=1; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(mL,Y(1/7)); ctx.lineTo(mL+pw,Y(1/7)); ctx.stroke(); ctx.setLineDash([]);  // 1/7
+  ctx.strokeStyle='#0a7d32'; ctx.lineWidth=1.8; ctx.beginPath();                       // FRC curve
+  for(let i=0;i<nR;i++){ const xx=X(freq[i]), yy=Y(Math.max(lo,Math.min(hi,frc[i]))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
+  if(isFinite(r.res)){ const fc=1/r.res; ctx.strokeStyle='#d1242f'; ctx.lineWidth=1.4; ctx.setLineDash([3,3]);  // resolution
+    ctx.beginPath(); ctx.moveTo(X(fc),mT); ctx.lineTo(X(fc),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('spatial frequency (1/nm)', mL+pw/2, H-12);
+  ctx.save(); ctx.translate(13,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('FRC',0,0); ctx.restore();
+  ctx.textAlign='left'; ctx.fillStyle='#8250df'; ctx.fillText('1/7', mL+6, Y(1/7)-8);
+  const lbl=isFinite(r.res)?`res = ${r.res.toFixed(1)}${isFinite(r.err)?' ± '+r.err.toFixed(1):''} nm`:`< Nyquist (${r.nyquist.toFixed(0)} nm)`;
+  ctx.fillStyle='#24292f'; ctx.textAlign='right'; ctx.fillText(lbl, mL+pw, mT-4);
+  $('rawInfo').textContent=`— FRC · ${lbl} · scrub a frame to return`;
+  syncSaveImg();
+}
+async function computeFRC(){
+  if(!lastResult||!lastResult.locs.length){ log('Run localisations first.'); return; }
+  if($('frc3d')&&$('frc3d').checked) log('  (FSC 3D not yet implemented — computing 2D FRC.)');
+  $('frcBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
+  try{
+    log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
+    const t0=performance.now();
+    const r=await frcResolution(lastResult.locs, lastResult.px, lastResult.mag||10,
+      p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
+    bar.classList.remove('on'); prog.style.width='0%';
+    if(r.err){ log('  '+r.err+'.'); return; }
+    if(!isFinite(r.res)){ log(`  resolution is finer than the sampling (Nyquist ${r.nyquist.toFixed(0)} nm) — increase magnification and retry.`); drawFrcPlot(r); return; }
+    log(`  resolution = ${r.res.toFixed(1)}${isFinite(r.err)?' ± '+r.err.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px · ${Math.round(performance.now()-t0)} ms).`);
+    log('  FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
+    drawFrcPlot(r);
+  }catch(err){ log(`⚠ FRC failed: ${err.name}: ${err.message}`); }
+  finally{ $('frcBtn').disabled=false; }
 }
 
 /* ===========================================================================
@@ -3507,7 +3617,7 @@ $('driftBtn').addEventListener('click',correctDrift);
 $('driftShowBtn').addEventListener('click',()=>{ if(lastDrift) drawDriftCurve(); });
 // 0.8.0 (in development): localization-precision estimators. Scaffolded UI only.
 $('nenaBtn').addEventListener('click',computeNeNA);
-$('frcBtn').addEventListener('click',()=>log('FRC/FSC resolution — not yet implemented (0.8.0 in development).'));
+$('frcBtn').addEventListener('click',computeFRC);
 
 // Phasor 3D: reveal the Load-calibration control only for that method
 function updateMethodUI(){
