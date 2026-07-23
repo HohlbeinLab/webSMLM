@@ -1321,7 +1321,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.0-dev · build 2026-07-23h · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.0-dev · build 2026-07-23i · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1537,7 +1537,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.0-dev · build 2026-07-23h · precision (NeNA / FRC) scaffold
+</span></noscript>webSMLM v0.8.0-dev · build 2026-07-23i · precision (NeNA / FRC) scaffold
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -3254,15 +3254,18 @@ async function frcResolution(locs, px, mag, onProgress){
   for(let y=0;y<N;y++){ const ky=y<N/2?y:y-N; for(let x=0;x<N;x++){ const kx=x<N/2?x:x-N;
     const r=Math.round(Math.sqrt(kx*kx+ky*ky)); ring[y*N+x]= r<nR? r : -1; } }
   for(let r=0;r<nR;r++) freq[r]=r/(N*pixNm);
+  log(`  sampling ${N}² px @ ${pixNm.toFixed(1)} nm/px (Nyquist ${(2*pixNm).toFixed(0)} nm)…`);
+  // reuse four Float32 buffers across splits — bounded, memory-light peak
+  const A=new Float32Array(N*N), B=new Float32Array(N*N), ai=new Float32Array(N*N), bi=new Float32Array(N*N);
   const res=[]; let curve=null, step=0; const nStep=nSplit*2;
   const tick2=async()=>{ if(onProgress){ onProgress(++step/nStep); await tick(); } };
   for(let s=0;s<nSplit;s++){
-    const A=new Float64Array(N*N), B=new Float64Array(N*N);
+    A.fill(0); B.fill(0); ai.fill(0); bi.fill(0);
     for(const L of locs){ const ix=Math.min(N-1,Math.max(0,((L.x-xmin)/extPx*N)|0)), iy=Math.min(N-1,Math.max(0,((L.y-ymin)/extPx*N)|0));
       (Math.random()<0.5?A:B)[iy*N+ix]++; }
     _hann2d(A,N); _hann2d(B,N);
-    const ai=new Float64Array(N*N); fft2d(A,ai,N,-1); await tick2();
-    const bi=new Float64Array(N*N); fft2d(B,bi,N,-1); await tick2();
+    fft2d(A,ai,N,-1); await tick2();
+    fft2d(B,bi,N,-1); await tick2();
     const num=new Float64Array(nR), d1=new Float64Array(nR), d2=new Float64Array(nR);
     for(let i=0;i<N*N;i++){ const r=ring[i]; if(r<0) continue;
       num[r]+=A[i]*B[i]+ai[i]*bi[i]; d1[r]+=A[i]*A[i]+ai[i]*ai[i]; d2[r]+=B[i]*B[i]+bi[i]*bi[i]; }
