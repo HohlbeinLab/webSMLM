@@ -15,6 +15,7 @@ resolves to the latest.
 
 | Version | Date | Phase | DOI | Summary |
 |---|---|---|---|---|
+| 0.7.1 | 2026-07-23 | — | — | `<noscript>` warning when JavaScript is disabled (some browser privacy settings otherwise leave the page blank) — a top banner plus a light-red line in the log. |
 | **0.7.0** | 2026-07-22 | Phase 5 — drift | ✓ | Drift correction via **AIM** (adaptive intersection maximization), 2D + 3D; point-based, no FFT. Drift-vs-frame plot, reversible correction, clamp-fraction guard. |
 | 0.6.3 | 2026-07-22 | — | — | *Local/dev only* — calibration overlays kept while scrubbing; robust large-stack loading. Folded into 0.7.0. |
 | 0.6.2 | 2026-07-22 | — | — | Type-aware TIFF tag reading (fixes big-endian LONG tags → "could not read image dimensions"). |
