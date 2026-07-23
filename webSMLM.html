@@ -1321,7 +1321,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.7.5-dev · build 2026-07-23a · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.7.5-dev · build 2026-07-23b · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1421,15 +1421,15 @@ X.B(E,Y);return E}return J}())
         <input type="file" id="calFile" accept=".json" hidden>
         <div id="cal3dStatus" class="hint" style="margin-top:4px">No calibration loaded.</div>
       </div>
-      <label class="row" style="margin-top:10px">Threshold (k·σ_noise) <input type="number" id="thr" min="1" max="8" step="0.5" value="4" class="num"></label>
-      <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
-      <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="5" step="1" value="3" class="num"></label>
-      <label class="row" style="margin-top:8px">Detection filter
+      <label class="row" style="margin-top:10px">Detection filter
         <select id="detFilter" class="sel">
           <option value="dog">DoG band-pass</option>
           <option value="wave">Wavelet (B-spline)</option>
         </select></label>
-      <label class="row" style="margin-top:8px">Exact band-pass (slower) <input type="checkbox" id="exactbp"></label>
+      <label class="row" id="exactbpRow">Exact band-pass (slower, DoG only) <input type="checkbox" id="exactbp"></label>
+      <label class="row" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="thr" min="1" max="8" step="0.5" value="4" class="num"></label>
+      <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
+      <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="5" step="1" value="3" class="num"></label>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">Phasor is ~100–250× faster per candidate (265× on the GATTA-PAINT test stack); Gaussian LS ≈ slightly better precision. (Current Gaussian is least-squares, not MLE.)
         σ_noise is the spread of the band-passed image, not the PSF width.
@@ -1513,7 +1513,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.7.5-dev · build 2026-07-23a · drift correction (AIM, 2D + 3D)
+</span></noscript>webSMLM v0.7.5-dev · build 2026-07-23b · drift correction (AIM, 2D + 3D)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -3171,6 +3171,11 @@ async function run(){
   for(const el of document.querySelectorAll('input[type=number], input[type=range]'))
     if(el.value==='' && el.defaultValue!=='') el.value=el.defaultValue;
 })();
+
+// Exact band-pass only applies to the DoG filter — grey it out for wavelet.
+(function(){ const f=$('detFilter'), row=$('exactbpRow'), cb=$('exactbp');
+  const sync=()=>{ const off=f.value==='wave'; cb.disabled=off; row.style.opacity=off?0.45:1; };
+  f.addEventListener('change', sync); sync(); })();
 
 // "Load movie" just proxies to the hidden file input, so both data sources
 // present as equal-weight buttons.
