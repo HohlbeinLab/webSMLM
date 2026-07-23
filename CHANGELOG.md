@@ -15,6 +15,7 @@ resolves to the latest.
 
 | Version | Date | Phase | DOI | Summary |
 |---|---|---|---|---|
+| 0.7.3 | 2026-07-23 | — | — | Docs only (app unchanged): README gets a "Launch webSMLM" badge and a direct hosted link (`…/webSMLM.html`); Roadmap trimmed to point at the plan. |
 | 0.7.2 | 2026-07-23 | — | — | Docs only (app unchanged from 0.7.1): `experimental_data/README.md` links to the public source datasets — GATTAquant GATTA-PAINT 80R RAW and Leterrier's 3D STORM stack (figshare); notes the 4.9 GB 3D stack runs client-side on an iPhone 17. |
 | 0.7.1 | 2026-07-23 | — | — | `<noscript>` warning when JavaScript is disabled (some browser privacy settings otherwise leave the page blank) — a top banner plus a light-red line in the log. |
 | **0.7.0** | 2026-07-22 | Phase 5 — drift | ✓ | Drift correction via **AIM** (adaptive intersection maximization), 2D + 3D; point-based, no FFT. Drift-vs-frame plot, reversible correction, clamp-fraction guard. |

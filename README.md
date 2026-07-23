@@ -8,6 +8,7 @@ computation runs client-side.
 > Status: proof-of-concept. Not a validated replacement for established SMLM
 > packages, but a fast, zero-install way to try localization on your own data.
 
+[![Launch webSMLM](https://img.shields.io/badge/Launch-webSMLM-brightgreen?logo=googlechrome&logoColor=white)](https://hohlbeinlab.github.io/webSMLM/webSMLM.html)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21445041.svg)](https://doi.org/10.5281/zenodo.21445041)
 
@@ -17,7 +18,8 @@ computation runs client-side.
 browser (double-click works; no internet, no install, no server). Everything
 needed is inside that one file.
 
-**Option B — hosted.** If served via GitHub Pages, open the published URL.
+**Option B — hosted.** Open the published version, served via GitHub Pages:
+<https://hohlbeinlab.github.io/webSMLM/webSMLM.html>.
 
 Then: click **Simulate movie** to try it immediately, or **Load movie** for your
 own `.tif`/`.tiff` stack. Set the **pixel size (nm)**, pick a **fit method**, and
@@ -151,19 +153,7 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
 ## Roadmap
 
 Past releases are logged in [`CHANGELOG.md`](CHANGELOG.md); planned work is
-tracked by **version** in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md).
-
-**Shipped:** UI redesign (0.2.0) · speed review (0.3.0) · CSV export (0.4.0) ·
-3D phasor / astigmatism (0.5.0) · UI overhaul & large-stack loading (0.6.x) ·
-drift correction (AIM, 0.7.0).
-
-**Next:**
-
-- **v0.8.0** — localization precision: **FRC / FSC** and/or **NeNA**. (Phasor
-  fitting gives no meaningful per-localization uncertainty, so precision is
-  reported empirically via NeNA and/or as image resolution via FRC, rather than
-  a per-localization formula.)
-- **Later** — Poisson MLE fitting · localization filtering · 3D point-cloud view.
+tracked by version in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md).
 
 ## Distribution & citation
 
