@@ -1321,7 +1321,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.0-dev · build 2026-07-23g · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.0-dev · build 2026-07-23h · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1537,7 +1537,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.0-dev · build 2026-07-23g · precision (NeNA / FRC) scaffold
+</span></noscript>webSMLM v0.8.0-dev · build 2026-07-23h · precision (NeNA / FRC) scaffold
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -3235,17 +3235,6 @@ function fft2d(re,im,N,sign){ const rr=new Float64Array(N), ri=new Float64Array(
     for(let y=0;y<N;y++){re[y*N+x]=rr[y];im[y*N+x]=ri[y];} } }
 function _hann2d(img,N){ const w=new Float64Array(N); for(let i=0;i<N;i++) w[i]=0.5*(1-Math.cos(2*Math.PI*i/(N-1)));
   for(let y=0;y<N;y++)for(let x=0;x<N;x++) img[y*N+x]*=w[y]*w[x]; }
-function _frcRings(A,B,N,pixNm){                       // A,B consumed (FFT in place)
-  const ai=new Float64Array(N*N); fft2d(A,ai,N,-1);
-  const bi=new Float64Array(N*N); fft2d(B,bi,N,-1);
-  const nR=N>>1, num=new Float64Array(nR), d1=new Float64Array(nR), d2=new Float64Array(nR);
-  for(let y=0;y<N;y++){ const ky=y<N/2?y:y-N; for(let x=0;x<N;x++){ const kx=x<N/2?x:x-N;
-    const r=Math.round(Math.hypot(kx,ky)); if(r>=nR) continue; const i=y*N+x;
-    num[r]+=A[i]*B[i]+ai[i]*bi[i]; d1[r]+=A[i]*A[i]+ai[i]*ai[i]; d2[r]+=B[i]*B[i]+bi[i]*bi[i]; } }
-  const frc=new Float64Array(nR), freq=new Float64Array(nR);
-  for(let r=0;r<nR;r++){ const den=Math.sqrt(d1[r]*d2[r]); frc[r]=den>0?num[r]/den:0; freq[r]=r/(N*pixNm); }
-  return {frc,freq};
-}
 function _resFromFRC(frc,freq){
   const s=frc.slice(); for(let i=1;i<frc.length-1;i++) s[i]=(frc[i-1]+2*frc[i]+frc[i+1])/4;
   for(let r=3;r<s.length;r++){ if(s[r]<1/7){ const f0=freq[r-1],f1=freq[r],v0=s[r-1],v1=s[r];
@@ -3257,19 +3246,32 @@ async function frcResolution(locs, px, mag, onProgress){
   let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
   for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
   const extPx=Math.max(xmax-xmin,ymax-ymin)*1.02;      // square extent (camera px)
-  let N=1; const want=Math.max(64, extPx*mag); while(N<want) N<<=1; N=Math.max(256,Math.min(1024,N));
-  const pixNm=extPx*px/N, res=[]; let curve=null;      // FRC image pixel size (nm)
-  for(let s=0;s<4;s++){
+  // pixel ≈ reconstruction pixel (px/mag); N a power of 2, capped for compute.
+  let N=1; const want=Math.max(64, extPx*mag); while(N<want) N<<=1; N=Math.max(256,Math.min(2048,N));
+  const pixNm=extPx*px/N, nR=N>>1, nSplit=3;
+  // precompute the ring index of each frequency pixel once (avoids per-pixel hypot)
+  const ring=new Int32Array(N*N), freq=new Float64Array(nR);
+  for(let y=0;y<N;y++){ const ky=y<N/2?y:y-N; for(let x=0;x<N;x++){ const kx=x<N/2?x:x-N;
+    const r=Math.round(Math.sqrt(kx*kx+ky*ky)); ring[y*N+x]= r<nR? r : -1; } }
+  for(let r=0;r<nR;r++) freq[r]=r/(N*pixNm);
+  const res=[]; let curve=null, step=0; const nStep=nSplit*2;
+  const tick2=async()=>{ if(onProgress){ onProgress(++step/nStep); await tick(); } };
+  for(let s=0;s<nSplit;s++){
     const A=new Float64Array(N*N), B=new Float64Array(N*N);
     for(const L of locs){ const ix=Math.min(N-1,Math.max(0,((L.x-xmin)/extPx*N)|0)), iy=Math.min(N-1,Math.max(0,((L.y-ymin)/extPx*N)|0));
       (Math.random()<0.5?A:B)[iy*N+ix]++; }
     _hann2d(A,N); _hann2d(B,N);
-    curve=_frcRings(A,B,N,pixNm); res.push(_resFromFRC(curve.frc,curve.freq));
-    if(onProgress){ onProgress((s+1)/4); await tick(); }
+    const ai=new Float64Array(N*N); fft2d(A,ai,N,-1); await tick2();
+    const bi=new Float64Array(N*N); fft2d(B,bi,N,-1); await tick2();
+    const num=new Float64Array(nR), d1=new Float64Array(nR), d2=new Float64Array(nR);
+    for(let i=0;i<N*N;i++){ const r=ring[i]; if(r<0) continue;
+      num[r]+=A[i]*B[i]+ai[i]*bi[i]; d1[r]+=A[i]*A[i]+ai[i]*ai[i]; d2[r]+=B[i]*B[i]+bi[i]*bi[i]; }
+    const frc=new Float64Array(nR); for(let r=0;r<nR;r++){ const den=Math.sqrt(d1[r]*d2[r]); frc[r]=den>0?num[r]/den:0; }
+    curve={frc,freq}; res.push(_resFromFRC(frc,freq));
   }
   const good=res.filter(isFinite), mean=good.length?good.reduce((a,b)=>a+b,0)/good.length:NaN;
   const sd=good.length>1?Math.sqrt(good.reduce((a,b)=>a+(b-mean)**2,0)/good.length):NaN;
-  return {res:mean, err:sd, nResolved:good.length, nSplit:4, curve, pixNm, N, nyquist:2*pixNm};
+  return {res:mean, err:sd, nResolved:good.length, nSplit, curve, pixNm, N, nyquist:2*pixNm};
 }
 // Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
 function drawFrcPlot(r){
@@ -3308,8 +3310,12 @@ async function computeFRC(){
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
     bar.classList.remove('on'); prog.style.width='0%';
     if(r.err){ log('  '+r.err+'.'); return; }
-    if(!isFinite(r.res)){ log(`  resolution is finer than the sampling (Nyquist ${r.nyquist.toFixed(0)} nm) — increase magnification and retry.`); drawFrcPlot(r); return; }
-    log(`  resolution = ${r.res.toFixed(1)}${isFinite(r.err)?' ± '+r.err.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px · ${Math.round(performance.now()-t0)} ms).`);
+    if(!isFinite(r.res)){
+      log(`  resolution is finer than the sampling — the FRC curve stays above 1/7 up to Nyquist (${r.nyquist.toFixed(0)} nm, at ${r.pixNm.toFixed(1)} nm/px, ${r.N}²).`);
+      log(r.N>=2048 ? '  The field of view is large, so FRC sampling is capped here — crop to a sub-region for a finer measurement.'
+                    : '  Increase magnification and retry (finer pixels extend the frequency axis).');
+      drawFrcPlot(r); return; }
+    log(`  resolution = ${r.res.toFixed(1)}${isFinite(r.err)?' ± '+r.err.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px @ ${r.pixNm.toFixed(1)} nm/px, Nyquist ${r.nyquist.toFixed(0)} nm · ${Math.round(performance.now()-t0)} ms).`);
     log('  FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
     drawFrcPlot(r);
   }catch(err){ log(`⚠ FRC failed: ${err.name}: ${err.message}`); }
