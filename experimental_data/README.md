@@ -1,6 +1,6 @@
 # experimental_data
 
-Drop real SMLM stacks here for benchmarking and validation (Phase 2 onward).
+Drop real SMLM stacks here for benchmarking and validation.
 
 ## These files are not committed
 
@@ -34,6 +34,9 @@ over committing the bytes.
 nanoruler (80 nm mark-to-mark), acquired on a Leica GSD system, cropped from the
 `80nm 80ms top image.lif` series and concatenated by ImageJ 1.54r.
 
+**Full raw dataset (public):** [`GATTA-PAINT-80R-RAW.zip`](https://www.gattaquant.com/files/GATTA-PAINT-80R-RAW.zip)
+from GATTAquant — our crop above was taken from this.
+
 | Property | Value |
 |---|---|
 | Frames | 1999 |
@@ -50,8 +53,8 @@ Two reasons this file is a good fixture beyond raw speed:
 - **It exercises the big-endian 16-bit decode path**, which was previously
   reasoned-about but never runtime-verified.
 - **It carries a resolution ground truth** — the 80 nm mark-to-mark spacing lets
-  Phase 4 (FRC) be validated against a known distance rather than only
-  self-consistency.
+  the FRC precision work (v0.8.0) be validated against a known distance rather
+  than only self-consistency.
 
 ## Second benchmark dataset — large format
 
@@ -78,9 +81,35 @@ Note on σ_PSF: at 120 nm/px with a typical high-NA objective the diffraction-li
 PSF is only ~0.75 px, at or below the slider's 0.8 minimum. Start at 0.8–1.0 and
 tune by eye against the green detection boxes.
 
+## Third benchmark dataset — 3D STORM (very large, ~4.9 GB)
+
+3D STORM of spectrin rings in neurons, by **Christophe Leterrier**, on figshare:
+[3D STORM spectrin rings in neurons](https://figshare.com/articles/dataset/3D_STORM_spectrin_rings_in_neurons/19165061).
+
+| Property | Value |
+|---|---|
+| Frames | ~40,000 |
+| Frame size | 256 × 256 px |
+| Format | large multi-IFD TIFF (Micro-Manager MMStack) — indexed by walking the IFD chain |
+| On disk | ~4.9 GB (**never loaded whole — streamed frame-by-frame via `File.slice()`**) |
+| Processing | ~24 s end-to-end on a laptop |
+
+This is the stress-test dataset behind three features:
+
+- **Large multi-IFD streaming** (v0.6.1) — the file is indexed by walking the
+  IFD chain and read one frame at a time, so the 4.9 GB stack is never held in
+  memory.
+- **Phasor 3D** (v0.5.0) — astigmatic z per localization.
+- **z-drift correction** (v0.7.0) — the AIM z channel was developed and tuned
+  against this stack.
+
+Notably it runs entirely client-side **in a mobile browser** — tested fine on an
+**Apple iPhone 17** — which is the payoff of the memory-aware streaming loader: a
+multi-GB 3D stack processed on a phone, with no upload.
+
 ## Useful properties to note for benchmarking
 
-When adding a stack, record these — they determine which Phase 2 optimizations
+When adding a stack, record these — they determine which speed optimizations
 matter and make timings comparable:
 
 | Property | Why it matters |
