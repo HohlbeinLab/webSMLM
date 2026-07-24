@@ -1323,7 +1323,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.1-dev · build 2026-07-24b · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.1-dev · build 2026-07-24c · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1540,7 +1540,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.1-dev · build 2026-07-24b
+</span></noscript>webSMLM v0.8.1-dev · build 2026-07-24c
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2227,6 +2227,7 @@ let srFull=null;                       // offscreen full-res reconstruction
 const view={zoom:1,cx:0,cy:0};         // display px per srFull px; center in srFull coords
 // line-profile / distance tool: coords in srFull pixels
 let measureMode=false, measurePt0=null, measureLine=null;
+let profileData=null, profileView=null;   // line-profile plot data + x-axis view (nm range)
 
 /* -- colour maps -------------------------------------------------------------
    "fire" reproduces the original black→red→yellow→white ramp. "inferno" and
@@ -2355,25 +2356,54 @@ function lineProfile(L){
   drawProfilePlot(dist, prof, lenPx*nmPerPx);
 }
 function drawProfilePlot(dist, prof, totalNm){
+  let ymax=0; for(let i=0;i<prof.length;i++) if(prof[i]>ymax) ymax=prof[i]; ymax=Math.max(1,ymax*1.08);
+  profileData={dist,prof,totalNm,ymax}; profileView={x0:0,x1:totalNm};   // full x-range
+  renderProfile();
+  log(`Line profile: length ${totalNm.toFixed(0)} nm · ${dist.length} samples · 3-px band.`);
+}
+// x-axis pixel↔data mapping used by both the render and the zoom handlers.
+const PROF_ML=52, PROF_MR=14;
+function profX0px(){ return PROF_ML; }
+function profDataX(clientX){ const cv=$('raw'), r=cv.getBoundingClientRect();
+  const px=(clientX-r.left)*cv.width/r.width, pw=cv.width-PROF_ML-PROF_MR, xr=profileView.x1-profileView.x0;
+  return profileView.x0 + (px-PROF_ML)/Math.max(1,pw)*xr; }
+function renderProfile(){
+  if(!profileData) return;
   const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const {dist,prof,totalNm,ymax}=profileData, {x0,x1}=profileView, xr=Math.max(1e-9,x1-x0);
   rawFull=null; rawIsPlot=true; rawPlotName='profile'; $('rawTitle').textContent='Line profile';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
-  const mL=52,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB, n=dist.length, xmax=dist[n-1]||1;
-  let ymax=0; for(let i=0;i<n;i++) if(prof[i]>ymax) ymax=prof[i]; ymax=Math.max(1,ymax*1.08);
-  const X=v=>mL+pw*v/xmax, Y=v=>mT+ph*(1-v/ymax);
-  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const v of niceTicks(0,ymax,5)){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.fillText(v.toFixed(0),mL-6,yy); }
+  const mL=PROF_ML,mR=PROF_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, yb=mT+ph;
+  const X=v=>mL+pw*(v-x0)/xr, Y=v=>mT+ph*(1-v/ymax), inX=xx=>xx>=mL-0.5&&xx<=mL+pw+0.5;
+  ctx.font='11px sans-serif';
+  // Y major ticks: dashed horizontal gridlines + labels
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const v of niceTicks(0,ymax,5)){ const yy=Y(v);
+    ctx.strokeStyle='#c9d1d9'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#57606a'; ctx.fillText(v.toFixed(0),mL-6,yy); }
+  // X ticks: major (dashed vertical gridline + long outward tick + label) and minor (short outward tick)
+  const majors=niceTicks(x0,x1,6), majStep=majors.length>1?majors[1]-majors[0]:xr, minStep=majStep/5;
+  ctx.strokeStyle='#8a949e'; ctx.lineWidth=1;
+  for(let v=Math.ceil(x0/minStep)*minStep; v<=x1+1e-9; v+=minStep){ const xx=X(v); if(!inX(xx)) continue;
+    ctx.beginPath(); ctx.moveTo(xx,yb); ctx.lineTo(xx,yb+3); ctx.stroke(); }          // minor, outward
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(0,xmax,6)){ const xx=X(v); ctx.fillText(v.toFixed(0),xx,mT+ph+6); }
+  for(const v of majors){ const xx=X(v); if(!inX(xx)) continue;
+    ctx.strokeStyle='#c9d1d9'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(xx,mT); ctx.lineTo(xx,yb); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle='#57606a'; ctx.beginPath(); ctx.moveTo(xx,yb); ctx.lineTo(xx,yb+7); ctx.stroke();  // major, outward
+    ctx.fillStyle='#57606a'; ctx.fillText(v.toFixed(0),xx,yb+9); }
+  ctx.strokeStyle='#57606a'; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,yb); ctx.lineTo(mL+pw,yb); ctx.stroke();  // axes
+  // profile curve, clipped to the plot rect
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
   ctx.strokeStyle='#0a7d32'; ctx.lineWidth=1.8; ctx.beginPath();
-  for(let i=0;i<n;i++){ const xx=X(dist[i]), yy=Y(prof[i]); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
+  for(let i=0;i<dist.length;i++){ const xx=X(dist[i]), yy=Y(prof[i]); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
+  ctx.restore();
   ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('distance (nm)', mL+pw/2, H-12);
+  ctx.fillText('distance (nm)', mL+pw/2, H-10);
   ctx.save(); ctx.translate(13,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('intensity',0,0); ctx.restore();
   ctx.textAlign='right'; ctx.fillStyle='#24292f'; ctx.fillText(`length = ${totalNm.toFixed(0)} nm`, mL+pw, mT-4);
-  $('rawInfo').textContent=`— line profile · length ${totalNm.toFixed(0)} nm · scrub a frame to return`;
+  const zoomed=x0>0.5||x1<totalNm-0.5;
+  $('rawInfo').textContent=`— line profile · length ${totalNm.toFixed(0)} nm${zoomed?` · x ${x0.toFixed(0)}–${x1.toFixed(0)} nm (scroll/pinch to zoom, dbl-click reset)`:` · scroll/pinch to zoom x`} · scrub a frame to return`;
   syncSaveImg();
-  log(`Line profile: length ${totalNm.toFixed(0)} nm · ${dist.length} samples · 3-px band.`);
 }
 // vertical depth colourbar (top-left), mapping the current LUT to the z range
 function drawDepthBar(ctx,DW,DH,zlo,zhi){
@@ -3842,6 +3872,23 @@ $('sr').addEventListener('click',e=>{
   if(!measurePt0){ measurePt0={x:fx,y:fy}; drawView(); }
   else { measureLine={x0:measurePt0.x,y0:measurePt0.y,x1:fx,y1:fy}; measurePt0=null; drawView(); lineProfile(measureLine); }
 });
+// Line-profile X-axis zoom (wheel / trackpad + touch pinch); Y stays fixed. Only
+// active while the profile plot is shown — otherwise the raw navigator handles it.
+(function(){ const cv=$('raw');
+  const clampSet=(c,x0,x1,f)=>{ const T=profileData.totalNm; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
+    nx0=Math.max(0,nx0); nx1=Math.min(T,nx1); if(nx1-nx0>=T*0.01){ profileView={x0:nx0,x1:nx1}; renderProfile(); } };
+  cv.addEventListener('wheel',e=>{ if(!rawIsPlot||rawPlotName!=='profile'||!profileData) return; e.preventDefault();
+    clampSet(profDataX(e.clientX), profileView.x0, profileView.x1, Math.exp(e.deltaY*0.0015)); },{passive:false});
+  const ptrs=new Map(); let pinch=null;
+  cv.addEventListener('pointerdown',e=>{ if(!rawIsPlot||rawPlotName!=='profile'||!profileData) return;
+    cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e.clientX);
+    if(ptrs.size===2){ const v=[...ptrs.values()]; pinch={d0:Math.abs(v[0]-v[1])||1, x0:profileView.x0, x1:profileView.x1, c:profDataX((v[0]+v[1])/2)}; } });
+  cv.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,e.clientX);
+    if(pinch&&ptrs.size>=2&&profileData){ e.preventDefault(); const v=[...ptrs.values()], d=Math.abs(v[0]-v[1]); if(d>0) clampSet(pinch.c, pinch.x0, pinch.x1, pinch.d0/d); } });
+  const end=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null; };
+  cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  cv.addEventListener('dblclick',()=>{ if(!rawIsPlot||rawPlotName!=='profile'||!profileData) return; profileView={x0:0,x1:profileData.totalNm}; renderProfile(); });
+})();
 
 // help modal — wire after full DOM parse (the modal markup follows this script,
 // so its elements don't exist yet at first execution).
