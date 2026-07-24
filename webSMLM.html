@@ -1321,7 +1321,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.0 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.1-dev · build 2026-07-24a · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1538,7 +1538,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.0 · localization precision (NeNA + FRC, experimental)
+</span></noscript>webSMLM v0.8.1-dev · build 2026-07-24a
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -3079,11 +3079,11 @@ function drawDriftCurve(){
 /* ===========================================================================
    MODULE: precision — NeNA (nearest-neighbour analysis)
    Endesfelder et al., Histochem. Cell Biol. 141, 629 (2014). The nearest-
-   neighbour distance between localizations in CONSECUTIVE frames is a mixture:
-   the same molecule re-appearing (a narrow Rayleigh whose scale is √2·σ, the
-   per-localization precision) sitting on a broad background from other
-   molecules. Fit a signal Rayleigh + quadratic background over the small-d
-   range and report σ = b/√2. Point-based, no FFT.
+   neighbour distance between localizations in CONSECUTIVE frames is fit with the
+   paper's model: a signal term (the same molecule re-appearing → a Rayleigh
+   characterising the localization precision σ) + a Gaussian SHORT-range
+   correction (centre d_c, width ω) + a LINEAR long-range correction, the two
+   corrections modelling neighbours of OTHER molecules. Report σ. No FFT.
    =========================================================================== */
 // For each point in A, the distance (px) to its nearest neighbour in B, via a
 // uniform grid with expanding-ring search (exact NN, ~O(n)).
@@ -3111,38 +3111,47 @@ function gridNN(A,B){
   }
   return out;
 }
-// Fit A·(d/b²)exp(−d²/2b²) + c₁·d + c₂·d² by Levenberg–Marquardt (only A,b are
-// nonlinear, so it is well-conditioned) and return the Rayleigh scale b.
-function fitRayleighScale(d,y){
-  const gr=(x,b)=>{const b2=b*b; return (x/b2)*Math.exp(-x*x/(2*b2));};
-  const dgr=(x,b)=>{const b2=b*b,b3=b2*b; return (x/b3)*Math.exp(-x*x/(2*b2))*(x*x/b2-2);};
-  const n=d.length, f=(x,p)=>p[0]*gr(x,p[1])+p[2]*x+p[3]*x*x;
+// NeNA distance-distribution fit (Endesfelder et al., Histochem. Cell Biol. 141,
+// 629, 2014): a signal Rayleigh characterising the localization precision σ, a
+// Gaussian SHORT-range correction (centre d_c, width ω) and a LINEAR long-range
+// correction — the two correction terms model neighbours of OTHER molecules.
+// p = [a1, σ, a2, d_c, ω, a3]. Levenberg–Marquardt; returns σ (= precision) and
+// its covariance standard error. (Leading-unary ** must be parenthesised.)
+function fitNeNA(d,y){
+  const S=(x,s)=>{const s2=s*s; return (x/(2*s2))*Math.exp(-(x*x)/(4*s2));};
+  const dSds=(x,s)=>{const s2=s*s,s3=s2*s; return (x/(2*s3))*Math.exp(-(x*x)/(4*s2))*((x*x)/(2*s2)-2);};
+  const G=(x,dc,w)=>Math.exp(-((x-dc)**2)/(2*w*w));
+  const n=d.length, f=(x,p)=>p[0]*S(x,p[1])+p[2]*G(x,p[3],p[4])+p[5]*x;
   const cost=p=>{let c=0;for(let i=0;i<n;i++){const e=f(d[i],p)-y[i];c+=e*e;}return c;};
-  let pk=0,pkD=d[1]||1; for(let i=0;i<n;i++) if(y[i]>pk){pk=y[i];pkD=d[i];}
-  let p=[pk/Math.max(1e-9,gr(Math.max(1,pkD),Math.max(1,pkD))), Math.max(1,pkD), 0, 0];
+  const jac=(x,p)=>{ const gg=G(x,p[3],p[4]);
+    return [S(x,p[1]), p[0]*dSds(x,p[1]), gg, p[2]*gg*((x-p[3])/(p[4]*p[4])), p[2]*gg*(((x-p[3])**2)/(p[4]**3)), x]; };
+  let pk=0,pkD=d[1]||1; for(let i=0;i<n;i++) if(y[i]>pk){pk=y[i];pkD=d[i];}      // signal peak → σ≈peak/√2
+  const sig0=Math.max(3,pkD/Math.SQRT2);
+  let bpk=0,bd=d[n-1]; for(let i=(n>>1);i<n;i++) if(y[i]>bpk){bpk=y[i];bd=d[i];} // background hump → d_c
+  let p=[pk/Math.max(1e-9,S(sig0*Math.SQRT2,sig0)), sig0, bpk*0.5, bd, Math.max(10,bd*0.5), 0];
   let lambda=1e-2, cst=cost(p);
-  for(let it=0;it<300;it++){
-    const JtJ=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], Jtr=[0,0,0,0];
-    for(let i=0;i<n;i++){ const di=d[i];
-      const J=[gr(di,p[1]), p[0]*dgr(di,p[1]), di, di*di], e=f(di,p)-y[i];
-      for(let a=0;a<4;a++){ Jtr[a]+=J[a]*e; for(let bb=0;bb<4;bb++) JtJ[a][bb]+=J[a]*J[bb]; } }
+  for(let it=0;it<400;it++){
+    const JtJ=[[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]], Jtr=[0,0,0,0,0,0];
+    for(let i=0;i<n;i++){ const J=jac(d[i],p), e=f(d[i],p)-y[i];
+      for(let a=0;a<6;a++){ Jtr[a]+=J[a]*e; for(let bb=0;bb<6;bb++) JtJ[a][bb]+=J[a]*J[bb]; } }
     let ok=false;
-    for(let t=0;t<14;t++){
+    for(let t=0;t<16;t++){
       const M=JtJ.map((row,a)=>row.map((v,bb)=>a===bb?v*(1+lambda):v));
       const dp=solveLin(M,Jtr.map(v=>-v));
-      if(dp){ const pn=p.map((v,a)=>v+dp[a]); pn[1]=Math.max(0.5,pn[1]); pn[0]=Math.max(0,pn[0]);
+      if(dp){ const pn=p.map((v,a)=>v+dp[a]);
+        pn[1]=Math.max(1,pn[1]); pn[4]=Math.max(1,pn[4]); pn[0]=Math.max(0,pn[0]); pn[2]=Math.max(0,pn[2]);
         const cn=cost(pn); if(cn<cst){p=pn;cst=cn;lambda=Math.max(1e-10,lambda*0.5);ok=true;break;} else lambda=Math.min(1e10,lambda*3); }
       else lambda=Math.min(1e10,lambda*3);
     }
     if(!ok) break;
   }
-  // standard error of b from the fit covariance  s²·(JᵀJ)⁻¹  (s² = residual var)
-  const JtJ=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]; let sse=0;
-  for(let i=0;i<n;i++){ const di=d[i], J=[gr(di,p[1]),p[0]*dgr(di,p[1]),di,di*di], e=f(di,p)-y[i]; sse+=e*e;
-    for(let a=0;a<4;a++)for(let bb=0;bb<4;bb++) JtJ[a][bb]+=J[a]*J[bb]; }
-  const s2=sse/Math.max(1,n-4), col=solveLin(JtJ,[0,1,0,0]);   // (JᵀJ)⁻¹ b-column → its diagonal
-  const errB=(col&&col[1]>0)?Math.sqrt(s2*col[1]):NaN;
-  return {p, errB};                                  // p=[A, b, c1, c2]
+  // covariance SE of σ (index 1): s²·(JᵀJ)⁻¹, s² = residual variance
+  const JtJ=[[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]]; let sse=0;
+  for(let i=0;i<n;i++){ const J=jac(d[i],p), e=f(d[i],p)-y[i]; sse+=e*e;
+    for(let a=0;a<6;a++)for(let bb=0;bb<6;bb++) JtJ[a][bb]+=J[a]*J[bb]; }
+  const s2=sse/Math.max(1,n-6), col=solveLin(JtJ,[0,1,0,0,0,0]);
+  const errSig=(col&&col[1]>0)?Math.sqrt(s2*col[1]):NaN;
+  return {p, errSig};                                // p=[a1, σ, a2, d_c, ω, a3]
 }
 // NeNA: mean single-localization precision (nm). onProgress(0..1) optional.
 async function nenaPrecision(locs, px, onProgress){
@@ -3162,8 +3171,8 @@ async function nenaPrecision(locs, px, onProgress){
   const nb=120, binW=maxD/nb, d=new Float64Array(nb), y=new Float64Array(nb);
   for(let i=0;i<nb;i++) d[i]=(i+0.5)*binW;
   for(const v of dists){ if(v<maxD) y[(v/binW)|0]++; }
-  const {p,errB}=fitRayleighScale(d,y);
-  return {sigma:p[1]/Math.SQRT2, sigErr:isFinite(errB)?errB/Math.SQRT2:NaN, nPairs:dists.length, d, y, binW, p};
+  const {p,errSig}=fitNeNA(d,y);                    // p=[a1, σ, a2, d_c, ω, a3]
+  return {sigma:p[1], sigErr:errSig, nPairs:dists.length, d, y, binW, p};
 }
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
@@ -3172,8 +3181,10 @@ function drawNenaPlot(res){
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=56,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
   const {d,y,binW,p,sigma}=res, nb=d.length, xmax=d[nb-1]+binW/2;
-  const gr=(x,b)=>{const b2=b*b; return (x/b2)*Math.exp(-x*x/(2*b2));};
-  const ff=x=>p[0]*gr(x,p[1])+p[2]*x+p[3]*x*x;
+  const S=(x,s)=>{const s2=s*s; return (x/(2*s2))*Math.exp(-(x*x)/(4*s2));};   // signal Rayleigh
+  const G=(x,dc,w)=>Math.exp(-((x-dc)**2)/(2*w*w));                            // short-range Gaussian
+  const sig1=x=>p[0]*S(x,p[1]);                        // signal term alone
+  const ff=x=>p[0]*S(x,p[1])+p[2]*G(x,p[3],p[4])+p[5]*x;   // full Endesfelder model
   let ymax=0; for(let i=0;i<nb;i++) if(y[i]>ymax) ymax=y[i]; ymax*=1.08;
   const X=v=>mL+pw*v/Math.max(1e-9,xmax), Y=v=>mT+ph*(1-v/Math.max(1e-9,ymax));
   ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif';
@@ -3184,7 +3195,7 @@ function drawNenaPlot(res){
   ctx.fillStyle='#9fb4d8';                            // histogram bars
   for(let i=0;i<nb;i++){ const x0=X(d[i]-binW/2), x1=X(d[i]+binW/2), yy=Y(y[i]); ctx.fillRect(x0,yy,Math.max(1,x1-x0-1),(mT+ph)-yy); }
   ctx.strokeStyle='#0a7d32'; ctx.lineWidth=1.4; ctx.setLineDash([4,3]); ctx.beginPath();   // signal Rayleigh only
-  for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,p[0]*gr(x,p[1]))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke(); ctx.setLineDash([]);
+  for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,sig1(x))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke(); ctx.setLineDash([]);
   ctx.strokeStyle='#d1242f'; ctx.lineWidth=2; ctx.beginPath();                              // full fit
   for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,ff(x))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
   ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center';
