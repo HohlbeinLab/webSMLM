@@ -1323,7 +1323,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.1-dev · build 2026-07-24f · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.1-dev · build 2026-07-24g · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1542,7 +1542,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4>Log</h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.1-dev · build 2026-07-24f
+</span></noscript>webSMLM v0.8.1-dev · build 2026-07-24g
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2400,7 +2400,7 @@ function renderProfile(){
   for(let i=0;i<dist.length;i++){ const xx=X(dist[i]), yy=Y(prof[i]); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
   ctx.restore();
   ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.fillText('distance (nm)', mL+pw/2, yb+22);       // just below the tick labels
+  ctx.fillText('distance (nm)', mL+pw/2, yb+26);       // below the tick labels, with a small gap
   ctx.save(); ctx.translate(12,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (a.u.)',0,0); ctx.restore();
   ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.fillText(`length = ${totalNm.toFixed(0)} nm`, mL+pw, mT-4);
   const zoomed=x0>0.5||x1<totalNm-0.5;
@@ -2450,7 +2450,7 @@ function rerender(keepView){
   const has3d=lastResult.locs.some(L=>isFinite(L.z));
   $('zcolorRow').style.display = has3d ? 'flex' : 'none';
   { const zr=$('driftZRow'); if(zr) zr.style.display = has3d ? 'flex' : 'none'; }
-  { const fr=$('frc3dRow'); if(fr) fr.style.display = has3d ? 'flex' : 'none'; }
+  // 3D shells (FSC) not implemented yet — keep the row hidden.
   const zColor = has3d && $('zcolor').checked;
   $('zrangeRow').style.display = zColor ? 'block' : 'none';
   // z range only matters (and is only computed) in depth mode. Doing it
@@ -3385,7 +3385,7 @@ function drawFrcPlot(r){
   const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
   rawFull=null; rawIsPlot=true; rawPlotName='frc'; $('rawTitle').textContent='FRC';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
-  const mL=52,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
+  const mL=52,mR=14,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
   const {frc,freq}=r.curve, nR=frc.length, fmax=freq[nR-1]||1, lo=-0.2, hi=1.05;
   const X=v=>mL+pw*v/Math.max(1e-9,fmax), Y=v=>mT+ph*(1-(v-lo)/(hi-lo));
   ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
@@ -3397,12 +3397,12 @@ function drawFrcPlot(r){
   for(let i=0;i<nR;i++){ const xx=X(freq[i]), yy=Y(Math.max(lo,Math.min(hi,frc[i]))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
   if(isFinite(r.res)){ const fc=1/r.res; ctx.strokeStyle='#d1242f'; ctx.lineWidth=1.4; ctx.setLineDash([3,3]);  // resolution
     ctx.beginPath(); ctx.moveTo(X(fc),mT); ctx.lineTo(X(fc),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('spatial frequency (1/nm)', mL+pw/2, H-12);
-  ctx.save(); ctx.translate(13,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('FRC',0,0); ctx.restore();
-  ctx.textAlign='left'; ctx.fillStyle='#8250df'; ctx.fillText('1/7', mL+6, Y(1/7)-8);
+  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('spatial frequency (1/nm)', mL+pw/2, mT+ph+28);
+  ctx.save(); ctx.translate(12,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('FRC',0,0); ctx.restore();
+  ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillStyle='#8250df'; ctx.fillText('1/7', mL+6, Y(1/7)-3);  // above the dashed line
   const lbl=isFinite(r.res)?`res = ${r.res.toFixed(1)}${isFinite(r.resErr)?' ± '+r.resErr.toFixed(1):''} nm`:`< Nyquist (${r.nyquist.toFixed(0)} nm)`;
-  ctx.fillStyle='#24292f'; ctx.textAlign='right'; ctx.fillText(lbl, mL+pw, mT-4);
+  ctx.fillStyle='#24292f'; ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.fillText(lbl, mL+pw, mT-4);
   $('rawInfo').textContent=`— FRC · ${lbl} · scrub a frame to return`;
   syncSaveImg();
 }
