@@ -36,6 +36,7 @@ their historical "Phase N" headings as a record; new work is version-keyed.
 | v0.8.0 | Localization precision — **NeNA** + **FRC** (2D), experimental |
 | v0.8.1 | NeNA → full Endesfelder fit; line-profile / distance tool; depth-bar ticks + Turbo-on-3D; Clear/Export log; plot-label polish |
 | v0.8.2 | Cursor readouts (crosshair + data-space x/y) on all axis plots — profile, NeNA, FRC, drift, calibration |
+| v0.8.3 | Sidebar UI: flat/outlined collapsible section bars, indented module controls, unified 12px control tier, Magnification separator |
 
 **Next:**
 
