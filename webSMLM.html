@@ -1264,7 +1264,8 @@ X.B(E,Y);return E}return J}())
   details.info>summary:hover{color:var(--accent);opacity:1}
   details.info .hint{margin-top:2px;text-align:left}
   /* flex:1 (not width:100%) so the select shares one line with its label */
-  select.sel{flex:1;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
+  /* fixed 60% of the row so all selects line up right-aligned (label takes the rest) */
+  select.sel{flex:0 0 60%;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
@@ -1331,7 +1332,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.3 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.4 · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1491,7 +1492,7 @@ X.B(E,Y);return E}return J}())
         <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is
         only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</div></details>
       <hr class="sep" style="margin:10px 0 8px">
-      <label class="row">Magnification <input type="number" id="mag" min="4" max="16" step="1" value="10" class="num"></label>
+      <label class="row">Magnification <input type="number" id="mag" min="4" max="25" step="1" value="10" class="num"></label>
       <label class="row">Render blur σ_render (px) <input type="number" id="rblur" min="0" max="1" step="0.05" value="0.25" class="num"></label>
       <label class="row">Colour map
         <select id="lut" class="sel">
@@ -1551,7 +1552,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.3 · sidebar UI enhancements
+</span></noscript>webSMLM v0.8.4 · crisp DPR canvases, range clamping
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2235,7 +2236,7 @@ function phasorFit(img,w,h,cx,cy,win){
      ↑SCALE: replace the accumulation loop with WebGL/WebGPU point splatting.
    =========================================================================== */
 let srFull=null;                       // offscreen full-res reconstruction
-const view={zoom:1,cx:0,cy:0};         // display px per srFull px; center in srFull coords
+const view={zoom:1,cx:0,cy:0,atFit:true};   // CSS px per srFull px; center in srFull coords; atFit → refit on window resize
 // line-profile / distance tool: coords in srFull pixels
 let measureMode=false, measurePt0=null, measureLine=null;
 let profileData=null, profileView=null;   // line-profile plot data + x-axis view (nm range)
@@ -2310,22 +2311,45 @@ function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi){
     out.data[i*4+3]=255; }
   ctx.putImageData(out,0,0); return cv;
 }
-function fitZoom(){ const d=$('sr'); return Math.min(d.width/srFull.width, d.height/srFull.height); }
-function fitView(){ view.zoom=fitZoom(); view.cx=srFull.width/2; view.cy=srFull.height/2; }
+// View math is in CSS pixels (the canvas backing is CSS×dpr for crisp overlays,
+// so use clientWidth/Height — NOT the backing width/height — as the logical size).
+function fitZoom(){ const d=$('sr'); return Math.min((d.clientWidth||d.width)/srFull.width, (d.clientHeight||d.height)/srFull.height); }
+function fitView(){ view.zoom=fitZoom(); view.cx=srFull.width/2; view.cy=srFull.height/2; view.atFit=true; }
 // keep the visible window inside the reconstruction: clamp the centre by the
 // current half-window, or recentre on the axis where the view is wider than the image.
 function clampView(){
   if(!srFull) return;
-  const d=$('sr'), halfW=d.width/view.zoom/2, halfH=d.height/view.zoom/2;
+  const d=$('sr'), cw=d.clientWidth||d.width, ch=d.clientHeight||d.height, halfW=cw/view.zoom/2, halfH=ch/view.zoom/2;
   view.cx = 2*halfW>=srFull.width  ? srFull.width/2  : Math.max(halfW, Math.min(srFull.width-halfW, view.cx));
   view.cy = 2*halfH>=srFull.height ? srFull.height/2 : Math.max(halfH, Math.min(srFull.height-halfH, view.cy));
 }
 // "Save image" is available whenever either panel has something to show
 // (a reconstruction/frame, or a drift/calibration plot).
 function syncSaveImg(){ const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||srIsPlot||rawFull||rawIsPlot); }
+// Plot canvases have a backing store that CSS scales to the column, so text is
+// drawn in backing pixels — on a small screen the whole plot (labels included)
+// scales down and turns tiny; on a large one a too-small backing gets upscaled
+// and goes pixelated. Size the backing to the on-screen box × devicePixelRatio
+// and draw in CSS pixels (via a DPR transform): text is a true, consistent 12px
+// and stays crisp at any window size (re-rendered on resize). Returns W/H in CSS
+// px. NOTE: this leaves the context transform scaled — the frame/reconstruction
+// drawers (drawRawView/drawView) reset it to identity before they paint.
+function setupPlot(cv){
+  const dpr=Math.min(2, window.devicePixelRatio||1);
+  const W=Math.max(1,Math.round(cv.clientWidth||cv.width/dpr)), H=Math.max(1,Math.round(cv.clientHeight||cv.height/dpr));
+  const bw=Math.round(W*dpr), bh=Math.round(H*dpr);
+  if(cv.width!==bw||cv.height!==bh){ cv.width=bw; cv.height=bh; }
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, W, H, dpr};
+}
+const PLOT_FONT='sans-serif';   // one standard font for all in-graph text
+// Re-run the plot currently shown in each panel (used on window resize so the
+// backing store — and thus text crispness — tracks the new size). Set by each
+// plot's draw fn; cleared when the panel reverts to a frame / reconstruction.
+let _replotRaw=null, _replotSr=null;
 function drawView(){
-  const d=$('sr'), ctx=d.getContext('2d'), DW=d.width, DH=d.height;
-  _plotHover.sr=null;                 // reconstruction now owns this panel — no plot readout
+  const d=$('sr'); const {ctx,W:DW,H:DH}=setupPlot(d);   // backing = CSS×dpr, drawn in CSS px → crisp overlays at any window size
+  _plotHover.sr=null; _replotSr=null;   // reconstruction now owns this panel — no plot readout/replot
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
   syncSaveImg();
   if(!srFull) return;
@@ -2378,18 +2402,18 @@ function drawProfilePlot(dist, prof, totalNm){
 // x-axis pixel↔data mapping used by both the render and the zoom handlers.
 const PROF_ML=52, PROF_MR=14;
 function profX0px(){ return PROF_ML; }
-function profDataX(clientX){ const cv=$('raw'), r=cv.getBoundingClientRect();
-  const px=(clientX-r.left)*cv.width/r.width, pw=cv.width-PROF_ML-PROF_MR, xr=profileView.x1-profileView.x0;
+function profDataX(clientX){ const cv=$('raw'), r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width;
+  const px=(clientX-r.left)*Wc/r.width, pw=Wc-PROF_ML-PROF_MR, xr=profileView.x1-profileView.x0;
   return profileView.x0 + (px-PROF_ML)/Math.max(1,pw)*xr; }
 function renderProfile(){
   if(!profileData) return;
-  const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
   const {dist,prof,totalNm,ymax}=profileData, {x0,x1}=profileView, xr=Math.max(1e-9,x1-x0);
   rawFull=null; rawIsPlot=true; rawPlotName='profile'; $('rawTitle').textContent='Line profile';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=PROF_ML,mR=PROF_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, yb=mT+ph;
   const X=v=>mL+pw*(v-x0)/xr, Y=v=>mT+ph*(1-v/ymax), inX=xx=>xx>=mL-0.5&&xx<=mL+pw+0.5;
-  ctx.font='11px sans-serif';
+  ctx.font='12px '+PLOT_FONT;
   // Y major ticks: dashed horizontal gridlines + labels
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of niceTicks(0,ymax,5)){ const yy=Y(v);
@@ -2411,7 +2435,7 @@ function renderProfile(){
   ctx.strokeStyle='#0a7d32'; ctx.lineWidth=1.8; ctx.beginPath();
   for(let i=0;i<dist.length;i++){ const xx=X(dist[i]), yy=Y(prof[i]); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
   ctx.restore();
-  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('distance (nm)', mL+pw/2, yb+26);       // below the tick labels, with a small gap
   ctx.save(); ctx.translate(12,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (a.u.)',0,0); ctx.restore();
   ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.fillText(`length = ${totalNm.toFixed(0)} nm`, mL+pw, mT-4);
@@ -2419,6 +2443,7 @@ function renderProfile(){
   $('rawInfo').textContent=`— line profile · length ${totalNm.toFixed(0)} nm${zoomed?` · x ${x0.toFixed(0)}–${x1.toFixed(0)} nm (scroll/pinch zoom · drag pan · dbl-click reset)`:` · scroll/pinch to zoom x`} · scrub a frame to return`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:x0,xB:x1,yTop:ymax,yBot:0,
     fmt:(vx,vy)=>`${vx.toFixed(0)} nm · ${vy.toFixed(0)} a.u.`});
+  _replotRaw=renderProfile;
   syncSaveImg();
 }
 // vertical depth colourbar (top-left), mapping the current LUT to the z range.
@@ -2503,17 +2528,17 @@ let rawFull=null;
 // calibration plot. These flags say a plot is up, so "Save image" can snapshot
 // the on-screen canvas for it (and know the window has exportable content).
 let rawIsPlot=false, srIsPlot=false, rawPlotName='plot';   // which plot the left panel shows (drift / nena)
-const rawView={zoom:1,cx:0,cy:0};
-function fitRawZoom(){ const d=$('raw'); return rawFull?Math.min(d.width/rawFull.width,d.height/rawFull.height):1; }
-function fitRawView(){ if(!rawFull) return; rawView.zoom=fitRawZoom(); rawView.cx=rawFull.width/2; rawView.cy=rawFull.height/2; }
+const rawView={zoom:1,cx:0,cy:0,atFit:true};
+function fitRawZoom(){ const d=$('raw'); return rawFull?Math.min((d.clientWidth||d.width)/rawFull.width,(d.clientHeight||d.height)/rawFull.height):1; }
+function fitRawView(){ if(!rawFull) return; rawView.zoom=fitRawZoom(); rawView.cx=rawFull.width/2; rawView.cy=rawFull.height/2; rawView.atFit=true; }
 function clampRawView(){ if(!rawFull) return;
-  const d=$('raw'), hw=d.width/rawView.zoom/2, hh=d.height/rawView.zoom/2;
+  const d=$('raw'), cw=d.clientWidth||d.width, ch=d.clientHeight||d.height, hw=cw/rawView.zoom/2, hh=ch/rawView.zoom/2;
   rawView.cx = 2*hw>=rawFull.width  ? rawFull.width/2  : Math.max(hw, Math.min(rawFull.width-hw, rawView.cx));
   rawView.cy = 2*hh>=rawFull.height ? rawFull.height/2 : Math.max(hh, Math.min(rawFull.height-hh, rawView.cy)); }
 let rawSpots=null, rawLocs=null;                 // overlays for the current frame (native coords)
 function drawRawView(){
-  const d=$('raw'), ctx=d.getContext('2d'), DW=d.width, DH=d.height;
-  _plotHover.raw=null;                // a frame now owns the left panel — no plot readout
+  const d=$('raw'); const {ctx,W:DW,H:DH}=setupPlot(d);   // backing = CSS×dpr, drawn in CSS px → crisp overlays at any window size
+  _plotHover.raw=null; _replotRaw=null;   // a frame now owns the left panel — no plot readout/replot
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
   if(rawFull){
     ctx.imageSmoothingEnabled=false;
@@ -2661,7 +2686,7 @@ async function exportPanel(which){
   const full = isSR ? srFull : rawFull, V = isSR ? view : rawView;
   let cv, outW, outH, note;
   if(full){                                               // image content → supersample
-    const DW=d.width, DH=d.height;
+    const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;   // logical (CSS) view size — matches on-screen field of view
     const s=Math.max(1/V.zoom, 2, EXPORT_MIN_LONG/Math.max(DW,DH));
     outW=Math.round(DW*s); outH=Math.round(DH*s);
     const sw=DW/V.zoom, sh=DH/V.zoom, sx=V.cx-sw/2, sy=V.cy-sh/2;
@@ -2900,7 +2925,7 @@ async function runCalibration(){
 // vertex-quadratic fits in black (colours per the request).
 function drawCalibration(){
   if(!calib) return;
-  const d=$('sr'), ctx=d.getContext('2d'), W=d.width, H=d.height;
+  const d=$('sr'); const {ctx,W,H}=setupPlot(d);
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=64,mR=16,mT=40,mB=52, pw=W-mL-mR, ph=H-mT-mB;
   const zmin=calib.zmin, zmax=calib.zmax;
@@ -2910,7 +2935,7 @@ function drawCalibration(){
   const Y=s=>mT+ph*(1-(s-smin)/Math.max(1e-9,smax-smin));
   // axes + grid
   ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.lineWidth=1;
-  ctx.font='11px -apple-system,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   const zt=niceTicks(zmin,zmax,6);
   for(const z of zt){ const x=X(z); ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ph); ctx.stroke();
     ctx.fillText(z.toFixed(0), x, mT+ph+6); }
@@ -2923,10 +2948,10 @@ function drawCalibration(){
     ctx.beginPath(); ctx.moveTo(X(0),mT); ctx.lineTo(X(0),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
   // axis labels + title
   ctx.fillStyle='#24292f'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  ctx.font='12px -apple-system,sans-serif';
+  ctx.font='12px '+PLOT_FONT;
   ctx.fillText('z (nm, 0 = focus)', mL+pw/2, H-14);
   ctx.save(); ctx.translate(16,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('PSF width σ (nm)',0,0); ctx.restore();
-  ctx.font='bold 13px -apple-system,sans-serif'; ctx.textAlign='left';
+  ctx.font='bold 12px '+PLOT_FONT; ctx.textAlign='left';
   ctx.fillText('Astigmatism calibration', mL, 24);
   // points
   const GREEN='#0a7d32', MAG='#c81cc8';
@@ -2938,7 +2963,7 @@ function drawCalibration(){
       i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
   ctx.strokeStyle='#000'; ctx.lineWidth=1.8; curve(calib.qx); curve(calib.qy);
   // legend
-  ctx.textAlign='left'; ctx.font='12px -apple-system,sans-serif';
+  ctx.textAlign='left'; ctx.font='12px '+PLOT_FONT;
   ctx.fillStyle=GREEN; ctx.fillText('● σx', mL+pw-120, 20);
   ctx.fillStyle=MAG;   ctx.fillText('● σy', mL+pw-72, 20);
   ctx.fillStyle='#000';ctx.fillText('— fit', mL+pw-30, 20);
@@ -2946,6 +2971,7 @@ function drawCalibration(){
   $('srInfo').textContent=`${calib.pts.length} points · z-step ${calib.step} nm · scroll the raw panel to inspect frames`;
   registerPlotHover('sr',{mL,mT,pw,ph,xA:zmin,xB:zmax,yTop:smax,yBot:smin,
     fmt:(vx,vy)=>`z ${vx.toFixed(0)} nm · σ ${vy.toFixed(1)} nm`});
+  _replotSr=drawCalibration;
 }
 // simple "nice" axis ticks
 function niceTicks(lo,hi,n){
@@ -3158,7 +3184,7 @@ async function correctDrift(){
 function drawDriftCurve(){
   if(!lastDrift||!lastResult) return;
   const d=lastDrift, px=lastResult.px, n=d.fdx.length;
-  const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
   rawFull=null; rawIsPlot=true; rawPlotName='drift'; $('rawTitle').textContent='Drift vs frame';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=60,mR=16,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
@@ -3166,7 +3192,7 @@ function drawDriftCurve(){
     if(d.fdz){ const c=-d.fdz[f]; lo=Math.min(lo,c); hi=Math.max(hi,c); } }
   const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
   const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
-  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif';
+  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(v.toFixed(0),mL-6,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
@@ -3175,7 +3201,7 @@ function drawDriftCurve(){
     for(let f=0;f<n;f++){ const x=X(f),y=Y(get(f)); f?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
   line(f=>-d.fdx[f]*px,'#0a7d32'); line(f=>-d.fdy[f]*px,'#c81cc8');
   if(d.fdz) line(f=>-d.fdz[f],'#3572b0');   // z drift is already in nm
-  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('frame', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('drift (nm)',0,0); ctx.restore();
   ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#0a7d32'; ctx.fillText('drift x', mL+pw-90, mT-6);
@@ -3184,6 +3210,7 @@ function drawDriftCurve(){
   $('rawInfo').textContent=`— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`frame ${vx.toFixed(0)} · ${vy.toFixed(1)} nm`});
+  _replotRaw=drawDriftCurve;
   syncSaveImg();
 }
 
@@ -3287,7 +3314,7 @@ async function nenaPrecision(locs, px, onProgress){
 }
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
-  const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
   rawFull=null; rawIsPlot=true; rawPlotName='nena'; $('rawTitle').textContent='NeNA: NN distances';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=56,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
@@ -3298,7 +3325,7 @@ function drawNenaPlot(res){
   const ff=x=>p[0]*S(x,p[1])+p[2]*G(x,p[3],p[4])+p[5]*x;   // full Endesfelder model
   let ymax=0; for(let i=0;i<nb;i++) if(y[i]>ymax) ymax=y[i]; ymax*=1.08;
   const X=v=>mL+pw*v/Math.max(1e-9,xmax), Y=v=>mT+ph*(1-v/Math.max(1e-9,ymax));
-  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif';
+  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of niceTicks(0,ymax,5)){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.fillText(v.toFixed(0),mL-6,yy); }
   ctx.textAlign='center'; ctx.textBaseline='top';
@@ -3309,16 +3336,17 @@ function drawNenaPlot(res){
   for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,sig1(x))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke(); ctx.setLineDash([]);
   ctx.strokeStyle='#d1242f'; ctx.lineWidth=2; ctx.beginPath();                              // full fit
   for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,ff(x))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
-  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('NN distance (nm)', mL+pw/2, H-12);
-  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('pairs',0,0); ctx.restore();
-  ctx.textAlign='left'; ctx.fillStyle='#d1242f'; ctx.fillText('fit', mL+8, mT-4);
+  ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('NN distance (nm)', mL+pw/2, mT+ph+26);      // just below the tick labels
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('pairs',0,0); ctx.restore();
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#d1242f'; ctx.fillText('fit', mL+8, mT-4);
   ctx.fillStyle='#0a7d32'; ctx.fillText('signal', mL+38, mT-4);
   const serr=isFinite(res.sigErr)?' ± '+res.sigErr.toFixed(1):'';
   ctx.fillStyle='#24292f'; ctx.fillText(`σ = ${sigma.toFixed(1)}${serr} nm`, mL+pw-118, mT-4);
   $('rawInfo').textContent=`— NeNA · ${res.nPairs.toLocaleString()} pairs · σ = ${sigma.toFixed(1)}${serr} nm · scrub a frame to return`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:xmax,yTop:ymax,yBot:0,
     fmt:(vx,vy)=>`${vx.toFixed(1)} nm · ${vy.toFixed(0)} pairs`});
+  _replotRaw=()=>drawNenaPlot(res);
   syncSaveImg();
 }
 async function computeNeNA(){
@@ -3403,13 +3431,13 @@ async function frcResolution(locs, px, mag, onProgress){
 }
 // Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
 function drawFrcPlot(r){
-  const cv=$('raw'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
   rawFull=null; rawIsPlot=true; rawPlotName='frc'; $('rawTitle').textContent='FRC';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=52,mR=14,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
   const {frc,freq}=r.curve, nR=frc.length, fmax=freq[nR-1]||1, lo=-0.2, hi=1.05;
   const X=v=>mL+pw*v/Math.max(1e-9,fmax), Y=v=>mT+ph*(1-(v-lo)/(hi-lo));
-  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of [0,0.2,0.4,0.6,0.8,1.0]){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.fillText(v.toFixed(1),mL-6,yy); }
   ctx.textAlign='center'; ctx.textBaseline='top';
   for(const v of niceTicks(0,fmax,6)){ const xx=X(v); ctx.fillText(v.toFixed(3),xx,mT+ph+6); }
@@ -3418,7 +3446,7 @@ function drawFrcPlot(r){
   for(let i=0;i<nR;i++){ const xx=X(freq[i]), yy=Y(Math.max(lo,Math.min(hi,frc[i]))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
   if(isFinite(r.res)){ const fc=1/r.res; ctx.strokeStyle='#d1242f'; ctx.lineWidth=1.4; ctx.setLineDash([3,3]);  // resolution
     ctx.beginPath(); ctx.moveTo(X(fc),mT); ctx.lineTo(X(fc),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.fillStyle='#24292f'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('spatial frequency (1/nm)', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(12,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('FRC',0,0); ctx.restore();
   ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillStyle='#8250df'; ctx.fillText('1/7', mL+6, Y(1/7)-3);  // above the dashed line
@@ -3427,6 +3455,7 @@ function drawFrcPlot(r){
   $('rawInfo').textContent=`— FRC · ${lbl} · scrub a frame to return`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:fmax,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`${vx.toFixed(4)} 1/nm${vx>0?' ('+(1/vx).toFixed(0)+' nm)':''} · FRC ${vy.toFixed(2)}`});
+  _replotRaw=()=>drawFrcPlot(r);
   syncSaveImg();
 }
 async function computeFRC(){
@@ -3659,6 +3688,25 @@ async function run(){
     if(el.value==='' && el.defaultValue!=='') el.value=el.defaultValue;
 })();
 
+// On commit, clamp any number input to its allowed [min,max] and warn in the
+// log. Registered before the live-render change handlers below, so those pick up
+// the corrected value. The friendly name comes from the input's own label.
+(function clampNumberInputs(){
+  const nameOf=el=>{ const lab=el.closest('label');
+    const t=lab?lab.textContent.replace(/\s+/g,' ').trim():''; return t||el.id||'value'; };
+  const fmt=v=>Number.isInteger(v)?String(v):String(+v.toPrecision(6));   // trim float noise
+  for(const el of document.querySelectorAll('input[type=number]')){
+    el.addEventListener('change',()=>{
+      if(el.value==='') return;                                  // blanks handled elsewhere
+      const v=parseFloat(el.value); if(!isFinite(v)) return;
+      const min=el.min!==''?parseFloat(el.min):-Infinity, max=el.max!==''?parseFloat(el.max):Infinity;
+      const c=v<min?min:v>max?max:v;
+      if(c!==v){ el.value=c;
+        log(`A value of ${fmt(v)} for ${nameOf(el)} is out of range, the nearest possible value is ${fmt(c)}.`); }
+    });
+  }
+})();
+
 // Exact band-pass only applies to the DoG filter — grey it out for wavelet.
 (function(){ const f=$('detFilter'), row=$('exactbpRow'), cb=$('exactbp');
   const sync=()=>{ const off=f.value==='wave'; cb.disabled=off; row.style.opacity=off?0.45:1; };
@@ -3855,14 +3903,17 @@ $('pxnm').addEventListener('change',()=>{
 // both the SR reconstruction and the raw frame. nav supplies the state and the
 // fit/clamp/draw callbacks so the two panels share one interaction model.
 function makeNavigator(cv, nav){
+  // All pointer math is in CSS pixels (clientWidth/Height), matching the CSS-px
+  // coordinate system the panels are drawn in (backing is CSS×dpr).
+  const CW=()=>cv.clientWidth||cv.width, CH=()=>cv.clientHeight||cv.height;
   const toCv=(cx_,cy_)=>{ const r=cv.getBoundingClientRect();
-    return {x:(cx_-r.left)*cv.width/r.width, y:(cy_-r.top)*cv.height/r.height}; };
-  const toFull=(px,py)=>{ const v=nav.view, sw=cv.width/v.zoom, sh=cv.height/v.zoom;
-    return {x:v.cx+sw*(px/cv.width-0.5), y:v.cy+sh*(py/cv.height-0.5)}; };
-  function zoomAbout(px,py,z){ const v=nav.view, u=toFull(px,py), fz=nav.fitZoom();
-    v.zoom=Math.max(fz, Math.min(fz*(nav.maxZoom||60), z));
-    const sw=cv.width/v.zoom, sh=cv.height/v.zoom;
-    v.cx=u.x-sw*(px/cv.width-0.5); v.cy=u.y-sh*(py/cv.height-0.5);
+    return {x:(cx_-r.left)*CW()/r.width, y:(cy_-r.top)*CH()/r.height}; };
+  const toFull=(px,py)=>{ const v=nav.view, cw=CW(), ch=CH(), sw=cw/v.zoom, sh=ch/v.zoom;
+    return {x:v.cx+sw*(px/cw-0.5), y:v.cy+sh*(py/ch-0.5)}; };
+  function zoomAbout(px,py,z){ const v=nav.view, u=toFull(px,py), fz=nav.fitZoom(), cw=CW(), ch=CH();
+    v.zoom=Math.max(fz, Math.min(fz*(nav.maxZoom||60), z)); v.atFit=false;
+    const sw=cw/v.zoom, sh=ch/v.zoom;
+    v.cx=u.x-sw*(px/cw-0.5); v.cy=u.y-sh*(py/ch-0.5);
     nav.clamp(); nav.draw(); }
   const ptrs=new Map(); let pinch=null, lastTap=0, dragging=null;
   const midpoint=()=>{ const p=[...ptrs.values()]; return {x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2}; };
@@ -3880,8 +3931,8 @@ function makeNavigator(cv, nav){
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.preventDefault();
     if(pinch && ptrs.size>=2){ const d=spread(); if(d<=0) return; zoomAbout(pinch.px,pinch.py,pinch.z0*(d/pinch.d0)); }
     else if(dragging && ptrs.size===1){ const r=cv.getBoundingClientRect(), v=nav.view,
-      sw=cv.width/v.zoom, sh=cv.height/v.zoom;
-      v.cx=dragging.cx-(e.clientX-dragging.x)/r.width*sw; v.cy=dragging.cy-(e.clientY-dragging.y)/r.height*sh;
+      sw=CW()/v.zoom, sh=CH()/v.zoom;
+      v.cx=dragging.cx-(e.clientX-dragging.x)/r.width*sw; v.cy=dragging.cy-(e.clientY-dragging.y)/r.height*sh; v.atFit=false;
       nav.clamp(); nav.draw(); } });
   const endPtr=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null;
     if(ptrs.size===0) dragging=null;
@@ -3903,9 +3954,10 @@ $('measureBtn').addEventListener('click',()=>{
 $('sr').addEventListener('click',e=>{
   if(!measureMode||!srFull) return;
   const cv=$('sr'), r=cv.getBoundingClientRect();
-  const px=(e.clientX-r.left)*cv.width/r.width, py=(e.clientY-r.top)*cv.height/r.height;
-  const sw=cv.width/view.zoom, sh=cv.height/view.zoom;
-  const fx=view.cx+sw*(px/cv.width-0.5), fy=view.cy+sh*(py/cv.height-0.5);
+  const cw=cv.clientWidth||cv.width, ch=cv.clientHeight||cv.height;
+  const px=(e.clientX-r.left)*cw/r.width, py=(e.clientY-r.top)*ch/r.height;
+  const sw=cw/view.zoom, sh=ch/view.zoom;
+  const fx=view.cx+sw*(px/cw-0.5), fy=view.cy+sh*(py/ch-0.5);
   if(!measurePt0){ measurePt0={x:fx,y:fy}; drawView(); }
   else { measureLine={x0:measurePt0.x,y0:measurePt0.y,x1:fx,y1:fy}; measurePt0=null; drawView(); lineProfile(measureLine); }
 });
@@ -3915,8 +3967,8 @@ $('sr').addEventListener('click',e=>{
   const active=()=>rawIsPlot&&rawPlotName==='profile'&&!!profileData;
   const clampSet=(c,x0,x1,f)=>{ const T=profileData.totalNm; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
     nx0=Math.max(0,nx0); nx1=Math.min(T,nx1); if(nx1-nx0>=T*0.01){ profileView={x0:nx0,x1:nx1}; renderProfile(); } };
-  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), pw=cv.width-PROF_ML-PROF_MR, xr=x1-x0, T=profileData.totalNm;
-    const dData=(clientDx-d0)*cv.width/r.width*xr/Math.max(1,pw);      // drag right → view left
+  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=Wc-PROF_ML-PROF_MR, xr=x1-x0, T=profileData.totalNm;
+    const dData=(clientDx-d0)*Wc/r.width*xr/Math.max(1,pw);      // drag right → view left
     let nx0=x0-dData, nx1=x1-dData; if(nx0<0){nx0=0;nx1=xr;} if(nx1>T){nx1=T;nx0=T-xr;} nx0=Math.max(0,nx0);
     profileView={x0:nx0,x1:nx1}; renderProfile(); };
   cv.addEventListener('wheel',e=>{ if(!active()) return; e.preventDefault();
@@ -3952,10 +4004,12 @@ function registerPlotHover(id,m){          // m={mL,mT,pw,ph,xA,xB,yTop,yBot,fmt
 function drawPlotHover(id,clientX,clientY){
   const h=_plotHover[id]; if(!h) return;
   const cv=$(id), ctx=cv.getContext('2d');
-  ctx.drawImage(h.snap,0,0);                             // restore the clean plot
-  if(clientX==null) return;                              // pointer left → clean plot only
+  const Wc=cv.clientWidth||cv.width, Hc=cv.clientHeight||cv.height, dpr=cv.width/Math.max(1,Wc);
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(h.snap,0,0);   // restore the clean plot (backing px)
+  ctx.setTransform(dpr,0,0,dpr,0,0);                          // overlay in CSS px, like the plot
+  if(clientX==null) return;                             // pointer left → clean plot only
   const r=cv.getBoundingClientRect();
-  const px=(clientX-r.left)*cv.width/r.width, py=(clientY-r.top)*cv.height/r.height;
+  const px=(clientX-r.left)*Wc/r.width, py=(clientY-r.top)*Hc/r.height;   // CSS px
   if(px<h.mL||px>h.mL+h.pw||py<h.mT||py>h.mT+h.ph) return;   // outside the plotted axes
   const dx=h.xA+(px-h.mL)/h.pw*(h.xB-h.xA);
   const dy=h.yTop+(py-h.mT)/h.ph*(h.yBot-h.yTop);
@@ -3967,7 +4021,7 @@ function drawPlotHover(id,clientX,clientY){
   ctx.font='11px ui-monospace,SFMono-Regular,Menlo,monospace';
   const tw=ctx.measureText(txt).width;
   let bx=px+9, by=py-9;
-  if(bx+tw+8>cv.width) bx=px-tw-17;                      // flip left near the right edge
+  if(bx+tw+8>Wc) bx=px-tw-17;                            // flip left near the right edge
   if(by-13<h.mT) by=py+25;                               // flip below near the top edge
   ctx.fillStyle='rgba(13,17,23,.9)'; ctx.fillRect(bx-4,by-13,tw+8,17);
   ctx.strokeStyle='rgba(139,148,158,.5)'; ctx.strokeRect(bx-4.5,by-13.5,tw+9,18);
@@ -3979,6 +4033,15 @@ for(const _id of ['raw','sr']){ const _cv=$(_id);
   _cv.addEventListener('mousemove',e=>{ if(_plotHover[_id]) drawPlotHover(_id,e.clientX,e.clientY); });
   _cv.addEventListener('mouseleave',()=>{ if(_plotHover[_id]) drawPlotHover(_id,null,null); });
 }
+// Re-render the active plot on window resize so its backing store tracks the new
+// on-screen size and text stays crisp (debounced).
+let _plotResizeT=null;
+window.addEventListener('resize',()=>{ clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
+  if(rawIsPlot && _replotRaw) _replotRaw();
+  else if(rawFull){ if(rawView.atFit) fitRawView(); clampRawView(); drawRawView(); }   // refit only if it was fitted; else keep on-screen scale
+  if(srIsPlot && _replotSr) _replotSr();
+  else if(srFull){ if(view.atFit) fitView(); clampView(); drawView(); }
+}, 120); });
 
 // help modal — wire after full DOM parse (the modal markup follows this script,
 // so its elements don't exist yet at first execution).
