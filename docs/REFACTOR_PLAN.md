@@ -38,13 +38,15 @@ their historical "Phase N" headings as a record; new work is version-keyed.
 | v0.8.2 | Cursor readouts (crosshair + data-space x/y) on all axis plots — profile, NeNA, FRC, drift, calibration |
 | v0.8.3 | Sidebar UI: flat/outlined collapsible section bars, indented module controls, unified 12px control tier, Magnification separator |
 | v0.8.4 | Device-pixel (DPR) canvases + resize re-render (crisp plot text / scale bar at any size); 60%-width selects; number-input range clamping with log note; Magnification max→25 |
+| v0.8.5 | Phasor 3D safeguarding (WIP): tagged calibration models (phasor-magnitude / Gaussian-width) + algorithm→model guard, exported in JSON; 3-way calibration graph toggle (σ / magnitudes / ratio); magnitude aligned to reference FFT and made brightness-independent (\|F₁\|/\|F₀\|); ratio→z model → quadratic in ln(ratio); fit-radius cap 5→7 |
 
 **Next:**
 
 | Version | Plan |
 |---|---|
+| **v0.9.0-dev** | **MLE 3D integration** — Gaussian/Poisson MLE astigmatic fitter using the "Gaussian width based" calibration (σx/σy vs z); provides an independent 3D z estimate to **cross-check Phasor 3D**, plus per-localization uncertainty. Builds on the v0.8.5 tagged-calibration safeguards. |
 | **v0.8.x / 0.9.0** | **FSC** (3D FRC over spherical shells) · cross-validate NeNA/FRC against established tools |
-| later | Scriptable / headless pipeline (see below) · Poisson MLE fitting · localization filtering · 3D point-cloud view |
+| later | Scriptable / headless pipeline (see below) · localization filtering · 3D point-cloud view |
 
 ---
 

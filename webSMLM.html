@@ -1332,7 +1332,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.4 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.8.5 · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1468,7 +1468,7 @@ X.B(E,Y);return E}return J}())
       <label class="row" id="exactbpRow">Exact band-pass (slower, DoG only) <input type="checkbox" id="exactbp"></label>
       <label class="row" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="thr" min="1" max="8" step="0.5" value="4" class="num"></label>
       <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
-      <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="5" step="1" value="3" class="num"></label>
+      <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="7" step="1" value="3" class="num"></label>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">Phasor is ~100–250× faster per candidate (265× on the GATTA-PAINT test stack); Gaussian LS ≈ slightly better precision. (Current Gaussian is least-squares, not MLE.)
         σ_noise is the spread of the filtered image, not the PSF width. Both filters band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>.
@@ -1546,13 +1546,17 @@ X.B(E,Y);return E}return J}())
       <div class="card">
         <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="measureBtn" class="linetool" title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
         <canvas id="sr"></canvas>
+        <div id="calViewRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+          <span style="color:var(--muted);font-size:12px">Calibration graph</span>
+          <button id="calViewBtn" class="logbtn" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button>
+        </div>
       </div>
     </div>
 
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.4 · crisp DPR canvases, range clamping
+</span></noscript>webSMLM v0.8.5 · Phasor 3D safeguarding (WIP)
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2221,10 +2225,14 @@ function phasorFit(img,w,h,cx,cy,win){
     reX+=col[k]*c; imX-=col[k]*s; reY+=row[k]*c; imY-=row[k]*s; }
   let ax=Math.atan2(imX,reX); if(ax>0)ax-=2*Math.PI;
   let ay=Math.atan2(imY,reY); if(ay>0)ay-=2*Math.PI;
-  // First-coefficient magnitude, normalised by the DC term (tot), is a width
-  // proxy: a narrow PSF concentrates power in the first harmonic (high value),
-  // a broad one spreads it (low value). For astigmatism the x/y RATIO carries z
-  // (Martens 2018). Not a σ in px — a monotonic proxy, calibrated against z.
+  // First-coefficient magnitude normalised by the DC term |F0| (= tot): |F1|/|F0|,
+  // the brightness-INDEPENDENT normalised first harmonic — a pure width proxy. The
+  // pSMLM-3D reference divides by N (window size) instead, which leaves the
+  // magnitude scaled by each spot's photon count: fine for the x/y RATIO (which is
+  // what carries z — brightness cancels there), but it scatters the per-bead
+  // magnitude plot. The ratio magY/magX is IDENTICAL either way, so Phasor 3D's z
+  // is unchanged; here we keep the brightness-free form so the plot is comparable
+  // across beads. magX,magY track σx,σy.
   const magX=Math.hypot(reX,imX)/Math.max(1,tot), magY=Math.hypot(reY,imY)/Math.max(1,tot);
   return { x: cx-r+Math.abs(ax)/(2*Math.PI/N), y: cy-r+Math.abs(ay)/(2*Math.PI/N),
            photons: tot-bg*N*N, bg, bgstd, sigma:0,   // sigma:0 = "not fitted"
@@ -2350,6 +2358,7 @@ let _replotRaw=null, _replotSr=null;
 function drawView(){
   const d=$('sr'); const {ctx,W:DW,H:DH}=setupPlot(d);   // backing = CSS×dpr, drawn in CSS px → crisp overlays at any window size
   _plotHover.sr=null; _replotSr=null;   // reconstruction now owns this panel — no plot readout/replot
+  { const r=$('calViewRow'); if(r) r.style.display='none'; }   // calibration-only toggle
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
   syncSaveImg();
   if(!srFull) return;
@@ -2778,7 +2787,8 @@ function workerSource(){
           if(L){
             let z=NaN, cl=0;
             if(method==='phasor3d'&&zcal){ const raw=L.pratio; cl=(raw<zcal.rmin||raw>zcal.rmax)?1:0;
-              z=polyEval(zcal.coef, Math.max(zcal.rmin,Math.min(zcal.rmax,raw))); }
+              const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
+              z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
             out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,cl,start+i);   // cl: z clamped out-of-range
           }
         }
@@ -2830,6 +2840,15 @@ async function getPool(){
    =========================================================================== */
 let calib=null;                              // non-null ⇒ the SR panel shows the plot
 let cal3d=null;                              // active z(ratio) model used by Phasor 3D (from Calibrate or a loaded JSON)
+// A z-calibration can carry two independent models. Phasor 3D reads z from the
+// phasor first-coefficient MAGNITUDE ratio (magY/magX) — the "Phasor magnitude
+// based" model. The σx/σy(z) width curves are the "Gaussian width based" model,
+// kept for the (future) LS / MLE 3D fitters. Each algorithm must be matched to
+// the calibration model it needs, so both are tagged in the exported file.
+const CALIB_METHODS={ phasor_magnitude:'Phasor magnitude based', gaussian_width:'Gaussian width based' };
+const ALGO_CALIB_METHOD={ phasor3d:'phasor_magnitude' /*, ls3d:'gaussian_width', mle3d:'gaussian_width' */ };
+let calMethods={ phasor_magnitude:false, gaussian_width:false };   // which models the active calibration provides
+let calView='sigma';                         // which calibration graph the right panel shows: 'sigma' (Gaussian width) or 'mag' (phasor magnitude)
 
 // Robust vertex-quadratic fit: fit, reject points >3·MAD from the curve, refit once.
 function robustQuad(zs,ys){
@@ -2860,7 +2879,7 @@ async function runCalibration(){
       for(const [cx,cy] of maxima){
         const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
         const P=phasorFit(img,w,h,cx,cy,win);
-        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,rrel:L.rrel});
+        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
         frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
       }
       if(performance.now()-lastYield>50){
@@ -2891,23 +2910,31 @@ async function runCalibration(){
     // re-fit in referenced z so the stored curves are in z-relative-to-focus
     const zr=good.map(p=>zAbs(p)-zref);
     const qx=robustQuad(zr,sxN), qy=robustQuad(zr,syN), qpr=robustQuad(zr,good.map(p=>p.pr));
-    // Phasor 3D model: z as a function of the width ratio (monotonic → invertible).
-    const prc=[], zrc=[];
+    // Phasor 3D model: z as a function of the magnitude ratio r=|Fy|/|Fx|. The
+    // ratio ≈ exp(k·z) (ratio of two Gaussians whose σ² differ ~linearly in z), so
+    // we fit z as a low-order polynomial of ln(r): near-linear, monotonic and
+    // stable. (A polynomial in r itself overshoots and doubles back at the sparse
+    // high-ratio / defocused end.) basis:'ln' ⇒ z = Σ coefᵢ·(ln r)ⁱ.
+    const lr=[], zrc=[];
     for(let i=0;i<good.length;i++){ const R=good[i].pr;
-      if(isFinite(R)&&R>0.2&&R<5){ prc.push(R); zrc.push(zr[i]); } }
+      if(isFinite(R)&&R>0.2&&R<5){ lr.push(Math.log(R)); zrc.push(zr[i]); } }
     let zcal=null;
-    if(prc.length>=8){ const coef=polyfit(prc,zrc,3);
-      if(coef){ let e2=0; for(let i=0;i<prc.length;i++){ const d=zrc[i]-polyEval(coef,prc[i]); e2+=d*d; }
-        const sr=prc.slice().sort((a,b)=>a-b);
-        zcal={coef,rmin:sr[0],rmax:sr[sr.length-1],rms:Math.sqrt(e2/prc.length)}; } }
+    if(lr.length>=8){ const coef=polyfit(lr,zrc,2);
+      if(coef){ let e2=0; for(let i=0;i<lr.length;i++){ const d=zrc[i]-polyEval(coef,lr[i]); e2+=d*d; }
+        const rs=lr.map(Math.exp).sort((a,b)=>a-b);
+        zcal={coef,basis:'ln',rmin:rs[0],rmax:rs[rs.length-1],rms:Math.sqrt(e2/lr.length)}; } }
+    // magnitude(z) curves for the "Phasor magnitude based" plot — vertex quadratic
+    // (like σ), so the display fit is a clean parabola, not a wiggly cubic.
+    const qmagX=robustQuad(zr,good.map(p=>p.mx)), qmagY=robustQuad(zr,good.map(p=>p.my));
     // per-frame accepted fits, so the raw panel can overlay them while scrubbing
     const fitsByFrame=new Map();
     for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
-    calib={ first,last,step,px,zref, qx,qy,qpr, zcal,
+    calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY,
             det:{sigma,k,win,border,exactBP,waveBP}, fitsByFrame,
-            pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr})),
+            pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
             zmin:Math.min(...zr), zmax:Math.max(...zr) };
     cal3d=zcal;                               // make it immediately usable by Phasor 3D
+    calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
     updateCalStatus();
     srFull=null; srIsPlot=true; syncSaveImg();  // hand the SR panel over to the plot
     drawCalibration(); $('calSaveBtn').disabled=false;
@@ -2915,34 +2942,63 @@ async function runCalibration(){
     log(`  σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
     log(`  σy(z) = a(z−c)²+b :  ${f(qy)}   (${qy.kept}/${qy.total} pts)`);
     log(`  focus (σx=σy) at frame ≈ ${(zref/step+1).toFixed(1)} → z=0. Usable z where the curves separate monotonically.`);
-    if(zcal) log(`  Phasor 3D: z(ratio) fitted, axial RMS ≈ ${zcal.rms.toFixed(0)} nm over ratio ${zcal.rmin.toFixed(2)}–${zcal.rmax.toFixed(2)}.`);
+    log(`  Calibration models: ${[calMethods.phasor_magnitude&&CALIB_METHODS.phasor_magnitude, calMethods.gaussian_width&&CALIB_METHODS.gaussian_width].filter(Boolean).join(' + ')||'none'}.`);
+    if(zcal) log(`  Phasor 3D (${CALIB_METHODS.phasor_magnitude}): z(ratio) fitted, axial RMS ≈ ${zcal.rms.toFixed(0)} nm over ratio ${zcal.rmin.toFixed(2)}–${zcal.rmax.toFixed(2)}.`);
     else     log(`  Phasor 3D: z(ratio) fit needs more points.`);
   }catch(err){ log(`⚠ Calibration failed: ${err.name}: ${err.message}`); setProg(null); }
   finally{ $('calBtn').disabled=false; $('runBtn').disabled=false; }
 }
 
-// Light-background scatter plot on the SR canvas: σx dark green, σy magenta,
-// vertex-quadratic fits in black (colours per the request).
+// Light-background scatter plot on the SR canvas: x-series dark green, y-series
+// magenta, fits in black. Shows either the Gaussian σ(z) curves or the phasor
+// magnitude(z) curves depending on calView (toggled via the header button).
 function drawCalibration(){
   if(!calib) return;
   const d=$('sr'); const {ctx,W,H}=setupPlot(d);
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=64,mR=16,mT=40,mB=52, pw=W-mL-mR, ph=H-mT-mB;
   const zmin=calib.zmin, zmax=calib.zmax;
-  let smax=0; for(const p of calib.pts){ if(p.sx>smax)smax=p.sx; if(p.sy>smax)smax=p.sy; }
-  smax*=1.1; const smin=0;
+  const GREEN='#0a7d32', MAG='#c81cc8', BLUE='#3572b0';
+  // Three interchangeable views of the same beads, cycled by the toggle:
+  //  'sigma' — Gaussian width based (σx/σy vs z), for LS/MLE 3D. Parabolic.
+  //  'mag'   — phasor magnitudes |Fx|/|Fy| vs z. Also parabolic (track σx/σy).
+  //  'ratio' — phasor magnitude RATIO |Fy|/|Fx| vs z: the MONOTONIC, invertible
+  //            model Phasor 3D inverts for z (overlaid fit is zcal, z→ratio).
+  const mode = (calView==='mag'||calView==='ratio') ? calView : 'sigma';
+  let series, yLabel, title, methodLbl, yDec, fitDraw;
+  if(mode==='ratio'){
+    series=[{get:p=>p.pr, color:BLUE, label:'|Fy|/|Fx|'}];
+    yLabel='phasor magnitude ratio |Fy|/|Fx|'; title='Phasor magnitude-ratio calibration';
+    methodLbl=CALIB_METHODS.phasor_magnitude; yDec=3;
+    fitDraw=(X,Y)=>{ const zc=calib.zcal; if(!zc) return; ctx.beginPath();      // trace z = zcal(ratio)
+      for(let i=0;i<=120;i++){ const R=zc.rmin+(zc.rmax-zc.rmin)*i/120, x=X(polyEval(zc.coef, zc.basis==='ln'?Math.log(R):R)), y=Y(R);
+        i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
+  } else if(mode==='mag'){
+    series=[{get:p=>p.mx,color:GREEN,label:'|Fx|'},{get:p=>p.my,color:MAG,label:'|Fy|'}];
+    yLabel='phasor magnitude |F₁| (a.u.)'; title='Phasor magnitude calibration';
+    methodLbl=CALIB_METHODS.phasor_magnitude; yDec=3;
+    fitDraw=(X,Y)=>{ if(calib.qmagX) curveAt(X,Y,z=>calib.qmagX.at(z)); if(calib.qmagY) curveAt(X,Y,z=>calib.qmagY.at(z)); };
+  } else {
+    series=[{get:p=>p.sx,color:GREEN,label:'σx'},{get:p=>p.sy,color:MAG,label:'σy'}];
+    yLabel='PSF width σ (nm)'; title='Astigmatism calibration';
+    methodLbl=CALIB_METHODS.gaussian_width; yDec=0;
+    fitDraw=(X,Y)=>{ curveAt(X,Y,z=>calib.qx.at(z)); curveAt(X,Y,z=>calib.qy.at(z)); };
+  }
+  // y-range across all shown series (σ pinned to 0; magnitude/ratio use the data span)
+  let vmax=-Infinity, vmin = mode==='sigma'?0:Infinity;
+  for(const p of calib.pts) for(const s of series){ const v=s.get(p); if(isFinite(v)){ if(v>vmax)vmax=v; if(mode!=='sigma'&&v<vmin)vmin=v; } }
+  if(!isFinite(vmax)) vmax=1; if(!isFinite(vmin)) vmin=0;
+  if(mode==='sigma'){ vmax*=1.1; vmin=0; } else { const pad=(vmax-vmin)*0.08||0.01; vmin-=pad; vmax+=pad; }
   const X=z=>mL+pw*(z-zmin)/Math.max(1e-9,zmax-zmin);
-  const Y=s=>mT+ph*(1-(s-smin)/Math.max(1e-9,smax-smin));
+  const Y=s=>mT+ph*(1-(s-vmin)/Math.max(1e-9,vmax-vmin));
   // axes + grid
   ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.lineWidth=1;
   ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-  const zt=niceTicks(zmin,zmax,6);
-  for(const z of zt){ const x=X(z); ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ph); ctx.stroke();
+  for(const z of niceTicks(zmin,zmax,6)){ const x=X(z); ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ph); ctx.stroke();
     ctx.fillText(z.toFixed(0), x, mT+ph+6); }
   ctx.textAlign='right'; ctx.textBaseline='middle';
-  const st=niceTicks(smin,smax,6);
-  for(const s of st){ const y=Y(s); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
-    ctx.fillText(s.toFixed(0), mL-8, y); }
+  for(const s of niceTicks(vmin,vmax,6)){ const y=Y(s); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.fillText(s.toFixed(yDec), mL-8, y); }
   // z=0 (focus) marker
   if(zmin<0&&zmax>0){ ctx.strokeStyle='#8b949e'; ctx.setLineDash([4,4]);
     ctx.beginPath(); ctx.moveTo(X(0),mT); ctx.lineTo(X(0),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
@@ -2950,27 +3006,30 @@ function drawCalibration(){
   ctx.fillStyle='#24292f'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
   ctx.font='12px '+PLOT_FONT;
   ctx.fillText('z (nm, 0 = focus)', mL+pw/2, H-14);
-  ctx.save(); ctx.translate(16,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('PSF width σ (nm)',0,0); ctx.restore();
+  ctx.save(); ctx.translate(16,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(yLabel,0,0); ctx.restore();
   ctx.font='bold 12px '+PLOT_FONT; ctx.textAlign='left';
-  ctx.fillText('Astigmatism calibration', mL, 24);
+  ctx.fillText(title, mL, 24);
   // points
-  const GREEN='#0a7d32', MAG='#c81cc8';
   const dot=(x,y,c)=>{ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,2,0,7); ctx.fill(); };
-  for(const p of calib.pts){ dot(X(p.z),Y(p.sx),GREEN); dot(X(p.z),Y(p.sy),MAG); }
-  // fit curves (black)
-  const curve=q=>{ ctx.beginPath();
-    for(let i=0;i<=120;i++){ const z=zmin+(zmax-zmin)*i/120, x=X(z), y=Y(q.at(z));
-      i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
-  ctx.strokeStyle='#000'; ctx.lineWidth=1.8; curve(calib.qx); curve(calib.qy);
+  for(const p of calib.pts) for(const s of series){ const v=s.get(p); if(isFinite(v)) dot(X(p.z),Y(v),s.color); }
+  // fit curve helper + draw
+  function curveAt(X,Y,fn){ ctx.beginPath();
+    for(let i=0;i<=120;i++){ const z=zmin+(zmax-zmin)*i/120, x=X(z), y=Y(fn(z));
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); }
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.8; fitDraw(X,Y);
   // legend
   ctx.textAlign='left'; ctx.font='12px '+PLOT_FONT;
-  ctx.fillStyle=GREEN; ctx.fillText('● σx', mL+pw-120, 20);
-  ctx.fillStyle=MAG;   ctx.fillText('● σy', mL+pw-72, 20);
-  ctx.fillStyle='#000';ctx.fillText('— fit', mL+pw-30, 20);
+  let lx=mL+pw - (series.length*48 + 34);
+  for(const s of series){ ctx.fillStyle=s.color; ctx.fillText('● '+s.label, lx, 20); lx+=48; }
+  ctx.fillStyle='#000'; ctx.fillText('— fit', lx, 20);
   $('srTitle').textContent='3D calibration';
-  $('srInfo').textContent=`${calib.pts.length} points · z-step ${calib.step} nm · scroll the raw panel to inspect frames`;
-  registerPlotHover('sr',{mL,mT,pw,ph,xA:zmin,xB:zmax,yTop:smax,yBot:smin,
-    fmt:(vx,vy)=>`z ${vx.toFixed(0)} nm · σ ${vy.toFixed(1)} nm`});
+  $('srInfo').textContent=`${calib.pts.length} points · z-step ${calib.step} nm · ${methodLbl} · scroll the raw panel to inspect frames`;
+  { const row=$('calViewRow'); if(row) row.style.display='flex';
+    const tgl=$('calViewBtn'); if(tgl) tgl.textContent = mode==='sigma'?'Show phasor mag.' : mode==='mag'?'Show ratio' : 'Show σ widths'; }
+  registerPlotHover('sr',{mL,mT,pw,ph,xA:zmin,xB:zmax,yTop:vmax,yBot:vmin,
+    fmt:(vx,vy)=> mode==='sigma' ? `z ${vx.toFixed(0)} nm · σ ${vy.toFixed(1)} nm`
+               : mode==='ratio' ? `z ${vx.toFixed(0)} nm · ratio ${vy.toFixed(3)}`
+               : `z ${vx.toFixed(0)} nm · |F| ${vy.toFixed(3)}`});
   _replotSr=drawCalibration;
 }
 // simple "nice" axis ticks
@@ -2984,13 +3043,21 @@ function niceTicks(lo,hi,n){
 async function exportCalibration(){
   if(!calib){ log('Run a calibration first.'); return; }
   const c=calib, pack=q=>({a:q.a,c:q.c,b:q.b,A:q.A,B:q.B,C:q.C});
-  const obj={ format:'webSMLM-astig-calibration', version:1, created:new Date().toISOString(),
+  // Which calibration models this file carries, tagged so a loader can verify the
+  // model required by the selected 3D algorithm is present (Phasor 3D → phasor
+  // magnitude ratio; LS/MLE 3D → Gaussian widths).
+  const methods=[];
+  if(c.zcal) methods.push({ id:'phasor_magnitude', label:CALIB_METHODS.phasor_magnitude, used_by:['phasor3d'], model:'phasor_z_from_ratio' });
+  if(c.qx&&c.qy) methods.push({ id:'gaussian_width', label:CALIB_METHODS.gaussian_width, used_by:['ls3d','mle3d'], model:'sigma_x_nm/sigma_y_nm' });
+  const obj={ format:'webSMLM-astig-calibration', version:2, created:new Date().toISOString(),
     pixel_size_nm:c.px, z_step_nm:c.step, frames:{first:c.first,last:c.last}, z_ref_nm:c.zref,
     z_range_nm:{min:c.zmin,max:c.zmax}, n_points:c.pts.length,
+    calibration_methods:methods,
     sigma_x_nm:pack(c.qx), sigma_y_nm:pack(c.qy), phasor_ratio:pack(c.qpr),
-    phasor_z_from_ratio: c.zcal ? {coef:c.zcal.coef,rmin:c.zcal.rmin,rmax:c.zcal.rmax,rms_nm:c.zcal.rms} : null,
-    note:'sigma(z)=a*(z-c)^2+b, sigma in nm, z in nm relative to focus (sigma_x=sigma_y crossing). '+
-         'phasor_z_from_ratio: z[nm] = Σ coef_i·(magY/magX)^i, valid for ratio in [rmin,rmax]. Used by Phasor 3D.' };
+    phasor_z_from_ratio: c.zcal ? {coef:c.zcal.coef,basis:c.zcal.basis||'ratio',rmin:c.zcal.rmin,rmax:c.zcal.rmax,rms_nm:c.zcal.rms} : null,
+    note:'calibration_methods lists the models present. '+
+         '"Gaussian width based": sigma(z)=a*(z-c)^2+b (sigma_x_nm/sigma_y_nm), sigma in nm, z in nm relative to focus (sigma_x=sigma_y crossing) — for LS/MLE 3D. '+
+         '"Phasor magnitude based": phasor_z_from_ratio, with r=magY/magX; z[nm] = Σ coef_i·(x)^i where x=ln(r) if basis=="ln" else r, valid for r in [rmin,rmax] — used by Phasor 3D.' };
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_calib.json';
   const saved=await saveBlob(blob,name,'JSON calibration','application/json','.json');
@@ -3500,7 +3567,8 @@ async function run(){
     const exactBP=$('exactbp').checked;             // read once — not per frame
     const waveBP=$('detFilter').value==='wave';     // detection filter: wavelet vs DoG
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
-    if(method==='phasor3d' && !zcal){ log('Phasor 3D needs a calibration — run Calibrate or load a *_calib.json first.'); return; }
+    const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
+    if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
     const label = method==='phasor'?'phasor 2D':method==='phasor3d'?'phasor 3D':'Gaussian LS';
     const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1;
     log(`\nRun: ${n} frames · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${waveBP?'wavelet (B-spline)':(exactBP?'DoG exact':'DoG fast (box)')}`);
@@ -3593,7 +3661,8 @@ async function run(){
         for(const [cx,cy] of maxima){
           const L = (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
-                   L.z=polyEval(zcal.coef, Math.max(zcal.rmin,Math.min(zcal.rmax,raw))); }
+                   const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
+                   L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
                  L.frame=fi; locs.push(L); }
         }
         tFit+=performance.now()-tc;
@@ -3797,6 +3866,7 @@ function initScrub(){
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('calBtn').addEventListener('click',runCalibration);
 $('calSaveBtn').addEventListener('click',exportCalibration);
+$('calViewBtn').addEventListener('click',()=>{ calView = calView==='sigma'?'mag':calView==='mag'?'ratio':'sigma'; if(calib&&srIsPlot) drawCalibration(); });
 $('driftBtn').addEventListener('click',correctDrift);
 $('driftShowBtn').addEventListener('click',()=>{ if(lastDrift) drawDriftCurve(); });
 // 0.8.0 (in development): localization-precision estimators. Scaffolded UI only.
@@ -3822,7 +3892,8 @@ $('method').addEventListener('change',updateMethodUI); updateMethodUI();
 // the detail (RMS, ratio range) goes to the log instead.
 function updateCalStatus(){
   const el=$('cal3dStatus'); if(!el) return;
-  el.textContent = cal3d ? 'Calibration active ✓' : 'No calibration loaded.';
+  const present=Object.keys(CALIB_METHODS).filter(k=>calMethods[k]).map(k=>CALIB_METHODS[k]);
+  el.textContent = present.length ? `Calibration active ✓ — ${present.join(', ')}` : 'No calibration loaded.';
 }
 // Load settings: apply a JSON of control values. (Full version with editable
 // defaults/min/max is planned; this imports plain {id: value} pairs.)
@@ -3855,9 +3926,15 @@ $('calFile').addEventListener('change',async e=>{
   try{
     const o=JSON.parse(await f.text());
     const z=o.phasor_z_from_ratio;
-    if(!z||!z.coef) throw new Error('no phasor_z_from_ratio in file');
-    cal3d={coef:z.coef,rmin:z.rmin,rmax:z.rmax,rms:z.rms_nm};
-    log(`Loaded calibration ${f.name}: z(ratio) axial RMS ≈ ${(z.rms_nm||0).toFixed(0)} nm, valid ratio ${z.rmin.toFixed(2)}–${z.rmax.toFixed(2)}.`);
+    // Derive which models the file actually carries (robust to older files with no
+    // calibration_methods list — infer from the model blocks themselves).
+    calMethods={ phasor_magnitude:!!(z&&z.coef), gaussian_width:!!(o.sigma_x_nm&&o.sigma_y_nm) };
+    if(!calMethods.phasor_magnitude && !calMethods.gaussian_width) throw new Error('no recognised calibration model in file');
+    cal3d = calMethods.phasor_magnitude ? {coef:z.coef,basis:z.basis||'ratio',rmin:z.rmin,rmax:z.rmax,rms:z.rms_nm} : null;
+    const present=Object.keys(CALIB_METHODS).filter(k=>calMethods[k]).map(k=>CALIB_METHODS[k]).join(' + ');
+    log(`Loaded calibration ${f.name}: models ${present}.`+(cal3d?` Phasor 3D z(ratio) axial RMS ≈ ${(z.rms_nm||0).toFixed(0)} nm, ratio ${z.rmin.toFixed(2)}–${z.rmax.toFixed(2)}.`:''));
+    const need=ALGO_CALIB_METHOD[$('method').value];   // does it provide what the selected 3D method needs?
+    if(need && !calMethods[need]) log(`⚠ The selected method needs a "${CALIB_METHODS[need]}" calibration, which this file does not contain.`);
     updateCalStatus();
   }catch(err){ log('Calibration load failed: '+err.message); }
   e.target.value='';
