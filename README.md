@@ -45,13 +45,22 @@ walk-through of every step.
   **Difference-of-Gaussians** filter — then keeping strict local maxima above a
   `mean + k·σ` threshold. The two respond differently, so re-tune **k** when you
   switch.
-- **Localizes** with **phasor** fitting (very fast, no iteration) or a
-  **least-squares 2D Gaussian** fit.
-- **3D astigmatism** (**Phasor 3D**): calibrate a bead z-stack — detect every
-  spot per plane, fit elliptical σ_x/σ_y vs z, and fit σ = a(z−c)² + b to each —
-  then assign **z per localization** from the phasor width ratio. Calibrations
-  save/load as JSON, and the reconstruction can be **depth-coded** (hue = z,
-  brightness = density) with an adjustable z range.
+- **Localizes** with **phasor** fitting (very fast, no iteration), a
+  **least-squares 2D Gaussian** fit, or a **Poisson maximum-likelihood** fit
+  (**Gaussian MLE 2D**, the default — integrated-Gaussian, Smith et al. 2010 /
+  Picasso `gaussmle`). MLE is statistically optimal at low photon counts and
+  reports a proper per-localization **CRLB uncertainty**.
+- **3D astigmatism**, two independent ways: **Phasor 3D** (z from the phasor
+  magnitude ratio) and **Gaussian MLE 3D** (z from the elliptical σ_x/σ_y widths)
+  — a built-in cross-check. Calibrate a bead z-stack — every spot is fit both by
+  LS (real σ_x/σ_y curves) and phasor (magnitude ratio); the calibration carries
+  both models, tagged, and a guard stops a 3D fit running against the wrong one.
+  Calibrations save/load as JSON (with their source file), and the reconstruction
+  can be **depth-coded** (hue = z, brightness = density) with an adjustable z range.
+- **Localizations table** (**Display table**): sortable, with **cumulative
+  filtering** (e.g. `intensity > 1000 and uncertainty < 20`, Enter to apply,
+  removable chips, Reset) that **drives the reconstruction live**; any column can
+  be **histogrammed** in the raw panel (with x-zoom/pan).
 - **Renders** a super-resolution image with adjustable magnification and blur,
   a choice of colour maps (Fire, Inferno, Viridis, Turbo, Grey) and
   percentile-based display scaling. All render settings apply instantly without

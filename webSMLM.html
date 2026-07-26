@@ -1288,7 +1288,7 @@ X.B(E,Y);return E}return J}())
     background:#010409;border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
   .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:#21262d;border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
-  .helpbtn{background:#21262d;border:1px solid var(--accent);color:var(--accent);margin-bottom:14px}
+  .helpbtn{background:#21262d;border:1px solid var(--accent);color:var(--accent)}
   .linetool{width:auto;padding:2px 6px;margin:0;background:#21262d;border:1px solid var(--line);border-radius:5px;color:var(--muted);line-height:0;cursor:pointer}
   .logbtn{width:auto;padding:2px 8px;margin:0;font-size:11px;font-weight:400;background:#21262d;border:1px solid var(--line);border-radius:5px;color:var(--muted);cursor:pointer}
   .linetool.on{border-color:var(--accent);color:var(--accent);background:#1b2430}
@@ -1303,6 +1303,26 @@ X.B(E,Y);return E}return J}())
   .modal ol{margin:6px 0 6px 18px;padding:0;font-size:13px;line-height:1.6}
   .modal .close{float:right;cursor:pointer;color:var(--muted);font-size:24px;line-height:1;border:none;background:none;width:auto;padding:0;margin:-4px -6px 0 0}
   .modal .close:hover{color:var(--fg)}
+  /* localizations table */
+  #locTable{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+  #locTable th,#locTable td{padding:3px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  #locTable th{position:sticky;top:0;background:#161b22;cursor:pointer;user-select:none;color:var(--fg);z-index:1}
+  #locTable th:hover{color:var(--accent)}
+  #locTable tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
+  #locTable tbody tr:hover{background:#161b22}
+  #tableFilter.bad{border-color:var(--danger)}
+  .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:#21262d;border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
+  .fchip b{cursor:pointer;color:var(--muted);font-weight:700}
+  .fchip b:hover{color:var(--danger)}
+  #tableHistBtn{width:auto;margin:0;padding:7px 16px;font-size:13px;font-weight:600;color:#fff;background:#2d333b;border:1px solid var(--accent);border-radius:7px;cursor:pointer}
+  #tableHistBtn:hover{background:#3a424c}
+  #tableResetBtn{font-size:12px}   /* keep the table's controls ≥12 (logbtn base is 11) */
+  /* visible scrollbar on the dark table scroller (default dark handle is nearly invisible) */
+  #tableWrap{scrollbar-color:#6e7681 transparent;scrollbar-width:thin}
+  #tableWrap::-webkit-scrollbar{width:14px;height:14px}
+  #tableWrap::-webkit-scrollbar-track{background:transparent}
+  #tableWrap::-webkit-scrollbar-thumb{background:#57606a;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.75)}
+  #tableWrap::-webkit-scrollbar-thumb:hover{background:#6e7681}
 
   /* ---- small screens / mobile ---------------------------------------- */
   @media (max-width:860px){
@@ -1332,7 +1352,7 @@ X.B(E,Y);return E}return J}())
   </div>
 </noscript>
 <header>
-  <h1>webSMLM <span class="pill">v0.8.5 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.0 · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1356,7 +1376,10 @@ X.B(E,Y);return E}return J}())
         <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save locs</button>
         <button id="saveImgBtn" disabled title="Save a window (left or right) as a PNG">Save image</button>
       </div>
-      <button id="helpBtn" class="helpbtn" style="margin-top:6px">Help &amp; guide</button>
+      <div class="btnrow" style="margin-top:6px">
+        <button id="tableBtn" disabled title="Show the localizations in a sortable, filterable table">Display table</button>
+        <button id="helpBtn" class="helpbtn">Help &amp; guide</button>
+      </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="file" accept=".tif,.tiff" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
@@ -1453,7 +1476,9 @@ X.B(E,Y);return E}return J}())
         <select id="method" class="sel">
           <option value="phasor">Phasor 2D</option>
           <option value="phasor3d">Phasor 3D</option>
-          <option value="gaussls">Gaussian (LS)</option>
+          <option value="gaussls">Gaussian LS 2D</option>
+          <option value="gaussmle" selected>Gaussian MLE 2D</option>
+          <option value="mle3d">Gaussian MLE 3D</option>
         </select></label>
       <div id="cal3dRow" style="display:none;margin:6px 0 2px">
         <button id="loadCalBtn" style="margin:0">Load calibration…</button>
@@ -1470,7 +1495,7 @@ X.B(E,Y);return E}return J}())
       <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
       <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="7" step="1" value="3" class="num"></label>
       <details class="info"><summary>…further info…</summary>
-        <div class="hint">Phasor is ~100–250× faster per candidate (265× on the GATTA-PAINT test stack); Gaussian LS ≈ slightly better precision. (Current Gaussian is least-squares, not MLE.)
+        <div class="hint">Phasor is ~100–250× faster per candidate (265× on the GATTA-PAINT test stack); Gaussian LS ≈ slightly better precision; Gaussian MLE is Poisson-optimal and reports a CRLB uncertainty (cost ≈ LS).
         σ_noise is the spread of the filtered image, not the PSF width. Both filters band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>.
         <b>Detection filter</b> —
         <b>Wavelet (B-spline)</b> (default) is the à trous cubic-B-spline wavelet used by ThunderSTORM: it has no σ (its scale is fixed by the wavelet levels), is roughly 2× faster to filter, and is the recommended choice.
@@ -1546,6 +1571,7 @@ X.B(E,Y);return E}return J}())
       <div class="card">
         <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="measureBtn" class="linetool" title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
         <canvas id="sr"></canvas>
+        <div id="srFilterNote" style="display:none;margin-top:8px;color:var(--accent2);font-size:12px"></div>
         <div id="calViewRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
           <span style="color:var(--muted);font-size:12px">Calibration graph</span>
           <button id="calViewBtn" class="logbtn" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button>
@@ -1556,7 +1582,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.8.5 · Phasor 3D safeguarding (WIP)
+</span></noscript>webSMLM v0.9.0 · Gaussian MLE 2D/3D, localizations table
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2131,6 +2157,115 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0){
   return {x:p[1],y:p[2],photons:A*2*Math.PI*s2,
           bg:b, bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:s};
 }
+// -- integrated-Gaussian Poisson MLE (Smith, Joseph, Rieger & Lidke, Nat. Methods
+// 7, 373 (2010); cf. Picasso gaussmle). Fits [x,y,N,bg,σ] by full Fisher-scoring
+// Newton on the ROI (~5 iters) and returns the CRLB position precision lpx,lpy —
+// a proper per-localization uncertainty, unlike the LS fit. Self-contained (incl.
+// erf) so it ports cleanly into the stringified worker. Validated: unbiased, CRLB
+// matches empirical scatter within a few percent across bright/dim regimes.
+function gaussianMLE(img,w,h,cx,cy,win,sigma0){
+  const r=(win-1)/2, n=5;
+  const erf=x=>{ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
+    const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
+  const SQ=Math.sqrt(2*Math.PI);
+  const gInt=(pix,mu,sig)=>{ const sn=0.7071067811865476/sig, d=pix-mu; return 0.5*(erf((d+0.5)*sn)-erf((d-0.5)*sn)); };
+  const solve=(Min,b)=>{ const M=Min.map(row=>row.slice()), y=b.slice();       // Gaussian elimination, n×n
+    for(let c=0;c<n;c++){ let p=c; for(let rr=c+1;rr<n;rr++) if(Math.abs(M[rr][c])>Math.abs(M[p][c]))p=rr;
+      if(Math.abs(M[p][c])<1e-12) return null; [M[c],M[p]]=[M[p],M[c]]; [y[c],y[p]]=[y[p],y[c]];
+      const d=M[c][c]; for(let k=0;k<n;k++)M[c][k]/=d; y[c]/=d;
+      for(let rr=0;rr<n;rr++) if(rr!==c){ const f=M[rr][c]; for(let k=0;k<n;k++)M[rr][k]-=f*M[c][k]; y[rr]-=f*y[c]; } }
+    return y; };
+  let sum=0,mx=0,my=0,mn=Infinity;                                             // centre-of-mass init
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=img[(cy+dy)*w+(cx+dx)]; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
+  const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0 ];
+  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4], g=new Float64Array(n);
+  const buildMg=withGrad=>{ const M=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]; if(withGrad)g.fill(0);
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy, PX=gInt(px,th[0],th[4]), PY=gInt(py,th[1],th[4]);
+      const model=th[2]*PX*PY+th[3]; if(model<1e-6) continue;
+      const d0=px-th[0], d1=py-th[1], s2=th[4]*th[4];
+      const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*s2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*s2));
+      const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*s2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*s2));
+      const dPXmu=-(ea0-eb0)/(SQ*th[4]), dPYmu=-(ea1-eb1)/(SQ*th[4]);
+      const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(SQ*s2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(SQ*s2);
+      const du=[ th[2]*PY*dPXmu, th[2]*PX*dPYmu, PX*PY, 1, th[2]*(dPXs*PY+PX*dPYs) ];
+      const inv=1/model, data=img[py*w+px], cf=data*inv-1;
+      if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
+      for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
+    return M; };
+  for(let it=0;it<20;it++){ const M=buildMg(true), d=solve(M,g); if(!d) break; const ox=th[0],oy=th[1];
+    for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
+    if(th[4]<0.5)th[4]=0.5; if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0;
+    if(Math.abs(th[0]-ox)<1e-4 && Math.abs(th[1]-oy)<1e-4) break; }
+  if(th[2]<=0 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
+  const M=buildMg(false); let lpx=NaN,lpy=NaN;                                 // CRLB = diagonal of Fisher⁻¹
+  const ex=solve(M,[1,0,0,0,0]), ey=solve(M,[0,1,0,0,0]);
+  if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
+  let e2=0,cnt=0;                                                              // residual RMS → bgstd (as for LS)
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
+    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[4])+th[3]-img[py*w+px]; e2+=res*res; cnt++; }
+  return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:th[4], lpx, lpy };
+}
+// -- astigmatic Poisson MLE: 6 params [x,y,N,bg,σx,σy] (PSFx uses σx, PSFy uses σy).
+// Same Fisher-scoring Newton as gaussianMLE; returns σx/σy for z-from-widths (MLE 3D)
+// and the CRLB lateral precision. Self-contained for the worker. Validated: σx/σy
+// and position recovered unbiased, CRLB matches empirical.
+function gaussianMLEastig(img,w,h,cx,cy,win,sigma0){
+  const r=(win-1)/2, n=6;
+  const erf=x=>{ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
+    const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
+  const SQ=Math.sqrt(2*Math.PI);
+  const gInt=(pix,mu,sig)=>{ const sn=0.7071067811865476/sig, d=pix-mu; return 0.5*(erf((d+0.5)*sn)-erf((d-0.5)*sn)); };
+  const solve=(Min,b)=>{ const M=Min.map(row=>row.slice()), y=b.slice();
+    for(let c=0;c<n;c++){ let p=c; for(let rr=c+1;rr<n;rr++) if(Math.abs(M[rr][c])>Math.abs(M[p][c]))p=rr;
+      if(Math.abs(M[p][c])<1e-12) return null; [M[c],M[p]]=[M[p],M[c]]; [y[c],y[p]]=[y[p],y[c]];
+      const d=M[c][c]; for(let k=0;k<n;k++)M[c][k]/=d; y[c]/=d;
+      for(let rr=0;rr<n;rr++) if(rr!==c){ const f=M[rr][c]; for(let k=0;k<n;k++)M[rr][k]-=f*M[c][k]; y[rr]-=f*y[c]; } }
+    return y; };
+  let sum=0,mx=0,my=0,mn=Infinity;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=img[(cy+dy)*w+(cx+dx)]; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
+  const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0, sigma0 ];
+  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4], g=new Float64Array(n);
+  const buildMg=withGrad=>{ const M=[]; for(let a=0;a<n;a++)M.push(new Float64Array(n)); if(withGrad)g.fill(0);
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy, PX=gInt(px,th[0],th[4]), PY=gInt(py,th[1],th[5]);
+      const model=th[2]*PX*PY+th[3]; if(model<1e-6) continue;
+      const d0=px-th[0], d1=py-th[1], sx2=th[4]*th[4], sy2=th[5]*th[5];
+      const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*sx2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*sx2));
+      const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*sy2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*sy2));
+      const dPXmu=-(ea0-eb0)/(SQ*th[4]), dPYmu=-(ea1-eb1)/(SQ*th[5]);
+      const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(SQ*sx2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(SQ*sy2);
+      const du=[ th[2]*PY*dPXmu, th[2]*PX*dPYmu, PX*PY, 1, th[2]*PY*dPXs, th[2]*PX*dPYs ];
+      const inv=1/model, data=img[py*w+px], cf=data*inv-1;
+      if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
+      for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
+    return M; };
+  for(let it=0;it<25;it++){ const M=buildMg(true), d=solve(M,g); if(!d) break; const ox=th[0],oy=th[1];
+    for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
+    if(th[4]<0.5)th[4]=0.5; if(th[5]<0.5)th[5]=0.5; if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0;
+    if(Math.abs(th[0]-ox)<1e-4 && Math.abs(th[1]-oy)<1e-4) break; }
+  if(th[2]<=0 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
+  const M=buildMg(false); let lpx=NaN,lpy=NaN;
+  const ex=solve(M,[1,0,0,0,0,0]), ey=solve(M,[0,1,0,0,0,0]);
+  if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
+  let e2=0,cnt=0;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
+    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[5])+th[3]-img[py*w+px]; e2+=res*res; cnt++; }
+  return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
+           sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, lpx, lpy };
+}
+// z from astigmatic widths sx,sy (px): least-squares match to the Gaussian-width
+// calibration σx(z),σy(z) (nm) over a z grid + parabolic refine. wcal={qx,qy(a,c,b
+// vertex quads, nm),zmin,zmax,px}. Self-contained for the worker.
+function zFromWidths(sx,sy,wcal){
+  const sxn=sx*wcal.px, syn=sy*wcal.px;
+  const sig=(q,z)=>q.a*(z-q.c)*(z-q.c)+q.b;
+  const cost=z=>{ const ax=sxn-sig(wcal.qx,z), ay=syn-sig(wcal.qy,z); return ax*ax+ay*ay; };
+  const z0=wcal.zmin, z1=wcal.zmax, ns=100, dz=(z1-z0)/ns;
+  let bz=z0, bc=Infinity;
+  for(let k=0;k<=ns;k++){ const z=z0+k*dz, c=cost(z); if(c<bc){ bc=c; bz=z; } }
+  const cl=cost(Math.max(z0,bz-dz)), cc=cost(bz), cr=cost(Math.min(z1,bz+dz));
+  let zref=bz; const den=cl-2*cc+cr; if(Math.abs(den)>1e-12){ const off=0.5*(cl-cr)/den*dz; if(Math.abs(off)<=dz) zref=bz+off; }
+  return { z:zref, clamped:(zref<=z0+dz*0.5)||(zref>=z1-dz*0.5) };
+}
 // -- elliptical 2D Gaussian (independent σx, σy) for astigmatic 3D calibration.
 // 6 params [A, x0, y0, sx, sy, b]; Gauss-Newton + line search, like gaussianFit.
 function ellipseSSE(img,w,cx,cy,r,p){ const [A,x0,y0,sx,sy,b]=p, sx2=sx*sx, sy2=sy*sy; let e=0;
@@ -2355,6 +2490,7 @@ const PLOT_FONT='sans-serif';   // one standard font for all in-graph text
 // backing store — and thus text crispness — tracks the new size). Set by each
 // plot's draw fn; cleared when the panel reverts to a frame / reconstruction.
 let _replotRaw=null, _replotSr=null;
+let renderLocs=null;   // subset shown in the reconstruction (null = all) — driven by the table's committed filters
 function drawView(){
   const d=$('sr'); const {ctx,W:DW,H:DH}=setupPlot(d);   // backing = CSS×dpr, drawn in CSS px → crisp overlays at any window size
   _plotHover.sr=null; _replotSr=null;   // reconstruction now owns this panel — no plot readout/replot
@@ -2514,15 +2650,19 @@ function rerender(keepView){
     if(!(zhi>zlo)){ zlo=auto.lo; zhi=auto.hi; }
   }
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
-  srFull=renderSuperRes(lastResult.locs, lastResult.w, lastResult.h, mag, rblur,
+  const rlocs = renderLocs || lastResult.locs;   // table filter can restrict the rendered subset
+  srFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
                         $('lut').value, +$('lutpct').value, zColor, zlo, zhi);
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false;
   if(srFull.width!==pw || srFull.height!==ph){ measureLine=null; measurePt0=null; }  // srFull coords changed
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
   // reconstruction pixel = camera pixel / magnification (e.g. 160 nm / 10× = 16 nm)
-  $('srInfo').textContent=`${lastResult.locs.length.toLocaleString()} locs · ${(lastResult.px/mag).toFixed(1)} nm/px`+
+  $('srInfo').textContent=`${rlocs.length.toLocaleString()}${renderLocs?' / '+lastResult.locs.length.toLocaleString()+' (filtered)':''} locs · ${(lastResult.px/mag).toFixed(1)} nm/px`+
     (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+` · scroll to zoom, drag to pan`;
+  { const fn=$('srFilterNote'); if(fn){ if(renderLocs){ fn.style.display='block';
+      fn.textContent=`▸ Table filter active — showing ${rlocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations (Reset filter in Display table to clear).`; }
+    else fn.style.display='none'; } }
 }
 
 /* ===========================================================================
@@ -2645,7 +2785,8 @@ async function exportCSV(){
     const bs=Math.max(0,L.bgstd||0)*gain;
     // phasor does not fit a width: fall back to the assumed sigma_PSF
     let sPx=L.sigma||0; if(!(sPx>0)){ sPx=sigPSF; nNoSigma++; }
-    const sNm=sPx*px, unc=precisionNm(sNm,px,N,bs);
+    // MLE gives a true CRLB precision (lpx,lpy in px); others use the formula estimate
+    const sNm=sPx*px, unc=(isFinite(L.lpx)&&isFinite(L.lpy)) ? Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px : precisionNm(sNm,px,N,bs);
     const zc=has3d?`${isFinite(L.z)?L.z.toFixed(1):''},`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)},`+
              `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}`);
@@ -2754,7 +2895,7 @@ function workerSource(){
     blurInto.toString(), boxSizes.toString(), boxMap.toString(),
     boxH.toString(), boxV.toString(), boxInto.toString(),
     bandpass.toString(), atrous.toString(), waveletBP.toString(), detectFilter.toString(), findMaxima.toString(),
-    solveLin.toString(), sseWin.toString(), gaussianFit.toString(), phasorFit.toString(), polyEval.toString(),
+    solveLin.toString(), sseWin.toString(), gaussianFit.toString(), gaussianMLE.toString(), gaussianMLEastig.toString(), zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
     `onmessage=function(e){
       const d=e.data;
       if(d.ping){
@@ -2769,11 +2910,14 @@ function workerSource(){
           findMaxima(detectFilter(img,w,h,1.3,false,true),w,h,4,4);
           phasorFit(img,w,h,8,8,7);
           gaussianFit(img,w,h,8,8,7,1.3);
+          gaussianMLE(img,w,h,8,8,7,1.3);
+          gaussianMLEastig(img,w,h,8,8,7,1.3);
+          zFromWidths(1.3,1.5,{qx:{a:1e-6,c:0,b:130},qy:{a:1e-6,c:0,b:130},zmin:-400,zmax:400,px:100});
           postMessage({pong:1});
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
-      const {frames,start,w,h,sigma,k,win,method,border,exact,wave,zcal}=d;
+      const {frames,start,w,h,sigma,k,win,method,border,exact,wave,zcal,wcal}=d;
       const out=[]; let tD=0,tF=0,nC=0;
       for(let i=0;i<frames.length;i++){
         const img=frames[i], t0=performance.now();
@@ -2782,14 +2926,18 @@ function workerSource(){
         const t1=performance.now(); tD+=t1-t0; nC+=maxima.length;
         const isPh = method==='phasor'||method==='phasor3d';
         for(const mm of maxima){
-          const L = isPh ? phasorFit(img,w,h,mm[0],mm[1],win)
+          const L = method==='gaussmle' ? gaussianMLE(img,w,h,mm[0],mm[1],win,sigma)
+                         : method==='mle3d' ? gaussianMLEastig(img,w,h,mm[0],mm[1],win,sigma)
+                         : isPh ? phasorFit(img,w,h,mm[0],mm[1],win)
                          : gaussianFit(img,w,h,mm[0],mm[1],win,sigma);
           if(L){
             let z=NaN, cl=0;
             if(method==='phasor3d'&&zcal){ const raw=L.pratio; cl=(raw<zcal.rmin||raw>zcal.rmax)?1:0;
               const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
               z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
-            out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,cl,start+i);   // cl: z clamped out-of-range
+            else if(method==='mle3d'&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal); z=zr.z; cl=zr.clamped?1:0; }
+            out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,cl,start+i,      // cl: z clamped out-of-range
+                     L.lpx==null?NaN:L.lpx, L.lpy==null?NaN:L.lpy);            // CRLB precision (MLE only; NaN otherwise)
           }
         }
         tF+=performance.now()-t1;
@@ -2840,13 +2988,14 @@ async function getPool(){
    =========================================================================== */
 let calib=null;                              // non-null ⇒ the SR panel shows the plot
 let cal3d=null;                              // active z(ratio) model used by Phasor 3D (from Calibrate or a loaded JSON)
+let cal3dW=null;                             // active z(σx,σy) width model used by MLE 3D: {qx:{a,c,b},qy:{a,c,b},zmin,zmax,px}
 // A z-calibration can carry two independent models. Phasor 3D reads z from the
 // phasor first-coefficient MAGNITUDE ratio (magY/magX) — the "Phasor magnitude
 // based" model. The σx/σy(z) width curves are the "Gaussian width based" model,
 // kept for the (future) LS / MLE 3D fitters. Each algorithm must be matched to
 // the calibration model it needs, so both are tagged in the exported file.
 const CALIB_METHODS={ phasor_magnitude:'Phasor magnitude based', gaussian_width:'Gaussian width based' };
-const ALGO_CALIB_METHOD={ phasor3d:'phasor_magnitude' /*, ls3d:'gaussian_width', mle3d:'gaussian_width' */ };
+const ALGO_CALIB_METHOD={ phasor3d:'phasor_magnitude', mle3d:'gaussian_width' /*, ls3d:'gaussian_width' */ };
 let calMethods={ phasor_magnitude:false, gaussian_width:false };   // which models the active calibration provides
 let calView='sigma';                         // which calibration graph the right panel shows: 'sigma' (Gaussian width) or 'mag' (phasor magnitude)
 
@@ -2929,11 +3078,12 @@ async function runCalibration(){
     // per-frame accepted fits, so the raw panel can overlay them while scrubbing
     const fitsByFrame=new Map();
     for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
-    calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY,
+    calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:stackName,
             det:{sigma,k,win,border,exactBP,waveBP}, fitsByFrame,
             pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
             zmin:Math.min(...zr), zmax:Math.max(...zr) };
     cal3d=zcal;                               // make it immediately usable by Phasor 3D
+    cal3dW=(qx&&qy)?{qx:{a:qx.a,c:qx.c,b:qx.b},qy:{a:qy.a,c:qy.c,b:qy.b},zmin:calib.zmin,zmax:calib.zmax,px}:null;  // width model for MLE 3D
     calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
     updateCalStatus();
     srFull=null; srIsPlot=true; syncSaveImg();  // hand the SR panel over to the plot
@@ -3024,6 +3174,7 @@ function drawCalibration(){
   ctx.fillStyle='#000'; ctx.fillText('— fit', lx, 20);
   $('srTitle').textContent='3D calibration';
   $('srInfo').textContent=`${calib.pts.length} points · z-step ${calib.step} nm · ${methodLbl} · scroll the raw panel to inspect frames`;
+  { const n=$('srFilterNote'); if(n) n.style.display='none'; }   // calibration owns the panel — hide the filter note
   { const row=$('calViewRow'); if(row) row.style.display='flex';
     const tgl=$('calViewBtn'); if(tgl) tgl.textContent = mode==='sigma'?'Show phasor mag.' : mode==='mag'?'Show ratio' : 'Show σ widths'; }
   registerPlotHover('sr',{mL,mT,pw,ph,xA:zmin,xB:zmax,yTop:vmax,yBot:vmin,
@@ -3050,6 +3201,7 @@ async function exportCalibration(){
   if(c.zcal) methods.push({ id:'phasor_magnitude', label:CALIB_METHODS.phasor_magnitude, used_by:['phasor3d'], model:'phasor_z_from_ratio' });
   if(c.qx&&c.qy) methods.push({ id:'gaussian_width', label:CALIB_METHODS.gaussian_width, used_by:['ls3d','mle3d'], model:'sigma_x_nm/sigma_y_nm' });
   const obj={ format:'webSMLM-astig-calibration', version:2, created:new Date().toISOString(),
+    source_file:c.sourceFile||stackName,
     pixel_size_nm:c.px, z_step_nm:c.step, frames:{first:c.first,last:c.last}, z_ref_nm:c.zref,
     z_range_nm:{min:c.zmin,max:c.zmax}, n_points:c.pts.length,
     calibration_methods:methods,
@@ -3559,7 +3711,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   let processed=0, stopped=false;
   try{
     const {w,h,n,px}=stack;
@@ -3567,11 +3719,14 @@ async function run(){
     const exactBP=$('exactbp').checked;             // read once — not per frame
     const waveBP=$('detFilter').value==='wave';     // detection filter: wavelet vs DoG
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
+    // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
+    const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
     const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
     if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
-    const label = method==='phasor'?'phasor 2D':method==='phasor3d'?'phasor 3D':'Gaussian LS';
+    const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':'Gaussian LS 2D';
     const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1;
     log(`\nRun: ${n} frames · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${waveBP?'wavelet (B-spline)':(exactBP?'DoG exact':'DoG fast (box)')}`);
+    const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
     const pool = await getPool();
     // Workers only pay off when per-frame work clearly exceeds the cost of
     // shipping a frame across the boundary; tiny frames stay single-threaded.
@@ -3605,13 +3760,13 @@ async function run(){
           // main-thread copy stays valid after dispatch
           if(frames.length) shown={img:frames[0],fi:s};
           // no transfer list: frames are cloned, so any RAM cache survives
-          wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,wave:waveBP,zcal});
+          wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,wave:waveBP,zcal,wcal});
         };
         pool.forEach(wk=>{
           wk.onmessage=ev=>{
             const d=ev.data, a=d.arr;
-            for(let i=0;i<a.length;i+=9) locs.push({x:a[i],y:a[i+1],photons:a[i+2],
-                bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8]});
+            for(let i=0;i<a.length;i+=11) locs.push({x:a[i],y:a[i+1],photons:a[i+2],
+                bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10]});
             tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
             doneF+=d.count; processed=doneF; inflight--;
             setProg(100*doneF/n);
@@ -3659,10 +3814,11 @@ async function run(){
         const maxima=findMaxima(filt,w,h,k,border);
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         for(const [cx,cy] of maxima){
-          const L = (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
+          const L = method==='gaussmle' ? gaussianMLE(img,w,h,cx,cy,win,sigma) : method==='mle3d' ? gaussianMLEastig(img,w,h,cx,cy,win,sigma) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win) : gaussianFit(img,w,h,cx,cy,win,sigma);
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
+                 else if(method==='mle3d'&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal); L.z=zr.z; L.zClamped=zr.clamped; }
                  L.frame=fi; locs.push(L); }
         }
         tFit+=performance.now()-tc;
@@ -3697,12 +3853,16 @@ async function run(){
     // now that lastResult exists so locsForFrame() can index them
     if(lastFrame) drawRaw(lastFrame,w,h,lastSpots, lastFrameIdx>=0?locsForFrame(lastFrameIdx):null);
 
-    $('saveBtn').disabled = locs.length===0; $('driftBtn').disabled = locs.length===0;
+    $('saveBtn').disabled = locs.length===0; $('tableBtn').disabled = locs.length===0; $('driftBtn').disabled = locs.length===0;
     $('nenaBtn').disabled = $('frcBtn').disabled = locs.length===0;
     $('sFrames').textContent = stopped ? `${processed}/${n}` : n;
     $('sLoc').textContent=locs.length.toLocaleString();
-    $('sDens').textContent=(locs.length/per).toFixed(1); $('sTime').textContent=(dt/1000).toFixed(1);
-    log(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames in ${Math.round(dt)} ms (${(dt/per).toFixed(2)} ms/frame, ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+    const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render), as shown in the Compute tile
+    $('sDens').textContent=(locs.length/per).toFixed(1); $('sTime').textContent=(runMs/1000).toFixed(1);
+    log(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames in ${Math.round(runMs)} ms total (${Math.round(dt)} ms compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+    if((method==='gaussmle'||method==='mle3d')&&locs.length){                     // at-a-glance MLE confirmation + quality stat
+      const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
+      if(ps.length) log(`  ${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
     // where the time actually goes — drives the Phase 2 optimisation order.
     // In parallel mode detect/fit are summed ACROSS workers, so they are CPU
     // time and legitimately exceed the wall clock; report them as such.
@@ -3789,7 +3949,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
     $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub(); $('sFrames').textContent=stack.n;
@@ -3804,7 +3964,7 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
@@ -3875,7 +4035,7 @@ $('frcBtn').addEventListener('click',computeFRC);
 
 // Phasor 3D: reveal the Load-calibration control only for that method
 function updateMethodUI(){
-  const is3d = $('method').value==='phasor3d';
+  const m=$('method').value, is3d = m==='phasor3d'||m==='mle3d';
   $('cal3dRow').style.display = is3d ? 'block' : 'none';
   // Reveal the depth-colour toggle (ticked) the moment a 3D method is chosen —
   // not only after a run. For a 2D method, keep it shown only if the current
@@ -3931,6 +4091,8 @@ $('calFile').addEventListener('change',async e=>{
     calMethods={ phasor_magnitude:!!(z&&z.coef), gaussian_width:!!(o.sigma_x_nm&&o.sigma_y_nm) };
     if(!calMethods.phasor_magnitude && !calMethods.gaussian_width) throw new Error('no recognised calibration model in file');
     cal3d = calMethods.phasor_magnitude ? {coef:z.coef,basis:z.basis||'ratio',rmin:z.rmin,rmax:z.rmax,rms:z.rms_nm} : null;
+    const sxc=o.sigma_x_nm, syc=o.sigma_y_nm, zr=o.z_range_nm||{};
+    cal3dW = calMethods.gaussian_width ? {qx:{a:sxc.a,c:sxc.c,b:sxc.b},qy:{a:syc.a,c:syc.c,b:syc.b},zmin:zr.min,zmax:zr.max,px:o.pixel_size_nm} : null;   // width model for MLE 3D
     const present=Object.keys(CALIB_METHODS).filter(k=>calMethods[k]).map(k=>CALIB_METHODS[k]).join(' + ');
     log(`Loaded calibration ${f.name}: models ${present}.`+(cal3d?` Phasor 3D z(ratio) axial RMS ≈ ${(z.rms_nm||0).toFixed(0)} nm, ratio ${z.rmin.toFixed(2)}–${z.rmax.toFixed(2)}.`:''));
     const need=ALGO_CALIB_METHOD[$('method').value];   // does it provide what the selected 3D method needs?
@@ -3959,8 +4121,10 @@ $('rblur').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lut').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lutpct').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('zcolor').addEventListener('change',()=>{ if(lastResult) rerender(true); });
-$('zmin').addEventListener('input',()=>{ if(lastResult) rerender(true); });
-$('zmax').addEventListener('input',()=>{ if(lastResult) rerender(true); });
+// 'change' (blur / Enter / spinner), not 'input' — a full rerender per keystroke while
+// typing a z bound is expensive on large data; commit like mag/rblur/lut do.
+$('zmin').addEventListener('change',()=>{ if(lastResult) rerender(true); });
+$('zmax').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 // Pixel size drives both scale bars, the nm/px readout and the CSV coordinates —
 // refresh on change. Gate the reconstruction refresh on HAVING data (rerender
 // rebuilds srFull), not on srFull being non-null, so its scale bar can't go
@@ -4063,6 +4227,32 @@ $('sr').addEventListener('click',e=>{
   cv.addEventListener('dblclick',()=>{ if(!active()) return; profileView={x0:0,x1:profileData.totalNm}; renderProfile(); });
 })();
 
+// Column-histogram X-axis zoom (wheel / trackpad + touch pinch) and pan; Y fixed.
+// Active only while the histogram is shown — otherwise the raw navigator handles it.
+(function(){ const cv=$('raw');
+  const active=()=>rawIsPlot&&rawPlotName==='histogram'&&!!histData&&!!histView;
+  const dataX=clientX=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, px=(clientX-r.left)*Wc/r.width, pw=Wc-HIST_ML-HIST_MR, xr=histView.x1-histView.x0;
+    return histView.x0+(px-HIST_ML)/Math.max(1,pw)*xr; };
+  const clampSet=(c,x0,x1,f)=>{ const lo=histData.lo,hi=histData.hi; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
+    nx0=Math.max(lo,nx0); nx1=Math.min(hi,nx1); if(nx1-nx0>=(hi-lo)*0.02){ histView={x0:nx0,x1:nx1}; drawHistogram(); } };
+  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=Wc-HIST_ML-HIST_MR, xr=x1-x0, lo=histData.lo, hi=histData.hi;
+    const dData=(clientDx-d0)*Wc/r.width*xr/Math.max(1,pw); let nx0=x0-dData, nx1=x1-dData;
+    if(nx0<lo){nx0=lo;nx1=lo+xr;} if(nx1>hi){nx1=hi;nx0=hi-xr;} nx0=Math.max(lo,nx0); histView={x0:nx0,x1:nx1}; drawHistogram(); };
+  cv.addEventListener('wheel',e=>{ if(!active()) return; e.preventDefault();
+    clampSet(dataX(e.clientX), histView.x0, histView.x1, Math.exp(e.deltaY*0.0015)); },{passive:false});
+  const ptrs=new Map(); let pinch=null, drag=null;
+  cv.addEventListener('pointerdown',e=>{ if(!active()) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e.clientX);
+    if(ptrs.size===2){ drag=null; const v=[...ptrs.values()]; pinch={d0:Math.abs(v[0]-v[1])||1, x0:histView.x0, x1:histView.x1, c:dataX((v[0]+v[1])/2)}; }
+    else if(ptrs.size===1){ pinch=null; drag={d0:e.clientX, x0:histView.x0, x1:histView.x1}; } });
+  cv.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,e.clientX);
+    if(pinch&&ptrs.size>=2&&histData){ e.preventDefault(); const v=[...ptrs.values()], d=Math.abs(v[0]-v[1]); if(d>0) clampSet(pinch.c, pinch.x0, pinch.x1, pinch.d0/d); }
+    else if(drag&&ptrs.size===1&&histData){ e.preventDefault(); panBy(drag.d0, drag.x0, drag.x1, e.clientX); } });
+  const end=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null;
+    if(ptrs.size===0) drag=null; else if(ptrs.size===1){ const id=[...ptrs.keys()][0]; drag={d0:ptrs.get(id), x0:histView.x0, x1:histView.x1}; } };
+  cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  cv.addEventListener('dblclick',()=>{ if(!active()) return; histView={x0:histData.lo,x1:histData.hi}; drawHistogram(); });
+})();
+
 /* ---- plot cursor readout: crosshair + x/y value under the pointer ------------
    Every axis plot (profile, NeNA, FRC, drift, calibration) registers its axis
    mapping plus a snapshot of the freshly-drawn canvas. One shared mousemove
@@ -4122,6 +4312,138 @@ window.addEventListener('resize',()=>{ clearTimeout(_plotResizeT); _plotResizeT=
 
 // help modal — wire after full DOM parse (the modal markup follows this script,
 // so its elements don't exist yet at first execution).
+/* ===========================================================================
+   MODULE: table — sortable, filterable localizations table + column histograms.
+   Rows are computed in the same units/columns as the CSV export. Filter/sort run
+   over ALL rows; only the first TABLE_CAP are put in the DOM. Histograms of the
+   (filtered) column render in the left/raw panel via the standard plot pattern.
+   =========================================================================== */
+let _tableState={sortCol:'id', sortDir:1}, _tableData=null, _tableFiltered=null, _tableFilters=[];  // _tableFilters: committed cumulative clauses (ANDed)
+const TABLE_CAP=3000;
+let histData=null, histView=null;         // column histogram: fixed bins over the full range + current x-view (zoom/pan)
+const HIST_ML=58, HIST_MR=16;             // plot margins (shared by drawHistogram and its x zoom/pan handlers)
+function locTableData(){
+  const {locs,px}=lastResult;
+  const gain=+$('gain').value||1, camoff=+$('camoff').value||0, sigPSF=+$('psf').value;
+  const has3d=locs.some(L=>isFinite(L.z));
+  const cols=['id','frame','x','y'].concat(has3d?['z']:[]).concat(['sigma','intensity','offset','bkgstd','uncertainty']);
+  const dec={id:0,frame:0,x:1,y:1,z:1,sigma:1,intensity:1,offset:1,bkgstd:1,uncertainty:1};
+  const unit={x:'nm',y:'nm',z:'nm',sigma:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm'};
+  const rows=new Array(locs.length);
+  for(let i=0;i<locs.length;i++){ const L=locs[i];
+    const N=Math.max(0,L.photons||0)*gain, bg=Math.max(0,(L.bg||0)-camoff)*gain, bs=Math.max(0,L.bgstd||0)*gain;
+    let sPx=L.sigma||0; if(!(sPx>0)) sPx=sigPSF; const sNm=sPx*px;
+    const unc=(isFinite(L.lpx)&&isFinite(L.lpy))?Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px:precisionNm(sNm,px,N,bs);
+    const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
+    if(has3d) r.z=isFinite(L.z)?L.z:NaN;
+    rows[i]=r; }
+  return {cols,dec,unit,rows};
+}
+// tiny filter grammar: "field op value" clauses joined left-to-right by and/or
+// (op ∈ > < >= <= == = !=). Returns {ok, fn} or {ok:false, err}.
+function parseFilter(str,cols){
+  str=(str||'').trim(); if(!str) return {ok:true, fn:()=>true};
+  const parts=str.split(/\s+(and|or)\s+/i), conds=[], ops=[];
+  for(let i=0;i<parts.length;i++){ if(i%2===1){ ops.push(parts[i].toLowerCase()); continue; }
+    const m=parts[i].match(/^\s*([a-zA-Z_]+)\s*(>=|<=|!=|==|=|>|<)\s*(-?[0-9.eE+]+)\s*$/);
+    if(!m) return {ok:false, err:`can't parse "${parts[i].trim()}"`};
+    const f=m[1].toLowerCase(); if(!cols.includes(f)) return {ok:false, err:`no column "${f}"`};
+    conds.push({f, op:m[2]==='='?'==':m[2], v:parseFloat(m[3])}); }
+  const test=(c,r)=>{ const v=r[c.f]; if(!isFinite(v)) return false;
+    return c.op==='>'?v>c.v:c.op==='<'?v<c.v:c.op==='>='?v>=c.v:c.op==='<='?v<=c.v:c.op==='=='?v===c.v:v!==c.v; };
+  return {ok:true, fn:r=>{ let res=test(conds[0],r); for(let i=0;i<ops.length;i++) res = ops[i]==='and' ? (res&&test(conds[i+1],r)) : (res||test(conds[i+1],r)); return res; }};
+}
+function openTable(){
+  if(!lastResult||!lastResult.locs.length){ log('Run localisations first — nothing to tabulate.'); return; }
+  _tableData=locTableData(); $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
+  $('tableHistCol').innerHTML=_tableData.cols.filter(c=>c!=='id'&&c!=='frame').map(c=>`<option value="${c}"${c==='intensity'?' selected':''}>${c}</option>`).join('');
+  if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
+  renderTable();                       // reconstruction already reflects the persisted filters (renderLocs)
+  $('tableModal').classList.add('open');
+}
+// Commit the current input as a cumulative filter clause (called on Enter).
+// "reset" clears all clauses; a valid clause is pushed and the box cleared.
+function commitFilter(){
+  const raw=$('tableFilter').value.trim();
+  if(raw.toLowerCase()==='reset'){ resetFilters(); return; }
+  if(!raw) return;
+  const pf=parseFilter(raw,_tableData.cols);
+  if(!pf.ok){ $('tableFilter').classList.add('bad'); $('tableCount').textContent=`⚠ ${pf.err}`; return; }
+  _tableFilters.push({expr:raw, fn:pf.fn}); $('tableFilter').value=''; $('tableFilter').classList.remove('bad'); renderTable(); applyFilterToReconstruction();
+}
+function resetFilters(){ _tableFilters=[]; $('tableFilter').value=''; renderTable(); applyFilterToReconstruction(); }
+// Apply the committed cumulative filters to the reconstruction: restrict renderLocs
+// to the passing localizations (by original index) and rebuild the SR image.
+function applyFilterToReconstruction(){
+  if(!lastResult||!_tableData) return;
+  if(!_tableFilters.length) renderLocs=null;
+  else { const rows=_tableData.rows;
+    renderLocs=lastResult.locs.filter((L,i)=>{ const r=rows[i]; for(const f of _tableFilters) if(!f.fn(r)) return false; return true; }); }
+  rerender(true);
+}
+function renderTable(){
+  if(!_tableData) return;
+  const {cols,dec,unit,rows}=_tableData;
+  // commit-only: only the committed cumulative clauses filter the table (no per-keystroke work)
+  const filtered=rows.filter(r=>{ for(const f of _tableFilters) if(!f.fn(r)) return false; return true; });
+  const sc=_tableState.sortCol, sd=_tableState.sortDir;
+  filtered.sort((a,b)=>{ const x=a[sc],y=b[sc]; if(!isFinite(x))return 1; if(!isFinite(y))return -1; return (x-y)*sd; });
+  _tableFiltered=filtered;
+  const shown=filtered.slice(0,TABLE_CAP);
+  const head='<thead><tr>'+cols.map(c=>`<th data-c="${c}">${c}${unit[c]?` [${unit[c]}]`:''}${c===sc?(sd>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead>';
+  const body='<tbody>'+shown.map(r=>'<tr>'+cols.map(c=>`<td>${isFinite(r[c])?r[c].toFixed(dec[c]):''}</td>`).join('')+'</tr>').join('')+'</tbody>';
+  $('locTable').innerHTML=head+body;
+  // active-filter chips (each removable) — cumulative clauses
+  $('tableFilters').innerHTML=_tableFilters.map((f,i)=>`<span class="fchip">${f.expr.replace(/</g,'&lt;').replace(/>/g,'&gt;')} <b data-i="${i}" title="remove">×</b></span>`).join('');
+  $('tableCount').textContent = `${filtered.length.toLocaleString()} / ${rows.length.toLocaleString()} rows${_tableFilters.length?` · ${_tableFilters.length} filter${_tableFilters.length>1?'s':''}`:''}${filtered.length>TABLE_CAP?` · showing first ${TABLE_CAP.toLocaleString()}`:''}`;
+  for(const th of $('locTable').querySelectorAll('th')) th.addEventListener('click',()=>{
+    const c=th.dataset.c; if(_tableState.sortCol===c) _tableState.sortDir*=-1; else { _tableState.sortCol=c; _tableState.sortDir=1; } renderTable(); });
+  for(const x of $('tableFilters').querySelectorAll('b[data-i]')) x.addEventListener('click',()=>{ _tableFilters.splice(+x.dataset.i,1); renderTable(); applyFilterToReconstruction(); });
+}
+function plotColumnHistogram(col){
+  if(!_tableFiltered||!_tableFiltered.length){ log('No rows to histogram.'); return; }
+  const vals=_tableFiltered.map(r=>r[col]).filter(isFinite); if(!vals.length){ log(`Column "${col}" has no finite values.`); return; }
+  computeHist(col, vals, (_tableData.unit[col]||''));
+  drawHistogram();
+  $('tableModal').classList.remove('open');   // reveal the raw panel where the histogram is drawn
+}
+// bin the (filtered) values into fixed bins over the full range; x-axis always
+// includes 0 (lo = min(0, data min) so positive columns start at 0).
+function computeHist(col, vals, unit){
+  let dmin=Infinity, dmax=-Infinity; for(const v of vals){ if(v<dmin)dmin=v; if(v>dmax)dmax=v; }
+  const lo=Math.min(0,dmin); let hi=dmax; if(hi<=lo) hi=lo+1;
+  const nb=Math.max(10,Math.min(80,Math.round(Math.sqrt(vals.length)*1.5))), bw=(hi-lo)/nb, hist=new Float64Array(nb);
+  for(const v of vals){ let b=((v-lo)/bw)|0; if(b<0)b=0; if(b>=nb)b=nb-1; hist[b]++; }
+  let ymax=0; for(const c of hist) if(c>ymax)ymax=c; ymax*=1.08;
+  histData={col,unit,n:vals.length,lo,hi,nb,bw,hist,ymax}; histView={x0:lo,x1:hi};
+}
+function drawHistogram(){
+  if(!histData||!histView) return;
+  const {col,unit,lo,hi,nb,bw,hist,ymax,n}=histData, {x0,x1}=histView;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  rawFull=null; rawIsPlot=true; rawPlotName='histogram'; $('rawTitle').textContent=`Histogram: ${col}`;
+  ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
+  const mL=HIST_ML,mR=HIST_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, xr=Math.max(1e-9,x1-x0), decX=(x1-x0)<10?2:0;
+  const X=v=>mL+pw*(v-x0)/xr, Y=c=>mT+ph*(1-c/Math.max(1,ymax));
+  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const c of niceTicks(0,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const v of niceTicks(x0,x1,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText(v.toFixed(decX),x,mT+ph+6); }
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();       // bars clipped to the plot rect (for zoom/pan)
+  ctx.fillStyle='#9fb4d8';
+  for(let i=0;i<nb;i++){ if(hist[i]<=0) continue; const bx0=X(lo+i*bw), bx1=X(lo+(i+1)*bw), y=Y(hist[i]); ctx.fillRect(bx0,y,Math.max(1,bx1-bx0-1),(mT+ph)-y); }
+  ctx.restore();
+  ctx.strokeStyle='#57606a'; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
+  ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText(`${col}${unit?` (${unit})`:''}`, mL+pw/2, mT+ph+26);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('count',0,0); ctx.restore();
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.fillText(`n = ${n.toLocaleString()}`, mL+pw, mT-4);
+  const zoomed = x0>lo+1e-9 || x1<hi-1e-9;
+  $('rawInfo').textContent=`— histogram of ${col} · ${n.toLocaleString()} values (filtered)${zoomed?` · x ${x0.toFixed(decX)}–${x1.toFixed(decX)} (scroll/drag · dbl-click reset)`:' · scroll/pinch to zoom x'} · scrub a frame to return`;
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:x0,xB:x1,yTop:ymax,yBot:0, fmt:(vx,vy)=>`${vx.toFixed(decX)} · ${vy.toFixed(0)} count`});
+  _replotRaw=drawHistogram;
+  syncSaveImg();
+}
 function wireHelp(){
   const m=$('helpModal'), btn=$('helpBtn'), close=$('helpClose');
   if(!m||!btn||!close) return;
@@ -4138,6 +4460,17 @@ function wireHelp(){
     $('saveImgCancel').addEventListener('click',shide);
     sm.addEventListener('click',e=>{ if(e.target===sm) shide(); });
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') shide(); }); }
+  // localizations table (its markup also follows the script)
+  const tm=$('tableModal');
+  if(tm){ const thide=()=>tm.classList.remove('open');
+    $('tableBtn').addEventListener('click',openTable);
+    $('tableClose').addEventListener('click',thide);
+    tm.addEventListener('click',e=>{ if(e.target===tm) thide(); });
+    $('tableFilter').addEventListener('input',()=>$('tableFilter').classList.remove('bad'));   // just clear the error mark while retyping — no filtering until Enter
+    $('tableFilter').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commitFilter(); } });
+    $('tableResetBtn').addEventListener('click',resetFilters);
+    $('tableHistBtn').addEventListener('click',()=>plotColumnHistogram($('tableHistCol').value));
+    window.addEventListener('keydown',e=>{ if(e.key==='Escape') thide(); }); }
 }
 if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wireHelp); else wireHelp();
 
@@ -4152,6 +4485,28 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
       <button id="saveImgSR">Right window</button>
     </div>
     <button id="saveImgCancel" style="margin-top:10px">Cancel</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="tableModal">
+  <div class="modal" style="max-width:960px;width:94vw">
+    <button class="close" id="tableClose" title="close">×</button>
+    <h2>Localizations</h2>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 6px">
+      <input id="tableFilter" class="num" style="flex:1;min-width:240px;text-align:left"
+             placeholder="filter — e.g. intensity > 1000  ·  Enter to apply (cumulative) · type 'reset' to clear">
+      <button id="tableResetBtn" class="logbtn">Reset filter</button>
+      <span id="tableCount" style="color:var(--accent2);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums"></span>
+    </div>
+    <div id="tableFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap">
+      <button id="tableHistBtn">Plot histogram of:</button>
+      <select id="tableHistCol" class="sel" style="flex:0 0 auto;min-width:140px"></select>
+      <span style="color:var(--muted);font-size:12px">— in the raw panel, uses the current filter</span>
+    </div>
+    <div id="tableWrap" style="overflow:auto;max-height:58vh;border:1px solid var(--line);border-radius:8px">
+      <table id="locTable"></table>
+    </div>
   </div>
 </div>
 
@@ -4185,7 +4540,8 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
     <h3>3 · Fitting — sub-pixel position</h3>
     <p><b>Phasor (fast).</b> Takes the phase of the first Fourier coefficient of the ROI in x and y to get the sub-pixel centre. No iteration — ~100–170× faster than Gaussian fitting, ~19 nm precision at 900 photons. Great for large stacks and real-time.</p>
     <p><b>Gaussian (least-squares).</b> Fits a 2-D Gaussian to the ROI by Gauss–Newton with a line search (~16 nm at 900 photons). Slightly better precision, much slower.</p>
-    <p><small>Note: the Gaussian fit is <b>ordinary least-squares</b>, not Poisson <b>MLE</b>. MLE is statistically optimal at low photon counts and would be a natural future addition; phasor is provided as the speed option.</small></p>
+    <p><b>Gaussian (MLE).</b> Poisson maximum-likelihood fit of an <b>integrated-Gaussian</b> PSF (Smith et al. 2010), by full Fisher-scoring Newton (~5 iterations, cost similar to LS). Statistically optimal at low photon counts, and it reports a proper per-localization <b>CRLB uncertainty</b> (the “uncertainty [nm]” column comes from the Cramér–Rao bound rather than a formula estimate).</p>
+    <p><small>Note: <b>Gaussian (LS)</b> is ordinary least-squares; <b>Gaussian (MLE)</b> is the Poisson-optimal fit — prefer MLE at low photon counts. Phasor is the speed option.</small></p>
 
     <h3>4 · Rendering</h3>
     <p>Localizations are splatted into a high-resolution accumulation image at the chosen <b>Magnification</b> (super-res pixels per camera pixel) and optionally smoothed by <b>Render blur</b>. Both re-render from stored localizations without refitting. The <b>scale bar</b> is computed from your pixel size and the current zoom; scroll/drag/double-click to navigate.</p>
@@ -4201,7 +4557,9 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
       Wavelet-based detection (a more refined alternative to DoG): I. Izeddin et al., “Wavelet analysis for single molecule localization microscopy,” <i>Opt. Express</i> <b>20</b>(3), 2081–2095 (2012). <a href="https://doi.org/10.1364/OE.20.002081" target="_blank">doi:10.1364/OE.20.002081</a></p>
     <p><b>Fitting &amp; precision (why LS ≠ MLE)</b> —<br>
       R. E. Thompson, D. R. Larson, W. W. Webb, “Precise nanometer localization analysis for individual fluorescent probes,” <i>Biophys. J.</i> <b>82</b>(5), 2775–2783 (2002). <a href="https://doi.org/10.1016/S0006-3495(02)75618-X" target="_blank">doi:10.1016/S0006-3495(02)75618-X</a><br>
-      K. I. Mortensen, L. S. Churchman, J. A. Spudich, H. Flyvbjerg, “Optimized localization analysis for single-molecule tracking and super-resolution microscopy,” <i>Nat. Methods</i> <b>7</b>, 377–381 (2010) — shows MLE is near-optimal and unweighted least-squares wastes ~⅓ of the information. <a href="https://doi.org/10.1038/nmeth.1447" target="_blank">doi:10.1038/nmeth.1447</a></p>
+      K. I. Mortensen, L. S. Churchman, J. A. Spudich, H. Flyvbjerg, “Optimized localization analysis for single-molecule tracking and super-resolution microscopy,” <i>Nat. Methods</i> <b>7</b>, 377–381 (2010) — shows MLE is near-optimal and unweighted least-squares wastes ~⅓ of the information. <a href="https://doi.org/10.1038/nmeth.1447" target="_blank">doi:10.1038/nmeth.1447</a><br>
+      C. S. Smith, N. Joseph, B. Rieger, K. A. Lidke, “Fast, single-molecule localization that achieves theoretically minimum uncertainty,” <i>Nat. Methods</i> <b>7</b>, 373–375 (2010) — the integrated-Gaussian Poisson-MLE Newton scheme with CRLB implemented by the <b>Gaussian (MLE)</b> and <b>Gaussian MLE 3D</b> methods here. <a href="https://doi.org/10.1038/nmeth.1449" target="_blank">doi:10.1038/nmeth.1449</a><br>
+      <small>MLE implementation ported from the reference code in <b>Picasso</b> (<code>picasso/gaussmle.py</code>, <a href="https://github.com/jungmannlab/picasso" target="_blank">github.com/jungmannlab/picasso</a>); Picasso — J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, “Super-resolution microscopy with DNA-PAINT,” <i>Nat. Protoc.</i> <b>12</b>, 1198–1228 (2017). <a href="https://doi.org/10.1038/nprot.2017.024" target="_blank">doi:10.1038/nprot.2017.024</a></small></p>
     <p><b>Localization precision (NeNA)</b> — the per-localization precision estimator implemented here: U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, “A simple method to estimate the average localization precision of a single-molecule localization microscopy experiment,” <i>Histochem. Cell Biol.</i> <b>141</b>, 629–638 (2014). <a href="https://doi.org/10.1007/s00418-014-1192-3" target="_blank">doi:10.1007/s00418-014-1192-3</a></p>
     <p><b>Image resolution (FRC)</b> — the Fourier ring correlation resolution (1/7 threshold) implemented here: R. P. J. Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga, B. Rieger, “Measuring image resolution in optical nanoscopy,” <i>Nat. Methods</i> <b>10</b>, 557–562 (2013). <a href="https://doi.org/10.1038/nmeth.2448" target="_blank">doi:10.1038/nmeth.2448</a></p>
     <p><b>Drift correction (AIM)</b> — the point-based, FFT-free x/y/z drift estimator here implements adaptive intersection maximization:<br>

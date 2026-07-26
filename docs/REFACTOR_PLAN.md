@@ -39,12 +39,13 @@ their historical "Phase N" headings as a record; new work is version-keyed.
 | v0.8.3 | Sidebar UI: flat/outlined collapsible section bars, indented module controls, unified 12px control tier, Magnification separator |
 | v0.8.4 | Device-pixel (DPR) canvases + resize re-render (crisp plot text / scale bar at any size); 60%-width selects; number-input range clamping with log note; Magnification max→25 |
 | v0.8.5 | Phasor 3D safeguarding (WIP): tagged calibration models (phasor-magnitude / Gaussian-width) + algorithm→model guard, exported in JSON; 3-way calibration graph toggle (σ / magnitudes / ratio); magnitude aligned to reference FFT and made brightness-independent (\|F₁\|/\|F₀\|); ratio→z model → quadratic in ln(ratio); fit-radius cap 5→7 |
+| **v0.9.0** | **Poisson MLE (Smith et al. 2010 / Picasso `gaussmle`)**: Gaussian MLE 2D (default) with per-loc CRLB uncertainty; Gaussian MLE 3D (astigmatic σx/σy → z from Gaussian-width calibration) as an independent cross-check on Phasor 3D. Interactive **localizations table** (sort, cumulative filter, chips) that drives the reconstruction live + per-column **histograms** (raw panel, x-zoom/pan). Method names normalised; calibration JSON `source_file`; Compute [s] = whole-Run wall clock |
 
 **Next:**
 
 | Version | Plan |
 |---|---|
-| **v0.9.0-dev** | **MLE 3D integration** — Gaussian/Poisson MLE astigmatic fitter using the "Gaussian width based" calibration (σx/σy vs z); provides an independent 3D z estimate to **cross-check Phasor 3D**, plus per-localization uncertainty. Builds on the v0.8.5 tagged-calibration safeguards. |
+| **next** | Cross-validate MLE 3D vs Phasor 3D on real bead data; localization filtering presets; parentheses in the table filter grammar; filtered-subset CSV export |
 | **v0.8.x / 0.9.0** | **FSC** (3D FRC over spherical shells) · cross-validate NeNA/FRC against established tools |
 | later | Scriptable / headless pipeline (see below) · localization filtering · 3D point-cloud view |
 
