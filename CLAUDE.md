@@ -23,8 +23,15 @@ relevant one before editing rather than scrolling:
 - **io** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded).
-- **detect** — per-frame band-pass (à trous B-spline **wavelet**, the default, or Difference-of-
-  Gaussians) then local maxima above `mean + k·σ`.
+- **detect** — per-frame band-pass, one of three filters selectable via `#detFilter`: à trous
+  B-spline **wavelet** (default) or **DoG** (both thresholded by local maxima above `mean + k·σ`),
+  or **uniform box filter** (difference of two box averages, thresholded by a plain intensity
+  value + a σ_PSF-sized square dilation, per Huang et al. 2011). `detectSpots()` is the single
+  dispatch point (used by both the main thread and workers) that picks the right band-pass +
+  maxima function for the selected mode. Each filter's UI parameters are separate fields named
+  `detection_<method>_<setting>` (e.g. `detection_DoG_thr`, `detection_box_thr`) shown/hidden by
+  the sync IIFE keyed off `#detFilter` — don't reintroduce a single shared field across methods,
+  their thresholds mean different things (k·σ multiplier vs. raw intensity).
 - **fit** — phasor (fast, non-iterative) and least-squares 2D-Gaussian localization.
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
@@ -55,6 +62,22 @@ The left panel (`raw` canvas) doubles as a plot surface. To show a plot instead 
 `syncSaveImg()`. Calibration plots render on the right (`sr`) canvas via `srIsPlot`. Switching a
 panel back to a frame/reconstruction (`drawRawView`/`drawView`) must clear any plot-only overlay
 state so a stale plot can't paint over live pixels.
+
+### Live preview (real-time detect/fit on the scrubbed frame)
+
+`showFrame()` re-detects and re-fits whatever frame the raw-panel scrubber is on, so
+switching detection/fit method or scrubbing shows results immediately without a full Run.
+Two paths, chosen by the `#liveUpdate` checkbox:
+
+- **checked** — reads the current UI controls live and calls `detectSpots()` fresh; this is a
+  throwaway visualization, never written to `lastResult`/`locs`/`srFull`.
+- **unchecked** — replays the *last full Run's* (or Calibration's) parameters from the cached
+  `det:{sigma,k,win,border,exactBP,mode}` bundle on `lastResult`/`calib`, so the overlay matches
+  what was actually localized rather than whatever the controls currently show.
+
+Any control that affects detection/fit is wired into the live-preview listener array (search
+for `.forEach(id=>{` near the settings-JSON code) — a new per-method parameter needs adding there
+too, or changing it won't refresh the scrubbed-frame preview until the next full Run.
 
 ### Syntax gotcha
 
