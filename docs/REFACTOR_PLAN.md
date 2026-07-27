@@ -40,6 +40,7 @@ their historical "Phase N" headings as a record; new work is version-keyed.
 | v0.8.4 | Device-pixel (DPR) canvases + resize re-render (crisp plot text / scale bar at any size); 60%-width selects; number-input range clamping with log note; Magnification max→25 |
 | v0.8.5 | Phasor 3D safeguarding (WIP): tagged calibration models (phasor-magnitude / Gaussian-width) + algorithm→model guard, exported in JSON; 3-way calibration graph toggle (σ / magnitudes / ratio); magnitude aligned to reference FFT and made brightness-independent (\|F₁\|/\|F₀\|); ratio→z model → quadratic in ln(ratio); fit-radius cap 5→7 |
 | **v0.9.0** | **Poisson MLE (Smith et al. 2010 / Picasso `gaussmle`)**: Gaussian MLE 2D (default) with per-loc CRLB uncertainty; Gaussian MLE 3D (astigmatic σx/σy → z from Gaussian-width calibration) as an independent cross-check on Phasor 3D. Interactive **localizations table** (sort, cumulative filter, chips) that drives the reconstruction live + per-column **histograms** (raw panel, x-zoom/pan). Method names normalised; calibration JSON `source_file`; Compute [s] = whole-Run wall clock |
+| v0.9.1 | Detection-filter upgrades (PR #4): uniform box filter (Huang et al. 2011) as a 3rd option; single `detectSpots()` dispatch; per-method threshold fields; real-time scrubbed-frame preview; raw-panel wheel=zoom / ctrl+wheel=scrub; ROI box tracks the fit radius |
 
 **Next:**
 
