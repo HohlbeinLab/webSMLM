@@ -1490,6 +1490,7 @@ X.B(E,Y);return E}return J}())
           <option value="wave" selected>Wavelet (B-spline)</option>
           <option value="dog">DoG band-pass</option>
         </select></label>
+      <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
       <label class="row" id="exactbpRow">Exact band-pass (slower, DoG only) <input type="checkbox" id="exactbp"></label>
       <label class="row" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="thr" min="1" max="8" step="0.5" value="4" class="num"></label>
       <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
@@ -3951,8 +3952,8 @@ $('genBtn').addEventListener('click',async()=>{
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
-    drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
-    $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub(); $('sFrames').textContent=stack.n;
+    initScrub(); $('sFrames').textContent=stack.n;
+    await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localisations”.`);
   }catch(err){
@@ -3968,9 +3969,9 @@ $('file').addEventListener('change',async e=>{
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
-    drawRaw((await stack.getFrames(0,1))[0],stack.w,stack.h,null);
-    $('rawInfo').textContent=`frame 1/${stack.n}`; initScrub();
+    initScrub();
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
+    await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider (or scroll over the image) to browse the stack.':''}`);
   }catch(err){ log('TIFF load failed: '+err.message); }
@@ -3998,20 +3999,43 @@ async function showFrame(i){
   scrubBusy=true;
   try{
     const img=(await stack.getFrames(i,i+1))[0];
-    // re-detect boxes and overlay the fits from whichever is current: a
-    // localization result, else a calibration (same stack).
-    let spots=null, locsF=null, det=null, getLocs=null;
-    if(lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h){
-      det=lastResult.det; getLocs=locsForFrame;
-    }else if(calib && calib.det){
-      det=calib.det; getLocs=fi=>(calib.fitsByFrame.get(fi)||[]);
+    let spots=null, locsF=null;
+    if($('liveUpdate').checked){
+      // Live preview: re-detect + re-fit THIS frame with the current UI settings —
+      // a throwaway visualization, never written to lastResult/locs/srFull.
+      const sigma=+$('psf').value, k=+$('thr').value, win=2*(+$('winr').value|0)+1;
+      const border=(win-1)/2+1, method=$('method').value;
+      const exactBP=$('exactbp').checked, waveBP=$('detFilter').value==='wave';
+      const zcal = method==='phasor3d' ? cal3d : null;
+      const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:stack.px} : null;
+      spots=findMaxima(detectFilter(img,stack.w,stack.h,sigma,exactBP,waveBP),stack.w,stack.h,k,border);
+      locsF=[];
+      for(const [cx,cy] of spots){
+        const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma);
+        if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
+                 const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
+                 L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
+               else if(method==='mle3d'&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal); L.z=zr.z; L.zClamped=zr.clamped; }
+               locsF.push(L); }
+      }
+      drawRaw(img,stack.w,stack.h,spots,locsF);
+      $('rawInfo').textContent=`frame ${i+1}/${stack.n} — ${spots.length} spots, ${locsF.length} locs (live preview)`;
+    }else{
+      // re-detect boxes and overlay the fits from whichever is current: a
+      // localization result, else a calibration (same stack).
+      let det=null, getLocs=null;
+      if(lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h){
+        det=lastResult.det; getLocs=locsForFrame;
+      }else if(calib && calib.det){
+        det=calib.det; getLocs=fi=>(calib.fitsByFrame.get(fi)||[]);
+      }
+      if(det){
+        spots=findMaxima(detectFilter(img,stack.w,stack.h,det.sigma,det.exactBP,det.waveBP),stack.w,stack.h,det.k,det.border);
+        locsF=getLocs(i);
+      }
+      drawRaw(img,stack.w,stack.h,spots,locsF);
+      $('rawInfo').textContent=`frame ${i+1}/${stack.n}`+(locsF?` — ${spots.length} spots, ${locsF.length} locs`:'');
     }
-    if(det){
-      spots=findMaxima(detectFilter(img,stack.w,stack.h,det.sigma,det.exactBP,det.waveBP),stack.w,stack.h,det.k,det.border);
-      locsF=getLocs(i);
-    }
-    drawRaw(img,stack.w,stack.h,spots,locsF);
-    $('rawInfo').textContent=`frame ${i+1}/${stack.n}`+(locsF?` — ${spots.length} spots, ${locsF.length} locs`:'');
   }catch(_){}
   scrubBusy=false;
   if(scrubPending!==null && scrubPending!==i){ const nx=scrubPending; scrubPending=null; showFrame(nx); }
@@ -4134,6 +4158,15 @@ $('pxnm').addEventListener('change',()=>{
     if(!srIsPlot) rerender(true); }
   drawRawView();                                          // raw-frame bar (uses the live value)
 });
+// live preview: re-detect/re-fit the current raw frame (not the whole stack) when
+// detection/fit settings change, if "Real-time update" is checked.
+['method','thr','psf','winr','exactbp','detFilter'].forEach(id=>{
+  $(id).addEventListener('change',()=>{ if(stack && $('liveUpdate').checked) showFrame(+$('scrub').value); });
+});
+// toggling "Real-time update" itself must refresh the overlay right away, not
+// wait for the next frame/setting change — off falls back to showFrame's own
+// last-Run/calibration overlay, on immediately (re)computes the live preview.
+$('liveUpdate').addEventListener('change',()=>{ if(stack) showFrame(+$('scrub').value); });
 
 /* ---------------------------------------------------------------------------
    Navigation on the super-res canvas — Pointer Events so mouse, trackpad, pen
