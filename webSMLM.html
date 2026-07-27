@@ -1491,8 +1491,9 @@ X.B(E,Y);return E}return J}())
           <option value="dog">DoG band-pass</option>
         </select></label>
       <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
-      <label class="row" id="exactbpRow">Exact band-pass (slower, DoG only) <input type="checkbox" id="exactbp"></label>
-      <label class="row" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="thr" min="1" max="8" step="0.5" value="4" class="num"></label>
+      <label class="row" id="detection_DoG_exactbpRow">Exact band-pass (slower, DoG only) <input type="checkbox" id="detection_DoG_exactbp"></label>
+      <label class="row" id="detection_wavelet_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_wavelet_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
+      <label class="row" id="detection_DoG_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_DoG_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
       <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
       <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="7" step="1" value="3" class="num"></label>
       <details class="info"><summary>…further info…</summary>
@@ -3016,8 +3017,8 @@ async function runCalibration(){
   const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
   const step=+$('calStep').value||10, refFr=+$('calRef').value|0;
   if(last<=first){ log('Calibration: last frame must exceed first.'); return; }
-  const {w,h,px}=stack, sigma=+$('psf').value, k=+$('thr').value, win=2*(+$('winr').value|0)+1,
-        exactBP=$('exactbp').checked, waveBP=$('detFilter').value==='wave', border=(win-1)/2+1;
+  const {w,h,px}=stack, sigma=+$('psf').value, k=currentThr(), win=2*(+$('winr').value|0)+1,
+        exactBP=$('detection_DoG_exactbp').checked, waveBP=$('detFilter').value==='wave', border=(win-1)/2+1;
   $('calBtn').disabled=true; $('runBtn').disabled=true; $('calSaveBtn').disabled=true; calib=null;
   try{
     log(`\nCalibration: frames ${first}–${last} · z-step ${step} nm · win ${win} · k ${k}`);
@@ -3706,6 +3707,10 @@ async function computeFRC(){
    =========================================================================== */
 let stopRequested=false;
 
+// The k·σ threshold field is per detection method (each has its own tuning) —
+// this resolves which one is currently active.
+function currentThr(){ return +$($('detFilter').value==='wave'?'detection_wavelet_thr':'detection_DoG_thr').value; }
+
 async function run(){
   if(!stack){ log('No data loaded.'); return; }
   stopRequested=false;
@@ -3716,8 +3721,8 @@ async function run(){
   let processed=0, stopped=false;
   try{
     const {w,h,n,px}=stack;
-    const sigma=+$('psf').value, k=+$('thr').value, win=2*(+$('winr').value|0)+1, method=$('method').value;
-    const exactBP=$('exactbp').checked;             // read once — not per frame
+    const sigma=+$('psf').value, k=currentThr(), win=2*(+$('winr').value|0)+1, method=$('method').value;
+    const exactBP=$('detection_DoG_exactbp').checked;             // read once — not per frame
     const waveBP=$('detFilter').value==='wave';     // detection filter: wavelet vs DoG
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
@@ -3937,10 +3942,15 @@ async function run(){
   }
 })();
 
-// Exact band-pass only applies to the DoG filter — grey it out for wavelet.
-(function(){ const f=$('detFilter'), row=$('exactbpRow'), cb=$('exactbp');
-  const sync=()=>{ const off=f.value==='wave'; cb.disabled=off; row.style.opacity=off?0.45:1; };
-  f.addEventListener('change', sync); sync(); })();
+// Detection-method-specific rows: show only the ones that apply to the selected filter.
+(function(){
+  const f=$('detFilter');
+  const rowsByMethod={ wave:['detection_wavelet_thrRow'], dog:['detection_DoG_thrRow','detection_DoG_exactbpRow'] };
+  const allRows=['detection_wavelet_thrRow','detection_DoG_thrRow','detection_DoG_exactbpRow'];
+  const sync=()=>{ const active=rowsByMethod[f.value]||[];
+    for(const id of allRows) $(id).style.display = active.includes(id) ? '' : 'none'; };
+  f.addEventListener('change', sync); sync();
+})();
 
 // "Load movie" just proxies to the hidden file input, so both data sources
 // present as equal-weight buttons.
@@ -4003,9 +4013,9 @@ async function showFrame(i){
     if($('liveUpdate').checked){
       // Live preview: re-detect + re-fit THIS frame with the current UI settings —
       // a throwaway visualization, never written to lastResult/locs/srFull.
-      const sigma=+$('psf').value, k=+$('thr').value, win=2*(+$('winr').value|0)+1;
+      const sigma=+$('psf').value, k=currentThr(), win=2*(+$('winr').value|0)+1;
       const border=(win-1)/2+1, method=$('method').value;
-      const exactBP=$('exactbp').checked, waveBP=$('detFilter').value==='wave';
+      const exactBP=$('detection_DoG_exactbp').checked, waveBP=$('detFilter').value==='wave';
       const zcal = method==='phasor3d' ? cal3d : null;
       const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:stack.px} : null;
       spots=findMaxima(detectFilter(img,stack.w,stack.h,sigma,exactBP,waveBP),stack.w,stack.h,k,border);
@@ -4081,7 +4091,7 @@ function updateCalStatus(){
 }
 // Load settings: apply a JSON of control values. (Full version with editable
 // defaults/min/max is planned; this imports plain {id: value} pairs.)
-const SETTING_IDS=['method','thr','psf','winr','exactbp','pxnm','gain','camoff','mag','rblur',
+const SETTING_IDS=['method','detFilter','detection_wavelet_thr','detection_DoG_thr','psf','winr','detection_DoG_exactbp','pxnm','gain','camoff','mag','rblur',
   'lut','lutpct','memgb','chunkmb','frames','dens','phot','driftpx','calStep','calRef','driftSeg','driftRoi'];
 $('loadSetBtn').addEventListener('click',()=>$('setFile').click());
 $('setFile').addEventListener('change',async e=>{
@@ -4160,7 +4170,7 @@ $('pxnm').addEventListener('change',()=>{
 });
 // live preview: re-detect/re-fit the current raw frame (not the whole stack) when
 // detection/fit settings change, if "Real-time update" is checked.
-['method','thr','psf','winr','exactbp','detFilter'].forEach(id=>{
+['method','detection_wavelet_thr','detection_DoG_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
   $(id).addEventListener('change',()=>{ if(stack && $('liveUpdate').checked) showFrame(+$('scrub').value); });
 });
 // toggling "Real-time update" itself must refresh the overlay right away, not
