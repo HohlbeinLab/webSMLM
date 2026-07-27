@@ -4319,7 +4319,7 @@ function makeNavigator(cv, nav){
   const midpoint=()=>{ const p=[...ptrs.values()]; return {x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2}; };
   const spread=()=>{ const p=[...ptrs.values()]; return Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y); };
   cv.addEventListener('wheel',e=>{ if(!nav.full()) return; e.preventDefault();
-    if(nav.scrub && !e.ctrlKey){ nav.scrub(e.deltaY); return; }
+    if(nav.scrub && e.ctrlKey){ nav.scrub(e.deltaY); return; }
     const p=toCv(e.clientX,e.clientY); zoomAbout(p.x,p.y, nav.view.zoom*Math.exp(-e.deltaY*0.0015)); },{passive:false});
   cv.addEventListener('pointerdown',e=>{ if(!nav.full()) return;
     cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -4342,11 +4342,10 @@ function makeNavigator(cv, nav){
   cv.addEventListener('dblclick',()=>{ if(nav.full()){ nav.fit(); nav.draw(); } });
 }
 makeNavigator($('sr'),  {full:()=>srFull,  view,    fitZoom, fit:fitView, clamp:clampView, draw:drawView, maxZoom:60});
-// Plain wheel over the raw frame scrubs through the stack (ctrl+wheel zooms) —
-// scroll-to-zoom on a scrub-heavy panel fights the far more common "flip frames"
-// gesture, so frame-scrub is the unmodified default. Step by exactly one frame
-// per wheel event rather than scaling with deltaY: a physical mouse notch fires
-// exactly one 'wheel' event regardless of the deltaY magnitude a given browser/OS
+// Plain wheel over the raw frame zooms (consistent with the SR panel);
+// ctrl+wheel scrubs through the stack. Step by exactly one frame per wheel
+// event rather than scaling with deltaY: a physical mouse notch fires exactly
+// one 'wheel' event regardless of the deltaY magnitude a given browser/OS
 // reports for it (unlike a trackpad's continuous stream of small events), so
 // this keeps "one tick = one frame" true everywhere without per-device tuning.
 (function(){
