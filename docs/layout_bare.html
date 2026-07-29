@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<!--
+  layout_bare.html — stripped-down UI shell backed up from webSMLM (webSMLM.html)
+  for reuse as a starting point in new single-file browser projects.
+
+  Kept: header (title/attribution/license/repolink), the collapsible/dockable
+  sidebar (desktop: docked → collapsed → floating-with-pin; mobile: overlay
+  drawer), a generic button row, one collapsible "module" section, one labeled
+  select, two display windows (canvas placeholders), and a working Log panel
+  (clear / export as .txt). All font sizes, colours and CSS custom properties
+  are unchanged from webSMLM. No detect/fit/render/TIFF logic is included —
+  this is chrome only.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>layout_bare</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3;
+    --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950; --warn:#d29922;
+    --danger:#da3633;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);min-height:100vh;
+    display:flex;flex-direction:column;            /* no hard-coded header height */
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{padding:16px 20px;border-bottom:1px solid var(--line)}
+  h1{font-size:18px;margin:0 0 2px}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  /* minmax(0,1fr): a plain 1fr track has an implicit min of its CONTENT width, so
+     the canvases refuse to shrink and overflow horizontally / overlap; minmax(0,…)
+     lets the tracks shrink and the panels scale to the available width. */
+  .wrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;flex:1;min-height:0}
+  .sidebar{border-right:1px solid var(--line);padding:16px 18px;overflow:auto}
+  .main{padding:18px 20px;overflow:auto}
+  /* collapsible sidebar. Desktop: collapsing gives the canvases the full width.
+     Mobile (see @media): the sidebar becomes an overlay drawer so the images are
+     visible first and re-opening slides over them without moving them. */
+  #sideToggle{position:fixed;top:14px;left:14px;z-index:45;width:34px;height:34px;display:flex;
+    align-items:center;justify-content:center;background:#0d1117;border:1px solid var(--line);
+    border-radius:8px;color:var(--fg);cursor:pointer;font-size:15px;line-height:1}
+  #sideToggle:hover{background:#1c2128;border-color:var(--accent)}
+  #scrim{display:none}   /* mobile-only / desktop-floating tap-catcher behind the open drawer */
+  header{padding-left:62px}                          /* room for the fixed toggle at top-left */
+  /* pin button — re-docks a floating desktop drawer back into the grid layout */
+  #sidePin{position:fixed;top:14px;left:54px;z-index:46;width:34px;height:34px;display:none;
+    align-items:center;justify-content:center;background:#0d1117;border:1px solid var(--line);
+    border-radius:8px;color:var(--fg);cursor:pointer;font-size:14px;line-height:1}
+  #sidePin:hover{background:#1c2128;border-color:var(--accent)}
+  /* single column when collapsed: .sidebar is display:none (removed from the grid),
+     so a 2-track template would auto-place .main into the first (0-width) track and
+     hide the canvases — one 1fr track puts .main full-width. */
+  body.side-hidden .wrap{grid-template-columns:minmax(0,1fr)}
+  body.side-hidden .sidebar{display:none}
+  /* Desktop only: after the first collapse, re-opening the panel "floats" it as an
+     overlay drawer over the now-full-width canvases, so toggling it never resizes the
+     two display windows. The pin button docks it back (the one intentional resize).
+     Scoped to min-width so a desktop→mobile resize can't leave these applied. */
+  @media (min-width:861px){
+    body.side-float .sidebar{display:block;position:fixed;top:0;left:0;height:100dvh;width:min(320px,86vw);
+      z-index:40;overflow:auto;background:var(--bg);border-right:1px solid var(--line);
+      box-shadow:2px 0 22px rgba(0,0,0,.55)}
+    body.side-float #scrim{display:block;position:fixed;inset:0;background:transparent;z-index:35}
+    body.side-float #sidePin{display:flex}
+  }
+  .group{margin-bottom:16px}
+  /* plain grey rule as the section separator (replaces numbered headings) */
+  hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0 14px}
+  label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+  button{width:100%;padding:9px 12px;margin:4px 0;border:1px solid var(--line);
+    background:#21262d;color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button:disabled:hover{border-color:var(--line)}
+  /* Native spinners are dropped entirely: on Chrome they render black-on-black
+     until hovered, and on Firefox they crowd the digits. Type the value instead. */
+  input.num{width:80px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 9px;font-size:12px;text-align:right;
+    -moz-appearance:textfield;appearance:textfield}
+  input.num::-webkit-inner-spin-button,
+  input.num::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+  /* two equal buttons side by side */
+  .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .btnrow button{margin:0;padding:8px 6px;font-size:12px}
+  /* collapsed-by-default module sections */
+  details.sim{margin-top:0}
+  /* section header: deliberately NOT the raised button skin — a slim, flat
+     (unfilled/outlined) bar with an oversized leading triangle, so it reads as
+     an expandable section rather than an action. 12px label; button spacing. */
+  details.sim>summary{display:flex;align-items:center;gap:8px;
+    cursor:pointer;list-style:none;user-select:none;color:var(--fg);font-size:12px;line-height:1;
+    background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 10px;margin:4px 0}
+  details.sim>summary::-webkit-details-marker{display:none}
+  details.sim>summary:hover{border-color:var(--accent)}
+  details.sim[open]>summary{border-color:var(--accent)}
+  details.sim>summary::before{content:'▸';font-size:22px;line-height:.8;color:#fff;transition:transform .15s}
+  details.sim[open]>summary::before{transform:rotate(90deg)}
+  details.sim>summary:hover::before{color:var(--accent)}
+  /* a module's controls sit indented under its header bar, so they read as
+     belonging to it (box-sizing:border-box keeps rows/buttons from overflowing) */
+  details.sim>*:not(summary){padding-left:14px}
+  details.sim>label.row{padding-right:4px}
+  details.info{margin:6px 0 2px}
+  /* right-aligned so it reads as a secondary info toggle, not an expandable panel */
+  details.info>summary{cursor:pointer;list-style:none;color:var(--muted);font-size:11px;
+    padding:3px 0;user-select:none;opacity:.8;text-align:right}
+  details.info>summary::-webkit-details-marker{display:none}
+  details.info>summary:hover{color:var(--accent);opacity:1}
+  details.info .hint{margin-top:2px;text-align:left}
+  /* flex:1 (not width:100%) so the select shares one line with its label */
+  /* fixed 60% of the row so all selects line up right-aligned (label takes the rest) */
+  select.sel{flex:0 0 60%;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
+  .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
+  .canvases{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  .canvases > .card{min-width:0}   /* allow the panels to shrink below their content size */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  /* one-line headers: title kept intact, caption truncates with an ellipsis, so a
+     long caption can never wrap to a 2nd line and make a panel taller than its
+     neighbour (both panels then stay the same height without any coupling). */
+  .card h4{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap}
+  .card h4 > span:first-child{flex:0 0 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card h4 small{color:var(--muted);font-weight:400}
+  #leftInfo,#rightInfo{flex:1 1 auto;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  canvas{width:100%;image-rendering:pixelated;background:#000;border-radius:6px;display:block}
+  /* Both panels share one aspect ratio so they're always the same size (height:auto
+     otherwise derives from each canvas's backing store, which can drift apart on
+     resize / DPR re-render). --frame-ar would be set to a loaded dataset's w/h in a
+     real project (both panels share it → equal, no letterbox); square here since
+     this bare layout never loads data. */
+  canvas#left,canvas#right{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0}
+  canvas#left:active,canvas#right:active{cursor:grabbing}
+  .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
+    background:#010409;border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:#21262d;border:1px solid var(--line);color:var(--muted)}
+  a{color:var(--accent)}
+  .helpbtn{background:#21262d;border:1px solid var(--accent);color:var(--accent)}
+  .logbtn{width:auto;padding:2px 8px;margin:0;font-size:11px;font-weight:400;background:#21262d;border:1px solid var(--line);border-radius:5px;color:var(--muted);cursor:pointer}
+  .modal-bg{position:fixed;inset:0;background:rgba(1,4,9,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:780px;max-height:86vh;overflow:auto;padding:22px 26px}
+  .modal h2{margin:0 0 6px;font-size:19px}
+  .modal p{margin:5px 0;font-size:13px;line-height:1.6;color:var(--fg)}
+  .modal .close{float:right;cursor:pointer;color:var(--muted);font-size:24px;line-height:1;border:none;background:none;width:auto;padding:0;margin:-4px -6px 0 0}
+  .modal .close:hover{color:var(--fg)}
+
+  /* ---- small screens / mobile ---------------------------------------- */
+  @media (max-width:860px){
+    .wrap{grid-template-columns:1fr}
+    /* sidebar → left overlay drawer, so the main content sits at the top of the
+       page and re-opening the drawer slides over them without pushing them down. */
+    .sidebar{position:fixed;top:0;left:0;height:100dvh;width:min(86vw,320px);z-index:40;overflow:auto;
+      background:var(--bg);   /* opaque drawer — nothing behind it bleeds through, so no screen dimming needed */
+      border-right:1px solid var(--line);border-bottom:none;transform:translateX(0);
+      transition:transform .22s ease;box-shadow:2px 0 22px rgba(0,0,0,.55)}
+    body.side-hidden .sidebar{display:block;transform:translateX(-100%)}   /* slid off-screen (still animatable) */
+    /* invisible full-screen catcher: a tap outside the open drawer closes it,
+       but it does NOT dim the page (the drawer is already opaque). */
+    #scrim{display:block;position:fixed;inset:0;background:transparent;z-index:35}
+    /* iOS auto-zooms when focusing an input whose font is <16px; 16px stops that
+       (and shows the numbers larger, which is fine on mobile) without disabling
+       pinch-zoom elsewhere. */
+    input.num,select.sel{font-size:16px}
+    body.side-hidden #scrim{pointer-events:none}   /* drawer closed → clicks pass through to the canvases */
+    .canvases{grid-template-columns:1fr}
+    .main{padding:14px 14px}
+    header{padding:12px 14px 12px 58px}
+  }
+  @media (max-width:420px){
+    .sidebar{padding:14px}
+    .modal{padding:18px 16px}
+  }
+</style>
+</head>
+<body>
+
+<button id="sideToggle" title="Hide controls" aria-label="Toggle the controls panel">⇤</button>
+<button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
+<div id="scrim"></div>
+
+<header>
+  <h1>title <span class="pill">v0.0.0</span></h1>
+  <p style="font-size:12px;margin-top:4px">© year_name · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="#" class="repolink">repolink</a> · All client-side, no upload.</p>
+</header>
+
+<div class="wrap">
+  <aside class="sidebar">
+    <!-- actions -->
+    <div class="group">
+      <div class="btnrow">
+        <button id="button1">Load movie</button>
+        <button id="button2">Simulate movie</button>
+      </div>
+      <div class="btnrow">
+        <button class="primary" id="button3">Run</button>
+        <button id="helpBtn" class="helpbtn">Help &amp; guide</button>
+      </div>
+
+      <!-- module 1: first collapsible "module" section -->
+      <details class="sim" id="module1">
+        <summary>module 1</summary>
+        <label class="row">input1 <input type="number" id="input1" value="1" class="num"></label>
+        <label class="row">input2 <input type="number" id="input2" value="1" class="num"></label>
+        <details class="info"><summary>…further info…</summary>
+          <div class="hint">here will be further infos</div></details>
+      </details>
+    </div>
+
+    <hr class="sep">
+
+    <!-- first input selector -->
+    <div class="group">
+      <label class="row">inputselector1
+        <select id="inputselector1" class="sel">
+          <option value="opt1">defaultoption1</option>
+          <option value="opt2">defaultoption2</option>
+        </select></label>
+      <details class="info"><summary>…further info…</summary>
+        <div class="hint">here will be further infos</div></details>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="canvases">
+      <div class="card">
+        <h4><span id="leftTitle">leftwindow</span> <small id="leftInfo">— placeholder caption</small></h4>
+        <canvas id="left"></canvas>
+      </div>
+      <div class="card">
+        <h4><span id="rightTitle">rightwindow</span> <small id="rightInfo">— placeholder caption</small></h4>
+        <canvas id="right"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
+      <div class="log" id="log">Ready.</div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-bg" id="helpModal">
+  <div class="modal">
+    <button class="close" id="helpClose" title="close">×</button>
+    <h2>title — guide</h2>
+    <p>here will be the guide</p>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; };
+
+// Save a Blob to disk: native "Save As" dialog when available (https/localhost),
+// falls back to a plain download otherwise (e.g. a local file:// page).
+async function saveBlob(blob,name,desc,mime,ext){
+  if(window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({suggestedName:name,
+        types:[{description:desc,accept:{[mime]:[ext]}}]});
+      const ws=await h.createWritable(); await ws.write(blob); await ws.close();
+      return h.name;
+    }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
+      log(`  (save dialog unavailable: ${err&&err.message||err})`); }
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  return name;
+}
+
+// ---- collapsible / dockable sidebar -------------------------------------
+(function(){ const b=$('sideToggle'); if(!b) return;
+  const body=document.body, pin=$('sidePin'), scrim=$('scrim');
+  const isMobile=()=>window.innerWidth<=860;
+  const refit=()=>window.dispatchEvent(new Event('resize'));   // re-fit canvases if the grid width changed
+  const sync=()=>{ const hidden=body.classList.contains('side-hidden'),
+      float=body.classList.contains('side-float');
+    // collapsed → next action is "show"; docked or floating → next action is "hide"
+    b.textContent=(hidden&&!float)?'☰':'⇤';
+    b.title=(hidden&&!float)?'Show controls':'Hide controls'; };
+  // Desktop states: Docked → Collapsed (canvases widen) → Floating (overlay, no resize) → Collapsed …
+  // Mobile is a plain 2-state drawer (shown / hidden), never docked, never floating.
+  b.addEventListener('click',()=>{
+    const hidden=body.classList.contains('side-hidden'),
+          float=body.classList.contains('side-float');
+    if(isMobile()){ body.classList.toggle('side-hidden'); body.classList.remove('side-float'); }
+    else if(!hidden){ body.classList.add('side-hidden'); }        // Docked → Collapsed (one resize)
+    else if(float){ body.classList.remove('side-float'); }        // Floating → Collapsed (no resize)
+    else { body.classList.add('side-float'); }                    // Collapsed → Floating (no resize)
+    sync(); refit();
+  });
+  // Pin: dock the floating drawer back into the layout (the one intentional resize back).
+  if(pin) pin.addEventListener('click',()=>{
+    body.classList.remove('side-hidden'); body.classList.remove('side-float'); sync(); refit(); });
+  // Tap outside the open drawer: floating → collapse (no resize); mobile drawer → hide.
+  if(scrim) scrim.addEventListener('click',()=>{
+    if(body.classList.contains('side-float')) body.classList.remove('side-float');
+    else body.classList.add('side-hidden');
+    sync(); refit(); });
+  if(isMobile()) body.classList.add('side-hidden');   // mobile: images first
+  sync();
+})();
+
+// ---- help modal -----------------------------------------------------------
+function wireHelp(){
+  const m=$('helpModal'), btn=$('helpBtn'), close=$('helpClose');
+  if(!m||!btn||!close) return;
+  const hide=()=>m.classList.remove('open');
+  btn.addEventListener('click',()=>m.classList.add('open'));
+  close.addEventListener('click',hide);
+  m.addEventListener('click',e=>{ if(e.target===m) hide(); });
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); });
+  // panel captions truncate with an ellipsis when the window is narrow — expose the
+  // full text on hover so nothing is lost.
+  for(const id of ['leftInfo','rightInfo']){ const el=$(id); if(el) el.addEventListener('mouseenter',()=>{ el.title=el.textContent; }); }
+}
+if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wireHelp); else wireHelp();
+
+// ---- log panel --------------------------------------------------------
+$('clearLogBtn').addEventListener('click',()=>{ $('log').textContent=''; });
+$('exportLogBtn').addEventListener('click',async()=>{
+  const txt=$('log').textContent.replace(/^\n+/,'');
+  if(!txt){ log('Log is empty.'); return; }
+  const saved=await saveBlob(new Blob([txt+'\n'],{type:'text/plain;charset=utf-8'}), 'log.txt', 'Log (text)', 'text/plain', '.txt');
+  if(saved) log(`Exported log as ${saved}.`);
+});
+</script>
+</body>
+</html>
