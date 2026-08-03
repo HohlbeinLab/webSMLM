@@ -114,7 +114,10 @@ slower than V8), so keep validation inputs small.
   (`0.x.y`) → version bump + push to `main` only, no DOI.**
 - Version lives in two spots in `webSMLM.html` (the `.pill` in the `<h1>`, and the `<noscript>`
   log-stamp line) plus `CITATION.cff`. Dev builds are marked `vX.Y.Z-dev · build YYYY-MM-DDx`;
-  clear the dev marker to `vX.Y.Z · proof-of-concept` on release.
+  clear the dev marker to `vX.Y.Z · proof-of-concept` on release. **Bump the build letter suffix
+  (`a`→`b`→`c`…) on every round of changes the user is about to test** — it's the only visible
+  signal (pill + noscript stamp) that a hard-refreshed page is actually running the latest edits,
+  not a cached prior build.
 - Every release also updates `CHANGELOG.md` (newest first; DOI column) and the "Shipped" table in
   `docs/REFACTOR_PLAN.md` (the forward-looking roadmap). Pages typically redeploys ~1-2 min after
   a push; check with `gh api repos/HohlbeinLab/webSMLM/pages/builds/latest`.

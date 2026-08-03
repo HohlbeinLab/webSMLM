@@ -114,6 +114,72 @@ Notably it runs entirely client-side **in a mobile browser** — tested fine on 
 **Apple iPhone 17** — which is the payoff of the memory-aware streaming loader: a
 multi-GB 3D stack processed on a phone, with no upload.
 
+## Fourth benchmark dataset — 3D astigmatism ground truth (EPFL SMLM 2016 Challenge)
+
+Three files from the EPFL Biomedical Imaging Group's SMLM 2016 3D simulation
+challenge, astigmatism (AS) modality, `MT0.N1` microtubule structure —
+[bigwww.epfl.ch/srm/dataset/challenge-3D-simulation](https://bigwww.epfl.ch/srm/dataset/challenge-3D-simulation/index.html)
+(Sage et al., *Super-resolution fight club*, Nat. Methods 2019). Unlike the
+other stacks in this folder, these are **fully synthetic with known
+ground-truth emitter positions** (`positions.csv` / `activations.csv`,
+published alongside the LD/HD downloads on the site but not included here) —
+the right fixture for validating fit *accuracy* against a known answer, not
+just self-consistency.
+
+| File | Role | Frames | Frame size | On disk |
+|---|---|---|---|---|
+| `sequence-as-stack-Beads-AS-Exp.tif` | Z-calibration bead stack | 151 | 150 × 150 px | 6.5 MB |
+| `sequence-as-stack-MT0.N1.HD-AS-Exp.tif` | High-density microtubules (ground truth) | 2'500 | 64 × 64 px | 19.9 MB |
+| `sequence-as-stack-MT0.N1.LD-AS-Exp.tif` | Low-density microtubules (ground truth) | 19'996 | 64 × 64 px | 158.9 MB |
+
+Frame counts and dimensions above were verified directly from each file's own
+embedded ImageJ `images=` tag and TIFF `ImageWidth`/`ImageLength` (16-bit,
+big-endian), not just copied off the site — its shared "Parameters of
+simulation" table lists a generic 64 px / 6400 nm field of view that does
+**not** apply to the beads file, which is actually 150 × 150 px (that row is
+evidently boilerplate inherited from the MT0.N1 page template).
+
+**Simulation / camera parameters** (from the HD dataset's and beads z-stack's
+"Parameters of simulation" tables on the site; MT0.N1 LD and HD share the same
+"N1" noise profile — *"typical photon counts and background levels for
+Alexa647 labelled STORM sample"*):
+
+| Parameter | Value |
+|---|---|
+| Pixel size | 100.00 nm (MT0.N1 HD/LD; not embedded as a TIFF resolution tag — set manually) |
+| Quantum efficiency (QE) | 0.90 e⁻/photon |
+| Wavelength | 660.00 nm |
+| Numerical aperture (NA) | 1.49 |
+| Read-out noise | Gaussian, σ = 74.4 e⁻ |
+| EM gain | 300× (Gamma-distributed multiplicative noise) |
+| Spurious (clock-induced) charge | Poisson, mean 0.0020 e⁻/pixel/frame |
+| Electron conversion | 45.00 e⁻/ADU |
+| Baseline (offset) | 100.00 ADU |
+| Saturation | 65535 ADU (16-bit) |
+| **Total system gain** (QE × EM gain / e⁻ per ADU) | **6.00 ADU/photon** |
+
+**webSMLM settings to match:** Pixel size (nm) = **100**; Camera offset (ADU)
+= **100**; Camera gain (photons/ADU) = **1 / 6.00 ≈ 0.167** (webSMLM's field
+multiplies ADU by this to get photons — the site's "total gain" is the
+inverse, ADU *per* photon).
+
+**Beads z-calibration:** 6 beads/slice, z-step 10 nm, range −750 to +750 nm,
+focal plane (z = 0) at the centre slice → **frame 76 of 151**, a ready value
+for the "z=0 ref frame" field. Spanning the full ±750 nm defocus range end to
+end, it's also a good stress-test for the "Fix bead x,y" calibration option
+(v0.9.x) — large defocus is exactly where per-frame detection is prone to
+drift or split.
+
+**Molecule density:** LD "0.2", HD "2" (unit not stated on the source page).
+
+**Candidates for committing as fixtures:** `sequence-as-stack-Beads-AS-Exp.tif`
+(6.5 MB) and `sequence-as-stack-MT0.N1.HD-AS-Exp.tif` (19.9 MB) are both well
+under GitHub's 50 MB warning threshold — worth force-adding once we've
+validated webSMLM's fits against the published ground truth, so future
+regression checks don't depend on re-downloading from EPFL.
+`sequence-as-stack-MT0.N1.LD-AS-Exp.tif` (158.9 MB) stays local-only regardless
+(over the 100 MB hard limit).
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations

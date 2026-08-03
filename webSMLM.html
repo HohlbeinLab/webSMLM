@@ -1421,7 +1421,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.2 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.3 · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1483,6 +1483,9 @@ X.B(E,Y);return E}return J}())
           <input type="number" id="calStep" value="10" min="0.1" step="1" class="num"></label>
         <label class="row">z=0 ref frame (0=auto)
           <input type="number" id="calRef" value="0" min="0" step="1" class="num"></label>
+        <label class="row" style="margin-top:6px">Fix bead x,y (robust at high defocus)
+          <input type="checkbox" id="calFixedXY"></label>
+        <div class="hint" id="calLocateStatus" style="display:none"></div>
         <div class="btnrow">
           <button id="calBtn">Calibrate</button>
           <button id="calSaveBtn" disabled title="Save the calibration curves as JSON">Save calib.</button>
@@ -1490,7 +1493,14 @@ X.B(E,Y);return E}return J}())
         <details class="info"><summary>…further info…</summary>
           <div class="hint">Load a bead z-stack (stage scanned through focus). Detects every spot per
           frame, fits an elliptical Gaussian → σ_x / σ_y vs z, and fits σ = a(z−c)² + b to each.
-          Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</div></details>
+          Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.
+          <b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two
+          maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width
+          curve. Ticking this averages every frame in the range into one composite (shown in the
+          raw panel), runs detection once on that stable image, and fixes each bead's x,y from
+          it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter
+          changes. Calibrate then only fits amplitude/σx/σy/background per frame at those fixed
+          positions, so x,y — the two most failure-prone degrees of freedom — never move.</div></details>
       </details>
       <details class="sim" id="driftBox">
         <summary>Drift correction (AIM)</summary>
@@ -1565,8 +1575,8 @@ X.B(E,Y);return E}return J}())
       <label class="row" id="detection_wavelet_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_wavelet_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
       <label class="row" id="detection_DoG_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_DoG_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
       <label class="row" id="detection_box_thrRow" style="margin-top:8px">Threshold (intensity) <input type="number" id="detection_box_thr" min="0" max="65535" step="1" value="25" class="num"></label>
-      <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="2.5" step="0.1" value="1.3" class="num"></label>
-      <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="7" step="1" value="3" class="num"></label>
+      <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="5" step="0.1" value="1.3" class="num"></label>
+      <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="3" class="num"></label>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">Phasor is ~100–250× faster per candidate (265× on the GATTA-PAINT test stack); Gaussian LS ≈ slightly better precision; Gaussian MLE is Poisson-optimal and reports a CRLB uncertainty (cost ≈ LS).
         σ_noise is the spread of the filtered image, not the PSF width. Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>.
@@ -1656,7 +1666,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.2 · collapsible/dockable controls panel + mobile & layout polish
+</span></noscript>webSMLM v0.9.3 · astigmatic calibration robustness + worker-scaling fix
 Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
     </div>
   </main>
@@ -2484,6 +2494,47 @@ function gaussianFitElliptical(img,w,h,cx,cy,win,sigma0){
           rrel: rms/Math.max(1,A)};          // residual relative to amplitude — a fit-quality score
 }
 
+// Same elliptical-Gaussian model as gaussianFitElliptical, but with (x0,y0) held
+// fixed (4 free params: A, sx, sy, b) instead of fit. Used by calibration's
+// "Fix bead x,y" mode: at large defocus the PSF can flatten, ring or split into
+// two maxima, so letting x,y float per frame lets the fit walk to the wrong lobe
+// and corrupt the width curve — freezing them at a position found once on a
+// stable multi-frame composite removes that failure mode entirely.
+function ellipseSSEFixed(img,w,cx,cy,r,x0,y0,p){ const [A,sx,sy,b]=p, sx2=sx*sx, sy2=sy*sy; let e=0;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const x=cx+dx,y=cy+dy;
+    const res=b+A*Math.exp(-((x-x0)**2/(2*sx2)+(y-y0)**2/(2*sy2)))-img[y*w+x]; e+=res*res; } return e; }
+function gaussianFitEllipticalFixedXY(img,w,h,cx,cy,x0,y0,win,sigma0){
+  const r=(win-1)/2; let mn=Infinity,mx=-Infinity;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const v=img[(cy+dy)*w+(cx+dx)];if(v<mn)mn=v;if(v>mx)mx=v;}
+  let p=[mx-mn,sigma0,sigma0,mn];   // [A, sx, sy, b] — x0,y0 fixed, not fit
+  const Z=()=>[0,0,0,0];
+  for(let it=0;it<30;it++){
+    const JtJ=[Z(),Z(),Z(),Z()],Jtr=Z();
+    const [A,sx,sy,b]=p, sx2=sx*sx, sy2=sy*sy;
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      const x=cx+dx,y=cy+dy,ux=x-x0,uy=y-y0,
+            E=Math.exp(-(ux*ux/(2*sx2)+uy*uy/(2*sy2))),g=A*E,res=b+g-img[y*w+x];
+      const J=[E, g*ux*ux/(sx2*sx), g*uy*uy/(sy2*sy), 1];
+      for(let a=0;a<4;a++){Jtr[a]+=J[a]*res;for(let c=0;c<4;c++)JtJ[a][c]+=J[a]*J[c];}
+    }
+    for(let a=0;a<4;a++)JtJ[a][a]*=1.0001;
+    const dp=solveLin(JtJ,Jtr.map(v=>-v)); if(!dp)break;
+    let step=1,cur=ellipseSSEFixed(img,w,cx,cy,r,x0,y0,p),moved=false;
+    for(let ls=0;ls<25;ls++){ const np=p.map((v,i)=>v+step*dp[i]);
+      np[1]=Math.min(6,Math.max(0.5,np[1])); np[2]=Math.min(6,Math.max(0.5,np[2]));
+      if(np[0]>0&&ellipseSSEFixed(img,w,cx,cy,r,x0,y0,np)<cur){p=np;moved=true;break;} step*=0.5; }
+    if(!moved)break;
+  }
+  const [A,sx,sy,b]=p;
+  if(A<=0||!isFinite(sx)||!isFinite(sy)) return null;
+  let e2=0,cnt=0; const sx2=sx*sx, sy2=sy*sy;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const x=cx+dx,y=cy+dy;
+    const res=b+A*Math.exp(-((x-x0)**2/(2*sx2)+(y-y0)**2/(2*sy2)))-img[y*w+x]; e2+=res*res; cnt++; }
+  const rms=Math.sqrt(e2/Math.max(1,cnt));
+  return {x:x0,y:y0,sx,sy,photons:A*2*Math.PI*sx*sy,bg:b,bgstd:rms,amp:A,
+          rrel: rms/Math.max(1,A)};
+}
+
 // Least-squares polynomial fit y=Σ cᵢxⁱ (degree deg) via normal equations,
 // and its evaluation. Used for the monotonic z(ratio) astigmatism calibration.
 function polyEval(c,x){ let y=0,xp=1; for(let i=0;i<c.length;i++){ y+=c[i]*xp; xp*=x; } return y; }
@@ -2560,6 +2611,7 @@ function phasorFit(img,w,h,cx,cy,win){
      ↑SCALE: replace the accumulation loop with WebGL/WebGPU point splatting.
    =========================================================================== */
 let srFull=null;                       // offscreen full-res reconstruction
+let srSpots=null, srLocs=null;         // ROI boxes / fit crosshairs overlay for srFull (bead-composite view only)
 const view={zoom:1,cx:0,cy:0,atFit:true};   // CSS px per srFull px; center in srFull coords; atFit → refit on window resize
 // line-profile / distance tool: coords in srFull pixels
 let measureMode=false, measurePt0=null, measureLine=null;
@@ -2682,6 +2734,7 @@ function drawView(){
   ctx.imageSmoothingEnabled=false;
   const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
   ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
+  if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH);   // bead-composite view only
   drawScaleBar(ctx,DW,DH, lastResult ? (lastResult.px/lastResult.mag)/view.zoom : 0);
   if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
   if(measureLine||measurePt0) drawMeasureOverlay(ctx,DW,DH);
@@ -2807,7 +2860,7 @@ function zRange(locs){
   if(zs.length<2) return null; zs.sort((a,b)=>a-b);
   return {lo:zs[Math.floor(zs.length*0.01)], hi:zs[Math.floor(zs.length*0.99)]};
 }
-function rerender(keepView){
+function rerender(keepView,isPreview){
   if(!lastResult) return;
   $('srTitle').textContent='SMLM reconstruction';
   const mag=Math.max(1,+$('mag').value||10), rblur=Math.max(0,+$('rblur').value||0);
@@ -2825,16 +2878,25 @@ function rerender(keepView){
   if(zColor){
     if(!lastResult.zr) lastResult.zr=zRange(lastResult.locs);
     const auto=lastResult.zr||{lo:0,hi:1};
-    if($('zmin').value==='') $('zmin').value=Math.floor(auto.lo);
-    if($('zmax').value==='') $('zmax').value=Math.ceil(auto.hi);
-    zlo=+$('zmin').value; zhi=+$('zmax').value;
+    // isPreview = a mid-Run preview render, on a partial/growing locs subset
+    // (see run()). Never let that lock in zmin/zmax: on a long run the FIRST
+    // preview fires early with only a few, unrepresentative localizations —
+    // auto-filling from it would clip the colour range for the rest of the
+    // run (and the final result) to whatever narrow span that early sample
+    // happened to have. Only the complete, final render is allowed to set them.
+    if(!isPreview){
+      if($('zmin').value==='') $('zmin').value=Math.floor(auto.lo);
+      if($('zmax').value==='') $('zmax').value=Math.ceil(auto.hi);
+    }
+    zlo = $('zmin').value!=='' ? +$('zmin').value : auto.lo;
+    zhi = $('zmax').value!=='' ? +$('zmax').value : auto.hi;
     if(!(zhi>zlo)){ zlo=auto.lo; zhi=auto.hi; }
   }
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   const rlocs = renderLocs || lastResult.locs;   // table filter can restrict the rendered subset
   srFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
                         $('lut').value, +$('lutpct').value, zColor, zlo, zhi);
-  srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false;
+  srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
   if(srFull.width!==pw || srFull.height!==ph){ measureLine=null; measurePt0=null; }  // srFull coords changed
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
@@ -2878,22 +2940,27 @@ function drawRawView(){
   }
   syncSaveImg();
 }
-// ROI boxes (green) + sub-pixel crosshairs (magenta) for the current rawView, in
-// display coords — NOT baked into the frame buffer, so they stay a fixed on-screen
-// size and keep sub-pixel position at any zoom (a pixel centre is native i+0.5).
-// Shared by the panel render and the PNG export (which calls it under a scale()).
-function drawRawOverlays(ctx,DW,DH){
-  const z=rawView.zoom, sw=DW/z, sh=DH/z, sx=rawView.cx-sw/2, sy=rawView.cy-sh/2;
+// ROI boxes (green) + sub-pixel crosshairs (magenta) for a given view (native
+// rawView for the raw-frame panel, or the SR panel's own `view` for its
+// bead-composite mode), in display coords — NOT baked into the frame buffer,
+// so they stay a fixed on-screen size and keep sub-pixel position at any zoom
+// (a pixel centre is native i+0.5). Shared by both panels' render and the PNG
+// export (which calls it under a scale()).
+function drawSpotOverlays(ctx,v,spots,locs,DW,DH){
+  const z=v.zoom, sw=DW/z, sh=DH/z, sx=v.cx-sw/2, sy=v.cy-sh/2;
   const TX=nx=>(nx-sx)*z, TY=ny=>(ny-sy)*z;
-  if(rawSpots&&rawSpots.length){ ctx.strokeStyle='#3fb950'; ctx.lineWidth=1;
+  if(spots&&spots.length){ ctx.strokeStyle='#3fb950'; ctx.lineWidth=1;
     const r=Math.max(2, (+$('winr').value||3)*z);   // ROI box = actual fit window half-width
-    for(const [x,y] of rawSpots) ctx.strokeRect(TX(x+0.5)-r, TY(y+0.5)-r, 2*r, 2*r); }
-  if(rawLocs&&rawLocs.length){ ctx.strokeStyle='#ff3bff'; ctx.lineWidth=1.4;
-    for(const L of rawLocs){ const dx=TX(L.x+0.5), dy=TY(L.y+0.5); ctx.beginPath();  // sub-pixel crosshair
+    for(const [x,y] of spots) ctx.strokeRect(TX(x+0.5)-r, TY(y+0.5)-r, 2*r, 2*r); }
+  if(locs&&locs.length){ ctx.strokeStyle='#ff3bff'; ctx.lineWidth=1.4;
+    for(const L of locs){ const dx=TX(L.x+0.5), dy=TY(L.y+0.5); ctx.beginPath();  // sub-pixel crosshair
       ctx.moveTo(dx-6,dy); ctx.lineTo(dx-2,dy); ctx.moveTo(dx+2,dy); ctx.lineTo(dx+6,dy);
       ctx.moveTo(dx,dy-6); ctx.lineTo(dx,dy-2); ctx.moveTo(dx,dy+2); ctx.lineTo(dx,dy+6);
       ctx.stroke(); } }
-  drawScaleBar(ctx,DW,DH, (+$('pxnm').value||0)/z);        // camera px size / zoom
+}
+function drawRawOverlays(ctx,DW,DH){
+  drawSpotOverlays(ctx,rawView,rawSpots,rawLocs,DW,DH);
+  drawScaleBar(ctx,DW,DH, (+$('pxnm').value||0)/rawView.zoom);        // camera px size / zoom
 }
 function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot
@@ -3027,7 +3094,7 @@ async function exportPanel(which){
     ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
     ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
     ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
-    if(isSR){ drawScaleBar(ctx,DW,DH, lastResult ? (lastResult.px/lastResult.mag)/view.zoom : 0); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
+    if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH); drawScaleBar(ctx,DW,DH, lastResult ? (lastResult.px/lastResult.mag)/view.zoom : 0); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
     else drawRawOverlays(ctx,DW,DH);
     ctx.restore();
     note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
@@ -3171,6 +3238,7 @@ async function getPool(){
    elliptical-fit σx/σy, pool across the field, fit σ = a(z−c)² + b per axis.
    =========================================================================== */
 let calib=null;                              // non-null ⇒ the SR panel shows the plot
+let calFixedPts=null;                        // [{x,y}, …] bead centres from the "Fix bead x,y" composite, or null
 let cal3d=null;                              // active z(ratio) model used by Phasor 3D (from Calibrate or a loaded JSON)
 let cal3dW=null;                             // active z(σx,σy) width model used by MLE 3D: {qx:{a,c,b},qy:{a,c,b},zmin,zmax,px}
 // A z-calibration can carry two independent models. Phasor 3D reads z from the
@@ -3194,6 +3262,80 @@ function robustQuad(zs,ys){
   q.kept=zs.length; q.total=zs.length; return q;
 }
 
+// Shared by the auto data-projection (whole stack, painted on load — see
+// showStackProjection, further down) and "Fix bead x,y" (a specific
+// calibration range): averages up to `cap` frames, evenly sampled across
+// [first,last) rather than every single one, so this stays fast regardless of
+// how large the range is. Returns null if the global `stack` is replaced by a
+// different one while this is running (abandoned, not applied).
+const STACK_PROJECTION_CAP=300;
+async function averageFrames(st,first,last,cap){
+  const {w,h}=st, n=last-first, take=Math.min(n,cap), step=Math.max(1,Math.floor(n/take));
+  const acc=new Float64Array(w*h); let used=0, lastYield=performance.now();
+  for(let fi=first; fi<last; fi+=step){
+    if(stack!==st) return null;
+    const img=(await st.getFrames(fi,fi+1))[0];
+    for(let k=0;k<acc.length;k++) acc[k]+=img[k];
+    used++;
+    if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now(); }
+  }
+  const img=new Float32Array(w*h); for(let k=0;k<img.length;k++) img[k]=acc[k]/used;
+  return {img,used};
+}
+// Cache of the last whole-stack projection shown in the SR panel, keyed to the
+// stack+range it covers — lets locateBeadsForCalib() below reuse it instead of
+// re-averaging when the calibration range still matches (the common case:
+// right after load, before the range has been narrowed).
+let _projCache=null;   // {stack, first, last, img, used}
+
+// "Fix bead x,y": average the calibration range into one composite (reusing
+// the whole-stack overview when the range matches it), run detection once on
+// that stable image, and cache the fitted bead centres in calFixedPts.
+// Re-run automatically (see the listeners wired near calFixedXY below)
+// whenever the range or detection parameters change, so it always reflects
+// the current settings without a separate manual step.
+async function locateBeadsForCalib(){
+  if(!stack || !$('calFixedXY').checked) return;
+  const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
+  const st=$('calLocateStatus');
+  if(last<=first){ calFixedPts=null; if(st){ st.style.display='block'; st.style.color='var(--danger)';
+    st.textContent='Last frame must exceed first.'; } return; }
+  const {w,h}=stack, sigma=+$('psf').value, k=currentThr(), win=2*(+$('winr').value|0)+1,
+        exactBP=$('detection_DoG_exactbp').checked, mode=$('detFilter').value, border=(win-1)/2+1;
+  try{
+    let proj,used;
+    if(_projCache && _projCache.stack===stack && _projCache.first===first-1 && _projCache.last===last){
+      ({img:proj,used}=_projCache);
+    }else{
+      const r=await averageFrames(stack, first-1, last, STACK_PROJECTION_CAP);
+      if(!r) return;                                  // stack changed underneath us
+      proj=r.img; used=r.used;
+    }
+    const {maxima}=detectSpots(proj,w,h,sigma,exactBP,mode,k,border);
+    const fitted=[];
+    for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma); if(L) fitted.push({x:L.x,y:L.y}); }
+    calFixedPts=fitted;
+    // The composite + detected ROI/fit is a reference view, shown in the SR
+    // (right) panel — NOT the raw/left panel, which stays on whatever frame
+    // you're scrubbing (see showFrame: it overlays these same fixed positions
+    // on every frame instead of ever re-detecting).
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    const cctx=cv.getContext('2d'), im=cctx.createImageData(w,h);
+    let mn=Infinity,mx=-Infinity; for(const v of proj){ if(v<mn)mn=v; if(v>mx)mx=v; }
+    for(let idx=0;idx<proj.length;idx++){ const t=mx>mn?(proj[idx]-mn)/(mx-mn):0, g=t*255;
+      im.data[idx*4]=g; im.data[idx*4+1]=g; im.data[idx*4+2]=g; im.data[idx*4+3]=255; }
+    cctx.putImageData(im,0,0);
+    srFull=cv; srIsPlot=false; srSpots=maxima; srLocs=fitted;
+    fitView(); clampView(); drawView();
+    $('srTitle').textContent='Bead composite';
+    $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} bead(s) fixed`;
+    syncSaveImg();
+    if(st){ st.style.display='block';
+      st.style.color = fitted.length ? '' : 'var(--danger)';
+      st.textContent = fitted.length ? `${fitted.length} bead(s) located and fixed for Calibrate.` : 'No beads found on the composite — lower the threshold or adjust σ_PSF.'; }
+  }catch(err){ log(`⚠ Locate beads failed: ${err.name}: ${err.message}`); }
+}
+
 async function runCalibration(){
   if(!stack){ log('Load a bead z-stack first.'); return; }
   const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
@@ -3201,22 +3343,36 @@ async function runCalibration(){
   if(last<=first){ log('Calibration: last frame must exceed first.'); return; }
   const {w,h,px}=stack, sigma=+$('psf').value, k=currentThr(), win=2*(+$('winr').value|0)+1,
         exactBP=$('detection_DoG_exactbp').checked, mode=$('detFilter').value, border=(win-1)/2+1;
+  const fixedXY=$('calFixedXY').checked;
+  if(fixedXY && !(calFixedPts&&calFixedPts.length)){ log('Fix bead x,y is on but no beads are located yet — check the range/threshold.'); return; }
   $('calBtn').disabled=true; $('runBtn').disabled=true; $('calSaveBtn').disabled=true; calib=null;
   try{
-    log(`\nCalibration: frames ${first}–${last} · z-step ${step} nm · win ${win} · k ${k}`);
+    log(`\nCalibration: frames ${first}–${last} · z-step ${step} nm · win ${win} · k ${k}`+
+        (fixedXY?` · ${calFixedPts.length} fixed bead(s)`:''));
     const pts=[]; let lastYield=performance.now();               // {fi, sx, sy, pr, rrel}
     for(let fi=first-1; fi<last; fi++){
       const img=(await stack.getFrames(fi,fi+1))[0];
-      const {maxima}=detectSpots(img,w,h,sigma,exactBP,mode,k,border);
+      const maxima = fixedXY ? calFixedPts.map(p=>[Math.round(p.x),Math.round(p.y)]) : detectSpots(img,w,h,sigma,exactBP,mode,k,border).maxima;
       const frameLocs=[];
-      for(const [cx,cy] of maxima){
-        const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
-        const P=phasorFit(img,w,h,cx,cy,win);
-        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
-        frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
+      if(fixedXY){
+        for(const p of calFixedPts){
+          const cx=Math.round(p.x), cy=Math.round(p.y);
+          if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // bead too close to this frame's edge
+          const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,p.x,p.y,win,sigma); if(!L) continue;
+          const P=phasorFit(img,w,h,cx,cy,win);
+          pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
+          frameLocs.push({x:L.x,y:L.y});
+        }
+      } else {
+        for(const [cx,cy] of maxima){
+          const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
+          const P=phasorFit(img,w,h,cx,cy,win);
+          pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
+          frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
+        }
       }
       if(performance.now()-lastYield>50){
-        drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spots, ${frameLocs.length} fits`;
+        drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spot(s), ${frameLocs.length} fit(s)`;
         setProg(100*(fi-first+1)/(last-first+1)); await tick(); lastYield=performance.now();
       }
     }
@@ -3262,7 +3418,7 @@ async function runCalibration(){
     // per-frame accepted fits, so the raw panel can overlay them while scrubbing
     const fitsByFrame=new Map();
     for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
-    calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:stackName,
+    calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:stackName, fixedXY,
             det:{sigma,k,win,border,exactBP,mode}, fitsByFrame,
             pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
             zmin:Math.min(...zr), zmax:Math.max(...zr) };
@@ -3270,7 +3426,7 @@ async function runCalibration(){
     cal3dW=(qx&&qy)?{qx:{a:qx.a,c:qx.c,b:qx.b},qy:{a:qy.a,c:qy.c,b:qy.b},zmin:calib.zmin,zmax:calib.zmax,px}:null;  // width model for MLE 3D
     calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
     updateCalStatus();
-    srFull=null; srIsPlot=true; syncSaveImg();  // hand the SR panel over to the plot
+    srFull=null; srIsPlot=true; srSpots=null; srLocs=null; syncSaveImg();  // hand the SR panel over to the plot
     drawCalibration(); $('calSaveBtn').disabled=false;
     const f=q=>`a=${q.a.toExponential(2)} c=${q.c.toFixed(0)}nm b=${q.b.toFixed(1)}nm`;
     log(`  σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
@@ -3385,7 +3541,7 @@ async function exportCalibration(){
   if(c.zcal) methods.push({ id:'phasor_magnitude', label:CALIB_METHODS.phasor_magnitude, used_by:['phasor3d'], model:'phasor_z_from_ratio' });
   if(c.qx&&c.qy) methods.push({ id:'gaussian_width', label:CALIB_METHODS.gaussian_width, used_by:['ls3d','mle3d'], model:'sigma_x_nm/sigma_y_nm' });
   const obj={ format:'webSMLM-astig-calibration', version:2, created:new Date().toISOString(),
-    source_file:c.sourceFile||stackName,
+    source_file:c.sourceFile||stackName, fixed_xy:!!c.fixedXY,
     pixel_size_nm:c.px, z_step_nm:c.step, frames:{first:c.first,last:c.last}, z_ref_nm:c.zref,
     z_range_nm:{min:c.zmin,max:c.zmax}, n_points:c.pts.length,
     calibration_methods:methods,
@@ -3921,8 +4077,13 @@ async function run(){
     const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
     const pool = await getPool();
     // Workers only pay off when per-frame work clearly exceeds the cost of
-    // shipping a frame across the boundary; tiny frames stay single-threaded.
-    const useWorkers = pool && pool.length>1 && n>=64 && w*h>=20000;
+    // shipping a frame across the boundary; tiny frames stay single-threaded —
+    // UNLESS there are so many of them that the total volume is large anyway
+    // (e.g. the EPFL SMLM-challenge stacks: 64×64 px but ~20,000 frames). That
+    // second clause is deliberately well above already-tuned small stacks like
+    // the 82×83 GATTA-PAINT crop (~14M total px, stays single-threaded — see
+    // experimental_data/README.md) so it only kicks in for genuinely long runs.
+    const useWorkers = pool && pool.length>1 && n>=64 && (w*h>=20000 || n*w*h>=30_000_000);
     const t0=performance.now(); let lastYield=t0, previewMs=0, lastSrMs=0;
     const SR_PREVIEW_MS=800;   // reconstruction is expensive — preview at most ~1/s (raw stays frequent)
     let tGet=0, tDetect=0, tFit=0, nCand=0;        // Phase 2 instrumentation
@@ -3970,7 +4131,7 @@ async function run(){
                 $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${mx.length} spots`;
               }
               if(locs.length && performance.now()-lastSrMs>SR_PREVIEW_MS){ lastSrMs=performance.now();
-                lastResult={locs,w,h,px,mag:+$('mag').value,det:{sigma,k,win,border,exactBP,mode}}; rerender(true); }
+                lastResult={locs,w,h,px,mag:+$('mag').value,det:{sigma,k,win,border,exactBP,mode}}; rerender(true,true); }
               previewMs+=performance.now()-tp;        // display only, not compute time
             }
             dispatch(wk);
@@ -4019,7 +4180,7 @@ async function run(){
           if(locs.length && performance.now()-lastSrMs>SR_PREVIEW_MS){   // live super-res preview, throttled
             const tp=performance.now(); lastSrMs=performance.now();
             lastResult={locs,w,h,px,mag:+$('mag').value,det:{sigma,k,win,border,exactBP,mode}};
-            rerender(true);
+            rerender(true,true);
             previewMs+=performance.now()-tp;       // don't charge preview to compute time
           }
         }
@@ -4173,15 +4334,43 @@ async function run(){
   if(isMobile()) body.classList.add('side-hidden');   // mobile: images first
   sync();
 })();
+// Quick overview: average a sample of frames from a freshly loaded stack into
+// one composite and show it in the SR panel, which otherwise sits empty until
+// a Run or Calibration. Uses the shared averageFrames() helper (see
+// locateBeadsForCalib, above) and caches the result in _projCache so "Fix
+// bead x,y" can reuse this exact computation instead of re-averaging when the
+// calibration range still covers the whole stack. Fire-and-forget from the
+// load handlers; only paints if nothing has claimed the SR panel by the time
+// it finishes (a Run, a Calibration, or a newer stack replacing this one).
+async function showStackProjection(){
+  const st=stack; if(!st) return;
+  const first=0, last=st.n;
+  const r=await averageFrames(st,first,last,STACK_PROJECTION_CAP);
+  if(!r) return;
+  if(stack!==st || srFull || srIsPlot || lastResult || calib) return;   // SR panel already claimed by something else
+  _projCache={stack:st, first, last, img:r.img, used:r.used};
+  const {w,h}=st, {img:proj,used}=r;
+  let mn=Infinity,mx=-Infinity; for(let k=0;k<proj.length;k++){ const v=proj[k]; if(v<mn)mn=v; if(v>mx)mx=v; }
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const ctx=cv.getContext('2d'), im=ctx.createImageData(w,h);
+  for(let k=0;k<proj.length;k++){ const t=mx>mn?(proj[k]-mn)/(mx-mn):0, g=t*255;
+    im.data[k*4]=g; im.data[k*4+1]=g; im.data[k*4+2]=g; im.data[k*4+3]=255; }
+  ctx.putImageData(im,0,0);
+  srFull=cv; srIsPlot=false; srSpots=null; srLocs=null; fitView(); clampView(); drawView();
+  $('srTitle').textContent='Data projection';
+  $('srInfo').textContent=`— average of ${used}/${st.n} frame${used>1?'s':''} · run localisation to reconstruct`;
+  syncSaveImg();
+}
 $('loadBtn').addEventListener('click',()=>$('file').click());
 
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     initScrub(); $('sFrames').textContent=stack.n;
+    showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localisations”.`);
@@ -4194,12 +4383,13 @@ $('genBtn').addEventListener('click',async()=>{
 
 $('file').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; rawIsPlot=false; measureLine=null; measurePt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
   stackName=f.name; log(`Loading ${f.name}…`);
   try{
     stack=await loadTiffFile(f);
     initScrub();
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
+    showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider (or scroll over the image) to browse the stack.':''}`);
@@ -4229,7 +4419,26 @@ async function showFrame(i){
   try{
     const img=(await stack.getFrames(i,i+1))[0];
     let spots=null, locsF=null;
-    if($('liveUpdate').checked){
+    const runMatchesStack = lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h;
+    // "Fix bead x,y" wins over everything else below, from the moment beads are
+    // located — not just after Calibrate is pressed. The composite + detected
+    // ROI/fit lives in the SR panel (see locateBeadsForCalib); here we just
+    // overlay those SAME frozen positions on whichever frame you're scrubbing,
+    // never re-detecting, so a stretched/split PSF at large defocus can't show
+    // up as two boxes again.
+    if(calFixedPts && calFixedPts.length){
+      spots = calFixedPts.map(p=>[Math.round(p.x),Math.round(p.y)]);
+      locsF = calFixedPts;
+      drawRaw(img,stack.w,stack.h,spots,locsF);
+      $('rawInfo').textContent=`frame ${i+1}/${stack.n} — ${spots.length} fixed bead position(s)`;
+    }else if(!runMatchesStack && calib && calib.det){
+      spots = calib.fixedXY
+        ? (calib.fitsByFrame.get(i)||[]).map(p=>[Math.round(p.x),Math.round(p.y)])
+        : detectSpots(img,stack.w,stack.h,calib.det.sigma,calib.det.exactBP,calib.det.mode,calib.det.k,calib.det.border).maxima;
+      locsF = calib.fitsByFrame.get(i)||[];
+      drawRaw(img,stack.w,stack.h,spots,locsF);
+      $('rawInfo').textContent=`frame ${i+1}/${stack.n} — calibration: ${spots.length} spot(s), ${locsF.length} fit(s)`;
+    }else if($('liveUpdate').checked){
       // Live preview: re-detect + re-fit THIS frame with the current UI settings —
       // a throwaway visualization, never written to lastResult/locs/srFull.
       const sigma=+$('psf').value, k=currentThr(), win=2*(+$('winr').value|0)+1;
@@ -4250,14 +4459,9 @@ async function showFrame(i){
       drawRaw(img,stack.w,stack.h,spots,locsF);
       $('rawInfo').textContent=`frame ${i+1}/${stack.n} — ${spots.length} spots, ${locsF.length} locs (live preview)`;
     }else{
-      // re-detect boxes and overlay the fits from whichever is current: a
-      // localization result, else a calibration (same stack).
+      // re-detect boxes and overlay the fits from the last localization Run.
       let det=null, getLocs=null;
-      if(lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h){
-        det=lastResult.det; getLocs=locsForFrame;
-      }else if(calib && calib.det){
-        det=calib.det; getLocs=fi=>(calib.fitsByFrame.get(fi)||[]);
-      }
+      if(runMatchesStack){ det=lastResult.det; getLocs=locsForFrame; }
       if(det){
         spots=detectSpots(img,stack.w,stack.h,det.sigma,det.exactBP,det.mode,det.k,det.border).maxima;
         locsF=getLocs(i);
@@ -4276,10 +4480,28 @@ function initScrub(){
   else row.style.display='none';
   if(stack){ $('calLast').value=stack.n; $('calFirst').value=1;   // default calibration range = whole stack
     // both panels take the stack's aspect ratio (raw frame + reconstruction share it → equal, no letterbox)
-    document.documentElement.style.setProperty('--frame-ar', stack.w+' / '+stack.h); }
+    document.documentElement.style.setProperty('--frame-ar', stack.w+' / '+stack.h);
+    calFixedPts=null; _projCache=null;      // a new stack invalidates any previously fixed positions/projection
+    $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
+    const st=$('calLocateStatus'); if(st) st.style.display='none'; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('calBtn').addEventListener('click',runCalibration);
+$('calFixedXY').addEventListener('change',()=>{
+  if($('calFixedXY').checked){ if(stack) locateBeadsForCalib(); else log('Load a bead z-stack first.'); }
+  else {
+    calFixedPts=null; const st=$('calLocateStatus'); if(st) st.style.display='none';
+    if(srSpots||srLocs){   // was showing our bead composite — clear it and restore the general overview
+      srFull=null; srIsPlot=false; srSpots=null; srLocs=null;
+      if(stack) showStackProjection();
+    }
+    if(stack) showFrame(+$('scrub').value);   // drop the fixed-box overlay from the raw panel immediately
+  }
+});
+// re-locate the fixed bead positions whenever a setting that changes detection/fit would affect them
+['calFirst','calLast','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
+  $(id).addEventListener('change',()=>{ if(stack && $('calFixedXY').checked) locateBeadsForCalib(); });
+});
 $('calSaveBtn').addEventListener('click',exportCalibration);
 $('calViewBtn').addEventListener('click',()=>{ calView = calView==='sigma'?'mag':calView==='mag'?'ratio':'sigma'; if(calib&&srIsPlot) drawCalibration(); });
 $('driftBtn').addEventListener('click',correctDrift);
@@ -4313,7 +4535,7 @@ function updateCalStatus(){
 // Load settings: apply a JSON of control values. (Full version with editable
 // defaults/min/max is planned; this imports plain {id: value} pairs.)
 const SETTING_IDS=['method','detFilter','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','pxnm','gain','camoff','mag','rblur',
-  'lut','lutpct','memgb','chunkmb','frames','dens','phot','driftpx','calStep','calRef','driftSeg','driftRoi'];
+  'lut','lutpct','memgb','chunkmb','frames','dens','phot','driftpx','calStep','calRef','calFixedXY','driftSeg','driftRoi'];
 $('loadSetBtn').addEventListener('click',()=>$('setFile').click());
 $('setFile').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
