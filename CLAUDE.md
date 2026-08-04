@@ -20,9 +20,18 @@ is the point. New third-party code must be inlined and its license honoured in t
 All work happens inside `webSMLM.html`. It is organized into commented `MODULE:` banners; find the
 relevant one before editing rather than scrolling:
 
-- **io** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
+- **params** — the `PARAMS` registry: single source of truth for every analysis/render/export
+  parameter (name → `{label, min, max, step, default, int}`), read via `paramValue(id)`. Drives
+  the HTML controls' min/max/default (`syncParamControls()`), Save/Load Settings, and — for
+  parameters with no page control yet (worker-dispatch thresholds, preview timing, etc.) —
+  `paramOverrides`, settable only via a loaded settings JSON today. This is also the shape the
+  future headless config (`docs/REFACTOR_PLAN.md`, v0.10.0) will reuse. Deliberately excludes
+  pure display/layout (CSS) and per-dataset working state (`calFirst`/`calLast`/`zmin`/`zmax`).
+- **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded).
+- **simulation** — the built-in synthetic stack generator ("Simulate movie"): demo/validation/
+  teaching data, not a core analysis path. Split out from in/out since it doesn't load anything.
 - **detect** — per-frame band-pass, one of three filters selectable via `#detFilter`: à trous
   B-spline **wavelet** (default) or **DoG** (both thresholded by local maxima above `mean + k·σ`),
   or **uniform box filter** (difference of two box averages, thresholded by a plain intensity
@@ -32,17 +41,29 @@ relevant one before editing rather than scrolling:
   `detection_<method>_<setting>` (e.g. `detection_DoG_thr`, `detection_box_thr`) shown/hidden by
   the sync IIFE keyed off `#detFilter` — don't reintroduce a single shared field across methods,
   their thresholds mean different things (k·σ multiplier vs. raw intensity).
-- **fit** — phasor (fast, non-iterative) and least-squares 2D-Gaussian localization.
+- **fit** — phasor (fast, non-iterative), least-squares 2D-Gaussian, and Poisson-MLE 2D/3D
+  (`gaussianMLE`/`gaussianMLEastig`, the default) localization. All four fitters take
+  `gain,camoff` and convert every pixel to true photon units — `(raw-camoff)*gain` — before
+  fitting, matching Picasso's architecture; position/width/ratio outputs are provably invariant
+  to this affine transform (LS/phasor), while MLE's Poisson likelihood and CRLB (`lpx`/`lpy`)
+  are only statistically correct when fit in photon units, so this is the one place gain/offset
+  actually change a result rather than just rescaling it.
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
   without refitting.
 - **workers** — frame-parallel detect/fit (see below).
-- **export** — ThunderSTORM-compatible CSV.
-- **calibration** — astigmatic 3D: σ_x/σ_y vs z bead curves, JSON save/load.
+- **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
+  by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
+  export/the table histogram do no further conversion — they still read `gain`/`camoff` only to
+  log a "gain 1 / offset 0" warning when a user hasn't set real camera values.
+- **3D calibration** — astigmatic: σ_x/σ_y vs z bead curves, JSON save/load. Astigmatism is the
+  only method implemented; other 3D approaches (Double Helix, Biplane) would live here too.
 - **drift** — AIM (adaptive intersection maximization), point-based, 2D+z.
-- **precision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
+- **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules.
+- **table** — the sortable, cumulatively-filterable localizations table ("Display table") and
+  per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction live.
 
 ### Web Worker gotcha (read before touching detect/fit/workers)
 

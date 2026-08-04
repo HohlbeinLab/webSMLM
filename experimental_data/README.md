@@ -30,65 +30,37 @@ over committing the bytes.
 
 ## Current benchmark dataset
 
-`GATTA-PAINT-80R-raw_cropped.tif` — GATTAquant GATTA-PAINT 80R DNA-PAINT
-nanoruler (80 nm mark-to-mark), acquired on a Leica GSD system, cropped from the
-`80nm 80ms top image.lif` series and concatenated by ImageJ 1.54r.
+GATTAquant GATTA-PAINT 80R DNA-PAINT nanoruler (80 nm mark-to-mark), acquired
+on a Leica GSD system.
 
 **Full raw dataset (public):** [`GATTA-PAINT-80R-RAW.zip`](https://www.gattaquant.com/files/GATTA-PAINT-80R-RAW.zip)
-from GATTAquant — our crop above was taken from this.
+from GATTAquant.
 
 | Property | Value |
 |---|---|
-| Frames | 1999 |
-| Frame size | 82 × 83 px (cropped from 180 × 180) |
+| Native frame size | 180 × 180 px |
 | Bit depth | 16-bit, uncompressed |
-| Byte order | **big-endian (MM)** — ImageJ wrote the stack BE; the per-frame originals are LE |
+| Byte order | little-endian per individual frame; **big-endian once concatenated into a stack by ImageJ** |
 | **Pixel size** | **99.2 nm** (from XResolution 4294967295/42605 = 100808.996 px/cm) |
 | Exposure | 80 ms |
-| On disk | 26.5 MB |
-| Decoded Float32 working set | 51.9 MB — fits the default 3 GB budget, so it loads fully into RAM |
 
-Two reasons this file is a good fixture beyond raw speed:
+**The public download is not a single ready-to-load stack** — webSMLM expects
+one multi-frame TIFF, so use ImageJ to concatenate/convert it into that form
+first (File → Import, then File → Save As → Tiff) before loading it here.
+See the note in [`../docs/REFACTOR_PLAN.md`](../docs/REFACTOR_PLAN.md) about
+doing this concatenation inside webSMLM itself, so this step no longer needs
+a separate tool.
 
-- **It exercises the big-endian 16-bit decode path**, which was previously
-  reasoned-about but never runtime-verified.
-- **It carries a resolution ground truth** — the 80 nm mark-to-mark spacing lets
-  the FRC precision work (v0.8.0) be validated against a known distance rather
+Two reasons this dataset is a good fixture beyond raw speed:
+
+- **It exercises the big-endian 16-bit decode path** (the per-frame
+  originals are little-endian; ImageJ's concatenated stack comes out
+  big-endian).
+- **It carries a resolution ground truth** — the 80 nm mark-to-mark spacing
+  lets the FRC precision work be validated against a known distance rather
   than only self-consistency.
 
-## Second benchmark dataset — large format
-
-`Sample2_L.lactis_10ng-mlNR_1000f_50msft_30%green_greenfilt_1_MMStack_Pos0.ome.tif`
-— Nile Red PAINT on *Lactococcus lactis*, Micro-Manager OME-TIFF.
-
-| Property | Value |
-|---|---|
-| Frames | 1000 |
-| Frame size | 256 × 256 px (**9.6× the pixels/frame of the GATTA crop**) |
-| Bit depth | 16-bit, uncompressed |
-| Byte order | big-endian (MM) |
-| **Pixel size** | **~120 nm** |
-| Exposure | 50 ms |
-| On disk | 147 MB (**over GitHub's 100 MB limit — never commit**) |
-| Decoded Float32 working set | ~262 MB — fits the default 3 GB budget, loads fully into RAM |
-
-This is the dataset that decides the **Web Worker** question. On the 82 × 83 GATTA
-crop the per-frame work (~0.36 ms) is small enough that worker message-passing
-overhead would dominate. At 256 × 256 the per-frame work is roughly 10× larger,
-which is the regime where distributing frames across cores actually pays.
-
-Note on σ_PSF: at 120 nm/px with a typical high-NA objective the diffraction-limited
-PSF is only ~0.75 px, at or below the slider's 0.8 minimum. Start at 0.8–1.0 and
-tune by eye against the green detection boxes.
-
-**Not a good NeNA sample.** Nile Red is a solvatochromic membrane probe: it
-partitions into and **diffuses within the membrane** during binding events, so
-consecutive-frame displacements carry that motion on top of the localization
-error. NeNA assumes a *static* structure, so it would report an inflated σ here.
-Use a fixed-target sample for precision — e.g. the DNA-PAINT nanoruler above,
-where the imager binds a static docking strand.
-
-## Third benchmark dataset — 3D STORM (very large, ~4.9 GB)
+## Second benchmark dataset — 3D STORM (very large, ~4.9 GB)
 
 3D STORM of spectrin rings in neurons, by **Christophe Leterrier**, on figshare:
 [3D STORM spectrin rings in neurons](https://figshare.com/articles/dataset/3D_STORM_spectrin_rings_in_neurons/19165061).
@@ -99,22 +71,31 @@ where the imager binds a static docking strand.
 | Frame size | 256 × 256 px |
 | Format | large multi-IFD TIFF (Micro-Manager MMStack) — indexed by walking the IFD chain |
 | On disk | ~4.9 GB (**never loaded whole — streamed frame-by-frame via `File.slice()`**) |
-| Processing | ~24 s end-to-end on a laptop |
 
-This is the stress-test dataset behind three features:
+A good stress test for large-stack handling: webSMLM never loads the file
+whole — frames are streamed on demand via `File.slice()` — so this is a
+practical check that a multi-GB stack processes without the browser running
+out of memory. It's also a real 3D dataset, useful for exercising Phasor 3D
+and z-drift correction on something larger than the synthetic generator.
 
-- **Large multi-IFD streaming** (v0.6.1) — the file is indexed by walking the
-  IFD chain and read one frame at a time, so the 4.9 GB stack is never held in
-  memory.
-- **Phasor 3D** (v0.5.0) — astigmatic z per localization.
-- **z-drift correction** (v0.7.0) — the AIM z channel was developed and tuned
-  against this stack.
+**Camera parameters** (Andor iXon 897 EMCCD, 16 µm physical pixel, 256×256
+center quadrant, 160 nm/pixel post-magnification; acquisition settings
+confirmed by Christophe Leterrier from the Nikon NIS-Elements panel): **EM
+gain = 100**, **e⁻/ADU = 0.1248**, baseline 100 ADU.
 
-Notably it runs entirely client-side **in a mobile browser** — tested fine on an
-**Apple iPhone 17** — which is the payoff of the memory-aware streaming loader: a
-multi-GB 3D stack processed on a phone, with no upload.
+**webSMLM settings to match:** Pixel size (nm) = **160**; Camera offset (ADU)
+= **100**; Camera gain (photons/ADU) = **0.1248** — used directly, *not*
+divided by the EM gain again, since NIS-Elements' "e⁻/ADU" readout already
+reflects the current EM gain setting (system gain at a given EM setting =
+unity-gain sensitivity ÷ EM gain). Also consistent physically: 0.1248 e⁻/ADU
+alone would cap the 16-bit ADC at ~8,000 e⁻, far below this sensor's
+~180,000 e⁻ well depth, while ×100 = 12.48 e⁻/ADU is a plausible unity-gain
+figure. The iXon 897 has a known QE curve (~92.5% peak at 575 nm,
+back-illuminated) that isn't part of the reported settings above, so as with
+the EPFL dataset's stated 0.90 e⁻/photon, a QE correction could be layered
+on top if wanted — not applied here.
 
-## Fourth benchmark dataset — 3D astigmatism ground truth (EPFL SMLM 2016 Challenge)
+## Third benchmark dataset — 3D astigmatism ground truth (EPFL SMLM 2016 Challenge)
 
 Three files from the EPFL Biomedical Imaging Group's SMLM 2016 3D simulation
 challenge, astigmatism (AS) modality, `MT0.N1` microtubule structure —

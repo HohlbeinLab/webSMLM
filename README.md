@@ -40,11 +40,14 @@ walk-through of every step.
   or streams large stacks in bounded heaps (the pattern that also enables
   real-time processing of a live camera buffer). Falls back to streaming
   automatically if an in-memory load hits the browser's memory ceiling.
-- **Detects** ROIs by band-passing each frame — either an **à trous B-spline
-  wavelet** (the default, as in ThunderSTORM; no σ, ~2× faster to filter) or a
-  **Difference-of-Gaussians** filter — then keeping strict local maxima above a
-  `mean + k·σ` threshold. The two respond differently, so re-tune **k** when you
-  switch.
+- **Detects** ROIs by band-passing each frame, with a choice of three filters:
+  an **à trous B-spline wavelet** (the default, as in ThunderSTORM; no σ, the
+  fastest to filter), a **Difference-of-Gaussians** filter, or a **uniform box
+  filter** (Huang et al. 2011). Wavelet and DoG threshold on strict local
+  maxima above `mean + k·σ`; the box filter thresholds on a plain intensity
+  value instead. The three respond differently, so re-tune the threshold when
+  you switch. A **Real-time update** toggle re-detects/re-fits the scrubbed
+  frame live as you change detection or fit settings, without a full Run.
 - **Localizes** with **phasor** fitting (very fast, no iteration), a
   **least-squares 2D Gaussian** fit, or a **Poisson maximum-likelihood** fit
   (**Gaussian MLE 2D**, the default — integrated-Gaussian, Smith et al. 2010 /
@@ -55,8 +58,12 @@ walk-through of every step.
   — a built-in cross-check. Calibrate a bead z-stack — every spot is fit both by
   LS (real σ_x/σ_y curves) and phasor (magnitude ratio); the calibration carries
   both models, tagged, and a guard stops a 3D fit running against the wrong one.
-  Calibrations save/load as JSON (with their source file), and the reconstruction
-  can be **depth-coded** (hue = z, brightness = density) with an adjustable z range.
+  A **"Fix bead x,y"** option freezes each bead's lateral position from a
+  composite of the calibration range before fitting widths per frame, so the
+  fit can't wander to a wrong lobe when the PSF flattens, rings or splits at
+  large defocus. Calibrations save/load as JSON (with their source file), and
+  the reconstruction can be **depth-coded** (hue = z, brightness = density)
+  with an adjustable z range.
 - **Localizations table** (**Display table**): sortable, with **cumulative
   filtering** (e.g. `intensity > 1000 and uncertainty < 20`, Enter to apply,
   removable chips, Reset) that **drives the reconstruction live**; any column can
@@ -71,7 +78,10 @@ walk-through of every step.
   early while keeping the localizations gathered so far.
 - **Navigate both panels**: independent zoom/pan (wheel or pinch, drag,
   double-click to reset) on the raw frame and the reconstruction, plus a frame
-  slider to scrub the stack.
+  slider to scrub the stack. Both panels take the loaded stack's data aspect
+  ratio, so they stay equal-sized with no letterboxing. The controls panel is
+  **collapsible** — on desktop, re-opening it after a collapse floats it as an
+  overlay so toggling never resizes the display windows.
 - **Measures distances / line profiles**: click two points in the reconstruction
   to plot the intensity profile along the line (averaged over a 3-pixel band),
   with the length in nm and an x-zoomable/pannable plot.
@@ -106,29 +116,29 @@ logical core). Measured on a laptop, running the single HTML file directly from
 | Dataset | Frames | Frame size | Time | Rate |
 |---|---|---|---|---|
 | 3D STORM (4.89 GB) [[Leterrier]](experimental_data/README.md) | 40000 | 256 × 256 | ~12 s | ~350,000 loc/s |
-| Nile Red / *L. lactis* | 1173 | 256 × 256 | <0.5 s | — |
-| GATTA-PAINT 80R | 1999 | 82 × 83 | <0.5 s | — |
 
-The two smaller stacks finish **faster than can be timed reliably** (well under a
-second — JIT warm-up and timer resolution dominate), so only the large 3D stack
-gives a stable throughput figure: the 4.89 GB stack — never held in memory,
-streamed frame by frame — completes in ~12 s (~350k loc/s), about **2× the
-throughput** of the earlier ~24 s figure; the faster wavelet filter, a fused
-threshold pass, and browser choice all contribute. Notes:
+Small stacks finish **faster than can be timed reliably** (well under a
+second — JIT warm-up and timer resolution dominate), so only a stack large
+enough to run for several seconds gives a stable throughput figure: the 4.89
+GB stack above — never held in memory, streamed frame by frame — completes in
+~12 s (~350k loc/s). Notes:
 
 - **Browser matters.** On macOS the numeric path runs fastest in **Safari**, then
   **Chrome**, then **Firefox** (JS-engine differences). Expect run-to-run
   variation too (JIT warm-up, GC, thermal, disk cache) — a repeat of the same
   stack is usually quicker.
-- **Detector choice changes results**, not just speed: the default wavelet filter
-  and the DoG band-pass find slightly different spot sets, so counts differ
-  between them (and from pre-0.7.5 versions, which were DoG-only).
+- **Detector choice changes results**, not just speed: the three filters find
+  slightly different spot sets, so counts differ between them.
 - **Workers are probed before use**, with a self-test that exercises the whole
   numeric path. If they are unavailable — some browsers restrict workers on
   `file://` — the app falls back to single-threaded automatically and says so
   in the log.
-- **Small frames stay single-threaded** on purpose: below ~20k pixels per frame
-  the cost of handing a frame to a worker outweighs the work itself.
+- **Small, short stacks stay single-threaded** on purpose: below ~20,000
+  pixels per frame *and* below ~30 million total pixels (frames × width ×
+  height), the cost of handing work to a worker outweighs the work itself.
+  Either condition alone is enough to parallelize — a stack with many small
+  frames (e.g. thousands of 64×64 frames) still crosses the total-volume
+  threshold and runs on the worker pool.
 - The **DoG** filter approximates its background term with a box filter by
   default (~2× faster than a true Gaussian, changes ~0.4% of *its* detections);
   tick **Exact band-pass** for the true Gaussian. The wavelet filter has no such
@@ -153,6 +163,11 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   filter and the **DoG** band-pass, plus the std-based threshold, follow
   ThunderSTORM): M. Ovesný et al., *Bioinformatics* **30**(16), 2389–2390 (2014).
   https://doi.org/10.1093/bioinformatics/btu202
+- **Uniform box filter** (the third detection filter, thresholded on a plain
+  intensity value instead): F. Huang, S. L. Schwartz, J. M. Byars, K. A. Lidke,
+  *Simultaneous multiple-emitter fitting for single molecule super-resolution
+  imaging*, *Biomed. Opt. Express* **2**(5), 1377–1393 (2011).
+  https://doi.org/10.1364/BOE.2.001377
 - **LS vs MLE fitting**: K. I. Mortensen et al., *Nat. Methods* **7**, 377–381
   (2010). https://doi.org/10.1038/nmeth.1447 — and localization-precision
   theory: R. E. Thompson, D. R. Larson, W. W. Webb, *Biophys. J.* **82**,
@@ -181,24 +196,37 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
 
 ## Known limitations
 
-- 3D is astigmatism via **Phasor 3D** only; the Gaussian fit is 2D and
-  **least-squares, not Poisson MLE**. The astigmatism calibration uses a
-  vertex-quadratic per axis, a local approximation best over a cropped z-range.
+- **3D astigmatism is 2D-vs-3D by two independent, still-unreconciled
+  methods** (Phasor 3D from the magnitude ratio, Gaussian MLE 3D from the
+  elliptical σ_x/σ_y widths) rather than a single validated 3D model. They
+  are cross-checked against each other and against synthetic ground truth,
+  but **not yet against real bead data**. The astigmatism calibration itself
+  fits a vertex-quadratic per axis — a local approximation, best over a
+  cropped z-range around focus.
+- **NeNA and FRC are new and not yet cross-validated** against established
+  tools (ThunderSTORM, Picasso, FRCbar) or previously-analysed datasets — the
+  numbers they report should not yet be treated as authoritative. 3D FSC
+  (the spherical-shell counterpart to 2D FRC) is not implemented.
 - **Intensities are in ADU unless a camera gain is entered**, in which case the
   exported `intensity [photon]` and `uncertainty [nm]` columns are not on a
   physical scale. A single scalar gain also suits EMCCD better than sCMOS, where
   gain, offset and read noise vary per pixel — see
   [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md).
 - Dense samples with overlapping PSFs are fitted with a **single-emitter model**,
-  which biases positions where emitters overlap.
-- The `mean + k·σ` threshold assumes roughly stationary noise; strong background
-  gradients favour a local threshold.
-- Precision figures shown in the app are for the built-in synthetic model.
+  which biases positions where emitters overlap. Multi-emitter fitting would
+  be the real fix.
+- The `mean + k·σ` threshold assumes roughly stationary noise, computed over
+  the whole frame including signal — so at high blink density the threshold
+  rises and dim localizations get silently dropped. Strong background
+  gradients also favour a local threshold over a global one.
+- σ_PSF is a fixed, user-supplied value, not estimated or calibrated from the
+  data.
 
 ## Roadmap
 
-Past releases are logged in [`CHANGELOG.md`](CHANGELOG.md); planned work is
-tracked by version in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md).
+Past releases — including implementation detail and notable rejected
+approaches — are logged in [`CHANGELOG.md`](CHANGELOG.md); forward-looking
+notes are kept in [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md).
 
 ## Distribution & citation
 
