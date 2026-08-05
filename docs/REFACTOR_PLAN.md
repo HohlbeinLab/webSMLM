@@ -6,6 +6,18 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **For later: reconsider the detect/fit/export/table module split.** These
+  four already share parameters and data in ways that make the boundary feel
+  arbitrary in places — e.g. `PARAMS.gain`/`camoffset` sit under a `----
+  export` comment header (`webSMLM.html`) even though the conversion now
+  happens inside `fit`, and `table` reads the same already-converted
+  `photons`/`bg`/`bgstd` that `export` does. Merging any two of them "because
+  they're interwoven" risks snowballing (detect/fit are just as interwoven
+  with each other and stay split, so that alone isn't a sufficient
+  criterion) — needs an actual principle for where the lines go (kind of
+  work vs. data flow) before touching it, not just an ad-hoc merge. At
+  minimum, retitle the stale `---- export` `PARAMS` comment to `fit` once
+  this is looked at.
 - **For later: let a settings JSON override a parameter's `min`/`max`/`step`,
   not just its value.** Today Save/Load Settings only round-trips
   `{id: value}` pairs (see `$('saveSetBtn')`/`$('setFile')`) — the bounds

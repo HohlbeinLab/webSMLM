@@ -1421,7 +1421,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.4 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.5-dev · build 2026-08-05c · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1438,15 +1438,15 @@ X.B(E,Y);return E}return J}())
         <button id="saveSetBtn">Save settings</button>
       </div>
       <div class="btnrow">
-        <button class="primary" id="runBtn" disabled>Run</button>
+        <button class="primary" id="runBtn" disabled>Localize</button>
         <button class="danger" id="stopBtn" disabled>Stop</button>
       </div>
       <div class="btnrow">
-        <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save locs</button>
+        <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save data</button>
         <button id="saveImgBtn" disabled title="Save a window (left or right) as a PNG">Save image</button>
       </div>
       <div class="btnrow" style="margin-top:6px">
-        <button id="tableBtn" disabled title="Show the localizations in a sortable, filterable table">Display table</button>
+        <button id="tableBtn" disabled title="Show the localizations in a sortable, filterable table">View data + filtering</button>
         <button id="helpBtn" class="helpbtn">Help &amp; guide</button>
       </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
@@ -1517,7 +1517,7 @@ X.B(E,Y);return E}return J}())
         <div class="bar" id="driftBar"><i id="driftProg"></i></div>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">[module: drift] Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024,
-          after <code>picasso/aim.py</code>; see Help &amp; guide → References). Run localisations first, then Correct drift.
+          after <code>picasso/aim.py</code>; see Help &amp; guide → References). Localize first, then Correct drift.
           The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for
           faster drift. Each run re-estimates from the raw localisations, so segment size / search radius can be
           swept and compared. Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</div></details>
@@ -1594,7 +1594,7 @@ X.B(E,Y);return E}return J}())
     <div class="group">
       <label class="row">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <label class="row">Camera gain (photons/ADU) <input type="number" id="gain" value="1" min="0.001" max="1000" step="0.01" class="num"></label>
-      <label class="row">Camera offset (ADU) <input type="number" id="camoff" value="0" min="0" max="65535" step="1" class="num"></label>
+      <label class="row">Camera offset (ADU) <input type="number" id="camoffset" value="0" min="0" max="65535" step="1" class="num"></label>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">[module: export] With gain 1 the exported “intensity [photon]” is really <b>ADU</b>, and the
         uncertainty column (∝ 1/√N) is not physically meaningful. A single scalar gain suits
@@ -1627,7 +1627,7 @@ X.B(E,Y);return E}return J}())
         <div class="hint">[module: render] Pixel size sets the physical scale for the scale bar and export.
         Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.
         <b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.
-        <b>Colour by depth (z)</b> (Phasor 3D results) sets each pixel's hue from the mean z and its
+        <b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its
         brightness from density; <b>z min / z max</b> set the colour range and render anything outside it
         black — narrow the window to optically section through the volume.
         All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</div></details>
@@ -1666,8 +1666,8 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.4 · parameter registry + gain-aware MLE fitting
-Ready. Click “Load movie” or “Simulate movie”, then “Run localisations”.</div>
+</span></noscript>webSMLM v0.9.5-dev · build 2026-08-05c
+Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
 </div>
@@ -1716,6 +1716,11 @@ const PARAMS = {
   // ---- fit ----
   // method = which localization fitter runs: phasor 2D/3D, Gaussian least-squares, or Gaussian MLE 2D/3D
   method: { type:'enum', id:'method', label:'Fit method', options:['phasor','phasor3d','gaussls','gaussmle','mle3d'], default:'gaussmle' },
+  // mleEps = MLE Newton-iteration convergence tolerance (px); matches Picasso's gaussmle default
+  // (0.001, vs webSMLM's earlier 1e-4 — 10x tighter than needed relative to CRLB precision, which
+  // only cost extra iterations: swapping to 0.001 measured 19% faster AND a higher convergence
+  // rate on real data, with fitted positions agreeing to ~0.008 px, far below any real CRLB)
+  mleEps: { type:'number', id:null, label:'MLE convergence tolerance (px)', min:1e-6, max:0.1, step:0.0001, default:0.001, int:false },
 
   // ---- render ----
   // pxnm = camera pixel size in nanometres; sets the physical scale for the scale bar, z and export
@@ -1733,13 +1738,13 @@ const PARAMS = {
 
   // ---- export: camera ADU→photon conversion, applied inside the fit itself
   // (gaussianFit/gaussianMLE/gaussianMLEastig/phasorFit all convert every
-  // pixel via (raw-camoff)*gain before use) so photons/bg/bgstd are already
+  // pixel via (raw-camoffset)*gain before use) so photons/bg/bgstd are already
   // true photon units everywhere downstream — CSV export, the table
   // histogram, and MLE's CRLB (lpx/lpy) all see correctly-scaled values ----
   // gain = ADU→photon conversion factor applied to every pixel before fitting
   gain: { type:'number', id:'gain', label:'Camera gain (photons/ADU)', min:0.001, max:1000, step:0.01, default:1, int:false },
-  // camoff = "camera offset", the camera's baseline ADU level, subtracted before gain conversion
-  camoff: { type:'number', id:'camoff', label:'Camera offset (ADU)', min:0, max:65535, step:1, default:0, int:false },
+  // camoffset = "camera offset", the camera's baseline ADU level, subtracted before gain conversion
+  camoffset: { type:'number', id:'camoffset', label:'Camera offset (ADU)', min:0, max:65535, step:1, default:0, int:false },
 
   // ---- calibration ----
   // calStep = the z-stage step size (nm) between consecutive calibration-stack frames
@@ -2476,31 +2481,31 @@ function solveLin(A,b){
     for(let r=0;r<n;r++){ if(r===c)continue; const f=M[r][c]; for(let k=c;k<=n;k++)M[r][k]-=f*M[c][k]; } }
   return M.map(r=>r[n]);
 }
-function sseWin(img,w,cx,cy,r,p,gain,camoff){ const [A,x0,y0,s,b]=p,s2=s*s; let e=0;
+function sseWin(img,w,cx,cy,r,p,gain,camoffset){ const [A,x0,y0,s,b]=p,s2=s*s; let e=0;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const x=cx+dx,y=cy+dy,d2=(x-x0)**2+(y-y0)**2;
-    const res=b+A*Math.exp(-d2/(2*s2))-(img[y*w+x]-camoff)*gain; e+=res*res; } return e; }
-// gain,camoff convert ADU -> photons (see MODULE: params, PARAMS.gain/camoff) before the
+    const res=b+A*Math.exp(-d2/(2*s2))-(img[y*w+x]-camoffset)*gain; e+=res*res; } return e; }
+// gain,camoffset convert ADU -> photons (see MODULE: params, PARAMS.gain/camoffset) before the
 // fit ever sees a pixel, matching Picasso's get_spots()/_to_photons() — so photons/bg/
 // bgstd come out already in true photon units; no gain scaling needed downstream (export,
-// table). x0,y0,sigma are unaffected: (v-camoff)*gain is affine, so it shifts/scales the
+// table). x0,y0,sigma are unaffected: (v-camoffset)*gain is affine, so it shifts/scales the
 // residual's amplitude/offset terms only, not where the Gaussian's peak or width sit.
-function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
+function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0){
   const r=(win-1)/2; let mn=Infinity,mx=-Infinity;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const v=(img[(cy+dy)*w+(cx+dx)]-camoff)*gain;if(v<mn)mn=v;if(v>mx)mx=v;}
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain;if(v<mn)mn=v;if(v>mx)mx=v;}
   let p=[mx-mn,cx,cy,sigma0,mn];
   for(let it=0;it<20;it++){
     const JtJ=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],Jtr=[0,0,0,0,0];
     const [A,x0,y0,s,b]=p, s2=s*s;
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-      const x=cx+dx,y=cy+dy,d2=(x-x0)**2+(y-y0)**2,E=Math.exp(-d2/(2*s2)),res=b+A*E-(img[y*w+x]-camoff)*gain;
+      const x=cx+dx,y=cy+dy,d2=(x-x0)**2+(y-y0)**2,E=Math.exp(-d2/(2*s2)),res=b+A*E-(img[y*w+x]-camoffset)*gain;
       const J=[E,A*E*(x-x0)/s2,A*E*(y-y0)/s2,A*E*d2/(s2*s),1];
       for(let a=0;a<5;a++){Jtr[a]+=J[a]*res;for(let c=0;c<5;c++)JtJ[a][c]+=J[a]*J[c];}
     }
     for(let a=0;a<5;a++)JtJ[a][a]*=1.0001;
     const dp=solveLin(JtJ,Jtr.map(v=>-v)); if(!dp)break;
-    let step=1,cur=sseWin(img,w,cx,cy,r,p,gain,camoff),moved=false;
+    let step=1,cur=sseWin(img,w,cx,cy,r,p,gain,camoffset),moved=false;
     for(let ls=0;ls<25;ls++){ const np=p.map((v,i)=>v+step*dp[i]); np[3]=Math.min(4,Math.max(0.6,np[3]));
-      if(np[0]>0&&sseWin(img,w,cx,cy,r,np,gain,camoff)<cur){p=np;moved=true;break;} step*=0.5; }
+      if(np[0]>0&&sseWin(img,w,cx,cy,r,np,gain,camoffset)<cur){p=np;moved=true;break;} step*=0.5; }
     if(!moved)break; if(Math.hypot(step*dp[1],step*dp[2])<1e-5)break;
   }
   if(p[0]<=0||Math.abs(p[1]-cx)>r||Math.abs(p[2]-cy)>r||!isFinite(p[1])) return null;
@@ -2510,7 +2515,7 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
   const [A,x0,y0,s,b]=p, s2=s*s; let e2=0, cnt=0;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
     const x=cx+dx,y=cy+dy,d2=(x-x0)**2+(y-y0)**2;
-    const res=b+A*Math.exp(-d2/(2*s2))-(img[y*w+x]-camoff)*gain; e2+=res*res; cnt++; }
+    const res=b+A*Math.exp(-d2/(2*s2))-(img[y*w+x]-camoffset)*gain; e2+=res*res; cnt++; }
   return {x:p[1],y:p[2],photons:A*2*Math.PI*s2,
           bg:b, bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:s};
 }
@@ -2520,13 +2525,14 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
 // a proper per-localization uncertainty, unlike the LS fit. Self-contained (incl.
 // erf) so it ports cleanly into the stringified worker. Validated: unbiased, CRLB
 // matches empirical scatter within a few percent across bright/dim regimes.
-// gain,camoff convert ADU -> photons before the Poisson likelihood ever sees a
+// gain,camoffset convert ADU -> photons before the Poisson likelihood ever sees a
 // pixel — Poisson variance = mean only holds in true photon units, matching
 // Picasso's get_spots()/_to_photons() (applied upstream of its own gaussmle).
 // Without this, the Fisher/CRLB math implicitly assumes gain=1; photons/bg/
 // bgstd come out already gain-corrected, so no further scaling is needed
 // downstream. x,y,σ,lpx,lpy are unaffected — see gaussianFit's comment above.
-function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
+// eps: x,y convergence tolerance (px) — see PARAMS.mleEps.
+function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   const r=(win-1)/2, n=5;
   const erf=x=>{ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
     const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
@@ -2539,7 +2545,7 @@ function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
       for(let rr=0;rr<n;rr++) if(rr!==c){ const f=M[rr][c]; for(let k=0;k<n;k++)M[rr][k]-=f*M[c][k]; y[rr]-=f*y[c]; } }
     return y; };
   let sum=0,mx=0,my=0,mn=Infinity;                                             // centre-of-mass init
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoff)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
   const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0 ];
   const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4], g=new Float64Array(n);
   const buildMg=withGrad=>{ const M=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]; if(withGrad)g.fill(0);
@@ -2551,29 +2557,30 @@ function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
       const dPXmu=-(ea0-eb0)/(SQ*th[4]), dPYmu=-(ea1-eb1)/(SQ*th[4]);
       const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(SQ*s2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(SQ*s2);
       const du=[ th[2]*PY*dPXmu, th[2]*PX*dPYmu, PX*PY, 1, th[2]*(dPXs*PY+PX*dPYs) ];
-      const inv=1/model, data=(img[py*w+px]-camoff)*gain, cf=data*inv-1;
+      const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
       if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
       for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
     return M; };
   for(let it=0;it<20;it++){ const M=buildMg(true), d=solve(M,g); if(!d) break; const ox=th[0],oy=th[1];
     for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
     if(th[4]<0.5)th[4]=0.5; if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0;
-    if(Math.abs(th[0]-ox)<1e-4 && Math.abs(th[1]-oy)<1e-4) break; }
+    if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps) break; }
   if(th[2]<=0 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
   const M=buildMg(false); let lpx=NaN,lpy=NaN;                                 // CRLB = diagonal of Fisher⁻¹
   const ex=solve(M,[1,0,0,0,0]), ey=solve(M,[0,1,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
   let e2=0,cnt=0;                                                              // residual RMS → bgstd (as for LS)
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
-    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[4])+th[3]-(img[py*w+px]-camoff)*gain; e2+=res*res; cnt++; }
+    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[4])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
   return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:th[4], lpx, lpy };
 }
 // -- astigmatic Poisson MLE: 6 params [x,y,N,bg,σx,σy] (PSFx uses σx, PSFy uses σy).
 // Same Fisher-scoring Newton as gaussianMLE; returns σx/σy for z-from-widths (MLE 3D)
 // and the CRLB lateral precision. Self-contained for the worker. Validated: σx/σy
 // and position recovered unbiased, CRLB matches empirical.
-// gain,camoff: see gaussianMLE — same ADU->photon conversion, same reasoning.
-function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
+// gain,camoffset: see gaussianMLE — same ADU->photon conversion, same reasoning.
+// eps: x,y convergence tolerance (px) — see PARAMS.mleEps.
+function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   const r=(win-1)/2, n=6;
   const erf=x=>{ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
     const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
@@ -2586,7 +2593,7 @@ function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
       for(let rr=0;rr<n;rr++) if(rr!==c){ const f=M[rr][c]; for(let k=0;k<n;k++)M[rr][k]-=f*M[c][k]; y[rr]-=f*y[c]; } }
     return y; };
   let sum=0,mx=0,my=0,mn=Infinity;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoff)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
   const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0, sigma0 ];
   const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4], g=new Float64Array(n);
   const buildMg=withGrad=>{ const M=[]; for(let a=0;a<n;a++)M.push(new Float64Array(n)); if(withGrad)g.fill(0);
@@ -2598,21 +2605,21 @@ function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoff=0){
       const dPXmu=-(ea0-eb0)/(SQ*th[4]), dPYmu=-(ea1-eb1)/(SQ*th[5]);
       const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(SQ*sx2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(SQ*sy2);
       const du=[ th[2]*PY*dPXmu, th[2]*PX*dPYmu, PX*PY, 1, th[2]*PY*dPXs, th[2]*PX*dPYs ];
-      const inv=1/model, data=(img[py*w+px]-camoff)*gain, cf=data*inv-1;
+      const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
       if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
       for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
     return M; };
   for(let it=0;it<25;it++){ const M=buildMg(true), d=solve(M,g); if(!d) break; const ox=th[0],oy=th[1];
     for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
     if(th[4]<0.5)th[4]=0.5; if(th[5]<0.5)th[5]=0.5; if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0;
-    if(Math.abs(th[0]-ox)<1e-4 && Math.abs(th[1]-oy)<1e-4) break; }
+    if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps) break; }
   if(th[2]<=0 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
   const M=buildMg(false); let lpx=NaN,lpy=NaN;
   const ex=solve(M,[1,0,0,0,0,0]), ey=solve(M,[0,1,0,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
   let e2=0,cnt=0;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
-    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[5])+th[3]-(img[py*w+px]-camoff)*gain; e2+=res*res; cnt++; }
+    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[5])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
   return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
            sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, lpx, lpy };
 }
@@ -2746,14 +2753,14 @@ function fitVertexQuad(zs,ys){
    leakage). Widening the fit window reduces both. The Gaussian fitter does not
    have this bias — it separates signal and background by construction.
 
-   gain,camoff convert ADU -> photons (same as gaussianFit/gaussianMLE) so
+   gain,camoffset convert ADU -> photons (same as gaussianFit/gaussianMLE) so
    `photons`/`pmagX`/`pmagY` come out in true photon units. x,y (phase angles
    ax,ay) and the ratio pmagY/pmagX are exactly unaffected: a uniform additive
    offset only contributes to the DC (k=0) Fourier term, never the first
    harmonic (k=1) that ax/ay/magX/magY are built from, and a uniform
    multiplicative scale cancels in both atan2() and the magY/magX ratio. */
 let _pcol=null,_prow=null,_pN=0;
-function phasorFit(img,w,h,cx,cy,win,gain=1,camoff=0){
+function phasorFit(img,w,h,cx,cy,win,gain=1,camoffset=0){
   const N=win, r=(N-1)/2;
   if(N!==_pN){ _pcol=new Float64Array(N); _prow=new Float64Array(N); _pN=N; }
   const col=_pcol, row=_prow; col.fill(0); row.fill(0);
@@ -2761,7 +2768,7 @@ function phasorFit(img,w,h,cx,cy,win,gain=1,camoff=0){
   for(let dy=0;dy<N;dy++){
     const base=(cy-r+dy)*w+cx-r, edgeY = (dy===0||dy===N-1);
     for(let dx=0;dx<N;dx++){
-      const v=(img[base+dx]-camoff)*gain;
+      const v=(img[base+dx]-camoffset)*gain;
       col[dx]+=v; row[dy]+=v; tot+=v;
       if(edgeY||dx===0||dx===N-1){ bgSum+=v; bgSq+=v*v; bgN++; }
     }
@@ -3084,7 +3091,7 @@ function rerender(keepView,isPreview){
   $('srInfo').textContent=`${rlocs.length.toLocaleString()}${renderLocs?' / '+lastResult.locs.length.toLocaleString()+' (filtered)':''} locs · ${(lastResult.px/mag).toFixed(1)} nm/px`+
     (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+` · scroll to zoom, drag to pan`;
   { const fn=$('srFilterNote'); if(fn){ if(renderLocs){ fn.style.display='block';
-      fn.textContent=`▸ Table filter active — showing ${rlocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations (Reset filter in Display table to clear).`; }
+      fn.textContent=`▸ Table filter active — showing ${rlocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations (Reset filter in View data + filtering to clear).`; }
     else fn.style.display='none'; } }
 }
 
@@ -3199,7 +3206,7 @@ function precisionNm(sNm,aNm,N,bPh){
 async function exportCSV(){
   if(!lastResult||!lastResult.locs.length){ log('Nothing to export — run localisations first.'); return; }
   const {locs,px}=lastResult;
-  const gain=paramValue('gain'), camoff=paramValue('camoff'), sigPSF=paramValue('psf');
+  const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
   const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
   const zcol=has3d?'"z [nm]",':'';
   const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"\n`];
@@ -3229,7 +3236,7 @@ async function exportCSV(){
   if(!saved){ log('Export cancelled.'); return; }
   log(`Exported ${locs.length.toLocaleString()} localizations as ${saved} (${(blob.size/1048576).toFixed(1)} MB).`);
   if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
-  if(gain===1&&camoff===0){
+  if(gain===1&&camoffset===0){
     log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
     log('    The uncertainty column scales as 1/√N and is therefore not physically');
     log('    meaningful until a real ADU→photon conversion is entered.');
@@ -3350,7 +3357,7 @@ function workerSource(){
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
-      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoff}=d;
+      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps}=d;
       const out=[]; let tD=0,tF=0,nC=0;
       for(let i=0;i<frames.length;i++){
         const img=frames[i], t0=performance.now();
@@ -3358,10 +3365,10 @@ function workerSource(){
         const t1=performance.now(); tD+=t1-t0; nC+=maxima.length;
         const isPh = method==='phasor'||method==='phasor3d';
         for(const mm of maxima){
-          const L = method==='gaussmle' ? gaussianMLE(img,w,h,mm[0],mm[1],win,sigma,gain,camoff)
-                         : method==='mle3d' ? gaussianMLEastig(img,w,h,mm[0],mm[1],win,sigma,gain,camoff)
-                         : isPh ? phasorFit(img,w,h,mm[0],mm[1],win,gain,camoff)
-                         : gaussianFit(img,w,h,mm[0],mm[1],win,sigma,gain,camoff);
+          const L = method==='gaussmle' ? gaussianMLE(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
+                         : method==='mle3d' ? gaussianMLEastig(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
+                         : isPh ? phasorFit(img,w,h,mm[0],mm[1],win,gain,camoffset)
+                         : gaussianFit(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset);
           if(L){
             let z=NaN, cl=0;
             if(method==='phasor3d'&&zcal){ const raw=L.pratio; cl=(raw<zcal.rmin||raw>zcal.rmax)?1:0;
@@ -3864,7 +3871,7 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
 
 let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
 async function correctDrift(){
-  if(!lastResult||!lastResult.locs.length){ log('Run localisations first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   const {locs,px}=lastResult;
   // span the frames ACTUALLY analysed (present in the localizations), not the
   // stack length — a stopped run only covers part of the stack, and padding to
@@ -4092,7 +4099,7 @@ function drawNenaPlot(res){
   syncSaveImg();
 }
 async function computeNeNA(){
-  if(!lastResult||!lastResult.locs.length){ log('Run localisations first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   $('nenaBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
   try{
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
@@ -4201,7 +4208,7 @@ function drawFrcPlot(r){
   syncSaveImg();
 }
 async function computeFRC(){
-  if(!lastResult||!lastResult.locs.length){ log('Run localisations first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   if(paramValue('frc3d')) log('  (FSC 3D not yet implemented — computing 2D FRC.)');
   $('frcBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
   try{
@@ -4248,7 +4255,8 @@ async function run(){
     const sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1, method=paramValue('method');
     const exactBP=paramValue('detection_DoG_exactbp');             // read once — not per frame
     const mode=paramValue('detFilter');                // detection filter: wavelet / DoG / uniform box
-    const gain=paramValue('gain'), camoff=paramValue('camoff');   // ADU->photons, applied inside the fit (MLE's CRLB needs true photon units)
+    const gain=paramValue('gain'), camoffset=paramValue('camoffset');   // ADU->photons, applied inside the fit (MLE's CRLB needs true photon units)
+    const eps=paramValue('mleEps');                                // MLE Newton-iteration convergence tolerance (px)
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
     const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
@@ -4299,7 +4307,7 @@ async function run(){
           // main-thread copy stays valid after dispatch
           if(frames.length) shown={img:frames[0],fi:s};
           // no transfer list: frames are cloned, so any RAM cache survives
-          wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoff});
+          wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
         };
         pool.forEach(wk=>{
           wk.onmessage=ev=>{
@@ -4352,7 +4360,7 @@ async function run(){
         const {maxima}=detectSpots(img,w,h,sigma,exactBP,mode,k,border);
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         for(const [cx,cy] of maxima){
-          const L = method==='gaussmle' ? gaussianMLE(img,w,h,cx,cy,win,sigma,gain,camoff) : method==='mle3d' ? gaussianMLEastig(img,w,h,cx,cy,win,sigma,gain,camoff) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoff) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoff);
+          const L = method==='gaussmle' ? gaussianMLE(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset);
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -4420,7 +4428,7 @@ async function run(){
       log(`    Utilisation near 100% means workers stayed fed; low would mean they starved.`);
       log(`    Note E-cores inflate measured CPU, so this is an upper bound.`);
     }
-    if(stopped) log('Partial result shown — press “Run localisations” to start over.');
+    if(stopped) log('Partial result shown — press “Localize” to start over.');
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
@@ -4561,7 +4569,7 @@ $('genBtn').addEventListener('click',async()=>{
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false;
-    log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Run localisations”.`);
+    log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
     log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
   }finally{
@@ -4632,13 +4640,13 @@ async function showFrame(i){
       const sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1;
       const border=(win-1)/2+1, method=paramValue('method');
       const exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter');
-      const gain=paramValue('gain'), camoff=paramValue('camoff');
+      const gain=paramValue('gain'), camoffset=paramValue('camoffset'), eps=paramValue('mleEps');
       const zcal = method==='phasor3d' ? cal3d : null;
       const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:stack.px} : null;
       spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border).maxima;
       locsF=[];
       for(const [cx,cy] of spots){
-        const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoff) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoff) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoff) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoff);
+        const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset);
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                  L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -5068,7 +5076,7 @@ function parseFilter(str,cols){
   return {ok:true, fn:r=>{ let res=test(conds[0],r); for(let i=0;i<ops.length;i++) res = ops[i]==='and' ? (res&&test(conds[i+1],r)) : (res||test(conds[i+1],r)); return res; }};
 }
 function openTable(){
-  if(!lastResult||!lastResult.locs.length){ log('Run localisations first — nothing to tabulate.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('Localize first — nothing to tabulate.'); return; }
   _tableData=locTableData(); $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
   $('tableHistCol').innerHTML=_tableData.cols.filter(c=>c!=='id'&&c!=='frame').map(c=>`<option value="${c}"${c==='intensity'?' selected':''}>${c}</option>`).join('');
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
@@ -5237,7 +5245,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
     <ol>
       <li><b>Get data.</b> Click <b>Load movie</b> for a real <code>.tif</code>/<code>.tiff</code> stack, or <b>Simulate movie</b> for a test dataset (open <b>Simulation settings</b> to adjust frames, blink density and photons).</li>
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
-      <li><b>Run localisations.</b> The raw view shows every 100th frame with detected ROIs (green boxes); the right panel builds the super-resolution image.</li>
+      <li><b>Localize.</b> The raw view shows every 100th frame with detected ROIs (green boxes); the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
     </ol>
 
@@ -5267,24 +5275,53 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
 
     <h3>References &amp; further reading</h3>
     <p><small>What this tool borrows from, and where to read more:</small></p>
-    <p><b>Phasor localization</b> — the fast fitter here directly implements:<br>
-      K. J. A. Martens, A. N. Bader, S. Baas, B. Rieger, J. Hohlbein, “Phasor based single-molecule localization microscopy in 3D (pSMLM-3D): an algorithm for MHz localization rates using standard CPUs,” <i>J. Chem. Phys.</i> <b>148</b>, 123311 (2018). <a href="https://doi.org/10.1063/1.5005899" target="_blank">doi:10.1063/1.5005899</a><br>
-      <small>Extended to engineered PSFs: Martens et al., “Integrating engineered point spread functions into the phasor-based SMLM framework,” <i>Methods</i> (2020).</small></p>
-    <p><b>Spot detection &amp; thresholding</b> — the DoG band-pass + “mean + k·σ of the filtered image” threshold follows the detection/threshold design of:<br>
-      M. Ovesný, P. Křížek, J. Borkovec, Z. Švindrych, G. M. Hagen, “ThunderSTORM: a comprehensive ImageJ plug-in for PALM and STORM data analysis and super-resolution imaging,” <i>Bioinformatics</i> <b>30</b>(16), 2389–2390 (2014). <a href="https://doi.org/10.1093/bioinformatics/btu202" target="_blank">doi:10.1093/bioinformatics/btu202</a><br>
-      Wavelet-based detection (a more refined alternative to DoG): I. Izeddin et al., “Wavelet analysis for single molecule localization microscopy,” <i>Opt. Express</i> <b>20</b>(3), 2081–2095 (2012). <a href="https://doi.org/10.1364/OE.20.002081" target="_blank">doi:10.1364/OE.20.002081</a><br>
-      Uniform box-filter detection (a plain-intensity-threshold alternative to DoG/wavelet): F. Huang, S. L. Schwartz, J. M. Byars, K. A. Lidke, “Simultaneous multiple-emitter fitting for single molecule super-resolution imaging,” <i>Biomed. Opt. Express</i> <b>2</b>(5), 1377–1393 (2011). <a href="https://doi.org/10.1364/BOE.2.001377" target="_blank">doi:10.1364/BOE.2.001377</a></p>
-    <p><b>Fitting &amp; precision (why LS ≠ MLE)</b> —<br>
-      R. E. Thompson, D. R. Larson, W. W. Webb, “Precise nanometer localization analysis for individual fluorescent probes,” <i>Biophys. J.</i> <b>82</b>(5), 2775–2783 (2002). <a href="https://doi.org/10.1016/S0006-3495(02)75618-X" target="_blank">doi:10.1016/S0006-3495(02)75618-X</a><br>
-      K. I. Mortensen, L. S. Churchman, J. A. Spudich, H. Flyvbjerg, “Optimized localization analysis for single-molecule tracking and super-resolution microscopy,” <i>Nat. Methods</i> <b>7</b>, 377–381 (2010) — shows MLE is near-optimal and unweighted least-squares wastes ~⅓ of the information. <a href="https://doi.org/10.1038/nmeth.1447" target="_blank">doi:10.1038/nmeth.1447</a><br>
-      C. S. Smith, N. Joseph, B. Rieger, K. A. Lidke, “Fast, single-molecule localization that achieves theoretically minimum uncertainty,” <i>Nat. Methods</i> <b>7</b>, 373–375 (2010) — the integrated-Gaussian Poisson-MLE Newton scheme with CRLB implemented by the <b>Gaussian (MLE)</b> and <b>Gaussian MLE 3D</b> methods here. <a href="https://doi.org/10.1038/nmeth.1449" target="_blank">doi:10.1038/nmeth.1449</a><br>
-      <small>MLE implementation ported from the reference code in <b>Picasso</b> (<code>picasso/gaussmle.py</code>, <a href="https://github.com/jungmannlab/picasso" target="_blank">github.com/jungmannlab/picasso</a>); Picasso — J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, “Super-resolution microscopy with DNA-PAINT,” <i>Nat. Protoc.</i> <b>12</b>, 1198–1228 (2017). <a href="https://doi.org/10.1038/nprot.2017.024" target="_blank">doi:10.1038/nprot.2017.024</a></small></p>
-    <p><b>Localization precision (NeNA)</b> — the per-localization precision estimator implemented here: U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, “A simple method to estimate the average localization precision of a single-molecule localization microscopy experiment,” <i>Histochem. Cell Biol.</i> <b>141</b>, 629–638 (2014). <a href="https://doi.org/10.1007/s00418-014-1192-3" target="_blank">doi:10.1007/s00418-014-1192-3</a></p>
-    <p><b>Image resolution (FRC)</b> — the Fourier ring correlation resolution (1/7 threshold) implemented here: R. P. J. Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga, B. Rieger, “Measuring image resolution in optical nanoscopy,” <i>Nat. Methods</i> <b>10</b>, 557–562 (2013). <a href="https://doi.org/10.1038/nmeth.2448" target="_blank">doi:10.1038/nmeth.2448</a></p>
-    <p><b>Drift correction (AIM)</b> — the point-based, FFT-free x/y/z drift estimator here implements adaptive intersection maximization:<br>
-      H. Ma, M. Chen, P. Nguyen, Y. Liu, “Toward drift-free high-throughput nanoscopy through adaptive intersection maximization,” <i>Sci. Adv.</i> <b>10</b>(21), eadm7765 (2024). <a href="https://doi.org/10.1126/sciadv.adm7765" target="_blank">doi:10.1126/sciadv.adm7765</a><br>
-      <small>Adapted from the reference implementation in <b>Picasso</b> (<code>picasso/aim.py</code>, <a href="https://github.com/jungmannlab/picasso" target="_blank">github.com/jungmannlab/picasso</a>): a parabolic sub-pixel peak fit replaces the FFT phase refinement and linear interpolation replaces the spline. Picasso — J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, “Super-resolution microscopy with DNA-PAINT,” <i>Nat. Protoc.</i> <b>12</b>, 1198–1228 (2017). <a href="https://doi.org/10.1038/nprot.2017.024" target="_blank">doi:10.1038/nprot.2017.024</a></small></p>
-    <p><b>Overview</b> — M. Lelek et al., “Single-molecule localization microscopy,” <i>Nat. Rev. Methods Primers</i> <b>1</b>, 39 (2021). <a href="https://doi.org/10.1038/s43586-021-00038-x" target="_blank">doi:10.1038/s43586-021-00038-x</a></p>
+
+    <p><b>Phasor localization</b></p>
+    <ul>
+      <li>“Phasor based single-molecule localization microscopy in 3D (pSMLM-3D): an algorithm for MHz localization rates using standard CPUs,” K. J. A. Martens, A. N. Bader, S. Baas, B. Rieger, J. Hohlbein, <i>J. Chem. Phys.</i> <b>148</b>, 123311 (2018). <a href="https://doi.org/10.1063/1.5005899" target="_blank">doi:10.1063/1.5005899</a></li>
+      <li>“Integrating engineered point spread functions into the phasor-based SMLM framework,” K. J. A. Martens et al., <i>Methods</i> (2020).</li>
+    </ul>
+
+    <p><b>Spot detection &amp; thresholding</b></p>
+    <ul>
+      <li>“ThunderSTORM: a comprehensive ImageJ plug-in for PALM and STORM data analysis and super-resolution imaging,” M. Ovesný, P. Křížek, J. Borkovec, Z. Švindrych, G. M. Hagen, <i>Bioinformatics</i> <b>30</b>(16), 2389–2390 (2014). <a href="https://doi.org/10.1093/bioinformatics/btu202" target="_blank">doi:10.1093/bioinformatics/btu202</a></li>
+      <li>“Wavelet analysis for single molecule localization microscopy,” I. Izeddin et al., <i>Opt. Express</i> <b>20</b>(3), 2081–2095 (2012). <a href="https://doi.org/10.1364/OE.20.002081" target="_blank">doi:10.1364/OE.20.002081</a></li>
+      <li>“Simultaneous multiple-emitter fitting for single molecule super-resolution imaging,” F. Huang, S. L. Schwartz, J. M. Byars, K. A. Lidke, <i>Biomed. Opt. Express</i> <b>2</b>(5), 1377–1393 (2011). <a href="https://doi.org/10.1364/BOE.2.001377" target="_blank">doi:10.1364/BOE.2.001377</a></li>
+    </ul>
+
+    <p><b>Fitting &amp; precision (why LS ≠ MLE)</b></p>
+    <ul>
+      <li>“Precise nanometer localization analysis for individual fluorescent probes,” R. E. Thompson, D. R. Larson, W. W. Webb, <i>Biophys. J.</i> <b>82</b>(5), 2775–2783 (2002). <a href="https://doi.org/10.1016/S0006-3495(02)75618-X" target="_blank">doi:10.1016/S0006-3495(02)75618-X</a></li>
+      <li>“Optimized localization analysis for single-molecule tracking and super-resolution microscopy,” K. I. Mortensen, L. S. Churchman, J. A. Spudich, H. Flyvbjerg, <i>Nat. Methods</i> <b>7</b>, 377–381 (2010). <a href="https://doi.org/10.1038/nmeth.1447" target="_blank">doi:10.1038/nmeth.1447</a></li>
+      <li>“Fast, single-molecule localization that achieves theoretically minimum uncertainty,” C. S. Smith, N. Joseph, B. Rieger, K. A. Lidke, <i>Nat. Methods</i> <b>7</b>, 373–375 (2010). <a href="https://doi.org/10.1038/nmeth.1449" target="_blank">doi:10.1038/nmeth.1449</a></li>
+      <li><small>MLE implementation ported from <b>Picasso</b>'s <code>picasso/gaussmle.py</code> — see Picasso reference below.</small></li>
+    </ul>
+
+    <p><b>Localization precision (NeNA)</b></p>
+    <ul>
+      <li>“A simple method to estimate the average localization precision of a single-molecule localization microscopy experiment,” U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, <i>Histochem. Cell Biol.</i> <b>141</b>, 629–638 (2014). <a href="https://doi.org/10.1007/s00418-014-1192-3" target="_blank">doi:10.1007/s00418-014-1192-3</a></li>
+    </ul>
+
+    <p><b>Image resolution (FRC)</b></p>
+    <ul>
+      <li>“Measuring image resolution in optical nanoscopy,” R. P. J. Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga, B. Rieger, <i>Nat. Methods</i> <b>10</b>, 557–562 (2013). <a href="https://doi.org/10.1038/nmeth.2448" target="_blank">doi:10.1038/nmeth.2448</a></li>
+    </ul>
+
+    <p><b>Drift correction (AIM)</b></p>
+    <ul>
+      <li>“Toward drift-free high-throughput nanoscopy through adaptive intersection maximization,” H. Ma, M. Chen, P. Nguyen, Y. Liu, <i>Sci. Adv.</i> <b>10</b>(21), eadm7765 (2024). <a href="https://doi.org/10.1126/sciadv.adm7765" target="_blank">doi:10.1126/sciadv.adm7765</a></li>
+      <li><small>Adapted from <b>Picasso</b>'s <code>picasso/aim.py</code> (parabolic sub-pixel peak fit replaces the FFT phase refinement; linear interpolation replaces the spline) — see Picasso reference below.</small></li>
+    </ul>
+
+    <p><b>Picasso</b> <small>(reference implementation for the ported MLE and AIM drift code above, <a href="https://github.com/jungmannlab/picasso" target="_blank">github.com/jungmannlab/picasso</a>)</small></p>
+    <ul>
+      <li>“Super-resolution microscopy with DNA-PAINT,” J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, <i>Nat. Protoc.</i> <b>12</b>, 1198–1228 (2017). <a href="https://doi.org/10.1038/nprot.2017.024" target="_blank">doi:10.1038/nprot.2017.024</a></li>
+    </ul>
+
+    <p><b>Overview</b></p>
+    <ul>
+      <li>“Single-molecule localization microscopy,” M. Lelek et al., <i>Nat. Rev. Methods Primers</i> <b>1</b>, 39 (2021). <a href="https://doi.org/10.1038/s43586-021-00038-x" target="_blank">doi:10.1038/s43586-021-00038-x</a></li>
+    </ul>
 
     <h3>License &amp; author</h3>
     <p>webSMLM © 2026 <b>Johannes Hohlbein</b>, licensed under
