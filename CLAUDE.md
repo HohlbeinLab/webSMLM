@@ -29,7 +29,9 @@ relevant one before editing rather than scrolling:
   pure display/layout (CSS) and per-dataset working state (`calFirst`/`calLast`/`zmin`/`zmax`).
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
-  multi-GB files via `File.slice()` (never fully loaded).
+  multi-GB files via `File.slice()` (never fully loaded). Also accepts a multi-file selection
+  (Ctrl/Cmd+click several single-frame TIFFs) via `loadTiffSequence()` — natural-sorted by
+  filename, decoded and concatenated into one stack, one file read at a time.
 - **simulation** — the built-in synthetic stack generator ("Simulate movie"): demo/validation/
   teaching data, not a core analysis path. Split out from in/out since it doesn't load anything.
 - **detect** — per-frame band-pass, one of three filters selectable via `#detFilter`: à trous
@@ -62,8 +64,11 @@ relevant one before editing rather than scrolling:
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules.
-- **table** — the sortable, cumulatively-filterable localizations table ("Display table") and
-  per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction live.
+- **table** — the sortable, cumulatively-filterable localizations table ("View data + filtering")
+  and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
+  live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
+  pushes an x/y-range clause into the same `_tableFilters` array a typed filter would, so
+  reconstruction, export, NeNA and FRC all see a crop identically to any other filter.
 
 ### Web Worker gotcha (read before touching detect/fit/workers)
 
@@ -138,7 +143,11 @@ slower than V8), so keep validation inputs small.
   clear the dev marker to `vX.Y.Z · proof-of-concept` on release. **Bump the build letter suffix
   (`a`→`b`→`c`…) on every round of changes the user is about to test** — it's the only visible
   signal (pill + noscript stamp) that a hard-refreshed page is actually running the latest edits,
-  not a cached prior build.
+  not a cached prior build. **Every build-letter bump also gets its own commit on
+  `webSMLM_local`** (no need to ask first — this one's a standing instruction), so each testable
+  round has real git history, not just an accumulating uncommitted diff. This is independent of
+  releasing: `webSMLM_local` accumulates fine-grained commits continuously; `main` only receives
+  them in a batch, at an explicit release, per the cadence above.
 - Every release also updates `CHANGELOG.md` (newest first; DOI column) and the "Shipped" table in
   `docs/REFACTOR_PLAN.md` (the forward-looking roadmap). Pages typically redeploys ~1-2 min after
   a push; check with `gh api repos/HohlbeinLab/webSMLM/pages/builds/latest`.

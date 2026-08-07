@@ -44,18 +44,24 @@ from GATTAquant.
 | **Pixel size** | **99.2 nm** (from XResolution 4294967295/42605 = 100808.996 px/cm) |
 | Exposure | 80 ms |
 
-**The public download is not a single ready-to-load stack** — webSMLM expects
-one multi-frame TIFF, so use ImageJ to concatenate/convert it into that form
-first (File → Import, then File → Save As → Tiff) before loading it here.
-See the note in [`../docs/REFACTOR_PLAN.md`](../docs/REFACTOR_PLAN.md) about
-doing this concatenation inside webSMLM itself, so this step no longer needs
-a separate tool.
+**The public download is not a single ready-to-load stack** — it's one TIFF
+per frame. webSMLM loads it directly: click **Load movie**, then select all
+the frame files at once (Ctrl/Cmd+click, or your file manager's "select all")
+— multiple single-frame TIFFs are natural-sorted by filename and concatenated
+into one stack automatically, no separate tool needed. (An older route still
+works too: concatenate them into one multi-frame TIFF in ImageJ first — File
+→ Import, then File → Save As → Tiff — and load that single file instead;
+see below for why that path is still worth keeping around as a test case.)
 
-Two reasons this dataset is a good fixture beyond raw speed:
+Three reasons this dataset is a good fixture beyond raw speed:
 
-- **It exercises the big-endian 16-bit decode path** (the per-frame
-  originals are little-endian; ImageJ's concatenated stack comes out
-  big-endian).
+- **It exercises the multi-file loader** (`loadTiffSequence`) — natural
+  filename sorting (so frame 2 sorts before frame 10) and per-file decoding,
+  each frame in its own little-endian byte order.
+- **The ImageJ-concatenated alternative exercises the big-endian 16-bit
+  decode path instead** — the per-frame originals are little-endian, but
+  ImageJ's concatenated stack comes out big-endian, a different code path
+  (`loadTiff`/`loadMultiIfdStreaming`) than loading the folder directly.
 - **It carries a resolution ground truth** — the 80 nm mark-to-mark spacing
   lets the FRC precision work be validated against a known distance rather
   than only self-consistency.

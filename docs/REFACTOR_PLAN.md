@@ -63,13 +63,6 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     precision work can be validated quantitatively rather than by eye.
   - Single-file constraint holds throughout: an exposed API + optional
     URL-param autorun, no build step, no bundler.
-- **Load/concatenate a folder of individual-frame TIFFs into a stack.** Some
-  public datasets (e.g. GATTAquant's GATTA-PAINT download — see
-  `experimental_data/README.md`) ship as one TIFF per frame rather than a
-  multi-page stack, currently requiring a manual ImageJ concatenation step
-  before loading into webSMLM. A multiselect/folder file input that sorts and
-  concatenates the individual frames into a stack in-browser would remove
-  that external-tool dependency entirely.
 - Cross-validate **MLE 3D vs Phasor 3D** on real bead data — only checked
   against synthetic ground truth and mutual self-consistency so far.
 - **3D detection beyond astigmatism** — Double Helix, Biplane, etc. could be
