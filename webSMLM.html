@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.5-dev · build 2026-08-07j · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.5-dev · build 2026-08-07k · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.5-dev · build 2026-08-07j
+</span></noscript>webSMLM v0.9.5-dev · build 2026-08-07k
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3289,7 +3289,7 @@ function precisionNm(sNm,aNm,N,bPh){
 }
 async function exportCSV(){
   if(!lastResult||!lastResult.locs.length){ log('Nothing to export — run localisations first.'); return; }
-  const {locs,px}=lastResult;
+  const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
   const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
   const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
   const zcol=has3d?'"z [nm]",':'';
@@ -3318,7 +3318,7 @@ async function exportCSV(){
   const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs.csv';
   const saved=await saveBlob(blob,suggestedName,'CSV (ThunderSTORM)','text/csv','.csv');
   if(!saved){ log('Export cancelled.'); return; }
-  log(`Exported ${locs.length.toLocaleString()} localizations as ${saved} (${(blob.size/1048576).toFixed(1)} MB).`);
+  log(`Exported ${locs.length.toLocaleString()} localizations as ${saved} (${(blob.size/1048576).toFixed(1)} MB)${renderLocs?` — filtered subset (${lastResult.locs.length.toLocaleString()} total before filters)`:''}.`);
   if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
   if(gain===1&&camoffset===0){
     log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
@@ -4187,8 +4187,9 @@ async function computeNeNA(){
   $('nenaBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
   try{
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
+    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await nenaPrecision(lastResult.locs, lastResult.px,
+    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px,
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
     bar.classList.remove('on'); prog.style.width='0%';
     if(r.err){ log('  '+r.err+'.'); return; }
@@ -4262,7 +4263,7 @@ async function frcResolution(locs, px, mag, onProgress){
   // the NeNA-derived target or has been coarsened by the 2048 cap is visible
   // directly, instead of only the (possibly surprising) end number.
   log(`  field of view ${extPx.toFixed(0)} px (${(extPx*px/1000).toFixed(2)} µm) · target pixel ${targetPixNm.toFixed(1)} nm/px`
-    + (N<want ? ` (capped from ${want} px)` : ''));
+    + (N<want ? ` (capped from ${want.toFixed(0)} px)` : ''));
   log(`  sampling ${N}² px @ ${pixNm.toFixed(1)} nm/px (Nyquist ${(2*pixNm).toFixed(0)} nm)…`);
   // reuse four Float32 buffers across splits — bounded, memory-light peak
   const A=new Float32Array(N*N), B=new Float32Array(N*N), ai=new Float32Array(N*N), bi=new Float32Array(N*N);
@@ -4320,8 +4321,9 @@ async function computeFRC(){
   $('frcBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
   try{
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
+    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await frcResolution(lastResult.locs, lastResult.px, lastResult.mag||10,
+    const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10,
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
     bar.classList.remove('on'); prog.style.width='0%';
     if(r.err){ log('  '+r.err+'.'); return; }
@@ -5037,6 +5039,7 @@ $('measureBtn').addEventListener('click',()=>{
   measureMode=!measureMode; $('measureBtn').classList.toggle('on',measureMode); measurePt0=null;
   if(measureMode){ cropMode=false; $('cropBtn').classList.remove('on'); cropPt0=null;   // tools are mutually exclusive
     $('srInfo').textContent='— measure: click a start, then an end point'; }
+  else measureLine=null;   // deselecting removes the drawn line, same as crop removes its filter
   drawView();
 });
 // Crop tool: same click-two-corners gesture, but commits an x/y range filter
