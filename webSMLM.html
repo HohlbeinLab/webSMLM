@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.5-dev · build 2026-08-07i · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.5-dev · build 2026-08-07j · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.5-dev · build 2026-08-07i
+</span></noscript>webSMLM v0.9.5-dev · build 2026-08-07j
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2867,6 +2867,13 @@ let srIsRecon=false;                   // true only when srFull is the REAL per-
 // but aren't tied to lastResult.locs — cropping either would crop against the wrong/no data).
 function setSrRecon(v){ srIsRecon=v; const b=$('cropBtn'); if(b) b.disabled=!v;
   if(!v && cropMode){ cropMode=false; if(b) b.classList.remove('on'); cropPt0=null; } }
+// nm per srFull pixel: the real reconstruction is drawn at reconstruction
+// resolution (camera px/mag), but the data projection and bead composite are
+// drawn 1 canvas px = 1 camera px (no magnification applied) — using px/mag
+// for those undercounts distances by a factor of mag, and previously fell
+// back to nmPerPx=1 (raw pixel count, no physical meaning at all) whenever
+// lastResult was null. Used by the scale bar and the line-profile tool.
+function srNmPerPx(){ return srIsRecon ? lastResult.px/lastResult.mag : paramValue('pxnm'); }
 let srSpots=null, srLocs=null;         // ROI boxes / fit crosshairs overlay for srFull (bead-composite view only)
 const view={zoom:1,cx:0,cy:0,atFit:true};   // CSS px per srFull px; center in srFull coords; atFit → refit on window resize
 // line-profile / distance tool: coords in srFull pixels
@@ -2996,7 +3003,7 @@ function drawView(){
   const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
   ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH);   // bead-composite view only
-  drawScaleBar(ctx,DW,DH, lastResult ? (lastResult.px/lastResult.mag)/view.zoom : 0);
+  drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
   if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
   if(measureLine||measurePt0||cropPt0) drawMeasureOverlay(ctx,DW,DH);
 }
@@ -3022,7 +3029,7 @@ function drawMeasureOverlay(ctx,DW,DH){
 // band, plotted in the LEFT panel; x = distance (nm), y = reconstruction intensity.
 function lineProfile(L){
   if(!srFull) return;
-  const nmPerPx = lastResult ? lastResult.px/lastResult.mag : 1;   // nm per srFull pixel
+  const nmPerPx = srNmPerPx();
   const dx=L.x1-L.x0, dy=L.y1-L.y0, lenPx=Math.hypot(dx,dy);
   if(lenPx<2){ log('Measure line too short.'); return; }
   const len=lenPx, ux=dx/len, uy=dy/len, perpx=-uy, perpy=ux, W=srFull.width, Hh=srFull.height;
@@ -3359,7 +3366,7 @@ async function exportPanel(which){
     ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
     ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
     ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
-    if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH); drawScaleBar(ctx,DW,DH, lastResult ? (lastResult.px/lastResult.mag)/view.zoom : 0); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
+    if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
     else drawRawOverlays(ctx,DW,DH);
     ctx.restore();
     note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
