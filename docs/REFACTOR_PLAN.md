@@ -72,6 +72,14 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     precision work can be validated quantitatively rather than by eye.
   - Single-file constraint holds throughout: an exposed API + optional
     URL-param autorun, no build step, no bundler.
+  - A headless run should always autogenerate the same three artifacts the
+    UI path produces by hand: **settings** (the config itself, in the same
+    `webSMLM-settings` JSON shape — see `docs/DOCUMENTATION.md` §4),
+    **data** (the CSV, §6), and the **log**. Together with the CSV, the
+    settings file recovers exactly the provenance a bare CSV doesn't carry
+    (pixel size, gain, detection/fit method, …) — see the "Load data"
+    discussion in `docs/DOCUMENTATION.md` §1/§6 for why that split (physical
+    CSV + separate settings record, not one combined format) was chosen.
 - Cross-validate **MLE 3D vs Phasor 3D** on real bead data — only checked
   against synthetic ground truth and mutual self-consistency so far.
 - **3D detection beyond astigmatism** — Double Helix, Biplane, etc. could be
