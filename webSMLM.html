@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.7-dev · build 2026-08-08d · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.7-dev · build 2026-08-08e · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1680,7 +1680,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.7-dev · build 2026-08-08d
+</span></noscript>webSMLM v0.9.7-dev · build 2026-08-08e
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5677,10 +5677,13 @@ function wireHelp(){
     $('tableBtn').addEventListener('click',openTable);
     $('tableClose').addEventListener('click',thide);
     tm.addEventListener('click',e=>{ if(e.target===tm) thide(); });
-    // Column-name autocomplete for the filter box: pulls its options from the
-    // CURRENT table's own columns (_tableData.cols) rather than a fixed list,
-    // so it tracks whatever's actually available (z / sigma_z / nmerged come
-    // and go with 3D / clustering / MLE-3D state).
+    // Autocomplete for the filter box: every field the box actually accepts —
+    // the CURRENT table's own columns (_tableData.cols, so it tracks whatever
+    // 3D / clustering / MLE-3D state adds or removes) PLUS the two clustering
+    // pseudo-fields (tempClusteringXY/Z) that commitFilter() special-cases
+    // before the normal column grammar — they're typed in the same box with
+    // the same "field op value" shape, so they belong in the same list.
+    const FILTER_KEYWORDS=['tempClusteringXY','tempClusteringZ'];
     (function(){
       const inp=$('tableFilter'), box=$('tableFilterAC');
       let items=[], sel=-1;
@@ -5689,7 +5692,7 @@ function wireHelp(){
       const hideAC=()=>{ box.style.display='none'; box.innerHTML=''; items=[]; sel=-1; };
       const highlight=()=>{ [...box.children].forEach((el,i)=>el.classList.toggle('sel',i===sel)); };
       const renderAC=()=>{
-        const {tok}=token(), cols=_tableData?_tableData.cols:[];
+        const {tok}=token(), cols=(_tableData?_tableData.cols:[]).concat(FILTER_KEYWORDS);
         if(!tok || !cols.length){ hideAC(); return; }
         const low=tok.toLowerCase();
         items=cols.filter(c=>c.toLowerCase().startsWith(low));
@@ -5768,8 +5771,8 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
           <li><b>Filtering</b> — <code>field op value</code>, joined with <code>and</code>/<code>or</code>
             (e.g. <code>intensity &gt; 1000 and uncertainty &lt; 20</code>); Enter commits a clause, clauses stack
             cumulatively. Type <code>reset</code> to clear all of them. Start typing a field name for
-            autocomplete suggestions (↑/↓ to move, Enter/Tab to accept) — the list matches whatever columns
-            the current table actually has.</li>
+            autocomplete suggestions (↑/↓ to move, Enter/Tab to accept) — covers both the current table's
+            columns and the <code>tempClusteringXY</code>/<code>tempClusteringZ</code> fields below.</li>
           <li><b>sigma_xy / sigma_z</b> — <code>sigma_xy</code> is the fitted PSF width (average of σx/σy for
             astigmatic 3D). <code>sigma_z</code>, shown for MLE 3D results, is an approximate z-precision:
             the fit's own uncertainty on σx/σy propagated through the calibration curve's local slope at the
