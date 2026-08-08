@@ -68,7 +68,14 @@ relevant one before editing rather than scrolling:
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
   pushes an x/y-range clause into the same `_tableFilters` array a typed filter would, so
-  reconstruction, export, NeNA and FRC all see a crop identically to any other filter.
+  reconstruction, export, NeNA and FRC all see a crop identically to any other filter. Typing
+  `tempClusteringXY < 10` (nm) into the filter box is different in kind from an ordinary clause —
+  it doesn't select a subset, it *merges* consecutive-frame detections of the same blinking
+  molecule into fewer, higher-precision "events" (`clusterEvents()`), so it changes the BASE row
+  set rather than which rows currently pass. `getBaseLocs()` is the single place that decides
+  whether the base is raw `lastResult.locs` or clustered events; everything else (`_tableData`,
+  `renderLocs`, export, NeNA, FRC) is unaware of the distinction and just consumes whichever it
+  gets, the same loc-shape either way.
 
 ### Web Worker gotcha (read before touching detect/fit/workers)
 

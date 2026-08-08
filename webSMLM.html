@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08d · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08e · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08d
+</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08e
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3334,8 +3334,10 @@ async function exportCSV(){
   const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
   const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
   const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
+  const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
   const zcol=has3d?'"z [nm]",':'';
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"\n`];
+  const mcol=isClustered?',"n_merged [frames]"':'';
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${mcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -3350,8 +3352,9 @@ async function exportCSV(){
     // MLE gives a true CRLB precision (lpx,lpy in px); others use the formula estimate
     const sNm=sPx*px, unc=(isFinite(L.lpx)&&isFinite(L.lpy)) ? Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px : precisionNm(sNm,px,N,bs);
     const zc=has3d?`${isFinite(L.z)?L.z.toFixed(1):''},`:'';
+    const mc=isClustered?`,${L.nMerged||1}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${mc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -3360,7 +3363,7 @@ async function exportCSV(){
   const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs.csv';
   const saved=await saveBlob(blob,suggestedName,'CSV (ThunderSTORM)','text/csv','.csv');
   if(!saved){ log('Export cancelled.'); return; }
-  log(`Exported ${locs.length.toLocaleString()} localizations as ${saved} (${(blob.size/1048576).toFixed(1)} MB)${renderLocs?` — filtered subset (${lastResult.locs.length.toLocaleString()} total before filters)`:''}.`);
+  log(`Exported ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} as ${saved} (${(blob.size/1048576).toFixed(1)} MB)${renderLocs?` — filtered subset (${lastResult.locs.length.toLocaleString()} total localizations before filters)`:''}.`);
   if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
   if(gain===1&&camoffset===0){
     log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
@@ -4229,7 +4232,7 @@ async function computeNeNA(){
   $('nenaBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
   try{
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
-    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations)`);
+    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px,
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
@@ -4371,7 +4374,7 @@ async function computeFRC(){
   $('frcBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
   try{
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
-    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations)`);
+    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10,
       p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
@@ -5288,13 +5291,104 @@ let _tableState={sortCol:'id', sortDir:1}, _tableData=null, _tableFiltered=null,
 const TABLE_CAP=3000;
 let histData=null, histView=null;         // column histogram: fixed bins over the full range + current x-view (zoom/pan)
 const HIST_ML=58, HIST_MR=16;             // plot margins (shared by drawHistogram and its x zoom/pan handlers)
-function locTableData(){
-  const {locs,px}=lastResult;
+// Temporal clustering ("merging"): the same blinking molecule is often "on"
+// for several consecutive frames, detected separately each time. Chains
+// consecutive-frame detections whose merged position stays within xyNm (and
+// zNm, if given) into one higher-precision "event" — closest-pairs-first
+// (greedy) each frame, so one chain can't absorb two different nearby
+// molecules landing in the same frame. tempClusteringMemory (gap-frame
+// tolerance) is NOT implemented yet — every chain requires strictly adjacent
+// frame numbers (see docs/REFACTOR_PLAN.md).
+//   position  = photon-weighted mean (brighter frames count more)
+//   photons   = summed (same molecule's photons accumulating over its ON
+//               time — not independent measurements of the same brightness)
+//   bg/bgstd/sigma = plain mean (nuisance/physical parameters, not signal)
+//   lpx/lpy   = combined by inverse-variance (1/lp² = Σ1/lpᵢ²) — the
+//               statistically correct way to combine several independent
+//               position estimates of the same emitter, and what actually
+//               delivers a smaller, real uncertainty rather than just an
+//               average of the inputs.
+// O(open-chains × current-frame locs) per frame — fine at typical sparse
+// blinking densities (tens to ~100 locs/frame); would want a spatial grid
+// (like gridNN, used elsewhere for NeNA/AIM) if ever fed a pathologically
+// dense frame.
+function clusterEvents(locs, xyNm, zNm, px){
+  const xyPx = xyNm>0 ? xyNm/px : 0, useZ = zNm>0;
+  const byFrame=new Map();
+  for(const L of locs){ const f=L.frame|0; let a=byFrame.get(f); if(!a){a=[];byFrame.set(f,a);} a.push(L); }
+  const frames=[...byFrame.keys()].sort((a,b)=>a-b);
+  const events=[];
+  const newChain=L=>{ const w=Math.max(1e-6,L.photons||1), hasLp=isFinite(L.lpx)&&isFinite(L.lpy);
+    return { x:L.x*w, y:L.y*w, z:(useZ&&isFinite(L.z))?L.z*w:0, wZ:(useZ&&isFinite(L.z))?w:0, sumW:w,
+      photons:Math.max(0,L.photons||0), sumBg:Math.max(0,L.bg||0), sumBgstd:Math.max(0,L.bgstd||0),
+      sumSigma:L.sigma||0, n:1, invVarX:hasLp?1/(L.lpx*L.lpx):0, invVarY:hasLp?1/(L.lpy*L.lpy):0,
+      haveLp:hasLp, lastFrame:L.frame|0, firstFrame:L.frame|0 }; };
+  const extend=(c,L)=>{ const w=Math.max(1e-6,L.photons||1);
+    c.x+=L.x*w; c.y+=L.y*w; c.sumW+=w;
+    if(useZ && isFinite(L.z)){ c.z+=L.z*w; c.wZ+=w; }
+    c.photons+=Math.max(0,L.photons||0); c.sumBg+=Math.max(0,L.bg||0); c.sumBgstd+=Math.max(0,L.bgstd||0);
+    c.sumSigma+=L.sigma||0; c.n++;
+    const hasLp=isFinite(L.lpx)&&isFinite(L.lpy);
+    if(hasLp && c.haveLp){ c.invVarX+=1/(L.lpx*L.lpx); c.invVarY+=1/(L.lpy*L.lpy); } else c.haveLp=false;
+    c.lastFrame=L.frame|0; };
+  const finalize=c=>{ const x=c.x/c.sumW, y=c.y/c.sumW, z=c.wZ>0?c.z/c.wZ:NaN;
+    const lpx=c.haveLp?1/Math.sqrt(c.invVarX):NaN, lpy=c.haveLp?1/Math.sqrt(c.invVarY):NaN;
+    events.push({ x,y,z, photons:c.photons, bg:c.sumBg/c.n, bgstd:c.sumBgstd/c.n, sigma:c.sumSigma/c.n,
+      lpx, lpy, frame:c.firstFrame, nMerged:c.n }); };
+  let open=[];
+  for(const f of frames){
+    const cur=byFrame.get(f), cands=[];
+    for(let ci=0; ci<open.length; ci++){ const c=open[ci]; if(c.lastFrame!==f-1) continue;
+      const cx=c.x/c.sumW, cy=c.y/c.sumW, cz=c.wZ>0?c.z/c.wZ:NaN;
+      for(let li=0; li<cur.length; li++){ const L=cur[li];
+        const d=Math.hypot(L.x-cx, L.y-cy);
+        if(xyPx>0 && d>xyPx) continue;
+        if(useZ){ if(!isFinite(cz)||!isFinite(L.z)||Math.abs(L.z-cz)>zNm) continue; }
+        cands.push({ci,li,d}); } }
+    cands.sort((a,b)=>a.d-b.d);
+    const usedC=new Set(), usedL=new Set();
+    for(const {ci,li} of cands){ if(usedC.has(ci)||usedL.has(li)) continue; usedC.add(ci); usedL.add(li); extend(open[ci],cur[li]); }
+    const stillOpen=[];
+    for(let ci=0; ci<open.length; ci++){ if(open[ci].lastFrame===f) stillOpen.push(open[ci]); else finalize(open[ci]); }
+    for(let li=0; li<cur.length; li++){ if(!usedL.has(li)) stillOpen.push(newChain(cur[li])); }
+    open=stillOpen;
+  }
+  for(const c of open) finalize(c);
+  return events;
+}
+// {locsRef, xy, z, events} — avoid recomputing clustering on every unrelated filter edit
+let _clusterCache=null;
+function getClusterParams(){ let xy=0,z=0; for(const f of _tableFilters){ if(f.cluster==='xy')xy=f.maxNm; else if(f.cluster==='z')z=f.maxNm; } return {xy,z}; }
+// The base locs everything else (table, render, export, NeNA, FRC) works from:
+// raw per-frame localizations, or — if a tempClusteringXY/Z filter is active —
+// the merged events. Same array reference every call unless the underlying
+// Run or the clustering parameters actually changed (cheap identity check).
+function getBaseLocs(){
+  if(!lastResult) return [];
+  const {xy,z}=getClusterParams();
+  if(!xy && !z) return lastResult.locs;
+  if(_clusterCache && _clusterCache.locsRef===lastResult.locs && _clusterCache.xy===xy && _clusterCache.z===z) return _clusterCache.events;
+  const events=clusterEvents(lastResult.locs, xy, z, lastResult.px);
+  _clusterCache={locsRef:lastResult.locs, xy, z, events};
+  return events;
+}
+// Rebuild _tableData from the current base (clustered or raw) and reapply
+// filters — needed whenever the BASE row set itself changes (a clustering
+// clause added/removed/changed), not just which rows currently pass.
+function rebuildTableData(){
+  if(!lastResult) return;
+  const base=getBaseLocs();
+  _tableData=locTableData(base, base!==lastResult.locs);
+  if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
+  renderTable(); applyFilterToReconstruction();
+}
+function locTableData(baseLocs, isClustered){
+  const locs=baseLocs||lastResult.locs, {px}=lastResult;
   const sigPSF=paramValue('psf');   // gain/offset are applied inside the fit itself now, not here
   const has3d=locs.some(L=>isFinite(L.z));
-  const cols=['id','frame','x','y'].concat(has3d?['z']:[]).concat(['sigma','intensity','offset','bkgstd','uncertainty']);
-  const dec={id:0,frame:0,x:1,y:1,z:1,sigma:1,intensity:1,offset:1,bkgstd:1,uncertainty:1};
-  const unit={x:'nm',y:'nm',z:'nm',sigma:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm'};
+  const cols=['id','frame','x','y'].concat(has3d?['z']:[]).concat(['sigma','intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,sigma:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
+  const unit={x:'nm',y:'nm',z:'nm',sigma:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -5303,6 +5397,7 @@ function locTableData(){
     const unc=(isFinite(L.lpx)&&isFinite(L.lpy))?Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px:precisionNm(sNm,px,N,bs);
     const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
     if(has3d) r.z=isFinite(L.z)?L.z:NaN;
+    if(isClustered) r.nmerged=L.nMerged||1;
     rows[i]=r; }
   return {cols,dec,unit,rows};
 }
@@ -5322,30 +5417,45 @@ function parseFilter(str,cols){
 }
 function openTable(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first — nothing to tabulate.'); return; }
-  _tableData=locTableData(); $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
+  const base=getBaseLocs();
+  _tableData=locTableData(base, base!==lastResult.locs); $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
   $('tableHistCol').innerHTML=_tableData.cols.filter(c=>c!=='id'&&c!=='frame').map(c=>`<option value="${c}"${c==='intensity'?' selected':''}>${c}</option>`).join('');
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
   renderTable();                       // reconstruction already reflects the persisted filters (renderLocs)
   $('tableModal').classList.add('open');
 }
 // Commit the current input as a cumulative filter clause (called on Enter).
-// "reset" clears all clauses; a valid clause is pushed and the box cleared.
+// "reset" clears all clauses; tempClusteringXY/Z < value are recognised
+// specially (they change the BASE row set, not just which rows pass — see
+// clusterEvents above); a valid ordinary clause is pushed and the box cleared.
 function commitFilter(){
   const raw=$('tableFilter').value.trim();
   if(raw.toLowerCase()==='reset'){ resetFilters(); return; }
   if(!raw) return;
+  const cm=raw.match(/^tempClustering(XY|Z)\s*(<|<=)\s*([0-9.]+)\s*$/i);
+  if(cm){
+    const axis=cm[1].toLowerCase(), maxNm=parseFloat(cm[3]);
+    _tableFilters=_tableFilters.filter(f=>f.cluster!==axis);   // one active threshold per axis — replace, don't stack
+    _tableFilters.push({expr:raw, cluster:axis, maxNm, fn:()=>true});
+    $('tableFilter').value=''; $('tableFilter').classList.remove('bad');
+    rebuildTableData();
+    return;
+  }
   const pf=parseFilter(raw,_tableData.cols);
   if(!pf.ok){ $('tableFilter').classList.add('bad'); $('tableCount').textContent=`⚠ ${pf.err}`; return; }
   _tableFilters.push({expr:raw, fn:pf.fn}); $('tableFilter').value=''; $('tableFilter').classList.remove('bad'); renderTable(); applyFilterToReconstruction();
 }
-function resetFilters(){ _tableFilters=[]; $('tableFilter').value=''; renderTable(); applyFilterToReconstruction(); }
+function resetFilters(){ _tableFilters=[]; $('tableFilter').value=''; rebuildTableData(); }
 // Apply the committed cumulative filters to the reconstruction: restrict renderLocs
-// to the passing localizations (by original index) and rebuild the SR image.
+// to the passing localizations (by original index, within the current base — see
+// getBaseLocs) and rebuild the SR image. Clustering clauses carry a no-op fn
+// (()=>true), so they're harmless to include in this same AND-chain.
 function applyFilterToReconstruction(){
   if(!lastResult||!_tableData) return;
-  if(!_tableFilters.length) renderLocs=null;
+  const base=getBaseLocs();
+  if(!_tableFilters.length) renderLocs = (base===lastResult.locs) ? null : base;
   else { const rows=_tableData.rows;
-    renderLocs=lastResult.locs.filter((L,i)=>{ const r=rows[i]; for(const f of _tableFilters) if(!f.fn(r)) return false; return true; }); }
+    renderLocs=base.filter((L,i)=>{ const r=rows[i]; for(const f of _tableFilters) if(!f.fn(r)) return false; return true; }); }
   rerender(true);
 }
 function renderTable(){
@@ -5362,10 +5472,11 @@ function renderTable(){
   $('locTable').innerHTML=head+body;
   // active-filter chips (each removable) — cumulative clauses
   $('tableFilters').innerHTML=_tableFilters.map((f,i)=>`<span class="fchip">${f.expr.replace(/</g,'&lt;').replace(/>/g,'&gt;')} <b data-i="${i}" title="remove">×</b></span>`).join('');
-  $('tableCount').textContent = `${filtered.length.toLocaleString()} / ${rows.length.toLocaleString()} rows${_tableFilters.length?` · ${_tableFilters.length} filter${_tableFilters.length>1?'s':''}`:''}${filtered.length>TABLE_CAP?` · showing first ${TABLE_CAP.toLocaleString()}`:''}`;
+  const unit_=cols.includes('nmerged')?'events':'rows';   // clustering merges rows -> the count is events, not raw localizations
+  $('tableCount').textContent = `${filtered.length.toLocaleString()} / ${rows.length.toLocaleString()} ${unit_}${_tableFilters.length?` · ${_tableFilters.length} filter${_tableFilters.length>1?'s':''}`:''}${filtered.length>TABLE_CAP?` · showing first ${TABLE_CAP.toLocaleString()}`:''}`;
   for(const th of $('locTable').querySelectorAll('th')) th.addEventListener('click',()=>{
     const c=th.dataset.c; if(_tableState.sortCol===c) _tableState.sortDir*=-1; else { _tableState.sortCol=c; _tableState.sortDir=1; } renderTable(); });
-  for(const x of $('tableFilters').querySelectorAll('b[data-i]')) x.addEventListener('click',()=>{ _tableFilters.splice(+x.dataset.i,1); renderTable(); applyFilterToReconstruction(); });
+  for(const x of $('tableFilters').querySelectorAll('b[data-i]')) x.addEventListener('click',()=>{ _tableFilters.splice(+x.dataset.i,1); rebuildTableData(); });
 }
 function plotColumnHistogram(col){
   if(!_tableFiltered||!_tableFiltered.length){ log('No rows to histogram.'); return; }
@@ -5473,6 +5584,18 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
       <button id="tableHistBtn">Plot histogram of:</button>
       <select id="tableHistCol" class="sel" style="flex:0 0 auto;min-width:140px"></select>
       <span style="color:var(--muted);font-size:12px">— in the raw panel, uses the current filter</span>
+      <details class="info" style="margin-left:auto"><summary>…more info…</summary>
+        <div class="hint">[module: table] <b>Temporal clustering</b> — the same blinking molecule is often
+        "on" for several consecutive frames, detected separately each time. Typing <code>tempClusteringXY &lt; 10</code>
+        (10&nbsp;nm here) into the filter box above merges detections that stay within that XY distance across
+        strictly consecutive frames into one higher-precision "event" — position is the photon-weighted mean,
+        intensity is summed (not averaged: it's the same molecule's photons accumulating over its ON time), and
+        the reported uncertainty is properly combined (smaller than any single frame's own, not just an average).
+        <code>tempClusteringZ &lt; value</code> (nm) adds the same requirement in z for 3D data. Only one threshold
+        per axis is active at a time — typing a new value replaces the old one. Once active, counts/exports switch
+        from localizations to <b>events</b> (fewer than the raw detections), and the table gains an <b>nmerged</b>
+        column showing how many frames contributed to each. A gap frame always breaks the chain — there's no
+        tolerance for a missed frame yet (planned: <code>tempClusteringMemory</code>).</div></details>
     </div>
     <div id="tableWrap" style="overflow:auto;max-height:58vh;border:1px solid var(--line);border-radius:8px">
       <table id="locTable"></table>

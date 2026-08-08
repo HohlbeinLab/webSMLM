@@ -6,6 +6,15 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
+  `clusterEvents()` (table module) currently requires strictly consecutive
+  frame numbers to chain detections into one event (memory=0, hardcoded) —
+  a molecule that blinks off for even one frame and back on starts a new
+  chain instead of extending the old one. `tempClusteringMemory = N` would
+  allow up to N missed frames between detections of the same chain. Needs a
+  decision on how a gap should weight into the position average (does a
+  skipped frame count as "still on" for the photon-weighted mean, or purely
+  bridge the chain without contributing) before implementing.
 - **For later: reconsider the detect/fit/export/table module split.** These
   four already share parameters and data in ways that make the boundary feel
   arbitrary in places — e.g. `PARAMS.gain`/`camoffset` sit under a `----
