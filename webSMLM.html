@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08c · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08d · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08c
+</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08d
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1815,6 +1815,13 @@ const PARAMS = {
   // ---- pipeline: preview / export tuning (no page control yet) ----
   // srPreviewMs = minimum time between reconstruction preview redraws during a Run (the raw view stays frequent)
   srPreviewMs: { type:'number', id:null, label:'Reconstruction live-preview interval (ms)', min:50, max:5000, step:50, default:800, int:true },
+  // srPreviewMaxMs = ceiling on the ADAPTIVE preview interval (see run()): each preview render's
+  // cost grows with the current locs count (re-accumulates everything found so far) and the
+  // reconstruction canvas size, so a fixed interval means preview overhead grows unboundedly
+  // over a long run — measured to dominate total Run time (72%) on a 40,000-frame/4M-localization
+  // MLE 3D run. The interval scales up to keep each preview a roughly bounded fraction of wall
+  // time, capped here so it can't grow so large the preview looks frozen on a very long run.
+  srPreviewMaxMs: { type:'number', id:null, label:'Reconstruction live-preview interval ceiling (ms)', min:800, max:60000, step:1000, default:15000, int:true },
   // stackProjCap = max frames averaged into the auto data-projection / "Fix bead x,y" composite (sampled, not all)
   stackProjCap: { type:'number', id:null, label:'Data-projection frame sample cap', min:10, max:5000, step:10, default:300, int:true },
   // exportMinLong = minimum long-edge pixel count when supersampling a Save-image PNG export
@@ -4432,6 +4439,15 @@ async function run(){
       (w*h>=paramValue('workerMinPxFrame') || n*w*h>=paramValue('workerMinTotalPx'));
     const t0=performance.now(); let lastYield=t0, previewMs=0, lastSrMs=0;
     const SR_PREVIEW_MS=paramValue('srPreviewMs');   // reconstruction is expensive — preview at most ~1/s (raw stays frequent)
+    // Adaptive: a preview render's cost grows with the current locs count (it
+    // re-accumulates everything found so far) and the reconstruction canvas
+    // size, so a FIXED interval means preview overhead grows unboundedly over
+    // a long run (measured to reach 72% of total Run time on a 40,000-frame/
+    // 4M-localization run). previewInterval scales up after each render to
+    // ~10x its own cost, so previews stay frequent while cheap (early in a
+    // run) and self-throttle once they get expensive, capped at srPreviewMaxMs.
+    let previewInterval=SR_PREVIEW_MS;
+    const srPreviewMaxMs=paramValue('srPreviewMaxMs');
     let tGet=0, tDetect=0, tFit=0, nCand=0;        // timing/candidate-count instrumentation
 
     if(useWorkers){
@@ -4478,8 +4494,10 @@ async function run(){
                 drawRaw(shown.img,w,h,mx); lastSpots=mx; lastFrame=shown.img; lastFrameIdx=shown.fi;
                 $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${mx.length} spots`;
               }
-              if(locs.length && performance.now()-lastSrMs>SR_PREVIEW_MS){ lastSrMs=performance.now();
-                lastResult={locs,w,h,px,mag:paramValue('mag'),det:{sigma,k,win,border,exactBP,mode}}; rerender(true,true); }
+              if(locs.length && performance.now()-lastSrMs>previewInterval){ lastSrMs=performance.now();
+                lastResult={locs,w,h,px,mag:paramValue('mag'),det:{sigma,k,win,border,exactBP,mode}};
+                const tr=performance.now(); rerender(true,true);
+                previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tr)*10)); }
               previewMs+=performance.now()-tp;        // display only, not compute time
             }
             dispatch(wk);
@@ -4525,11 +4543,12 @@ async function run(){
         if(fi % 100 === 0){                        // refresh both views every 100th frame
           drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img; lastFrameIdx=fi;
           $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`;
-          if(locs.length && performance.now()-lastSrMs>SR_PREVIEW_MS){   // live super-res preview, throttled
+          if(locs.length && performance.now()-lastSrMs>previewInterval){   // live super-res preview, adaptively throttled
             const tp=performance.now(); lastSrMs=performance.now();
             lastResult={locs,w,h,px,mag:paramValue('mag'),det:{sigma,k,win,border,exactBP,mode}};
             rerender(true,true);
             previewMs+=performance.now()-tp;       // don't charge preview to compute time
+            previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
           }
         }
         processed=fi+1;
