@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM):
 the entire application — HTML, CSS, all JavaScript, and the two bundled decoders (pako, UTIF) —
-lives in `webSMLM.html` (~4000 lines). It loads a raw TIFF stack, detects/localizes emitters,
+lives in `webSMLM.html` (~5800 lines). It loads a raw TIFF stack, detects/localizes emitters,
 and renders a super-resolution image, **entirely client-side** (no upload, no server, no network
 calls at runtime). `index.html` is just a redirect to `webSMLM.html` for the bare Pages URL.
 
@@ -155,14 +155,14 @@ slower than V8), so keep validation inputs small.
   round has real git history, not just an accumulating uncommitted diff. This is independent of
   releasing: `webSMLM_local` accumulates fine-grained commits continuously; `main` only receives
   them in a batch, at an explicit release, per the cadence above.
-- Every release also updates `CHANGELOG.md` (newest first; DOI column) and the "Shipped" table in
-  `docs/REFACTOR_PLAN.md` (the forward-looking roadmap). Pages typically redeploys ~1-2 min after
-  a push; check with `gh api repos/HohlbeinLab/webSMLM/pages/builds/latest`.
+- Every release also updates `CHANGELOG.md` (newest first; DOI column) and, where the release
+  closes out or changes a roadmap item, `docs/REFACTOR_PLAN.md`. Pages typically redeploys ~1-2 min
+  after a push; check with `gh api repos/HohlbeinLab/webSMLM/pages/builds/latest`.
 
 ## Reference material
 
 - `README.md` — user-facing feature list, performance figures, algorithm references.
-- `docs/REFACTOR_PLAN.md` — roadmap and shipped-feature history; think in version numbers, not
-  "phases".
-- `experimental_data/` — sample stacks (gitignored large files) with a README of public sources;
-  note diffusing PAINT samples (e.g. Nile Red) are poor NeNA subjects.
+- `docs/REFACTOR_PLAN.md` — forward-looking roadmap only; shipped-feature history lives in
+  `CHANGELOG.md` instead. Think in version numbers, not "phases".
+- `experimental_data/` — sample stacks (gitignored large files) with a README of public sources
+  and their camera/pixel-size parameters.

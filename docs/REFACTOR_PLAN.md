@@ -115,12 +115,12 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   reconstruction, where localizations at different z that overlap in x/y
   currently blend together.
 - Localizations-table filter grammar: parentheses/grouping; filtering
-  presets; export the currently-filtered subset as its own CSV.
+  presets.
 - **Consider deprecating Phasor 2D/3D** in a future release. MLE 2D/3D are
   now the default and statistically superior (Poisson-optimal, reports a
   real CRLB uncertainty), and the worker pool has closed most of phasor's
   historical speed advantage for typical stacks. Phasor's own code is a
-  modest ~200–250 lines out of ~5,100 (fit function, its distinct
+  modest ~200–250 lines out of ~5,800 (fit function, its distinct
   magnitude-ratio 3D calibration model, UI, worker/export wiring) — not
   huge, but removing it would simplify the calibration module down to one
   3D model instead of two co-existing ones that currently need guarding

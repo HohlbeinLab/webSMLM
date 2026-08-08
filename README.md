@@ -23,7 +23,7 @@ needed is inside that one file.
 
 Then: click **Simulate movie** to try it immediately, or **Load movie** for your
 own `.tif`/`.tiff` stack. Set the **pixel size (nm)**, pick a **fit method**, and
-press **Run localisations**. Open **Help & guide** in the app for a full
+press **Localize**. Open **Help & guide** in the app for a full
 walk-through of every step.
 
 ## What it does
@@ -64,10 +64,13 @@ walk-through of every step.
   large defocus. Calibrations save/load as JSON (with their source file), and
   the reconstruction can be **depth-coded** (hue = z, brightness = density)
   with an adjustable z range.
-- **Localizations table** (**Display table**): sortable, with **cumulative
+- **Localizations table** (**View data + filtering**): sortable, with **cumulative
   filtering** (e.g. `intensity > 1000 and uncertainty < 20`, Enter to apply,
   removable chips, Reset) that **drives the reconstruction live**; any column can
-  be **histogrammed** in the raw panel (with x-zoom/pan).
+  be **histogrammed** in the raw panel (with x-zoom/pan). Consecutive-frame
+  detections of the same molecule can also be merged into **temporal-clustering
+  events** (`tempClusteringXY`/`tempClusteringZ` filters), reducing noise at the
+  cost of localization density.
 - **Renders** a super-resolution image with adjustable magnification and blur,
   a choice of colour maps (Fire, Inferno, Viridis, Turbo, Grey) and
   percentile-based display scaling. All render settings apply instantly without
@@ -84,7 +87,9 @@ walk-through of every step.
   overlay so toggling never resizes the display windows.
 - **Measures distances / line profiles**: click two points in the reconstruction
   to plot the intensity profile along the line (averaged over a 3-pixel band),
-  with the length in nm and an x-zoomable/pannable plot.
+  with the length in nm and an x-zoomable/pannable plot. A **crop tool** next to
+  it adds an x/y-range filter from two clicked corners, restricting the
+  reconstruction, export, NeNA and FRC to that region like any other table filter.
 - **Save/Load settings** as JSON to reproduce an analysis configuration.
 - **Works on small screens**: single-column layout on phones and tablets, with
   drag/pinch-to-zoom navigation of the reconstruction (plus a scale bar).
@@ -113,15 +118,21 @@ Detection and fitting run in parallel across a pool of Web Workers (one per
 logical core). Measured on a laptop, running the single HTML file directly from
 `file://` with the default **wavelet** detector:
 
-| Dataset | Frames | Frame size | Time | Rate |
-|---|---|---|---|---|
-| 3D STORM (4.89 GB) [[Leterrier]](experimental_data/README.md) | 40000 | 256 × 256 | ~12 s | ~350,000 loc/s |
+| Dataset | Fit method | Frames | Frame size | Time | Rate |
+|---|---|---|---|---|---|
+| 3D STORM (4.89 GB) [[Leterrier]](experimental_data/README.md) | Phasor 3D | 40000 | 256 × 256 | ~12 s | ~350,000 loc/s |
 
 Small stacks finish **faster than can be timed reliably** (well under a
 second — JIT warm-up and timer resolution dominate), so only a stack large
 enough to run for several seconds gives a stable throughput figure: the 4.89
 GB stack above — never held in memory, streamed frame by frame — completes in
-~12 s (~350k loc/s). Notes:
+~12 s (~350k loc/s) with the **Phasor** fitter. Notes:
+
+- **Rate is fitter-dependent.** Phasor (above) is non-iterative and by far the
+  fastest; Gaussian MLE 2D/3D — the statistically-preferred default — costs
+  several-fold more per localization for its ~5-iteration Newton fit, and on
+  very large stacks frame I/O/decode can dominate wall time as much as fitting
+  itself, so the figure above is a ceiling, not a typical number across methods.
 
 - **Browser matters.** On macOS the numeric path runs fastest in **Safari**, then
   **Chrome**, then **Firefox** (JS-engine differences). Expect run-to-run
@@ -245,7 +256,7 @@ version DOI; pushing to `main` redeploys the Pages site.
 
 ## License
 
-© 2026 **Johannes Hohlbein**, licensed under
+© 2026 **Hohlbein et al.**, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — see [`LICENSE`](LICENSE).
 You may share and adapt this work, including commercially, with attribution.
 

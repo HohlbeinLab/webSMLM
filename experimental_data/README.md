@@ -66,6 +66,14 @@ Three reasons this dataset is a good fixture beyond raw speed:
   lets the FRC precision work be validated against a known distance rather
   than only self-consistency.
 
+**FRC on this dataset shows extra peaks at 40 nm and 20 nm**, alongside the
+expected 80 nm one — exact submultiples of the ruler spacing (80/2, 80/4),
+not a bug. A periodic structure like a regularly-spaced nanoruler array
+concentrates its Fourier content at the fundamental spatial frequency *and*
+its harmonics, so FRC — which assumes a generic, non-periodic structure —
+picks those harmonics up as apparent resolution. Expect this on any
+sufficiently periodic sample; it isn't extra resolved detail.
+
 ## Second benchmark dataset — 3D STORM (very large, ~4.9 GB)
 
 3D STORM of spectrin rings in neurons, by **Christophe Leterrier**, on figshare:
