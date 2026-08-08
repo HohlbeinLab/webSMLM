@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08f · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08g · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08f
+</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08g
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5444,13 +5444,16 @@ function commitFilter(){
     _tableFilters.push({expr:raw, cluster:axis, maxNm, fn:()=>true});
     $('tableFilter').value=''; $('tableFilter').classList.remove('bad');
     rebuildTableData();
+    log(`Temporal clustering: ${raw} — ${_tableData.rows.length.toLocaleString()} events from ${lastResult.locs.length.toLocaleString()} localizations.`);
     return;
   }
   const pf=parseFilter(raw,_tableData.cols);
   if(!pf.ok){ $('tableFilter').classList.add('bad'); $('tableCount').textContent=`⚠ ${pf.err}`; return; }
   _tableFilters.push({expr:raw, fn:pf.fn}); $('tableFilter').value=''; $('tableFilter').classList.remove('bad'); renderTable(); applyFilterToReconstruction();
+  log(`Filter added: ${raw} — ${_tableFiltered.length.toLocaleString()} of ${_tableData.rows.length.toLocaleString()} pass (${_tableFilters.length} filter${_tableFilters.length>1?'s':''} active).`);
 }
-function resetFilters(){ _tableFilters=[]; $('tableFilter').value=''; rebuildTableData(); }
+function resetFilters(){ const had=_tableFilters.length; _tableFilters=[]; $('tableFilter').value=''; rebuildTableData();
+  if(had) log('Filters reset — showing all rows.'); }
 // Apply the committed cumulative filters to the reconstruction: restrict renderLocs
 // to the passing localizations (by original index, within the current base — see
 // getBaseLocs) and rebuild the SR image. Clustering clauses carry a no-op fn
@@ -5481,7 +5484,9 @@ function renderTable(){
   $('tableCount').textContent = `${filtered.length.toLocaleString()} / ${rows.length.toLocaleString()} ${unit_}${_tableFilters.length?` · ${_tableFilters.length} filter${_tableFilters.length>1?'s':''}`:''}${filtered.length>TABLE_CAP?` · showing first ${TABLE_CAP.toLocaleString()}`:''}`;
   for(const th of $('locTable').querySelectorAll('th')) th.addEventListener('click',()=>{
     const c=th.dataset.c; if(_tableState.sortCol===c) _tableState.sortDir*=-1; else { _tableState.sortCol=c; _tableState.sortDir=1; } renderTable(); });
-  for(const x of $('tableFilters').querySelectorAll('b[data-i]')) x.addEventListener('click',()=>{ _tableFilters.splice(+x.dataset.i,1); rebuildTableData(); });
+  for(const x of $('tableFilters').querySelectorAll('b[data-i]')) x.addEventListener('click',()=>{
+    const removed=_tableFilters.splice(+x.dataset.i,1)[0]; rebuildTableData();
+    if(removed) log(`Filter removed: ${removed.expr}.`); });
 }
 function plotColumnHistogram(col){
   if(!_tableFiltered||!_tableFiltered.length){ log('No rows to histogram.'); return; }
@@ -5590,17 +5595,20 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
       <select id="tableHistCol" class="sel" style="flex:0 0 auto;min-width:140px"></select>
       <span style="color:var(--muted);font-size:12px">— in the raw panel, uses the current filter</span>
       <details class="info" style="margin-left:auto"><summary>…more info…</summary>
-        <div class="hint">[module: table] <b>Temporal clustering</b> — the same blinking molecule is often
-        "on" for several consecutive frames, detected separately each time. Typing <code>tempClusteringXY &lt; 10</code>
-        (10&nbsp;nm here) into the filter box above merges detections that stay within that XY distance across
-        strictly consecutive frames into one higher-precision "event" — position is the photon-weighted mean,
-        intensity is summed (not averaged: it's the same molecule's photons accumulating over its ON time), and
-        the reported uncertainty is properly combined (smaller than any single frame's own, not just an average).
-        <code>tempClusteringZ &lt; value</code> (nm) adds the same requirement in z for 3D data. Only one threshold
-        per axis is active at a time — typing a new value replaces the old one. Once active, counts/exports switch
-        from localizations to <b>events</b> (fewer than the raw detections), and the table gains an <b>nmerged</b>
-        column showing how many frames contributed to each. A gap frame always breaks the chain — there's no
-        tolerance for a missed frame yet (planned: <code>tempClusteringMemory</code>).</div></details>
+        <div class="hint">[module: table]
+        <ul style="margin:2px 0 0;padding-left:16px">
+          <li><b>Filtering</b> — <code>field op value</code>, joined with <code>and</code>/<code>or</code>
+            (e.g. <code>intensity &gt; 1000 and uncertainty &lt; 20</code>); Enter commits a clause, clauses stack
+            cumulatively. Type <code>reset</code> to clear all of them.</li>
+          <li><b>Temporal clustering</b> — <code>tempClusteringXY &lt; 10</code> (nm) merges the same molecule's
+            detections across consecutive frames into one higher-precision "event" (photon-weighted position,
+            summed intensity, properly combined uncertainty); <code>tempClusteringZ &lt; value</code> adds the same
+            in z. One threshold per axis (a new value replaces the old). Once active, counts switch from
+            localizations to <b>events</b> and the table gains an <b>nmerged</b> column. A gap frame always breaks
+            the chain for now (planned: <code>tempClusteringMemory</code>).</li>
+          <li><b>Plot histogram of</b> — draws the chosen column's distribution in the raw (left) panel, over
+            whatever rows currently pass the filters above; the crop tool and typed filters affect it the same way.</li>
+        </ul></div></details>
     </div>
     <div id="tableWrap" style="overflow:auto;max-height:58vh;border:1px solid var(--line);border-radius:8px">
       <table id="locTable"></table>
