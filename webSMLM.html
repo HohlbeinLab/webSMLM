@@ -1338,9 +1338,11 @@ X.B(E,Y);return E}return J}())
     display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   .stat .n{font-size:11px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums}
   .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-  /* progress track is hidden at rest so it doesn't read as a stray rule */
-  .bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin:10px 0;display:none}
-  .bar.on{display:block}
+  /* single shared progress track, permanently visible (empty at rest) below the
+     action buttons — every long-running op (Localize, calibration, drift
+     correction, NeNA, FRC, file loading) feeds it via setProg(), rather than
+     each module owning its own bar that only exists while running. */
+  .bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin:10px 0}
   .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
     background:#010409;border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
@@ -1429,7 +1431,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08i · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08j · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1522,7 +1524,6 @@ X.B(E,Y);return E}return J}())
           <button id="driftBtn" disabled>Correct drift</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
         </div>
-        <div class="bar" id="driftBar"><i id="driftProg"></i></div>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">[module: drift] Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024,
           after <code>picasso/aim.py</code>; see Help &amp; guide → References). Localize first, then Correct drift.
@@ -1538,7 +1539,6 @@ X.B(E,Y);return E}return J}())
           <button id="nenaBtn" disabled title="Empirical per-localization precision (nearest-neighbour)">NeNA</button>
           <button id="frcBtn" disabled title="Image resolution via Fourier Ring Correlation (1/7 threshold)">FRC</button>
         </div>
-        <div class="bar" id="precBar"><i id="precProg"></i></div>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">[module: locprecision] <b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance
           distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08i
+</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08j
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1877,10 +1877,10 @@ const tick = (()=>{
   ch.port1.onmessage=()=>{ const r=q.shift(); if(r) r(); };
   return ()=>new Promise(r=>{ q.push(r); ch.port2.postMessage(0); });
 })();
-// progress bar: pass a percentage to show it, null to hide it again
-const setProg = pct => { const b=$('bar');
-  if(pct==null){ b.classList.remove('on'); $('prog').style.width='0%'; }
-  else { b.classList.add('on'); $('prog').style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+'%'; } };
+// The single shared progress bar (below the action buttons): pass a percentage
+// to fill it, null to empty it back to rest. Every long-running operation uses
+// this one bar — see the .bar CSS rule for why.
+const setProg = pct => { $('prog').style.width = pct==null ? '0%' : Math.max(0,Math.min(100,pct)).toFixed(1)+'%'; };
 const fmtBytes = b => b>1073741824 ? (b/1073741824).toFixed(2)+' GB' : (b/1048576).toFixed(0)+' MB';
 
 // live slider labels
@@ -4017,9 +4017,7 @@ async function correctDrift(){
   try{
     log(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
     const t0=performance.now();
-    const bar=$('driftBar'), prog=$('driftProg');
-    const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm,
-      p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
+    const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>setProg(100*p));
     // apply reversibly — keep the raw coordinates in x0/y0
     for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
       const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
@@ -4027,8 +4025,7 @@ async function correctDrift(){
     // z drift (Phasor 3D): independent 1-D correction on z (nm)
     const has3d=locs.some(L=>isFinite(L.z));
     if(has3d && paramValue('driftZ')){
-      const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm,
-        p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
+      const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>setProg(100*p));
       // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
       // boundary, so it carries no drift and is excluded. A large clamped
       // fraction means the sample's z-range exceeds the calibration: the
@@ -4039,7 +4036,7 @@ async function correctDrift(){
         L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,L.frame|0))]; }
       d.fdz=dz.fdz; lastResult.zr=null;
     }
-    bar.classList.remove('on'); prog.style.width='0%';
+    setProg(null);
     rerender(true);
     let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
     for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
@@ -4056,7 +4053,7 @@ async function correctDrift(){
     log(`  corrected coordinates now drive the render and CSV export.`);
     $('driftShowBtn').disabled=false;
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
-  finally{ $('driftBtn').disabled=false; }
+  finally{ $('driftBtn').disabled=false; setProg(null); }
 }
 // Plot the estimated drift (nm) vs frame on the RAW (left) canvas (measured drift = −correction).
 function drawDriftCurve(){
@@ -4229,20 +4226,19 @@ function drawNenaPlot(res){
 }
 async function computeNeNA(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
-  $('nenaBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
+  $('nenaBtn').disabled=true;
   try{
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
     if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px,
-      p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
-    bar.classList.remove('on'); prog.style.width='0%';
+    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p));
+    setProg(null);
     if(r.err){ log('  '+r.err+'.'); return; }
     log(`  σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
     log('  Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
     drawNenaPlot(r);                                  // histogram + fit on the left panel
   }catch(err){ log(`⚠ NeNA failed: ${err.name}: ${err.message}`); }
-  finally{ $('nenaBtn').disabled=false; }
+  finally{ $('nenaBtn').disabled=false; setProg(null); }
 }
 
 /* ---- FRC (Fourier Ring Correlation) — image resolution at the 1/7 threshold.
@@ -4423,14 +4419,13 @@ function drawFrcPlot(r){
 async function computeFRC(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   if(paramValue('frc3d')) log('  (FSC 3D not yet implemented — computing 2D FRC.)');
-  $('frcBtn').disabled=true; const bar=$('precBar'), prog=$('precProg');
+  $('frcBtn').disabled=true;
   try{
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
     if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10,
-      p=>{ bar.classList.add('on'); prog.style.width=(100*p).toFixed(0)+'%'; });
-    bar.classList.remove('on'); prog.style.width='0%';
+    const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10, p=>setProg(100*p));
+    setProg(null);
     if(r.err){ log('  '+r.err+'.'); return; }
     if(!isFinite(r.res)){
       log(`  resolution is finer than the sampling — the FRC curve stays above 1/7 up to Nyquist (${r.nyquist.toFixed(0)} nm, at ${r.pixNm.toFixed(1)} nm/px, ${r.N}²).`);
@@ -4441,7 +4436,7 @@ async function computeFRC(){
     log('  FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
     drawFrcPlot(r);
   }catch(err){ log(`⚠ FRC failed: ${err.name}: ${err.message}`); }
-  finally{ $('frcBtn').disabled=false; }
+  finally{ $('frcBtn').disabled=false; setProg(null); }
 }
 
 /* ===========================================================================
@@ -5657,7 +5652,12 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
             summed intensity, properly combined uncertainty); <code>tempClusteringZ &lt; value</code> adds the same
             in z. One threshold per axis (a new value replaces the old). Once active, counts switch from
             localizations to <b>events</b> and the table gains an <b>nmerged</b> column. A gap frame always breaks
-            the chain for now (planned: <code>tempClusteringMemory</code>).</li>
+            the chain for now (planned: <code>tempClusteringMemory</code>). <b>FRC resolution can get coarser after
+            clustering</b>, not finer — counter-intuitive, but FRC measures achieved image resolution, which depends
+            on point <i>density</i> as well as per-point precision; merging improves the latter but sharply reduces
+            the former (far fewer points), and if that density loss outweighs the precision gain, FRC's number gets
+            worse even though individual events really are more precise. Check the <b>uncertainty</b> column's
+            histogram (not FRC) to see the precision improvement in isolation.</li>
           <li><b>Plot histogram of</b> — draws the chosen column's distribution in the raw (left) panel, over
             whatever rows currently pass the filters above; the crop tool and typed filters affect it the same way.</li>
         </ul></div></details>
