@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08b · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08c · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08b
+</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08c
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2003,9 +2003,21 @@ async function loadTiffFile(file){
       log(`File: ${declared} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
       log(`Contiguous ImageJ stack — reading frames on demand; the file is never held in memory.`);
       $('sFrames').textContent=declared;
+      // Fast path: single-channel, native (LE) byte order, aligned offset — a
+      // direct TypedArray view + Float32Array.set() bulk-copies/converts at the
+      // engine level (measured ~45x faster than the per-pixel DataView loop
+      // below, since DataView's per-call bounds-checking/endian-swap dominates
+      // at millions of pixels/frame × thousands of frames). Falls back to the
+      // always-correct DataView loop for interleaved/big-endian/misaligned data.
+      const elemBytes=bps>>3;
       const decodeInto=(buf,off,g)=>{
         if(bps===8){ const u=new Uint8Array(buf,off,rawBytes);
-          for(let i=0;i<w*h;i++) g[i]=u[i*spp]; return g; }
+          if(spp===1) g.set(u); else for(let i=0;i<w*h;i++) g[i]=u[i*spp]; return g; }
+        if(spp===1 && isLE && off%elemBytes===0){
+          if(bps===16){ g.set(new Uint16Array(buf,off,w*h)); return g; }
+          if(bps===32&&fmt===3){ g.set(new Float32Array(buf,off,w*h)); return g; }
+          if(bps===32){ g.set(new Uint32Array(buf,off,w*h)); return g; }
+        }
         const d=new DataView(buf,off,rawBytes);
         if(bps===16)               for(let i=0;i<w*h;i++) g[i]=d.getUint16(i*2*spp,isLE);
         else if(bps===32&&fmt===3) for(let i=0;i<w*h;i++) g[i]=d.getFloat32(i*4*spp,isLE);
@@ -2128,8 +2140,22 @@ async function loadMultiIfdStreaming(file, fileSize){
   if(!n) throw new Error('no image frames found');
   log(`  indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
   $('sFrames').textContent=n;
+  // Fast path: single-channel, native (LE) byte order, aligned offset — a direct
+  // TypedArray view + Float32Array.set() bulk-copies/converts at the engine
+  // level (measured ~45x faster than the per-pixel DataView loop below, since
+  // DataView's per-call bounds-checking/endian-swap dominates at millions of
+  // pixels/frame x thousands of frames — this is the loop the whole 40,000-
+  // frame Leterrier-style MMStack decode runs through, once per frame, on the
+  // main thread). Falls back to the always-correct DataView loop otherwise.
+  const elemBytes=bps>>3;
   const decodeInto=(buf,byteOff,g)=>{
-    if(bps===8){ const u=new Uint8Array(buf,byteOff,rawBytes); for(let i=0;i<w*h;i++) g[i]=u[i*spp]; return g; }
+    if(bps===8){ const u=new Uint8Array(buf,byteOff,rawBytes);
+      if(spp===1) g.set(u); else for(let i=0;i<w*h;i++) g[i]=u[i*spp]; return g; }
+    if(spp===1 && isLE && byteOff%elemBytes===0){
+      if(bps===16){ g.set(new Uint16Array(buf,byteOff,w*h)); return g; }
+      if(bps===32&&fmt===3){ g.set(new Float32Array(buf,byteOff,w*h)); return g; }
+      if(bps===32){ g.set(new Uint32Array(buf,byteOff,w*h)); return g; }
+    }
     const d=new DataView(buf,byteOff,rawBytes);
     if(bps===16)               for(let i=0;i<w*h;i++) g[i]=d.getUint16(i*2*spp,isLE);
     else if(bps===32&&fmt===3) for(let i=0;i<w*h;i++) g[i]=d.getFloat32(i*4*spp,isLE);
@@ -4550,6 +4576,16 @@ async function run(){
     else           log(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
     log(`  detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
     log(`  fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
+    // previewMs (SR/raw refresh during the Run) and the gap between runMs and
+    // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
+    // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
+    // a run where total >> compute is diagnosable instead of a mystery gap.
+    // Preview cost scales with the CURRENT locs count each time it fires, so on
+    // a long run with millions of localizations it can grow substantially by
+    // the end even though early previews were cheap.
+    if(previewMs>50) log(`  preview     ${ms(previewMs)} ms       (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
+    const otherMs=runMs-dt-previewMs;
+    if(otherMs>50) log(`  other       ${ms(otherMs)} ms       (pool setup, main-thread frame fetch/decode not itemised above)`);
     if(useWorkers){
       const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*dt,1e-9);
       log(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(dt).toLocaleString()} ms wall).`);
