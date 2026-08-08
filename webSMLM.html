@@ -1371,6 +1371,11 @@ X.B(E,Y);return E}return J}())
   #locTable tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
   #locTable tbody tr:hover{background:#161b22}
   #tableFilter.bad{border-color:var(--danger)}
+  #tableFilterAC{position:absolute;top:100%;left:0;right:0;z-index:20;margin-top:2px;
+    background:var(--panel);border:1px solid var(--line);border-radius:7px;
+    max-height:180px;overflow:auto;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  #tableFilterAC .ac-item{padding:5px 10px;cursor:pointer;font-size:13px;color:var(--fg)}
+  #tableFilterAC .ac-item.sel{background:var(--accent);color:#fff}
   .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:#21262d;border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
   .fchip b{cursor:pointer;color:var(--muted);font-weight:700}
   .fchip b:hover{color:var(--danger)}
@@ -1431,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.7-dev · build 2026-08-08c · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.7-dev · build 2026-08-08d · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1680,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.7-dev · build 2026-08-08c
+</span></noscript>webSMLM v0.9.7-dev · build 2026-08-08d
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5672,8 +5677,49 @@ function wireHelp(){
     $('tableBtn').addEventListener('click',openTable);
     $('tableClose').addEventListener('click',thide);
     tm.addEventListener('click',e=>{ if(e.target===tm) thide(); });
-    $('tableFilter').addEventListener('input',()=>$('tableFilter').classList.remove('bad'));   // just clear the error mark while retyping — no filtering until Enter
-    $('tableFilter').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commitFilter(); } });
+    // Column-name autocomplete for the filter box: pulls its options from the
+    // CURRENT table's own columns (_tableData.cols) rather than a fixed list,
+    // so it tracks whatever's actually available (z / sigma_z / nmerged come
+    // and go with 3D / clustering / MLE-3D state).
+    (function(){
+      const inp=$('tableFilter'), box=$('tableFilterAC');
+      let items=[], sel=-1;
+      const token=()=>{ const v=inp.value, c=inp.selectionStart, before=v.slice(0,c);
+        const m=before.match(/[a-zA-Z_]*$/); return {tok:m[0], start:c-m[0].length, end:c}; };
+      const hideAC=()=>{ box.style.display='none'; box.innerHTML=''; items=[]; sel=-1; };
+      const highlight=()=>{ [...box.children].forEach((el,i)=>el.classList.toggle('sel',i===sel)); };
+      const renderAC=()=>{
+        const {tok}=token(), cols=_tableData?_tableData.cols:[];
+        if(!tok || !cols.length){ hideAC(); return; }
+        const low=tok.toLowerCase();
+        items=cols.filter(c=>c.toLowerCase().startsWith(low));
+        if(!items.length || (items.length===1 && items[0].toLowerCase()===low)){ hideAC(); return; }
+        sel=0;
+        box.innerHTML=items.map(c=>`<div class="ac-item">${c}</div>`).join('');
+        highlight(); box.style.display='block';
+      };
+      const applySel=i=>{ const chosen=items[i]; if(!chosen) return;
+        const {start,end}=token(), v=inp.value;
+        inp.value=v.slice(0,start)+chosen+v.slice(end);
+        const pos=start+chosen.length; inp.setSelectionRange(pos,pos);
+        hideAC(); inp.focus(); };
+      inp.addEventListener('input',()=>{ inp.classList.remove('bad'); renderAC(); });   // clear the error mark while retyping — no filtering until Enter
+      inp.addEventListener('focus',renderAC);
+      inp.addEventListener('blur',()=>setTimeout(hideAC,150));   // delay so a click on an item registers first
+      inp.addEventListener('keydown',e=>{
+        if(box.style.display==='block'){
+          if(e.key==='ArrowDown'){ e.preventDefault(); sel=(sel+1)%items.length; highlight(); return; }
+          if(e.key==='ArrowUp'){ e.preventDefault(); sel=(sel-1+items.length)%items.length; highlight(); return; }
+          if(e.key==='Tab'||e.key==='Enter'){ e.preventDefault(); applySel(sel); return; }
+          if(e.key==='Escape'){ hideAC(); return; }
+        }
+        if(e.key==='Enter'){ e.preventDefault(); commitFilter(); }
+      });
+      box.addEventListener('mousedown',e=>{   // mousedown (not click) fires before the input's blur
+        const el=e.target.closest('.ac-item'); if(!el) return;
+        e.preventDefault(); applySel([...box.children].indexOf(el));
+      });
+    })();
     $('tableResetBtn').addEventListener('click',resetFilters);
     $('tableHistBtn').addEventListener('click',()=>plotColumnHistogram($('tableHistCol').value));
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') thide(); }); }
@@ -5702,8 +5748,12 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
     <button class="close" id="tableClose" title="close">×</button>
     <h2>Localizations</h2>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 6px">
-      <input id="tableFilter" class="num" style="flex:1;min-width:240px;text-align:left"
-             placeholder="filter — e.g. intensity > 1000  ·  Enter to apply (cumulative) · type 'reset' to clear">
+      <div style="position:relative;flex:1;min-width:240px">
+        <input id="tableFilter" class="num" style="width:100%;text-align:left"
+               placeholder="filter — e.g. intensity > 1000  ·  Enter to apply (cumulative) · type 'reset' to clear"
+               autocomplete="off">
+        <div id="tableFilterAC"></div>
+      </div>
       <button id="tableResetBtn" class="logbtn">Reset filter</button>
       <span id="tableCount" style="color:var(--accent2);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums"></span>
     </div>
@@ -5717,7 +5767,9 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',w
         <ul style="margin:2px 0 0;padding-left:16px">
           <li><b>Filtering</b> — <code>field op value</code>, joined with <code>and</code>/<code>or</code>
             (e.g. <code>intensity &gt; 1000 and uncertainty &lt; 20</code>); Enter commits a clause, clauses stack
-            cumulatively. Type <code>reset</code> to clear all of them.</li>
+            cumulatively. Type <code>reset</code> to clear all of them. Start typing a field name for
+            autocomplete suggestions (↑/↓ to move, Enter/Tab to accept) — the list matches whatever columns
+            the current table actually has.</li>
           <li><b>sigma_xy / sigma_z</b> — <code>sigma_xy</code> is the fitted PSF width (average of σx/σy for
             astigmatic 3D). <code>sigma_z</code>, shown for MLE 3D results, is an approximate z-precision:
             the fit's own uncertainty on σx/σy propagated through the calibration curve's local slope at the
