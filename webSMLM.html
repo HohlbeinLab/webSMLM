@@ -1429,7 +1429,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08g · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.9.6-dev · build 2026-08-08h · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Johannes Hohlbein · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1675,7 +1675,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08g
+</span></noscript>webSMLM v0.9.6-dev · build 2026-08-08h
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4273,31 +4273,75 @@ function _resFromFRC(frc,freq){
     const fc=v1!==v0? f0+(f1-f0)*((1/7)-v0)/(v1-v0):f1; return fc>0?1/fc:NaN; } }
   return NaN;                                          // never crosses → finer than Nyquist
 }
+// Mode of the per-localization precision distribution (nm): true CRLB
+// (lpx,lpy) where the fitter provides one (MLE), else the same formula
+// estimate the table/export already use for methods that don't (LS/phasor
+// — see precisionNm). Histogram-peak, not mean/median, so a long tail of
+// poorly-localized outliers can't drag the estimate away from what a
+// TYPICAL localization actually achieves (same idea NeNA's own signal peak
+// captures, just from the fit's reported/estimated uncertainty instead of
+// empirical nearest-neighbour distances). Used as an NeNA fallback in
+// frcResolution — unlike NeNA it needs no consecutive-frame pairs, so it
+// still works on temporally-clustered data, very short movies, etc.
+function modeUncertaintyNm(locs, px){
+  const sigPSF=paramValue('psf'), vals=[];
+  for(const L of locs){
+    const N=Math.max(0,L.photons||0), bg=Math.max(0,L.bg||0), bs=Math.max(0,L.bgstd||0);
+    let sPx=L.sigma||0; if(!(sPx>0)) sPx=sigPSF; const sNm=sPx*px;
+    const unc=(isFinite(L.lpx)&&isFinite(L.lpy))?Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px:precisionNm(sNm,px,N,bs);
+    if(isFinite(unc)&&unc>0) vals.push(unc);
+  }
+  if(vals.length<20) return null;
+  vals.sort((a,b)=>a-b);
+  const lo=vals[Math.floor(vals.length*0.05)], hi=vals[Math.ceil(vals.length*0.95)-1];
+  if(!(hi>lo)) return vals[vals.length>>1];        // degenerate spread — median is as good as any bin
+  const nb=40, binW=(hi-lo)/nb, counts=new Array(nb).fill(0);
+  for(const v of vals){ if(v<lo||v>hi) continue; let bi=Math.floor((v-lo)/binW); if(bi>=nb)bi=nb-1; if(bi<0)bi=0; counts[bi]++; }
+  let best=0,bestI=0; for(let i=0;i<nb;i++) if(counts[i]>best){best=counts[i];bestI=i;}
+  return lo+(bestI+0.5)*binW;
+}
 async function frcResolution(locs, px, mag, onProgress){
   if(locs.length<200) return {err:`only ${locs.length.toLocaleString()} localizations — too few for FRC`};
   let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
   for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
   const extPx=Math.max(xmax-xmin,ymax-ymin)*1.02;      // square extent (camera px)
-  // Target FRC pixel size from the data's own localization precision (NeNA σ/2),
-  // not the display magnification — matches Picasso's frc()/_frc() (binsize=lp/2),
-  // which likewise runs NeNA internally first. This ties the sampling grid to what
-  // the data can actually support, instead of an unrelated cosmetic render setting.
-  // Caveat: NeNA measures nearest-neighbour distance between CONSECUTIVE frames, so
-  // for a diffusing/mobile probe (freely-diffusing PAINT imager, a membrane dye, …)
-  // real motion inflates σ on top of genuine localization uncertainty — the FRC grid
-  // then comes out coarser than the true precision would allow. Not wrong, just
-  // conservative; the resolution *result* isn't invalidated, only the sampling
-  // headroom is. Falls back to reconstruction pixel size (px/mag) if NeNA itself
-  // can't run (e.g. too few consecutive-frame pairs).
+  // Target FRC pixel size, three tiers, from most to least physically grounded:
+  //  1. NeNA precision (σ/2) — matches Picasso's frc()/_frc() (binsize=lp/2), which
+  //     likewise runs NeNA internally first. Caveat: NeNA measures nearest-neighbour
+  //     distance between CONSECUTIVE frames, so for a diffusing/mobile probe real
+  //     motion inflates σ on top of genuine localization uncertainty (coarsens the
+  //     estimate, doesn't invalidate the FRC result) — and it needs enough
+  //     consecutive-frame pairs of the SAME molecule to fit at all, which temporal
+  //     clustering (tempClusteringXY/Z) removes by design, and can leave NeNA with a
+  //     degenerate fit (near-zero/NaN σ) rather than a clean "too few pairs" error.
+  //  2. Mode of the per-localization precision distribution (modeUncertaintyNm) —
+  //     needs no consecutive-frame pairs, so it's what actually fixes FRC on
+  //     clustered/short-movie data; a real per-fit-method uncertainty (true CRLB
+  //     for MLE, the same formula estimate the table/export use otherwise), just
+  //     not an empirical measurement the way NeNA is.
+  //  3. Reconstruction pixel size (px/mag) — no physical grounding at all, last resort.
   const nenaR = await nenaPrecision(locs, px, onProgress);
-  const lpNm = nenaR.err ? null : nenaR.sigma;
-  if(nenaR.err) log(`  NeNA precision unavailable (${nenaR.err}) — falling back to reconstruction pixel size for FRC sampling.`);
-  else log(`  FRC target pixel size from NeNA precision: σ = ${lpNm.toFixed(1)} nm (binsize = σ/2). Diffusing/mobile`
+  const nenaOk = !nenaR.err && isFinite(nenaR.sigma) && nenaR.sigma>0;
+  let lpNm=null, lpSrc=null;
+  if(nenaOk){ lpNm=nenaR.sigma; lpSrc='NeNA'; }
+  else{
+    const modeNm=modeUncertaintyNm(locs, px);
+    if(modeNm!=null){ lpNm=modeNm; lpSrc='mode'; }
+  }
+  if(lpSrc==='NeNA') log(`  FRC target pixel size from NeNA precision: σ = ${lpNm.toFixed(1)} nm (binsize = σ/2). Diffusing/mobile`
          + ` probes inflate σ via real motion between frames on top of localization error — coarsens this estimate,`
          + ` doesn't invalidate the FRC result itself.`);
-  const targetPixNm = lpNm!=null ? lpNm/2 : px/mag;
-  // N a power of 2, capped for compute.
-  let N=1; const want=Math.max(64, extPx*px/targetPixNm); while(N<want) N<<=1; N=Math.max(256,Math.min(2048,N));
+  else if(lpSrc==='mode') log(`  NeNA precision unavailable${nenaR.err?` (${nenaR.err})`:' (fit did not converge to a usable value)'}`
+         + ` — likely too few consecutive-frame pairs of the same molecule (e.g. after temporal clustering). Falling back`
+         + ` to the mode of per-localization precision: σ ≈ ${lpNm.toFixed(1)} nm (binsize = σ/2).`);
+  else log(`  NeNA precision unavailable${nenaR.err?` (${nenaR.err})`:''} and too few localizations for a precision`
+         + ` histogram — falling back to reconstruction pixel size for FRC sampling.`);
+  const targetPixNm = (lpNm!=null && isFinite(lpNm) && lpNm>0) ? lpNm/2 : px/mag;
+  // N a power of 2, capped for compute. targetPixNm<=0/non-finite (shouldn't happen
+  // given the guard above, but this is a power-of-2 loop — never let it spin forever
+  // on a bad divisor) falls back to the render pixel size instead.
+  const wantRaw = extPx*px/targetPixNm;
+  let N=1; const want=Math.max(64, isFinite(wantRaw)&&wantRaw>0 ? wantRaw : extPx*mag); while(N<want) N<<=1; N=Math.max(256,Math.min(2048,N));
   const pixNm=extPx*px/N, nR=N>>1, nSplit=3;
   // precompute the ring index of each frequency pixel once (avoids per-pixel hypot)
   const ring=new Int32Array(N*N), freq=new Float64Array(nR);
@@ -4337,7 +4381,7 @@ async function frcResolution(locs, px, mag, onProgress){
   }
   const good=res.filter(isFinite), mean=good.length?good.reduce((a,b)=>a+b,0)/good.length:NaN;
   const sd=good.length>1?Math.sqrt(good.reduce((a,b)=>a+(b-mean)**2,0)/good.length):NaN;
-  return {res:mean, resErr:sd, nResolved:good.length, nSplit, curve, pixNm, N, nyquist:2*pixNm, nenaSigma:lpNm};
+  return {res:mean, resErr:sd, nResolved:good.length, nSplit, curve, pixNm, N, nyquist:2*pixNm, nenaSigma:lpNm, lpSrc};
 }
 // Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
 function drawFrcPlot(r){
@@ -4383,7 +4427,7 @@ async function computeFRC(){
     if(!isFinite(r.res)){
       log(`  resolution is finer than the sampling — the FRC curve stays above 1/7 up to Nyquist (${r.nyquist.toFixed(0)} nm, at ${r.pixNm.toFixed(1)} nm/px, ${r.N}²).`);
       log(r.N>=2048 ? '  The field of view is large, so FRC sampling is capped here — crop to a sub-region for a finer measurement.'
-                    : `  Already sampling at the NeNA-derived precision limit (σ/2${r.nenaSigma!=null?' = '+(r.nenaSigma/2).toFixed(1)+' nm':''}) — more localizations (denser labelling, longer acquisition) would help more than finer sampling here.`);
+                    : `  Already sampling at the ${r.lpSrc==='NeNA'?'NeNA-derived':'per-localization-precision-derived'} limit (σ/2${r.nenaSigma!=null?' = '+(r.nenaSigma/2).toFixed(1)+' nm':''}) — more localizations (denser labelling, longer acquisition) would help more than finer sampling here.`);
       drawFrcPlot(r); return; }
     log(`  resolution = ${r.res.toFixed(1)}${isFinite(r.resErr)?' ± '+r.resErr.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px @ ${r.pixNm.toFixed(1)} nm/px, Nyquist ${r.nyquist.toFixed(0)} nm · ${Math.round(performance.now()-t0)} ms).`);
     log('  FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
