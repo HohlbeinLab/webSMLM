@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10s · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10t · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10s
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10t
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4703,6 +4703,36 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     const BATCH=Math.max(config.workerBatchMin, Math.min(config.workerBatchMax, Math.ceil(n/(pool.length*config.workerBatchTarget))));
     onLog(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
     let next=0, doneF=0, inflight=0, err=null, shown=null;
+    // Workers dispatch same-size batches at roughly the same time, so they
+    // tend to FINISH in a synchronized cluster too — a burst of onmessage
+    // events, then a gap while everyone's busy on their next batch. Gating
+    // the redraw on the ELAPSED-TIME-SINCE-LAST-DRAW check INSIDE onmessage
+    // (tried first) inherits that burstiness: the check can only ever fire
+    // when a message happens to arrive, so bursty arrivals still make bursty
+    // redraws no matter how the throttle itself is tuned — exactly the
+    // "several updates within a few hundred ms, then a one-second stall"
+    // reported. Fixed with a genuinely independent setTimeout ticker below:
+    // it fires on its own schedule regardless of message timing, and just
+    // shows whatever the latest completed frame happens to be at that
+    // moment. latestFi/latestImg/latestLocs are updated unconditionally
+    // (forward-only) on every message — cheap, no detection/onRawPreview
+    // work happens there; only the timer tick pays that cost.
+    let latestFi=-1, latestImg=null, latestLocs=null, rawTimerDone=false;
+    const scheduleRawPreview=()=>{
+      setTimeout(()=>{
+        if(rawTimerDone) return;
+        if(latestImg && latestFi>lastPreviewFi){
+          lastPreviewFi=latestFi; lastRawMs=performance.now();
+          const tp=performance.now();
+          const mx=detectSpots(latestImg,w,h,sigma,exactBP,mode,k,border).maxima;
+          lastSpots=mx; lastFrame=latestImg; lastFrameIdx=latestFi;
+          onRawPreview(latestImg,w,h,mx,latestLocs,latestFi,n);
+          previewMs+=performance.now()-tp;
+        }
+        scheduleRawPreview();
+      }, RAW_PREVIEW_MS);
+    };
+    scheduleRawPreview();
     await new Promise(resolve=>{
       const finish=()=>{ if(inflight===0 && (shouldStop()||next>=n||err)) resolve(); };
       // async because sliced stacks read their frames from disk. `next` is
@@ -4746,28 +4776,18 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
           doneF+=d.count; processed=doneF; inflight--;
           onProgress(100*doneF/n);
-          if(performance.now()-lastRawMs>RAW_PREVIEW_MS){   // refresh both views, as the serial path does
-            const tp=performance.now();
-            // Workers complete out of order, so without this a LATER-shown
-            // frame could be followed by an EARLIER one whenever a slower
-            // worker's older batch finishes after a faster worker's newer
-            // one already got shown — visibly rewinding the raw panel mid
-            // Run. Only advance the preview (and its own time gate) on a
-            // batch that's actually further along than the last one shown;
-            // the SR preview below is unaffected — it accumulates all locs
-            // found so far regardless of which frame most recently finished.
-            if(batchImg && batchStart>lastPreviewFi){
-              lastRawMs=tp; lastPreviewFi=batchStart;
-              const mx=detectSpots(batchImg,w,h,sigma,exactBP,mode,k,border).maxima;
-              lastSpots=mx; lastFrame=batchImg; lastFrameIdx=batchStart;
-              onRawPreview(batchImg,w,h,mx,batchLocs,batchStart,n);
-            }
-            if(locs.length && performance.now()-lastSrMs>previewInterval){ lastSrMs=performance.now();
-              const tr=performance.now();
-              onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
-              previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tr)*10)); }
-            previewMs+=performance.now()-tp;        // display only, not compute time
-          }
+          // Cheap and unconditional — no detection/redraw work here, just
+          // remembering the latest completed batch for scheduleRawPreview's
+          // independent timer to pick up whenever it next fires. Forward-only
+          // (batchStart>latestFi): workers complete out of order, so without
+          // this an OLDER batch arriving after a NEWER one was already cached
+          // would overwrite it and the raw panel would visibly rewind.
+          if(batchImg && batchStart>latestFi){ latestFi=batchStart; latestImg=batchImg; latestLocs=batchLocs; }
+          if(locs.length && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
+            lastSrMs=performance.now();
+            onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
+            previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
+            previewMs+=performance.now()-tp; }        // display only, not compute time
           dispatch(wk);
         };
         wk.onerror=ev=>{ err=new Error('worker failed: '+(ev.message||'unknown')); finish(); };
@@ -4775,6 +4795,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       });
       finish();                                    // handles n===0
     });
+    rawTimerDone=true;   // stop scheduleRawPreview's ticker — its own last setTimeout is a harmless no-op once it fires
     if(err) throw err;
     if(shouldStop()) stopped=true;
     // Batches complete out of order; sort so results don't depend on
@@ -4908,12 +4929,7 @@ async function run(){
       onRawPreview: (img,w,h,maxima,frameLocs,fi,n) => { drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`; },
       // mag is read live (not from config) so a mid-Run magnification change
       // is reflected in the very next preview, matching prior behaviour.
-      // TEMP TEST — SR live preview disabled (no-op) to check whether it
-      // competing for main-thread time affects raw-panel preview smoothness.
-      // Final reconstruction after the Run (below) is untouched. Revert by
-      // restoring the commented-out line.
-      onSrPreview: ()=>{},
-      // onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; rerender(true,true); },
+      onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; rerender(true,true); },
     });
     lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det};
     rerender(true);
