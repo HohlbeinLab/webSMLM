@@ -112,23 +112,34 @@ const LOG_TAG = ' WEBSMLM_LOG ';
 
 // A standard, in-place terminal progress bar (\r-overwrite, no new line per
 // update) — driven by onProgress, which fires as often as the run
-// naturally yields, not throttled here (the page's own decile-text log
-// lines, e.g. "  10%", now flowing through LOG_TAG, are the throttled
-// permanent-record counterpart of this live-only bar). printLine() always
-// moves off the bar's line first so a log line never overwrites/garbles it.
+// naturally yields. Shows the most recent non-percentage log line next to
+// the bar as a "currently running" status (e.g. "Run: 161 frames · Gaussian
+// MLE 3D fit..." or "Drift correction (AIM): ..."), since those onLog lines
+// already read as a phase description. \x1b[K (erase to end of line) after
+// the content clears any leftover characters from a longer previous render,
+// so a shorter status string doesn't leave stale text trailing it.
 const BAR_WIDTH = 30;
-let barActive = false;
+let barActive = false, currentPhase = '';
 function renderProgress(pct) {
   const p = Math.max(0, Math.min(100, pct));
   const filled = Math.round(BAR_WIDTH * p / 100);
   const bar = '#'.repeat(filled) + '-'.repeat(BAR_WIDTH - filled);
-  process.stdout.write(`\r  [${bar}] ${p.toFixed(0).padStart(3)}%`);
+  const suffix = currentPhase ? `  ${currentPhase}` : '';
+  process.stdout.write(`\r  [${bar}] ${p.toFixed(0).padStart(3)}%${suffix}\x1b[K`);
   barActive = true;
 }
 function printLine(text) {
   if (barActive) { process.stdout.write('\n'); barActive = false; }
   console.log(text);
 }
+// The page's onLog carries both real diagnostic lines AND the throttled
+// decile progress text (e.g. "  10%", "  z 10%") added inside runCore/
+// driftCore/frcResolution/calibrationCore — that text mirrors the
+// interactive Log window and always lands in log.txt via result.logText,
+// but on the terminal it's pure noise once there's already a live bar
+// showing the same percentage: printing it forces the bar off its line for
+// no new information. Skip only those from the live terminal view.
+const PROGRESS_TEXT_RE = /^\s*(?:z\s+)?\d{1,3}%$/;
 
 console.log(`Launching Chromium (${opts.headed ? 'headed' : 'headless'})...`);
 const browser = await chromium.launch({ headless: !opts.headed });
@@ -136,7 +147,12 @@ const page = await browser.newPage();
 page.on('console', msg => {
   const text = msg.text();
   if (text.startsWith(PROGRESS_TAG)) renderProgress(+text.slice(PROGRESS_TAG.length));
-  else if (text.startsWith(LOG_TAG)) printLine(text.slice(LOG_TAG.length));
+  else if (text.startsWith(LOG_TAG)) {
+    const line = text.slice(LOG_TAG.length);
+    if (PROGRESS_TEXT_RE.test(line)) return;   // bar already shows this
+    currentPhase = line.trim();
+    printLine(line);
+  }
   else if (msg.type() === 'error') printLine('  [page error] ' + text);
 });
 
