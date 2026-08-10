@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10q · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10r · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10q
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10r
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4680,7 +4680,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // runs. All three thresholds: PARAMS.workerMin{Frames,PxFrame,TotalPx}.
   const useWorkers = pool && pool.length>1 && n>=config.workerMinFrames &&
     (w*h>=config.workerMinPxFrame || n*w*h>=config.workerMinTotalPx);
-  const t0=performance.now(); let lastYield=t0, previewMs=0, lastSrMs=0, lastRawMs=0;
+  const t0=performance.now(); let lastYield=t0, previewMs=0, lastSrMs=0, lastRawMs=0, lastPreviewFi=-1;
   const RAW_PREVIEW_MS=config.rawPreviewMs;   // time-based, not frame-count — see PARAMS.rawPreviewMs
   const SR_PREVIEW_MS=config.srPreviewMs;   // reconstruction is expensive — preview at most ~1/s (raw stays frequent)
   // Adaptive: a preview render's cost grows with the current locs count (it
@@ -4747,8 +4747,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           doneF+=d.count; processed=doneF; inflight--;
           onProgress(100*doneF/n);
           if(performance.now()-lastRawMs>RAW_PREVIEW_MS){   // refresh both views, as the serial path does
-            lastRawMs=performance.now(); const tp=performance.now();
-            if(batchImg){                           // this worker's own frame — image and fits guaranteed to match
+            const tp=performance.now();
+            // Workers complete out of order, so without this a LATER-shown
+            // frame could be followed by an EARLIER one whenever a slower
+            // worker's older batch finishes after a faster worker's newer
+            // one already got shown — visibly rewinding the raw panel mid
+            // Run. Only advance the preview (and its own time gate) on a
+            // batch that's actually further along than the last one shown;
+            // the SR preview below is unaffected — it accumulates all locs
+            // found so far regardless of which frame most recently finished.
+            if(batchImg && batchStart>lastPreviewFi){
+              lastRawMs=tp; lastPreviewFi=batchStart;
               const mx=detectSpots(batchImg,w,h,sigma,exactBP,mode,k,border).maxima;
               lastSpots=mx; lastFrame=batchImg; lastFrameIdx=batchStart;
               onRawPreview(batchImg,w,h,mx,batchLocs,batchStart,n);
