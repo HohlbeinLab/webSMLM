@@ -451,6 +451,9 @@ calibration…** for a 3D fit method.
   `calibration_methods` list (checks for the model blocks themselves), and
   warns if the currently-selected fit method needs a model the file doesn't
   contain.
+- Can also be **built headlessly**, from a bead z-stack instead of clicking
+  **Calibrate** — see `config.calibrationFile`/`--calibration <stack>.tif` in
+  §8 below.
 
 ---
 
@@ -483,6 +486,22 @@ const result = await window.webSMLM.analyze({
   back on headlessly, so a 3D method needs this explicitly; `analyze()`
   throws immediately (mirroring `run()`'s own precondition check) if the
   selected `method` needs a model the calibration doesn't contain.
+- `config.calibrationFile`/`config.calibrationFiles` — a bead z-stack
+  `File`/`File`s, alternative to `calibrationJson`: builds a **fresh**
+  calibration via `calibrationCore()` (the same DOM-free extraction
+  `runCore` got) before the main run, instead of loading one from JSON.
+  `config.calFirst`/`config.calLast` (not `PARAMS` entries — per-dataset
+  state, same exception as interactively) default to the whole calibration
+  stack when omitted; `calStep`/`calRef`/`calFixedXY` are ordinary `PARAMS`
+  fields. Anything not explicitly given gets an `onLog` warning naming the
+  default used — a silently-wrong `calStep` in particular would otherwise
+  produce a badly wrong calibration with no indication anything defaulted.
+  `calFixedXY` needs an interactive `locateBeadsForCalib()` session's fixed
+  bead positions and so isn't supported headlessly — leave it `false`.
+- `config.calibrationOnly` — build/return only the calibration, skipping the
+  main analysis entirely; `config.file`/`config.files` aren't required in
+  this mode. Returns `{calib, calibJsonText, logText}` only (every other
+  result field is omitted).
 - `config.correctDrift` / `config.computeNeNA` / `config.computeFRC` —
   booleans, not `PARAMS` entries, gating optional pipeline stages.
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
@@ -501,7 +520,12 @@ const result = await window.webSMLM.analyze({
   phase) — one text stream either way, interactive or headless, rather than
   progress being a numbers-only side channel invisible in the log.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag}`:
+**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText}`:
+- `calib`/`calibJsonText` are only non-null when `calibrationFile`/
+  `calibrationFiles` was given — a freshly-built calibration is worth
+  writing out for reuse (`calibJsonText` is the same `*.calib.json` text
+  `buildCalibJson()`/**Save calib.** produces), unlike one that was already
+  loaded from an existing `calibrationJson`.
 - `csvText`/`settingsText`/`logText` are ready-to-write strings — the same
   three artifacts (§4, §6) a UI session produces by hand via Save
   settings/Save data/Export log, assembled without ever touching those
@@ -600,8 +624,7 @@ wherever the shell happens to be, unless given explicitly. Any `--key=value`
 not listed in the script's header comment is passed straight through as a
 `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248 --camoffset=100`;
 `--correctDrift`/`--computeNeNA`/`--computeFRC` are bare boolean flags;
-`--calibration <file.json>` supplies `config.calibrationJson` for a 3D
-method; `--headed` opens a real (non-headless) window — note that the
+`--headed` opens a real (non-headless) window — note that the
 window itself stays visually idle throughout, since `analyze()` never
 touches the DOM while running, by design (that's what makes it safe to run
 headless in the first place). Progress and log lines instead stream to the
@@ -615,6 +638,31 @@ and every `onLog` line (file-load diagnostics, the `Run:`/timing summary,
 warnings, and the same decile-throttled `"  10%"`/`"  z 10%"`-style text the
 bar's own milestones correspond to) printed as it arrives — both also land
 verbatim in `log.txt`, so the terminal view and the saved log always match.
+
+`--calibration <path>` **overloads on file extension**: a `.json` supplies
+`config.calibrationJson` (used as-is), a `.tif`/`.tiff` supplies
+`config.calibrationFile` — a bead z-stack `analyze()` builds a **fresh**
+calibration from before the main run (via `calibrationCore()`), then also
+writes it out as `<name>_calib.json` alongside the usual output, so it can
+be reused without rebuilding:
+
+```bash
+node webSMLM-cli.mjs --file stack.tif --method mle3d --calibration calib.json --pxnm 160 --gain 0.1248 --camoffset 100
+node webSMLM-cli.mjs --file stack.tif --method mle3d --calibration beadstack.tif --calStep 10 --pxnm 160
+```
+
+`--calFirst`/`--calLast`/`--calStep`/`--calRef` set the calibration
+range/step/z=0 reference (same meaning as the interactive Calibrate
+controls); anything not given defaults (whole stack / `PARAMS.calStep`
+=10 nm / `PARAMS.calRef`=auto) with a warning printed/logged, since a
+silently-wrong `--calStep` in particular would otherwise produce a badly
+wrong calibration with no indication anything defaulted. `--calibrationOnly`
+builds/writes just the calibration and skips localizing entirely — `--file`
+isn't required in that mode:
+
+```bash
+node webSMLM-cli.mjs --calibration beadstack.tif --calibrationOnly --calStep 10 --pxnm 160 --out ./calib-out
+```
 
 **`tools/browser_sweep.py`** (stdlib-only Python) and **`tools/browser-sweep.sh`**
 (bash, with OS detection for macOS/Linux/Windows) — simpler alternatives

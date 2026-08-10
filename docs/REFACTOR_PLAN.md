@@ -264,27 +264,47 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   8. Extend the synthetic generator to also emit known z and known drift
      (ground truth), so 3D/drift/precision work can be validated
      quantitatively through the same regression check rather than by eye.
-  9. **Headless 3D calibration — not yet possible.** `analyze()`/the CLI can
-     only *consume* a calibration (`config.calibrationJson`, §7); there's no
-     headless equivalent of clicking **Calibrate** to *build* one from a
-     bead z-stack. `runCalibration()` (`webSMLM.html`, MODULE: 3D
-     calibration) would need the same DOM-decoupling `runCore`/`driftCore`
-     already got — it currently reads `$('calFirst')`/`$('calLast')`
-     directly and writes into module-level `calib`/`cal3d`/`cal3dW`/
-     `calMethods`/`srFull` rather than returning a value. Proposed shape,
-     matching the config-driven convention everywhere else: overload
-     `--calibration` on the CLI (and `config.calibrationJson`/a new
-     `config.calibrationFile` on `analyze()`) so a `.json` path is loaded
-     and used as today, while a `.tif`/`.tiff` path instead runs a new
-     `calibrationCore(config, stack)` (extracted from `runCalibration()`,
-     same treatment as `runCore`) over that stack and uses the freshly
-     built calibration for the rest of the pipeline — one flag, dispatched
-     on the file extension, rather than a separate calibration-only CLI
-     mode. A calibration-only run (no localization stack, just build +
-     write the `*.calib.json`) is also worth supporting explicitly, e.g. via
-     `--calibrationOnly`, since building a calibration to reuse across many
-     later runs is the common case, not building one incidentally alongside
-     a single analysis.
+  9. ✅ **Done.** Headless 3D calibration. `calibrationCore(config, stack,
+     hooks)` extracted from `runCalibration()` (same DOM-decoupling
+     `runCore`/`driftCore` got) — returns `{calib, cal3d, cal3dW,
+     calMethods}` instead of writing module-level globals; `runCalibration()`
+     is now a thin UI wrapper around it, same pattern as `run()`/`runCore`.
+     `buildCalibJson(calib)` similarly extracted from `exportCalibration()`
+     so the *.calib.json bytes are built in one place either way. Every
+     precondition/quality failure that used to just `log()` and return early
+     (bad frame range, missing fixed beads, too few usable spots, failed
+     quadratic fit) now throws instead, caught by the UI wrapper into the
+     same single "⚠ Calibration failed: …" line — matching `runCore`/
+     `analyze()`'s guard-throw convention, a single wording change from prior
+     behaviour, otherwise interactive behaviour is unchanged.
+
+     `analyze()` gained `config.calibrationFile`/`calibrationFiles` (a bead
+     z-stack, alternative to `calibrationJson`) and `config.calibrationOnly`
+     (build/return only the calibration, `config.file`/`files` not required).
+     `calFirst`/`calLast` (not `PARAMS` — per-dataset state, same exception
+     as interactively) default to the whole calibration stack when omitted;
+     any of `calFirst`/`calLast`/`calStep`/`calRef` not explicitly given logs
+     an `onLog` warning naming the default used — a silently-wrong `calStep`
+     in particular would otherwise produce a badly wrong calibration with no
+     indication anything defaulted (raised during implementation, before it
+     could ship as a silent footgun).
+
+     `tools/webSMLM-cli.mjs`'s `--calibration <path>` now overloads on file
+     extension exactly as proposed: `.json` → `calibrationJson` as before,
+     `.tif`/`.tiff` → uploaded via a second hidden `#calibrationFileInput`
+     and run through `calibrationCore()` before the main analysis, then
+     written out as `<name>_calib.json` alongside the usual output for
+     reuse. `--calibrationOnly` skips the main analysis and requires
+     `--calibration <stack>.tif` instead of `--file`. **Validated against
+     the real Leterrier 3D-STORM Z-calibration stack**: `--calibrationOnly`
+     produced a valid `*.calib.json` (both models present, `calibration_
+     methods` correctly populated — the real-world reference file for this
+     dataset has that array empty despite carrying both models, a
+     pre-existing quirk `calibFromJson()` already tolerated); using
+     `--calibration <same stack>.tif` at analysis time (building fresh
+     inline) produced the *exact same* 10,522 localizations and 3.4 nm
+     median CRLB as loading the pre-built `*.calib.json` directly — confirms
+     the two paths are equivalent, not just individually functional.
 
   **Autogenerate three artifacts.** A headless run should always produce
   the same three files the UI path produces by hand: **settings** (the
