@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10d · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10e · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1684,7 +1684,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10d
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10e
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5961,6 +5961,25 @@ async function analyzeBatch(files, config){
 }
 window.webSMLM = { analyze, analyzeBatch, defaultConfig };
 
+// autorun never touches lastResult/stack/the reconstruction (see runAutorun
+// below), so the raw/SR panels would otherwise just sit at their empty
+// startup black — silently, easy to mistake for "nothing happened" rather
+// than "this mode doesn't draw here by design". Fill both with a plain grey
+// placeholder + a one-line explanation instead, for the whole run.
+function showAutorunPlaceholder(){
+  const msg='autorun mode — no image output here; see the Log below / window.webSMLM.lastAutorunResult';
+  for(const id of ['raw','sr']){
+    const d=$(id); if(!d) continue;
+    const ctx=d.getContext('2d'), W=d.width, H=d.height;
+    ctx.fillStyle='#3a3a3a'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#c9c9c9'; ctx.font='14px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const words=msg.split(' '), lines=[]; let line='';
+    for(const w of words){ const t=line?line+' '+w:w; if(ctx.measureText(t).width>W-40 && line){ lines.push(line); line=w; } else line=t; }
+    if(line) lines.push(line);
+    const lh=20, y0=H/2-(lines.length-1)*lh/2;
+    lines.forEach((l,i)=>ctx.fillText(l, W/2, y0+i*lh));
+  }
+}
 // Layer 0 (v0.10.0 headless pipeline): ?autorun=1 in the URL runs analyze()
 // automatically once the page loads, using the REST of the query string as
 // a partial config — no extra tooling, works in any real double-clicked/
@@ -5975,6 +5994,8 @@ async function runAutorun(){
   const qp=new URLSearchParams(location.search);
   const av=qp.get('autorun');
   if(!qp.has('autorun') || av==='0' || av==='false') return;
+  showAutorunPlaceholder();
+  log('Autorun mode: the raw/reconstruction windows stay blank by design — inspect window.webSMLM.lastAutorunResult instead.');
   const config={};
   for(const [key,val] of qp){
     if(key==='autorun'||key==='fileUrl'||key==='calibrationUrl') continue;
