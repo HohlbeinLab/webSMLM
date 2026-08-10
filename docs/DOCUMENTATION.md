@@ -559,3 +559,43 @@ no driving script, works by just opening the link in any browser.
   falls through to a plain `<a download>` automatically.
 - `?autorun=0`/`?autorun=false` (or omitting it) skips autorun entirely —
   the page behaves exactly as it always has.
+
+### Command-line tools (`tools/`)
+
+Three scripts drive webSMLM from outside the browser entirely — none of
+them touch `webSMLM.html` itself, which stays dependency-free either way.
+
+**`tools/webSMLM-cli.mjs`** (Layer 2) — the recommended one: a real,
+**true-headless** Chromium via [Playwright](https://playwright.dev), no
+browser window ever opens. Uploads the input file directly
+(`page.setInputFiles()` — no HTTP server, no `fetch()`, no CORS concern at
+all, unlike autorun's `?fileUrl=`) and calls `analyze()` straight through
+`page.evaluate()`, so the result comes back as a normal return value —  no
+Downloads-folder polling, no fixed filenames, no guessing whether headless
+downloads work.
+
+```bash
+cd tools
+npm install                # once — also downloads Chromium for Playwright to drive
+node webSMLM-cli.mjs --file /path/to/stack.tif --pxnm 160 --method gaussmle
+```
+
+Writes `result.csv`, `settings.json`, `log.txt`, `reconstruction.png` and
+`summary.json` (localization count + timings + drift/NeNA/FRC results) to
+`--out` — which defaults to a `webSMLM-out` folder **next to `--file`**, not
+wherever the shell happens to be, unless given explicitly. Any `--key=value`
+not listed in the script's header comment is passed straight through as a
+`PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248 --camoffset=100`;
+`--correctDrift`/`--computeNeNA`/`--computeFRC` are bare boolean flags;
+`--calibration <file.json>` supplies `config.calibrationJson` for a 3D
+method; `--headed` opens a real (non-headless) window instead, useful for
+watching a run while debugging.
+
+**`tools/browser_sweep.py`** (stdlib-only Python) and **`tools/browser-sweep.sh`**
+(bash, with OS detection for macOS/Linux/Windows) — simpler alternatives
+that need no `npm install`, but drive a real *visible* browser (no true
+headless mode) through a sweep of one parameter's values (e.g. fit radius),
+via `?autorun=1&download=1&...` + polling the Downloads folder for the
+files it writes (see above). Good for "try several settings and compare
+timings" without installing anything; reach for the CLI instead for a
+single run, true headless operation, or CI.

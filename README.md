@@ -233,6 +233,27 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
 - σ_PSF is a fixed, user-supplied value, not estimated or calibrated from the
   data.
 
+## Advanced: scripting & headless analysis
+
+*(v0.10.0-dev — not everyone needs this; skip it if clicking through the UI
+already works for you.)* webSMLM also exposes a scriptable pipeline, for
+batch-processing files or driving a run without opening the app by hand.
+Full reference: [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §8.
+
+- **In the browser console**, `window.webSMLM.analyze(config)` runs the
+  whole load → detect/fit → drift pipeline and returns the CSV/log/settings
+  text and a reconstruction PNG directly — no clicking through the UI.
+- **A URL can trigger a run**: `webSMLM.html?autorun=1&fileUrl=...&pxnm=160`
+  runs `analyze()` the moment the page loads, using the query string as
+  settings; `&download=1` also saves the results as files.
+- **`tools/`** has three command-line options for running this from outside
+  the browser entirely, in increasing order of setup: `browser_sweep.py`
+  (Python, standard library only) or `browser-sweep.sh` (bash) both drive a
+  real, visible browser through a sweep of parameter values; `webSMLM-cli.mjs`
+  (Node.js + [Playwright](https://playwright.dev)) runs a single analysis
+  fully headless — no browser window ever opens — and is the most reliable
+  of the three. See each script's header comment for setup and usage.
+
 ## Roadmap
 
 Past releases — including implementation detail and notable rejected
