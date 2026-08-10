@@ -588,8 +588,15 @@ not listed in the script's header comment is passed straight through as a
 `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248 --camoffset=100`;
 `--correctDrift`/`--computeNeNA`/`--computeFRC` are bare boolean flags;
 `--calibration <file.json>` supplies `config.calibrationJson` for a 3D
-method; `--headed` opens a real (non-headless) window instead, useful for
-watching a run while debugging.
+method; `--headed` opens a real (non-headless) window — note that the
+window itself stays visually idle throughout, since `analyze()` never
+touches the DOM while running, by design (that's what makes it safe to run
+headless in the first place). Progress and log lines instead stream to the
+**terminal** live as the run progresses (`[0%]` … `[100%]` plus every log
+line, via `page.on('console')` — real-time, unlike `page.evaluate()`'s
+return value, which only arrives once the whole run is done), so
+`--headed` is really only useful for confirming the page loaded without
+error or for manually opening DevTools mid-run, not for watching progress.
 
 **`tools/browser_sweep.py`** (stdlib-only Python) and **`tools/browser-sweep.sh`**
 (bash, with OS detection for macOS/Linux/Windows) — simpler alternatives
