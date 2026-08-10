@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10o · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10p · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10o
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10p
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4711,35 +4711,40 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         catch(ex){ err=ex; inflight--; finish(); return; }
         tGet+=performance.now()-ta;
         // keep one frame back for the raw view: postMessage clones, so the
-        // main-thread copy stays valid after dispatch
+        // main-thread copy stays valid after dispatch. Fallback only (see
+        // onmessage below) — used if the loop ends before any preview fires.
         if(frames.length) shown={img:frames[0],fi:s};
+        // Remember THIS worker's own in-flight batch, so its onmessage below
+        // can pair its image with its OWN fit results exactly — matching
+        // against the module-level `shown` instead (tried first) doesn't
+        // work: with several workers continuously self-dispatching, `shown`
+        // is reassigned on every dispatch, which happens far more often than
+        // any one batch completes, so by the time ANY message arrives `shown`
+        // has almost always already raced ahead to a batch dispatched later
+        // (often not even started fitting yet) — the match essentially never
+        // hits on a real multi-worker run, only by luck on a tiny one.
+        wk._pendImg=frames[0]; wk._pendStart=s;
         // no transfer list: frames are cloned, so any RAM cache survives
         wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
       };
       pool.forEach(wk=>{
         wk.onmessage=ev=>{
           const d=ev.data, a=d.arr;
-          // Opportunistically collect this message's fits for whichever frame
-          // is CURRENTLY `shown` — cheap (bounded by one batch, not the whole
-          // run) but a best-effort match: `shown` moves on with every new
-          // dispatch, so a batch's results often arrive after `shown` has
-          // already advanced past its frame, in which case this stays empty
-          // and the preview below just shows ROIs only, same as before this
-          // existed. No worse than before on a miss, better on a hit.
-          let shownLocs=null;
+          const batchImg=wk._pendImg, batchStart=wk._pendStart;   // this worker's own just-completed batch
+          let batchLocs=null;
           for(let i=0;i<a.length;i+=12){ const L={x:a[i],y:a[i+1],photons:a[i+2],
               bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]};
             locs.push(L);
-            if(shown && L.frame===shown.fi) (shownLocs||(shownLocs=[])).push({x:L.x,y:L.y}); }
+            if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
           doneF+=d.count; processed=doneF; inflight--;
           onProgress(100*doneF/n);
           if(doneF-lastPrev>=100){                  // refresh both views, as the serial path does
             lastPrev=doneF; const tp=performance.now();
-            if(shown){                              // raw frame + detected ROIs (+ fits, when this message happened to have them)
-              const mx=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border).maxima;
-              lastSpots=mx; lastFrame=shown.img; lastFrameIdx=shown.fi;
-              onRawPreview(shown.img,w,h,mx,shownLocs,shown.fi,n);
+            if(batchImg){                           // this worker's own frame — image and fits guaranteed to match
+              const mx=detectSpots(batchImg,w,h,sigma,exactBP,mode,k,border).maxima;
+              lastSpots=mx; lastFrame=batchImg; lastFrameIdx=batchStart;
+              onRawPreview(batchImg,w,h,mx,batchLocs,batchStart,n);
             }
             if(locs.length && performance.now()-lastSrMs>previewInterval){ lastSrMs=performance.now();
               const tr=performance.now();
