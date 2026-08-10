@@ -537,16 +537,25 @@ no driving script, works by just opening the link in any browser.
 - The result isn't rendered into the page — it's logged (`result.logText`)
   and stashed on `window.webSMLM.lastAutorunResult` for inspection from the
   console or read back by a driving script via `page.evaluate()`.
-- `&download=1` also writes `webSMLM_autorun_result.json` (config used +
-  `nLocalizations` + `timings`) and `webSMLM_autorun_result.csv` (the
-  localizations, same as `result.csvText`) to the Downloads folder, under
-  **fixed filenames** every run. This is for a plain bash script that can't
-  reach into the page's JS heap the way `page.evaluate()` can, but *can*
-  poll the filesystem — see `tools/browser-sweep.sh`, a parameter-sweep
-  driver that opens a real browser once per value, waits for these files,
-  and collects them. Works dialog-free in every browser: `saveBlob()`'s
-  `showSaveFilePicker()` path (Chrome/Edge) requires a user gesture, which
-  autorun doesn't have, so it rejects and falls through to a plain
-  `<a download>` automatically.
+- `&download=1` also writes five files under **fixed filenames**, every
+  run, to the Downloads folder — the same three artifacts a UI session
+  produces by hand (`webSMLM_autorun_settings.json`, `_result.csv`,
+  `_log.txt`) plus a timing/config summary (`_result.json`: config used +
+  `nLocalizations` + `timings`) and the reconstruction
+  (`_reconstruction.png`, `result.reconstructionPng` decoded to a real
+  file). Written sequentially in that order, so a poller can watch for the
+  PNG (written last) as a proxy for "all five are done" — `saveBlob()`'s
+  `<a download>` fallback returns right after triggering the click, not
+  once the browser has actually finished writing the file. This is for a
+  plain script that can't reach into the page's JS heap the way
+  `page.evaluate()` can, but *can* poll the filesystem — see
+  `tools/browser-sweep.sh` (bash) or `tools/browser_sweep.py` (stdlib-only
+  Python, arguably the easier one to read — its `webbrowser` module
+  abstracts the per-OS launch command the bash version hand-rolls), both
+  parameter-sweep drivers that open a real browser once per value, wait for
+  these files, and collect them into a working folder. Works dialog-free in
+  every browser: `saveBlob()`'s `showSaveFilePicker()` path (Chrome/Edge)
+  requires a user gesture, which autorun doesn't have, so it rejects and
+  falls through to a plain `<a download>` automatically.
 - `?autorun=0`/`?autorun=false` (or omitting it) skips autorun entirely —
   the page behaves exactly as it always has.

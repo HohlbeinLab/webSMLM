@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10f · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10g · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1684,7 +1684,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10f
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10g
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -6032,6 +6032,16 @@ async function runAutorun(){
     // <a download> in every browser — see tools/browser-sweep.sh.
     const dl=qp.get('download');
     if(dl==='1'||dl==='true'){
+      // The same three artifacts a UI session produces by hand (settings/
+      // data/log — docs/REFACTOR_PLAN.md's "autogenerate three artifacts"
+      // note) plus a timing/config summary and the reconstruction PNG,
+      // every one under a FIXED filename so a driving script can poll for
+      // them by name. Written sequentially (not Promise.all) so they land
+      // in a predictable order — a poller should wait on the LAST one
+      // (…reconstruction.png) as a proxy for "everything is written",
+      // since saveBlob()'s <a download> fallback returns right after
+      // a.click(), not once the browser has actually finished writing the
+      // file to disk.
       const paramsOnly={}; for(const id in PARAMS) paramsOnly[id]=config[id];
       const summary={ config:paramsOnly, fileUrl, nLocalizations:result.locs.length,
                        timings:result.timings, userAgent:navigator.userAgent };
@@ -6039,7 +6049,13 @@ async function runAutorun(){
                       'webSMLM_autorun_result.json','JSON result summary','application/json','.json');
       await saveBlob(new Blob([result.csvText],{type:'text/csv;charset=utf-8'}),
                       'webSMLM_autorun_result.csv','CSV (ThunderSTORM)','text/csv','.csv');
-      log('  webSMLM_autorun_result.{json,csv} written to Downloads for a driving script to pick up.');
+      await saveBlob(new Blob([JSON.stringify(buildSettingsJson(paramsOnly),null,2)],{type:'application/json'}),
+                      'webSMLM_autorun_settings.json','JSON settings','application/json','.json');
+      await saveBlob(new Blob([result.logText],{type:'text/plain;charset=utf-8'}),
+                      'webSMLM_autorun_log.txt','Log (text)','text/plain','.txt');
+      const pngBlob=await (await fetch(result.reconstructionPng)).blob();   // fetch() decodes a data: URL into a Blob directly
+      await saveBlob(pngBlob,'webSMLM_autorun_reconstruction.png','PNG image','image/png','.png');
+      log('  webSMLM_autorun_{result.json,result.csv,settings.json,log.txt,reconstruction.png} written to Downloads.');
     }
   }catch(err){ log(`⚠ Autorun failed: ${err.name}: ${err.message}`); }
   finally{ setProg(null); }

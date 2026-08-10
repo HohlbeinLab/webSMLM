@@ -182,20 +182,40 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      Real data needs a real file, which argued against baking scenarios
      into the HTML at all. What got built instead, entirely outside
      `webSMLM.html`: **`&download=1`** on the existing `?autorun=1` (§8) —
-     writes `webSMLM_autorun_result.{json,csv}` under fixed filenames to
-     Downloads (dialog-free in every browser, since `saveBlob()`'s
-     `showSaveFilePicker()` path needs a user gesture autorun doesn't have,
-     so it falls through to a plain `<a download>`) — plus
-     **`tools/browser-sweep.sh`**, a bash driver that opens a real browser
-     once per value of a swept parameter (e.g. fit radius) against your
-     own local copy of a reference dataset, polls Downloads for the result
-     files, and collects them into a working folder with a summary CSV. No
-     browser-automation dependency to install; the tradeoff against a real
-     Layer 2 (below) is no true headless mode and reliance on the
-     Downloads-folder behaving predictably.
+     writes the same three artifacts a UI session produces by hand
+     (settings/CSV/log) plus a timing/config summary and the reconstruction
+     PNG, all under fixed filenames, to Downloads (dialog-free in every
+     browser, since `saveBlob()`'s `showSaveFilePicker()` path needs a user
+     gesture autorun doesn't have, so it falls through to a plain
+     `<a download>`) — plus two parameter-sweep drivers that open a real
+     browser once per value of a swept parameter (e.g. fit radius) against
+     your own local copy of a reference dataset, poll Downloads for the
+     result files, and collect them into a working folder with a summary
+     CSV: **`tools/browser-sweep.sh`** (bash, with OS detection —
+     macOS/Linux/Windows(Git Bash)/WSL — for the browser-launch command and
+     Downloads-folder path; only macOS can auto-close each tab between
+     runs, no cross-platform equivalent exists) and
+     **`tools/browser_sweep.py`** (stdlib-only Python; its `webbrowser`
+     module already abstracts the per-OS launch command, so it needs far
+     less platform branching — arguably the easier of the two to read).
+     Neither needs a dependency installed, but neither gets a true headless
+     mode either (see below) and both rely on the Downloads folder
+     behaving predictably — only the macOS path (both scripts) and the
+     core plumbing (Python's local HTTP server + Downloads-dir detection,
+     smoke-tested directly against this machine) are actually verified;
+     Linux/Windows/WSL support is best-effort and unverified.
+     **On headless**: real headless Chrome/Firefox exist (not Safari — no
+     headless mode at all), but bolting `--headless` onto either script
+     would be a guess, not a verified feature — historically headless
+     Chrome blocks file downloads by default unless a controlling script
+     explicitly enables them via the DevTools Protocol, and a bare
+     CLI-launched headless instance isn't held open the way a real
+     automation framework holds one open, so it may exit before the async
+     analyze() pipeline (fetch → detect/fit → download, seconds to minutes)
+     finishes. Both of those are exactly what Layer 2 (below) is for.
   6. Build the Playwright CLI (Layer 2): flag parsing → config object,
      `page.setInputFiles()` for the input stack(s), write `analyze()`'s
-     returned artifacts to `--out`. `tools/browser-sweep.sh` (step 5) covers
+     returned artifacts to `--out`. The two sweep scripts (step 5) cover
      the same parameter-sweep use case more simply already — reach for this
      instead when true headless/CI use, or reading results without relying
      on the Downloads folder, actually matters.
