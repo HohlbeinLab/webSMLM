@@ -511,3 +511,31 @@ multiple files with the same config (no per-file override yet). Sequential,
 not parallel — `getPool()`'s worker pool is memoised process-wide, so
 concurrent `analyze()` calls would contend for the same workers rather than
 speeding anything up. Fails fast: one bad file rejects the whole batch.
+
+### URL-param autorun (Layer 0)
+
+`webSMLM.html?autorun=1&fileUrl=https://.../stack.tif&pxnm=160&method=mle3d&...`
+runs `analyze()` automatically once the page finishes loading — no console,
+no driving script, works by just opening the link in any browser.
+
+- Every query-string key that matches a `PARAMS` id becomes that config
+  field, type-coerced the same way the registry describes it (`number` →
+  `+val`, `bool` → `val==='1'||val==='true'`, `enum` → the string as-is).
+  Unrecognised keys are silently ignored, same tolerance as a loaded
+  settings JSON.
+- `correctDrift`/`computeNeNA`/`computeFRC` work as `=1`/`=true` flags too,
+  same as passing them to `analyze()` directly.
+- `fileUrl` (required to actually run) and `calibrationJson` come from
+  **`fileUrl`/`calibrationUrl`** query params instead — both must be
+  fetchable URLs, not local paths (the browser has no way to name a local
+  file in a URL for security reasons; a driving script gets around this
+  entirely by supplying the file via `page.setInputFiles()` and calling
+  `analyze()` directly instead of using autorun). Both are fetched as a
+  `Blob`/parsed JSON respectively — a `Blob` is a drop-in for `analyze()`'s
+  `config.file`, since the loaders only need `.size`/`.slice()`/
+  `.arrayBuffer()`, all of which `Blob` has.
+- The result isn't rendered into the page — it's logged (`result.logText`)
+  and stashed on `window.webSMLM.lastAutorunResult` for inspection from the
+  console or read back by a driving script via `page.evaluate()`.
+- `?autorun=0`/`?autorun=false` (or omitting it) skips autorun entirely —
+  the page behaves exactly as it always has.

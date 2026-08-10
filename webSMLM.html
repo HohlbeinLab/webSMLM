@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10c · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10d · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1684,7 +1684,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10c
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10d
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5961,7 +5961,53 @@ async function analyzeBatch(files, config){
 }
 window.webSMLM = { analyze, analyzeBatch, defaultConfig };
 
-if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wireHelp); else wireHelp();
+// Layer 0 (v0.10.0 headless pipeline): ?autorun=1 in the URL runs analyze()
+// automatically once the page loads, using the REST of the query string as
+// a partial config — no extra tooling, works in any real double-clicked/
+// opened browser. A local file can't be named in a URL for security
+// reasons, so the input stack must be a fetchable ?fileUrl=... rather than
+// a local path; Layer 2 (a driving script) instead supplies the file via
+// page.setInputFiles() and calls analyze() directly through
+// page.evaluate(), sidestepping this restriction entirely — autorun is for
+// the "open this link, it just runs" case (e.g. the cross-browser benchmark
+// mode, docs/REFACTOR_PLAN.md step 5), not local-file batch processing.
+async function runAutorun(){
+  const qp=new URLSearchParams(location.search);
+  const av=qp.get('autorun');
+  if(!qp.has('autorun') || av==='0' || av==='false') return;
+  const config={};
+  for(const [key,val] of qp){
+    if(key==='autorun'||key==='fileUrl'||key==='calibrationUrl') continue;
+    const spec=PARAMS[key];
+    if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
+                          : spec.type==='enum' ? val : +val; continue; }
+    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC') config[key]=(val==='1'||val==='true');
+  }
+  const fileUrl=qp.get('fileUrl');
+  if(!fileUrl){ log('autorun=1 but no ?fileUrl= given — nothing to analyze.'); return; }
+  log(`\nAutorun: fetching ${fileUrl}…`);
+  try{
+    const resp=await fetch(fileUrl);
+    if(!resp.ok) throw new Error(`fetch failed: ${resp.status} ${resp.statusText}`);
+    config.file=await resp.blob();          // a Blob works as-is: loadTiffFile only needs .size/.slice()/.arrayBuffer()
+    const calibrationUrl=qp.get('calibrationUrl');
+    if(calibrationUrl){
+      const cresp=await fetch(calibrationUrl);
+      if(!cresp.ok) throw new Error(`calibration fetch failed: ${cresp.status} ${cresp.statusText}`);
+      config.calibrationJson=await cresp.json();
+    }
+    config.onProgress=p=>setProg(p);
+    const result=await window.webSMLM.analyze(config);
+    window.webSMLM.lastAutorunResult=result;   // inspectable from the console, or read back via page.evaluate()
+    log(result.logText);
+    log(`\nAutorun done: ${result.locs.length.toLocaleString()} localizations — result in window.webSMLM.lastAutorunResult.`);
+  }catch(err){ log(`⚠ Autorun failed: ${err.name}: ${err.message}`); }
+  finally{ setProg(null); }
+}
+window.webSMLM.runAutorun = runAutorun;   // exposed so a driving script can trigger/re-trigger it explicitly too
+
+function initPage(){ wireHelp(); runAutorun(); }
+if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',initPage); else initPage();
 
 </script>
 

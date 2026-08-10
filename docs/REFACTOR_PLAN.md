@@ -158,9 +158,19 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      state, so it's an exact apples-to-apples comparison) against the
      GATTA-PAINT dataset produced the same localization count as an
      interactive Localize with identical settings.
-  4. Add `?autorun=1&...` URL-param parsing (Layer 0) — buildable and
-     testable in any browser immediately, no new tooling, and exercises
-     `analyze()` end-to-end before Layer 2 exists.
+  4. ✅ **Done.** `?autorun=1&fileUrl=...&pxnm=...&...` (Layer 0, see
+     `docs/DOCUMENTATION.md` §8) runs `analyze()` automatically on page
+     load, using the query string as a partial config, type-coerced per
+     `PARAMS`. `fileUrl`/`calibrationUrl` are fetchable URLs, not local
+     paths (unavoidable browser security constraint) — fetched as a
+     `Blob`/parsed JSON, which `analyze()` accepts as-is. Result is logged
+     and stashed on `window.webSMLM.lastAutorunResult`, not auto-downloaded
+     or rendered — this is the "open this link, it just runs" case, not
+     local-file batch processing (that's Layer 2). Validated synthetically
+     (URL-param → config type-coercion and reserved-key filtering, against
+     a stubbed `fetch`/`analyze` — the three risky/new pieces: the no-op
+     guard, the missing-`fileUrl` error path, and full config resolution
+     all matched exactly); not yet tried against a real URL in a browser.
   5. Add `?bench=default` fixed-scenario mode on top of (4): dump a
      machine-readable JSON report (per-stage timings, worker utilisation,
      localization count, a result hash) — open the same URL in different
