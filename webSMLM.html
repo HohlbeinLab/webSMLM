@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.9.7 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10a · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1684,7 +1684,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.9.7 · proof-of-concept
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10a
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4519,123 +4519,126 @@ function currentThr(){
   return paramValue(id);
 }
 
-async function run(){
-  if(!stack){ log('No data loaded.'); return; }
-  stopRequested=false;
-  // lock the data sources too: swapping the stack mid-run would pull frames
-  // out from under the loop.
-  $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  let processed=0, stopped=false;
-  try{
-    const {w,h,n}=stack, px=paramValue('pxnm');   // read live, not the load-time snapshot stack.px was captured with
-    const sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1, method=paramValue('method');
-    const exactBP=paramValue('detection_DoG_exactbp');             // read once — not per frame
-    const mode=paramValue('detFilter');                // detection filter: wavelet / DoG / uniform box
-    const gain=paramValue('gain'), camoffset=paramValue('camoffset');   // ADU->photons, applied inside the fit (MLE's CRLB needs true photon units)
-    const eps=paramValue('mleEps');                                // MLE Newton-iteration convergence tolerance (px)
-    const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
-    // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
-    const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
-    const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
-    if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
-    const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':'Gaussian LS 2D';
-    const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1;
-    const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
-    log(`\nRun: ${n} frames · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
-    const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
-    const pool = await getPool();
-    // Workers only pay off when per-frame work clearly exceeds the cost of
-    // shipping a frame across the boundary; tiny frames stay single-threaded —
-    // UNLESS there are so many of them that the total volume is large anyway
-    // (e.g. the EPFL SMLM-challenge stacks: 64×64 px but ~20,000 frames). That
-    // second threshold is deliberately well above already-tuned small stacks
-    // like the 82×83 GATTA-PAINT crop (~14M total px, stays single-threaded —
-    // see experimental_data/README.md) so it only kicks in for genuinely long
-    // runs. All three thresholds: PARAMS.workerMin{Frames,PxFrame,TotalPx}.
-    const useWorkers = pool && pool.length>1 && n>=paramValue('workerMinFrames') &&
-      (w*h>=paramValue('workerMinPxFrame') || n*w*h>=paramValue('workerMinTotalPx'));
-    const t0=performance.now(); let lastYield=t0, previewMs=0, lastSrMs=0;
-    const SR_PREVIEW_MS=paramValue('srPreviewMs');   // reconstruction is expensive — preview at most ~1/s (raw stays frequent)
-    // Adaptive: a preview render's cost grows with the current locs count (it
-    // re-accumulates everything found so far) and the reconstruction canvas
-    // size, so a FIXED interval means preview overhead grows unboundedly over
-    // a long run (measured to reach 72% of total Run time on a 40,000-frame/
-    // 4M-localization run). previewInterval scales up after each render to
-    // ~10x its own cost, so previews stay frequent while cheap (early in a
-    // run) and self-throttle once they get expensive, capped at srPreviewMaxMs.
-    let previewInterval=SR_PREVIEW_MS;
-    const srPreviewMaxMs=paramValue('srPreviewMaxMs');
-    let tGet=0, tDetect=0, tFit=0, nCand=0;        // timing/candidate-count instrumentation
+// Pure(ish) detect+fit core, extracted from run() so it's callable with no
+// DOM present at all (Layer 1 of the v0.10.0 headless pipeline — see
+// docs/REFACTOR_PLAN.md). Takes an explicit `stack` (not the module-level
+// `stack` global) and a flat `config` object shaped like the PARAMS
+// registry (the same {id: value} shape Save/Load Settings already
+// round-trips) — extra/irrelevant keys are simply ignored, same tolerance
+// as a loaded settings JSON. zcal/wcal (3D calibration models) are passed
+// in pre-resolved rather than read from the cal3d/cal3dW globals, so
+// calibration STATE doesn't leak in either; a headless caller is
+// responsible for resolving them the same way run() does below.
+// Every DOM/UI side effect goes through `hooks`, all optional with safe
+// no-op defaults — onLog/onProgress/onRawPreview/onSrPreview mirror
+// log()/setProg()/drawRaw()+rawInfo/lastResult+rerender() respectively,
+// and shouldStop() replaces the module-level stopRequested flag. Returns
+// everything the caller needs to finish the job itself (set lastResult,
+// draw the final raw-panel overlay, update the stats bar, …).
+async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
+  const { onLog=()=>{}, onProgress=()=>{}, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
+  const {w,h,n}=stack, px=config.pxnm;
+  const sigma=config.psf, win=2*config.winr+1, method=config.method;
+  const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
+  const exactBP=config.detection_DoG_exactbp, mode=config.detFilter;
+  const gain=config.gain, camoffset=config.camoffset, eps=config.mleEps;
+  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':'Gaussian LS 2D';
+  const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
+  const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
+  onLog(`\nRun: ${n} frames · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
+  const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
+  const pool = await getPool();
+  // Workers only pay off when per-frame work clearly exceeds the cost of
+  // shipping a frame across the boundary; tiny frames stay single-threaded —
+  // UNLESS there are so many of them that the total volume is large anyway
+  // (e.g. the EPFL SMLM-challenge stacks: 64×64 px but ~20,000 frames). That
+  // second threshold is deliberately well above already-tuned small stacks
+  // like the 82×83 GATTA-PAINT crop (~14M total px, stays single-threaded —
+  // see experimental_data/README.md) so it only kicks in for genuinely long
+  // runs. All three thresholds: PARAMS.workerMin{Frames,PxFrame,TotalPx}.
+  const useWorkers = pool && pool.length>1 && n>=config.workerMinFrames &&
+    (w*h>=config.workerMinPxFrame || n*w*h>=config.workerMinTotalPx);
+  const t0=performance.now(); let lastYield=t0, previewMs=0, lastSrMs=0;
+  const SR_PREVIEW_MS=config.srPreviewMs;   // reconstruction is expensive — preview at most ~1/s (raw stays frequent)
+  // Adaptive: a preview render's cost grows with the current locs count (it
+  // re-accumulates everything found so far) and the reconstruction canvas
+  // size, so a FIXED interval means preview overhead grows unboundedly over
+  // a long run (measured to reach 72% of total Run time on a 40,000-frame/
+  // 4M-localization run). previewInterval scales up after each render to
+  // ~10x its own cost, so previews stay frequent while cheap (early in a
+  // run) and self-throttle once they get expensive, capped at srPreviewMaxMs.
+  let previewInterval=SR_PREVIEW_MS;
+  const srPreviewMaxMs=config.srPreviewMaxMs;
+  let tGet=0, tDetect=0, tFit=0, nCand=0;        // timing/candidate-count instrumentation
 
-    if(useWorkers){
-      // Aim for ~workerBatchTarget batches per worker. Too coarse and one slow core
-      // (E-cores on Apple Silicon are much slower than P-cores) strands the others
-      // waiting; too fine and the per-message overhead starts to show. All three
-      // knobs are PARAMS (no UI control yet — set via a loaded settings JSON) for
-      // experimenting with worker utilisation on a given machine/method.
-      const BATCH=Math.max(paramValue('workerBatchMin'), Math.min(paramValue('workerBatchMax'), Math.ceil(n/(pool.length*paramValue('workerBatchTarget')))));
-      log(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
-      let next=0, doneF=0, inflight=0, lastPrev=0, err=null, shown=null;
-      await new Promise(resolve=>{
-        const finish=()=>{ if(inflight===0 && (stopRequested||next>=n||err)) resolve(); };
-        // async because sliced stacks read their frames from disk. `next` is
-        // advanced and `inflight` incremented BEFORE the first await, so two
-        // concurrent dispatches can never claim the same frame range.
-        const dispatch=async wk=>{
-          if(err||stopRequested||next>=n){ finish(); return; }
-          const s=next, e=Math.min(n,s+BATCH); next=e;
-          inflight++;
-          const ta=performance.now();
-          let frames;
-          try{ frames=await stack.getFrames(s,e); }
-          catch(ex){ err=ex; inflight--; finish(); return; }
-          tGet+=performance.now()-ta;
-          // keep one frame back for the raw view: postMessage clones, so the
-          // main-thread copy stays valid after dispatch
-          if(frames.length) shown={img:frames[0],fi:s};
-          // no transfer list: frames are cloned, so any RAM cache survives
-          wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
-        };
-        pool.forEach(wk=>{
-          wk.onmessage=ev=>{
-            const d=ev.data, a=d.arr;
-            for(let i=0;i<a.length;i+=12) locs.push({x:a[i],y:a[i+1],photons:a[i+2],
-                bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]});
-            tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
-            doneF+=d.count; processed=doneF; inflight--;
-            setProg(100*doneF/n);
-            if(doneF-lastPrev>=100){                  // refresh both views, as the serial path does
-              lastPrev=doneF; const tp=performance.now();
-              if(shown){                              // raw frame + detected ROIs
-                const mx=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border).maxima;
-                drawRaw(shown.img,w,h,mx); lastSpots=mx; lastFrame=shown.img; lastFrameIdx=shown.fi;
-                $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${mx.length} spots`;
-              }
-              if(locs.length && performance.now()-lastSrMs>previewInterval){ lastSrMs=performance.now();
-                lastResult={locs,w,h,px,mag:paramValue('mag'),det:{sigma,k,win,border,exactBP,mode}};
-                const tr=performance.now(); rerender(true,true);
-                previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tr)*10)); }
-              previewMs+=performance.now()-tp;        // display only, not compute time
+  if(useWorkers){
+    // Aim for ~workerBatchTarget batches per worker. Too coarse and one slow core
+    // (E-cores on Apple Silicon are much slower than P-cores) strands the others
+    // waiting; too fine and the per-message overhead starts to show. All three
+    // knobs are PARAMS (no UI control yet — set via a loaded settings JSON) for
+    // experimenting with worker utilisation on a given machine/method.
+    const BATCH=Math.max(config.workerBatchMin, Math.min(config.workerBatchMax, Math.ceil(n/(pool.length*config.workerBatchTarget))));
+    onLog(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
+    let next=0, doneF=0, inflight=0, lastPrev=0, err=null, shown=null;
+    await new Promise(resolve=>{
+      const finish=()=>{ if(inflight===0 && (shouldStop()||next>=n||err)) resolve(); };
+      // async because sliced stacks read their frames from disk. `next` is
+      // advanced and `inflight` incremented BEFORE the first await, so two
+      // concurrent dispatches can never claim the same frame range.
+      const dispatch=async wk=>{
+        if(err||shouldStop()||next>=n){ finish(); return; }
+        const s=next, e=Math.min(n,s+BATCH); next=e;
+        inflight++;
+        const ta=performance.now();
+        let frames;
+        try{ frames=await stack.getFrames(s,e); }
+        catch(ex){ err=ex; inflight--; finish(); return; }
+        tGet+=performance.now()-ta;
+        // keep one frame back for the raw view: postMessage clones, so the
+        // main-thread copy stays valid after dispatch
+        if(frames.length) shown={img:frames[0],fi:s};
+        // no transfer list: frames are cloned, so any RAM cache survives
+        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
+      };
+      pool.forEach(wk=>{
+        wk.onmessage=ev=>{
+          const d=ev.data, a=d.arr;
+          for(let i=0;i<a.length;i+=12) locs.push({x:a[i],y:a[i+1],photons:a[i+2],
+              bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]});
+          tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
+          doneF+=d.count; processed=doneF; inflight--;
+          onProgress(100*doneF/n);
+          if(doneF-lastPrev>=100){                  // refresh both views, as the serial path does
+            lastPrev=doneF; const tp=performance.now();
+            if(shown){                              // raw frame + detected ROIs
+              const mx=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border).maxima;
+              lastSpots=mx; lastFrame=shown.img; lastFrameIdx=shown.fi;
+              onRawPreview(shown.img,w,h,mx,shown.fi,n);
             }
-            dispatch(wk);
-          };
-          wk.onerror=ev=>{ err=new Error('worker failed: '+(ev.message||'unknown')); finish(); };
+            if(locs.length && performance.now()-lastSrMs>previewInterval){ lastSrMs=performance.now();
+              const tr=performance.now();
+              onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
+              previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tr)*10)); }
+            previewMs+=performance.now()-tp;        // display only, not compute time
+          }
           dispatch(wk);
-        });
-        finish();                                    // handles n===0
+        };
+        wk.onerror=ev=>{ err=new Error('worker failed: '+(ev.message||'unknown')); finish(); };
+        dispatch(wk);
       });
-      if(err) throw err;
-      if(stopRequested) stopped=true;
-      // Batches complete out of order; sort so results don't depend on
-      // worker scheduling (stable sort keeps within-frame order).
-      locs.sort((p,q)=>p.frame-q.frame);
-      if(shown){ const tp=performance.now();       // display only — not compute time
-        lastFrame=shown.img; lastFrameIdx=shown.fi;
-        lastSpots=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border).maxima;
-        $('rawInfo').textContent=`frame ${shown.fi+1}/${n} — ${lastSpots.length} spots`;
-        previewMs+=performance.now()-tp; }
-    } else {
+      finish();                                    // handles n===0
+    });
+    if(err) throw err;
+    if(shouldStop()) stopped=true;
+    // Batches complete out of order; sort so results don't depend on
+    // worker scheduling (stable sort keeps within-frame order).
+    locs.sort((p,q)=>p.frame-q.frame);
+    if(shown){ const tp=performance.now();       // display only — not compute time
+      lastFrame=shown.img; lastFrameIdx=shown.fi;
+      lastSpots=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border).maxima;
+      onRawPreview(shown.img,w,h,lastSpots,shown.fi,n);
+      previewMs+=performance.now()-tp; }
+  } else {
     // Fetch in blocks rather than per frame: sliced stacks read from disk, so
     // one request per block instead of one per frame.
     const BLK=32;
@@ -4659,77 +4662,113 @@ async function run(){
         }
         tFit+=performance.now()-tc;
         if(fi % 100 === 0){                        // refresh both views every 100th frame
-          drawRaw(img,w,h,maxima); lastSpots=maxima; lastFrame=img; lastFrameIdx=fi;
-          $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`;
+          lastSpots=maxima; lastFrame=img; lastFrameIdx=fi;
+          onRawPreview(img,w,h,maxima,fi,n);
           if(locs.length && performance.now()-lastSrMs>previewInterval){   // live super-res preview, adaptively throttled
             const tp=performance.now(); lastSrMs=performance.now();
-            lastResult={locs,w,h,px,mag:paramValue('mag'),det:{sigma,k,win,border,exactBP,mode}};
-            rerender(true,true);
+            onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
             previewMs+=performance.now()-tp;       // don't charge preview to compute time
             previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
           }
         }
         processed=fi+1;
         if(performance.now()-lastYield > 50){      // yield on a time budget to keep the UI responsive
-          setProg(100*fi/n);
+          onProgress(100*fi/n);
           await tick(); lastYield=performance.now();
           // A Stop click can only be delivered while we're yielding, so this is
           // the earliest point it can be observed — no need to poll elsewhere.
-          if(stopRequested){ stopped=true; break outer; }
+          if(shouldStop()){ stopped=true; break outer; }
         }
       }
     }
-    }
-    setProg(stopped ? 100*processed/n : 100);
-    const dt=performance.now()-t0-previewMs;       // localization work only
-    const per=Math.max(1,processed);
+  }
+  onProgress(stopped ? 100*processed/n : 100);
+  const dt=performance.now()-t0-previewMs;       // localization work only
+  const per=Math.max(1,processed);
+  const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render), as shown in the Compute tile
 
-    lastResult={locs,w,h,px,mag:paramValue('mag'),det:{sigma,k,win,border,exactBP,mode}};
+  onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames in ${Math.round(runMs)} ms total (${Math.round(dt)} ms compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+  if((method==='gaussmle'||method==='mle3d')&&locs.length){                     // at-a-glance MLE confirmation + quality stat
+    const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
+    if(ps.length) onLog(`  ${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
+  // a timing breakdown, so you can see where the time actually goes.
+  // In parallel mode detect/fit are summed ACROSS workers, so they are CPU
+  // time and legitimately exceed the wall clock; report them as such.
+  // In parallel mode detect/fit are worker CPU (summed across workers) while
+  // frame access is main-thread time spent inside an await that overlaps other
+  // dispatches — not CPU, and not comparable. Keep them apart.
+  const base=useWorkers ? Math.max(tDetect+tFit,1e-9) : Math.max(dt,1e-9);
+  const pc=v=>(100*v/base).toFixed(0).padStart(2)+'%';
+  const ms=v=>Math.round(v).toLocaleString().padStart(7);
+  if(useWorkers) onLog(`  frame I/O   ${ms(tGet)} ms       (overlapped with compute, not CPU time)`);
+  else           onLog(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
+  onLog(`  detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
+  onLog(`  fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
+  // previewMs (SR/raw refresh during the Run) and the gap between runMs and
+  // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
+  // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
+  // a run where total >> compute is diagnosable instead of a mystery gap.
+  // Preview cost scales with the CURRENT locs count each time it fires, so on
+  // a long run with millions of localizations it can grow substantially by
+  // the end even though early previews were cheap.
+  if(previewMs>50) onLog(`  preview     ${ms(previewMs)} ms       (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
+  const otherMs=runMs-dt-previewMs;
+  if(otherMs>50) onLog(`  other       ${ms(otherMs)} ms       (pool setup, main-thread frame fetch/decode not itemised above)`);
+  if(useWorkers){
+    const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*dt,1e-9);
+    onLog(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(dt).toLocaleString()} ms wall).`);
+    onLog(`    Utilisation near 100% means workers stayed fed; low would mean they starved.`);
+    onLog(`    Note E-cores inflate measured CPU, so this is an upper bound.`);
+  }
+  if(stopped) onLog('Partial result shown — press “Localize” to start over.');
+
+  return { locs, w, h, n, px, mag:config.mag, det:{sigma,k,win,border,exactBP,mode},
+           method, label, processed, stopped, useWorkers,
+           lastSpots, lastFrame, lastFrameIdx,
+           timings:{tGet,tDetect,tFit,nCand,dt,previewMs,runMs,otherMs} };
+}
+
+// Thin UI wrapper around runCore(): resolves the live config/calibration
+// state from the DOM/globals, wires hooks that reproduce every DOM side
+// effect the old monolithic run() used to do inline, then applies runCore's
+// return value to the page. Interactive behaviour is unchanged — this is a
+// pure extraction (see docs/REFACTOR_PLAN.md, v0.10.0 step 1).
+async function run(){
+  if(!stack){ log('No data loaded.'); return; }
+  stopRequested=false;
+  // lock the data sources too: swapping the stack mid-run would pull frames
+  // out from under the loop.
+  $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  try{
+    const method=paramValue('method');
+    const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
+    if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
+    const config={}; for(const id in PARAMS) config[id]=paramValue(id);
+    const px=config.pxnm;   // read live, not the load-time snapshot stack.px was captured with
+    const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
+    // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
+    const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
+    const r = await runCore(config, stack, {zcal,wcal}, {
+      onLog: log,
+      onProgress: setProg,
+      shouldStop: () => stopRequested,
+      onRawPreview: (img,w,h,maxima,fi,n) => { drawRaw(img,w,h,maxima); $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`; },
+      // mag is read live (not from config) so a mid-Run magnification change
+      // is reflected in the very next preview, matching prior behaviour.
+      onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; rerender(true,true); },
+    });
+    lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det};
     rerender(true);
     // refresh the raw panel with the accepted localizations (magenta) overlaid,
     // now that lastResult exists so locsForFrame() can index them
-    if(lastFrame) drawRaw(lastFrame,w,h,lastSpots, lastFrameIdx>=0?locsForFrame(lastFrameIdx):null);
+    if(r.lastFrame) drawRaw(r.lastFrame,r.w,r.h,r.lastSpots, r.lastFrameIdx>=0?locsForFrame(r.lastFrameIdx):null);
 
-    $('saveBtn').disabled = locs.length===0; $('tableBtn').disabled = locs.length===0; $('driftBtn').disabled = locs.length===0;
-    $('nenaBtn').disabled = $('frcBtn').disabled = locs.length===0;
-    $('sFrames').textContent = stopped ? `${processed}/${n}` : n;
-    $('sLoc').textContent=locs.length.toLocaleString();
-    const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render), as shown in the Compute tile
-    $('sDens').textContent=(locs.length/per).toFixed(1); $('sTime').textContent=(runMs/1000).toFixed(1);
-    log(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames in ${Math.round(runMs)} ms total (${Math.round(dt)} ms compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
-    if((method==='gaussmle'||method==='mle3d')&&locs.length){                     // at-a-glance MLE confirmation + quality stat
-      const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
-      if(ps.length) log(`  ${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
-    // a timing breakdown, so you can see where the time actually goes.
-    // In parallel mode detect/fit are summed ACROSS workers, so they are CPU
-    // time and legitimately exceed the wall clock; report them as such.
-    // In parallel mode detect/fit are worker CPU (summed across workers) while
-    // frame access is main-thread time spent inside an await that overlaps other
-    // dispatches — not CPU, and not comparable. Keep them apart.
-    const base=useWorkers ? Math.max(tDetect+tFit,1e-9) : Math.max(dt,1e-9);
-    const pc=v=>(100*v/base).toFixed(0).padStart(2)+'%';
-    const ms=v=>Math.round(v).toLocaleString().padStart(7);
-    if(useWorkers) log(`  frame I/O   ${ms(tGet)} ms       (overlapped with compute, not CPU time)`);
-    else           log(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
-    log(`  detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
-    log(`  fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
-    // previewMs (SR/raw refresh during the Run) and the gap between runMs and
-    // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
-    // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
-    // a run where total >> compute is diagnosable instead of a mystery gap.
-    // Preview cost scales with the CURRENT locs count each time it fires, so on
-    // a long run with millions of localizations it can grow substantially by
-    // the end even though early previews were cheap.
-    if(previewMs>50) log(`  preview     ${ms(previewMs)} ms       (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
-    const otherMs=runMs-dt-previewMs;
-    if(otherMs>50) log(`  other       ${ms(otherMs)} ms       (pool setup, main-thread frame fetch/decode not itemised above)`);
-    if(useWorkers){
-      const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*dt,1e-9);
-      log(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(dt).toLocaleString()} ms wall).`);
-      log(`    Utilisation near 100% means workers stayed fed; low would mean they starved.`);
-      log(`    Note E-cores inflate measured CPU, so this is an upper bound.`);
-    }
-    if(stopped) log('Partial result shown — press “Localize” to start over.');
+    $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
+    $('nenaBtn').disabled = $('frcBtn').disabled = r.locs.length===0;
+    $('sFrames').textContent = r.stopped ? `${r.processed}/${r.n}` : r.n;
+    $('sLoc').textContent=r.locs.length.toLocaleString();
+    $('sDens').textContent=(r.locs.length/Math.max(1,r.processed)).toFixed(1); $('sTime').textContent=(r.timings.runMs/1000).toFixed(1);
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
