@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10a · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10b · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1684,7 +1684,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10a
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10b
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1855,6 +1855,19 @@ function paramValue(id){
   const raw = el ? parseFloat(el.value) : (id in paramOverrides ? paramOverrides[id] : spec.default);
   const v = isFinite(raw) ? raw : spec.default;
   return spec.int ? Math.round(v) : v;
+}
+
+// Snapshots every PARAMS entry's current value into one flat {id: value}
+// object — the config shape runCore()/driftCore() and Save settings all
+// share (v0.10.0 headless pipeline, docs/REFACTOR_PLAN.md). A headless
+// caller builds the same shape directly instead of calling paramValue().
+function buildConfigFromParams(){
+  const c={}; for(const id in PARAMS) c[id]=paramValue(id); return c;
+}
+// The Save-settings JSON shape, built from an already-resolved values
+// object (e.g. buildConfigFromParams()'s return) — pure, no DOM.
+function buildSettingsJson(values){
+  return { format:'webSMLM-settings', version:2, created:new Date().toISOString(), values };
 }
 
 // Registry → DOM: writes min/max/step/value (or checked, for booleans) onto
@@ -3392,10 +3405,12 @@ function precisionNm(sNm,aNm,N,bPh){
   const s2=sNm*sNm, a2=aNm*aNm;
   return Math.sqrt((s2+a2/12)/N + (8*Math.PI*s2*s2*bPh*bPh)/(a2*N*N));
 }
-async function exportCSV(){
-  if(!lastResult||!lastResult.locs.length){ log('Nothing to export — run localisations first.'); return; }
-  const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
-  const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
+// Pure: builds ThunderSTORM-compatible CSV text from a locs array. Returns
+// `parts` — an array of ~5000-row chunk strings, not one joined string, so
+// building a huge export never forces one giant string through JS string
+// concatenation; new Blob(parts,...) (or a headless caller's own writer)
+// consumes the chunks directly. No DOM, no Blob, no saveBlob.
+function buildCsvText(locs, px, sigPSF){
   const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
   const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
@@ -3426,6 +3441,13 @@ async function exportCSV(){
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
+  return { parts, has3d, hasZUnc, isClustered, nNoSigma };
+}
+async function exportCSV(){
+  if(!lastResult||!lastResult.locs.length){ log('Nothing to export — run localisations first.'); return; }
+  const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
+  const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
+  const {parts, isClustered, nNoSigma} = buildCsvText(locs, px, sigPSF);
   const blob=new Blob(parts,{type:'text/csv;charset=utf-8'});
   // name after the source stack: "foo.ome.tif" -> "foo_locs.csv"
   const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs.csv';
@@ -4025,7 +4047,7 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onPr
 }
 
 // z drift: the same intersection-maximization, but a 1-D search on z (nm).
-async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
+async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onLog=()=>{}){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const qd=1/binNm, R=Math.max(1,Math.round(roiNm/binNm));
@@ -4037,7 +4059,7 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
   let nz=0, ncl=0;
   for(const L of locs){ if(!isFinite(L.z)) continue; if(L.zClamped){ ncl++; continue; }
     nz++; let s=(L.frame/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
-  if(onProgress && ncl) log(`  z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
+  if(ncl) onLog(`  z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1,k*segFrames+segFrames/2));
   const addTo=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd); map.set(b,(map.get(b)||0)+1); } return map; };
   function bestShift(list,o,ref){
@@ -4066,51 +4088,66 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress){
   return {fdz, segdz:dz2, nSeg, nz, ncl};
 }
 
-let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
-async function correctDrift(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
-  const {locs,px}=lastResult;
+// Pure: runs AIM drift correction on `locs`, MUTATED IN PLACE (reversibly —
+// x0/y0/z0 preserve the pre-correction values, same contract as before).
+// config = {driftSeg, driftRoi, driftZ}. No DOM — onLog/onProgress mirror
+// runCore's hooks. Returns the drift result plus derived summary stats;
+// simulation-ground-truth scoring (simTrueDrift) stays in the wrapper below,
+// same reasoning as groundTruth in runCore/run() — it's a diagnostic tied to
+// a module-level global, not a core drift-correction concern.
+async function driftCore(locs, px, config, hooks={}){
+  const { onLog=()=>{}, onProgress=()=>{} } = hooks;
   // span the frames ACTUALLY analysed (present in the localizations), not the
   // stack length — a stopped run only covers part of the stack, and padding to
   // stack.n adds empty segments that corrupt the drift estimate.
   let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
-  const segF=paramValue('driftSeg'), roiNm=paramValue('driftRoi'), intD=15;
+  const segF=config.driftSeg, roiNm=config.driftRoi, intD=15;
   // Each run is INDEPENDENT: always estimate from the raw, uncorrected
   // localizations. If a previous correction is in place, restore the raw
   // coordinates first — otherwise a second run would estimate the residual of
   // the already-corrected data and under-correct. This makes it safe to sweep
   // segment size / search radius and compare results directly.
   for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
+  onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
+  const t0=performance.now();
+  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>onProgress(100*p));
+  // apply reversibly — keep the raw coordinates in x0/y0
+  for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
+    const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
+  // z drift (Phasor 3D): independent 1-D correction on z (nm)
+  const has3d=locs.some(L=>isFinite(L.z));
+  if(has3d && config.driftZ){
+    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>onProgress(100*p), onLog);
+    // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
+    // boundary, so it carries no drift and is excluded. A large clamped
+    // fraction means the sample's z-range exceeds the calibration: the
+    // in-range population is truncated and z-drift is under-estimated.
+    const clFrac=(dz.nz+dz.ncl)?dz.ncl/(dz.nz+dz.ncl):0;
+    if(clFrac>0.2) onLog(`  ⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
+    for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
+      L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,L.frame|0))]; }
+    d.fdz=dz.fdz;
+  }
+  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
+  for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
+    if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
+  onLog(`  drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm`+
+      (d.fdz?`, z ${(Math.max(...d.fdz)-Math.min(...d.fdz)).toFixed(0)} nm`:'')+` · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
+  return { drift:d, nFrames, ms:Math.round(performance.now()-t0) };
+}
+
+let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
+async function correctDrift(){
+  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
+  const {locs,px}=lastResult;
   $('driftBtn').disabled=true;
   try{
-    log(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
-    const t0=performance.now();
-    const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>setProg(100*p));
-    // apply reversibly — keep the raw coordinates in x0/y0
-    for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
-      const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
+    const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ')};
+    const {drift:d, nFrames} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg});
     lastDrift=d; lastResult.byFrame=null;          // positions changed
-    // z drift (Phasor 3D): independent 1-D correction on z (nm)
-    const has3d=locs.some(L=>isFinite(L.z));
-    if(has3d && paramValue('driftZ')){
-      const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>setProg(100*p));
-      // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
-      // boundary, so it carries no drift and is excluded. A large clamped
-      // fraction means the sample's z-range exceeds the calibration: the
-      // in-range population is truncated and z-drift is under-estimated.
-      const clFrac=(dz.nz+dz.ncl)?dz.ncl/(dz.nz+dz.ncl):0;
-      if(clFrac>0.2) log(`  ⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
-      for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
-        L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,L.frame|0))]; }
-      d.fdz=dz.fdz; lastResult.zr=null;
-    }
+    if(d.fdz) lastResult.zr=null;
     setProg(null);
     rerender(true);
-    let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
-    for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
-      if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
-    log(`  drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm`+
-        (d.fdz?`, z ${(Math.max(...d.fdz)-Math.min(...d.fdz)).toFixed(0)} nm`:'')+` · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
     if(simTrueDrift){                              // score against the simulator's ground truth
       // per-axis RMS after removing the best constant offset
       const rms=(rec,tru)=>{ let a=0,b=0; for(let f=0;f<nFrames;f++){a+=rec(f);b+=tru(f);} a/=nFrames;b/=nFrames;
@@ -4364,7 +4401,7 @@ function modeUncertaintyNm(locs, px){
   let best=0,bestI=0; for(let i=0;i<nb;i++) if(counts[i]>best){best=counts[i];bestI=i;}
   return lo+(bestI+0.5)*binW;
 }
-async function frcResolution(locs, px, mag, onProgress){
+async function frcResolution(locs, px, mag, onProgress, onLog=()=>{}){
   if(locs.length<200) return {err:`only ${locs.length.toLocaleString()} localizations — too few for FRC`};
   let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
   for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
@@ -4400,13 +4437,13 @@ async function frcResolution(locs, px, mag, onProgress){
       + ` precision (${modeNm.toFixed(1)} nm) — likely fit to spacing between distinct nearby molecules rather than`
       + ` real repeat-detections (common after temporal clustering, which removes those pairs by design)`;
   }
-  if(lpSrc==='NeNA') log(`  FRC target pixel size from NeNA precision: σ = ${lpNm.toFixed(1)} nm (binsize = σ/2). Diffusing/mobile`
+  if(lpSrc==='NeNA') onLog(`  FRC target pixel size from NeNA precision: σ = ${lpNm.toFixed(1)} nm (binsize = σ/2). Diffusing/mobile`
          + ` probes inflate σ via real motion between frames on top of localization error — coarsens this estimate,`
          + ` doesn't invalidate the FRC result itself.`);
   else if(lpSrc==='mode'){ const why=nenaRejectReason||(nenaR.err||'fit did not converge to a usable value');
-    log(`  NeNA precision ${nenaRejectReason?'rejected':'unavailable'}: ${why} — falling back to the mode of`
+    onLog(`  NeNA precision ${nenaRejectReason?'rejected':'unavailable'}: ${why} — falling back to the mode of`
       + ` per-localization precision: σ ≈ ${lpNm.toFixed(1)} nm (binsize = σ/2).`); }
-  else log(`  NeNA precision unavailable${nenaR.err?` (${nenaR.err})`:''} and too few localizations for a precision`
+  else onLog(`  NeNA precision unavailable${nenaR.err?` (${nenaR.err})`:''} and too few localizations for a precision`
          + ` histogram — falling back to reconstruction pixel size for FRC sampling.`);
   const targetPixNm = (lpNm!=null && isFinite(lpNm) && lpNm>0) ? lpNm/2 : px/mag;
   // N a power of 2, capped for compute. targetPixNm<=0/non-finite (shouldn't happen
@@ -4423,15 +4460,15 @@ async function frcResolution(locs, px, mag, onProgress){
   // Log the inputs, not just the result: pixNm = extPx·px/N, so whether it matches
   // the NeNA-derived target or has been coarsened by the 2048 cap is visible
   // directly, instead of only the (possibly surprising) end number.
-  log(`  field of view ${extPx.toFixed(0)} px (${(extPx*px/1000).toFixed(2)} µm) · target pixel ${targetPixNm.toFixed(1)} nm/px`
+  onLog(`  field of view ${extPx.toFixed(0)} px (${(extPx*px/1000).toFixed(2)} µm) · target pixel ${targetPixNm.toFixed(1)} nm/px`
     + (N<want ? ` (capped from ${want.toFixed(0)} px)` : ''));
-  log(`  sampling ${N}² px @ ${pixNm.toFixed(1)} nm/px (Nyquist ${(2*pixNm).toFixed(0)} nm)…`);
+  onLog(`  sampling ${N}² px @ ${pixNm.toFixed(1)} nm/px (Nyquist ${(2*pixNm).toFixed(0)} nm)…`);
   if(N<want){
     // 2048 px can cover at most 2048*targetPixNm nm of field of view at the
     // target resolution — independent of the current extPx, since want/N both
     // scale with it. Below that, cropping stops helping (want<2048 already).
     const maxFovNm=2048*targetPixNm;
-    log(`  target not reached — the 2048² cap only covers ${(maxFovNm/1000).toFixed(2)} µm of field of view at`
+    onLog(`  target not reached — the 2048² cap only covers ${(maxFovNm/1000).toFixed(2)} µm of field of view at`
       + ` this resolution; crop to that size (or smaller) with the crop tool to sample at the full ${targetPixNm.toFixed(1)} nm/px.`);
   }
   // reuse four Float32 buffers across splits — bounded, memory-light peak
@@ -4492,7 +4529,7 @@ async function computeFRC(){
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
     if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10, p=>setProg(100*p));
+    const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10, p=>setProg(100*p), log);
     setProg(null);
     if(r.err){ log('  '+r.err+'.'); return; }
     if(!isFinite(r.res)){
@@ -4744,7 +4781,7 @@ async function run(){
     const method=paramValue('method');
     const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
     if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
-    const config={}; for(const id in PARAMS) config[id]=paramValue(id);
+    const config=buildConfigFromParams();
     const px=config.pxnm;   // read live, not the load-time snapshot stack.px was captured with
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
@@ -5117,9 +5154,8 @@ $('setFile').addEventListener('change',async e=>{
   e.target.value='';
 });
 $('saveSetBtn').addEventListener('click',async()=>{
-  const values={};
-  for(const id in PARAMS) values[id]=paramValue(id);
-  const obj={ format:'webSMLM-settings', version:2, created:new Date().toISOString(), values };
+  const values=buildConfigFromParams();
+  const obj=buildSettingsJson(values);
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
   const saved=await saveBlob(blob,'webSMLM_settings.json','JSON settings','application/json','.json');
   if(saved){ log(`Saved settings as ${saved}:`); logParamValues(values); }
