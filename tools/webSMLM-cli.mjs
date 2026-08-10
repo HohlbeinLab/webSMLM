@@ -112,12 +112,22 @@ const LOG_TAG = ' WEBSMLM_LOG ';
 
 // A standard, in-place terminal progress bar (\r-overwrite, no new line per
 // update) — driven by onProgress, which fires as often as the run
-// naturally yields. Shows the most recent non-percentage log line next to
-// the bar as a "currently running" status (e.g. "Run: 161 frames · Gaussian
-// MLE 3D fit..." or "Drift correction (AIM): ..."), since those onLog lines
-// already read as a phase description. \x1b[K (erase to end of line) after
-// the content clears any leftover characters from a longer previous render,
-// so a shorter status string doesn't leave stale text trailing it.
+// naturally yields (during drift correction that's once per segment, often
+// many times a second — the bar itself is fine with that, \r is cheap).
+// Shows the most recent non-percentage log line next to the bar as a
+// "currently running" status (e.g. "Run: 161 frames · Gaussian MLE 3D
+// fit..." or "Drift correction (AIM): 100-frame segments, ..."), since
+// those onLog lines already read as a phase description. \x1b[K (erase to
+// end of line) after the content clears any leftover characters from a
+// longer previous render, so a shorter status string doesn't leave stale
+// text trailing it. Truncated to terminal width: an untruncated line that's
+// wider than the terminal WRAPS, and \r then only returns to the start of
+// the wrapped row, not the true line start — every high-frequency update
+// (again, drift correction is the worst case) then staircases down the
+// screen as a new "line" instead of overwriting, exactly the bug this bar
+// exists to avoid. columns is undefined when stdout isn't a TTY (piped/
+// redirected); 80 is a reasonable fallback there, though wrapping can't
+// actually happen in that case anyway.
 const BAR_WIDTH = 30;
 let barActive = false, currentPhase = '';
 function renderProgress(pct) {
@@ -125,7 +135,10 @@ function renderProgress(pct) {
   const filled = Math.round(BAR_WIDTH * p / 100);
   const bar = '#'.repeat(filled) + '-'.repeat(BAR_WIDTH - filled);
   const suffix = currentPhase ? `  ${currentPhase}` : '';
-  process.stdout.write(`\r  [${bar}] ${p.toFixed(0).padStart(3)}%${suffix}\x1b[K`);
+  let line = `  [${bar}] ${p.toFixed(0).padStart(3)}%${suffix}`;
+  const width = (process.stdout.columns || 80) - 1;   // 1-col margin: some terminals wrap AT the last column too
+  if (line.length > width) line = line.slice(0, Math.max(0, width - 1)) + '…';
+  process.stdout.write(`\r${line}\x1b[K`);
   barActive = true;
 }
 function printLine(text) {
