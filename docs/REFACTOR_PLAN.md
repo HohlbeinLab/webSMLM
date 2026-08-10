@@ -240,23 +240,25 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      called it; `analyze()` now runs the same check itself and logs the
      same warning into `logText`, confirmed by re-running the CLI.
      **Addendum, consistency fix**: `onLog`/`onProgress` hooks across the
-     pipeline (loaders, `runCore`, `driftCore`, `frcResolution`) now default
-     to the real interactive `log()`/`setProg()` instead of no-ops, so any
-     caller that doesn't override them mirrors the interactive Log window
-     exactly rather than going silent — this is the standing convention for
-     any future hook of this kind, not a one-off. Progress is also now
-     mirrored as decile-throttled text through the same `onLog` channel
-     (`"  10%"`, and `"  z 10%"` for drift's separate Z phase), not just the
-     separate numeric `onProgress` channel — `tools/webSMLM-cli.mjs` renders
-     `onProgress` as a live in-place terminal bar and prints `onLog` lines
-     (including those same decile lines) as they arrive, both also captured
-     in `log.txt`. Also fixed: `analyze()` was passing its 0–100-scale
-     `onProgress` unscaled into `nenaPrecision`/`frcResolution`, which report
-     progress as a 0–1 fraction internally — headless NeNA/FRC progress
-     would have read as permanently ~0%. Validated against the real
+     pipeline (loaders, `runCore`, `driftCore`, `frcResolution`,
+     `calibrationCore`) now default to the real interactive `log()`/
+     `setProg()` instead of no-ops, so any caller that doesn't override them
+     mirrors the interactive Log window exactly rather than going silent —
+     this is the standing convention for any future hook of this kind, not a
+     one-off. `onProgress` is the only progress channel — `onLog` carries
+     diagnostics/summaries only, no percentage text. Also fixed:
+     `analyze()` was passing its 0–100-scale `onProgress` unscaled into
+     `nenaPrecision`/`frcResolution`, which report progress as a 0–1
+     fraction internally — headless NeNA/FRC progress would have read as
+     permanently ~0%. `tools/webSMLM-cli.mjs` renders `onProgress` as a live
+     in-place (terminal-width-truncated — an untruncated line can exceed the
+     terminal width and wrap, and `\r` then only returns to the wrapped row,
+     not the true line start, making rapid updates during drift correction
+     look like a new line per step) terminal bar, with the most recent
+     `onLog` line shown next to it as a status. Validated against the real
      Leterrier 3D-STORM Z-calibration stack with `--correctDrift`: file-load
-     diagnostics, the bar, and the decile log lines (2D and Z phases
-     independently tracked) all streamed correctly with no garbling.
+     diagnostics and the bar (2D and Z phases) streamed correctly with no
+     garbling or wrap-induced staircasing.
   7. Regression check via `analyze()`: fixed-seed synthetic stack → assert
      localization count and RMS error within bounds. There is currently no
      automated test suite at all; this would be the first one, and it falls

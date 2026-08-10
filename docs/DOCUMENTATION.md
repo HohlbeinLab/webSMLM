@@ -511,14 +511,14 @@ const result = await window.webSMLM.analyze({
   live instead of waiting for the whole thing to finish and reading
   `result.logText` after the fact. Every hook inside the pipeline
   (`loadTiffFile`/`loadTiffSequence`, `runCore`, `driftCore`,
-  `frcResolution`) defaults to the real interactive `log()`/`setProg()` when
-  not given one explicitly, so nothing that would show in the interactive
-  Log window goes missing headlessly — `analyze()` just always supplies its
-  own collector, whether or not you also supply `onLog`. Progress is *also*
-  mirrored as decile-throttled text through this same channel (`"  10%"`,
-  `"  20%"`, …, and `"  z 10%"` etc. for drift correction's separate Z
-  phase) — one text stream either way, interactive or headless, rather than
-  progress being a numbers-only side channel invisible in the log.
+  `frcResolution`, `calibrationCore`) defaults to the real interactive
+  `log()`/`setProg()` when not given one explicitly, so nothing that would
+  show in the interactive Log window goes missing headlessly — `analyze()`
+  just always supplies its own collector, whether or not you also supply
+  `onLog`. `onLog` carries diagnostics/summaries only, not progress — a
+  numeric-only percentage adds nothing once read back as text (tried, then
+  reverted: it just repeated the same handful of numbers for every phase
+  with no other information), so `onProgress` is the only progress channel.
 
 **Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText}`:
 - `calib`/`calibJsonText` are only non-null when `calibrationFile`/
@@ -633,11 +633,13 @@ real-time, unlike `page.evaluate()`'s return value, which only arrives once
 the whole run is done — so `--headed` is really only useful for confirming
 the page loaded without error or for manually opening DevTools mid-run, not
 for watching progress. Two channels, both forwarded live: an in-place
-(`\r`-overwriting) terminal progress bar driven by every `onProgress` call,
-and every `onLog` line (file-load diagnostics, the `Run:`/timing summary,
-warnings, and the same decile-throttled `"  10%"`/`"  z 10%"`-style text the
-bar's own milestones correspond to) printed as it arrives — both also land
-verbatim in `log.txt`, so the terminal view and the saved log always match.
+(`\r`-overwriting, terminal-width-truncated) progress bar driven by every
+`onProgress` call, with the most recent `onLog` line shown next to it as a
+"currently running" status; every `onLog` line (file-load diagnostics, the
+`Run:`/timing summary, warnings) is also printed on its own line as it
+arrives and lands verbatim in `log.txt`, so the terminal view and the saved
+log always match — `onLog` carries no percentage text, `onProgress`/the bar
+is the only place progress shows.
 
 `--calibration <path>` **overloads on file extension**: a `.json` supplies
 `config.calibrationJson` (used as-is), a `.tif`/`.tiff` supplies
