@@ -171,13 +171,34 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      a stubbed `fetch`/`analyze` — the three risky/new pieces: the no-op
      guard, the missing-`fileUrl` error path, and full config resolution
      all matched exactly); not yet tried against a real URL in a browser.
-  5. Add `?bench=default` fixed-scenario mode on top of (4): dump a
-     machine-readable JSON report (per-stage timings, worker utilisation,
-     localization count, a result hash) — open the same URL in different
-     browsers and diff the JSON.
+  5. ✅ **Done, but differently than originally sketched here.** The
+     original idea was an in-page `?bench=default` fixed *synthetic*
+     scenario. Reconsidered: synthetic frames are generated in-memory and
+     so skip the TIFF decode path entirely — but that's exactly where most
+     of the cross-browser variance this project has actually measured
+     lives (`README.md`: "Browser matters... Safari, then Chrome, then
+     Firefox"; this session's own decode-fast-path work) — so a
+     synthetic-only benchmark would miss the more interesting signal.
+     Real data needs a real file, which argued against baking scenarios
+     into the HTML at all. What got built instead, entirely outside
+     `webSMLM.html`: **`&download=1`** on the existing `?autorun=1` (§8) —
+     writes `webSMLM_autorun_result.{json,csv}` under fixed filenames to
+     Downloads (dialog-free in every browser, since `saveBlob()`'s
+     `showSaveFilePicker()` path needs a user gesture autorun doesn't have,
+     so it falls through to a plain `<a download>`) — plus
+     **`tools/browser-sweep.sh`**, a bash driver that opens a real browser
+     once per value of a swept parameter (e.g. fit radius) against your
+     own local copy of a reference dataset, polls Downloads for the result
+     files, and collects them into a working folder with a summary CSV. No
+     browser-automation dependency to install; the tradeoff against a real
+     Layer 2 (below) is no true headless mode and reliance on the
+     Downloads-folder behaving predictably.
   6. Build the Playwright CLI (Layer 2): flag parsing → config object,
      `page.setInputFiles()` for the input stack(s), write `analyze()`'s
-     returned artifacts to `--out`.
+     returned artifacts to `--out`. `tools/browser-sweep.sh` (step 5) covers
+     the same parameter-sweep use case more simply already — reach for this
+     instead when true headless/CI use, or reading results without relying
+     on the Downloads folder, actually matters.
   7. Regression check via `analyze()`: fixed-seed synthetic stack → assert
      localization count and RMS error within bounds. There is currently no
      automated test suite at all; this would be the first one, and it falls
