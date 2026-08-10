@@ -233,11 +233,12 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      interactive log text, a valid 820×830 PNG); the `mle3d`-without-
      `calibrationJson` guard (added to `analyze()` in step 3) throws
      cleanly through to Node with a clear message and a non-zero exit
-     code, confirmed directly. One pre-existing gap surfaced by this test,
-     not fixed yet: `buildCsvText()` doesn't carry `exportCSV()`'s gain=1/
-     camoffset=0 warning (it lives in the wrapper, not the pure builder),
-     so a CLI run with no `--gain`/`--camoffset` silently reports raw ADU
-     as "photon" counts with no warning — worth fixing, not done here.
+     code, confirmed directly. This test also surfaced (and it's since been
+     fixed) that a CLI run with no `--gain`/`--camoffset` silently reported
+     raw ADU as "photon" counts with no warning — `exportCSV()`'s wrapper
+     had this check, but `analyze()` builds the CSV directly and never
+     called it; `analyze()` now runs the same check itself and logs the
+     same warning into `logText`, confirmed by re-running the CLI.
   7. Regression check via `analyze()`: fixed-seed synthetic stack → assert
      localization count and RMS error within bounds. There is currently no
      automated test suite at all; this would be the first one, and it falls
