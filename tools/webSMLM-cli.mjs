@@ -114,8 +114,8 @@ const LOG_TAG = ' WEBSMLM_LOG ';
 // update) — driven by onProgress, which fires as often as the run
 // naturally yields (during drift correction that's once per segment, often
 // many times a second — the bar itself is fine with that, \r is cheap).
-// Shows the most recent non-percentage log line next to the bar as a
-// "currently running" status (e.g. "Run: 161 frames · Gaussian MLE 3D
+// Shows the most recent onLog line next to the bar as a "currently
+// running" status (e.g. "Run: 161 frames · Gaussian MLE 3D
 // fit..." or "Drift correction (AIM): 100-frame segments, ..."), since
 // those onLog lines already read as a phase description. \x1b[K (erase to
 // end of line) after the content clears any leftover characters from a
@@ -145,14 +145,6 @@ function printLine(text) {
   if (barActive) { process.stdout.write('\n'); barActive = false; }
   console.log(text);
 }
-// The page's onLog carries both real diagnostic lines AND the throttled
-// decile progress text (e.g. "  10%", "  z 10%") added inside runCore/
-// driftCore/frcResolution/calibrationCore — that text mirrors the
-// interactive Log window and always lands in log.txt via result.logText,
-// but on the terminal it's pure noise once there's already a live bar
-// showing the same percentage: printing it forces the bar off its line for
-// no new information. Skip only those from the live terminal view.
-const PROGRESS_TEXT_RE = /^\s*(?:z\s+)?\d{1,3}%$/;
 
 console.log(`Launching Chromium (${opts.headed ? 'headed' : 'headless'})...`);
 const browser = await chromium.launch({ headless: !opts.headed });
@@ -162,7 +154,6 @@ page.on('console', msg => {
   if (text.startsWith(PROGRESS_TAG)) renderProgress(+text.slice(PROGRESS_TAG.length));
   else if (text.startsWith(LOG_TAG)) {
     const line = text.slice(LOG_TAG.length);
-    if (PROGRESS_TEXT_RE.test(line)) return;   // bar already shows this
     currentPhase = line.trim();
     printLine(line);
   }
@@ -206,9 +197,8 @@ try {
     // eventual return value below, which only arrives once fully done.
     // onProgress is forwarded unthrottled: the Node side renders it as an
     // in-place bar (cheap to update often, unlike printing a new line per
-    // tick), while onLog already carries its own throttled "  10%" text
-    // lines (added inside runCore/driftCore/frcResolution/calibrationCore)
-    // as the permanent record written to log.txt.
+    // tick); onLog carries only real diagnostic/summary text, no
+    // percentage lines — the bar is the only place progress shows.
     config.onProgress = pct => console.log(progressTag + pct);
     config.onLog = m => console.log(logTag + m);
     const r = await window.webSMLM.analyze(config);

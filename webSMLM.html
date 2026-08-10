@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10l · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10m · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10l
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10m
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3781,9 +3781,6 @@ async function locateBeadsForCalib(){
 // matching runCore/analyze()'s guard-throw convention.
 async function calibrationCore(config, stack, hooks={}){
   const { onLog=log, onProgress=setProg, onRawPreview=()=>{} } = hooks;
-  let lastLoggedDecile=-10;
-  const reportProgress=pct=>{ onProgress(pct);
-    const d=Math.floor(pct/10)*10; if(d>lastLoggedDecile && d>=0){ lastLoggedDecile=d; onLog(`  ${d}%`); } };
   const first=Math.max(1,config.calFirst|0), last=Math.min(stack.n,config.calLast|0);
   const step=config.calStep, refFr=config.calRef;
   if(last<=first) throw new Error('last frame must exceed first');
@@ -3818,10 +3815,10 @@ async function calibrationCore(config, stack, hooks={}){
     }
     if(performance.now()-lastYield>50){
       onRawPreview(img,w,h,maxima,frameLocs,fi,last);
-      reportProgress(100*(fi-first+1)/(last-first+1)); await tick(); lastYield=performance.now();
+      onProgress(100*(fi-first+1)/(last-first+1)); await tick(); lastYield=performance.now();
     }
   }
-  reportProgress(100);
+  onProgress(100);
   if(pts.length<12) throw new Error(`Only ${pts.length} usable spots — lower the threshold or widen the range`);
   // quality filter: drop fits that hit the σ clamp or have a high relative residual
   const rr=pts.map(p=>p.rrel).slice().sort((a,b)=>a-b), rcut=Math.max(0.05, 3*(rr[rr.length>>1]||0));
@@ -4166,13 +4163,8 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onL
 // a module-level global, not a core drift-correction concern.
 async function driftCore(locs, px, config, hooks={}){
   // Defaults mirror the real log()/setProg() (see runCore's comment on the
-  // same rule). Progress goes through onLog as text too, throttled to
-  // whole 10%-steps, one independent decile-tracker per phase (2D, then Z)
-  // so the Z pass's own 0%→100% text logs correctly instead of starting
-  // already "past" wherever the 2D pass left off.
+  // same rule).
   const { onLog=log, onProgress=setProg } = hooks;
-  const makeReporter=prefix=>{ let last=-10; return pct=>{ onProgress(pct);
-    const d=Math.floor(pct/10)*10; if(d>last && d>=0){ last=d; onLog(`  ${prefix}${d}%`); } }; };
   // span the frames ACTUALLY analysed (present in the localizations), not the
   // stack length — a stopped run only covers part of the stack, and padding to
   // stack.n adds empty segments that corrupt the drift estimate.
@@ -4186,16 +4178,14 @@ async function driftCore(locs, px, config, hooks={}){
   for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
   onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
   const t0=performance.now();
-  const report2D=makeReporter('');
-  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>report2D(100*p));
+  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>onProgress(100*p));
   // apply reversibly — keep the raw coordinates in x0/y0
   for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
     const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
   // z drift (Phasor 3D): independent 1-D correction on z (nm)
   const has3d=locs.some(L=>isFinite(L.z));
   if(has3d && config.driftZ){
-    const reportZ=makeReporter('z ');
-    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>reportZ(100*p), onLog);
+    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>onProgress(100*p), onLog);
     // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
     // boundary, so it carries no drift and is excluded. A large clamped
     // fraction means the sample's z-range exceeds the calibration: the
@@ -4555,12 +4545,7 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
   // reuse four Float32 buffers across splits — bounded, memory-light peak
   const A=new Float32Array(N*N), B=new Float32Array(N*N), ai=new Float32Array(N*N), bi=new Float32Array(N*N);
   const res=[]; let curve=null, step=0; const nStep=nSplit*2;
-  // Progress as text through onLog too, same rule as runCore/driftCore —
-  // throttled to whole 10%-steps so it's a few log lines, not a flood.
-  let lastLoggedDecile=-10;
-  const tick2=async()=>{ if(onProgress){ const pct=100*++step/nStep; onProgress(pct/100);
-    const d=Math.floor(pct/10)*10; if(d>lastLoggedDecile && d>=0){ lastLoggedDecile=d; onLog(`  ${d}%`); }
-    await tick(); } };
+  const tick2=async()=>{ if(onProgress){ onProgress(++step/nStep); await tick(); } };
   for(let s=0;s<nSplit;s++){
     A.fill(0); B.fill(0); ai.fill(0); bi.fill(0);
     for(const L of locs){ const ix=Math.min(N-1,Math.max(0,((L.x-xmin)/extPx*N)|0)), iy=Math.min(N-1,Math.max(0,((L.y-ymin)/extPx*N)|0));
@@ -4667,15 +4652,6 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // stays no-op too (no generic "was Stop clicked" outside that same
   // wrapper's stopRequested global).
   const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
-  // Progress as TEXT, through the same onLog channel everything else uses —
-  // not a separate, log-invisible side channel — so it shows up in logText/
-  // the interactive Log window/a driving script's live stream identically,
-  // whatever it's watching. Throttled to whole 10%-steps (unlike onProgress
-  // itself, called as often as the loop naturally yields) so it reads as a
-  // handful of log lines, not a flood.
-  let lastLoggedDecile=-10;
-  const reportProgress=pct=>{ onProgress(pct);
-    const d=Math.floor(pct/10)*10; if(d>lastLoggedDecile && d>=0){ lastLoggedDecile=d; onLog(`  ${d}%`); } };
   const {w,h,n}=stack, px=config.pxnm;
   const sigma=config.psf, win=2*config.winr+1, method=config.method;
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
@@ -4746,7 +4722,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
               bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]});
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
           doneF+=d.count; processed=doneF; inflight--;
-          reportProgress(100*doneF/n);
+          onProgress(100*doneF/n);
           if(doneF-lastPrev>=100){                  // refresh both views, as the serial path does
             lastPrev=doneF; const tp=performance.now();
             if(shown){                              // raw frame + detected ROIs
@@ -4812,7 +4788,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         }
         processed=fi+1;
         if(performance.now()-lastYield > 50){      // yield on a time budget to keep the UI responsive
-          reportProgress(100*fi/n);
+          onProgress(100*fi/n);
           await tick(); lastYield=performance.now();
           // A Stop click can only be delivered while we're yielding, so this is
           // the earliest point it can be observed — no need to poll elsewhere.
@@ -4821,7 +4797,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       }
     }
   }
-  reportProgress(stopped ? 100*processed/n : 100);
+  onProgress(stopped ? 100*processed/n : 100);
   const dt=performance.now()-t0-previewMs;       // localization work only
   const per=Math.max(1,processed);
   const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render), as shown in the Compute tile
