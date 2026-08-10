@@ -213,12 +213,31 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      automation framework holds one open, so it may exit before the async
      analyze() pipeline (fetch → detect/fit → download, seconds to minutes)
      finishes. Both of those are exactly what Layer 2 (below) is for.
-  6. Build the Playwright CLI (Layer 2): flag parsing → config object,
-     `page.setInputFiles()` for the input stack(s), write `analyze()`'s
-     returned artifacts to `--out`. The two sweep scripts (step 5) cover
-     the same parameter-sweep use case more simply already — reach for this
-     instead when true headless/CI use, or reading results without relying
-     on the Downloads folder, actually matters.
+  6. ✅ **Done.** `tools/webSMLM-cli.mjs` + `tools/package.json` (Playwright,
+     scoped to `tools/` — `webSMLM.html` itself stays dependency-free).
+     `--file`/`--calibration` upload via `page.setInputFiles()` on a
+     dedicated `#analyzeFileInput` (deliberately separate from the real
+     `#file` input, which has its own `change` listener that would
+     otherwise redundantly re-decode the same TIFF into the unrelated
+     `stack` global); any other `--key=value` becomes a `PARAMS` override,
+     type-coerced inside `page.evaluate()` against the page's own live
+     `PARAMS` (no duplicated/driftable coercion logic on the Node side).
+     `analyze()`'s result comes back as a normal return value over the CDP
+     connection Playwright already holds — no Downloads-folder polling, no
+     fixed filenames, no guessing whether headless downloads work, unlike
+     the two sweep scripts (step 5). `--out` defaults to a folder next to
+     `--file`, not the shell's CWD. **Validated directly against real data
+     — true headless, no `--headed` needed**: 10,799 localizations from the
+     GATTA-PAINT stack in 968 ms, all 5 output files written correctly
+     (`result.csv` in the same ThunderSTORM format, `log.txt` matching the
+     interactive log text, a valid 820×830 PNG); the `mle3d`-without-
+     `calibrationJson` guard (added to `analyze()` in step 3) throws
+     cleanly through to Node with a clear message and a non-zero exit
+     code, confirmed directly. One pre-existing gap surfaced by this test,
+     not fixed yet: `buildCsvText()` doesn't carry `exportCSV()`'s gain=1/
+     camoffset=0 warning (it lives in the wrapper, not the pure builder),
+     so a CLI run with no `--gain`/`--camoffset` silently reports raw ADU
+     as "photon" counts with no warning — worth fixing, not done here.
   7. Regression check via `analyze()`: fixed-seed synthetic stack → assert
      localization count and RMS error within bounds. There is currently no
      automated test suite at all; this would be the first one, and it falls
