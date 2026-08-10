@@ -487,6 +487,19 @@ const result = await window.webSMLM.analyze({
   booleans, not `PARAMS` entries, gating optional pipeline stages.
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
   be interactively (0–100), for a driving script's own progress reporting.
+- `config.onLog(msg)` — optional, called for every line `analyze()` would
+  otherwise only collect into `logText` — a driving script can watch the run
+  live instead of waiting for the whole thing to finish and reading
+  `result.logText` after the fact. Every hook inside the pipeline
+  (`loadTiffFile`/`loadTiffSequence`, `runCore`, `driftCore`,
+  `frcResolution`) defaults to the real interactive `log()`/`setProg()` when
+  not given one explicitly, so nothing that would show in the interactive
+  Log window goes missing headlessly — `analyze()` just always supplies its
+  own collector, whether or not you also supply `onLog`. Progress is *also*
+  mirrored as decile-throttled text through this same channel (`"  10%"`,
+  `"  20%"`, …, and `"  z 10%"` etc. for drift correction's separate Z
+  phase) — one text stream either way, interactive or headless, rather than
+  progress being a numbers-only side channel invisible in the log.
 
 **Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag}`:
 - `csvText`/`settingsText`/`logText` are ready-to-write strings — the same
@@ -592,11 +605,16 @@ method; `--headed` opens a real (non-headless) window — note that the
 window itself stays visually idle throughout, since `analyze()` never
 touches the DOM while running, by design (that's what makes it safe to run
 headless in the first place). Progress and log lines instead stream to the
-**terminal** live as the run progresses (`[0%]` … `[100%]` plus every log
-line, via `page.on('console')` — real-time, unlike `page.evaluate()`'s
-return value, which only arrives once the whole run is done), so
-`--headed` is really only useful for confirming the page loaded without
-error or for manually opening DevTools mid-run, not for watching progress.
+**terminal** live as the run progresses, via `page.on('console')` —
+real-time, unlike `page.evaluate()`'s return value, which only arrives once
+the whole run is done — so `--headed` is really only useful for confirming
+the page loaded without error or for manually opening DevTools mid-run, not
+for watching progress. Two channels, both forwarded live: an in-place
+(`\r`-overwriting) terminal progress bar driven by every `onProgress` call,
+and every `onLog` line (file-load diagnostics, the `Run:`/timing summary,
+warnings, and the same decile-throttled `"  10%"`/`"  z 10%"`-style text the
+bar's own milestones correspond to) printed as it arrives — both also land
+verbatim in `log.txt`, so the terminal view and the saved log always match.
 
 **`tools/browser_sweep.py`** (stdlib-only Python) and **`tools/browser-sweep.sh`**
 (bash, with OS detection for macOS/Linux/Windows) — simpler alternatives
