@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10k · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10l · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1479,6 +1479,10 @@ X.B(E,Y);return E}return J}())
            triggers #file's own change handler (which would load the same
            TIFF a second time, redundantly, into the unrelated `stack` global). -->
       <input type="file" id="analyzeFileInput" hidden>
+      <!-- Same conduit, for a --calibration <stack>.tif upload (build a fresh
+           calibration headlessly instead of loading a *.calib.json) — see
+           analyze()'s config.calibrationFile/calibrationFiles below. -->
+      <input type="file" id="calibrationFileInput" multiple hidden>
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
         <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
@@ -1692,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10k
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10l
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3758,107 +3762,153 @@ async function locateBeadsForCalib(){
   }catch(err){ log(`⚠ Locate beads failed: ${err.name}: ${err.message}`); }
 }
 
+// Pure detect+fit core for building an astigmatic 3D calibration from a bead
+// z-stack, extracted from runCalibration() (same treatment runCore() got —
+// v0.10.0 headless pipeline, docs/REFACTOR_PLAN.md step 9). Takes an
+// explicit `stack` (not the module-level stack global) and a flat `config`
+// object shaped like the PARAMS registry, plus calFirst/calLast/sourceFile/
+// calFixedPts — not PARAMS entries, the same per-dataset-state exception
+// buildConfigFromParams() already carves out for calFirst/calLast
+// interactively (calFixedPts is locateBeadsForCalib()'s output, supplied by
+// the caller when config.calFixedXY is set — there's no fixed-bead
+// composite to build headlessly without a live raw-panel session). onLog/
+// onProgress default to the real log()/setProg() (mirrors every other core
+// function's hook convention); onRawPreview stays no-op by default (needs
+// DOM state only a UI wrapper can construct). Throws on every precondition/
+// quality failure runCalibration() used to just log() and return early on
+// (frame range, missing fixed beads, too few usable spots, failed
+// quadratic fit) — a real rejected promise instead of a silent no-op,
+// matching runCore/analyze()'s guard-throw convention.
+async function calibrationCore(config, stack, hooks={}){
+  const { onLog=log, onProgress=setProg, onRawPreview=()=>{} } = hooks;
+  let lastLoggedDecile=-10;
+  const reportProgress=pct=>{ onProgress(pct);
+    const d=Math.floor(pct/10)*10; if(d>lastLoggedDecile && d>=0){ lastLoggedDecile=d; onLog(`  ${d}%`); } };
+  const first=Math.max(1,config.calFirst|0), last=Math.min(stack.n,config.calLast|0);
+  const step=config.calStep, refFr=config.calRef;
+  if(last<=first) throw new Error('last frame must exceed first');
+  const {w,h}=stack, px=config.pxnm, sigma=config.psf, win=2*config.winr+1,
+        exactBP=config.detection_DoG_exactbp, mode=config.detFilter, border=(win-1)/2+1;
+  const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[mode];
+  const fixedXY=config.calFixedXY, calFixedPts=config.calFixedPts||null;
+  if(fixedXY && !(calFixedPts&&calFixedPts.length)) throw new Error('Fix bead x,y is on but no beads are located yet — check the range/threshold');
+  onLog(`\nCalibration: frames ${first}–${last} · z-step ${step} nm · win ${win} · k ${k}`+
+      (fixedXY?` · ${calFixedPts.length} fixed bead(s)`:''));
+  const pts=[]; let lastYield=performance.now();               // {fi, sx, sy, pr, rrel}
+  for(let fi=first-1; fi<last; fi++){
+    const img=(await stack.getFrames(fi,fi+1))[0];
+    const maxima = fixedXY ? calFixedPts.map(p=>[Math.round(p.x),Math.round(p.y)]) : detectSpots(img,w,h,sigma,exactBP,mode,k,border).maxima;
+    const frameLocs=[];
+    if(fixedXY){
+      for(const p of calFixedPts){
+        const cx=Math.round(p.x), cy=Math.round(p.y);
+        if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // bead too close to this frame's edge
+        const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,p.x,p.y,win,sigma); if(!L) continue;
+        const P=phasorFit(img,w,h,cx,cy,win);
+        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
+        frameLocs.push({x:L.x,y:L.y});
+      }
+    } else {
+      for(const [cx,cy] of maxima){
+        const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
+        const P=phasorFit(img,w,h,cx,cy,win);
+        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
+        frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
+      }
+    }
+    if(performance.now()-lastYield>50){
+      onRawPreview(img,w,h,maxima,frameLocs,fi,last);
+      reportProgress(100*(fi-first+1)/(last-first+1)); await tick(); lastYield=performance.now();
+    }
+  }
+  reportProgress(100);
+  if(pts.length<12) throw new Error(`Only ${pts.length} usable spots — lower the threshold or widen the range`);
+  // quality filter: drop fits that hit the σ clamp or have a high relative residual
+  const rr=pts.map(p=>p.rrel).slice().sort((a,b)=>a-b), rcut=Math.max(0.05, 3*(rr[rr.length>>1]||0));
+  const good=pts.filter(p=> p.sx>0.55&&p.sx<5.9&&p.sy>0.55&&p.sy<5.9 && p.rrel<rcut);
+  onLog(`  ${pts.length} spots detected, ${good.length} pass quality filter.`);
+  // absolute z per frame (nm); reference applied after we know the crossing
+  const zAbs=p=>p.fi*step;
+  let zx=good.map(zAbs), sxN=good.map(p=>p.sx*px), syN=good.map(p=>p.sy*px);
+  const qx0=robustQuad(zx,sxN), qy0=robustQuad(zx,syN);
+  if(!qx0||!qy0) throw new Error('Quadratic fit failed');
+  // z=0 reference: manual frame, else the σx=σy crossing (focal plane)
+  let zref;
+  if(refFr>0) zref=(refFr-1)*step;
+  else{ const A=qx0.A-qy0.A,B=qx0.B-qy0.B,C=qx0.C-qy0.C;             // qx=qy → Az²+Bz+C=0
+    const zlo=(first-1)*step, zhi=(last-1)*step, mid=(zlo+zhi)/2;
+    if(Math.abs(A)<1e-12) zref=Math.abs(B)>1e-12?-C/B:mid;
+    else{ const disc=B*B-4*A*C;
+      if(disc<0) zref=mid; else{ const sq=Math.sqrt(disc),r1=(-B+sq)/(2*A),r2=(-B-sq)/(2*A);
+        zref=(r1>=zlo&&r1<=zhi)?r1:(r2>=zlo&&r2<=zhi)?r2:(Math.abs(r1-mid)<Math.abs(r2-mid)?r1:r2); } } }
+  // re-fit in referenced z so the stored curves are in z-relative-to-focus
+  const zr=good.map(p=>zAbs(p)-zref);
+  const qx=robustQuad(zr,sxN), qy=robustQuad(zr,syN), qpr=robustQuad(zr,good.map(p=>p.pr));
+  // Phasor 3D model: z as a function of the magnitude ratio r=|Fy|/|Fx|. The
+  // ratio ≈ exp(k·z) (ratio of two Gaussians whose σ² differ ~linearly in z), so
+  // we fit z as a low-order polynomial of ln(r): near-linear, monotonic and
+  // stable. (A polynomial in r itself overshoots and doubles back at the sparse
+  // high-ratio / defocused end.) basis:'ln' ⇒ z = Σ coefᵢ·(ln r)ⁱ.
+  const lr=[], zrc=[];
+  for(let i=0;i<good.length;i++){ const R=good[i].pr;
+    if(isFinite(R)&&R>0.2&&R<5){ lr.push(Math.log(R)); zrc.push(zr[i]); } }
+  let zcal=null;
+  if(lr.length>=8){ const coef=polyfit(lr,zrc,2);
+    if(coef){ let e2=0; for(let i=0;i<lr.length;i++){ const d=zrc[i]-polyEval(coef,lr[i]); e2+=d*d; }
+      const rs=lr.map(Math.exp).sort((a,b)=>a-b);
+      zcal={coef,basis:'ln',rmin:rs[0],rmax:rs[rs.length-1],rms:Math.sqrt(e2/lr.length)}; } }
+  // magnitude(z) curves for the "Phasor magnitude based" plot — vertex quadratic
+  // (like σ), so the display fit is a clean parabola, not a wiggly cubic.
+  const qmagX=robustQuad(zr,good.map(p=>p.mx)), qmagY=robustQuad(zr,good.map(p=>p.my));
+  // per-frame accepted fits, so the raw panel can overlay them while scrubbing
+  const fitsByFrame=new Map();
+  for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
+  const calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:config.sourceFile, fixedXY,
+          det:{sigma,k,win,border,exactBP,mode}, fitsByFrame,
+          pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
+          zmin:Math.min(...zr), zmax:Math.max(...zr) };
+  const cal3d=zcal;                               // make it immediately usable by Phasor 3D
+  const cal3dW=(qx&&qy)?{qx:{a:qx.a,c:qx.c,b:qx.b},qy:{a:qy.a,c:qy.c,b:qy.b},zmin:calib.zmin,zmax:calib.zmax,px}:null;  // width model for MLE 3D
+  const calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
+  const f=q=>`a=${q.a.toExponential(2)} c=${q.c.toFixed(0)}nm b=${q.b.toFixed(1)}nm`;
+  onLog(`  σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
+  onLog(`  σy(z) = a(z−c)²+b :  ${f(qy)}   (${qy.kept}/${qy.total} pts)`);
+  onLog(`  focus (σx=σy) at frame ≈ ${(zref/step+1).toFixed(1)} → z=0. Usable z where the curves separate monotonically.`);
+  onLog(`  Calibration models: ${[calMethods.phasor_magnitude&&CALIB_METHODS.phasor_magnitude, calMethods.gaussian_width&&CALIB_METHODS.gaussian_width].filter(Boolean).join(' + ')||'none'}.`);
+  if(zcal) onLog(`  Phasor 3D (${CALIB_METHODS.phasor_magnitude}): z(ratio) fitted, axial RMS ≈ ${zcal.rms.toFixed(0)} nm over ratio ${zcal.rmin.toFixed(2)}–${zcal.rmax.toFixed(2)}.`);
+  else     onLog(`  Phasor 3D: z(ratio) fit needs more points.`);
+  return { calib, cal3d, cal3dW, calMethods };
+}
+
+// Thin UI wrapper around calibrationCore(): resolves the live config/DOM
+// state, wires hooks that reproduce every DOM side effect the old
+// monolithic runCalibration() used to do inline, then applies the core's
+// return value to the calib/cal3d/cal3dW/calMethods globals. Interactive
+// behaviour is unchanged except failure messages now come from
+// calibrationCore()'s thrown Error via the catch below (a single "⚠
+// Calibration failed: ..." path for every precondition/quality failure,
+// same convention run()/driftCore's wrapper use) rather than three
+// separately-worded inline early-returns.
 async function runCalibration(){
   if(!stack){ log('Load a bead z-stack first.'); return; }
   const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
-  const step=paramValue('calStep'), refFr=paramValue('calRef');
-  if(last<=first){ log('Calibration: last frame must exceed first.'); return; }
-  const {w,h}=stack, px=paramValue('pxnm'), sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1,
-        exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter'), border=(win-1)/2+1;
   const fixedXY=paramValue('calFixedXY');
-  if(fixedXY && !(calFixedPts&&calFixedPts.length)){ log('Fix bead x,y is on but no beads are located yet — check the range/threshold.'); return; }
   $('calBtn').disabled=true; $('runBtn').disabled=true; $('calSaveBtn').disabled=true; calib=null;
   try{
-    log(`\nCalibration: frames ${first}–${last} · z-step ${step} nm · win ${win} · k ${k}`+
-        (fixedXY?` · ${calFixedPts.length} fixed bead(s)`:''));
-    const pts=[]; let lastYield=performance.now();               // {fi, sx, sy, pr, rrel}
-    for(let fi=first-1; fi<last; fi++){
-      const img=(await stack.getFrames(fi,fi+1))[0];
-      const maxima = fixedXY ? calFixedPts.map(p=>[Math.round(p.x),Math.round(p.y)]) : detectSpots(img,w,h,sigma,exactBP,mode,k,border).maxima;
-      const frameLocs=[];
-      if(fixedXY){
-        for(const p of calFixedPts){
-          const cx=Math.round(p.x), cy=Math.round(p.y);
-          if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // bead too close to this frame's edge
-          const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,p.x,p.y,win,sigma); if(!L) continue;
-          const P=phasorFit(img,w,h,cx,cy,win);
-          pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
-          frameLocs.push({x:L.x,y:L.y});
-        }
-      } else {
-        for(const [cx,cy] of maxima){
-          const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
-          const P=phasorFit(img,w,h,cx,cy,win);
-          pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
-          frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
-        }
-      }
-      if(performance.now()-lastYield>50){
-        drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spot(s), ${frameLocs.length} fit(s)`;
-        setProg(100*(fi-first+1)/(last-first+1)); await tick(); lastYield=performance.now();
-      }
-    }
-    setProg(null);
-    if(pts.length<12){ log(`Only ${pts.length} usable spots — lower the threshold or widen the range.`); return; }
-    // quality filter: drop fits that hit the σ clamp or have a high relative residual
-    const rr=pts.map(p=>p.rrel).slice().sort((a,b)=>a-b), rcut=Math.max(0.05, 3*(rr[rr.length>>1]||0));
-    const good=pts.filter(p=> p.sx>0.55&&p.sx<5.9&&p.sy>0.55&&p.sy<5.9 && p.rrel<rcut);
-    log(`  ${pts.length} spots detected, ${good.length} pass quality filter.`);
-    // absolute z per frame (nm); reference applied after we know the crossing
-    const zAbs=p=>p.fi*step;
-    let zx=good.map(zAbs), sxN=good.map(p=>p.sx*px), syN=good.map(p=>p.sy*px);
-    const qx0=robustQuad(zx,sxN), qy0=robustQuad(zx,syN);
-    if(!qx0||!qy0){ log('  Quadratic fit failed.'); return; }
-    // z=0 reference: manual frame, else the σx=σy crossing (focal plane)
-    let zref;
-    if(refFr>0) zref=(refFr-1)*step;
-    else{ const A=qx0.A-qy0.A,B=qx0.B-qy0.B,C=qx0.C-qy0.C;             // qx=qy → Az²+Bz+C=0
-      const zlo=(first-1)*step, zhi=(last-1)*step, mid=(zlo+zhi)/2;
-      if(Math.abs(A)<1e-12) zref=Math.abs(B)>1e-12?-C/B:mid;
-      else{ const disc=B*B-4*A*C;
-        if(disc<0) zref=mid; else{ const sq=Math.sqrt(disc),r1=(-B+sq)/(2*A),r2=(-B-sq)/(2*A);
-          zref=(r1>=zlo&&r1<=zhi)?r1:(r2>=zlo&&r2<=zhi)?r2:(Math.abs(r1-mid)<Math.abs(r2-mid)?r1:r2); } } }
-    // re-fit in referenced z so the stored curves are in z-relative-to-focus
-    const zr=good.map(p=>zAbs(p)-zref);
-    const qx=robustQuad(zr,sxN), qy=robustQuad(zr,syN), qpr=robustQuad(zr,good.map(p=>p.pr));
-    // Phasor 3D model: z as a function of the magnitude ratio r=|Fy|/|Fx|. The
-    // ratio ≈ exp(k·z) (ratio of two Gaussians whose σ² differ ~linearly in z), so
-    // we fit z as a low-order polynomial of ln(r): near-linear, monotonic and
-    // stable. (A polynomial in r itself overshoots and doubles back at the sparse
-    // high-ratio / defocused end.) basis:'ln' ⇒ z = Σ coefᵢ·(ln r)ⁱ.
-    const lr=[], zrc=[];
-    for(let i=0;i<good.length;i++){ const R=good[i].pr;
-      if(isFinite(R)&&R>0.2&&R<5){ lr.push(Math.log(R)); zrc.push(zr[i]); } }
-    let zcal=null;
-    if(lr.length>=8){ const coef=polyfit(lr,zrc,2);
-      if(coef){ let e2=0; for(let i=0;i<lr.length;i++){ const d=zrc[i]-polyEval(coef,lr[i]); e2+=d*d; }
-        const rs=lr.map(Math.exp).sort((a,b)=>a-b);
-        zcal={coef,basis:'ln',rmin:rs[0],rmax:rs[rs.length-1],rms:Math.sqrt(e2/lr.length)}; } }
-    // magnitude(z) curves for the "Phasor magnitude based" plot — vertex quadratic
-    // (like σ), so the display fit is a clean parabola, not a wiggly cubic.
-    const qmagX=robustQuad(zr,good.map(p=>p.mx)), qmagY=robustQuad(zr,good.map(p=>p.my));
-    // per-frame accepted fits, so the raw panel can overlay them while scrubbing
-    const fitsByFrame=new Map();
-    for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
-    calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:stackName, fixedXY,
-            det:{sigma,k,win,border,exactBP,mode}, fitsByFrame,
-            pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
-            zmin:Math.min(...zr), zmax:Math.max(...zr) };
-    cal3d=zcal;                               // make it immediately usable by Phasor 3D
-    cal3dW=(qx&&qy)?{qx:{a:qx.a,c:qx.c,b:qx.b},qy:{a:qy.a,c:qy.c,b:qy.b},zmin:calib.zmin,zmax:calib.zmax,px}:null;  // width model for MLE 3D
-    calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
+    const config=Object.assign(buildConfigFromParams(),
+      { calFirst:first, calLast:last, calFixedPts:fixedXY?calFixedPts:null, sourceFile:stackName });
+    const r = await calibrationCore(config, stack, {
+      onLog: log, onProgress: setProg,
+      onRawPreview: (img,w,h,maxima,frameLocs,fi,last) => {
+        drawRaw(img,w,h,maxima,frameLocs);
+        $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spot(s), ${frameLocs.length} fit(s)`; },
+    });
+    calib=r.calib; cal3d=r.cal3d; cal3dW=r.cal3dW; calMethods=r.calMethods;
     updateCalStatus();
     srFull=null; srIsPlot=true; srSpots=null; srLocs=null; setSrRecon(false); syncSaveImg();  // hand the SR panel over to the plot
     drawCalibration(); $('calSaveBtn').disabled=false;
-    const f=q=>`a=${q.a.toExponential(2)} c=${q.c.toFixed(0)}nm b=${q.b.toFixed(1)}nm`;
-    log(`  σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
-    log(`  σy(z) = a(z−c)²+b :  ${f(qy)}   (${qy.kept}/${qy.total} pts)`);
-    log(`  focus (σx=σy) at frame ≈ ${(zref/step+1).toFixed(1)} → z=0. Usable z where the curves separate monotonically.`);
-    log(`  Calibration models: ${[calMethods.phasor_magnitude&&CALIB_METHODS.phasor_magnitude, calMethods.gaussian_width&&CALIB_METHODS.gaussian_width].filter(Boolean).join(' + ')||'none'}.`);
-    if(zcal) log(`  Phasor 3D (${CALIB_METHODS.phasor_magnitude}): z(ratio) fitted, axial RMS ≈ ${zcal.rms.toFixed(0)} nm over ratio ${zcal.rmin.toFixed(2)}–${zcal.rmax.toFixed(2)}.`);
-    else     log(`  Phasor 3D: z(ratio) fit needs more points.`);
-  }catch(err){ log(`⚠ Calibration failed: ${err.name}: ${err.message}`); setProg(null); }
-  finally{ $('calBtn').disabled=false; $('runBtn').disabled=false; }
+  }catch(err){ log(`⚠ Calibration failed: ${err.message}`); }
+  finally{ setProg(null); $('calBtn').disabled=false; $('runBtn').disabled=false; }
 }
 
 // Light-background scatter plot on the SR canvas: x-series dark green, y-series
@@ -3953,8 +4003,11 @@ function niceTicks(lo,hi,n){
 }
 
 // Save the fitted calibration as JSON (reusable across sessions / for 3D fitting).
-async function exportCalibration(){
-  if(!calib){ log('Run a calibration first.'); return; }
+// The *.calib.json shape (§7), built from an already-computed calib object
+// (calibrationCore()'s return, or the interactive calib global) — pure, no
+// DOM, so exportCalibration()'s Save-file click and a headless caller that
+// wants the same bytes without a browser share one implementation.
+function buildCalibJson(calib){
   const c=calib, pack=q=>({a:q.a,c:q.c,b:q.b,A:q.A,B:q.B,C:q.C});
   // Which calibration models this file carries, tagged so a loader can verify the
   // model required by the selected 3D algorithm is present (Phasor 3D → phasor
@@ -3962,7 +4015,7 @@ async function exportCalibration(){
   const methods=[];
   if(c.zcal) methods.push({ id:'phasor_magnitude', label:CALIB_METHODS.phasor_magnitude, used_by:['phasor3d'], model:'phasor_z_from_ratio' });
   if(c.qx&&c.qy) methods.push({ id:'gaussian_width', label:CALIB_METHODS.gaussian_width, used_by:['ls3d','mle3d'], model:'sigma_x_nm/sigma_y_nm' });
-  const obj={ format:'webSMLM-astig-calibration', version:2, created:new Date().toISOString(),
+  return { format:'webSMLM-astig-calibration', version:2, created:new Date().toISOString(),
     source_file:c.sourceFile||stackName, fixed_xy:!!c.fixedXY,
     pixel_size_nm:c.px, z_step_nm:c.step, frames:{first:c.first,last:c.last}, z_ref_nm:c.zref,
     z_range_nm:{min:c.zmin,max:c.zmax}, n_points:c.pts.length,
@@ -3972,7 +4025,10 @@ async function exportCalibration(){
     note:'calibration_methods lists the models present. '+
          '"Gaussian width based": sigma(z)=a*(z-c)^2+b (sigma_x_nm/sigma_y_nm), sigma in nm, z in nm relative to focus (sigma_x=sigma_y crossing) — for LS/MLE 3D. '+
          '"Phasor magnitude based": phasor_z_from_ratio, with r=magY/magX; z[nm] = Σ coef_i·(x)^i where x=ln(r) if basis=="ln" else r, valid for r in [rmin,rmax] — used by Phasor 3D.' };
-  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+}
+async function exportCalibration(){
+  if(!calib){ log('Run a calibration first.'); return; }
+  const blob=new Blob([JSON.stringify(buildCalibJson(calib),null,2)],{type:'application/json'});
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_calib.json';
   const saved=await saveBlob(blob,name,'JSON calibration','application/json','.json');
   log(saved?`Saved calibration as ${saved}.`:'Save cancelled.');
@@ -5957,32 +6013,72 @@ function calibFromJson(o){
 //                          same as Ctrl/Cmd+click Load movie)
 //   calibrationJson      — parsed 3D calibration JSON; needed for
 //                          method: 'phasor3d'/'mle3d' (see calibFromJson above)
+//   calibrationFile/calibrationFiles — a bead z-stack File/Files, built into a
+//                          fresh calibration via calibrationCore() instead of
+//                          loading one from JSON — the .json/.tif overload
+//                          tools/webSMLM-cli.mjs's --calibration dispatches
+//                          on. calFirst/calLast default to the whole
+//                          calibration stack when not given; calStep/calRef/
+//                          calFixedXY are ordinary PARAMS (already defaulted
+//                          by defaultConfig() above) — any of the four not
+//                          explicitly passed gets a loud onLog warning naming
+//                          the default used, since a silently-wrong z-step in
+//                          particular would produce a badly wrong calibration
+//                          with no indication anything was defaulted.
+//   calibrationOnly       — build/return the calibration only, skip the main
+//                          analysis entirely (config.file/files not required)
 //   correctDrift          — run AIM drift correction after fitting
 //   computeNeNA/computeFRC — also compute those (numeric result only for now)
 //   onProgress            — optional (0..100) callback for a driving script's
 //                          own progress reporting
 // Returns {locs, csvText, logText, settingsText, timings, reconstructionPng,
-// drift, nena, frc, w, h, px, mag} — every text/PNG field is ready to write
-// straight to disk, no further conversion needed.
+// drift, nena, frc, w, h, px, mag, calib, calibJsonText} — every text/PNG
+// field is ready to write straight to disk, no further conversion needed.
+// calib/calibJsonText are only non-null when calibrationFile/Files was given
+// (a freshly-built calibration is worth writing out for reuse, unlike one
+// loaded from an existing calibrationJson); calibrationOnly returns only
+// {calib, calibJsonText, logText}, skipping every other field.
 async function analyze(config){
   const cfg=Object.assign(defaultConfig(), config);
-  if(!cfg.file && !cfg.files) throw new Error('analyze(): config.file (or config.files) is required');
+  if(!cfg.calibrationOnly && !cfg.file && !cfg.files) throw new Error('analyze(): config.file (or config.files) is required (unless config.calibrationOnly)');
   // logText always accumulates every line either way; cfg.onLog (like
   // cfg.onProgress below) is an OPTIONAL extra sink a caller can inject —
   // e.g. the CLI forwards both to console.log() so a driving script sees
   // live progress/log lines via Playwright's console-message channel,
   // instead of only getting the full text back once analyze() resolves.
   const logLines=[], onLog=m=>{ logLines.push(m); if(cfg.onLog) cfg.onLog(m); }, onProgress=cfg.onProgress||(()=>{});
+
+  let calib=null, cal3d=null, cal3dW=null, calibJsonText=null;
+  if(cfg.calibrationFile || cfg.calibrationFiles){
+    const calStack = cfg.calibrationFiles ? await loadTiffSequence(cfg.calibrationFiles, onLog) : await loadTiffFile(cfg.calibrationFile, onLog);
+    const calFirst = config.calFirst!=null ? config.calFirst : 1;
+    const calLast  = config.calLast!=null  ? config.calLast  : calStack.n;
+    const defaulted=[];
+    if(config.calFirst==null && config.calLast==null) defaulted.push(`frame range ${calFirst}–${calLast} (default: whole stack)`);
+    else{ if(config.calFirst==null) defaulted.push(`calFirst ${calFirst} (default)`);
+          if(config.calLast==null) defaulted.push(`calLast ${calLast} (default)`); }
+    if(config.calStep==null) defaulted.push(`z-step ${cfg.calStep} nm (default — pass calStep if this doesn't match the acquisition!)`);
+    if(config.calRef==null) defaulted.push(`z=0 reference: auto (default)`);
+    if(defaulted.length) onLog(`  ⚠ Calibration parameter default(s) in use — ${defaulted.join(' · ')}.`);
+    const sourceFile = cfg.calibrationFiles ? cfg.calibrationFiles[0].name : cfg.calibrationFile.name;
+    const calCfg=Object.assign({}, cfg, { calFirst, calLast, calFixedPts:null, sourceFile });
+    const cr = await calibrationCore(calCfg, calStack, { onLog, onProgress });
+    calib=cr.calib; cal3d=cr.cal3d; cal3dW=cr.cal3dW;
+    calibJsonText = JSON.stringify(buildCalibJson(calib), null, 2);
+  } else if(cfg.calibrationJson){
+    ({zcal:cal3d, wcal:cal3dW} = calibFromJson(cfg.calibrationJson));
+  }
+  if(cfg.calibrationOnly) return { calib, calibJsonText, logText: logLines.join('\n') };
+
   const stack = cfg.files ? await loadTiffSequence(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
-  const {zcal,wcal} = calibFromJson(cfg.calibrationJson);
   // Mirrors run()'s needCal guard, self-contained since there's no calMethods
   // global reflecting an interactive session's loaded calibration headlessly
   // — without this, a 3D method silently falls back to z=NaN for every loc
-  // rather than a clear error when calibrationJson doesn't match method.
+  // rather than a clear error when the calibration doesn't match the method.
   const needCal = ALGO_CALIB_METHOD[cfg.method];
-  if(needCal==='phasor_magnitude' && !zcal) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson to contain a phasor magnitude-ratio model`);
-  if(needCal==='gaussian_width' && !wcal) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson to contain a Gaussian-width model`);
-  const r = await runCore(cfg, stack, {zcal,wcal}, {onLog, onProgress});
+  if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
+  if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
+  const r = await runCore(cfg, stack, {zcal:cal3d, wcal:cal3dW}, {onLog, onProgress});
   const locs=r.locs;
   let drift=null;
   if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
@@ -6011,7 +6107,8 @@ async function analyze(config){
   return { locs, csvText:parts.join(''), logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
-           drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag };
+           drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
+           calib, calibJsonText };
 }
 // Loops analyze() over multiple files with the same config (per-file
 // overrides via configs[i] are not needed yet — add if a real use case
