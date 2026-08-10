@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10j · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10k · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1692,7 +1692,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10j
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10k
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2026,7 +2026,12 @@ function ifdToFloat(ifd,w,h){
    ImageJ stack, frames are read on demand with File.slice() and the whole file
    never enters memory — engines cap ArrayBuffer size well below multi-GB (a
    4.89 GB stack yielded only 915 MB), which previously stranded most frames. */
-async function loadTiffFile(file){
+// onLog defaults to the real log() — every hook in this file follows the
+// same rule now: if a caller doesn't supply one, it mirrors exactly what
+// the interactive Log window would show, rather than going silent. Callers
+// that want the text somewhere else (analyze(), returning it as logText)
+// pass their own instead.
+async function loadTiffFile(file, onLog=log){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const fileSize=file.size;
   // The on-demand slice paths only exist for files too big to load into one
@@ -2058,8 +2063,8 @@ async function loadTiffFile(file){
       const fmt=(hifds[0].t339&&hifds[0].t339[0])||1;
       const isLE=new DataView(head,0,2).getUint16(0,true)===0x4949;
       const px=paramValue('pxnm');
-      log(`File: ${declared} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
-      log(`Contiguous ImageJ stack — reading frames on demand; the file is never held in memory.`);
+      onLog(`File: ${declared} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
+      onLog(`Contiguous ImageJ stack — reading frames on demand; the file is never held in memory.`);
       $('sFrames').textContent=declared;
       // Fast path: single-channel, native (LE) byte order, aligned offset — a
       // direct TypedArray view + Float32Array.set() bulk-copies/converts at the
@@ -2099,9 +2104,9 @@ async function loadTiffFile(file){
   // Too big to hold in one ArrayBuffer, and not a single-IFD contiguous stack
   // (e.g. a multi-GB Micro-Manager MMStack, where per-frame IFDs sit between the
   // frames at a varying stride) — index the IFD chain and stream frames.
-  if(fileSize>SLICE_MIN) return loadMultiIfdStreaming(file, fileSize);
+  if(fileSize>SLICE_MIN) return loadMultiIfdStreaming(file, fileSize, onLog);
   // Otherwise read the whole file (UTIF handles multi-IFD and caches frames).
-  return loadTiff(await file.arrayBuffer(), fileSize);
+  return loadTiff(await file.arrayBuffer(), fileSize, onLog);
 }
 
 // Numeric-aware filename compare, so "frame2.tif" sorts before "frame10.tif"
@@ -2124,11 +2129,11 @@ function naturalCompare(a,b){
 // order consistently) and decoded on demand per frame, same streaming
 // philosophy as loadMultiIfdStreaming: the folder is never held in memory at
 // once, however many files it contains.
-async function loadTiffSequence(fileList){
+async function loadTiffSequence(fileList, onLog=log){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const all=[...fileList];
   const files=all.filter(f=>/\.tiff?$/i.test(f.name)).sort((a,b)=>naturalCompare(a.name,b.name));
-  if(all.length!==files.length) log(`  (${all.length-files.length} non-.tif/.tiff file(s) in the selection were skipped)`);
+  if(all.length!==files.length) onLog(`  (${all.length-files.length} non-.tif/.tiff file(s) in the selection were skipped)`);
   if(!files.length) throw new Error('no .tif/.tiff files in the selection');
   const n=files.length, px=paramValue('pxnm');
   const decodeOne=async f=>{
@@ -2140,8 +2145,8 @@ async function loadTiffSequence(fileList){
   };
   const ifd0=await decodeOne(files[0]);
   const w=ifd0.width, h=ifd0.height;
-  log(`Folder selection: ${n} single-frame TIFFs · ${w}×${h} · sorted by filename`);
-  log(`  ${files[0].name} … ${files[n-1].name}`);
+  onLog(`Folder selection: ${n} single-frame TIFFs · ${w}×${h} · sorted by filename`);
+  onLog(`  ${files[0].name} … ${files[n-1].name}`);
   let cached0=ifdToFloat(ifd0,w,h);            // avoid decoding frame 0 twice
   const getFrames=async(s,e)=>{
     e=Math.min(e,n); if(e<=s) return [];
@@ -2162,7 +2167,7 @@ async function loadTiffSequence(fileList){
 // Stream a large multi-IFD TIFF: follow the IFD chain via File.slice to build a
 // per-frame strip-offset table (frames stay on disk), then read each frame on
 // demand. Uncompressed strips only. Validated against a 4.1 GB MMStack.
-async function loadMultiIfdStreaming(file, fileSize){
+async function loadMultiIfdStreaming(file, fileSize, onLog=log){
   const rd=async(o,n)=>new DataView(await file.slice(o,Math.min(fileSize,o+n)).arrayBuffer());
   const hd=await rd(0,8), isLE=hd.getUint16(0,true)===0x4949;
   const u16=(dv,o)=>dv.getUint16(o,isLE), u32=(dv,o)=>dv.getUint32(o,isLE);
@@ -2182,7 +2187,7 @@ async function loadMultiIfdStreaming(file, fileSize){
       else if(tag===259&&v!==1) throw new Error('compressed multi-IFD stacks are not supported'); } }
   if(!w||!h) throw new Error('could not read image dimensions');
   const rawBytes=w*h*(bps>>3)*spp, px=paramValue('pxnm');
-  log(`Large multi-IFD stack (${fmtBytes(fileSize)}) — indexing frame offsets…`);
+  onLog(`Large multi-IFD stack (${fmtBytes(fileSize)}) — indexing frame offsets…`);
   const offsets=[]; let lastYield=performance.now();
   while(off>0 && off+2<=fileSize){                 // follow the IFD chain
     const dv=await rd(off,8192), n=u16(dv,0);
@@ -2196,7 +2201,7 @@ async function loadMultiIfdStreaming(file, fileSize){
   setProg(null);
   const n=offsets.length;
   if(!n) throw new Error('no image frames found');
-  log(`  indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
+  onLog(`  indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
   $('sFrames').textContent=n;
   // Fast path: single-channel, native (LE) byte order, aligned offset — a direct
   // TypedArray view + Float32Array.set() bulk-copies/converts at the engine
@@ -2231,14 +2236,14 @@ async function loadMultiIfdStreaming(file, fileSize){
   return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('sliced stack: use getFrames()'); }};
 }
 
-async function loadTiff(fileBuf, fileSize){
+async function loadTiff(fileBuf, fileSize, onLog=log){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const ifds=UTIF.decode(fileBuf);
   if(!ifds.length) throw new Error('no image frames found in file');
   UTIF.decodeImage(fileBuf, ifds[0]);                 // decode first -> dimensions
   const w=ifds[0].width, h=ifds[0].height, n=ifds.length, px=paramValue('pxnm');
   const frameBytes=w*h*4, need=n*frameBytes, budget=readBudget();
-  log(`File: ${n} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
+  onLog(`File: ${n} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
   /* ImageJ writes large stacks with a SINGLE IFD and the frames laid out
      contiguously afterwards (32-bit TIFF offsets cannot chain past 4 GB), with
      the real count recorded as "images=N" in the description. UTIF sees one
@@ -2259,8 +2264,8 @@ async function loadTiff(fileBuf, fileSize){
     const guess=raw0>0?Math.floor((fileBuf.byteLength-base0)/raw0):0;
     if(guess>1){
       declared=guess;
-      log(`⚠ Only 1 IFD, but the file holds ~${guess} frames of raw data.`);
-      log(`   No images= record found; inferring the count from the file size.`);
+      onLog(`⚠ Only 1 IFD, but the file holds ~${guess} frames of raw data.`);
+      onLog(`   No images= record found; inferring the count from the file size.`);
     }
   }
   if(declared>n){
@@ -2273,15 +2278,15 @@ async function loadTiff(fileBuf, fileSize){
     // the single indexed IFD.
     const avail=rawBytes>0?Math.max(0,Math.floor((fileBuf.byteLength-base)/rawBytes)):0;
     const usable=Math.min(declared,avail);
-    log(`Contiguous stack: description declares ${declared} frames, ${n} IFD${n===1?'':'s'} present.`);
+    onLog(`Contiguous stack: description declares ${declared} frames, ${n} IFD${n===1?'':'s'} present.`);
     if(fileBuf.byteLength<fileSize){
-      log(`  ⚠ Only ${fmtBytes(fileBuf.byteLength)} of the ${fmtBytes(fileSize)} file reached memory`);
-      log(`     (JS ArrayBuffer size limit) — ${usable} of ${declared} frames are reachable.`);
+      onLog(`  ⚠ Only ${fmtBytes(fileBuf.byteLength)} of the ${fmtBytes(fileSize)} file reached memory`);
+      onLog(`     (JS ArrayBuffer size limit) — ${usable} of ${declared} frames are reachable.`);
     }
     if(cmpr===1 && rawBytes>0 && usable>1){
       const isLE=new DataView(fileBuf,0,2).getUint16(0,true)===0x4949;
       const fmt=(ifds[0].t339&&ifds[0].t339[0])||1;
-      log(`  Indexing ${usable} frame(s) directly from offset ${base} (${bps}-bit, ${isLE?'LE':'BE'}).`);
+      onLog(`  Indexing ${usable} frame(s) directly from offset ${base} (${bps}-bit, ${isLE?'LE':'BE'}).`);
       const readFrame=fi=>{
         const off=base+fi*rawBytes, g=new Float32Array(w*h);
         if(bps===8){ const u=new Uint8Array(fileBuf,off,rawBytes);
@@ -2294,7 +2299,7 @@ async function loadTiff(fileBuf, fileSize){
         return g;
       };
       const needC=usable*frameBytes;
-      log(`  Decoded working set if fully cached: ~${fmtBytes(needC)} (budget ${fmtBytes(budget)}).`);
+      onLog(`  Decoded working set if fully cached: ~${fmtBytes(needC)} (budget ${fmtBytes(budget)}).`);
       $('sFrames').textContent=usable;
       if(needC<=budget){
         try{
@@ -2305,21 +2310,21 @@ async function loadTiff(fileBuf, fileSize){
               await tick(); }
           }
           setProg(null);
-          log('  Loaded into memory — re-runs will not re-decode.');
+          onLog('  Loaded into memory — re-runs will not re-decode.');
           return makeStack(w,h,usable,px, fi=>frames[fi]);
         }catch(err){
           setProg(null); if(!isAlloc(err)) throw err;
-          log(`  ⚠ In-memory load hit a memory limit; decoding on demand instead.`);
+          onLog(`  ⚠ In-memory load hit a memory limit; decoding on demand instead.`);
         }
       }
       // Random access is O(1) here, so no heaps are needed — decode per frame.
-      log(`  Exceeds budget — decoding frames on demand (no re-decode penalty: it is a plain byte read).`);
+      onLog(`  Exceeds budget — decoding frames on demand (no re-decode penalty: it is a plain byte read).`);
       return makeStack(w,h,usable,px, readFrame);
     }
-    log(`  ⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
-    log(`     only ${n} of ${declared} frames will be analysed.`);
+    onLog(`  ⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
+    onLog(`     only ${n} of ${declared} frames will be analysed.`);
   }
-  log(`Decoded working set if fully cached: ~${fmtBytes(need)} (budget ${fmtBytes(budget)}).`);
+  onLog(`Decoded working set if fully cached: ~${fmtBytes(need)} (budget ${fmtBytes(budget)}).`);
   $('sFrames').textContent=n;
 
   // Chunked-streaming stack: one ~chunkMB heap resident at a time. Heap size
@@ -2328,7 +2333,7 @@ async function loadTiff(fileBuf, fileSize){
   const makeStreamStack = reason => {
     const chunkMB=paramValue('chunkmb');
     let cf=Math.max(1, Math.floor(chunkMB*1048576/frameBytes));
-    log(`${reason} streaming in heaps of ≤${cf} frames (~${fmtBytes(cf*frameBytes)} each).`);
+    onLog(`${reason} streaming in heaps of ≤${cf} frames (~${fmtBytes(cf*frameBytes)} each).`);
     let start=-1, heap=[];
     const build=s=>{ const end=Math.min(n,s+cf), out=[];
       for(let i=s;i<end;i++){ const ifd=ifds[i]; UTIF.decodeImage(fileBuf, ifd);
@@ -2339,7 +2344,7 @@ async function loadTiff(fileBuf, fileSize){
         try{ heap=build(s); start=s; return; }
         catch(err){ if(!isAlloc(err)||cf<=1) throw err;
           heap=[]; cf=Math.max(1,cf>>1); s=Math.floor(fi/cf)*cf;
-          log(`  heap too large — shrinking to ${cf} frame(s)/heap.`); } } };
+          onLog(`  heap too large — shrinking to ${cf} frame(s)/heap.`); } } };
     return { w,h,n,px, streaming:true, get chunkFrames(){return cf;},
       getFrame(fi){ ensure(fi); return heap[fi-start]; },
       async getFrames(s,e){ e=Math.min(e,n); const out=[];
@@ -2357,13 +2362,13 @@ async function loadTiff(fileBuf, fileSize){
           await tick(); }
       }
       setProg(null);
-      log('Loaded into memory — re-runs will not re-decode.');
+      onLog('Loaded into memory — re-runs will not re-decode.');
       return makeStack(w,h,n,px, fi=>frames[fi]);
     }catch(err){
       setProg(null);
       for(let i=0;i<n;i++) if(ifds[i]) ifds[i].data=null;   // drop partial raw data
       if(!isAlloc(err)) throw err;
-      log(`⚠ In-memory load hit a memory limit (${err.name}: ${err.message}). Falling back to streaming — the browser tab likely capped RAM below the budget.`);
+      onLog(`⚠ In-memory load hit a memory limit (${err.name}: ${err.message}). Falling back to streaming — the browser tab likely capped RAM below the budget.`);
       return makeStreamStack('Fallback:');
     }
   }
@@ -4104,7 +4109,14 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onL
 // same reasoning as groundTruth in runCore/run() — it's a diagnostic tied to
 // a module-level global, not a core drift-correction concern.
 async function driftCore(locs, px, config, hooks={}){
-  const { onLog=()=>{}, onProgress=()=>{} } = hooks;
+  // Defaults mirror the real log()/setProg() (see runCore's comment on the
+  // same rule). Progress goes through onLog as text too, throttled to
+  // whole 10%-steps, one independent decile-tracker per phase (2D, then Z)
+  // so the Z pass's own 0%→100% text logs correctly instead of starting
+  // already "past" wherever the 2D pass left off.
+  const { onLog=log, onProgress=setProg } = hooks;
+  const makeReporter=prefix=>{ let last=-10; return pct=>{ onProgress(pct);
+    const d=Math.floor(pct/10)*10; if(d>last && d>=0){ last=d; onLog(`  ${prefix}${d}%`); } }; };
   // span the frames ACTUALLY analysed (present in the localizations), not the
   // stack length — a stopped run only covers part of the stack, and padding to
   // stack.n adds empty segments that corrupt the drift estimate.
@@ -4118,14 +4130,16 @@ async function driftCore(locs, px, config, hooks={}){
   for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
   onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
   const t0=performance.now();
-  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>onProgress(100*p));
+  const report2D=makeReporter('');
+  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>report2D(100*p));
   // apply reversibly — keep the raw coordinates in x0/y0
   for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
     const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
   // z drift (Phasor 3D): independent 1-D correction on z (nm)
   const has3d=locs.some(L=>isFinite(L.z));
   if(has3d && config.driftZ){
-    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>onProgress(100*p), onLog);
+    const reportZ=makeReporter('z ');
+    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>reportZ(100*p), onLog);
     // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
     // boundary, so it carries no drift and is excluded. A large clamped
     // fraction means the sample's z-range exceeds the calibration: the
@@ -4409,7 +4423,10 @@ function modeUncertaintyNm(locs, px){
   let best=0,bestI=0; for(let i=0;i<nb;i++) if(counts[i]>best){best=counts[i];bestI=i;}
   return lo+(bestI+0.5)*binW;
 }
-async function frcResolution(locs, px, mag, onProgress, onLog=()=>{}){
+// onProgress here is a 0..1 FRACTION (unlike runCore/driftCore's 0..100) —
+// defaults to setProg pre-scaled to match, same convention
+// computeFRC()/analyze() already apply explicitly when they DO pass one.
+async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=log){
   if(locs.length<200) return {err:`only ${locs.length.toLocaleString()} localizations — too few for FRC`};
   let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
   for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
@@ -4482,7 +4499,12 @@ async function frcResolution(locs, px, mag, onProgress, onLog=()=>{}){
   // reuse four Float32 buffers across splits — bounded, memory-light peak
   const A=new Float32Array(N*N), B=new Float32Array(N*N), ai=new Float32Array(N*N), bi=new Float32Array(N*N);
   const res=[]; let curve=null, step=0; const nStep=nSplit*2;
-  const tick2=async()=>{ if(onProgress){ onProgress(++step/nStep); await tick(); } };
+  // Progress as text through onLog too, same rule as runCore/driftCore —
+  // throttled to whole 10%-steps so it's a few log lines, not a flood.
+  let lastLoggedDecile=-10;
+  const tick2=async()=>{ if(onProgress){ const pct=100*++step/nStep; onProgress(pct/100);
+    const d=Math.floor(pct/10)*10; if(d>lastLoggedDecile && d>=0){ lastLoggedDecile=d; onLog(`  ${d}%`); }
+    await tick(); } };
   for(let s=0;s<nSplit;s++){
     A.fill(0); B.fill(0); ai.fill(0); bi.fill(0);
     for(const L of locs){ const ix=Math.min(N-1,Math.max(0,((L.x-xmin)/extPx*N)|0)), iy=Math.min(N-1,Math.max(0,((L.y-ymin)/extPx*N)|0));
@@ -4581,7 +4603,23 @@ function currentThr(){
 // everything the caller needs to finish the job itself (set lastResult,
 // draw the final raw-panel overlay, update the stats bar, …).
 async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
-  const { onLog=()=>{}, onProgress=()=>{}, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
+  // onLog/onProgress default to the real log()/setProg() — mirrors the
+  // interactive path exactly when no hooks are given at all, same rule as
+  // the loaders above. onRawPreview/onSrPreview stay no-op by default (no
+  // sensible interactive-equivalent default — they need lastResult/srFull
+  // DOM state only run()'s wrapper can construct correctly); shouldStop
+  // stays no-op too (no generic "was Stop clicked" outside that same
+  // wrapper's stopRequested global).
+  const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
+  // Progress as TEXT, through the same onLog channel everything else uses —
+  // not a separate, log-invisible side channel — so it shows up in logText/
+  // the interactive Log window/a driving script's live stream identically,
+  // whatever it's watching. Throttled to whole 10%-steps (unlike onProgress
+  // itself, called as often as the loop naturally yields) so it reads as a
+  // handful of log lines, not a flood.
+  let lastLoggedDecile=-10;
+  const reportProgress=pct=>{ onProgress(pct);
+    const d=Math.floor(pct/10)*10; if(d>lastLoggedDecile && d>=0){ lastLoggedDecile=d; onLog(`  ${d}%`); } };
   const {w,h,n}=stack, px=config.pxnm;
   const sigma=config.psf, win=2*config.winr+1, method=config.method;
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
@@ -4652,7 +4690,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
               bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]});
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
           doneF+=d.count; processed=doneF; inflight--;
-          onProgress(100*doneF/n);
+          reportProgress(100*doneF/n);
           if(doneF-lastPrev>=100){                  // refresh both views, as the serial path does
             lastPrev=doneF; const tp=performance.now();
             if(shown){                              // raw frame + detected ROIs
@@ -4718,7 +4756,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         }
         processed=fi+1;
         if(performance.now()-lastYield > 50){      // yield on a time budget to keep the UI responsive
-          onProgress(100*fi/n);
+          reportProgress(100*fi/n);
           await tick(); lastYield=performance.now();
           // A Stop click can only be delivered while we're yielding, so this is
           // the earliest point it can be observed — no need to poll elsewhere.
@@ -4727,7 +4765,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       }
     }
   }
-  onProgress(stopped ? 100*processed/n : 100);
+  reportProgress(stopped ? 100*processed/n : 100);
   const dt=performance.now()-t0-previewMs;       // localization work only
   const per=Math.max(1,processed);
   const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render), as shown in the Compute tile
@@ -5935,7 +5973,7 @@ async function analyze(config){
   // live progress/log lines via Playwright's console-message channel,
   // instead of only getting the full text back once analyze() resolves.
   const logLines=[], onLog=m=>{ logLines.push(m); if(cfg.onLog) cfg.onLog(m); }, onProgress=cfg.onProgress||(()=>{});
-  const stack = cfg.files ? await loadTiffSequence(cfg.files) : await loadTiffFile(cfg.file);
+  const stack = cfg.files ? await loadTiffSequence(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
   const {zcal,wcal} = calibFromJson(cfg.calibrationJson);
   // Mirrors run()'s needCal guard, self-contained since there's no calMethods
   // global reflecting an interactive session's loaded calibration headlessly
@@ -5949,8 +5987,13 @@ async function analyze(config){
   let drift=null;
   if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
   let nena=null, frc=null;
-  if(cfg.computeNeNA && locs.length) nena = await nenaPrecision(locs, cfg.pxnm, onProgress);
-  if(cfg.computeFRC && locs.length) frc = await frcResolution(locs, cfg.pxnm, cfg.mag, onProgress, onLog);
+  // nenaPrecision/frcResolution report progress as a 0..1 FRACTION
+  // internally (unlike runCore/driftCore's 0..100), so onProgress needs the
+  // same ×100 scaling computeNeNA()/computeFRC() already do interactively —
+  // passing it bare here would have silently sent 0..1 values to a caller
+  // (e.g. the CLI) expecting 0..100, reading as permanently ~0%.
+  if(cfg.computeNeNA && locs.length) nena = await nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p));
+  if(cfg.computeFRC && locs.length) frc = await frcResolution(locs, cfg.pxnm, cfg.mag, p=>onProgress(100*p), onLog);
   const {parts} = buildCsvText(locs, cfg.pxnm, cfg.psf);
   // Same check exportCSV()'s wrapper does interactively (only reachable
   // there via a separate Save-data click) — analyze() builds the CSV as
