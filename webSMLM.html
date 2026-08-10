@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10t · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10u · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10t
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10u
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1828,10 +1828,23 @@ const PARAMS = {
   // phasor, where per-message overhead is a bigger fraction of a batch's real compute time) at the
   // cost of more postMessage/structured-clone calls; higher = coarser, less message overhead, more
   // exposure to one slow batch straggling at the end while other workers sit idle.
-  workerBatchTarget: { type:'number', id:null, label:'Worker dispatch: target batches per worker', min:1, max:64, step:1, default:8, int:true },
-  // workerBatchMin/Max = floor/ceiling clamp on the computed batch size (frames per postMessage)
+  // Also directly bounds live raw-preview freshness during a Run: a batch's fit results (and so its
+  // frame's preview) can only become available once that whole batch completes, so batch size is a
+  // hard floor on how often the preview CAN refresh, independent of any preview-side throttling.
+  // Measured on a real 40,000-frame/8-worker MLE3D run with the old default (8): batches hit the
+  // 128-frame ceiling below, ~2.9s/round — exactly the "several quick updates then a long stall"
+  // pattern reported, since fresh data simply wasn't available more often than that. Raised 8->24
+  // (and workerBatchMax lowered accordingly, see below) after confirming on a lighter synthetic run
+  // that shrinking the batch this much cost no measurable throughput (wall-clock time unchanged
+  // within noise) while tightening preview gaps from a ~350ms mean/670ms max down to ~200ms/~220ms
+  // for most updates.
+  workerBatchTarget: { type:'number', id:null, label:'Worker dispatch: target batches per worker', min:1, max:64, step:1, default:24, int:true },
+  // workerBatchMin/Max = floor/ceiling clamp on the computed batch size (frames per postMessage).
+  // Max lowered 128->32: for large n this ceiling is what actually binds (see workerBatchTarget's
+  // comment above), so it needed lowering too, not just the target -- raising target alone has no
+  // effect once n/(workers*target) already exceeds the old 128 ceiling.
   workerBatchMin: { type:'number', id:null, label:'Worker dispatch: minimum batch size (frames)', min:1, max:256, step:1, default:8, int:true },
-  workerBatchMax: { type:'number', id:null, label:'Worker dispatch: maximum batch size (frames)', min:1, max:1024, step:1, default:128, int:true },
+  workerBatchMax: { type:'number', id:null, label:'Worker dispatch: maximum batch size (frames)', min:1, max:1024, step:1, default:32, int:true },
 
   // ---- pipeline: preview / export tuning (no page control yet) ----
   // rawPreviewMs = minimum time between raw-panel preview redraws during a Run. Was a fixed
