@@ -153,11 +153,11 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      their numeric result only (`frc`/`nena` fields) — no plot PNG, since
      `drawFrcPlot`/`drawNenaPlot` are still tied to the interactive `#raw`
      canvas; extracting their plotting logic to target an arbitrary canvas
-     is unstarted. Not yet tested against a real file end-to-end (needs a
-     real browser — `renderSuperRes`'s `document.createElement('canvas')`
-     doesn't exist in the JXA harness used for the rest of this work), only
-     its two pure sub-pieces (`calibFromJson`, mirrored against a real
-     `exportCalibration()` shape) validated synthetically.
+     is unstarted. **Validated against real data**: `analyze()` called from
+     a browser console (`buildConfigFromParams()` snapshotting the live UI
+     state, so it's an exact apples-to-apples comparison) against the
+     GATTA-PAINT dataset produced the same localization count as an
+     interactive Localize with identical settings.
   4. Add `?autorun=1&...` URL-param parsing (Layer 0) — buildable and
      testable in any browser immediately, no new tooling, and exercises
      `analyze()` end-to-end before Layer 2 exists.
