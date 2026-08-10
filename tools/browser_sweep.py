@@ -15,14 +15,17 @@ one; the equivalent bash script has to hand-roll `open`/`cmd.exe start`/
 `webbrowser` can't do — same as the bash script, it's AppleScript-only on
 macOS and skipped everywhere else (tabs accumulate; harmless, just untidy).
 
-This is deliberately simpler than a real browser-automation tool
-(Playwright/Selenium/etc. — "Layer 2" in docs/REFACTOR_PLAN.md's v0.10.0
-plan, step 6, not built yet): no dependency to install, but no true
+This is deliberately simpler than tools/webSMLM-cli.mjs ("Layer 2" in
+docs/REFACTOR_PLAN.md's v0.10.0 plan, step 6 — a real Playwright-driven
+browser-automation tool): no npm dependency to install, but no true
 headless mode either (see that file's step 5 note on why a bare
 --headless flag isn't a safe substitute for a real automation framework
-here) and it relies on the browser's Downloads folder behaving
-predictably. Reach for Layer 2 instead once/if that matters (e.g. CI, or
-many parallel runs).
+here), no direct read of the page's JS state, and it relies on the
+browser's Downloads folder behaving predictably. Reach for
+tools/webSMLM-cli.mjs instead once that matters more than "no install
+needed" — CI, a single run, true headless operation, or building a 3D
+calibration (§7/§8 of docs/DOCUMENTATION.md), none of which this script
+or its parameter-sweep sibling can do.
 
 Usage: python3 tools/browser_sweep.py   (edit the CONFIGURE ME block below)
 """

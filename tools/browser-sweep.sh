@@ -8,13 +8,16 @@
 # automation framework (Playwright/Selenium/etc.) needed — this drives
 # Layer 0 (autorun) from the outside via plain filesystem polling.
 #
-# This is deliberately simpler than the Playwright-based "Layer 2" CLI
-# sketched in docs/REFACTOR_PLAN.md's v0.10.0 plan (step 6, not built yet):
-# no dependency to install, but also no true headless mode (see that file's
-# step 5 note on why a bare --headless flag isn't a safe substitute here),
-# no direct read of the page's JS state, and it relies on the browser's
-# Downloads folder behaving predictably. Reach for Layer 2 instead once/if
-# that matters (e.g. CI, or many parallel runs).
+# This is deliberately simpler than tools/webSMLM-cli.mjs ("Layer 2" in
+# docs/REFACTOR_PLAN.md's v0.10.0 plan, step 6 -- a real Playwright-driven
+# browser-automation tool): no npm dependency to install, but also no true
+# headless mode (see that file's step 5 note on why a bare --headless flag
+# isn't a safe substitute here), no direct read of the page's JS state, and
+# it relies on the browser's Downloads folder behaving predictably. Reach
+# for tools/webSMLM-cli.mjs instead once that matters more than "no install
+# needed" -- CI, a single run, true headless operation, or building a 3D
+# calibration (\S7/\S8 of docs/DOCUMENTATION.md), none of which this script
+# or its parameter-sweep sibling can do.
 #
 # A tools/browser_sweep.py equivalent also exists, and is probably the
 # easier one to read/adapt — Python's stdlib `webbrowser` module already
