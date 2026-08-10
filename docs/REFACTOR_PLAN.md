@@ -56,30 +56,121 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   drift → export without clicking through the UI, so it can batch-process
   files and run an identical scenario across browsers for comparison. Builds
   directly on the v0.9.4 parameter registry — the config object is that
-  registry's shape.
-  - Small public API: `window.webSMLM.analyze(config) → Promise<result>`
-    (locs + per-stage timings + drift), and `analyzeBatch(files, config)`
-    looping over multiple `File`s or URLs.
-  - Cross-browser benchmark mode: a fixed scenario auto-run via a URL trigger
-    (e.g. `?bench=default`) dumping a machine-readable JSON report (per-stage
-    timings, worker utilisation, localization count, a result hash) — open
-    the same URL in different browsers and diff the JSON.
-  - Regression check via the same entry point: fixed-seed synthetic stack →
-    assert localization count and RMS error within bounds. There is
-    currently no automated test suite at all; this would be the first one,
-    and it falls out of the pipeline API for free. Consider also extending
-    the synthetic generator to emit known z and known drift, so 3D/drift/
-    precision work can be validated quantitatively rather than by eye.
-  - Single-file constraint holds throughout: an exposed API + optional
-    URL-param autorun, no build step, no bundler.
-  - A headless run should always autogenerate the same three artifacts the
-    UI path produces by hand: **settings** (the config itself, in the same
-    `webSMLM-settings` JSON shape — see `docs/DOCUMENTATION.md` §4),
-    **data** (the CSV, §6), and the **log**. Together with the CSV, the
-    settings file recovers exactly the provenance a bare CSV doesn't carry
-    (pixel size, gain, detection/fit method, …) — see the "Load data"
-    discussion in `docs/DOCUMENTATION.md` §1/§6 for why that split (physical
-    CSV + separate settings record, not one combined format) was chosen.
+  registry's shape (i.e. the same `{id: value}` shape a settings JSON
+  already round-trips — see `docs/DOCUMENTATION.md` §4).
+
+  **Why this isn't a `--headless` flag on the file itself.** The closest
+  prior art is ThunderSTORM's ImageJ macro support: `run("Run analysis",
+  "filter=... threshold=...")` command strings, driven by
+  `ImageJ --headless -macro script.ijm 'files=[...]'` from a terminal, with
+  direct filesystem output (`saveAs("png", path)`, `run("Export results",
+  "filepath=[...]")`). That works because ImageJ is a desktop JVM app — the
+  same process runs with or without a display, with real filesystem access,
+  and ships a native headless mode. webSMLM has no equivalent: it's JS that
+  only exists inside a browser sandbox (Canvas, File API, Web Workers, no
+  raw filesystem access) — there's no "run the HTML with no browser
+  underneath" any more than there's a way to run a `.jar` with no JVM. The
+  nearest equivalent of ImageJ's `--headless` is a **headless (windowless)
+  Chromium**, driven by a script instead of a person — so the design splits
+  into three layers instead of one flag:
+
+  - **Layer 1 — in-page API** (the equivalent of ThunderSTORM's
+    `run("Run analysis", "...")` command string): `window.webSMLM.analyze
+    (config) → Promise<result>`. Takes a flat `{id: value}` config (only
+    non-default values need to be given) and runs the *entire* pipeline —
+    load → detect/fit → drift → CSV/log/settings text — without touching a
+    DOM control, a dialog, or a Blob-download. Returns everything as
+    in-memory data rather than triggering a download: `locs`, `csvText`,
+    `logText`, `settingsText` (the config itself, echoed — see the
+    "autogenerate three artifacts" point below), per-stage `timings`, and
+    — since a headless Chromium still fully computes `<canvas>` pixels even
+    with no visible window — PNGs for the reconstruction and any FRC/NeNA
+    plots via `canvas.toDataURL('image/png')`. Returning data instead of
+    downloading sidesteps "how do browser downloads work headlessly"
+    entirely: the caller (Layer 0 or Layer 2 below) decides what to do with
+    the result. Also: `analyzeBatch(files, config)` looping over multiple
+    `File`s.
+  - **Layer 2 — a companion driver script** (the equivalent of
+    `ImageJ --headless -macro script.ijm 'files=[...]'` itself): a small
+    Node tool using **Playwright** (not Puppeteer — better multi-browser
+    support, and `page.setInputFiles()` is the key piece below) that
+    launches headless Chromium, opens `webSMLM.html`, calls `analyze
+    (config)` via `page.evaluate()`, and writes whatever comes back to
+    disk. This is the actual terminal/flag-based tool:
+    `node webSMLM-cli.mjs --file stack.tif --pxnm 160 --method mle3d --out
+    ./results/`. Lives as separate repo tooling (its own `package.json` +
+    Playwright dependency) — deliberately **not** part of `webSMLM.html`,
+    so the app's own no-build-step/no-dependency property is untouched.
+    Design detail: for a multi-GB stack, don't pipe file bytes through
+    `page.evaluate()`'s structured-clone boundary — use
+    `page.setInputFiles()` on a hidden `<input type=file>` so the browser's
+    own `File`/`File.slice()` streaming (already relied on by the loader)
+    does the work natively, exactly as for a human clicking "Load movie".
+  - **Layer 0 — URL-param autorun**, simpler and complementary, not a
+    replacement: `webSMLM.html?autorun=1&pxnm=160&method=mle3d&...` calling
+    the *same* `analyze()` on page load. Works in a real double-clicked
+    browser too, no Playwright needed — this is what powers the
+    cross-browser benchmark mode below. Its real limit is that a local file
+    can't be named in a URL for security reasons (only a fetchable remote
+    URL, or Chromium launched with relaxed file-access flags — which only a
+    driving script can set anyway, collapsing local-file batch use back to
+    Layer 2).
+
+  **Module-split question, settled**: run the entire HTML, not per-module.
+  The single-file constraint is deliberate (see `CLAUDE.md`) and the
+  modules aren't cleanly separable at the JS level today (shared globals,
+  `WORKER_PRELUDE`) — there's no headless-specific benefit to splitting,
+  since Chromium loads the whole file trivially fast regardless of "module
+  boundaries." ThunderSTORM's own macro doesn't load "just the fitting
+  module" either — it drives the same fully-loaded plugin.
+
+  **Next steps, in order** (each one buildable/testable before the next):
+  1. Extract a DOM-free `runCore(config, fileOrStack)` from `run()` —
+     returns `{locs, timings}` instead of touching `lastResult`/`log()`/
+     `$()`/`setProg()` directly. `run()` itself becomes a thin UI wrapper:
+     build `config` from `paramValue()` for every relevant `PARAMS` id, call
+     `runCore`, then do all the existing DOM-touching side effects (log
+     lines, stats bar, button enabling, `rerender()`) as before — interactive
+     behaviour shouldn't change at all. This is the foundational, highest-
+     risk step; everything below builds on it, so it's worth its own
+     dedicated pass rather than folding into a bigger change.
+  2. Do the same extraction for CSV/log/settings text (an `exportCSV`-
+     equivalent that *returns* a string instead of calling `saveBlob`) and
+     for drift/NeNA/FRC (already close to pure — mostly stop writing to
+     `$('...')`/`log()` directly and return data, with existing UI callers
+     doing the logging themselves).
+  3. Assemble `window.webSMLM.analyze(config)` on top of the now-pure
+     pieces, plus the `canvas.toDataURL()` wrapper for reconstruction/plot
+     PNGs.
+  4. Add `?autorun=1&...` URL-param parsing (Layer 0) — buildable and
+     testable in any browser immediately, no new tooling, and exercises
+     `analyze()` end-to-end before Layer 2 exists.
+  5. Add `?bench=default` fixed-scenario mode on top of (4): dump a
+     machine-readable JSON report (per-stage timings, worker utilisation,
+     localization count, a result hash) — open the same URL in different
+     browsers and diff the JSON.
+  6. Build the Playwright CLI (Layer 2): flag parsing → config object,
+     `page.setInputFiles()` for the input stack(s), write `analyze()`'s
+     returned artifacts to `--out`.
+  7. Regression check via `analyze()`: fixed-seed synthetic stack → assert
+     localization count and RMS error within bounds. There is currently no
+     automated test suite at all; this would be the first one, and it falls
+     out of the pipeline API for free.
+  8. Extend the synthetic generator to also emit known z and known drift
+     (ground truth), so 3D/drift/precision work can be validated
+     quantitatively through the same regression check rather than by eye.
+
+  **Autogenerate three artifacts.** A headless run should always produce
+  the same three files the UI path produces by hand: **settings** (the
+  config itself, in the `webSMLM-settings` JSON shape — `docs/
+  DOCUMENTATION.md` §4), **data** (the CSV, §6), and the **log** — this
+  falls out of `analyze()`'s return shape (step 3) for free; Layer 2's CLI
+  just writes all three to `--out` unconditionally. Together with the CSV,
+  the settings file recovers exactly the provenance a bare CSV doesn't
+  carry (pixel size, gain, detection/fit method, …) — see the "Load data"
+  discussion in `docs/DOCUMENTATION.md` §1/§6 for why that split (physical
+  CSV + separate settings record, not one combined format) was chosen over
+  embedding metadata in the CSV itself.
 - Cross-validate **MLE 3D vs Phasor 3D** on real bead data — only checked
   against synthetic ground truth and mutual self-consistency so far.
 - **3D detection beyond astigmatism** — Double Helix, Biplane, etc. could be
