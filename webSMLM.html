@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10b · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.0-dev · build 2026-08-10c · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1684,7 +1684,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10b
+</span></noscript>webSMLM v0.10.0-dev · build 2026-08-10c
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5872,6 +5872,95 @@ function wireHelp(){
   // full text on hover so nothing is lost.
   for(const id of ['srInfo','rawInfo']){ const el=$(id); if(el) el.addEventListener('mouseenter',()=>{ el.title=el.textContent; }); }
 }
+/* ===========================================================================
+   MODULE: headless API — window.webSMLM.analyze()/analyzeBatch(), the
+   v0.10.0 Layer 1 entry point (docs/REFACTOR_PLAN.md). Assembles the pure
+   pieces above (runCore, driftCore, buildCsvText, buildSettingsJson,
+   renderSuperRes) into one call that never touches a DOM control, a
+   dialog, or a Blob-download — every result comes back as in-memory data,
+   for a driving script (Layer 2, Playwright) or a future `?autorun=1`
+   URL-param handler (Layer 0) to write to disk or inspect as it likes.
+   Not yet covered: FRC/NeNA return their numeric result only, no plot PNG
+   (drawFrcPlot/drawNenaPlot are still tied to the interactive #raw canvas
+   — extracting their plotting logic to target an arbitrary canvas is a
+   follow-up, not done here).
+   =========================================================================== */
+// Every PARAMS default, no DOM at all — the base a config gets merged onto,
+// so a caller only needs to specify what it wants to override.
+function defaultConfig(){
+  const c={}; for(const id in PARAMS) c[id]=PARAMS[id].default; return c;
+}
+// zcal/wcal from a parsed calibration JSON (the same shape Save calib./Load
+// calibration… produce/read — docs/DOCUMENTATION.md §7). There's no
+// interactive session's cal3d/cal3dW globals to fall back on headlessly, so
+// a 3D method needs this supplied explicitly via config.calibrationJson.
+function calibFromJson(o){
+  if(!o) return {zcal:null, wcal:null};
+  const z=o.phasor_z_from_ratio;
+  const zcal = (z&&z.coef) ? {coef:z.coef,basis:z.basis||'ratio',rmin:z.rmin,rmax:z.rmax,rms:z.rms_nm} : null;
+  const sxc=o.sigma_x_nm, syc=o.sigma_y_nm, zr=o.z_range_nm||{};
+  const wcal = (sxc&&syc) ? {qx:{a:sxc.a,c:sxc.c,b:sxc.b},qy:{a:syc.a,c:syc.c,b:syc.b},zmin:zr.min,zmax:zr.max,px:o.pixel_size_nm} : null;
+  return {zcal, wcal};
+}
+// The headless pipeline: load -> detect/fit -> [drift] -> [NeNA/FRC] ->
+// CSV/log/settings text + a reconstruction PNG. `config` is PARTIAL — only
+// non-default PARAMS values need to appear, defaultConfig() fills the rest
+// — plus these headless-only fields (not PARAMS entries, so they're
+// stripped back out before building settingsText below):
+//   file / files        — a File, or an array of Files (multi-file sequence,
+//                          same as Ctrl/Cmd+click Load movie)
+//   calibrationJson      — parsed 3D calibration JSON; needed for
+//                          method: 'phasor3d'/'mle3d' (see calibFromJson above)
+//   correctDrift          — run AIM drift correction after fitting
+//   computeNeNA/computeFRC — also compute those (numeric result only for now)
+//   onProgress            — optional (0..100) callback for a driving script's
+//                          own progress reporting
+// Returns {locs, csvText, logText, settingsText, timings, reconstructionPng,
+// drift, nena, frc, w, h, px, mag} — every text/PNG field is ready to write
+// straight to disk, no further conversion needed.
+async function analyze(config){
+  const cfg=Object.assign(defaultConfig(), config);
+  if(!cfg.file && !cfg.files) throw new Error('analyze(): config.file (or config.files) is required');
+  const logLines=[], onLog=m=>logLines.push(m), onProgress=cfg.onProgress||(()=>{});
+  const stack = cfg.files ? await loadTiffSequence(cfg.files) : await loadTiffFile(cfg.file);
+  const {zcal,wcal} = calibFromJson(cfg.calibrationJson);
+  // Mirrors run()'s needCal guard, self-contained since there's no calMethods
+  // global reflecting an interactive session's loaded calibration headlessly
+  // — without this, a 3D method silently falls back to z=NaN for every loc
+  // rather than a clear error when calibrationJson doesn't match method.
+  const needCal = ALGO_CALIB_METHOD[cfg.method];
+  if(needCal==='phasor_magnitude' && !zcal) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson to contain a phasor magnitude-ratio model`);
+  if(needCal==='gaussian_width' && !wcal) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson to contain a Gaussian-width model`);
+  const r = await runCore(cfg, stack, {zcal,wcal}, {onLog, onProgress});
+  const locs=r.locs;
+  let drift=null;
+  if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
+  let nena=null, frc=null;
+  if(cfg.computeNeNA && locs.length) nena = await nenaPrecision(locs, cfg.pxnm, onProgress);
+  if(cfg.computeFRC && locs.length) frc = await frcResolution(locs, cfg.pxnm, cfg.mag, onProgress, onLog);
+  const {parts} = buildCsvText(locs, cfg.pxnm, cfg.psf);
+  const paramsOnly={}; for(const id in PARAMS) paramsOnly[id]=cfg[id];   // drop file/calibrationJson/onProgress/… — not PARAMS entries
+  const zc = cfg.zcolor && locs.some(L=>isFinite(L.z));
+  const zr = zc ? (zRange(locs)||{lo:0,hi:1}) : {lo:0,hi:1};
+  const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi);
+  return { locs, csvText:parts.join(''), logText:logLines.join('\n'),
+           settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
+           timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
+           drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag };
+}
+// Loops analyze() over multiple files with the same config (per-file
+// overrides via configs[i] are not needed yet — add if a real use case
+// wants them). Fails fast: one bad file rejects the whole batch, same as a
+// plain for-loop would, rather than silently skipping it. Sequential, not
+// parallel — getPool() memoises its worker pool (_pool), so concurrent
+// analyze() calls would fight over the same workers rather than helping.
+async function analyzeBatch(files, config){
+  const out=[];
+  for(const file of files) out.push(await analyze(Object.assign({}, config, {file})));
+  return out;
+}
+window.webSMLM = { analyze, analyzeBatch, defaultConfig };
+
 if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wireHelp); else wireHelp();
 
 </script>

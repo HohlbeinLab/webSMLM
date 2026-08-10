@@ -125,23 +125,39 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   module" either — it drives the same fully-loaded plugin.
 
   **Next steps, in order** (each one buildable/testable before the next):
-  1. Extract a DOM-free `runCore(config, fileOrStack)` from `run()` —
-     returns `{locs, timings}` instead of touching `lastResult`/`log()`/
-     `$()`/`setProg()` directly. `run()` itself becomes a thin UI wrapper:
-     build `config` from `paramValue()` for every relevant `PARAMS` id, call
-     `runCore`, then do all the existing DOM-touching side effects (log
-     lines, stats bar, button enabling, `rerender()`) as before — interactive
-     behaviour shouldn't change at all. This is the foundational, highest-
-     risk step; everything below builds on it, so it's worth its own
-     dedicated pass rather than folding into a bigger change.
-  2. Do the same extraction for CSV/log/settings text (an `exportCSV`-
-     equivalent that *returns* a string instead of calling `saveBlob`) and
-     for drift/NeNA/FRC (already close to pure — mostly stop writing to
-     `$('...')`/`log()` directly and return data, with existing UI callers
-     doing the logging themselves).
-  3. Assemble `window.webSMLM.analyze(config)` on top of the now-pure
-     pieces, plus the `canvas.toDataURL()` wrapper for reconstruction/plot
-     PNGs.
+  1. ✅ **Done.** Extract a DOM-free `runCore(config, fileOrStack)` from
+     `run()` — returns `{locs, timings}` instead of touching `lastResult`/
+     `log()`/`$()`/`setProg()` directly. `run()` itself becomes a thin UI
+     wrapper: build `config` from `paramValue()` for every relevant `PARAMS`
+     id, call `runCore`, then do all the existing DOM-touching side effects
+     (log lines, stats bar, button enabling, `rerender()`) as before —
+     interactive behaviour unchanged (validated by synthetic JXA tests on
+     the serial path; the worker-parallel dispatch path still needs a real
+     browser Localize run before being fully trusted).
+  2. ✅ **Done.** Same extraction for CSV/log/settings text
+     (`buildCsvText()`/`buildSettingsJson()`/`buildConfigFromParams()`) and
+     for drift (`driftCore()`), plus `onLog` hooks added to `frcResolution`/
+     `aimDriftZ` (the only two of the precision/drift helpers that still
+     called `log()` directly — `nenaPrecision`/`aimDrift2D` were already
+     clean).
+  3. ✅ **Done.** `window.webSMLM.analyze(config)` assembled on top of the
+     above, plus `analyzeBatch(files, config)` and a `canvas.toDataURL()`
+     reconstruction PNG (via `renderSuperRes()`, which already creates its
+     own detached canvas — no page `#sr` element needed). Takes
+     `config.file`/`config.files` (a `File`/array, loaded via the existing
+     `loadTiffFile`/`loadTiffSequence`) and `config.calibrationJson` (parsed
+     calibration JSON — there's no interactive `cal3d`/`cal3dW` session state
+     to fall back on headlessly, so a 3D method needs it supplied
+     explicitly; `calibFromJson()` parses it the same way the `calFile`
+     change handler does). **Known gap, not yet done:** FRC/NeNA return
+     their numeric result only (`frc`/`nena` fields) — no plot PNG, since
+     `drawFrcPlot`/`drawNenaPlot` are still tied to the interactive `#raw`
+     canvas; extracting their plotting logic to target an arbitrary canvas
+     is unstarted. Not yet tested against a real file end-to-end (needs a
+     real browser — `renderSuperRes`'s `document.createElement('canvas')`
+     doesn't exist in the JXA harness used for the rest of this work), only
+     its two pure sub-pieces (`calibFromJson`, mirrored against a real
+     `exportCalibration()` shape) validated synthetically.
   4. Add `?autorun=1&...` URL-param parsing (Layer 0) — buildable and
      testable in any browser immediately, no new tooling, and exercises
      `analyze()` end-to-end before Layer 2 exists.

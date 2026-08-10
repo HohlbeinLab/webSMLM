@@ -451,3 +451,63 @@ calibration…** for a 3D fit method.
   `calibration_methods` list (checks for the model blocks themselves), and
   warns if the currently-selected fit method needs a model the file doesn't
   contain.
+
+---
+
+## 8 · Headless API (`window.webSMLM`) — v0.10.0-dev
+
+The Layer 1 entry point of the scriptable/headless pipeline
+(`docs/REFACTOR_PLAN.md`). Runs the whole load → detect/fit → drift →
+CSV/log/settings pipeline in one call, without touching a DOM control, a
+dialog, or a Blob-download — every result comes back as in-memory data, for
+a driving script (a headless-Chromium automation, Layer 2) or a future
+URL-param autorun (Layer 0) to write to disk or inspect directly.
+
+```js
+const result = await window.webSMLM.analyze({
+  file: fileObjectOrHandle,        // or files: [File, ...] for a multi-file sequence
+  pxnm: 160, gain: 0.1248, camoffset: 100, method: 'mle3d',
+  calibrationJson: parsedCalibJson,   // required for phasor3d/mle3d — see §7
+  correctDrift: true, computeNeNA: true, computeFRC: true,
+});
+```
+
+- `config` is **partial** — only values that differ from the `PARAMS`
+  registry defaults need to appear; `defaultConfig()` (also exposed) fills
+  the rest with `PARAMS[id].default`, no DOM read at all.
+- `config.file`/`config.files` — a `File` or an array of `File`s (same
+  multi-file-sequence support as Ctrl/Cmd+click **Load movie**), loaded via
+  the existing `loadTiffFile`/`loadTiffSequence`. One of the two is required.
+- `config.calibrationJson` — a **parsed** calibration JSON object (§7), not
+  a file/string. There's no interactive session's loaded calibration to fall
+  back on headlessly, so a 3D method needs this explicitly; `analyze()`
+  throws immediately (mirroring `run()`'s own precondition check) if the
+  selected `method` needs a model the calibration doesn't contain.
+- `config.correctDrift` / `config.computeNeNA` / `config.computeFRC` —
+  booleans, not `PARAMS` entries, gating optional pipeline stages.
+- `config.onProgress(pct)` — optional, called the same way `setProg()` would
+  be interactively (0–100), for a driving script's own progress reporting.
+
+**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag}`:
+- `csvText`/`settingsText`/`logText` are ready-to-write strings — the same
+  three artifacts (§4, §6) a UI session produces by hand via Save
+  settings/Save data/Export log, assembled without ever touching those
+  buttons.
+- `reconstructionPng` is a `data:image/png;base64,...` URL, rendered via
+  `renderSuperRes()` — which already creates its own detached `<canvas>`
+  internally, so this needs no page canvas element at all, headless or not.
+- `nena`/`frc` are the **numeric** result objects only (`nenaPrecision()`/
+  `frcResolution()`'s return shape) when requested — **no plot image yet**;
+  `drawFrcPlot`/`drawNenaPlot` are still tied to the interactive `#raw`
+  canvas, so a plot PNG for either is a follow-up, not implemented here.
+- `drift` is `driftCore()`'s return value (`{drift, nFrames, ms}`) when
+  `correctDrift` was requested — `locs` already reflects the corrected
+  positions (drift correction mutates in place), so `csvText`/the
+  reconstruction/NeNA/FRC all see corrected coordinates automatically, same
+  as the interactive pipeline.
+
+`window.webSMLM.analyzeBatch(files, config)` loops `analyze()` over
+multiple files with the same config (no per-file override yet). Sequential,
+not parallel — `getPool()`'s worker pool is memoised process-wide, so
+concurrent `analyze()` calls would contend for the same workers rather than
+speeding anything up. Fails fast: one bad file rejects the whole batch.
