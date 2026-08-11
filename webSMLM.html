@@ -6351,7 +6351,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
     <ol>
       <li><b>Get data.</b> Click <b>Load movie</b> for a real <code>.tif</code>/<code>.tiff</code> stack, or <b>Simulate movie</b> for a test dataset (open <b>Simulation settings</b> to adjust frames, blink density and photons).</li>
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
-      <li><b>Localize.</b> The raw view shows every 100th frame with detected ROIs (green boxes); the right panel builds the super-resolution image.</li>
+      <li><b>Localize.</b> The raw view refreshes live with detected ROIs (green boxes) and accepted localizations as the run progresses; the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
     </ol>
 
@@ -6360,7 +6360,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
     <p><b>If it fits the memory budget</b> (default 3 GB, adjustable) all frames are decoded into RAM with a progress bar — changing the threshold and re-running is then instant (no re-decode).</p>
     <p><b>If it exceeds the budget</b>, the loader <b>streams</b>: frames are decoded as the analysis reaches them and discarded again, so memory stays bounded no matter how long the stack is. Trade-off: re-running re-decodes. For ordinary TIFFs this happens in <b>heaps</b> of ~500 MB (adjustable) because every frame must pass through the TIFF decoder; one heap is decoded, localized, freed, then the next. This is exactly the pattern that would let you localize a live camera buffer in real time.</p>
     <p><b>Large ImageJ stacks</b> (above ~4 GB) are written with a single directory entry and all frames laid out contiguously after it, because 32-bit TIFF offsets cannot address further. webSMLM detects this from the <code>images=N</code> record and indexes frames arithmetically, decoding one at a time — no heaps needed.</p>
-    <p><small>Note: “streaming” currently refers to decoded frames. The file itself is still read into memory in full, so a 5 GB stack occupies 5 GB while open.</small></p>
+    <p><small>The file itself is never read into memory whole — frames are pulled on demand via <code>File.slice()</code>, so a multi-GB stack stays bounded by the memory/chunk budget above regardless of on-disk size.</small></p>
     <p><small>Bit depth (8/16/32-bit) and endianness are handled automatically; 16-bit is preserved (not flattened to 8-bit).</small></p>
 
     <h3>2 · Detection — finding ROIs</h3>

@@ -6,14 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM):
 the entire application — HTML, CSS, all JavaScript, and the two bundled decoders (pako, UTIF) —
-lives in `webSMLM.html` (~5800 lines). It loads a raw TIFF stack, detects/localizes emitters,
+lives in `webSMLM.html` (~6400 lines). It loads a raw TIFF stack, detects/localizes emitters,
 and renders a super-resolution image, **entirely client-side** (no upload, no server, no network
 calls at runtime). `index.html` is just a redirect to `webSMLM.html` for the bare Pages URL.
 
-There is **no build system, no package.json, no dependency install, and no test runner.**
-"Running" the app = opening `webSMLM.html` in a browser (double-click, or the hosted Pages copy).
-Do not introduce a bundler, framework, or npm dependency — the zero-install single-file property
-is the point. New third-party code must be inlined and its license honoured in the head banner.
+`webSMLM.html` itself has **no build system, no package.json, no dependency install, and no test
+runner.** "Running" the app = opening `webSMLM.html` in a browser (double-click, or the hosted
+Pages copy). Do not introduce a bundler, framework, or npm dependency to the app itself — the
+zero-install single-file property is the point. New third-party code must be inlined and its
+license honoured in the head banner. (`tools/` is the one exception: a separate, optional
+Node+Playwright CLI for headless/scripting use — see **pipeline** below — with its own scoped
+`package.json`, deliberately kept out of `webSMLM.html` so the app's own property is untouched.)
 
 ## Editing model
 
@@ -24,8 +27,9 @@ relevant one before editing rather than scrolling:
   parameter (name → `{label, min, max, step, default, int}`), read via `paramValue(id)`. Drives
   the HTML controls' min/max/default (`syncParamControls()`), Save/Load Settings, and — for
   parameters with no page control yet (worker-dispatch thresholds, preview timing, etc.) —
-  `paramOverrides`, settable only via a loaded settings JSON today. This is also the shape the
-  future headless config (`docs/REFACTOR_PLAN.md`, v0.10.0) will reuse. Deliberately excludes
+  `paramOverrides`, settable only via a loaded settings JSON. This is also the shape
+  `window.webSMLM.analyze(config)`'s headless config takes (see **pipeline** below) — a new
+  `PARAMS` entry is automatically available to both without extra wiring. Deliberately excludes
   pure display/layout (CSS) and per-dataset working state (`calFirst`/`calLast`/`zmin`/`zmax`).
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
@@ -63,7 +67,17 @@ relevant one before editing rather than scrolling:
 - **drift** — AIM (adaptive intersection maximization), point-based, 2D+z.
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
-- **pipeline** — top-level orchestration wiring the UI buttons to the modules.
+- **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
+  correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
+  function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper
+  (`run()`/`correctDrift()`/`runCalibration()`) that resolves DOM state into `config`, calls the
+  core, then applies results back to globals/UI. `window.webSMLM.analyze(config)` — the headless
+  entry point, v0.10.0 — calls the same cores directly with an explicit config and no DOM at all;
+  `tools/webSMLM-cli.mjs` (Node + Playwright) drives `analyze()` from the command line, fully
+  headless. New code belongs in the relevant `*Core` when it should also work headlessly (most
+  analysis logic should); only DOM-reading/writing belongs in the wrapper. See
+  `docs/DOCUMENTATION.md` §8 for the full headless API and `docs/REFACTOR_PLAN.md` for the design
+  rationale (three-layer split: in-page API, CLI driver, URL-param autorun).
 - **table** — the sortable, cumulatively-filterable localizations table ("View data + filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
@@ -162,7 +176,15 @@ slower than V8), so keep validation inputs small.
 ## Reference material
 
 - `README.md` — user-facing feature list, performance figures, algorithm references.
+- `docs/DOCUMENTATION.md` — detailed reference for every button/control/`PARAMS` entry, the
+  on-disk file formats (settings/calibration/CSV JSON), and the headless API/CLI (§8) — the place
+  to check or update for exact defaults, ranges and behaviour, complementary to the deliberately
+  sparse in-app Help & guide.
 - `docs/REFACTOR_PLAN.md` — forward-looking roadmap only; shipped-feature history lives in
   `CHANGELOG.md` instead. Think in version numbers, not "phases".
 - `experimental_data/` — sample stacks (gitignored large files) with a README of public sources
   and their camera/pixel-size parameters.
+- `tools/` — scripting/headless tooling for advanced users, not needed for interactive use:
+  `webSMLM-cli.mjs` (Node + Playwright, true headless, the recommended one), `browser_sweep.py`/
+  `browser-sweep.sh` (stdlib-only Python / bash, drive a real visible browser for a parameter
+  sweep). See each script's header comment and `docs/DOCUMENTATION.md` §8.

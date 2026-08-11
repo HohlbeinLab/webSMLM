@@ -14,7 +14,7 @@ a comment should only explain a non-obvious *why*, not *what* (see
 `PARAMS` registry, `PARAMS` is authoritative — this file describes it, not
 the other way round.
 
-Line/anchor references below point at `webSMLM.html` as of **v0.9.7-dev**;
+Line/anchor references below point at `webSMLM.html` as of **v0.10.0-dev**;
 exact line numbers will drift as the file grows, but the `id=`/function names
 they're built from won't.
 
@@ -204,9 +204,9 @@ CRLB) are already true photon units. See the **fit** module.
 | `workerMinFrames` | Minimum frame count before parallelizing | 1 | — | 1 | 64 |
 | `workerMinPxFrame` | Minimum pixels/frame before parallelizing | 1 | — | 1000 | 20000 |
 | `workerMinTotalPx` | Minimum total volume (px) before parallelizing | 1 | — | 1,000,000 | 30,000,000 |
-| `workerBatchTarget` | Target batches per worker | 1 | 64 | 1 | 8 |
+| `workerBatchTarget` | Target batches per worker | 1 | 64 | 1 | 24 |
 | `workerBatchMin` | Minimum batch size (frames) | 1 | 256 | 1 | 8 |
-| `workerBatchMax` | Maximum batch size (frames) | 1 | 1024 | 1 | 128 |
+| `workerBatchMax` | Maximum batch size (frames) | 1 | 1024 | 1 | 32 |
 
 Dispatch condition: `frames ≥ workerMinFrames AND (pixels/frame ≥
 workerMinPxFrame OR total pixels ≥ workerMinTotalPx)` — `workerMinFrames` is
@@ -216,19 +216,28 @@ a many-small-frame stack (e.g. thousands of 64×64 frames) still parallelizes
 via the volume threshold even though no single frame crosses the per-frame
 one. See the **workers** module.
 
+`workerBatchTarget`/`workerBatchMax` also bound how often the raw-panel live
+preview can refresh during a worker-parallel Run: a batch's fit results only
+become available once the whole batch completes, so batch size is a hard
+floor on preview freshness independent of `rawPreviewMs` below.
+
 ### Pipeline: preview / export tuning (no page control — settings-JSON only)
 
 | id | Label | Min | Max | Step | Default |
 |---|---|---|---|---|---|
+| `rawPreviewMs` | Raw-panel live-preview interval (ms) | 16 | 2000 | 10 | 200 |
 | `srPreviewMs` | Reconstruction live-preview interval (ms) | 50 | 5000 | 50 | 800 |
 | `srPreviewMaxMs` | Reconstruction live-preview interval ceiling (ms) | 800 | 60000 | 1000 | 15000 |
 | `stackProjCap` | Data-projection frame sample cap | 10 | 5000 | 10 | 300 |
 | `exportMinLong` | PNG export minimum long edge (px) | 500 | 8000 | 100 | 2000 |
 
-`srPreviewMs` is the *starting* preview interval; it adaptively grows (up to
-`srPreviewMaxMs`) as each preview's own render cost grows through a long Run,
-so preview overhead stays a roughly bounded fraction of wall time instead of
-growing unboundedly. See the **pipeline** module / `run()`.
+`rawPreviewMs` gates the raw (left) panel's live redraw during a Run —
+time-based rather than a frame count, so updates land at a steady cadence
+regardless of per-frame detect/fit cost. `srPreviewMs` is the *starting*
+reconstruction preview interval; it adaptively grows (up to `srPreviewMaxMs`)
+as each preview's own render cost grows through a long Run, so preview
+overhead stays a roughly bounded fraction of wall time instead of growing
+unboundedly. See the **pipeline** module / `run()`.
 
 ---
 
