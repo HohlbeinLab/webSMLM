@@ -9,7 +9,7 @@
 # Layer 0 (autorun) from the outside via plain filesystem polling.
 #
 # This is deliberately simpler than tools/webSMLM-cli.mjs ("Layer 2" in
-# docs/REFACTOR_PLAN.md's v0.10.0 plan, step 6 -- a real Playwright-driven
+# docs/DOCUMENTATION.md \S8's v0.10.0 headless API -- a real Playwright-driven
 # browser-automation tool): no npm dependency to install, but also no true
 # headless mode (see that file's step 5 note on why a bare --headless flag
 # isn't a safe substitute here), no direct read of the page's JS state, and

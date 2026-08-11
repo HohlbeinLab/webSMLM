@@ -16,7 +16,7 @@ one; the equivalent bash script has to hand-roll `open`/`cmd.exe start`/
 macOS and skipped everywhere else (tabs accumulate; harmless, just untidy).
 
 This is deliberately simpler than tools/webSMLM-cli.mjs ("Layer 2" in
-docs/REFACTOR_PLAN.md's v0.10.0 plan, step 6 — a real Playwright-driven
+docs/DOCUMENTATION.md §8's v0.10.0 headless API — a real Playwright-driven
 browser-automation tool): no npm dependency to install, but no true
 headless mode either (see that file's step 5 note on why a bare
 --headless flag isn't a safe substitute for a real automation framework
