@@ -380,7 +380,15 @@ gap frame always breaks the chain today.
 to push an x/y-range clause into the *same* `_tableFilters` array a typed
 filter uses, so a crop affects reconstruction/export/NeNA/FRC identically to
 any other filter. Disabled while the SR panel isn't showing a real
-per-localization reconstruction (`srIsRecon`).
+per-localization reconstruction (`srIsRecon`). Committing a crop also zooms/
+pans the SR view to fit the cropped rectangle — the same "fit within" math
+`fitZoom()` uses for the whole image, applied to the rect instead, so the
+rectangle's longer axis (relative to the panel's own aspect ratio) reaches
+that panel edge and the shorter one is letterboxed, rather than leaving the
+crop sitting small inside the old, now mostly-empty view. Double-click/tap
+the panel to return to the whole-image fit — removing the crop (deselecting
+the tool, or **Reset filter**) restores the un-cropped data but leaves the
+view zoomed/panned where the crop left it.
 
 **Plot histogram of** — draws the selected column's distribution in the raw
 (left) panel, over whatever rows currently pass the active filters.

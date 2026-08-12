@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-12a · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-12b · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-12a
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-12b
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5553,9 +5553,12 @@ $('sr').addEventListener('click',e=>{
   // panel switched away from a real reconstruction.
   if(!srIsRecon) return;
   if(!cropPt0){ cropPt0={x:fx,y:fy}; drawView(); return; }
+  // srFull-px rect first (kept for the auto-zoom below), nm second (for the
+  // table filter — srClickToFull already returns srFull px, see its comment).
+  const fx0=Math.min(cropPt0.x,fx), fx1=Math.max(cropPt0.x,fx);
+  const fy0=Math.min(cropPt0.y,fy), fy1=Math.max(cropPt0.y,fy);
   const nmPerPx = lastResult.px/lastResult.mag;   // srFull px -> nm, same conversion lineProfile() uses
-  const x0=Math.min(cropPt0.x,fx)*nmPerPx, x1=Math.max(cropPt0.x,fx)*nmPerPx;
-  const y0=Math.min(cropPt0.y,fy)*nmPerPx, y1=Math.max(cropPt0.y,fy)*nmPerPx;
+  const x0=fx0*nmPerPx, x1=fx1*nmPerPx, y0=fy0*nmPerPx, y1=fy1*nmPerPx;
   cropPt0=null;
   // Rebuild fresh rather than reusing a possibly-stale _tableData from an
   // earlier Run (it's only otherwise rebuilt when the table is opened) — and
@@ -5567,7 +5570,25 @@ $('sr').addEventListener('click',e=>{
   _tableData=locTableData(base, base!==lastResult.locs);
   _tableFilters.push({expr:`crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm`,
     fn:r=>r.x>=x0&&r.x<=x1&&r.y>=y0&&r.y<=y1});
-  renderTable(); applyFilterToReconstruction(); drawView();
+  renderTable(); applyFilterToReconstruction();
+  // Zoom/pan the SR view to fit the cropped rect, so the crop is immediately
+  // shown at its own scale instead of still sitting at the old (whole-image)
+  // zoom with most of the visible area now empty. Same "fit within" math as
+  // fitZoom()/fitView(), just against the crop rect instead of the whole
+  // image — the longer of the rect's two axes (relative to the panel's own
+  // aspect ratio) ends up flush with that panel edge, the shorter one
+  // letterboxed. srFull's own dimensions don't change with a crop filter
+  // (rerender() always sizes the buffer from lastResult.w/h/mag, not the
+  // filtered subset), so fx0..fy1 above stay valid after applyFilterToReconstruction().
+  { const d=$('sr'), cw=d.clientWidth||d.width, ch=d.clientHeight||d.height;
+    const rw=fx1-fx0, rh=fy1-fy0;
+    if(rw>0 && rh>0){
+      const fz=fitZoom();
+      view.zoom=Math.max(fz, Math.min(fz*60, Math.min(cw/rw, ch/rh)));   // same ceiling as wheel-zoom's maxZoom
+      view.cx=(fx0+fx1)/2; view.cy=(fy0+fy1)/2; view.atFit=false;
+      clampView();
+    } }
+  drawView();
   log(`Crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm — added as a filter (see View data + filtering; Reset filter to undo).`);
   recomputeIfShown();
 });
