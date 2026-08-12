@@ -5,11 +5,13 @@
 
   Kept: header (title/attribution/license/repolink), the collapsible/dockable
   sidebar (desktop: docked → collapsed → floating-with-pin; mobile: overlay
-  drawer), a generic button row, one collapsible "module" section, one labeled
-  select, two display windows (canvas placeholders), and a working Log panel
-  (clear / export as .txt). All font sizes, colours and CSS custom properties
-  are unchanged from webSMLM. No detect/fit/render/TIFF logic is included —
-  this is chrome only.
+  drawer, both measuring the real header height via --header-h rather than a
+  guessed offset), a generic button row, the single shared progress bar
+  (#bar/#prog), one collapsible "module" section, one labeled select, two
+  display windows (canvas placeholders), and a working Log panel (clear /
+  export as .txt). All font sizes, colours and CSS custom properties are
+  unchanged from webSMLM. No detect/fit/render/TIFF logic is included — this
+  is chrome only.
 -->
 <html lang="en">
 <head>
@@ -38,16 +40,18 @@
   /* collapsible sidebar. Desktop: collapsing gives the canvases the full width.
      Mobile (see @media): the sidebar becomes an overlay drawer so the images are
      visible first and re-opening slides over them without moving them. */
-  #sideToggle{position:fixed;top:14px;left:14px;z-index:45;width:34px;height:34px;display:flex;
+  #sideToggle{position:fixed;top:14px;left:14px;z-index:45;width:28px;height:28px;display:flex;
     align-items:center;justify-content:center;background:#0d1117;border:1px solid var(--line);
-    border-radius:8px;color:var(--fg);cursor:pointer;font-size:15px;line-height:1}
+    border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
   #sideToggle:hover{background:#1c2128;border-color:var(--accent)}
   #scrim{display:none}   /* mobile-only / desktop-floating tap-catcher behind the open drawer */
-  header{padding-left:62px}                          /* room for the fixed toggle at top-left */
-  /* pin button — re-docks a floating desktop drawer back into the grid layout */
-  #sidePin{position:fixed;top:14px;left:54px;z-index:46;width:34px;height:34px;display:none;
+  header{padding-left:50px}                          /* room for the fixed toggle at top-left */
+  /* pin button — re-docks a floating desktop drawer back into the grid layout. Stacked
+     BELOW the toggle (not beside it) so it never overlaps the header title text, which
+     starts right after the toggle's own column. */
+  #sidePin{position:fixed;top:48px;left:14px;z-index:46;width:28px;height:28px;display:none;
     align-items:center;justify-content:center;background:#0d1117;border:1px solid var(--line);
-    border-radius:8px;color:var(--fg);cursor:pointer;font-size:14px;line-height:1}
+    border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
   #sidePin:hover{background:#1c2128;border-color:var(--accent)}
   /* single column when collapsed: .sidebar is display:none (removed from the grid),
      so a 2-track template would auto-place .main into the first (0-width) track and
@@ -59,7 +63,11 @@
      two display windows. The pin button docks it back (the one intentional resize).
      Scoped to min-width so a desktop→mobile resize can't leave these applied. */
   @media (min-width:861px){
-    body.side-float .sidebar{display:block;position:fixed;top:0;left:0;height:100dvh;width:min(320px,86vw);
+    /* top:var(--header-h) (not 0), measured from the real header element (see the
+       sideToggle script) — so the floating drawer starts exactly where the docked
+       sidebar would, not a guessed pixel value that can drift from real font
+       metrics and end up too high (or overlap the toggle/pin buttons if too low). */
+    body.side-float .sidebar{display:block;position:fixed;top:var(--header-h,56px);left:0;height:calc(100dvh - var(--header-h,56px));width:min(320px,86vw);
       z-index:40;overflow:auto;background:var(--bg);border-right:1px solid var(--line);
       box-shadow:2px 0 22px rgba(0,0,0,.55)}
     body.side-float #scrim{display:block;position:fixed;inset:0;background:transparent;z-index:35}
@@ -75,6 +83,12 @@
   button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
   button:disabled{opacity:.45;cursor:not-allowed}
   button:disabled:hover{border-color:var(--line)}
+  /* Single shared progress bar (#bar/#prog) — one permanently-visible indicator
+     for every long-running operation, not a bar per operation. Width is set via
+     setProg(pct) in the script below; 0% collapses to an empty track, not hidden,
+     so it doesn't shift layout when an operation starts. */
+  .bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin:10px 0}
+  .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
   /* Native spinners are dropped entirely: on Chrome they render black-on-black
      until hovered, and on Firefox they crowd the digits. Type the value instead. */
   input.num{width:80px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
@@ -150,8 +164,10 @@
   @media (max-width:860px){
     .wrap{grid-template-columns:1fr}
     /* sidebar → left overlay drawer, so the main content sits at the top of the
-       page and re-opening the drawer slides over them without pushing them down. */
-    .sidebar{position:fixed;top:0;left:0;height:100dvh;width:min(86vw,320px);z-index:40;overflow:auto;
+       page and re-opening the drawer slides over them without pushing them down.
+       top:var(--header-h) (not 0) — see the desktop-floating rule above for why
+       this reads the real measured header height instead of a guessed value. */
+    .sidebar{position:fixed;top:var(--header-h,56px);left:0;height:calc(100dvh - var(--header-h,56px));width:min(86vw,320px);z-index:40;overflow:auto;
       background:var(--bg);   /* opaque drawer — nothing behind it bleeds through, so no screen dimming needed */
       border-right:1px solid var(--line);border-bottom:none;transform:translateX(0);
       transition:transform .22s ease;box-shadow:2px 0 22px rgba(0,0,0,.55)}
@@ -166,7 +182,7 @@
     body.side-hidden #scrim{pointer-events:none}   /* drawer closed → clicks pass through to the canvases */
     .canvases{grid-template-columns:1fr}
     .main{padding:14px 14px}
-    header{padding:12px 14px 12px 58px}
+    header{padding:12px 14px 12px 46px}
   }
   @media (max-width:420px){
     .sidebar{padding:14px}
@@ -197,6 +213,7 @@
         <button class="primary" id="button3">button3</button>
         <button id="helpBtn" class="helpbtn">Help &amp; guide</button>
       </div>
+      <div class="bar" id="bar"><i id="prog"></i></div>
 
       <!-- module 1: first collapsible "module" section -->
       <details class="sim" id="module1">
@@ -252,6 +269,10 @@
 <script>
 const $ = id => document.getElementById(id);
 const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; };
+// The single shared progress bar (below the action buttons): pass a percentage
+// to fill it, null to empty it back to rest. Every long-running operation uses
+// this one bar — see the .bar CSS rule for why.
+const setProg = pct => { $('prog').style.width = pct==null ? '0%' : Math.max(0,Math.min(100,pct)).toFixed(1)+'%'; };
 
 // Save a Blob to disk: native "Save As" dialog when available (https/localhost),
 // falls back to a plain download otherwise (e.g. a local file:// page).
@@ -276,11 +297,18 @@ async function saveBlob(blob,name,desc,mime,ext){
   const body=document.body, pin=$('sidePin'), scrim=$('scrim');
   const isMobile=()=>window.innerWidth<=860;
   const refit=()=>window.dispatchEvent(new Event('resize'));   // re-fit canvases if the grid width changed
-  const sync=()=>{ const hidden=body.classList.contains('side-hidden'),
+  // Floating/mobile-drawer sidebar is position:fixed, so it needs the header's
+  // real rendered height (font metrics vary by OS/zoom — a guessed px value
+  // drifts) to start exactly where the docked sidebar would, instead of
+  // guessing a fixed offset that can end up too high or too low.
+  const header=document.querySelector('header');
+  const measureHeader=()=>{ if(header) document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height+'px'); };
+  const sync=()=>{ measureHeader(); const hidden=body.classList.contains('side-hidden'),
       float=body.classList.contains('side-float');
     // collapsed → next action is "show"; docked or floating → next action is "hide"
     b.textContent=(hidden&&!float)?'☰':'⇤';
     b.title=(hidden&&!float)?'Show controls':'Hide controls'; };
+  window.addEventListener('resize', measureHeader);
   // Desktop states: Docked → Collapsed (canvases widen) → Floating (overlay, no resize) → Collapsed …
   // Mobile is a plain 2-state drawer (shown / hidden), never docked, never floating.
   b.addEventListener('click',()=>{
