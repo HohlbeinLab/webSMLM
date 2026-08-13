@@ -18,7 +18,8 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   small a window and the median starts tracking the signal itself, cancelling
   it back out). Used in Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein,
   *Enabling single-molecule localization microscopy in turbid food
-  emulsions*, bioRxiv (2021), https://doi.org/10.1101/2021.03.03.433739.
+  emulsions*, Philosophical Transactions of the Royal Society A
+  **380**(2220), 20200164 (2022), https://doi.org/10.1098/rsta.2020.0164.
 
   **New controls** (exact placement TBD — not yet decided where in the
   sidebar these belong): a checkbox (`ftmEnabled`) turning the filter on/off,
@@ -46,17 +47,25 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
   **Open questions, deliberately unresolved here — need more thought before
   implementing:**
-  - *Performance.* FTM2's README credits it as "slightly faster" than
-    earlier versions and able to handle larger-than-RAM data — implying a
-    real sliding-window median-*maintenance* algorithm (incrementally
-    add/remove one frame's contribution to each pixel's window as it
-    slides), not a full resort per pixel per frame. A naive per-pixel,
-    per-frame resort over a whole loaded stack would be far too slow at
-    scale; likely needs either an incremental structure (pixel values are
-    integer ADU with a small dynamic range, so a running per-pixel histogram
-    — median-from-histogram is O(bins) per step, not O(window·log window) —
-    is one option) or accepting FTM as a slower, explicitly opt-in
-    preprocessing pass distinct from the interactive live-preview path.
+  - *Performance* — benchmarked (Node/V8, not shipped code, just to answer
+    this question before committing to an approach): two candidate per-pixel
+    sliding-window median algorithms on exactly the case above (500×500 px,
+    1000 frames, window=50 → 250,000 independent pixel time-series). (A)
+    naive — copy the window into a scratch array and fully resort it every
+    slide step — extrapolates to **~257 s** for the full stack, confirming
+    this is too slow. (B) keep the window as a sorted scratch array and do a
+    binary-search insert + linear-scan removal per step instead of a full
+    resort (O(window) per step, not O(window·log window)) — **measured
+    directly at 18.8 s single-threaded** for the real full-scale case, a
+    ~13× speedup over (A). Still probably too slow for a live/interactive
+    sweep of the window-size field (the whole point of exposing it as a
+    control), but the per-pixel computation is embarrassingly parallel (each
+    pixel's time series is fully independent of every other pixel's) — the
+    same worker-pool architecture detect/fit already uses (see **workers**)
+    should get this into the same few-second range as a typical Localize
+    run; worth prototyping that before reaching for a fancier incremental
+    histogram-based median (an O(bins)-per-step structure, likely faster
+    still, but more complex and not obviously needed once parallelized).
   - *Where it sits in the pipeline.* Whether FTM output is a full corrected
     stack materialized once before detect/fit (simplest, but a second
     full-stack memory/streaming concern layered on the existing
@@ -67,11 +76,11 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     once through detect/fit regardless).
   - *Interaction with gain/photon-unit conversion.* Median subtraction
     happens in raw ADU space; fitting converts `(raw−camoffset)×gain` to
-    photons (see **fit** module) — needs a decision on whether FTM runs
-    before or after that conversion, and how a corrected pixel that goes
+    photons (see **fit** module) — still need a decision on whether FTM runs
+    before or after that conversion. Settled: a corrected pixel that goes
     negative (background subtracted below zero — expected/normal for a
-    median filter) is handled by the Poisson-MLE math, which assumes
-    non-negative photon counts.
+    median filter) is simply clamped to zero, not treated as a special case
+    by the Poisson-MLE math.
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive
