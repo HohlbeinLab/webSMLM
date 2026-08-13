@@ -6,6 +6,73 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **v0.10.1 — fast temporal median filter (FTM), analysis frame range,
+  corrected/raw scrub toggle.** Port the Hohlbein Lab's own ImageJ plugin
+  ([`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2)) into webSMLM: a
+  per-pixel sliding-window temporal median subtracted from each frame — over
+  a window of *W* consecutive frames centred on frame *i*, take each pixel's
+  median across the window and subtract it from that pixel's value at frame
+  *i*. This corrects pixel-specific fixed-pattern/background noise and
+  cleans up detection, since a blinking emitter occupies far less than half
+  the window at any one pixel — the window must be chosen so that holds (too
+  small a window and the median starts tracking the signal itself, cancelling
+  it back out). Used in Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein,
+  *Enabling single-molecule localization microscopy in turbid food
+  emulsions*, bioRxiv (2021), https://doi.org/10.1101/2021.03.03.433739.
+
+  **New controls** (exact placement TBD — not yet decided where in the
+  sidebar these belong): a checkbox (`ftmEnabled`) turning the filter on/off,
+  and a window-size field (`ftmWindow`, frames) meant to be swept
+  interactively to find a size that cleans the background without eating
+  real signal — needs its own `PARAMS` entries with real page controls (not
+  `id:null`), unlike the worker-dispatch/preview-tuning constants.
+
+  **Raw-panel toggle, corrected vs. raw.** Once FTM is enabled, the raw
+  (left) panel's scrubber should let the user switch between the
+  FTM-corrected frame and the original uncorrected one (one toggle, not two
+  separate panels) — useful for judging at a glance whether a given window
+  size is under/over-correcting.
+
+  **Frame range for analysis (start/end), independent of FTM.** Not
+  implemented at all today — Localize always processes the whole
+  loaded/simulated stack. An `analysisFirst`/`analysisLast` pair (1-based,
+  per-dataset working state like the calibration module's existing
+  `calFirst`/`calLast`, not a `PARAMS` entry) would let a Run be restricted
+  to a sub-range — useful on its own (skip a bleached tail, or a stack with a
+  distinct pre-imaging phase) and also relevant to FTM, since FTM2 has its
+  *own* independent Start/End (which frames the *filter* runs over, not which
+  ones get *localized* afterward) — worth deciding whether webSMLM keeps one
+  shared range for both or the same two-range split FTM2 has.
+
+  **Open questions, deliberately unresolved here — need more thought before
+  implementing:**
+  - *Performance.* FTM2's README credits it as "slightly faster" than
+    earlier versions and able to handle larger-than-RAM data — implying a
+    real sliding-window median-*maintenance* algorithm (incrementally
+    add/remove one frame's contribution to each pixel's window as it
+    slides), not a full resort per pixel per frame. A naive per-pixel,
+    per-frame resort over a whole loaded stack would be far too slow at
+    scale; likely needs either an incremental structure (pixel values are
+    integer ADU with a small dynamic range, so a running per-pixel histogram
+    — median-from-histogram is O(bins) per step, not O(window·log window) —
+    is one option) or accepting FTM as a slower, explicitly opt-in
+    preprocessing pass distinct from the interactive live-preview path.
+  - *Where it sits in the pipeline.* Whether FTM output is a full corrected
+    stack materialized once before detect/fit (simplest, but a second
+    full-stack memory/streaming concern layered on the existing
+    `memgb`/`chunkmb` budget system — see **in/out**/**memory & streaming**),
+    or computed on demand per requested frame (fine for the raw-panel scrub
+    toggle above, which only ever needs one frame's correction at a time;
+    not fine for a full Run, which needs every frame's corrected version
+    once through detect/fit regardless).
+  - *Interaction with gain/photon-unit conversion.* Median subtraction
+    happens in raw ADU space; fitting converts `(raw−camoffset)×gain` to
+    photons (see **fit** module) — needs a decision on whether FTM runs
+    before or after that conversion, and how a corrected pixel that goes
+    negative (background subtracted below zero — expected/normal for a
+    median filter) is handled by the Poisson-MLE math, which assumes
+    non-negative photon counts.
+
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive
   frame numbers to chain detections into one event (memory=0, hardcoded) —
