@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-12b · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-12c · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1696,7 +1696,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-12b
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-12c
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3085,7 +3085,13 @@ function displayMax(buf,pct){
   return mx;
 }
 
-function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi){
+// normLocs (optional): the loc set the display-max percentile is computed
+// from, if different from `locs` itself. Defaults to `locs` — pass the full,
+// unfiltered result here when `locs` is a table/crop-filtered subset, so the
+// colour scale stays pinned to the whole dataset and doesn't renormalize
+// (brighten/dim) every time a filter changes what's actually painted; a crop
+// then shows exactly the same colours as the un-cropped view, just zoomed.
+function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs){
   const W=w*mag, H=h*mag, acc=new Float32Array(W*H), zacc=zColor?new Float32Array(W*H):null;
   for(const L of locs){
     // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
@@ -3097,7 +3103,17 @@ function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi){
   // mean z over the neighbourhood: meanz = blur(Σz)/blur(count).
   const buf = blurPx>0 ? blur(acc,W,H,blurPx*mag*0.3) : acc;
   const zbuf = zColor ? (blurPx>0 ? blur(zacc,W,H,blurPx*mag*0.3) : zacc) : null;
-  const norm=displayMax(buf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo);
+  let normBuf=buf;
+  if(normLocs && normLocs!==locs){
+    const nacc=new Float32Array(W*H);
+    for(const L of normLocs){
+      if(zColor && (!isFinite(L.z)||L.z<zlo||L.z>zhi)) continue;
+      const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
+      if(ix<0||iy<0||ix>=W||iy>=H) continue;
+      nacc[iy*W+ix]+=1; }
+    normBuf = blurPx>0 ? blur(nacc,W,H,blurPx*mag*0.3) : nacc;
+  }
+  const norm=displayMax(normBuf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo);
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const ctx=cv.getContext('2d'), out=ctx.createImageData(W,H);
   for(let i=0;i<buf.length;i++){
@@ -3320,7 +3336,8 @@ function rerender(keepView,isPreview){
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   const rlocs = renderLocs || lastResult.locs;   // table filter can restrict the rendered subset
   srFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
-                        paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi);
+                        paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
+                        lastResult.locs);   // colour scale always pinned to the full dataset, see renderSuperRes
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
   if(srFull.width!==pw || srFull.height!==ph){ measureLine=null; measurePt0=null; cropPt0=null; }  // srFull coords changed
@@ -5536,7 +5553,9 @@ $('cropBtn').addEventListener('click',()=>{
     // left untouched, only entries this tool itself tagged get removed.
     const n=_tableFilters.length;
     _tableFilters=_tableFilters.filter(f=>!f.expr.startsWith('crop:'));
-    if(_tableFilters.length<n){ renderTable(); applyFilterToReconstruction(); log('Crop filter removed.'); recomputeIfShown(); }
+    if(_tableFilters.length<n){ renderTable(); applyFilterToReconstruction();
+      fitView(); clampView();   // undo the crop's auto-zoom too, back to the whole-image fit
+      log('Crop filter removed.'); recomputeIfShown(); }
   }
   drawView();
 });
