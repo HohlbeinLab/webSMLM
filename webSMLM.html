@@ -1303,13 +1303,24 @@ X.B(E,Y);return E}return J}())
      belonging to it (box-sizing:border-box keeps rows/buttons from overflowing) */
   details.sim>*:not(summary){padding-left:14px}
   details.sim>label.row{padding-right:4px}
-  details.info{margin:6px 0 2px}
-  /* right-aligned so it reads as a secondary info toggle, not an expandable panel */
-  details.info>summary{cursor:pointer;list-style:none;color:var(--muted);font-size:11px;
-    padding:3px 0;user-select:none;opacity:.8;text-align:right}
-  details.info>summary::-webkit-details-marker{display:none}
-  details.info>summary:hover{color:var(--accent);opacity:1}
-  details.info .hint{margin-top:2px;text-align:left}
+  /* "more info…" trigger: a plain button styled to read as a secondary
+     text toggle (right-aligned, muted, small), not a primary action — opens
+     #infoModal with this button's paired (hidden) .hint content instead of
+     expanding inline, since inline expansion at the sidebar's font-size/
+     contrast was hard to read for anything longer than a line or two. */
+  .infobtn{all:unset;cursor:pointer;display:block;color:var(--muted);font-size:11px;
+    margin:6px 0 2px;padding:3px 0;text-align:right;opacity:.8}
+  .infobtn:hover{color:var(--accent);opacity:1}
+  .infobtn:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+  /* readable at modal scale: normal-contrast text, a bit more line-height and
+     breathing room than the sidebar's own dense .hint, plus real list styling
+     (the sidebar hints rarely used <ul> — bullets read much better at this size). */
+  #infoModalBody{color:var(--fg);font-size:13px;line-height:1.6}
+  #infoModalBody .pill{margin-bottom:10px}
+  #infoModalBody ul{margin:8px 0;padding-left:22px}
+  #infoModalBody li{margin:4px 0}
+  #infoModalBody b{color:var(--fg)}
+  #infoModalBody code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
   /* flex:1 (not width:100%) so the select shares one line with its label */
   /* fixed 60% of the row so all selects line up right-aligned (label takes the rest) */
   select.sel{flex:0 0 60%;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
@@ -1428,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14j · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14k · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1479,12 +1490,13 @@ X.B(E,Y);return E}return J}())
         <summary>Memory &amp; streaming</summary>
         <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
         <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: in/out] <b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then
-          skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and
-          discarded (“streaming”), so memory stays bounded but re-runs re-decode.<br>
-          <b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF
-          decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: in/out</span>
+          <ul>
+            <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
+            <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
+          </ul>
+        </div>
       </details>
       <details class="sim" id="simBox">
         <summary>Simulation settings</summary>
@@ -1492,9 +1504,10 @@ X.B(E,Y);return E}return J}())
         <label class="row">Blink density <input type="number" id="dens" min="0.003" max="0.04" step="0.001" value="0.010" class="num"></label>
         <label class="row">Photons <input type="number" id="phot" min="200" max="2500" step="50" value="900" class="num"></label>
         <label class="row">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: simulation] Total sample drift over all frames, in a random direction (linear from frame 0).
-          0 = none. Used to test drift correction — the true drift is stored for scoring.</div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: simulation</span>
+          <p>Total sample drift over all frames, in a random direction (linear from frame 0). 0 = none. Used to test drift correction — the true drift is stored for scoring.</p>
+        </div>
       </details>
       <details class="sim" id="calibBox">
         <summary>3D calibration</summary>
@@ -1513,17 +1526,21 @@ X.B(E,Y);return E}return J}())
           <button id="calBtn">Calibrate</button>
           <button id="calSaveBtn" disabled title="Save the calibration curves as JSON">Save calib.</button>
         </div>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: 3D calibration] Load a bead z-stack (stage scanned through focus). Detects every spot per
-          frame, fits an elliptical Gaussian → σ_x / σ_y vs z, and fits σ = a(z−c)² + b to each.
-          Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.
-          <b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two
-          maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width
-          curve. Ticking this averages every frame in the range into one composite (shown in the
-          raw panel), runs detection once on that stable image, and fixes each bead's x,y from
-          it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter
-          changes. Calibrate then only fits amplitude/σx/σy/background per frame at those fixed
-          positions, so x,y — the two most failure-prone degrees of freedom — never move.</div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: 3D calibration</span>
+          <p>Load a bead z-stack (stage scanned through focus). Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</p>
+          <ul>
+            <li>Detects every spot per frame.</li>
+            <li>Fits an elliptical Gaussian → σ_x / σ_y vs z.</li>
+            <li>Fits σ = a(z−c)² + b to each axis.</li>
+          </ul>
+          <p><b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width curve. Ticking this:</p>
+          <ul>
+            <li>Averages every frame in the range into one composite (shown in the raw panel).</li>
+            <li>Runs detection once on that stable image, fixing each bead's x,y from it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter changes.</li>
+            <li>Calibrate then only fits amplitude/σx/σy/background per frame at those fixed positions, so x,y — the two most failure-prone degrees of freedom — never move.</li>
+          </ul>
+        </div>
       </details>
       <details class="sim" id="locBox">
         <summary>Localisation settings</summary>
@@ -1557,51 +1574,45 @@ X.B(E,Y);return E}return J}())
         <label class="row" id="detection_box_thrRow" style="margin-top:8px">Threshold (intensity) <input type="number" id="detection_box_thr" min="0" max="65535" step="1" value="25" class="num"></label>
         <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="5" step="0.1" value="1.3" class="num"></label>
         <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="4" class="num"></label>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: detect/fit] Phasor is ~100–250× faster per candidate (265× on the GATTA-PAINT test stack); Gaussian LS ≈ slightly better precision; Gaussian MLE is Poisson-optimal and reports a CRLB uncertainty (cost ≈ LS).
-          σ_noise is the spread of the filtered image, not the PSF width. Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>.
-          <b>Detection filter</b> —
-          <b>Wavelet (B-spline)</b> (default) is the à trous cubic-B-spline wavelet used by ThunderSTORM: it has no σ (its scale is fixed by the wavelet levels), is roughly 2× faster to filter, and is the recommended choice.
-          <b>DoG band-pass</b> is a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38 % of detections).
-          <b>Uniform box filter</b> is a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.
-          The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.<br><br>
-          <b>Temporal median filtering</b> (FTM) is a per-pixel background correction. Checking this box adds
-          a <b>raw / FTM-corrected</b> toggle next to the raw panel title — switching it computes the
-          correction live for whichever frame you're currently scrubbed to, not the whole stack up front, and
-          not Localize itself (preview only, see below). For that one frame, each pixel's value across a
-          <b>window</b> of nearby frames (centred on the current frame; clamped, not shrunk, at the very
-          first/last few frames, so every frame still gets a full-width window) is used to take the
-          <b>median</b> — a robust estimate of that pixel's slowly-varying background at this point in time —
-          which is subtracted from the pixel's actual value in the current frame. Since a blinking emitter
-          occupies far less than half the window at any one pixel, the median tracks the background, not the
-          signal, so what's left after subtraction is mostly signal above background. <b>Values that go
-          negative after subtraction are clamped to zero</b> (a background estimate briefly above the true
-          noise floor is expected, not an error) — this floors every corrected pixel's minimum at exactly 0,
-          which is <i>not</i> quite the same noise distribution the fit functions otherwise assume
-          (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a
-          hard floor at 0 truncates that slightly, which can bias fitted background/photon counts and
-          reported uncertainty low in very dim regions). This is a <b>preview only</b> — Localize still runs
-          on the original, uncorrected data; applying FTM to an actual Run is not implemented yet (see
-          <code>docs/REFACTOR_PLAN.md</code>). Choose the <b>window size</b> so the "signal occupies less
-          than half the window" assumption above actually holds for your data (too small and the median
-          starts tracking — and cancelling — real signal); the loaded stack must have at least that many
-          frames. The technique originates with
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: detect/fit</span>
+          <p><b>Fit method</b> — σ_noise below is the spread of the filtered image, not the PSF width.</p>
+          <ul>
+            <li><b>Phasor</b> — ~100–250× faster per candidate (265× on the GATTA-PAINT test stack). No per-localization uncertainty.</li>
+            <li><b>Gaussian LS</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
+            <li><b>Gaussian MLE</b> (default) — Poisson-optimal, reports a real CRLB uncertainty; cost ≈ LS.</li>
+          </ul>
+          <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
+          <ul>
+            <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
+            <li><b>DoG band-pass</b> — a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38% of detections).</li>
+            <li><b>Uniform box filter</b> — a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.</li>
+          </ul>
+          <p><b>Temporal median filtering</b> (FTM) is a per-pixel background correction — for a given frame, each pixel's value across a <b>window</b> of nearby frames (centred on that frame; clamped, not shrunk, at the very first/last few frames, so every frame still gets a full-width window) has its <b>median</b> subtracted — a robust estimate of that pixel's slowly-varying background at this point in time. Since a blinking emitter occupies far less than half the window at any one pixel, the median tracks the background, not the signal, so what's left after subtraction is mostly signal above background. Checking this box:</p>
+          <ul>
+            <li>Adds a <b>raw / FTM-corrected</b> toggle next to the raw panel title, computing the correction live for whichever frame you're scrubbed to.</li>
+            <li>Makes <b>Localize itself run on FTM-corrected frames</b> — processed in worker-parallel chunks when a worker pool is available, main-thread otherwise; either way the whole stack is never held twice (raw + corrected) in memory at once.</li>
+          </ul>
+          <p><b>Values that would go negative after subtraction are floored at the camera offset instead</b> (a background estimate briefly above the true noise floor is expected, not an error) — this keeps the corrected pixel in the same units the fit's own gain/offset conversion expects, so photon counts aren't double-corrected. It's still <i>not</i> quite the same noise distribution the fit functions otherwise assume (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a hard floor truncates that slightly, which can bias fitted background/photon counts and reported uncertainty low in very dim regions). Choose the <b>window size</b> so the "signal occupies less than half the window" assumption above actually holds for your data (too small and the median starts tracking — and cancelling — real signal); the loaded stack must have at least that many frames.</p>
+          <p><small>The technique originates with
           <a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
           <i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
           implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
           (<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
-          <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</div></details>
+          <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
+        </div>
         <hr class="sep" style="margin:10px 0 8px">
         <label class="row">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
         <label class="row">Camera gain (photons/ADU) <input type="number" id="gain" value="1" min="0.001" max="1000" step="0.01" class="num"></label>
         <label class="row">Camera offset (ADU) <input type="number" id="camoffset" value="0" min="0" max="65535" step="1" class="num"></label>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: export] <b>Pixel size (nm)</b> sets the physical scale used by the scale
-          bar, z, and the exported CSV coordinates. With gain 1 the exported “intensity [photon]” is really <b>ADU</b>
-          (analog-to-digital unit — the camera's raw pixel count, before any photon conversion), and the
-          uncertainty column (∝ 1/√N) is not physically meaningful. A single scalar gain suits
-          <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is
-          only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: export</span>
+          <ul>
+            <li><b>Pixel size (nm)</b> sets the physical scale used by the scale bar, z, and the exported CSV coordinates.</li>
+            <li>With gain 1 the exported “intensity [photon]” is really <b>ADU</b> (analog-to-digital unit — the camera's raw pixel count, before any photon conversion), and the uncertainty column (∝ 1/√N) is not physically meaningful.</li>
+            <li>A single scalar gain suits <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</li>
+          </ul>
+        </div>
       </details>
       <details class="sim" id="renderBox">
         <summary>Rendering settings</summary>
@@ -1627,13 +1638,15 @@ X.B(E,Y);return E}return J}())
           <label class="row">z min (nm) <input type="number" id="zmin" step="10" class="num" placeholder="auto"></label>
           <label class="row">z max (nm) <input type="number" id="zmax" step="10" class="num" placeholder="auto"></label>
         </div>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: render] Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.
-          <b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.
-          <b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its
-          brightness from density; <b>z min / z max</b> set the colour range and render anything outside it
-          black — narrow the window to optically section through the volume.
-          All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: render</span>
+          <ul>
+            <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
+            <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
+            <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume.</li>
+          </ul>
+          <p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
+        </div>
       </details>
       <details class="sim" id="driftBox">
         <summary>Drift correction (AIM)</summary>
@@ -1647,12 +1660,15 @@ X.B(E,Y);return E}return J}())
           <button id="driftBtn" disabled>Correct drift</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
         </div>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: drift] Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024,
-          after <code>picasso/aim.py</code>; see Help &amp; guide → References). Localize first, then Correct drift.
-          The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for
-          faster drift. Each run re-estimates from the raw localisations, so segment size / search radius can be
-          swept and compared. Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: drift</span>
+          <p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see Help &amp; guide → References). <b>Localize first, then Correct drift.</b></p>
+          <ul>
+            <li>The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for faster drift.</li>
+            <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
+            <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
+          </ul>
+        </div>
       </details>
       <details class="sim" id="precBox">
         <summary>Localization precision (NeNA / FRC)</summary>
@@ -1662,19 +1678,15 @@ X.B(E,Y);return E}return J}())
           <button id="nenaBtn" disabled title="Empirical per-localization precision (nearest-neighbour)">NeNA</button>
           <button id="frcBtn" disabled title="Image resolution via Fourier Ring Correlation (1/7 threshold)">FRC</button>
         </div>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: locprecision] <b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance
-          distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization
-          uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be
-          localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that
-          partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target
-          methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy
-          the assumption. <b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations
-          into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b>
-          is the 3D shell version, once z exists. FRC folds in labelling density and drift while NeNA does not, so
-          reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations
-          first. <i>(NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established
-          tools before relying on the numbers; FSC 3D is not yet implemented.)</i></div></details>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: locprecision</span>
+          <ul>
+            <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
+            <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
+          </ul>
+          <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
+          <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
+        </div>
       </details>
     </div>
   </aside>
@@ -1704,7 +1716,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14j
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14k
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5631,9 +5643,10 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
+    syncSaveImg();   // the old stack's content is gone; disable Save image until showFrame(0) below draws something new
     initScrub();
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
@@ -5649,7 +5662,8 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
   try{
@@ -6519,6 +6533,23 @@ function drawHistogram(){
   _replotRaw=drawHistogram;
   syncSaveImg();
 }
+// "more info…" buttons: each sits right before its paired (hidden) .hint div
+// in the DOM — clicking copies that hint's HTML into the shared #infoModal
+// instead of expanding inline (inline hints at the sidebar's own font-size/
+// contrast were hard to read for anything longer than a line or two).
+function wireInfoButtons(){
+  const m=$('infoModal'), body=$('infoModalBody'), close=$('infoClose');
+  if(!m||!body||!close) return;
+  const hide=()=>m.classList.remove('open');
+  document.querySelectorAll('.infobtn').forEach(btn=>{
+    const hint=btn.nextElementSibling;
+    if(!hint||!hint.classList.contains('hint')) return;
+    btn.addEventListener('click',()=>{ body.innerHTML=hint.innerHTML; m.classList.add('open'); });
+  });
+  close.addEventListener('click',hide);
+  m.addEventListener('click',e=>{ if(e.target===m) hide(); });
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); });
+}
 function wireHelp(){
   const m=$('helpModal'), btn=$('helpBtn'), close=$('helpClose');
   if(!m||!btn||!close) return;
@@ -6844,7 +6875,7 @@ async function runAutorun(){
 }
 window.webSMLM.runAutorun = runAutorun;   // exposed so a driving script can trigger/re-trigger it explicitly too
 
-function initPage(){ wireHelp(); runAutorun(); }
+function initPage(){ wireHelp(); wireInfoButtons(); runAutorun(); }
 if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',initPage); else initPage();
 
 </script>
@@ -6858,6 +6889,13 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <button id="saveImgSR">Right window</button>
     </div>
     <button id="saveImgCancel" style="margin-top:10px">Cancel</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="infoModal">
+  <div class="modal" style="max-width:620px">
+    <button class="close" id="infoClose" title="close">×</button>
+    <div id="infoModalBody"></div>
   </div>
 </div>
 

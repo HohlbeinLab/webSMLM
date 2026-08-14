@@ -46,8 +46,12 @@ floating sidebar back into the normal layout).
 ### Sidebar — collapsible modules (below the action buttons)
 
 Each is a `<details>` element; opening one doesn't affect the others. All
-carry their own **…further info…** disclosure with in-context help — this
-section summarizes what's *in* each, not what the help text already says.
+carry their own **more info…** button, opening a popup with in-context help
+(a shared `#infoModal`, same mechanism as the localizations table popup,
+rather than expanding inline — inline hint text at the sidebar's own
+font-size/contrast was hard to read for anything longer than a line or two)
+— this section summarizes what's *in* each, not what the help text already
+says.
 
 - **Memory & streaming** (`memBox`) — `memgb` (RAM budget before falling
   back to streaming) and `chunkmb` (streaming chunk size). See **in/out**.
