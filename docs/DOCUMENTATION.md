@@ -106,8 +106,6 @@ section summarizes what's *in* each, not what the help text already says.
   render, or (before a Run) a quick averaged data projection, or the 3D
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
   σ-width and phasor-magnitude views (3D calibration only).
-- **Stats bar** — Frames / Localizations / Loc-per-frame / Compute (s),
-  filled in after a Run.
 - **Log** (`log`) — every module writes here; `clearLogBtn`/`exportLogBtn`
   clear it or save it as a `.txt` file. The single shared progress bar
   (`#bar`/`#prog`, below the action buttons) is fed by every long-running
