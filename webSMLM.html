@@ -1439,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14k · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14l · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1489,7 +1489,7 @@ X.B(E,Y);return E}return J}())
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
         <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
-        <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
+        <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="1000" min="50" max="2000" step="50" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: in/out</span>
           <ul>
@@ -1716,7 +1716,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14k
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14l
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1860,7 +1860,7 @@ const PARAMS = {
   // memgb = RAM budget for caching decoded frames before falling back to streaming
   memgb: { type:'number', id:'memgb', label:'Memory budget (GB)', min:0.5, max:8, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
-  chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
+  chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:1000, int:false },
 
   // ---- simulation ----
   // frames = number of frames the built-in synthetic-stack generator produces
@@ -2192,7 +2192,7 @@ function ftmSeriesGlobal(series, out, len, win, globalOffset, globalN, camoffset
 // (this can be a few hundred ms for a large chunk) so a long Run's Stop
 // button and preview updates stay responsive. Main-thread; used by
 // makeFtmStack() (serial runCore() path) only — see the module comment above.
-async function ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, globalN, camoffset){
+async function ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, globalN, camoffset, onProgress=()=>{}){
   const ctxLen=ctxFrames.length, coreLen=coreEnd-coreStart, N=w*h;
   const out=new Array(coreLen); for(let i=0;i<coreLen;i++) out[i]=new Float32Array(N);
   const series=new Float64Array(ctxLen), os=new Float64Array(ctxLen);
@@ -2202,7 +2202,7 @@ async function ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, glob
     ftmSeriesGlobal(series, os, ctxLen, win, ctxStart, globalN, camoffset);
     const localCoreStart=coreStart-ctxStart;
     for(let i=0; i<coreLen; i++) out[i][p]=os[localCoreStart+i];
-    if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now(); }
+    if(performance.now()-lastYield>50){ onProgress(p/N); await tick(); lastYield=performance.now(); }
   }
   return out;
 }
@@ -2245,7 +2245,8 @@ async function ftmChunkParallel(ctxFrames, w, h, ctxStart, coreStart, coreEnd, w
 // memory tuning instead of an arbitrary number that might be too small
 // (little benefit from caching) or too large (defeats the point of
 // bounded-memory chunking) for their actual data.
-function makeFtmStack(rawStack, win, camoffset, chunkmb){
+function makeFtmStack(rawStack, win, camoffset, chunkmb, hooks={}){
+  const {onLog=()=>{}, onProgress=()=>{}}=hooks;   // onProgress(absFrame): absolute stack-frame-equivalent progress estimate — caller maps it onto its own 0–100 scale
   const {w,h,n,px}=rawStack;
   const frameBytes=w*h*4;
   const CHUNK=Math.max(win, Math.floor((chunkmb*1e6/2)/frameBytes));
@@ -2285,12 +2286,14 @@ function makeFtmStack(rawStack, win, camoffset, chunkmb){
         const ctxStart=Math.max(0, Math.min(n-win, coreStart-half));
         const ctxEnd=Math.max(0, Math.min(n-win, coreEnd-1-half))+win;
         const ctxFrames=new Array(ctxEnd-ctxStart);
+        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk)…`);
         const BLK=32;   // fetch in blocks, not one call — avoids a single giant read on a sliced/streamed stack
         for(let b=ctxStart; b<ctxEnd; b+=BLK){
           const bl=await rawStack.getFrames(b, Math.min(ctxEnd,b+BLK));
           for(let i=0;i<bl.length;i++) ctxFrames[b-ctxStart+i]=bl[i];
         }
-        const result=await ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, n, camoffset);
+        const result=await ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, n, camoffset,
+          frac=>onProgress(coreStart+frac*(coreEnd-coreStart)));
         cached=result; cacheStart=coreStart; cacheEnd=coreEnd;
         ftmMs+=performance.now()-t0;
       })();
@@ -5104,8 +5107,26 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   let fetchStack=stack;
   if(config.ftmEnabled){
     if(nStack<config.ftmWindow) onLog(`⚠ Temporal median filtering needs at least ${config.ftmWindow} frames (stack has ${nStack}) — running on raw data instead.`);
-    else { fetchStack=makeFtmStack(stack, config.ftmWindow, config.camoffset, config.chunkmb);
-      onLog(`  Temporal median filtering ON (window=${config.ftmWindow}) — Localize runs on FTM-corrected frames.`); }
+    else {
+      // Same formula makeFtmStack()/the barrier-phased worker loop below each
+      // compute internally — surfaced here once, up front, purely for the log
+      // line (answers "what chunk size is this actually using" without
+      // reading source). ftmNChunks is an estimate for the log only: the
+      // serial path's actual chunk boundaries can differ slightly (driven by
+      // its caller's own BLK=32 request granularity, not just this formula
+      // — see makeFtmStack's comment), but it's the right order of magnitude.
+      const ftmChunkSize=Math.max(config.ftmWindow, Math.floor((config.chunkmb*1e6/2)/(w*h*4)));
+      const ftmNChunks=Math.ceil(n/ftmChunkSize);
+      // absFrame: an absolute stack-frame-equivalent progress estimate from
+      // makeFtmStack (it only knows global stack indices, not this Run's own
+      // firstIdx-relative "processed" counter) — translated to the same 0–100
+      // scale onProgress uses everywhere else in this function.
+      fetchStack=makeFtmStack(stack, config.ftmWindow, config.camoffset, config.chunkmb,
+        { onLog, onProgress: absFrame=>onProgress(100*Math.max(0,Math.min(1,(absFrame-firstIdx)/n))) });
+      onLog(`  Temporal median filtering ON (window=${config.ftmWindow}) — Localize runs on FTM-corrected frames `+
+            `(chunk size ${ftmChunkSize.toLocaleString()} frames → ~${ftmNChunks} chunk${ftmNChunks>1?'s':''} for this Run; `+
+            `chunkmb=${config.chunkmb} — shrink it for more, smaller chunks and more frequent progress updates).`);
+    }
   }
   const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
   const pool = await getPool();
@@ -5207,6 +5228,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           for(let i=0;i<bl.length;i++) ctxFrames[b-ctxStart+i]=bl[i];
         }
         if(err) break;
+        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk)…`);
+        onProgress(100*(coreStart-firstIdx)/n);   // frames before this chunk are done (both phases); this chunk's own FTM phase has no finer-grained progress of its own — see docs/DOCUMENTATION.md
         const tFtm0=performance.now();
         let corrected;
         try{ corrected=await ftmChunkParallel(ctxFrames, w, h, ctxStart, coreStart, coreEnd, ftmWin, nStack, camoffset, pool); }

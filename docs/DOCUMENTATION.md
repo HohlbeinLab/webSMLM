@@ -323,7 +323,7 @@ CRLB) are already true photon units. See the **fit** module.
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `memgb` | Memory budget (GB) | number | 0.5 | 8 | 0.5 | 3 |
-| `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
+| `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 1000 |
 
 ### Simulation
 
