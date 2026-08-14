@@ -126,6 +126,10 @@ Any control that affects detection/fit is wired into the live-preview listener a
 for `.forEach(id=>{` near the settings-JSON code) — a new per-method parameter needs adding there
 too, or changing it won't refresh the scrubbed-frame preview until the next full Run.
 
+Both paths suppress the fit crosshairs (not the ROI boxes) outside `fitFirstFrame`/`fitLastFrame`
+— `fitFrameRange()` is the single place deciding "in range" for both `showFrame()` and `runCore()`,
+so scrubbing to a frame a Run would never touch can't show a misleading live-fit result there.
+
 ### Syntax gotcha
 
 Leading-unary `**` is a SyntaxError in both JavaScriptCore and V8: write `-((x-d)**2)`, never

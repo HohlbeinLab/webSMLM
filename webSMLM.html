@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14a · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14b · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1698,7 +1698,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14a
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14b
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4699,6 +4699,17 @@ function currentThr(){
 // and shouldStop() replaces the module-level stopRequested flag. Returns
 // everything the caller needs to finish the job itself (set lastResult,
 // draw the final raw-panel overlay, update the stats bar, …).
+// Resolves fitFirstFrame/fitLastFrame (1-based inclusive) against a stack's
+// frame count into [firstIdx,lastIdx) — 0-based, half-open. Shared by
+// runCore() (the actual analysis loop bound) and showFrame()'s live-preview
+// path, so scrubbing to a frame outside the configured range doesn't show a
+// live-fit crosshair for a frame that would never actually be analyzed with
+// these settings — only one place decides what "in range" means.
+function fitFrameRange(first, last, nStack){
+  const firstIdx=Math.max(0, Math.min(nStack-1, (first||1)-1));
+  const lastIdx=Math.max(firstIdx+1, Math.min(nStack, last||nStack));
+  return {firstIdx, lastIdx};
+}
 async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // onLog/onProgress default to the real log()/setProg() — mirrors the
   // interactive path exactly when no hooks are given at all, same rule as
@@ -4709,17 +4720,12 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // wrapper's stopRequested global).
   const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
   const {w,h,n:nStack}=stack, px=config.pxnm;
-  // [firstIdx,lastIdx) — 0-based, half-open — the sub-range of the stack this
-  // run actually processes; config.fitFirstFrame/fitLastFrame are 1-based
-  // inclusive (PARAMS; fitLastFrame defaults to Infinity — see its PARAMS
-  // comment — so Math.min below naturally falls back to the whole stack).
   // Every downstream `n` in this function already meant "how many frames
   // this run processes", so redefining it here to the SELECTED count (not
   // stack.n) needs no other changes to the progress/threshold/logging code
   // that already consumes it — only the actual loop bounds (which used to
   // start at literal 0) need the firstIdx/lastIdx offset applied explicitly.
-  const firstIdx=Math.max(0, Math.min(nStack-1, (config.fitFirstFrame||1)-1));
-  const lastIdx=Math.max(firstIdx+1, Math.min(nStack, config.fitLastFrame||nStack));
+  const {firstIdx,lastIdx}=fitFrameRange(config.fitFirstFrame, config.fitLastFrame, nStack);
   const n=lastIdx-firstIdx;
   const sigma=config.psf, win=2*config.winr+1, method=config.method;
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
@@ -4959,7 +4965,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 
   return { locs, w, h, n, px, mag:config.mag, det:{sigma,k,win,border,exactBP,mode},
            method, label, processed, stopped, useWorkers,
-           lastSpots, lastFrame, lastFrameIdx,
+           lastSpots, lastFrame, lastFrameIdx, firstIdx, lastIdx,
            timings:{tGet,tDetect,tFit,nCand,dt,previewMs,runMs,otherMs} };
 }
 
@@ -4993,7 +4999,7 @@ async function run(){
       // is reflected in the very next preview, matching prior behaviour.
       onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; rerender(true,true); },
     });
-    lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det};
+    lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det,firstIdx:r.firstIdx,lastIdx:r.lastIdx};
     rerender(true);
     // refresh the raw panel with the accepted localizations (magenta) overlaid,
     // now that lastResult exists so locsForFrame() can index them
@@ -5229,7 +5235,14 @@ async function showFrame(i){
       const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
       spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border).maxima;
       locsF=[];
-      for(const [cx,cy] of spots){
+      // ROIs (green boxes) show for any frame — they're just "what would be
+      // detected here", harmless either way. Fit crosshairs (magenta) are
+      // suppressed outside the configured fitFirstFrame/fitLastFrame range:
+      // showing a live-fit result on a frame that a Run would never actually
+      // touch would look like that frame WAS analyzed, when it wasn't.
+      const {firstIdx,lastIdx}=fitFrameRange(paramValue('fitFirstFrame'), paramValue('fitLastFrame'), stack.n);
+      const inRange = i>=firstIdx && i<lastIdx;
+      if(inRange) for(const [cx,cy] of spots){
         const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset);
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
@@ -5238,17 +5251,22 @@ async function showFrame(i){
                locsF.push(L); }
       }
       drawRaw(img,stack.w,stack.h,spots,locsF);
-      $('rawInfo').textContent=`frame ${i+1}/${stack.n} — ${spots.length} spots, ${locsF.length} locs (live preview)`;
+      $('rawInfo').textContent=`frame ${i+1}/${stack.n} — ${spots.length} spots`+(inRange?`, ${locsF.length} locs (live preview)`:' (outside analysis range — not fit)');
     }else{
       // re-detect boxes and overlay the fits from the last localization Run.
-      let det=null, getLocs=null;
-      if(runMatchesStack){ det=lastResult.det; getLocs=locsForFrame; }
+      // locsForFrame() already returns [] for a frame outside that Run's
+      // fitFirstFrame/fitLastFrame range (nothing was ever fit there), so no
+      // extra filtering is needed for the crosshairs themselves — only the
+      // info text below needs runInRange to explain *why* it's empty.
+      let det=null, getLocs=null, runInRange=true;
+      if(runMatchesStack){ det=lastResult.det; getLocs=locsForFrame;
+        if(isFinite(lastResult.firstIdx)) runInRange = i>=lastResult.firstIdx && i<lastResult.lastIdx; }
       if(det){
         spots=detectSpots(img,stack.w,stack.h,det.sigma,det.exactBP,det.mode,det.k,det.border).maxima;
         locsF=getLocs(i);
       }
       drawRaw(img,stack.w,stack.h,spots,locsF);
-      $('rawInfo').textContent=`frame ${i+1}/${stack.n}`+(locsF?` — ${spots.length} spots, ${locsF.length} locs`:'');
+      $('rawInfo').textContent=`frame ${i+1}/${stack.n}`+(locsF?(runInRange?` — ${spots.length} spots, ${locsF.length} locs`:` — ${spots.length} spots (outside analysis range — not fit)`):'');
     }
   }catch(_){}
   scrubBusy=false;
