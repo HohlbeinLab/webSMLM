@@ -67,11 +67,15 @@ section summarizes what's *in* each, not what the help text already says.
 
 ### Sidebar — fit method group (always visible, not collapsible)
 
-`method` (fit algorithm select), `loadCalBtn` (load a 3D calibration JSON,
-only shown for a 3D method), `detFilter` (detection filter select),
-`liveUpdate`, per-filter threshold fields (`detection_wavelet_thr` /
-`detection_DoG_thr` / `detection_box_thr`, only one visible at a time),
-`detection_DoG_exactbp`, `psf`, `winr`. See **detect** / **fit** modules.
+`method` (fit algorithm select), `fitFirstFrame`/`fitLastFrame` (1-based
+inclusive frame range Localize processes — the rest of the loaded stack is
+skipped entirely, not just excluded from the result; reset to `1`/the loaded
+stack's frame count on every new load, same as `calFirst`/`calLast`),
+`loadCalBtn` (load a 3D calibration JSON, only shown for a 3D method),
+`detFilter` (detection filter select), `liveUpdate`, per-filter threshold
+fields (`detection_wavelet_thr` / `detection_DoG_thr` / `detection_box_thr`,
+only one visible at a time), `detection_DoG_exactbp`, `psf`, `winr`. See
+**detect** / **fit** modules.
 
 ### Sidebar — render group (always visible)
 
@@ -129,7 +133,19 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`) |
+| `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
+| `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
 | `mleEps` | MLE convergence tolerance (px) | number | 1e-6 | 0.1 | 0.0001 | 0.001 |
+
+`fitLastFrame` defaults to `Infinity`, not a finite placeholder: an
+`<input type=number>` sanitizes a non-finite value to a blank field, and a
+blank field reads back (via `paramValue()`'s `isFinite` fallback) as "the
+whole stack" — so if `initScrub()`'s per-load reset were ever skipped, or a
+user manually clears the field, the safe fallback is no restriction, never a
+silent restriction down to (near-)nothing. Both fields reset to `1`/the
+loaded stack's frame count on every new load. Restricting the range means
+the skipped frames are never even fetched/decoded, not just excluded from
+the result afterward — see the **pipeline** module / `runCore()`.
 
 ### Render
 

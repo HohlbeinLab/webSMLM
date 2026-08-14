@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-12c · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14a · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1588,6 +1588,8 @@ X.B(E,Y);return E}return J}())
           <option value="gaussmle" selected>Gaussian MLE 2D</option>
           <option value="mle3d">Gaussian MLE 3D</option>
         </select></label>
+      <label class="row" style="margin-top:8px">First frame <input type="number" id="fitFirstFrame" min="1" step="1" value="1" class="num" title="First frame (1-based, inclusive) Localize processes"></label>
+      <label class="row">Last frame <input type="number" id="fitLastFrame" min="1" step="1" class="num" title="Last frame (1-based, inclusive) Localize processes — blank/reset to the whole loaded stack on every new load"></label>
       <div id="cal3dRow" style="display:none;margin:6px 0 2px">
         <button id="loadCalBtn" style="margin:0">Load calibration…</button>
         <input type="file" id="calFile" accept=".json" hidden>
@@ -1696,7 +1698,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-12c
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14a
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1747,6 +1749,22 @@ const PARAMS = {
   // ---- fit ----
   // method = which localization fitter runs: phasor 2D/3D, Gaussian least-squares, or Gaussian MLE 2D/3D
   method: { type:'enum', id:'method', label:'Fit method', options:['phasor','phasor3d','gaussls','gaussmle','mle3d'], default:'gaussmle' },
+  // fitFirstFrame/fitLastFrame = 1-based inclusive frame range Localize actually
+  // processes (the rest of the loaded stack is skipped entirely, not just hidden
+  // from the result afterward). Per-dataset in spirit (fitLastFrame's *meaningful*
+  // value is the loaded stack's frame count) but real PARAMS entries anyway,
+  // unlike calFirst/calLast — a headless config needs these to gate a run the
+  // same way interactive Localize does. initScrub() resets both to 1/stack.n on
+  // every new load, same pattern calFirst/calLast already use for themselves.
+  // fitLastFrame defaults to Infinity, not a finite placeholder: an
+  // <input type=number> sanitizes a non-finite value to blank, and a blank
+  // field safely reads back as "the whole stack" in runCore()'s Math.min
+  // clamp below — so if initScrub()'s per-load reset were ever skipped, or a
+  // user manually clears the field, the fallback is "no restriction", never
+  // a silent restriction down to (near-)nothing the way a finite placeholder
+  // like 1 would be.
+  fitFirstFrame: { type:'number', id:'fitFirstFrame', label:'First frame', min:1, max:null, step:1, default:1, int:true },
+  fitLastFrame: { type:'number', id:'fitLastFrame', label:'Last frame', min:1, max:null, step:1, default:Infinity, int:true },
   // mleEps = MLE Newton-iteration convergence tolerance (px); matches Picasso's gaussmle default
   // (0.001, vs webSMLM's earlier 1e-4 — 10x tighter than needed relative to CRLB precision, which
   // only cost extra iterations: swapping to 0.001 measured 19% faster AND a higher convergence
@@ -4690,7 +4708,19 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // stays no-op too (no generic "was Stop clicked" outside that same
   // wrapper's stopRequested global).
   const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
-  const {w,h,n}=stack, px=config.pxnm;
+  const {w,h,n:nStack}=stack, px=config.pxnm;
+  // [firstIdx,lastIdx) — 0-based, half-open — the sub-range of the stack this
+  // run actually processes; config.fitFirstFrame/fitLastFrame are 1-based
+  // inclusive (PARAMS; fitLastFrame defaults to Infinity — see its PARAMS
+  // comment — so Math.min below naturally falls back to the whole stack).
+  // Every downstream `n` in this function already meant "how many frames
+  // this run processes", so redefining it here to the SELECTED count (not
+  // stack.n) needs no other changes to the progress/threshold/logging code
+  // that already consumes it — only the actual loop bounds (which used to
+  // start at literal 0) need the firstIdx/lastIdx offset applied explicitly.
+  const firstIdx=Math.max(0, Math.min(nStack-1, (config.fitFirstFrame||1)-1));
+  const lastIdx=Math.max(firstIdx+1, Math.min(nStack, config.fitLastFrame||nStack));
+  const n=lastIdx-firstIdx;
   const sigma=config.psf, win=2*config.winr+1, method=config.method;
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
   const exactBP=config.detection_DoG_exactbp, mode=config.detFilter;
@@ -4698,7 +4728,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
-  onLog(`\nRun: ${n} frames · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
+  const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
+  onLog(`\nRun: ${n} frames${rangeNote} · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
   const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
   const pool = await getPool();
   // Workers only pay off when per-frame work clearly exceeds the cost of
@@ -4733,7 +4764,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     // experimenting with worker utilisation on a given machine/method.
     const BATCH=Math.max(config.workerBatchMin, Math.min(config.workerBatchMax, Math.ceil(n/(pool.length*config.workerBatchTarget))));
     onLog(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
-    let next=0, doneF=0, inflight=0, err=null, shown=null;
+    let next=firstIdx, doneF=0, inflight=0, err=null, shown=null;
     // Workers dispatch same-size batches at roughly the same time, so they
     // tend to FINISH in a synchronized cluster too — a burst of onmessage
     // events, then a gap while everyone's busy on their next batch. Gating
@@ -4757,7 +4788,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           const tp=performance.now();
           const mx=detectSpots(latestImg,w,h,sigma,exactBP,mode,k,border).maxima;
           lastSpots=mx; lastFrame=latestImg; lastFrameIdx=latestFi;
-          onRawPreview(latestImg,w,h,mx,latestLocs,latestFi,n);
+          onRawPreview(latestImg,w,h,mx,latestLocs,latestFi,nStack);   // nStack: label shows true position in the whole stack, not the selected range
           previewMs+=performance.now()-tp;
         }
         scheduleRawPreview();
@@ -4765,13 +4796,13 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     };
     scheduleRawPreview();
     await new Promise(resolve=>{
-      const finish=()=>{ if(inflight===0 && (shouldStop()||next>=n||err)) resolve(); };
+      const finish=()=>{ if(inflight===0 && (shouldStop()||next>=lastIdx||err)) resolve(); };
       // async because sliced stacks read their frames from disk. `next` is
       // advanced and `inflight` incremented BEFORE the first await, so two
       // concurrent dispatches can never claim the same frame range.
       const dispatch=async wk=>{
-        if(err||shouldStop()||next>=n){ finish(); return; }
-        const s=next, e=Math.min(n,s+BATCH); next=e;
+        if(err||shouldStop()||next>=lastIdx){ finish(); return; }
+        const s=next, e=Math.min(lastIdx,s+BATCH); next=e;
         inflight++;
         const ta=performance.now();
         let frames;
@@ -4838,16 +4869,16 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       // one-time filter now that the whole batch set is in — cheap unlike
       // doing this on every preview tick against a still-growing locs array
       const shownLocs=locs.filter(L=>L.frame===shown.fi).map(L=>({x:L.x,y:L.y}));
-      onRawPreview(shown.img,w,h,lastSpots,shownLocs,shown.fi,n);
+      onRawPreview(shown.img,w,h,lastSpots,shownLocs,shown.fi,nStack);
       previewMs+=performance.now()-tp; }
   } else {
     // Fetch in blocks rather than per frame: sliced stacks read from disk, so
     // one request per block instead of one per frame.
     const BLK=32;
     outer:
-    for(let b=0; b<n; b+=BLK){
+    for(let b=firstIdx; b<lastIdx; b+=BLK){
       const ta=performance.now();
-      const block=await stack.getFrames(b, Math.min(n,b+BLK));
+      const block=await stack.getFrames(b, Math.min(lastIdx,b+BLK));
       tGet+=performance.now()-ta;
       for(let j=0; j<block.length; j++){
         const fi=b+j, img=block[j];
@@ -4867,7 +4898,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         if(performance.now()-lastRawMs>RAW_PREVIEW_MS){   // time-based, not a frame count — see PARAMS.rawPreviewMs
           lastRawMs=performance.now();
           lastSpots=maxima; lastFrame=img; lastFrameIdx=fi;
-          onRawPreview(img,w,h,maxima,frameLocs,fi,n);
+          onRawPreview(img,w,h,maxima,frameLocs,fi,nStack);   // nStack: label shows true position in the whole stack, not the selected range
           if(locs.length && performance.now()-lastSrMs>previewInterval){   // live super-res preview, adaptively throttled
             const tp=performance.now(); lastSrMs=performance.now();
             onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
@@ -4875,9 +4906,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
             previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
           }
         }
-        processed=fi+1;
+        processed=fi-firstIdx+1;   // count of frames done so far in THIS run, not an absolute stack index
         if(performance.now()-lastYield > 50){      // yield on a time budget to keep the UI responsive
-          onProgress(100*fi/n);
+          onProgress(100*processed/n);
           await tick(); lastYield=performance.now();
           // A Stop click can only be delivered while we're yielding, so this is
           // the earliest point it can be observed — no need to poll elsewhere.
@@ -5229,6 +5260,7 @@ function initScrub(){
   if(stack && stack.n>1){ row.style.display='flex'; s.max=stack.n-1; s.value=0; $('scrubV').textContent=`1/${stack.n}`; }
   else row.style.display='none';
   if(stack){ $('calLast').value=stack.n; $('calFirst').value=1;   // default calibration range = whole stack
+    $('fitLastFrame').value=stack.n; $('fitFirstFrame').value=1;  // default Localize range = whole stack too
     // both panels take the stack's aspect ratio (raw frame + reconstruction share it → equal, no letterbox)
     document.documentElement.style.setProperty('--frame-ar', stack.w+' / '+stack.h);
     calFixedPts=null; _projCache=null;      // a new stack invalidates any previously fixed positions/projection

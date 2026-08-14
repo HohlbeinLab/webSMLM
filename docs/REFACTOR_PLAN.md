@@ -34,16 +34,14 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   separate panels) — useful for judging at a glance whether a given window
   size is under/over-correcting.
 
-  **Frame range for analysis (start/end), independent of FTM.** Not
-  implemented at all today — Localize always processes the whole
-  loaded/simulated stack. An `analysisFirst`/`analysisLast` pair (1-based,
-  per-dataset working state like the calibration module's existing
-  `calFirst`/`calLast`, not a `PARAMS` entry) would let a Run be restricted
-  to a sub-range — useful on its own (skip a bleached tail, or a stack with a
-  distinct pre-imaging phase) and also relevant to FTM, since FTM2 has its
-  *own* independent Start/End (which frames the *filter* runs over, not which
-  ones get *localized* afterward) — worth deciding whether webSMLM keeps one
-  shared range for both or the same two-range split FTM2 has.
+  **Frame range for analysis (start/end), independent of FTM — done.**
+  `fitFirstFrame`/`fitLastFrame` (1-based inclusive, real `PARAMS` entries —
+  see `docs/DOCUMENTATION.md` §2/§1) restrict a Run to a sub-range; skipped
+  frames are never even fetched/decoded, not just excluded afterward. Still
+  relevant to FTM once that's built, since FTM2 has its *own* independent
+  Start/End (which frames the *filter* runs over, not which ones get
+  *localized* afterward) — worth deciding whether FTM reuses this same range
+  or gets the two-range split FTM2 has.
 
   **Open questions, deliberately unresolved here — need more thought before
   implementing:**
