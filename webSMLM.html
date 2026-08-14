@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.0 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14a</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1638,13 +1638,30 @@ X.B(E,Y);return E}return J}())
       <label class="row">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <label class="row">Camera gain (photons/ADU) <input type="number" id="gain" value="1" min="0.001" max="1000" step="0.01" class="num"></label>
       <label class="row">Camera offset (ADU) <input type="number" id="camoffset" value="0" min="0" max="65535" step="1" class="num"></label>
+      <label class="row">Estimate from stack <button id="pcfoBtn" type="button" disabled>Estimate gain/offset</button></label>
+      <details class="sim" id="pcfoBox">
+        <summary>PCFO settings</summary>
+        <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="100" min="1" max="5000" step="10" class="num"></label>
+        <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1.4" step="0.05" class="num"></label>
+        <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="0" min="0" max="200" step="1" class="num"></label>
+        <label class="row">Tile size (px) <input type="number" id="pcfoTilePx" value="300" min="32" max="2000" step="10" class="num"></label>
+        <details class="info"><summary>…further info…</summary>
+          <div class="hint"><b>Frames sampled</b> — how many seeded-random frames to average over.
+          <b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is
+          assumed noise-only; 0.9 follows the Rieger–Heintzman default.
+          <b>Readout noise σ</b> — camera dark-frame std, in electrons; 0 if unknown/negligible.
+          <b>Tile size</b> — target tile width/height in px (64×64 frame → 1×1 tile, 600×600 → 2×2 @ 300px, etc.).</div></details>
+      </details>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">[module: export] <b>Pixel size (nm)</b> sets the physical scale used by the scale
         bar, z, and the exported CSV coordinates. With gain 1 the exported “intensity [photon]” is really <b>ADU</b>
         (analog-to-digital unit — the camera's raw pixel count, before any photon conversion), and the
         uncertainty column (∝ 1/√N) is not physically meaningful. A single scalar gain suits
         <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is
-        only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</div></details>
+        only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.
+        <b>Estimate gain/offset</b> runs the Rieger–Heintzman photon-transfer method (PCFO) on the
+        sampled frames (see PCFO settings above) — mean signal vs. high-frequency noise variance
+        per tile, averaged over frames — and fills in the fields above.</div></details>
       <hr class="sep" style="margin:10px 0 8px">
       <label class="row">Magnification <input type="number" id="mag" min="4" max="25" step="1" value="10" class="num"></label>
       <label class="row">Render blur σ_render (px) <input type="number" id="rblur" min="0" max="1" step="0.05" value="0.25" class="num"></label>
@@ -1710,7 +1727,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.0
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14a · PCFO gain/offset estimation
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1790,6 +1807,17 @@ const PARAMS = {
   gain: { type:'number', id:'gain', label:'Camera gain (photons/ADU)', min:0.001, max:1000, step:0.01, default:1, int:false },
   // camoffset = "camera offset", the camera's baseline ADU level, subtracted before gain conversion
   camoffset: { type:'number', id:'camoffset', label:'Camera offset (ADU)', min:0, max:65535, step:1, default:0, int:false },
+
+  // ---- PCFO (photon-conversion-factor & offset): estimates gain/camoffset above from the
+  // stack itself, via the Rieger–Heintzman high-spatial-frequency noise method (estimateGainOffset)
+  // pcfoFrames = how many seeded-random frames to sample and average PCFO statistics over
+  pcfoFrames: { type:'number', id:'pcfoFrames', label:'PCFO: frames sampled', min:1, max:5000, step:10, default:100, int:true },
+  // pcfoK = spatial-frequency cutoff (fraction of Nyquist) above which content is assumed noise-only
+  pcfoK: { type:'number', id:'pcfoK', label:'PCFO: k_thresh (spatial freq.)', min:0.1, max:1.4, step:0.05, default:0.9, int:false },
+  // pcfoRnstd = camera dark-frame read-noise std, in electrons; 0 if unknown/negligible
+  pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:1, default:0, int:false },
+  // pcfoTilePx = target tile width/height in px for the PCFO signal/noise-variance regression
+  pcfoTilePx: { type:'number', id:'pcfoTilePx', label:'PCFO: tile size (px)', min:32, max:2000, step:10, default:300, int:true },
 
   // ---- calibration ----
   // calStep = the z-stage step size (nm) between consecutive calibration-stack frames
@@ -4728,6 +4756,120 @@ async function computeFRC(){
   finally{ $('frcBtn').disabled=false; setProg(null); }
 }
 
+/* ---- PCFO (photon-conversion-factor & offset) — camera gain/offset from the
+   high-spatial-frequency (noise-only) content of raw frames: mean signal vs.
+   noise variance per image tile, linear regression. Rieger & Heintzman method
+   (Heintzmann, Relich, Nieuwenhuizen, Lidke & Rieger, arXiv:1611.05654;
+   Stallinga, TU Delft, pcfo_fftfix.m). Reuses fft2d (mirror-doubled tiles). ---- */
+function mulberry32(seed){
+  let a=seed>>>0;
+  return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+}
+function pickSeededFrames(n,count,seed){
+  const rnd=mulberry32(seed), pool=Array.from({length:n},(_,i)=>i);
+  const picked=[];
+  for(let k=0;k<Math.min(count,n);k++){
+    const j=(rnd()*pool.length)|0;
+    picked.push(pool[j]); pool.splice(j,1);
+  }
+  return picked;
+}
+// mirror-double an S×S block to N=2S (square, power-of-2) and FFT it.
+function pcfoTileStats(img,w,x0,y0,S,kThresh,filfac){
+  const N=2*S;
+  const re=new Float64Array(N*N), im=new Float64Array(N*N);
+  let sum=0;
+  for(let y=0;y<S;y++){
+    for(let x=0;x<S;x++){
+      const v=img[(y0+y)*w+(x0+x)]; sum+=v;
+      re[y*N+x]=v; re[y*N+(N-1-x)]=v;                    // horizontal mirror
+      re[(N-1-y)*N+x]=v; re[(N-1-y)*N+(N-1-x)]=v;         // vertical mirror
+    }
+  }
+  fft2d(re,im,N,-1);
+  let noisevar=0;
+  const norm=1/(filfac*N*N);
+  for(let y=0;y<N;y++){
+    const ky=(y<N/2?y:y-N)/(N/2);
+    for(let x=0;x<N;x++){
+      const kx=(x<N/2?x:x-N)/(N/2);
+      if(Math.sqrt(kx*kx+ky*ky)>kThresh){
+        const i=y*N+x; noisevar+=(re[i]*re[i]+im[i]*im[i])*norm;
+      }
+    }
+  }
+  noisevar/=(N*N);
+  return {imsig:sum/(S*S), noisevar};
+}
+// grid a frame into tilesX×tilesY cells, return one {imsig,noisevar} pair per cell.
+function pcfoFrameTilePoints(img,w,h,tilesX,tilesY,kThresh){
+  const filfac=1-Math.PI*kThresh*kThresh/4, S=32;
+  const pts=[];
+  for(let jty=0;jty<tilesY;jty++){
+    const y0c=Math.floor(jty*h/tilesY), y1c=Math.floor((jty+1)*h/tilesY);
+    for(let jtx=0;jtx<tilesX;jtx++){
+      const x0c=Math.floor(jtx*w/tilesX), x1c=Math.floor((jtx+1)*w/tilesX);
+      if(x1c-x0c<S||y1c-y0c<S) continue;                  // cell too small for the tile
+      pts.push(pcfoTileStats(img,w,x0c,y0c,S,kThresh,filfac));
+    }
+  }
+  return pts;
+}
+// pick a tile grid so each tile is roughly targetPx wide/tall (64×64 → 1×1, 600×600 → 2×2 @ 300px).
+function pcfoAutoTiles(w,h,targetPx){
+  return {tilesX:Math.max(1,Math.round(w/targetPx)), tilesY:Math.max(1,Math.round(h/targetPx))};
+}
+// 2-parameter linear regression (noisevar vs. imsig) over a pooled set of tile points.
+function pcfoRegress(pts,rnstd){
+  const nT=pts.length;
+  if(nT<2) return null;
+  let sR=0,sR2=0,sS=0,sRS=0;
+  for(const p of pts){ sR+=p.imsig; sR2+=p.imsig*p.imsig; sS+=p.noisevar; sRS+=p.imsig*p.noisevar; }
+  const parmatRR=sR2/nT, parmatRS=sR/nT, parvecR=sRS/nT, parvecS=sS/nT;
+  const det=parmatRR-parmatRS*parmatRS;                   // parmatSS=1
+  if(!isFinite(det)||Math.abs(det)<1e-12) return null;
+  const gain=(parvecR-parvecS*parmatRS)/det;
+  const c=(parmatRR*parvecS-parmatRS*parvecR)/det;
+  if(!isFinite(gain)||gain===0) return null;
+  const offset=-c/gain+gain*rnstd*rnstd;
+  return {gain,offset};
+}
+async function estimateGainOffset(){
+  if(!stack){ log('Load a stack first.'); return; }
+  $('pcfoBtn').disabled=true;
+  try{
+    const NFRAMES=paramValue('pcfoFrames'), K_THRESH=paramValue('pcfoK'),
+          RNSTD=paramValue('pcfoRnstd'), TILE_TARGET_PX=paramValue('pcfoTilePx');
+    const {tilesX:TILES_X,tilesY:TILES_Y}=pcfoAutoTiles(stack.w,stack.h,TILE_TARGET_PX);
+    const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
+    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame (~${TILE_TARGET_PX}px)…`);
+    const pts=[];
+    for(const fi of idx){
+      const img=(await stack.getFrames(fi,fi+1))[0];
+      pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,TILES_X,TILES_Y,K_THRESH));
+      await tick();
+    }
+    const fit=pcfoRegress(pts,RNSTD);
+    if(!fit){ log(`  too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return; }
+    // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
+    // camera calibration convention); webSMLM's Camera gain field is photons/ADU, so invert.
+    const gainPhPerADU=1/fit.gain;
+    // leave-one-out jackknife over the pooled points, for a rough uncertainty estimate
+    const jGains=[], jOffsets=[];
+    for(let i=0;i<pts.length;i++){
+      const r=pcfoRegress(pts.slice(0,i).concat(pts.slice(i+1)),RNSTD);
+      if(r){ jGains.push(1/r.gain); jOffsets.push(r.offset); }
+    }
+    const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+    const std=a=>{ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); };
+    const gStd=jGains.length>1?std(jGains):NaN, oStd=jOffsets.length>1?std(jOffsets):NaN;
+    log(`  gain = ${gainPhPerADU.toFixed(3)}${isFinite(gStd)?' ± '+gStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(oStd)?' ± '+oStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
+    $('gain').value=gainPhPerADU.toFixed(3); $('camoffset').value=Math.round(fit.offset);
+  }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
+  finally{ $('pcfoBtn').disabled=false; }
+}
+
 /* ===========================================================================
    MODULE: pipeline
    =========================================================================== */
@@ -5187,7 +5329,7 @@ $('loadBtn').addEventListener('click',()=>$('file').click());
 
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
     $('pxnm').value=stack.px;   // keep the shared pixel-size control (scale bar, re-run config, …) in sync with the simulated stack's own px
@@ -5195,7 +5337,7 @@ $('genBtn').addEventListener('click',async()=>{
     initScrub(); $('sFrames').textContent=stack.n;
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
     log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
@@ -5207,7 +5349,7 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
   try{
@@ -5216,7 +5358,7 @@ $('file').addEventListener('change',async e=>{
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider (or scroll over the image) to browse the stack.':''}`);
   }catch(err){ log('TIFF load failed: '+err.message); }
 });
@@ -5335,6 +5477,7 @@ $('driftShowBtn').addEventListener('click',()=>{ if(lastDrift) drawDriftCurve();
 // 0.8.0 (in development): localization-precision estimators. Scaffolded UI only.
 $('nenaBtn').addEventListener('click',computeNeNA);
 $('frcBtn').addEventListener('click',computeFRC);
+$('pcfoBtn').addEventListener('click',estimateGainOffset);
 
 // Phasor 3D: reveal the Load-calibration control only for that method
 function updateMethodUI(){
