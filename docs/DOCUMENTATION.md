@@ -49,8 +49,10 @@ Each is a `<details>` element; opening one doesn't affect the others. All
 carry their own **…further info…** disclosure with in-context help — this
 section summarizes what's *in* each, not what the help text already says.
 
-- **Memory & streaming** (`memBox`) — `memgb` (RAM budget before falling
-  back to streaming) and `chunkmb` (streaming chunk size). See **in/out**.
+- **Memory, streaming & loading** (`memBox`) — `memgb` (RAM budget before
+  falling back to streaming) and `chunkmb` (streaming chunk size); below an
+  internal rule, `ftmEnabled`/`ftmWindow` (temporal median filtering — see
+  below). See **in/out**.
 - **Simulation settings** (`simBox`) — `frames`, `dens`, `phot`, `driftpx`;
   only relevant when using **Simulate movie**.
 - **3D calibration** (`calibBox`) — `calFirst`/`calLast`/`calStep`/`calRef`
@@ -198,6 +200,47 @@ CRLB) are already true photon units. See the **fit** module.
 | `memgb` | Memory budget (GB) | number | 0.5 | 8 | 0.5 | 3 |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
 
+### Temporal median filtering (FTM)
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
+| `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
+
+Runs once over the whole loaded stack, right after loading and before it's
+shown or analyzed (`runFTM()`) — not a per-fit adjustment. For each pixel,
+subtracts the median of a `ftmWindow`-frame sliding window (centred on each
+frame, clamped rather than shrunk at the two ends of the stack, so every
+frame still gets a full-width window) from that pixel's value, floored at 0
+(a background estimate briefly above the true noise floor is expected, not
+an error). Requires the loaded stack to have at least `ftmWindow` frames —
+skipped, with a logged warning, otherwise — and, since every pixel's full
+temporal history is needed, pulls the whole stack into memory even for an
+otherwise-streamed (`sliced`) load (fetched in blocks, not one giant read,
+so it doesn't hit the same file-size ceiling the streaming loader exists to
+avoid). Parallelizes across the same worker pool detect/fit use, but
+**spatially, not by frame batch**: each pixel's computation depends only on
+its own value across every frame, never on neighbouring pixels, so the
+image splits into row bands (one per worker, no overlap/border margin
+needed, unlike detection) — `runFTMParallel()` sends each worker its band's
+full temporal history as one transferred buffer, one message per worker.
+Falls back to a single-threaded per-pixel loop below `workerMinTotalPx`
+(same threshold detect/fit's own worker-dispatch decision uses) or when no
+pool is available. The corrected result **replaces `stack` itself** (built
+via the
+same `makeStack()` factory any in-memory-cached stack uses, tagged
+`stack.ftmFiltered = true`), so detection, live preview and Localize all
+see the filtered data identically to the raw panel — there is currently no
+toggle to view/analyze the raw and FTM-corrected versions side by side (see
+`docs/REFACTOR_PLAN.md`). The raw panel title reads **"Raw frame (FTM
+filtered)"** whenever `stack.ftmFiltered` is set (`drawRaw()` checks it on
+every frame draw, so this can't go stale). Runs on raw ADU data, before
+gain/camoffset conversion (unaffected — that stays inside the fit
+functions). The floor-at-0 clamp is not quite the same noise distribution
+the Poisson-MLE fitters otherwise assume (which models a Poisson-distributed
+background around some *positive* mean), which can bias fitted
+background/photon counts and reported uncertainty low in very dim regions.
+
 ### Simulation
 
 | id | Label | Type | Min | Max | Step | Default |
@@ -270,7 +313,10 @@ is what to know before touching that module, not a restatement of its code.
   (Micro-Manager MMStack) stacks by walking the IFD chain — never fully
   loaded, read via `File.slice()`. `loadTiffSequence()` accepts a multi-file
   selection (several single-frame TIFFs), natural-sorted by filename and
-  decoded/concatenated into one stack.
+  decoded/concatenated into one stack. `runFTM()` (optional, `ftmEnabled`)
+  runs right after either loader finishes, replacing `stack` with a fresh
+  `makeStack()`-backed one holding the temporal-median-corrected frames —
+  see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.
 - **simulation** — the built-in synthetic stack generator ("Simulate
   movie"). Demo/validation/teaching data, not a core analysis path; stores
   the true per-frame drift (`simTrueDrift`) for scoring drift correction.

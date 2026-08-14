@@ -6,79 +6,41 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **v0.10.1 — fast temporal median filter (FTM), analysis frame range,
-  corrected/raw scrub toggle.** Port the Hohlbein Lab's own ImageJ plugin
-  ([`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2)) into webSMLM: a
-  per-pixel sliding-window temporal median subtracted from each frame — over
-  a window of *W* consecutive frames centred on frame *i*, take each pixel's
-  median across the window and subtract it from that pixel's value at frame
-  *i*. This corrects pixel-specific fixed-pattern/background noise and
-  cleans up detection, since a blinking emitter occupies far less than half
-  the window at any one pixel — the window must be chosen so that holds (too
-  small a window and the median starts tracking the signal itself, cancelling
-  it back out). Used in Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein,
-  *Enabling single-molecule localization microscopy in turbid food
-  emulsions*, Philosophical Transactions of the Royal Society A
-  **380**(2220), 20200164 (2022), https://doi.org/10.1098/rsta.2020.0164.
+- **FTM (fast temporal median filter) — done, except the raw/corrected
+  toggle below.** Implemented as `runFTM()`/`runFTMParallel()`/`ftmSeries()`
+  in `webSMLM.html`, with `ftmEnabled`/`ftmWindow` `PARAMS` controls in the
+  "Memory, streaming & loading" sidebar module — full behaviour is in
+  `docs/DOCUMENTATION.md` §2's FTM table and `CLAUDE.md`'s **in/out** module
+  note, not duplicated here. Runs once over the whole stack right after
+  loading (before it's shown or analyzed), *replacing* `stack` itself with
+  the corrected version — every later reader (detect, live preview,
+  Localize, the raw panel, now titled "Raw frame (FTM filtered)") sees it
+  identically to unfiltered data. Parallelizes across the same worker pool
+  detect/fit use, but spatially (row bands, no overlap needed — each
+  pixel's computation depends only on its own value across every frame),
+  not by frame batch: measured 0.5 s for a 200×200×800/window=50 stack (8
+  workers) vs. the single-threaded prototype's ~19 s for a comparably-sized
+  case. The technique originates with Nieuwenhuizen, Lidke, Bates, Puig,
+  Grünwald, Stallinga, Rieger, *Measuring image resolution in optical
+  nanoscopy*, *Nat. Methods* **10**, 557–562 (2013),
+  https://doi.org/10.1038/nmeth.2448; ported from the Hohlbein Lab's own
+  newer implementation, [`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2),
+  used in Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein, *Enabling
+  single-molecule localization microscopy in turbid food emulsions*, *Phil.
+  Trans. R. Soc. A* **380**(2220), 20200164 (2022),
+  https://doi.org/10.1098/rsta.2020.0164.
 
-  **New controls** (exact placement TBD — not yet decided where in the
-  sidebar these belong): a checkbox (`ftmEnabled`) turning the filter on/off,
-  and a window-size field (`ftmWindow`, frames) meant to be swept
-  interactively to find a size that cleans the background without eating
-  real signal — needs its own `PARAMS` entries with real page controls (not
-  `id:null`), unlike the worker-dispatch/preview-tuning constants.
+  Also relevant: `fitFirstFrame`/`fitLastFrame` (the analysis frame range,
+  done in an earlier round — see `docs/DOCUMENTATION.md` §1/§2) are a
+  *separate* range from FTM2's own independent Start/End (which frames the
+  filter itself runs over, not which ones get localized afterward) —
+  webSMLM currently has only the one range, applied to Localize; FTM always
+  runs over the *whole* loaded stack regardless.
 
-  **Raw-panel toggle, corrected vs. raw.** Once FTM is enabled, the raw
-  (left) panel's scrubber should let the user switch between the
-  FTM-corrected frame and the original uncorrected one (one toggle, not two
-  separate panels) — useful for judging at a glance whether a given window
-  size is under/over-correcting.
-
-  **Frame range for analysis (start/end), independent of FTM — done.**
-  `fitFirstFrame`/`fitLastFrame` (1-based inclusive, real `PARAMS` entries —
-  see `docs/DOCUMENTATION.md` §2/§1) restrict a Run to a sub-range; skipped
-  frames are never even fetched/decoded, not just excluded afterward. Still
-  relevant to FTM once that's built, since FTM2 has its *own* independent
-  Start/End (which frames the *filter* runs over, not which ones get
-  *localized* afterward) — worth deciding whether FTM reuses this same range
-  or gets the two-range split FTM2 has.
-
-  **Open questions, deliberately unresolved here — need more thought before
-  implementing:**
-  - *Performance* — benchmarked (Node/V8, not shipped code, just to answer
-    this question before committing to an approach): two candidate per-pixel
-    sliding-window median algorithms on exactly the case above (500×500 px,
-    1000 frames, window=50 → 250,000 independent pixel time-series). (A)
-    naive — copy the window into a scratch array and fully resort it every
-    slide step — extrapolates to **~257 s** for the full stack, confirming
-    this is too slow. (B) keep the window as a sorted scratch array and do a
-    binary-search insert + linear-scan removal per step instead of a full
-    resort (O(window) per step, not O(window·log window)) — **measured
-    directly at 18.8 s single-threaded** for the real full-scale case, a
-    ~13× speedup over (A). Still probably too slow for a live/interactive
-    sweep of the window-size field (the whole point of exposing it as a
-    control), but the per-pixel computation is embarrassingly parallel (each
-    pixel's time series is fully independent of every other pixel's) — the
-    same worker-pool architecture detect/fit already uses (see **workers**)
-    should get this into the same few-second range as a typical Localize
-    run; worth prototyping that before reaching for a fancier incremental
-    histogram-based median (an O(bins)-per-step structure, likely faster
-    still, but more complex and not obviously needed once parallelized).
-  - *Where it sits in the pipeline.* Whether FTM output is a full corrected
-    stack materialized once before detect/fit (simplest, but a second
-    full-stack memory/streaming concern layered on the existing
-    `memgb`/`chunkmb` budget system — see **in/out**/**memory & streaming**),
-    or computed on demand per requested frame (fine for the raw-panel scrub
-    toggle above, which only ever needs one frame's correction at a time;
-    not fine for a full Run, which needs every frame's corrected version
-    once through detect/fit regardless).
-  - *Interaction with gain/photon-unit conversion.* Median subtraction
-    happens in raw ADU space; fitting converts `(raw−camoffset)×gain` to
-    photons (see **fit** module) — still need a decision on whether FTM runs
-    before or after that conversion. Settled: a corrected pixel that goes
-    negative (background subtracted below zero — expected/normal for a
-    median filter) is simply clamped to zero, not treated as a special case
-    by the Poisson-MLE math.
+  **Still open — raw-panel toggle, corrected vs. raw.** All-or-nothing
+  today — once `ftmEnabled` is checked, detect/fit/Localize/the raw panel
+  all see only the corrected stack, with no way to flip back to the
+  original for comparison without reloading with the checkbox off.
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive
