@@ -14,7 +14,7 @@ a comment should only explain a non-obvious *why*, not *what* (see
 `PARAMS` registry, `PARAMS` is authoritative — this file describes it, not
 the other way round.
 
-Line/anchor references below point at `webSMLM.html` as of **v0.10.0-dev**;
+Line/anchor references below point at `webSMLM.html` as of **v0.10.1-dev**;
 exact line numbers will drift as the file grows, but the `id=`/function names
 they're built from won't.
 
@@ -58,30 +58,30 @@ section summarizes what's *in* each, not what the help text already says.
   stack), `calFixedXY`, and the **Calibrate**/**Save calib.** buttons
   (`calBtn`/`calSaveBtn`). See [§7](#7-calibration-json-format), **3D
   calibration** module.
+- **Localisation settings** (`locBox`) — two sub-groups in one collapsible,
+  separated by an internal rule. **Detection/fit**: `method` (fit algorithm
+  select), `fitFirstFrame`/`fitLastFrame` (1-based inclusive frame range
+  Localize processes — the rest of the loaded stack is skipped entirely, not
+  just excluded from the result; reset to `1`/the loaded stack's frame count
+  on every new load, same as `calFirst`/`calLast`), `loadCalBtn` (load a 3D
+  calibration JSON, only shown for a 3D method), `detFilter` (detection
+  filter select), `liveUpdate`, per-filter threshold fields
+  (`detection_wavelet_thr` / `detection_DoG_thr` / `detection_box_thr`, only
+  one visible at a time), `detection_DoG_exactbp`, `psf`, `winr` — see
+  **detect** / **fit** modules. **Camera / export (ADU→photon conversion)**:
+  `pxnm` (pixel size — also sets the physical scale for the scale bar, z and
+  the exported CSV coordinates), `gain`, `camoffset` — applied inside every
+  fit function as `(raw−camoffset)×gain` before fitting, see **fit** /
+  **export** modules.
+- **Rendering settings** (`renderBox`) — `mag`, `rblur`, `lut`, `lutpct`,
+  `zcolor` (3D results only), `zmin`/`zmax` (3D results only, per-dataset
+  working state, *not* in `PARAMS`). See **render** module.
 - **Drift correction (AIM)** (`driftBox`) — `driftSeg`, `driftRoi`,
   `driftZ`, and **Correct drift**/**Show drift** (`driftBtn`/`driftShowBtn`).
   See **drift** module.
 - **Localization precision (NeNA / FRC)** (`precBox`) — `frc3d` (UI
   placeholder, FSC not implemented), and **NeNA**/**FRC**
   (`nenaBtn`/`frcBtn`). See **locprecision** module.
-
-### Sidebar — fit method group (always visible, not collapsible)
-
-`method` (fit algorithm select), `fitFirstFrame`/`fitLastFrame` (1-based
-inclusive frame range Localize processes — the rest of the loaded stack is
-skipped entirely, not just excluded from the result; reset to `1`/the loaded
-stack's frame count on every new load, same as `calFirst`/`calLast`),
-`loadCalBtn` (load a 3D calibration JSON, only shown for a 3D method),
-`detFilter` (detection filter select), `liveUpdate`, per-filter threshold
-fields (`detection_wavelet_thr` / `detection_DoG_thr` / `detection_box_thr`,
-only one visible at a time), `detection_DoG_exactbp`, `psf`, `winr`. See
-**detect** / **fit** modules.
-
-### Sidebar — render group (always visible)
-
-`pxnm`, `gain`, `camoffset`, `mag`, `rblur`, `lut`, `lutpct`, `zcolor` (3D
-results only), `zmin`/`zmax` (3D results only, per-dataset working state,
-*not* in `PARAMS`). See **render** / **export** modules.
 
 ### Main panels
 
