@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14b</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14c</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1504,6 +1504,7 @@ X.B(E,Y);return E}return J}())
         <label class="row">Camera gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
         <label class="row">Camera offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
         <label class="row">Offset std (ADU, per-pixel) <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
+        <label class="row">Read noise σ (e⁻) <input type="number" id="simulation_readnoise" min="0" max="200" step="0.1" value="2.7" class="num"></label>
         <label class="row">Background (photons/frame) <input type="number" id="simbg" min="0" max="500" step="1" value="40" class="num"></label>
         <label class="row">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
         <details class="info"><summary>…further info…</summary>
@@ -1512,9 +1513,11 @@ X.B(E,Y);return E}return J}())
           arrive as a Poisson process at randomly chosen structure sites; each turns on exactly once: a fractional start
           time (drawn from up to 5×lifetime before frame 0) and an exponentially-distributed ON duration (mean =
           "ON lifetime"). Photons/frame is scaled by the fraction of a frame the emitter was actually on, so a half-frame
-          overlap emits half the photons. Background is Poisson like the signal. Camera gain/offset/offset-std forward-model
-          a real sensor: photon counts are converted to ADU via a per-pixel offset map (Gaussian around the mean offset,
-          fixed for the whole stack) plus the gain conversion and read noise — independent of the fit-side camera gain/offset.
+          overlap emits half the photons. Background is Poisson like the signal. Camera gain/offset/offset-std/read-noise
+          forward-model a real sensor: Gaussian read noise (σ in electrons — same convention as the PCFO panel's own
+          "Readout noise σ (e⁻)" field, so the two can be set to matching values for a clean self-consistency test) is
+          added to the photon count before the gain conversion, then a per-pixel offset map (Gaussian around the mean
+          offset, fixed for the whole stack) is added — independent of the fit-side camera gain/offset.
           Total sample drift over all frames, in a random direction (linear from frame 0).
           0 = none. Used to test drift correction — the true drift is stored for scoring.</div></details>
       </details>
@@ -1729,7 +1732,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14b · PCFO tile-coverage fix + linearity diagnostic
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14c · simulation read noise exposed, matches PCFO units
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1880,6 +1883,14 @@ const PARAMS = {
   // realistic fixed-pattern offset variation; the resulting per-pixel map is generated once per
   // stack and reused for every frame (a real sensor's fixed pattern doesn't re-randomize per frame)
   simulation_offset_std: { type:'number', id:'simulation_offset_std', label:'Simulation offset std (ADU, per-pixel)', min:0, max:200, step:0.5, default:3, int:false },
+  // simulation_readnoise = Gaussian read noise σ, in photo-electrons — same convention as the PCFO
+  // panel's own pcfoRnstd, so the two can be set to matching values for a clean self-consistency
+  // test (see estimateGainOffset). Applied before the gain conversion (ADU = offset +
+  // (photons+read-noise)/gain), the physically standard order (a real camera's read noise
+  // originates pre-ADC, referred back to electrons on the spec sheet) — previously hardcoded to a
+  // fixed 8 ADU added AFTER the gain conversion, which silently meant a different (and gain-
+  // dependent) noise level than whatever a user entered into the PCFO panel's own e⁻ field.
+  simulation_readnoise: { type:'number', id:'simulation_readnoise', label:'Simulation read noise σ (e⁻)', min:0, max:200, step:0.1, default:2.7, int:false },
   // driftpx = total simulated sample drift (px) over the whole synthetic stack, for testing drift correction
   driftpx: { type:'number', id:'driftpx', label:'Simulated total drift (px)', min:0, max:30, step:0.5, default:0, int:false },
 
@@ -2075,7 +2086,8 @@ async function generateSynthetic(){
   const n=paramValue('frames'), dens=paramValue('dens'), photPerFrame=paramValue('phot');
   const lifetime=paramValue('simlifetime'), bg=paramValue('simbg');
   const simGain=paramValue('simulation_gain'), simOffset=paramValue('simulation_offset'), simOffsetStd=paramValue('simulation_offset_std');
-  const px=paramValue('simulation_pxnm'), sigma=1.3, readNoise=8;
+  const readNoiseE=paramValue('simulation_readnoise');   // electrons, applied before the gain conversion — see PARAMS.simulation_readnoise
+  const px=paramValue('simulation_pxnm'), sigma=1.3;
   // optional linear sample drift accumulating to driftPx over all frames, in a
   // random direction — the ground truth for testing drift correction.
   const driftPx=paramValue('driftpx'), dang=Math.random()*2*Math.PI;
@@ -2131,10 +2143,12 @@ async function generateSynthetic(){
       for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
         const x=x0+dx,y=y0+dy; if(x<0||y<0||x>=w||y>=h) continue;
         img[y*w+x]+=A*Math.exp(-((x-mx)**2+(y-my)**2)/(2*sigma*sigma)); } }
-    // shot noise in photon space, then the forward camera model: per-pixel fixed offset + gain
-    // conversion to ADU + read noise (all in ADU domain, as on a real sensor), then clamp.
+    // shot noise (Poisson) plus read noise (Gaussian, electrons) combine before the gain
+    // conversion to ADU — the physically standard order, and what makes simulation_readnoise
+    // directly comparable to PCFO's own electron-domain read-noise field — then the per-pixel
+    // fixed offset is added and the result clamped.
     for(let i=0;i<img.length;i++){
-      const adu=offsetMap[i]+poisson(img[i])/simGain+readNoise*gauss();
+      const adu=offsetMap[i]+(poisson(img[i])+readNoiseE*gauss())/simGain;
       img[i]=adu<0?0:adu;
     }
     frames.push(img);
