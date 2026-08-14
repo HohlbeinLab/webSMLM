@@ -93,7 +93,11 @@ section summarizes what's *in* each, not what the help text already says.
   curves and column histograms when there's nothing to show as a frame
   (`rawIsPlot`/`rawPlotName`). `measureBtn`/`cropBtn` (line-profile and crop
   tools) live in the *reconstruction* panel's header but draw their overlay
-  on whichever panel is currently a live reconstruction.
+  on whichever panel is currently a live reconstruction. `rawFtmBtn`
+  (row `rawFtmRow`, below the frame scrubber, shown only while `ftmEnabled`
+  is checked) toggles the panel between the raw frame and its live
+  FTM-corrected preview — see [§2](#2-parameters-params-registry)'s FTM
+  section.
 - **SMLM reconstruction** (`sr` canvas) — the accumulated super-resolution
   render, or (before a Run) a quick averaged data projection, or the 3D
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
@@ -207,39 +211,52 @@ CRLB) are already true photon units. See the **fit** module.
 | `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
 | `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
 
-Runs once over the whole loaded stack, right after loading and before it's
-shown or analyzed (`runFTM()`) — not a per-fit adjustment. For each pixel,
-subtracts the median of a `ftmWindow`-frame sliding window (centred on each
-frame, clamped rather than shrunk at the two ends of the stack, so every
-frame still gets a full-width window) from that pixel's value, floored at 0
-(a background estimate briefly above the true noise floor is expected, not
-an error). Requires the loaded stack to have at least `ftmWindow` frames —
-skipped, with a logged warning, otherwise — and, since every pixel's full
-temporal history is needed, pulls the whole stack into memory even for an
-otherwise-streamed (`sliced`) load (fetched in blocks, not one giant read,
-so it doesn't hit the same file-size ceiling the streaming loader exists to
-avoid). Parallelizes across the same worker pool detect/fit use, but
+Checking `ftmEnabled` adds a **raw / FTM-corrected toggle** (`rawFtmBtn`,
+row `rawFtmRow`) below the raw panel's frame scrubber — this is a
+**scrubbing-time preview**, not a whole-stack operation: switching the
+toggle computes the correction live for whichever frame is currently
+scrubbed to (`ftmFrame()`), fetching only a `ftmWindow`-frame window of
+context centred on that frame (clamped, not shrunk, at the two ends of the
+stack, so every frame still gets a full-width window) — a small, bounded
+fetch regardless of how long the stack is. For each pixel, subtracts the
+median of that window from the pixel's value, floored at 0 (a background
+estimate briefly above the true noise floor is expected, not an error).
+Requires the loaded stack to have at least `ftmWindow` frames — falls back
+to the raw frame, with a logged warning, otherwise.
+
+An earlier design ran this once over the *whole* stack right after loading
+and replaced `stack` itself; it was reverted because it needed the raw and
+corrected copies fully materialized in memory at the same time, which
+doesn't work for a stack too big to hold both — see
+`docs/REFACTOR_PLAN.md`. Computing one frame at a time sidesteps that
+entirely. Parallelizes across the same worker pool detect/fit use, but
 **spatially, not by frame batch**: each pixel's computation depends only on
-its own value across every frame, never on neighbouring pixels, so the
-image splits into row bands (one per worker, no overlap/border margin
-needed, unlike detection) — `runFTMParallel()` sends each worker its band's
-full temporal history as one transferred buffer, one message per worker.
-Falls back to a single-threaded per-pixel loop below `workerMinTotalPx`
-(same threshold detect/fit's own worker-dispatch decision uses) or when no
-pool is available. The corrected result **replaces `stack` itself** (built
-via the
-same `makeStack()` factory any in-memory-cached stack uses, tagged
-`stack.ftmFiltered = true`), so detection, live preview and Localize all
-see the filtered data identically to the raw panel — there is currently no
-toggle to view/analyze the raw and FTM-corrected versions side by side (see
-`docs/REFACTOR_PLAN.md`). The raw panel title reads **"Raw frame (FTM
-filtered)"** whenever `stack.ftmFiltered` is set (`drawRaw()` checks it on
-every frame draw, so this can't go stale). Runs on raw ADU data, before
-gain/camoffset conversion (unaffected — that stays inside the fit
-functions). The floor-at-0 clamp is not quite the same noise distribution
-the Poisson-MLE fitters otherwise assume (which models a Poisson-distributed
-background around some *positive* mean), which can bias fitted
-background/photon counts and reported uncertainty low in very dim regions.
+its own value across the context window, never on neighbouring pixels, so
+the image splits into row bands (one per worker, no overlap/border margin
+needed, unlike detection) — `ftmFrameParallel()` sends each worker its
+band's context-window data as one transferred buffer, one message per
+worker; falls back to a single-threaded per-pixel loop when no pool is
+available. Measured (500-frame synthetic stacks, window 50, 8 workers):
+~23 ms at 128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at
+1024×1024 — fine for occasional scrubbing at smaller frame sizes, but
+noticeably laggy for rapid dragging on large frames.
+
+`showFrame()` substitutes the corrected frame in place of the raw one
+(via `rawFtmView`, the toggle's on/off state) before running the same
+detect/live-preview logic every other branch already uses — ROI boxes and
+live-fit crosshairs on the corrected preview reflect it too, not just the
+background pixels. The raw panel title reads **"Raw frame (FTM corrected
+preview)"** whenever `rawFtmView` is on (`drawRaw()` checks it on every
+frame draw, so this can't go stale); unchecking `ftmEnabled` resets the
+toggle back to raw. Runs on raw ADU data, before gain/camoffset conversion
+(unaffected — that stays inside the fit functions). **Preview only:**
+Localize still runs on the original, uncorrected stack — applying FTM to
+an actual Run is not implemented. The floor-at-0 clamp is also not quite
+the same noise distribution the Poisson-MLE fitters otherwise assume
+(which models a Poisson-distributed background around some *positive*
+mean), which can bias fitted background/photon counts and reported
+uncertainty low in very dim regions — relevant if FTM is ever wired into
+an actual Run.
 
 ### Simulation
 

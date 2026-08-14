@@ -35,18 +35,24 @@ relevant one before editing rather than scrolling:
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). Also accepts a multi-file selection
   (Ctrl/Cmd+click several single-frame TIFFs) via `loadTiffSequence()` — natural-sorted by
-  filename, decoded and concatenated into one stack, one file read at a time. `runFTM()`
-  (`ftmEnabled`/`ftmWindow`) optionally runs right after either loader finishes: a per-pixel
-  sliding-window temporal median subtraction over the *whole* stack, which **replaces `stack`**
-  with a fresh `makeStack()`-backed one (tagged `.ftmFiltered`) — every later reader (detect,
-  live preview, Localize, the raw panel) sees the corrected data with no special-casing, since
-  they only ever go through the uniform stack interface. Parallelizes across the worker pool
-  **spatially** (row bands, one per worker — see `runFTMParallel()`), not by frame batch like
-  detect/fit: FTM's per-pixel computation needs no neighbouring-pixel context, so bands need no
-  overlap margin, unlike detection. `drawRaw()` is the single place deciding
-  the raw-panel title ("Raw frame" vs "Raw frame (FTM filtered)"), from `stack.ftmFiltered` at
-  draw time — don't set the title anywhere else, or it'll go stale the next time a real frame
-  redraws over a plot.
+  filename, decoded and concatenated into one stack, one file read at a time. `ftmFrame()`
+  (`ftmEnabled`/`ftmWindow`) is a **scrubbing-time preview**, not a whole-stack pass: the
+  raw-panel toggle (`rawFtmBtn`/`rawFtmRow`, shown only while `ftmEnabled` is checked) computes
+  the temporal-median correction for just the *currently scrubbed frame*, fetching only a
+  `ftmWindow`-frame window of context around it — a small, bounded fetch regardless of stack
+  length. An earlier design ran FTM once over the whole stack and replaced `stack` itself; that
+  was reverted because it needed the raw *and* corrected copies fully materialized in memory
+  simultaneously, which doesn't work for a stack too big to hold both — see
+  `docs/REFACTOR_PLAN.md`. `showFrame()` swaps in the corrected frame (via `rawFtmView`, the
+  toggle's on/off state) before running the same detect/live-preview logic every other branch
+  already uses, so nothing downstream needs to know the difference. Parallelizes across the
+  worker pool **spatially** (row bands, one per worker — see `ftmFrameParallel()`), not by frame
+  batch like detect/fit: FTM's per-pixel computation needs no neighbouring-pixel context, so
+  bands need no overlap margin, unlike detection. `drawRaw()` is the single place deciding the
+  raw-panel title ("Raw frame" vs "Raw frame (FTM corrected preview)"), from `rawFtmView` at draw
+  time — don't set the title anywhere else, or it'll go stale the next time a real frame redraws
+  over a plot. Localize itself still runs on the uncorrected stack — FTM has no effect on an
+  actual Run yet.
 - **simulation** — the built-in synthetic stack generator ("Simulate movie"): demo/validation/
   teaching data, not a core analysis path. Split out from in/out since it doesn't load anything.
 - **detect** — per-frame band-pass, one of three filters selectable via `#detFilter`: à trous
@@ -113,9 +119,9 @@ on the very functions the main thread uses, so detection/fitting logic exists on
   reads, add it to `WORKER_PRELUDE` too (there is a runtime check listing `missing` names).
 - Any helper a stringified function calls must itself be included in the `workerSource()` body.
 - The same pool serves two unrelated message protocols: detect/fit's frame-batch dispatch
-  (`d.frames`/`d.start`/…) and FTM's row-band dispatch (`d.ftm`/`d.buf`/…) — `onmessage` branches
-  on `d.ftm` before falling into the detect/fit path. A new worker job needs its own branch and
-  its own `d.<flag>` field, not a repurposed existing one.
+  (`d.frames`/`d.start`/…) and FTM's single-frame row-band preview (`d.ftmFrame`/`d.buf`/…) —
+  `onmessage` branches on `d.ftmFrame` before falling into the detect/fit path. A new worker job
+  needs its own branch and its own `d.<flag>` field, not a repurposed existing one.
 
 ### Left/right panel plot pattern
 

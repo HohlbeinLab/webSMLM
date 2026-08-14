@@ -6,41 +6,73 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **FTM (fast temporal median filter) — done, except the raw/corrected
-  toggle below.** Implemented as `runFTM()`/`runFTMParallel()`/`ftmSeries()`
-  in `webSMLM.html`, with `ftmEnabled`/`ftmWindow` `PARAMS` controls in the
-  "Memory, streaming & loading" sidebar module — full behaviour is in
-  `docs/DOCUMENTATION.md` §2's FTM table and `CLAUDE.md`'s **in/out** module
-  note, not duplicated here. Runs once over the whole stack right after
-  loading (before it's shown or analyzed), *replacing* `stack` itself with
-  the corrected version — every later reader (detect, live preview,
-  Localize, the raw panel, now titled "Raw frame (FTM filtered)") sees it
-  identically to unfiltered data. Parallelizes across the same worker pool
-  detect/fit use, but spatially (row bands, no overlap needed — each
-  pixel's computation depends only on its own value across every frame),
-  not by frame batch: measured 0.5 s for a 200×200×800/window=50 stack (8
-  workers) vs. the single-threaded prototype's ~19 s for a comparably-sized
-  case. The technique originates with Nieuwenhuizen, Lidke, Bates, Puig,
-  Grünwald, Stallinga, Rieger, *Measuring image resolution in optical
-  nanoscopy*, *Nat. Methods* **10**, 557–562 (2013),
-  https://doi.org/10.1038/nmeth.2448; ported from the Hohlbein Lab's own
-  newer implementation, [`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2),
-  used in Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein, *Enabling
+- **FTM (fast temporal median filter) — implemented as a scrubbing-time
+  preview; Localize integration still open.** `ftmEnabled`/`ftmWindow`
+  `PARAMS` controls live in the "Memory, streaming & loading" sidebar
+  module; full current behaviour is in `docs/DOCUMENTATION.md` §2's FTM
+  section and `CLAUDE.md`'s **in/out** module note, not duplicated here.
+  The technique originates with Nieuwenhuizen, Lidke, Bates, Puig, Grünwald,
+  Stallinga, Rieger, *Measuring image resolution in optical nanoscopy*,
+  *Nat. Methods* **10**, 557–562 (2013), https://doi.org/10.1038/nmeth.2448;
+  ported from the Hohlbein Lab's own newer implementation,
+  [`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2), used in
+  Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein, *Enabling
   single-molecule localization microscopy in turbid food emulsions*, *Phil.
   Trans. R. Soc. A* **380**(2220), 20200164 (2022),
   https://doi.org/10.1098/rsta.2020.0164.
 
+  **Design history — two approaches tried, the first reverted.** The first
+  implementation ran FTM once over the *whole* stack right after loading,
+  replacing `stack` itself with the corrected version (parallelized
+  spatially across the worker pool — row bands, no overlap needed, since
+  each pixel's computation depends only on its own value across every
+  frame, unlike detection which needs a border margin; measured 0.5 s for a
+  200×200×800/window=50 stack with 8 workers). That design had a real
+  memory problem: every pixel's full temporal history had to be
+  materialized *twice* (raw input + corrected output) before any frame was
+  addressable again, which doesn't work once a stack is too big to hold
+  both copies — chunked, overlapping input fetching (as discussed) would
+  only have halved peak memory, not solved the deeper issue that the
+  corrected *output* still needed full random-access, and `makeStack()`'s
+  interface has no streamed/on-disk backing for freshly-computed data the
+  way it does for an original file. Reverted in favour of computing the
+  correction **live, one frame at a time** (`ftmFrame()`/
+  `ftmFrameParallel()`): a raw/FTM-corrected toggle next to the raw panel
+  (`rawFtmBtn`) recomputes the correction for whichever frame is currently
+  scrubbed to, fetching only a `ftmWindow`-frame window of context around
+  it — small and bounded regardless of stack length, so the memory problem
+  doesn't arise at all. Simpler algorithmically too: a one-shot median per
+  pixel, no sliding-window bookkeeping needed, since only one frame's
+  output is ever wanted at a time.
+
+  Measured (500-frame synthetic stacks, window 50, 8 workers): ~23 ms at
+  128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at 1024×1024 per
+  scrubbed frame — fine for occasional scrubbing at smaller frame sizes,
+  noticeably laggy for rapid dragging on large ones. Not addressed further
+  yet; a finer row-band split, or reusing detect/fit's frame-batch workers
+  differently, are options if this needs to get faster.
+
+  **Still open:**
+  - **Apply FTM to an actual Run, not just the scrubbing preview.**
+    Localize still analyzes the original, uncorrected stack regardless of
+    the toggle. Wiring FTM into `runCore()` would need its own design pass
+    — likely the per-frame approach above, run just-in-time as each frame
+    is about to be detected/fit (naturally bounded, same as the preview),
+    rather than a separate whole-stack pass.
+  - **Interaction with gain/photon-unit conversion**, if FTM ever reaches
+    Localize: median subtraction happens in raw ADU space; fitting converts
+    `(raw−camoffset)×gain` to photons (see **fit** module) — still need a
+    decision on whether FTM would run before or after that conversion. The
+    floor-at-0 clamp is also not quite the same noise distribution the
+    Poisson-MLE fitters otherwise assume (which models a
+    Poisson-distributed background around some *positive* mean), which
+    could bias fitted background/photon counts and reported uncertainty
+    low in very dim regions.
+
   Also relevant: `fitFirstFrame`/`fitLastFrame` (the analysis frame range,
   done in an earlier round — see `docs/DOCUMENTATION.md` §1/§2) are a
   *separate* range from FTM2's own independent Start/End (which frames the
-  filter itself runs over, not which ones get localized afterward) —
-  webSMLM currently has only the one range, applied to Localize; FTM always
-  runs over the *whole* loaded stack regardless.
-
-  **Still open — raw-panel toggle, corrected vs. raw.** All-or-nothing
-  today — once `ftmEnabled` is checked, detect/fit/Localize/the raw panel
-  all see only the corrected stack, with no way to flip back to the
-  original for comparison without reloading with the checkbox off.
+  filter itself runs over, not which ones get localized afterward).
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive

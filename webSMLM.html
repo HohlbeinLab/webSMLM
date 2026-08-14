@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14d · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14e · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1498,25 +1498,26 @@ X.B(E,Y);return E}return J}())
         <label class="row" id="ftmWindowRow" style="display:none">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">[module: in/out] <b>Temporal median filtering</b> (FTM) is a per-pixel background
-          correction, run once on the whole stack right after loading, before it's shown or analyzed. For
-          each pixel, it looks at that pixel's value across a sliding window of nearby frames (the window
-          moves one frame at a time; it's clamped, not shrunk, at the very first/last few frames, so every
-          frame still gets a full-width window), takes the <b>median</b> of that window as a robust estimate
-          of the pixel's slowly-varying background at that point in time, and subtracts it from the pixel's
-          actual value in the current frame. Since a blinking emitter occupies far less than half the window
-          at any one pixel, the median tracks the background, not the signal, so what's left after
-          subtraction is mostly signal above background. <b>Values that go negative after subtraction are
-          clamped to zero</b> (a background estimate briefly above the true noise floor is expected, not an
-          error) — this floors every corrected pixel's minimum at exactly 0, which is <i>not</i> quite the
-          same noise distribution the fit functions otherwise assume (Poisson-MLE in particular models a
-          Poisson-distributed background around some positive mean; a hard floor at 0 truncates that
-          slightly, which can bias the fitted background/photon count and reported uncertainty low in
-          very dim regions — worth keeping in mind if precision looks unexpectedly good after filtering).
-          The raw panel title changes to <b>“Raw frame (FTM filtered)”</b> as a reminder that what you're
-          seeing — and localizing — is the corrected data, not the original. Choose the <b>window size</b>
-          so the "signal occupies less than half the window" assumption above actually holds for your data
-          (too small and the median starts tracking — and cancelling — real signal); the loaded stack must
-          have at least that many frames. The technique originates with
+          correction. Checking this box adds a <b>raw / FTM-corrected</b> toggle next to the raw panel (below
+          the frame scrubber) — switching it computes the correction live for whichever frame you're currently
+          scrubbed to, not the whole stack up front. For that one frame, each pixel's value across a
+          <b>window</b> of nearby frames (centred on the current frame; clamped, not shrunk, at the very
+          first/last few frames, so every frame still gets a full-width window) is used to take the
+          <b>median</b> — a robust estimate of that pixel's slowly-varying background at this point in time —
+          which is subtracted from the pixel's actual value in the current frame. Since a blinking emitter
+          occupies far less than half the window at any one pixel, the median tracks the background, not the
+          signal, so what's left after subtraction is mostly signal above background. <b>Values that go
+          negative after subtraction are clamped to zero</b> (a background estimate briefly above the true
+          noise floor is expected, not an error) — this floors every corrected pixel's minimum at exactly 0,
+          which is <i>not</i> quite the same noise distribution the fit functions otherwise assume
+          (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a
+          hard floor at 0 truncates that slightly, which can bias fitted background/photon counts and
+          reported uncertainty low in very dim regions). This is a <b>preview only</b> — Localize still runs
+          on the original, uncorrected data; applying FTM to an actual Run is not implemented yet (see
+          <code>docs/REFACTOR_PLAN.md</code>). Choose the <b>window size</b> so the "signal occupies less
+          than half the window" assumption above actually holds for your data (too small and the median
+          starts tracking — and cancelling — real signal); the loaded stack must have at least that many
+          frames. The technique originates with
           <a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
           <i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
           implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
@@ -1705,6 +1706,10 @@ X.B(E,Y);return E}return J}())
           <input type="range" id="scrub" min="0" max="0" step="1" value="0" style="flex:1">
           <span class="val" id="scrubV" style="min-width:70px;text-align:right">1</span>
         </div>
+        <div id="rawFtmRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+          <span style="color:var(--muted);font-size:12px">Raw view</span>
+          <button id="rawFtmBtn" class="logbtn" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button>
+        </div>
       </div>
       <div class="card">
         <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="measureBtn" class="linetool" title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
@@ -1720,7 +1725,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14d
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14e
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1842,9 +1847,12 @@ const PARAMS = {
   memgb: { type:'number', id:'memgb', label:'Memory budget (GB)', min:0.5, max:8, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
   chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
-  // ftmEnabled = run a per-pixel sliding-window temporal median background
-  // subtraction over the whole stack right after loading, before it's shown
-  // or analyzed (see runFTM()). Technique: Nieuwenhuizen et al., Nat.
+  // ftmEnabled = show the "raw vs FTM-corrected" toggle (rawFtmBtn) next to
+  // the raw panel. Correction is computed live, per scrubbed frame — see
+  // ftmFrame() — not applied to the whole stack up front (an earlier
+  // whole-stack-replacement design was reverted: it couldn't work for a
+  // stack too big to hold both the raw and corrected copies in memory at
+  // once, see docs/REFACTOR_PLAN.md). Technique: Nieuwenhuizen et al., Nat.
   // Methods 10, 557-562 (2013), https://doi.org/10.1038/nmeth.2448; ported
   // from the Hohlbein Lab's own newer implementation, HohlbeinLab/FTM2
   // (https://github.com/HohlbeinLab/FTM2), used in Jabermoradi et al.,
@@ -1852,12 +1860,14 @@ const PARAMS = {
   // https://doi.org/10.1098/rsta.2020.0164. Runs on raw ADU data, before
   // gain/camoffset conversion (which stays inside the fit functions).
   ftmEnabled: { type:'bool', id:'ftmEnabled', label:'Temporal median filtering', default:false },
-  // ftmWindow = sliding window size (frames) for the median. FTM2's own
-  // guidance: choose it so a blinking emitter occupies less than half the
-  // window at any one pixel, or the median starts tracking the signal
-  // itself and cancels it back out. Must not exceed the loaded stack's
-  // frame count — runFTM() skips (logs a warning) rather than clamps, since
-  // silently using a smaller window changes the result without saying so.
+  // ftmWindow = window size (frames) the live per-frame median is computed
+  // over, centred on the scrubbed frame (clamped, not shrunk, at the two
+  // ends of the stack). FTM2's own guidance: choose it so a blinking
+  // emitter occupies less than half the window at any one pixel, or the
+  // median starts tracking the signal itself and cancels it back out. Must
+  // not exceed the loaded stack's frame count — ftmFrame() falls back to
+  // the raw frame (logging a warning) rather than silently using a smaller
+  // window that would change the result without saying so.
   ftmWindow: { type:'number', id:'ftmWindow', label:'Window size', min:3, max:2000, step:1, default:50, int:true },
 
   // ---- simulation ----
@@ -2019,6 +2029,7 @@ document.addEventListener('paste', e=>{
 // (former slider value-labels removed — those controls are now number inputs)
 
 let stack=null, groundTruth=null, lastResult=null, stackName='webSMLM';
+let rawFtmView=false;   // raw panel toggle: show the FTM-corrected preview instead of the raw frame — see ftmFrame()
 let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for scoring drift correction)
 const readBudget = ()=> paramValue('memgb')*1073741824;   // frame-cache memory budget
 
@@ -2033,137 +2044,81 @@ function makeStack(w,h,n,px,getFrame){
       for(let i=s;i<e;i++) out.push(getFrame(i)); return out; }};
 }
 
-// FTM (fast temporal median filter) — per-pixel sliding-window temporal
-// median background subtraction, run once over the whole stack right after
-// loading. The technique originates with Nieuwenhuizen, Lidke, Bates, Puig,
+// FTM (fast temporal median filter) — per-pixel background correction,
+// computed live for ONE scrubbed frame at a time (the raw/FTM-corrected
+// toggle next to the raw panel), not applied to the whole stack up front.
+// An earlier whole-stack-replacement design was reverted: every pixel's
+// full temporal history had to be materialized twice (raw + corrected)
+// before any output was addressable, which simply doesn't work for a stack
+// too big to hold both copies in memory — see docs/REFACTOR_PLAN.md for
+// that design's history. Computing one frame's correction on demand instead
+// needs only `win` frames of context, a small bounded fetch regardless of
+// how long the stack is, so the memory problem doesn't arise at all.
+//
+// The technique originates with Nieuwenhuizen, Lidke, Bates, Puig,
 // Grünwald, Stallinga, Rieger, "Measuring image resolution in optical
 // nanoscopy", Nat. Methods 10, 557–562 (2013), https://doi.org/10.1038/
 // nmeth.2448; ported here from the Hohlbein Lab's own newer implementation,
 // HohlbeinLab/FTM2 (https://github.com/HohlbeinLab/FTM2), used in
 // Jabermoradi et al., Phil. Trans. R. Soc. A 380(2220), 20200164 (2022),
-// https://doi.org/10.1098/rsta.2020.0164 — see docs/REFACTOR_PLAN.md for
-// the design discussion (window-size tradeoff, negative-clamp decision).
+// https://doi.org/10.1098/rsta.2020.0164.
 //
-// Core one-pixel computation: over a WIN-frame window centred on frame i
-// (clamped, not shrunk, at the two ends — see wantStart below), subtracts
-// that window's median from the pixel's value at frame i into out[i],
-// floored at zero (a median-subtracted pixel going negative is
-// expected/normal for a median filter, not an error). `series`/`out` are
-// plain same-length numeric arrays — the caller decides how a pixel's
-// values are laid out in memory, so this same function works identically
-// on the main thread and inside a worker (see workerSource() below), just
-// fed a different slice of the data each time.
-function ftmSeries(series, out, n, win){
-  const half=win>>1, mid=win>>1;
-  const sorted=new Float64Array(win);
-  for(let k=0;k<win;k++) sorted[k]=series[k];
-  sorted.sort((a,b)=>a-b);
-  // Sliding window as a kept-sorted scratch array: O(win) insert/remove per
-  // step (binary-search insert, linear-scan remove) instead of a full
-  // resort — ~13x faster, benchmarked in docs/REFACTOR_PLAN.md. wantStart
-  // clamps (not shrinks) the window at the two ends of the stack, so it's
-  // always exactly `win` frames wide; curStart only advances, so the same
-  // incremental add/remove logic handles the clamped regions for free
-  // (wantStart stops changing there, so the while loop below is just a
-  // no-op until it starts sliding again).
-  let curStart=0;
-  for(let i=0;i<n;i++){
-    const wantStart=Math.max(0, Math.min(n-win, i-half));
-    while(curStart<wantStart){
-      const outgoing=series[curStart], incoming=series[curStart+win];
-      let idx=0; while(sorted[idx]!==outgoing) idx++;
-      for(; idx<win-1; idx++) sorted[idx]=sorted[idx+1];
-      let lo=0, hi=win-1;
-      while(lo<hi){ const m=(lo+hi)>>1; if(sorted[m]<incoming) lo=m+1; else hi=m; }
-      for(let j=win-1;j>lo;j--) sorted[j]=sorted[j-1];
-      sorted[lo]=incoming;
-      curStart++;
-    }
-    const med = win%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])*0.5;
-    out[i]=Math.max(0, series[i]-med);
-  }
-}
-
-// Runs on raw ADU data — the loaded stack itself — before gain/camoffset
-// conversion, which stays inside the fit functions exactly as it does for
-// unfiltered data. Requires the whole stack in memory at once: every pixel
-// needs its full temporal history, which doesn't fit the streaming loader's
-// "decode a heap, process, discard" pattern — a `sliced` (streamed) stack
-// still works, just materializes fully despite the loader's own effort not
-// to (fetched in BLK-sized blocks below, not one getFrames(0,n) call, so it
-// doesn't also recreate the single-giant-read problem the streaming loader
-// exists to avoid).
+// For frame i: fetch a WIN-frame window of context centred on i (clamped,
+// not shrunk, at the two ends of the stack, so every frame still gets a
+// full-width window), then for each pixel take the MEDIAN across that
+// window and subtract it from the pixel's value at frame i, floored at
+// zero (a median-subtracted pixel going negative is expected/normal for a
+// median filter, not an error). No sliding-window bookkeeping needed here
+// (unlike a whole-stack pass): this is a one-shot median per pixel, since
+// only a single frame's output is ever needed at a time.
 //
-// Parallelization is spatial, NOT by frame batch like detect/fit: each
-// pixel's O(n·win) computation depends only on that pixel's OWN value across
-// every frame, never on neighbouring pixels (unlike detection, which needs
-// a border margin around whatever region a worker gets) — so the image
-// splits cleanly into row bands with no overlap needed, one band per
-// worker, each computing its band's full temporal history independently.
-async function runFTM(st, win, onLog=log, onProgress=setProg){
-  const {w,h,n,px}=st;
+// Parallelizes spatially (row bands), not by frame batch like detect/fit:
+// each pixel's computation depends only on its own value across the
+// context window, never on neighbouring pixels (unlike detection, which
+// needs a border margin around whatever region a worker gets) — so the
+// image splits cleanly into row bands with no overlap needed.
+async function ftmFrame(st, i, win, onLog=log){
+  const {w,h,n}=st;
   if(n<win){
-    onLog(`⚠ Temporal median filtering needs at least ${win} frames (stack has ${n}) — skipped.`);
-    return st;
+    onLog(`⚠ Temporal median filtering needs at least ${win} frames (stack has ${n}) — showing raw.`);
+    return (await st.getFrames(i,i+1))[0];
   }
-  onLog(`Temporal median filtering: window=${win} frames, ${w}×${h}×${n}…`);
-  const t0=performance.now();
-  const frames=new Array(n);
-  { const BLK=32;
-    for(let b=0;b<n;b+=BLK){
-      const block=await st.getFrames(b,Math.min(n,b+BLK));
-      for(let i=0;i<block.length;i++) frames[b+i]=block[i];
-      onProgress(30*Math.min(n,b+BLK)/n); await tick();   // first 30% of progress = loading
-    } }
-  const out=new Array(n); for(let i=0;i<n;i++) out[i]=new Float32Array(w*h);
-
-  const pool = await getPool();
-  const totalPx = n*w*h;
-  if(pool && pool.length>1 && totalPx>=paramValue('workerMinTotalPx')){
-    await runFTMParallel(frames, out, w, h, n, win, pool, onLog, onProgress);
-  } else {
-    const N=w*h, series=new Float64Array(n), os=new Float64Array(n);
-    let lastYield=performance.now();
-    for(let p=0; p<N; p++){
-      for(let f=0; f<n; f++) series[f]=frames[f][p];
-      ftmSeries(series, os, n, win);
-      for(let f=0; f<n; f++) out[f][p]=os[f];
-      if(performance.now()-lastYield>50){ onProgress(30+70*p/N); await tick(); lastYield=performance.now(); }
-    }
+  const half=win>>1;
+  const start=Math.max(0, Math.min(n-win, i-half));
+  const ctxFrames=await st.getFrames(start, start+win);   // exactly `win` frames — small, bounded, regardless of stack length
+  const targetLocal=i-start;
+  const pool=await getPool();
+  if(pool && pool.length>1) return await ftmFrameParallel(ctxFrames, w, h, win, targetLocal, pool);
+  const N=w*h, out=new Float32Array(N), vals=new Float64Array(win);
+  const mid=win>>1;
+  for(let p=0; p<N; p++){
+    for(let f=0; f<win; f++) vals[f]=ctxFrames[f][p];
+    vals.sort((a,b)=>a-b);
+    const med = win%2 ? vals[mid] : (vals[mid-1]+vals[mid])*0.5;
+    out[p]=Math.max(0, ctxFrames[targetLocal][p]-med);
   }
-  onProgress(null);
-  onLog(`  done in ${((performance.now()-t0)/1000).toFixed(1)} s.`);
-  const corrected=makeStack(w,h,n,px, fi=>out[fi]);
-  corrected.ftmFiltered=true;   // self-describing flag — see rawTitle updates in the load handlers
-  return corrected;
+  return out;
 }
 
-// Row-band dispatch: worker i gets rows [r0,r1) of every frame, concatenated
-// into one Float32Array (frame-major, matching the main stack's own layout,
-// just narrower) and transferred (not cloned) — one message per worker, no
-// re-dispatch loop, since unlike detect/fit's per-batch work sizes there's
-// no benefit to smaller chunks here (every pixel costs the same regardless
-// of which band it's in). Workers more numerous than rows just get an empty
+// Row-band dispatch: worker i gets rows [r0,r1) of every context frame,
+// concatenated into one Float32Array (frame-major, matching the main
+// stack's own layout, just narrower) and transferred (not cloned) — one
+// message per worker. Workers more numerous than rows just get an empty
 // band and resolve immediately.
-async function runFTMParallel(frames, out, w, h, n, win, pool, onLog, onProgress){
+async function ftmFrameParallel(ctxFrames, w, h, win, targetLocal, pool){
   const nw=pool.length, bandH=Math.ceil(h/nw);
-  onLog(`  parallel: ${nw} workers × ~${bandH}-row bands`);
-  let doneWorkers=0;
+  const out=new Float32Array(w*h);
   await Promise.all(pool.map((wk,wi)=>new Promise((resolve,reject)=>{
     const r0=wi*bandH, r1=Math.min(h, r0+bandH);
     if(r0>=r1){ resolve(); return; }
     const bh=r1-r0, N=w*bh;
-    const buf=new Float32Array(n*N);
-    for(let f=0; f<n; f++) buf.set(frames[f].subarray(r0*w, r1*w), f*N);
-    wk.onmessage=ev=>{
-      const {out:outBuf}=ev.data;
-      for(let f=0; f<n; f++) out[f].set(outBuf.subarray(f*N,(f+1)*N), r0*w);
-      doneWorkers++; onProgress(30+70*doneWorkers/nw);
-      resolve();
-    };
-    wk.onerror=ev=>{ reject(new Error('FTM worker failed: '+(ev.message||'unknown'))); };
-    wk.postMessage({ftm:true, buf, n, W:w, bandH:bh, win}, [buf.buffer]);
+    const buf=new Float32Array(win*N);
+    for(let f=0; f<win; f++) buf.set(ctxFrames[f].subarray(r0*w, r1*w), f*N);
+    wk.onmessage=ev=>{ out.set(ev.data.out, r0*w); resolve(); };
+    wk.onerror=ev=>{ reject(new Error('FTM preview worker failed: '+(ev.message||'unknown'))); };
+    wk.postMessage({ftmFrame:true, buf, win, targetLocal, W:w, bandH:bh}, [buf.buffer]);
   })));
+  return out;
 }
 
 /* ===========================================================================
@@ -3596,7 +3551,7 @@ function drawRawOverlays(ctx,DW,DH){
   drawScaleBar(ctx,DW,DH, paramValue('pxnm')/rawView.zoom);        // camera px size / zoom
 }
 function drawRaw(frame,w,h,spots,locs){
-  { const rt=$('rawTitle'); if(rt) rt.textContent = (stack && stack.ftmFiltered) ? 'Raw frame (FTM filtered)' : 'Raw frame'; }   // reclaim the panel from the drift plot
+  { const rt=$('rawTitle'); if(rt) rt.textContent = rawFtmView ? 'Raw frame (FTM corrected preview)' : 'Raw frame'; }   // reclaim the panel from the drift plot
   rawIsPlot=false;
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
@@ -3799,7 +3754,6 @@ function workerSource(){
     bandpass.toString(), atrous.toString(), waveletBP.toString(), detectFilter.toString(), findMaxima.toString(),
     roundOdd.toString(), uniformFilterInto.toString(), uniformBP.toString(), maxH.toString(), maxV.toString(), maxFilterInto.toString(), findMaximaUniform.toString(), detectSpots.toString(),
     solveLin.toString(), sseWin.toString(), gaussianFit.toString(), gaussianMLE.toString(), gaussianMLEastig.toString(), zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
-    ftmSeries.toString(),
     `onmessage=function(e){
       const d=e.data;
       if(d.ping){
@@ -3817,27 +3771,27 @@ function workerSource(){
           gaussianMLE(img,w,h,8,8,7,1.3);
           gaussianMLEastig(img,w,h,8,8,7,1.3);
           zFromWidths(1.3,1.5,{qx:{a:1e-6,c:0,b:130},qy:{a:1e-6,c:0,b:130},zmin:-400,zmax:400,px:100});
-          ftmSeries(new Float64Array(6).fill(5), new Float64Array(6), 6, 4);
           postMessage({pong:1});
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
-      if(d.ftm){
-        // Row-band FTM: buf is n frames' worth of this worker's row band,
-        // concatenated frame-major (see runFTMParallel on the main thread).
-        // Every pixel in the band is independent — no detect-style border
-        // margin needed, unlike frame-batch dispatch below.
-        const {buf,n,W,bandH,win}=d;
-        const N=W*bandH;
-        const out=new Float64Array(buf.length);
-        const series=new Float64Array(n), os=new Float64Array(n);
+      if(d.ftmFrame){
+        // Single-frame FTM preview: buf is win context frames' worth of
+        // this worker's row band, concatenated frame-major (see
+        // ftmFrameParallel on the main thread). One median per pixel, no
+        // sliding-window bookkeeping — only one frame's output is ever
+        // needed here. Every pixel in the band is independent — no
+        // detect-style border margin needed, unlike frame-batch dispatch below.
+        const {buf,win,targetLocal,W,bandH}=d;
+        const N=W*bandH, mid=win>>1;
+        const out=new Float32Array(N), vals=new Float64Array(win);
         for(let p=0;p<N;p++){
-          for(let f=0;f<n;f++) series[f]=buf[f*N+p];
-          ftmSeries(series, os, n, win);
-          for(let f=0;f<n;f++) out[f*N+p]=os[f];
+          for(let f=0;f<win;f++) vals[f]=buf[f*N+p];
+          vals.sort((a,b)=>a-b);
+          const med = win%2 ? vals[mid] : (vals[mid-1]+vals[mid])*0.5;
+          out[p]=Math.max(0, buf[targetLocal*N+p]-med);
         }
-        const outF=new Float32Array(out);
-        postMessage({out:outF},[outF.buffer]);
+        postMessage({out},[out.buffer]);
         return;
       }
       const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps}=d;
@@ -5267,12 +5221,25 @@ async function run(){
   f.addEventListener('change', sync); sync();
 })();
 
-// FTM window-size field: only relevant once temporal median filtering is on.
+// FTM window-size field and raw/corrected toggle: only relevant once
+// temporal median filtering is on. Unchecking resets the toggle back to
+// raw — rawFtmView shouldn't stay stuck "on" once its own control is hidden.
 (function(){
   const b=$('ftmEnabled');
-  const sync=()=>{ $('ftmWindowRow').style.display = b.checked ? '' : 'none'; };
+  const sync=()=>{
+    const on=b.checked;
+    $('ftmWindowRow').style.display = on ? '' : 'none';
+    $('rawFtmRow').style.display = on ? 'flex' : 'none';
+    if(!on && rawFtmView){ rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';
+      if(stack) showFrame(+$('scrub').value||0); }
+  };
   b.addEventListener('change', sync); sync();
 })();
+$('rawFtmBtn').addEventListener('click',()=>{
+  rawFtmView=!rawFtmView;
+  $('rawFtmBtn').textContent = rawFtmView ? 'Show raw' : 'Show FTM corrected';
+  if(stack) showFrame(+$('scrub').value||0);
+});
 
 // "Load movie" just proxies to the hidden file input, so both data sources
 // present as equal-weight buttons.
@@ -5351,7 +5318,7 @@ $('genBtn').addEventListener('click',async()=>{
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
-    if(paramValue('ftmEnabled')) stack=await runFTM(stack, paramValue('ftmWindow'));   // drawRaw() sets the panel title from stack.ftmFiltered
+    rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     initScrub(); $('sFrames').textContent=stack.n;
     showStackProjection();      // background fill of the SR panel — not awaited
@@ -5373,7 +5340,7 @@ $('file').addEventListener('change',async e=>{
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
   try{
     stack = multi ? await loadTiffSequence(fs) : await loadTiffFile(fs[0]);
-    if(paramValue('ftmEnabled')) stack=await runFTM(stack, paramValue('ftmWindow'));   // drawRaw() sets the panel title from stack.ftmFiltered
+    rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     initScrub();
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
@@ -5404,7 +5371,8 @@ async function showFrame(i){
   if(scrubBusy){ scrubPending=i; return; }
   scrubBusy=true;
   try{
-    const img=(await stack.getFrames(i,i+1))[0];
+    let img=(await stack.getFrames(i,i+1))[0];
+    if(rawFtmView && paramValue('ftmEnabled')) img=await ftmFrame(stack, i, paramValue('ftmWindow'));
     let spots=null, locsF=null;
     const runMatchesStack = lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h;
     // "Fix bead x,y" wins over everything else below, from the moment beads are
