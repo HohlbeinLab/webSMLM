@@ -8,8 +8,9 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 - **FTM (fast temporal median filter) — implemented as a scrubbing-time
   preview; Localize integration still open.** `ftmEnabled`/`ftmWindow`
-  `PARAMS` controls live in the "Memory, streaming & loading" sidebar
-  module; full current behaviour is in `docs/DOCUMENTATION.md` §2's FTM
+  `PARAMS` controls live in the "Localisation settings" sidebar module,
+  directly below Fit method; full current behaviour is in
+  `docs/DOCUMENTATION.md` §2's Fit
   section and `CLAUDE.md`'s **in/out** module note, not duplicated here.
   The technique originates with Nieuwenhuizen, Lidke, Bates, Puig, Grünwald,
   Stallinga, Rieger, *Measuring image resolution in optical nanoscopy*,

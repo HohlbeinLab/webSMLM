@@ -36,8 +36,10 @@ relevant one before editing rather than scrolling:
   multi-GB files via `File.slice()` (never fully loaded). Also accepts a multi-file selection
   (Ctrl/Cmd+click several single-frame TIFFs) via `loadTiffSequence()` — natural-sorted by
   filename, decoded and concatenated into one stack, one file read at a time. `ftmFrame()`
-  (`ftmEnabled`/`ftmWindow`) is a **scrubbing-time preview**, not a whole-stack pass: the
-  raw-panel toggle (`rawFtmBtn`/`rawFtmRow`, shown only while `ftmEnabled` is checked) computes
+  (`ftmEnabled`/`ftmWindow`, controls living in the **fit** module's `PARAMS` group and sidebar
+  section despite `ftmFrame()` itself sitting in in/out) is a **scrubbing-time preview**, not a
+  whole-stack pass: the raw-panel toggle (`rawFtmBtn`, inline in the panel title, shown only
+  while `ftmEnabled` is checked — no load-time coupling, it can be toggled any time) computes
   the temporal-median correction for just the *currently scrubbed frame*, fetching only a
   `ftmWindow`-frame window of context around it — a small, bounded fetch regardless of stack
   length. An earlier design ran FTM once over the whole stack and replaced `stack` itself; that

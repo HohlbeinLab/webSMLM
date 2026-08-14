@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14e · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14f · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1484,7 +1484,7 @@ X.B(E,Y);return E}return J}())
            analyze()'s config.calibrationFile/calibrationFiles below. -->
       <input type="file" id="calibrationFileInput" multiple hidden>
       <details class="sim" id="memBox">
-        <summary>Memory, streaming &amp; loading</summary>
+        <summary>Memory &amp; streaming</summary>
         <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
         <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
         <details class="info"><summary>…further info…</summary>
@@ -1493,36 +1493,6 @@ X.B(E,Y);return E}return J}())
           discarded (“streaming”), so memory stays bounded but re-runs re-decode.<br>
           <b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF
           decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</div></details>
-        <hr class="sep" style="margin:10px 0 8px">
-        <label class="row" id="ftmEnabledRow" style="margin-top:6px">Temporal median filtering <input type="checkbox" id="ftmEnabled"></label>
-        <label class="row" id="ftmWindowRow" style="display:none">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
-        <details class="info"><summary>…further info…</summary>
-          <div class="hint">[module: in/out] <b>Temporal median filtering</b> (FTM) is a per-pixel background
-          correction. Checking this box adds a <b>raw / FTM-corrected</b> toggle next to the raw panel (below
-          the frame scrubber) — switching it computes the correction live for whichever frame you're currently
-          scrubbed to, not the whole stack up front. For that one frame, each pixel's value across a
-          <b>window</b> of nearby frames (centred on the current frame; clamped, not shrunk, at the very
-          first/last few frames, so every frame still gets a full-width window) is used to take the
-          <b>median</b> — a robust estimate of that pixel's slowly-varying background at this point in time —
-          which is subtracted from the pixel's actual value in the current frame. Since a blinking emitter
-          occupies far less than half the window at any one pixel, the median tracks the background, not the
-          signal, so what's left after subtraction is mostly signal above background. <b>Values that go
-          negative after subtraction are clamped to zero</b> (a background estimate briefly above the true
-          noise floor is expected, not an error) — this floors every corrected pixel's minimum at exactly 0,
-          which is <i>not</i> quite the same noise distribution the fit functions otherwise assume
-          (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a
-          hard floor at 0 truncates that slightly, which can bias fitted background/photon counts and
-          reported uncertainty low in very dim regions). This is a <b>preview only</b> — Localize still runs
-          on the original, uncorrected data; applying FTM to an actual Run is not implemented yet (see
-          <code>docs/REFACTOR_PLAN.md</code>). Choose the <b>window size</b> so the "signal occupies less
-          than half the window" assumption above actually holds for your data (too small and the median
-          starts tracking — and cancelling — real signal); the loaded stack must have at least that many
-          frames. The technique originates with
-          <a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
-          <i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
-          implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
-          (<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
-          <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</div></details>
       </details>
       <details class="sim" id="simBox">
         <summary>Simulation settings</summary>
@@ -1573,6 +1543,8 @@ X.B(E,Y);return E}return J}())
             <option value="gaussmle" selected>Gaussian MLE 2D</option>
             <option value="mle3d">Gaussian MLE 3D</option>
           </select></label>
+        <label class="row" id="ftmEnabledRow" style="margin-top:8px">Temporal median filtering <input type="checkbox" id="ftmEnabled"></label>
+        <label class="row" id="ftmWindowRow" style="display:none">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
         <label class="row" style="margin-top:8px">First frame <input type="number" id="fitFirstFrame" min="1" step="1" value="1" class="num" title="First frame (1-based, inclusive) Localize processes"></label>
         <label class="row">Last frame <input type="number" id="fitLastFrame" min="1" step="1" class="num" title="Last frame (1-based, inclusive) Localize processes — blank/reset to the whole loaded stack on every new load"></label>
         <div id="cal3dRow" style="display:none;margin:6px 0 2px">
@@ -1600,7 +1572,33 @@ X.B(E,Y);return E}return J}())
           <b>Wavelet (B-spline)</b> (default) is the à trous cubic-B-spline wavelet used by ThunderSTORM: it has no σ (its scale is fixed by the wavelet levels), is roughly 2× faster to filter, and is the recommended choice.
           <b>DoG band-pass</b> is a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38 % of detections).
           <b>Uniform box filter</b> is a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.
-          The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</div></details>
+          The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.<br><br>
+          <b>Temporal median filtering</b> (FTM) is a per-pixel background correction. Checking this box adds
+          a <b>raw / FTM-corrected</b> toggle next to the raw panel title — switching it computes the
+          correction live for whichever frame you're currently scrubbed to, not the whole stack up front, and
+          not Localize itself (preview only, see below). For that one frame, each pixel's value across a
+          <b>window</b> of nearby frames (centred on the current frame; clamped, not shrunk, at the very
+          first/last few frames, so every frame still gets a full-width window) is used to take the
+          <b>median</b> — a robust estimate of that pixel's slowly-varying background at this point in time —
+          which is subtracted from the pixel's actual value in the current frame. Since a blinking emitter
+          occupies far less than half the window at any one pixel, the median tracks the background, not the
+          signal, so what's left after subtraction is mostly signal above background. <b>Values that go
+          negative after subtraction are clamped to zero</b> (a background estimate briefly above the true
+          noise floor is expected, not an error) — this floors every corrected pixel's minimum at exactly 0,
+          which is <i>not</i> quite the same noise distribution the fit functions otherwise assume
+          (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a
+          hard floor at 0 truncates that slightly, which can bias fitted background/photon counts and
+          reported uncertainty low in very dim regions). This is a <b>preview only</b> — Localize still runs
+          on the original, uncorrected data; applying FTM to an actual Run is not implemented yet (see
+          <code>docs/REFACTOR_PLAN.md</code>). Choose the <b>window size</b> so the "signal occupies less
+          than half the window" assumption above actually holds for your data (too small and the median
+          starts tracking — and cancelling — real signal); the loaded stack must have at least that many
+          frames. The technique originates with
+          <a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
+          <i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
+          implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
+          (<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
+          <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</div></details>
         <hr class="sep" style="margin:10px 0 8px">
         <label class="row">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
         <label class="row">Camera gain (photons/ADU) <input type="number" id="gain" value="1" min="0.001" max="1000" step="0.01" class="num"></label>
@@ -1699,16 +1697,12 @@ X.B(E,Y);return E}return J}())
 
     <div class="canvases">
       <div class="card">
-        <h4><span id="rawTitle">Raw frame</span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <canvas id="raw"></canvas>
         <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
           <span style="color:var(--muted);font-size:12px">Frame</span>
           <input type="range" id="scrub" min="0" max="0" step="1" value="0" style="flex:1">
           <span class="val" id="scrubV" style="min-width:70px;text-align:right">1</span>
-        </div>
-        <div id="rawFtmRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
-          <span style="color:var(--muted);font-size:12px">Raw view</span>
-          <button id="rawFtmBtn" class="logbtn" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button>
         </div>
       </div>
       <div class="card">
@@ -1725,7 +1719,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14e
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14f
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1797,6 +1791,29 @@ const PARAMS = {
   // only cost extra iterations: swapping to 0.001 measured 19% faster AND a higher convergence
   // rate on real data, with fitted positions agreeing to ~0.008 px, far below any real CRLB)
   mleEps: { type:'number', id:null, label:'MLE convergence tolerance (px)', min:1e-6, max:0.1, step:0.0001, default:0.001, int:false },
+  // ftmEnabled = show the "raw vs FTM-corrected" toggle (rawFtmBtn, inline
+  // in the raw panel's title) next to the raw panel. Correction is computed
+  // live, per scrubbed frame — see ftmFrame() — not applied to the whole
+  // stack up front (an earlier whole-stack-replacement design was reverted:
+  // it couldn't work for a stack too big to hold both the raw and corrected
+  // copies in memory at once, see docs/REFACTOR_PLAN.md). Technique:
+  // Nieuwenhuizen et al., Nat. Methods 10, 557-562 (2013),
+  // https://doi.org/10.1038/nmeth.2448; ported from the Hohlbein Lab's own
+  // newer implementation, HohlbeinLab/FTM2
+  // (https://github.com/HohlbeinLab/FTM2), used in Jabermoradi et al.,
+  // Phil. Trans. R. Soc. A 380(2220), 20200164 (2022),
+  // https://doi.org/10.1098/rsta.2020.0164. Runs on raw ADU data, before
+  // gain/camoffset conversion (which stays inside the fit functions).
+  ftmEnabled: { type:'bool', id:'ftmEnabled', label:'Temporal median filtering', default:false },
+  // ftmWindow = window size (frames) the live per-frame median is computed
+  // over, centred on the scrubbed frame (clamped, not shrunk, at the two
+  // ends of the stack). FTM2's own guidance: choose it so a blinking
+  // emitter occupies less than half the window at any one pixel, or the
+  // median starts tracking the signal itself and cancels it back out. Must
+  // not exceed the loaded stack's frame count — ftmFrame() falls back to
+  // the raw frame (logging a warning) rather than silently using a smaller
+  // window that would change the result without saying so.
+  ftmWindow: { type:'number', id:'ftmWindow', label:'Window size', min:3, max:2000, step:1, default:50, int:true },
 
   // ---- render ----
   // pxnm = camera pixel size in nanometres; sets the physical scale for the scale bar, z and export
@@ -1847,28 +1864,6 @@ const PARAMS = {
   memgb: { type:'number', id:'memgb', label:'Memory budget (GB)', min:0.5, max:8, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
   chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
-  // ftmEnabled = show the "raw vs FTM-corrected" toggle (rawFtmBtn) next to
-  // the raw panel. Correction is computed live, per scrubbed frame — see
-  // ftmFrame() — not applied to the whole stack up front (an earlier
-  // whole-stack-replacement design was reverted: it couldn't work for a
-  // stack too big to hold both the raw and corrected copies in memory at
-  // once, see docs/REFACTOR_PLAN.md). Technique: Nieuwenhuizen et al., Nat.
-  // Methods 10, 557-562 (2013), https://doi.org/10.1038/nmeth.2448; ported
-  // from the Hohlbein Lab's own newer implementation, HohlbeinLab/FTM2
-  // (https://github.com/HohlbeinLab/FTM2), used in Jabermoradi et al.,
-  // Phil. Trans. R. Soc. A 380(2220), 20200164 (2022),
-  // https://doi.org/10.1098/rsta.2020.0164. Runs on raw ADU data, before
-  // gain/camoffset conversion (which stays inside the fit functions).
-  ftmEnabled: { type:'bool', id:'ftmEnabled', label:'Temporal median filtering', default:false },
-  // ftmWindow = window size (frames) the live per-frame median is computed
-  // over, centred on the scrubbed frame (clamped, not shrunk, at the two
-  // ends of the stack). FTM2's own guidance: choose it so a blinking
-  // emitter occupies less than half the window at any one pixel, or the
-  // median starts tracking the signal itself and cancels it back out. Must
-  // not exceed the loaded stack's frame count — ftmFrame() falls back to
-  // the raw frame (logging a warning) rather than silently using a smaller
-  // window that would change the result without saying so.
-  ftmWindow: { type:'number', id:'ftmWindow', label:'Window size', min:3, max:2000, step:1, default:50, int:true },
 
   // ---- simulation ----
   // frames = number of frames the built-in synthetic-stack generator produces
@@ -3551,7 +3546,7 @@ function drawRawOverlays(ctx,DW,DH){
   drawScaleBar(ctx,DW,DH, paramValue('pxnm')/rawView.zoom);        // camera px size / zoom
 }
 function drawRaw(frame,w,h,spots,locs){
-  { const rt=$('rawTitle'); if(rt) rt.textContent = rawFtmView ? 'Raw frame (FTM corrected preview)' : 'Raw frame'; }   // reclaim the panel from the drift plot
+  { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
   rawIsPlot=false;
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
@@ -5229,7 +5224,7 @@ async function run(){
   const sync=()=>{
     const on=b.checked;
     $('ftmWindowRow').style.display = on ? '' : 'none';
-    $('rawFtmRow').style.display = on ? 'flex' : 'none';
+    $('rawFtmBtn').style.display = on ? '' : 'none';
     if(!on && rawFtmView){ rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';
       if(stack) showFrame(+$('scrub').value||0); }
   };
