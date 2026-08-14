@@ -59,23 +59,25 @@ section summarizes what's *in* each, not what the help text already says.
   (`calBtn`/`calSaveBtn`). See [§7](#7-calibration-json-format), **3D
   calibration** module.
 - **Localisation settings** (`locBox`) — one hint block, no internal rule,
-  covers `method` through `winr` below (including FTM); a second, separate
-  hint block covers the camera/export fields after it. `method` (fit
+  covers `liveUpdate` through `winr` below (including FTM); a second,
+  separate hint block covers the camera/export fields after it.
+  `liveUpdate`, first (above Fit method, since it governs how every other
+  control in this group previews before a full Run); `method` (fit
   algorithm select); `ftmEnabled`/`ftmWindow` (temporal median filtering —
-  see below), directly below it; `fitFirstFrame`/`fitLastFrame` (1-based
-  inclusive frame range Localize processes — the rest of the loaded stack is
-  skipped entirely, not just excluded from the result; reset to `1`/the
-  loaded stack's frame count on every new load, same as
-  `calFirst`/`calLast`); `loadCalBtn` (load a 3D calibration JSON, only
-  shown for a 3D method); `detFilter` (detection filter select);
-  `liveUpdate`; per-filter threshold fields (`detection_wavelet_thr` /
-  `detection_DoG_thr` / `detection_box_thr`, only one visible at a time);
-  `detection_DoG_exactbp`; `psf`; `winr` — see **detect** / **fit**
-  modules. Then, past the internal rule, **camera / export (ADU→photon
-  conversion)**: `pxnm` (pixel size — also sets the physical scale for the
-  scale bar, z and the exported CSV coordinates), `gain`, `camoffset` —
-  applied inside every fit function as `(raw−camoffset)×gain` before
-  fitting, see **fit** / **export** modules.
+  see below), directly below it, `ftmWindow` visually indented under the
+  checkbox it depends on; `fitFirstFrame`/`fitLastFrame` (1-based inclusive
+  frame range Localize processes — the rest of the loaded stack is skipped
+  entirely, not just excluded from the result; reset to `1`/the loaded
+  stack's frame count on every new load, same as `calFirst`/`calLast`);
+  `loadCalBtn` (load a 3D calibration JSON, only shown for a 3D method);
+  `detFilter` (detection filter select); per-filter threshold fields
+  (`detection_wavelet_thr` / `detection_DoG_thr` / `detection_box_thr`,
+  only one visible at a time); `detection_DoG_exactbp`; `psf`; `winr` — see
+  **detect** / **fit** modules. Then, past the internal rule, **camera /
+  export (ADU→photon conversion)**: `pxnm` (pixel size — also sets the
+  physical scale for the scale bar, z and the exported CSV coordinates),
+  `gain`, `camoffset` — applied inside every fit function as
+  `(raw−camoffset)×gain` before fitting, see **fit** / **export** modules.
 - **Rendering settings** (`renderBox`) — `mag`, `rblur`, `lut`, `lutpct`,
   `zcolor` (3D results only), `zmin`/`zmax` (3D results only, per-dataset
   working state, *not* in `PARAMS`). See **render** module.
@@ -118,8 +120,9 @@ section summarizes what's *in* each, not what the help text already says.
 Single source of truth for every analysis/render/export tunable —
 `webSMLM.html`'s `params` module (`const PARAMS = {...}`, search for it
 directly; this table mirrors it). `id: null` means no page control yet — only
-settable via a loaded settings JSON (`paramOverrides`), and the mechanism the
-future v0.10.0 headless config will reuse. Deliberately excluded from this
+settable via a loaded settings JSON (`paramOverrides`), the same mechanism
+the headless config (`window.webSMLM.analyze(config)`, see
+[§8](#8-headless-api-window-websmlm)) also uses. Deliberately excluded from this
 registry: pure CSS/layout, and per-dataset working state that resets from the
 loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 `zmin`, `zmax`).
@@ -158,54 +161,116 @@ the skipped frames are never even fetched/decoded, not just excluded from
 the result afterward — see the **pipeline** module / `runCore()`.
 
 **`ftmEnabled`/`ftmWindow` — temporal median filtering (FTM).** Checking
-`ftmEnabled` adds a **raw / FTM-corrected toggle** (`rawFtmBtn`, inline in
-the raw panel's title, its own label reading "Show FTM corrected" / "Show
-raw") — this is a **scrubbing-time preview**, not a whole-stack operation:
-switching the toggle computes the correction live for whichever frame is
-currently scrubbed to (`ftmFrame()`), fetching only a `ftmWindow`-frame
-window of context centred on that frame (clamped, not shrunk, at the two
-ends of the stack, so every frame still gets a full-width window) — a
-small, bounded fetch regardless of how long the stack is. For each pixel,
-subtracts the median of that window from the pixel's value, floored at 0
-(a background estimate briefly above the true noise floor is expected, not
-an error). Requires the loaded stack to have at least `ftmWindow` frames —
-falls back to the raw frame, with a logged warning, otherwise. Can be
-checked at any time — before, during, or after loading a stack — with no
-load-time coupling; it only affects what the toggle (once shown) computes
-from that point on.
+`ftmEnabled` does two things: it adds a **raw / FTM-corrected toggle**
+(`rawFtmBtn`, inline in the raw panel's title, its own label reading "Show
+FTM corrected" / "Show raw") for scrubbing preview, **and** it makes
+**Localize itself run on FTM-corrected frames** instead of the original raw
+ones. Both share the same underlying correction: for a given frame, each
+pixel's value across a `ftmWindow`-frame window of context (centred on that
+frame; clamped, not shrunk, at the two ends of the stack, so every frame
+still gets a full-width window) has its **median** subtracted, then
+**floored at `camoffset`** (not 0) and has `camoffset` added back — see
+"gain/camoffset interaction" below for why. Requires the loaded stack to
+have at least `ftmWindow` frames — falls back to raw data, with a logged
+warning, otherwise. Can be checked at any time — before, during, or after
+loading a stack — with no load-time coupling.
 
 An earlier design ran this once over the *whole* stack right after loading
 and replaced `stack` itself; it was reverted because it needed the raw and
 corrected copies fully materialized in memory at the same time, which
 doesn't work for a stack too big to hold both — see
-`docs/REFACTOR_PLAN.md`. Computing one frame at a time sidesteps that
-entirely. Parallelizes across the same worker pool detect/fit use, but
-**spatially, not by frame batch**: each pixel's computation depends only on
-its own value across the context window, never on neighbouring pixels, so
-the image splits into row bands (one per worker, no overlap/border margin
-needed, unlike detection) — `ftmFrameParallel()` sends each worker its
-band's context-window data as one transferred buffer, one message per
-worker; falls back to a single-threaded per-pixel loop when no pool is
-available. Measured (500-frame synthetic stacks, window 50, 8 workers):
-~23 ms at 128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at
-1024×1024 — fine for occasional scrubbing at smaller frame sizes, but
-noticeably laggy for rapid dragging on large frames.
+`docs/REFACTOR_PLAN.md`. Both current paths avoid that by never holding
+more than a bounded amount of raw/corrected data at once:
 
-`showFrame()` substitutes the corrected frame in place of the raw one (via
-`rawFtmView`, the toggle's on/off state) before running the same
-detect/live-preview logic every other branch already uses — ROI boxes and
-live-fit crosshairs on the corrected preview reflect it too, not just the
-background pixels. The raw panel **title stays fixed at "Raw frame"**
-regardless of the toggle state — only the button's own label changes;
-unchecking `ftmEnabled` hides the button again and resets the toggle back
-to raw. Runs on raw ADU data, before gain/camoffset conversion (unaffected
-— that stays inside the fit functions). **Preview only:** Localize still
-runs on the original, uncorrected stack — applying FTM to an actual Run is
-not implemented. The floor-at-0 clamp is also not quite the same noise
-distribution the Poisson-MLE fitters otherwise assume (which models a
-Poisson-distributed background around some *positive* mean), which can
-bias fitted background/photon counts and reported uncertainty low in very
-dim regions — relevant if FTM is ever wired into an actual Run.
+- **Scrubbing preview** (`ftmFrame()`/`ftmFrameParallel()`) computes exactly
+  one frame at a time, fetching only that frame's own `ftmWindow`-wide
+  context. Parallelizes **spatially** across the worker pool (row bands, no
+  overlap/border margin needed, since each pixel's computation depends only
+  on its own value across the context window, never on neighbouring
+  pixels). Measured (500-frame synthetic stacks, window 50, 8 workers): ~23
+  ms at 128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at
+  1024×1024 — fine for occasional scrubbing at smaller frame sizes, but
+  noticeably laggy for rapid dragging on large frames. `showFrame()`
+  substitutes the corrected frame in place of the raw one (via
+  `rawFtmView`, the toggle's on/off state) before running the same
+  detect/live-preview logic every other branch already uses — ROI boxes
+  and live-fit crosshairs on the corrected preview reflect it too. The raw
+  panel **title stays fixed at "Raw frame"** regardless of the toggle
+  state — only the button's own label changes; unchecking `ftmEnabled`
+  hides the button and resets the toggle back to raw.
+- **Localize** processes the stack in **chunks**, sized from the
+  `chunkmb` "Stream heap chunk" budget (half of it, since a chunk's raw
+  context and corrected output are both resident at once) rather than a
+  fixed constant, so chunking scales with frame size and the user's own
+  memory tuning. Two implementations share the same per-pixel sliding-
+  window median algorithm (`ftmSeriesGlobal` — O(window) per step, not a
+  full resort), chosen by whether `runCore()` is using the worker pool at
+  all for this Run:
+  - **No worker pool** (`makeFtmStack()`): wraps the stack so its existing
+    serial frame-fetch calls transparently receive FTM-corrected data,
+    chunked and cached so a run of nearby requests is served from one
+    chunk computation instead of redundantly re-fetching/re-sorting
+    nearly the same context each time. Runs on the main thread — nothing
+    else is contending for it in this path.
+  - **Worker pool in use**: a dedicated **barrier-phased loop** inside
+    `runCore()`, alternating a full-pool-parallel **FTM-correction phase**
+    (`ftmChunkParallel()`, row-band split, same reasoning as the scrubbing
+    preview) with a full-pool-parallel **detect/fit phase** (the same
+    frame-batch dispatch the non-FTM path uses) for each chunk in turn,
+    with a hard barrier between the two phases on every chunk — the pool
+    is never asked to do both jobs at once. This matters because each
+    worker has exactly **one** `onmessage` slot, not a job queue: without
+    the barrier, an FTM-correction reply and a detect/fit reply could
+    clobber each other's handler mid-flight. An earlier version ran chunk
+    correction unconditionally on the main thread (to sidestep that
+    conflict without a barrier) — measured as the dominant cost on a fast
+    fitter with large frames (~7.5 s FTM vs. ~5.4 s total detect/fit CPU
+    on a 256×256×1200 case, 8% worker utilisation). The barrier-phased
+    design gets full parallelism for both phases instead, at the cost of
+    losing the small pipelining overlap ("fetch/correct the next chunk"
+    while "fitting the previous one") the non-FTM continuous-dispatch
+    loop gets for free — benchmark-confirmed small next to what
+    parallelizing the FTM phase itself buys back.
+
+  Both implementations need to fetch a *little* more context than
+  `±ftmWindow/2` around a chunk's core frames whenever that chunk's core
+  range comes close enough to either end of the **whole stack** (not the
+  Run's own `fitFirstFrame`/`fitLastFrame` range) that a frame's own
+  window would otherwise be clamped further than the chunk's own edge
+  padding accounts for — the same per-frame clamp `ftmSeriesGlobal`
+  applies internally, just computed once for the chunk's own worst-case
+  frame instead of the chunk's own start/end. Getting this wrong doesn't
+  crash or obviously misbehave — it silently starves the last few frames
+  of a stack of part of their correct background window, biasing their
+  photon counts by a few percent — so a barrier-phased-worker-vs-serial
+  A/B correctness check (not eyeballing loc counts, which stayed close)
+  is what caught it.
+
+Runs on raw ADU data in both paths, before gain/camoffset conversion
+inside the fit functions. Those functions convert every pixel via
+`(raw−camoffset)×gain`; since FTM-corrected pixels are *already*
+background-subtracted, floor-at-0 would let that conversion subtract
+`camoffset` a **second** time, systematically undercounting photons by
+`camoffset×gain`. Flooring/re-adding `camoffset` instead (see above)
+makes the fit's own `−camoffset` cancel back out, leaving just `×gain` on
+the true signal-above-background — floored at 0 in photon space, same as
+intended. The floor is still not quite the same noise distribution the
+Poisson-MLE fitters otherwise assume (which models a Poisson-distributed
+background around some *positive* mean), which can bias fitted
+background/photon counts and reported uncertainty low in very dim
+regions.
+
+**Log output**: when FTM is active, a Run's log gains a
+`Temporal median filtering ON (window=N) — Localize runs on FTM-corrected
+frames.` line up front, and the timing breakdown gains an `FTM filter` line
+— wall time spent computing chunks, not time spent waiting on another
+already-in-flight chunk (serial path) or on the barrier-phased pool
+(worker path) — alongside `frame access`/`detect`/`fit`, also returned as
+`timings.ftmMs` from `runCore()`. In the worker path, the `↑ N workers ·
+X% utilisation` line covers the detect/fit phase only (its wall-clock
+denominator excludes the separately barrier-phased FTM stage, which is
+reported on its own line instead) — folding the two together would make a
+run with substantial FTM time look artificially starved.
 
 ### Render
 
@@ -553,7 +618,7 @@ calibration…** for a 3D fit method.
 
 ---
 
-## 8 · Headless API (`window.webSMLM`) — v0.10.0-dev
+## 8 · Headless API (`window.webSMLM`)
 
 The Layer 1 entry point of the scriptable/headless pipeline
 (`docs/REFACTOR_PLAN.md`). Runs the whole load → detect/fit → drift →

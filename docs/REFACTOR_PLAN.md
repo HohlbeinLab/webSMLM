@@ -6,12 +6,13 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **FTM (fast temporal median filter) — implemented as a scrubbing-time
-  preview; Localize integration still open.** `ftmEnabled`/`ftmWindow`
-  `PARAMS` controls live in the "Localisation settings" sidebar module,
-  directly below Fit method; full current behaviour is in
-  `docs/DOCUMENTATION.md` §2's Fit
-  section and `CLAUDE.md`'s **in/out** module note, not duplicated here.
+- **FTM (fast temporal median filter) — implemented for both scrubbing
+  preview and Localize itself**, including a barrier-phased worker-parallel
+  path for Localize (not just the main-thread-only version first tried —
+  see `CLAUDE.md`'s **in/out** module note for the current design and why
+  the barrier is required, `docs/DOCUMENTATION.md` §2's Fit section for
+  user-facing behaviour). `ftmEnabled`/`ftmWindow` `PARAMS` controls live in
+  the "Localisation settings" sidebar module, directly below Fit method.
   The technique originates with Nieuwenhuizen, Lidke, Bates, Puig, Grünwald,
   Stallinga, Rieger, *Measuring image resolution in optical nanoscopy*,
   *Nat. Methods* **10**, 557–562 (2013), https://doi.org/10.1038/nmeth.2448;
@@ -22,58 +23,14 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   Trans. R. Soc. A* **380**(2220), 20200164 (2022),
   https://doi.org/10.1098/rsta.2020.0164.
 
-  **Design history — two approaches tried, the first reverted.** The first
-  implementation ran FTM once over the *whole* stack right after loading,
-  replacing `stack` itself with the corrected version (parallelized
-  spatially across the worker pool — row bands, no overlap needed, since
-  each pixel's computation depends only on its own value across every
-  frame, unlike detection which needs a border margin; measured 0.5 s for a
-  200×200×800/window=50 stack with 8 workers). That design had a real
-  memory problem: every pixel's full temporal history had to be
-  materialized *twice* (raw input + corrected output) before any frame was
-  addressable again, which doesn't work once a stack is too big to hold
-  both copies — chunked, overlapping input fetching (as discussed) would
-  only have halved peak memory, not solved the deeper issue that the
-  corrected *output* still needed full random-access, and `makeStack()`'s
-  interface has no streamed/on-disk backing for freshly-computed data the
-  way it does for an original file. Reverted in favour of computing the
-  correction **live, one frame at a time** (`ftmFrame()`/
-  `ftmFrameParallel()`): a raw/FTM-corrected toggle next to the raw panel
-  (`rawFtmBtn`) recomputes the correction for whichever frame is currently
-  scrubbed to, fetching only a `ftmWindow`-frame window of context around
-  it — small and bounded regardless of stack length, so the memory problem
-  doesn't arise at all. Simpler algorithmically too: a one-shot median per
-  pixel, no sliding-window bookkeeping needed, since only one frame's
-  output is ever wanted at a time.
-
-  Measured (500-frame synthetic stacks, window 50, 8 workers): ~23 ms at
-  128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at 1024×1024 per
-  scrubbed frame — fine for occasional scrubbing at smaller frame sizes,
-  noticeably laggy for rapid dragging on large ones. Not addressed further
-  yet; a finer row-band split, or reusing detect/fit's frame-batch workers
-  differently, are options if this needs to get faster.
-
-  **Still open:**
-  - **Apply FTM to an actual Run, not just the scrubbing preview.**
-    Localize still analyzes the original, uncorrected stack regardless of
-    the toggle. Wiring FTM into `runCore()` would need its own design pass
-    — likely the per-frame approach above, run just-in-time as each frame
-    is about to be detected/fit (naturally bounded, same as the preview),
-    rather than a separate whole-stack pass.
-  - **Interaction with gain/photon-unit conversion**, if FTM ever reaches
-    Localize: median subtraction happens in raw ADU space; fitting converts
-    `(raw−camoffset)×gain` to photons (see **fit** module) — still need a
-    decision on whether FTM would run before or after that conversion. The
-    floor-at-0 clamp is also not quite the same noise distribution the
-    Poisson-MLE fitters otherwise assume (which models a
-    Poisson-distributed background around some *positive* mean), which
-    could bias fitted background/photon counts and reported uncertainty
-    low in very dim regions.
-
-  Also relevant: `fitFirstFrame`/`fitLastFrame` (the analysis frame range,
-  done in an earlier round — see `docs/DOCUMENTATION.md` §1/§2) are a
-  *separate* range from FTM2's own independent Start/End (which frames the
-  filter itself runs over, not which ones get localized afterward).
+  Scrub-preview speed not addressed further yet (measured, 8 workers:
+  ~23 ms at 128×128 up to ~510 ms at 1024×1024 per scrubbed frame — fine
+  smaller, laggy for rapid dragging on large frames); a finer row-band
+  split, or reusing detect/fit's frame-batch workers differently, are
+  options if this needs to get faster. `fitFirstFrame`/`fitLastFrame` (the
+  analysis frame range) stays a *separate* range from FTM2's own
+  independent Start/End (which frames the filter itself runs over, not
+  which ones get localized afterward) — no UI for the latter yet.
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive

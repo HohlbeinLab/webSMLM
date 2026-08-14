@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14f · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14g · proof-of-concept</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1535,7 +1535,8 @@ X.B(E,Y);return E}return J}())
       </details>
       <details class="sim" id="locBox">
         <summary>Localisation settings</summary>
-        <label class="row">Fit method
+        <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
+        <label class="row" style="margin-top:8px">Fit method
           <select id="method" class="sel">
             <option value="phasor">Phasor 2D</option>
             <option value="phasor3d">Phasor 3D</option>
@@ -1544,7 +1545,7 @@ X.B(E,Y);return E}return J}())
             <option value="mle3d">Gaussian MLE 3D</option>
           </select></label>
         <label class="row" id="ftmEnabledRow" style="margin-top:8px">Temporal median filtering <input type="checkbox" id="ftmEnabled"></label>
-        <label class="row" id="ftmWindowRow" style="display:none">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
+        <label class="row" id="ftmWindowRow" style="display:none;padding-left:20px">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
         <label class="row" style="margin-top:8px">First frame <input type="number" id="fitFirstFrame" min="1" step="1" value="1" class="num" title="First frame (1-based, inclusive) Localize processes"></label>
         <label class="row">Last frame <input type="number" id="fitLastFrame" min="1" step="1" class="num" title="Last frame (1-based, inclusive) Localize processes — blank/reset to the whole loaded stack on every new load"></label>
         <div id="cal3dRow" style="display:none;margin:6px 0 2px">
@@ -1558,7 +1559,6 @@ X.B(E,Y);return E}return J}())
             <option value="dog">DoG band-pass</option>
             <option value="box">Uniform box filter</option>
           </select></label>
-        <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
         <label class="row" id="detection_DoG_exactbpRow">Exact band-pass (slower, DoG only) <input type="checkbox" id="detection_DoG_exactbp"></label>
         <label class="row" id="detection_wavelet_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_wavelet_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
         <label class="row" id="detection_DoG_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_DoG_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
@@ -1719,7 +1719,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14f
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14g
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2072,7 +2072,19 @@ function makeStack(w,h,n,px,getFrame){
 // context window, never on neighbouring pixels (unlike detection, which
 // needs a border margin around whatever region a worker gets) — so the
 // image splits cleanly into row bands with no overlap needed.
-async function ftmFrame(st, i, win, onLog=log){
+// camoffset: the fit functions (gaussianMLE etc.) all convert their input
+// pixels as (raw-camoffset)*gain before use — see the fit module. FTM's
+// median subtraction already removes the background baseline, so an
+// FTM-corrected pixel is NOT "raw ADU" anymore; flooring the correction at
+// camoffset (instead of 0) and *adding* camoffset back keeps the output in
+// the same "as if this were raw ADU with the background already at the
+// camera's own baseline" space the fit functions expect — so their own
+// -camoffset cancels back out to just *gain, instead of double-subtracting
+// the baseline (which would silently undercount every photon count by
+// camoffset*gain). Only matters for data actually going into a fit;
+// doesn't change how FTM looks as a plain visual preview (values are still
+// max(camoffset, ...) — displayed as ADU-ish numbers either way).
+async function ftmFrame(st, i, win, camoffset, onLog=log){
   const {w,h,n}=st;
   if(n<win){
     onLog(`⚠ Temporal median filtering needs at least ${win} frames (stack has ${n}) — showing raw.`);
@@ -2083,14 +2095,14 @@ async function ftmFrame(st, i, win, onLog=log){
   const ctxFrames=await st.getFrames(start, start+win);   // exactly `win` frames — small, bounded, regardless of stack length
   const targetLocal=i-start;
   const pool=await getPool();
-  if(pool && pool.length>1) return await ftmFrameParallel(ctxFrames, w, h, win, targetLocal, pool);
+  if(pool && pool.length>1) return await ftmFrameParallel(ctxFrames, w, h, win, targetLocal, camoffset, pool);
   const N=w*h, out=new Float32Array(N), vals=new Float64Array(win);
   const mid=win>>1;
   for(let p=0; p<N; p++){
     for(let f=0; f<win; f++) vals[f]=ctxFrames[f][p];
     vals.sort((a,b)=>a-b);
     const med = win%2 ? vals[mid] : (vals[mid-1]+vals[mid])*0.5;
-    out[p]=Math.max(0, ctxFrames[targetLocal][p]-med);
+    out[p]=Math.max(camoffset, ctxFrames[targetLocal][p]-med+camoffset);
   }
   return out;
 }
@@ -2100,7 +2112,7 @@ async function ftmFrame(st, i, win, onLog=log){
 // stack's own layout, just narrower) and transferred (not cloned) — one
 // message per worker. Workers more numerous than rows just get an empty
 // band and resolve immediately.
-async function ftmFrameParallel(ctxFrames, w, h, win, targetLocal, pool){
+async function ftmFrameParallel(ctxFrames, w, h, win, targetLocal, camoffset, pool){
   const nw=pool.length, bandH=Math.ceil(h/nw);
   const out=new Float32Array(w*h);
   await Promise.all(pool.map((wk,wi)=>new Promise((resolve,reject)=>{
@@ -2111,9 +2123,197 @@ async function ftmFrameParallel(ctxFrames, w, h, win, targetLocal, pool){
     for(let f=0; f<win; f++) buf.set(ctxFrames[f].subarray(r0*w, r1*w), f*N);
     wk.onmessage=ev=>{ out.set(ev.data.out, r0*w); resolve(); };
     wk.onerror=ev=>{ reject(new Error('FTM preview worker failed: '+(ev.message||'unknown'))); };
-    wk.postMessage({ftmFrame:true, buf, win, targetLocal, W:w, bandH:bh}, [buf.buffer]);
+    wk.postMessage({ftmFrame:true, buf, win, targetLocal, camoffset, W:w, bandH:bh}, [buf.buffer]);
   })));
   return out;
+}
+
+// ---- FTM for Localize (runCore) ----
+//
+// ftmFrame()/ftmFrameParallel() above are the interactive scrub-preview path
+// (one frame at a time, worker-parallel, used only between/around Runs).
+// runCore() has two different consumers of this, chosen by whether it's
+// using the worker pool at all:
+//
+// - Serial path: makeFtmStack() below wraps the stack so getFrames(s,e)
+//   transparently returns FTM-corrected frames, chunked and cached so
+//   runCore()'s many small consecutive requests (BLK=32 blocks) don't each
+//   redundantly re-fetch/re-sort nearly the same ±win/2 context. Runs on
+//   the main thread — there's no worker pool contending for in this path
+//   anyway, so there's nothing to conflict with.
+// - Worker path: a separate barrier-phased loop inside runCore() itself
+//   (search for "FTM-phased" there) processes the stack in chunks, each
+//   chunk doing a full-pool-parallel FTM-correction phase (ftmChunkParallel,
+//   below) followed by a full-pool-parallel detect/fit phase, with a hard
+//   barrier between them on every chunk — never using the pool for both
+//   jobs at once. An earlier version ran chunk correction on the main
+//   thread unconditionally (to sidestep the worker-pool conflict a naive
+//   parallel version would hit) — measured as the dominant cost on a fast
+//   fitter with large frames (~7.5s FTM vs ~5.4s total detect/fit CPU on a
+//   256×256×1200 case, 8% worker utilisation). The barrier-phased design
+//   gets full parallelism for BOTH phases instead, at the cost of losing
+//   the (limited, benchmark-confirmed-small) pipelining overlap between
+//   "fetch/correct the next chunk" and "fit the previous one" the
+//   continuous dispatch loop otherwise gets for free.
+
+// Sliding-window median, aware of the STACK's true frame count even when
+// `series` only covers a chunk of it: `globalOffset`/`globalN` let the
+// clamp (which frames use a full-width window vs. one narrowed near the
+// true start/end of the whole stack) work correctly across chunk
+// boundaries, not just within one chunk in isolation. Same O(win) sorted
+// scratch-array technique as the original whole-stack prototype (see
+// docs/REFACTOR_PLAN.md) — a full resort every step was measured ~13x
+// slower. camoffset: see the comment above ftmFrame().
+function ftmSeriesGlobal(series, out, len, win, globalOffset, globalN, camoffset){
+  const half=win>>1, mid=win>>1;
+  const sorted=new Float64Array(win);
+  for(let k=0;k<win;k++) sorted[k]=series[k];
+  sorted.sort((a,b)=>a-b);
+  let curStart=0;
+  for(let i=0;i<len;i++){
+    const g=globalOffset+i;                                    // this frame's TRUE index in the whole stack
+    const wantStartGlobal=Math.max(0, Math.min(globalN-win, g-half));
+    const wantStart=wantStartGlobal-globalOffset;               // back to an index into the local `series`
+    while(curStart<wantStart){
+      const outgoing=series[curStart], incoming=series[curStart+win];
+      let idx=0; while(sorted[idx]!==outgoing) idx++;
+      for(; idx<win-1; idx++) sorted[idx]=sorted[idx+1];
+      let lo=0, hi=win-1;
+      while(lo<hi){ const m=(lo+hi)>>1; if(sorted[m]<incoming) lo=m+1; else hi=m; }
+      for(let j=win-1;j>lo;j--) sorted[j]=sorted[j-1];
+      sorted[lo]=incoming;
+      curStart++;
+    }
+    const med = win%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])*0.5;
+    out[i]=Math.max(camoffset, series[i]-med+camoffset);
+  }
+}
+
+// Corrects GLOBAL core frames [coreStart,coreEnd) given raw context frames
+// [ctxStart,ctxStart+ctxFrames.length) that already cover the ±win/2 margin
+// ftmSeriesGlobal needs at the edges of the core range. Yields periodically
+// (this can be a few hundred ms for a large chunk) so a long Run's Stop
+// button and preview updates stay responsive. Main-thread; used by
+// makeFtmStack() (serial runCore() path) only — see the module comment above.
+async function ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, globalN, camoffset){
+  const ctxLen=ctxFrames.length, coreLen=coreEnd-coreStart, N=w*h;
+  const out=new Array(coreLen); for(let i=0;i<coreLen;i++) out[i]=new Float32Array(N);
+  const series=new Float64Array(ctxLen), os=new Float64Array(ctxLen);
+  let lastYield=performance.now();
+  for(let p=0; p<N; p++){
+    for(let f=0; f<ctxLen; f++) series[f]=ctxFrames[f][p];
+    ftmSeriesGlobal(series, os, ctxLen, win, ctxStart, globalN, camoffset);
+    const localCoreStart=coreStart-ctxStart;
+    for(let i=0; i<coreLen; i++) out[i][p]=os[localCoreStart+i];
+    if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now(); }
+  }
+  return out;
+}
+
+// Same computation as ftmChunk(), parallelized across the worker pool by
+// row band (like ftmFrameParallel(), just for a whole chunk of core frames
+// at once instead of one). Only ever called from runCore()'s FTM-phased
+// worker loop, which guarantees (via its barrier structure) that no
+// detect/fit dispatch is using the pool while this runs — see the module
+// comment above and CLAUDE.md's Web Worker gotcha for why that guarantee
+// matters (workers have one onmessage property, not a job queue).
+async function ftmChunkParallel(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, globalN, camoffset, pool){
+  const nw=pool.length, bandH=Math.ceil(h/nw);
+  const ctxLen=ctxFrames.length, coreLen=coreEnd-coreStart;
+  const out=new Array(coreLen); for(let i=0;i<coreLen;i++) out[i]=new Float32Array(w*h);
+  await Promise.all(pool.map((wk,wi)=>new Promise((resolve,reject)=>{
+    const r0=wi*bandH, r1=Math.min(h, r0+bandH);
+    if(r0>=r1){ resolve(); return; }
+    const bh=r1-r0, N=w*bh;
+    const buf=new Float32Array(ctxLen*N);
+    for(let f=0; f<ctxLen; f++) buf.set(ctxFrames[f].subarray(r0*w, r1*w), f*N);
+    wk.onmessage=ev=>{
+      const outBuf=ev.data.out;   // coreLen*N corrected values, this band only
+      for(let i=0;i<coreLen;i++) out[i].set(outBuf.subarray(i*N,(i+1)*N), r0*w);
+      resolve();
+    };
+    wk.onerror=ev=>{ reject(new Error('FTM chunk worker failed: '+(ev.message||'unknown'))); };
+    wk.postMessage({ftmChunk:true, buf, ctxLen, coreLocalStart:coreStart-ctxStart, coreLen, win, ctxStart, globalN, camoffset, W:w, bandH:bh}, [buf.buffer]);
+  })));
+  return out;
+}
+
+// Wraps a raw stack so getFrames(s,e) returns FTM-corrected frames instead,
+// chunked and cached (see the module comment above for why) — the SERIAL
+// runCore() path's FTM source; the worker path uses ftmChunkParallel()
+// directly from its own phased loop instead. Chunk size is derived from the
+// stream-heap-chunk budget (chunkmb/2 — leaving headroom for holding both
+// the raw context and the corrected output of one chunk at once) rather
+// than a fixed constant, so it scales with frame size and the user's own
+// memory tuning instead of an arbitrary number that might be too small
+// (little benefit from caching) or too large (defeats the point of
+// bounded-memory chunking) for their actual data.
+function makeFtmStack(rawStack, win, camoffset, chunkmb){
+  const {w,h,n,px}=rawStack;
+  const frameBytes=w*h*4;
+  const CHUNK=Math.max(win, Math.floor((chunkmb*1e6/2)/frameBytes));
+  const half=win>>1;
+  let cacheStart=-1, cacheEnd=-1, cached=null;   // cached: corrected frames for [cacheStart,cacheEnd)
+  // Single-flight lock: runCore()'s worker-dispatch path has up to
+  // pool.length concurrent dispatch() calls in flight, each independently
+  // awaiting fetchStack.getFrames() — without this, two concurrent callers
+  // needing different (uncached) ranges could each see "not covered" and
+  // both start fetching+computing a new chunk at once, racing to overwrite
+  // cacheStart/cacheEnd/cached non-atomically (wrong results, and wasted
+  // duplicate work). Concurrent callers instead await the SAME in-flight
+  // fetch, then recheck whether it happened to cover their own range too
+  // (usually yes — runCore() advances frame-by-frame, so concurrent
+  // requests are normally for nearby ranges that land in one chunk).
+  // (The serial path this is actually used from only ever has one caller at
+  // a time anyway; kept for safety and because it costs nothing when
+  // uncontended.)
+  let pending=null;
+  let ftmMs=0;   // total wall time spent computing (not waiting on) FTM chunks — surfaced in runCore()'s timing breakdown
+  async function ensureCache(s,e){
+    while(!(cached && cacheStart<=s && e<=cacheEnd)){
+      if(pending){ await pending; continue; }
+      pending=(async()=>{
+        const t0=performance.now();
+        const coreStart=s, coreEnd=Math.min(n, Math.max(e, s+CHUNK));
+        // Same clamp ftmSeriesGlobal applies per-frame (wantStartGlobal), not
+        // just coreStart-half/coreEnd+half: near either edge of the WHOLE
+        // stack, a frame's own window is pinned to [0,win) or [n-win,n), which
+        // can need MORE margin on one side than the naive ±half around the
+        // chunk's own edges provides — e.g. a chunk starting at n-12 with
+        // win=30/half=15 needs context back to n-30, not just (n-12)-15=n-27.
+        // ftmFrame() (the scrub-preview, single-frame path) already gets this
+        // right; this chunked version didn't until a barrier-phased-worker
+        // A/B test caught the resulting ~5% photon-count mismatch near the
+        // stack tail.
+        const ctxStart=Math.max(0, Math.min(n-win, coreStart-half));
+        const ctxEnd=Math.max(0, Math.min(n-win, coreEnd-1-half))+win;
+        const ctxFrames=new Array(ctxEnd-ctxStart);
+        const BLK=32;   // fetch in blocks, not one call — avoids a single giant read on a sliced/streamed stack
+        for(let b=ctxStart; b<ctxEnd; b+=BLK){
+          const bl=await rawStack.getFrames(b, Math.min(ctxEnd,b+BLK));
+          for(let i=0;i<bl.length;i++) ctxFrames[b-ctxStart+i]=bl[i];
+        }
+        const result=await ftmChunk(ctxFrames, w, h, ctxStart, coreStart, coreEnd, win, n, camoffset);
+        cached=result; cacheStart=coreStart; cacheEnd=coreEnd;
+        ftmMs+=performance.now()-t0;
+      })();
+      try{ await pending; } finally { pending=null; }
+    }
+  }
+  async function getFrames(s,e){
+    e=Math.min(e,n); if(e<=s) return [];
+    if(n<win) return rawStack.getFrames(s,e);   // too few frames for FTM at all — same guard as ftmFrame()
+    await ensureCache(s,e);
+    if(e<=cacheEnd) return cached.slice(s-cacheStart, e-cacheStart);
+    // Request spans past the current chunk (shouldn't normally happen —
+    // CHUNK is sized well above any single runCore() request — but handle
+    // it rather than assume): serve what the cache has, fetch the rest.
+    const first=cached.slice(s-cacheStart, cacheEnd-cacheStart);
+    const rest=await getFrames(cacheEnd, e);
+    return first.concat(rest);
+  }
+  return {w,h,n,px,getFrames, getFrame(){ throw new Error('FTM stack: use getFrames()'); },
+    get ftmMs(){ return ftmMs; }};
 }
 
 /* ===========================================================================
@@ -3749,6 +3949,7 @@ function workerSource(){
     bandpass.toString(), atrous.toString(), waveletBP.toString(), detectFilter.toString(), findMaxima.toString(),
     roundOdd.toString(), uniformFilterInto.toString(), uniformBP.toString(), maxH.toString(), maxV.toString(), maxFilterInto.toString(), findMaximaUniform.toString(), detectSpots.toString(),
     solveLin.toString(), sseWin.toString(), gaussianFit.toString(), gaussianMLE.toString(), gaussianMLEastig.toString(), zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
+    ftmSeriesGlobal.toString(),
     `onmessage=function(e){
       const d=e.data;
       if(d.ping){
@@ -3766,6 +3967,7 @@ function workerSource(){
           gaussianMLE(img,w,h,8,8,7,1.3);
           gaussianMLEastig(img,w,h,8,8,7,1.3);
           zFromWidths(1.3,1.5,{qx:{a:1e-6,c:0,b:130},qy:{a:1e-6,c:0,b:130},zmin:-400,zmax:400,px:100});
+          ftmSeriesGlobal(new Float64Array(6).fill(5), new Float64Array(6), 6, 4, 0, 6, 0);
           postMessage({pong:1});
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
@@ -3777,16 +3979,37 @@ function workerSource(){
         // sliding-window bookkeeping — only one frame's output is ever
         // needed here. Every pixel in the band is independent — no
         // detect-style border margin needed, unlike frame-batch dispatch below.
-        const {buf,win,targetLocal,W,bandH}=d;
+        const {buf,win,targetLocal,camoffset,W,bandH}=d;
         const N=W*bandH, mid=win>>1;
         const out=new Float32Array(N), vals=new Float64Array(win);
         for(let p=0;p<N;p++){
           for(let f=0;f<win;f++) vals[f]=buf[f*N+p];
           vals.sort((a,b)=>a-b);
           const med = win%2 ? vals[mid] : (vals[mid-1]+vals[mid])*0.5;
-          out[p]=Math.max(0, buf[targetLocal*N+p]-med);
+          out[p]=Math.max(camoffset, buf[targetLocal*N+p]-med+camoffset);
         }
         postMessage({out},[out.buffer]);
+        return;
+      }
+      if(d.ftmChunk){
+        // Whole-chunk FTM correction, one row band: buf is ctxLen context
+        // frames' worth of this worker's band, concatenated frame-major
+        // (see ftmChunkParallel on the main thread). Sliding-window per
+        // pixel (ftmSeriesGlobal), since a chunk covers many consecutive
+        // frames — cheaper than a one-shot median per frame here. Only ever
+        // dispatched from runCore()'s FTM-phased loop, which guarantees no
+        // detect/fit batch is in flight on this pool while this runs.
+        const {buf,ctxLen,coreLocalStart,coreLen,win,ctxStart,globalN,camoffset,W,bandH}=d;
+        const N=W*bandH;
+        const out=new Float64Array(coreLen*N);
+        const series=new Float64Array(ctxLen), os=new Float64Array(ctxLen);
+        for(let p=0;p<N;p++){
+          for(let f=0;f<ctxLen;f++) series[f]=buf[f*N+p];
+          ftmSeriesGlobal(series, os, ctxLen, win, ctxStart, globalN, camoffset);
+          for(let i=0;i<coreLen;i++) out[i*N+p]=os[coreLocalStart+i];
+        }
+        const outF=new Float32Array(out);
+        postMessage({out:outF},[outF.buffer]);
         return;
       }
       const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps}=d;
@@ -4877,6 +5100,20 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
   const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
   onLog(`\nRun: ${n} frames${rangeNote} · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
+  // FTM (temporal median filtering): if enabled, every frame fetch below goes
+  // through makeFtmStack() instead of `stack` directly, so detect/fit see
+  // FTM-corrected data with no other change to the dispatch logic that
+  // follows — workers/the serial loop are agnostic to whether the pixel data
+  // they're given is raw or corrected. Uses the FULL stack (nStack, not the
+  // fitFirstFrame/fitLastFrame-restricted n) for its window context, same as
+  // the interactive scrub preview — restricting the analysed range shouldn't
+  // also narrow the background estimate for the frames still being analysed.
+  let fetchStack=stack;
+  if(config.ftmEnabled){
+    if(nStack<config.ftmWindow) onLog(`⚠ Temporal median filtering needs at least ${config.ftmWindow} frames (stack has ${nStack}) — running on raw data instead.`);
+    else { fetchStack=makeFtmStack(stack, config.ftmWindow, config.camoffset, config.chunkmb);
+      onLog(`  Temporal median filtering ON (window=${config.ftmWindow}) — Localize runs on FTM-corrected frames.`); }
+  }
   const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
   const pool = await getPool();
   // Workers only pay off when per-frame work clearly exceeds the cost of
@@ -4902,6 +5139,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   let previewInterval=SR_PREVIEW_MS;
   const srPreviewMaxMs=config.srPreviewMaxMs;
   let tGet=0, tDetect=0, tFit=0, nCand=0;        // timing/candidate-count instrumentation
+  let ftmWorkMs=0;   // FTM barrier-phased worker path only (see useWorkers below); the serial path reports fetchStack.ftmMs instead
 
   if(useWorkers){
     // Aim for ~workerBatchTarget batches per worker. Too coarse and one slow core
@@ -4942,6 +5180,89 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       }, RAW_PREVIEW_MS);
     };
     scheduleRawPreview();
+    if(fetchStack!==stack){
+      // FTM barrier-phased path: each worker has exactly one onmessage slot,
+      // so FTM-correction (row-band split) and detect/fit (frame-batch
+      // split) can't run on the pool at the same time without one phase's
+      // messages clobbering the other's handler. Process the run in chunks;
+      // within each chunk, run the FTM phase to completion (full barrier —
+      // every worker's ftmChunk reply in), THEN run the detect/fit phase to
+      // completion (full barrier) before starting the next chunk. Chunk size
+      // mirrors makeFtmStack's non-worker sizing (half of chunkmb, since raw
+      // context + corrected output are both resident at once). See
+      // docs/REFACTOR_PLAN.md's FTM entry / CLAUDE.md's Web Worker gotcha.
+      const ftmWin=config.ftmWindow, half=ftmWin>>1;
+      const frameBytes=w*h*4;
+      const CHUNK=Math.max(ftmWin, Math.floor((config.chunkmb*1e6/2)/frameBytes));
+      let coreStart=firstIdx;
+      while(coreStart<lastIdx && !shouldStop() && !err){
+        const coreEnd=Math.min(lastIdx, coreStart+CHUNK);
+        // Same edge-aware clamp as makeFtmStack's ensureCache — see the
+        // comment there. lastIdx/firstIdx (the analysed frame RANGE) are
+        // irrelevant to this clamp; it's about nStack, the whole stack, same
+        // as FTM's background window always has been.
+        const ctxStart=Math.max(0, Math.min(nStack-ftmWin, coreStart-half));
+        const ctxEnd=Math.max(0, Math.min(nStack-ftmWin, coreEnd-1-half))+ftmWin;
+        const ctxFrames=new Array(ctxEnd-ctxStart);
+        const BLKf=32;
+        for(let b=ctxStart; b<ctxEnd; b+=BLKf){
+          const ta=performance.now();
+          let bl;
+          try{ bl=await stack.getFrames(b, Math.min(ctxEnd,b+BLKf)); }
+          catch(ex){ err=ex; break; }
+          tGet+=performance.now()-ta;
+          for(let i=0;i<bl.length;i++) ctxFrames[b-ctxStart+i]=bl[i];
+        }
+        if(err) break;
+        const tFtm0=performance.now();
+        let corrected;
+        try{ corrected=await ftmChunkParallel(ctxFrames, w, h, ctxStart, coreStart, coreEnd, ftmWin, nStack, camoffset, pool); }
+        catch(ex){ err=ex; break; }
+        ftmWorkMs+=performance.now()-tFtm0;
+        // Detect/fit phase for this chunk — same per-batch protocol/message
+        // shape as the non-FTM continuous loop below, just sourcing frames
+        // from `corrected` (already in memory) instead of an async fetch,
+        // and bounded to [coreStart,coreEnd) instead of the whole run.
+        await new Promise(resolveChunk=>{
+          let cNext=coreStart, cInflight=0;
+          const finishChunk=()=>{ if(cInflight===0 && (err||cNext>=coreEnd)) resolveChunk(); };
+          const dispatchChunk=wk=>{
+            if(err||shouldStop()||cNext>=coreEnd){ finishChunk(); return; }
+            const s=cNext, e=Math.min(coreEnd,s+BATCH); cNext=e;
+            cInflight++;
+            const frames=corrected.slice(s-coreStart, e-coreStart);
+            if(frames.length) shown={img:frames[0],fi:s};
+            wk._pendImg=frames[0]; wk._pendStart=s;
+            wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
+          };
+          pool.forEach(wk=>{
+            wk.onmessage=ev=>{
+              const d=ev.data, a=d.arr;
+              const batchImg=wk._pendImg, batchStart=wk._pendStart;
+              let batchLocs=null;
+              for(let i=0;i<a.length;i+=12){ const L={x:a[i],y:a[i+1],photons:a[i+2],
+                  bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]};
+                locs.push(L);
+                if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
+              tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
+              doneF+=d.count; processed=doneF; cInflight--;
+              onProgress(100*doneF/n);
+              if(batchImg && batchStart>latestFi){ latestFi=batchStart; latestImg=batchImg; latestLocs=batchLocs; }
+              if(locs.length && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
+                lastSrMs=performance.now();
+                onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
+                previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
+                previewMs+=performance.now()-tp; }
+              dispatchChunk(wk);
+            };
+            wk.onerror=ev=>{ err=new Error('worker failed: '+(ev.message||'unknown')); finishChunk(); };
+            dispatchChunk(wk);
+          });
+          finishChunk();
+        });
+        coreStart=coreEnd;
+      }
+    } else
     await new Promise(resolve=>{
       const finish=()=>{ if(inflight===0 && (shouldStop()||next>=lastIdx||err)) resolve(); };
       // async because sliced stacks read their frames from disk. `next` is
@@ -4953,7 +5274,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         inflight++;
         const ta=performance.now();
         let frames;
-        try{ frames=await stack.getFrames(s,e); }
+        try{ frames=await fetchStack.getFrames(s,e); }
         catch(ex){ err=ex; inflight--; finish(); return; }
         tGet+=performance.now()-ta;
         // keep one frame back for the raw view: postMessage clones, so the
@@ -5025,7 +5346,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     outer:
     for(let b=firstIdx; b<lastIdx; b+=BLK){
       const ta=performance.now();
-      const block=await stack.getFrames(b, Math.min(lastIdx,b+BLK));
+      const block=await fetchStack.getFrames(b, Math.min(lastIdx,b+BLK));
       tGet+=performance.now()-ta;
       for(let j=0; j<block.length; j++){
         const fi=b+j, img=block[j];
@@ -5084,6 +5405,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const ms=v=>Math.round(v).toLocaleString().padStart(7);
   if(useWorkers) onLog(`  frame I/O   ${ms(tGet)} ms       (overlapped with compute, not CPU time)`);
   else           onLog(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
+  // fetchStack!==stack only when FTM actually ran this Run (see the fetchStack
+  // setup above). Two disjoint code paths compute it: the serial loop reads
+  // fetchStack.getFrames() directly (main-thread time, tracked by
+  // makeFtmStack's own ftmMs getter); the worker path bypasses fetchStack
+  // entirely (see the barrier-phased branch above) and accumulates its own
+  // pool-parallel time into ftmWorkMs instead — pick whichever one actually
+  // ran. Either way this is real CPU work, not I/O wait, even though it's
+  // also included in tGet's "frame access" total above (happens inside the
+  // same await).
+  if(fetchStack!==stack){ const ftmT=useWorkers?ftmWorkMs:fetchStack.ftmMs;
+    onLog(`  FTM filter  ${ms(ftmT)} ms ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
   onLog(`  detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
   onLog(`  fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
   // previewMs (SR/raw refresh during the Run) and the gap between runMs and
@@ -5097,8 +5429,16 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const otherMs=runMs-dt-previewMs;
   if(otherMs>50) onLog(`  other       ${ms(otherMs)} ms       (pool setup, main-thread frame fetch/decode not itemised above)`);
   if(useWorkers){
-    const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*dt,1e-9);
-    onLog(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(dt).toLocaleString()} ms wall).`);
+    // ftmWorkMs is wall time of a SEPARATE barrier-phased pool-parallel stage
+    // (row-band FTM correction), not counted in tDetect/tFit — comparing
+    // detect/fit CPU against the FULL dt (which includes that stage's wall
+    // time too) would understate utilisation for a reason that has nothing
+    // to do with workers starving. Exclude it from both the wall-clock
+    // denominator here and get its own line instead.
+    const ftmT=fetchStack!==stack?ftmWorkMs:0;
+    const fitWall=Math.max(dt-ftmT,1e-9);
+    const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*fitWall,1e-9);
+    onLog(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation on detect/fit (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(fitWall).toLocaleString()} ms wall${ftmT>50?', excl. the separately barrier-phased FTM stage above':''}).`);
     onLog(`    Utilisation near 100% means workers stayed fed; low would mean they starved.`);
     onLog(`    Note E-cores inflate measured CPU, so this is an upper bound.`);
   }
@@ -5107,7 +5447,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   return { locs, w, h, n, px, mag:config.mag, det:{sigma,k,win,border,exactBP,mode},
            method, label, processed, stopped, useWorkers,
            lastSpots, lastFrame, lastFrameIdx, firstIdx, lastIdx,
-           timings:{tGet,tDetect,tFit,nCand,dt,previewMs,runMs,otherMs} };
+           timings:{tGet,tDetect,tFit,nCand,dt,previewMs,runMs,otherMs,
+                     ftmMs:fetchStack!==stack?(useWorkers?ftmWorkMs:fetchStack.ftmMs):0} };
 }
 
 // Thin UI wrapper around runCore(): resolves the live config/calibration
@@ -5367,7 +5708,7 @@ async function showFrame(i){
   scrubBusy=true;
   try{
     let img=(await stack.getFrames(i,i+1))[0];
-    if(rawFtmView && paramValue('ftmEnabled')) img=await ftmFrame(stack, i, paramValue('ftmWindow'));
+    if(rawFtmView && paramValue('ftmEnabled')) img=await ftmFrame(stack, i, paramValue('ftmWindow'), paramValue('camoffset'));
     let spots=null, locsF=null;
     const runMatchesStack = lastResult && lastResult.det && lastResult.w===stack.w && lastResult.h===stack.h;
     // "Fix bead x,y" wins over everything else below, from the moment beads are

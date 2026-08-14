@@ -35,26 +35,60 @@ relevant one before editing rather than scrolling:
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). Also accepts a multi-file selection
   (Ctrl/Cmd+click several single-frame TIFFs) via `loadTiffSequence()` — natural-sorted by
-  filename, decoded and concatenated into one stack, one file read at a time. `ftmFrame()`
-  (`ftmEnabled`/`ftmWindow`, controls living in the **fit** module's `PARAMS` group and sidebar
-  section despite `ftmFrame()` itself sitting in in/out) is a **scrubbing-time preview**, not a
-  whole-stack pass: the raw-panel toggle (`rawFtmBtn`, inline in the panel title, shown only
-  while `ftmEnabled` is checked — no load-time coupling, it can be toggled any time) computes
-  the temporal-median correction for just the *currently scrubbed frame*, fetching only a
-  `ftmWindow`-frame window of context around it — a small, bounded fetch regardless of stack
-  length. An earlier design ran FTM once over the whole stack and replaced `stack` itself; that
+  filename, decoded and concatenated into one stack, one file read at a time. FTM (`ftmEnabled`/
+  `ftmWindow`, controls living in the **fit** module's `PARAMS` group and sidebar section despite
+  the functions below sitting in in/out) is a per-pixel sliding-window temporal median
+  subtraction — floored at `camoffset` and added back, not floored at zero, see **fit** below for
+  why — used in **two** places sharing the same underlying math but otherwise independent:
+  - **Scrubbing preview** — `ftmFrame()`/`ftmFrameParallel()`, one frame at a time (whichever's
+    currently scrubbed), fetching only that frame's own `ftmWindow`-wide context. Parallelizes
+    across the worker pool **spatially** (row bands, no overlap margin needed — each pixel's
+    computation needs no neighbouring-pixel context, unlike detection). The raw-panel toggle
+    (`rawFtmBtn`, inline in the panel title, shown only while `ftmEnabled` is checked — no
+    load-time coupling, it can be toggled any time) drives `rawFtmView`; `showFrame()` swaps in
+    the corrected frame via that flag before running the same detect/live-preview logic every
+    other branch already uses. The raw panel **title stays fixed at "Raw frame"** always — only
+    `rawFtmBtn`'s own label changes; don't reintroduce a dynamic title, it went through that and
+    reverted to fixed for a reason (visual noise for no real information gain).
+  - **Localize** — processes the stack in **chunks**, sized from half the `chunkmb` budget
+    (headroom for holding both raw context and corrected output of one chunk at once) rather than
+    a fixed constant, using the sliding-window median algorithm (`ftmSeriesGlobal`, O(window) per
+    step, not one-shot medians). Which of two implementations runs depends on whether `runCore()`
+    is using the worker pool at all this Run:
+    - **No pool**: `makeFtmStack()` wraps the loaded stack so `runCore()`'s serial `getFrames()`
+      calls receive FTM-corrected data transparently, caching each chunk so nearby requests reuse
+      it instead of redundantly re-fetching/re-sorting nearly the same context. Main-thread, with
+      a single-flight lock (kept for safety though this path only ever has one caller at a time).
+    - **Pool in use**: a **barrier-phased loop** inside `runCore()` itself (search `fetchStack!==
+      stack` there) processes the stack chunk by chunk, each chunk running a full-pool-parallel
+      FTM-correction phase (`ftmChunkParallel()`, row-band split) to completion, THEN a
+      full-pool-parallel detect/fit phase (the same frame-batch dispatch the non-FTM path uses,
+      duplicated rather than shared to keep the non-FTM path provably untouched) to completion,
+      before starting the next chunk's FTM phase — never both job types on the pool at once. This
+      is required, not just faster: each worker has exactly one `onmessage` property, not a
+      queue, so without the barrier an FTM-correction reply and a detect/fit reply could clobber
+      each other's handler mid-flight. An earlier version ran chunk correction unconditionally on
+      the main thread specifically to avoid needing this barrier — measured as the dominant cost
+      on a fast fitter with large frames (~7.5s FTM vs. ~5.4s total detect/fit CPU on a
+      256×256×1200 case, 8% worker utilisation); the barrier-phased version gets full parallelism
+      for both phases instead. The timing log's `↑ N workers · X% utilisation` line covers the
+      detect/fit phase only — its wall-clock denominator excludes the separately-reported FTM
+      phase, or a run with substantial FTM time would look artificially starved.
+
+    Both implementations must widen a chunk's context fetch beyond naive `coreStart±window/2`
+    whenever the chunk's core range comes close enough to either end of the **whole stack** (not
+    the Run's own `fitFirstFrame`/`fitLastFrame`) that a frame's own window gets clamped further
+    than that naive padding accounts for — same clamp `ftmSeriesGlobal` applies per frame
+    internally (`ftmFrame()`'s single-frame path already had this right; the chunked functions
+    didn't, until a worker-vs-serial correctness A/B test caught the ~5%-photon-count-bias this
+    produced for a stack's tail frames). Get this wrong and nothing crashes — the affected frames
+    just get systematically undercounted photons, invisible unless you specifically compare
+    against a known-correct reference.
+
+  An earlier design ran FTM once over the whole stack up front and replaced `stack` itself; it
   was reverted because it needed the raw *and* corrected copies fully materialized in memory
-  simultaneously, which doesn't work for a stack too big to hold both — see
-  `docs/REFACTOR_PLAN.md`. `showFrame()` swaps in the corrected frame (via `rawFtmView`, the
-  toggle's on/off state) before running the same detect/live-preview logic every other branch
-  already uses, so nothing downstream needs to know the difference. Parallelizes across the
-  worker pool **spatially** (row bands, one per worker — see `ftmFrameParallel()`), not by frame
-  batch like detect/fit: FTM's per-pixel computation needs no neighbouring-pixel context, so
-  bands need no overlap margin, unlike detection. `drawRaw()` is the single place deciding the
-  raw-panel title ("Raw frame" vs "Raw frame (FTM corrected preview)"), from `rawFtmView` at draw
-  time — don't set the title anywhere else, or it'll go stale the next time a real frame redraws
-  over a plot. Localize itself still runs on the uncorrected stack — FTM has no effect on an
-  actual Run yet.
+  simultaneously, which doesn't work for a stack too big to hold both. All current paths avoid
+  that by construction — bounded per-frame or per-chunk memory, never the whole stack twice.
 - **simulation** — the built-in synthetic stack generator ("Simulate movie"): demo/validation/
   teaching data, not a core analysis path. Split out from in/out since it doesn't load anything.
 - **detect** — per-frame band-pass, one of three filters selectable via `#detFilter`: à trous
@@ -123,7 +157,13 @@ on the very functions the main thread uses, so detection/fitting logic exists on
 - The same pool serves two unrelated message protocols: detect/fit's frame-batch dispatch
   (`d.frames`/`d.start`/…) and FTM's single-frame row-band preview (`d.ftmFrame`/`d.buf`/…) —
   `onmessage` branches on `d.ftmFrame` before falling into the detect/fit path. A new worker job
-  needs its own branch and its own `d.<flag>` field, not a repurposed existing one.
+  needs its own branch and its own `d.<flag>` field, not a repurposed existing one. FTM's
+  *other* use — `makeFtmStack()`, feeding `runCore()`'s Localize path — deliberately does **not**
+  add a third message type: it runs its chunk correction on the main thread instead, precisely
+  because `runCore()`'s own worker-dispatch can have several workers mid-detect/fit while a chunk
+  fetch is in flight, and a third job type on the same pool would overwrite a busy worker's
+  `onmessage` (one property, not a queue) out from under it. Don't "fix" this by giving chunk
+  correction a worker branch without also solving that scheduling conflict properly.
 
 ### Left/right panel plot pattern
 
