@@ -62,9 +62,9 @@ says.
   stack), `calFixedXY`, and the **Calibrate**/**Save calib.** buttons
   (`calBtn`/`calSaveBtn`). See [§7](#7-calibration-json-format), **3D
   calibration** module.
-- **Localisation settings** (`locBox`) — one hint block, no internal rule,
-  covers `liveUpdate` through `winr` below (including FTM); a second,
-  separate hint block covers the camera/export fields after it.
+- **Localisation settings** (`locBox`) — one "more info…" popup covers
+  `liveUpdate` through `winr` below (including FTM); a second, separate
+  popup covers the camera/export fields after it.
   `liveUpdate`, first (above Fit method, since it governs how every other
   control in this group previews before a full Run); `method` (fit
   algorithm select); `ftmEnabled`/`ftmWindow` (temporal median filtering —

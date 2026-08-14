@@ -6,31 +6,30 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **FTM (fast temporal median filter) — implemented for both scrubbing
-  preview and Localize itself**, including a barrier-phased worker-parallel
-  path for Localize (not just the main-thread-only version first tried —
-  see `CLAUDE.md`'s **in/out** module note for the current design and why
-  the barrier is required, `docs/DOCUMENTATION.md` §2's Fit section for
-  user-facing behaviour). `ftmEnabled`/`ftmWindow` `PARAMS` controls live in
-  the "Localisation settings" sidebar module, directly below Fit method.
-  The technique originates with Nieuwenhuizen, Lidke, Bates, Puig, Grünwald,
-  Stallinga, Rieger, *Measuring image resolution in optical nanoscopy*,
-  *Nat. Methods* **10**, 557–562 (2013), https://doi.org/10.1038/nmeth.2448;
-  ported from the Hohlbein Lab's own newer implementation,
-  [`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2), used in
-  Jabermoradi, Yang, Gobes, van Duynhoven, Hohlbein, *Enabling
-  single-molecule localization microscopy in turbid food emulsions*, *Phil.
-  Trans. R. Soc. A* **380**(2220), 20200164 (2022),
-  https://doi.org/10.1098/rsta.2020.0164.
-
-  Scrub-preview speed not addressed further yet (measured, 8 workers:
-  ~23 ms at 128×128 up to ~510 ms at 1024×1024 per scrubbed frame — fine
-  smaller, laggy for rapid dragging on large frames); a finer row-band
-  split, or reusing detect/fit's frame-batch workers differently, are
-  options if this needs to get faster. `fitFirstFrame`/`fitLastFrame` (the
-  analysis frame range) stays a *separate* range from FTM2's own
-  independent Start/End (which frames the filter itself runs over, not
-  which ones get localized afterward) — no UI for the latter yet.
+- **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
+  see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
+  note for the current design. Remaining:
+  - Scrub-preview speed at large frame sizes (measured, 8 workers: ~23 ms
+    at 128×128 up to ~510 ms at 1024×1024 per scrubbed frame — fine
+    smaller, laggy for rapid dragging on large ones). A finer row-band
+    split, or reusing detect/fit's frame-batch workers differently, are
+    options if this needs to get faster.
+  - The worker-parallel Localize path only reports progress at chunk
+    boundaries (no intra-chunk granularity, unlike the serial path) — would
+    need a new worker message type (periodic progress pings ahead of the
+    final result) to smooth out, not attempted yet since the barrier
+    structure already makes that a bit delicate (see CLAUDE.md's Web
+    Worker gotcha).
+  - `fitFirstFrame`/`fitLastFrame` (the analysis frame range) stays a
+    *separate* range from FTM2's own independent Start/End (which frames
+    the filter itself runs over, not which ones get localized afterward)
+    — no UI for the latter yet.
+  - A real (not synthetic) per-candidate MLE fit-time regression was
+    reported on GATTA-PAINT data with FTM on (~160→270 µs/candidate) that
+    a synthetic A/B test couldn't reproduce (µs/candidate came back
+    ~unchanged there) — likely the Newton solver needing more iterations
+    to converge on real corrected-background statistics, but not yet
+    confirmed against real data.
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive

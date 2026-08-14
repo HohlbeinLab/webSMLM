@@ -48,11 +48,18 @@ walk-through of every step.
   value instead. The three respond differently, so re-tune the threshold when
   you switch. A **Real-time update** toggle re-detects/re-fits the scrubbed
   frame live as you change detection or fit settings, without a full Run.
+- **Temporal median filtering (FTM)**, optional: each pixel's value has the
+  median of a sliding window of nearby frames subtracted, removing
+  slowly-varying background before detection/fitting. Available both as a
+  live raw/corrected toggle for the scrub preview and applied to an actual
+  Localize run — chunked and worker-parallel when a worker pool is
+  available, so memory stays bounded regardless of stack length.
 - **Localizes** with **phasor** fitting (very fast, no iteration), a
   **least-squares 2D Gaussian** fit, or a **Poisson maximum-likelihood** fit
   (**Gaussian MLE 2D**, the default — integrated-Gaussian, Smith et al. 2010 /
   Picasso `gaussmle`). MLE is statistically optimal at low photon counts and
-  reports a proper per-localization **CRLB uncertainty**.
+  reports a proper per-localization **CRLB uncertainty**. A **first/last
+  frame** range restricts a Run to part of the loaded stack.
 - **3D astigmatism**, two independent ways: **Phasor 3D** (z from the phasor
   magnitude ratio) and **Gaussian MLE 3D** (z from the elliptical σ_x/σ_y widths)
   — a built-in cross-check. Calibrate a bead z-stack — every spot is fit both by
@@ -202,6 +209,13 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga,
   B. Rieger, *Measuring image resolution in optical nanoscopy*, *Nat. Methods*
   **10**, 557–562 (2013). https://doi.org/10.1038/nmeth.2448
+- **Temporal median filtering (FTM)** (the background-correction technique
+  implemented here): originates with the Nieuwenhuizen et al. paper above;
+  ported from the Hohlbein Lab's own newer implementation,
+  [`HohlbeinLab/FTM2`](https://github.com/HohlbeinLab/FTM2), used in
+  Jabermoradi et al., *Enabling single-molecule localization microscopy in
+  turbid food emulsions*, *Phil. Trans. R. Soc. A* **380**(2220), 20200164
+  (2022). https://doi.org/10.1098/rsta.2020.0164
 - **Overview**: M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021).
   https://doi.org/10.1038/s43586-021-00038-x
 
@@ -235,8 +249,8 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
 
 ## Advanced: scripting & headless analysis
 
-*(v0.10.0-dev — not everyone needs this; skip it if clicking through the UI
-already works for you.)* webSMLM also exposes a scriptable pipeline, for
+*(Not everyone needs this; skip it if clicking through the UI already works
+for you.)* webSMLM also exposes a scriptable pipeline, for
 batch-processing files or driving a run without opening the app by hand.
 Full reference: [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §8.
 
