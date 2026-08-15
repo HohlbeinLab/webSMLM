@@ -265,6 +265,32 @@ more than a bounded amount of raw/corrected data at once:
   A/B correctness check (not eyeballing loc counts, which stayed close)
   is what caught it.
 
+  **Memory**: `chunkmb`'s `/2` split assumes only a chunk's raw context and
+  corrected output need to coexist — true for the FTM-correction phase
+  itself, but the barrier-phased worker loop used to keep the (by then dead)
+  context array reachable through the *following* detect/fit dispatch phase
+  too (same `while`-loop iteration/closure), which has its own separate
+  memory cost (structured-clone `postMessage` per batch) — so real peak
+  memory could run over the intended `chunkmb` budget for the back half of
+  every chunk. Root cause of a real mobile OOM at `chunkmb=1000` (§2's
+  default moved back to 500 after this was found); fixed by dropping the
+  context reference the moment the corrected output is in hand, before the
+  detect/fit phase's own allocations start. `runCore()` also logs an
+  estimated peak-memory figure right after the chunk-size line (`~chunkmb`
+  MB for FTM's own working set, plus the already-decoded stack's size if
+  `memgb` let the whole thing cache in RAM — a **separate** budget that
+  adds on top of `chunkmb`, not a shared ceiling with it) with an advisory
+  above ~800 MB combined — gated on `memgb` staying at/below 8 GB (its old
+  ceiling before [§2](#2-parameters-params-registry) raised the max to 64 GB
+  for workstation-scale caching), so a desktop user who's deliberately raised
+  it isn't nagged every Run once they've already said they have headroom.
+  This is visibility only, not prevention: a mobile tab killed for memory
+  pressure gets **no** JS-visible error at all (no exception, no `onerror`,
+  the page just reloads blank) — there is no reliable way to detect or head
+  off an OOM kill from inside the page, only to avoid approaching the
+  ceiling in the first place and explain what happened when a Run
+  mysteriously stops with no further log line.
+
 Runs on raw ADU data in both paths, before gain/camoffset conversion
 inside the fit functions. Those functions convert every pixel via
 `(raw−camoffset)×gain`; since FTM-corrected pixels are *already*
@@ -391,8 +417,8 @@ headless equivalent.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `memgb` | Memory budget (GB) | number | 0.5 | 8 | 0.5 | 3 |
-| `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 1000 |
+| `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 |
+| `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
 
 ### Simulation
 

@@ -85,6 +85,21 @@ relevant one before editing rather than scrolling:
     just get systematically undercounted photons, invisible unless you specifically compare
     against a known-correct reference.
 
+    **Memory**: the barrier-phased loop's `ctxFrames` (raw context, dead once `ftmChunkParallel`
+    returns `corrected`) must be explicitly dropped (`ctxFrames=null`, hence `let` not `const`)
+    right after that call, not left reachable through the following detect/fit dispatch phase's
+    own allocations (structured-clone `postMessage` per batch) in the same closure — `chunkmb`'s
+    `/2` split only budgets for context+corrected coexisting, not context+corrected+in-flight
+    batch clones too. Root cause of a real mobile OOM at `chunkmb=1000`; default is back to 500.
+    `runCore()` also logs an estimated peak-MB figure (chunk working set, plus the already-cached
+    stack's size if `memgb` let it cache whole — a *separate* budget stacking on top of `chunkmb`,
+    not a shared ceiling with it) right after the chunk-size line, advisory above ~800 MB combined
+    — gated on `memgb<=8` (its old ceiling; max is now 64 for workstation-scale caching) so a
+    desktop user who's deliberately raised it isn't nagged every Run. This is visibility only: a
+    mobile tab killed for memory pressure gets no JS-visible error at all (no exception, no
+    `onerror`) — nothing here can detect or prevent that, only make a risky config visible before
+    it happens instead of after.
+
   An earlier design ran FTM once over the whole stack up front and replaced `stack` itself; it
   was reverted because it needed the raw *and* corrected copies fully materialized in memory
   simultaneously, which doesn't work for a stack too big to hold both. All current paths avoid

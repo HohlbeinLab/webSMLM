@@ -1439,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15d</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15e</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1488,8 +1488,8 @@ X.B(E,Y);return E}return J}())
       <input type="file" id="calibrationFileInput" multiple hidden>
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
-        <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="8" step="0.5" class="num"></label>
-        <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="1000" min="50" max="2000" step="50" class="num"></label>
+        <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="64" step="0.5" class="num"></label>
+        <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: in/out</span>
           <ul>
@@ -1505,7 +1505,7 @@ X.B(E,Y);return E}return J}())
         <label class="row">Emitter density (µm⁻²·frame⁻¹) <input type="number" id="dens" min="0" max="5" step="0.01" value="0.05" class="num"></label>
         <label class="row">Photons/emitter/frame <input type="number" id="phot" min="0" max="50000" step="50" value="900" class="num"></label>
         <label class="row">ON lifetime (frames, mean) <input type="number" id="simlifetime" min="0.1" max="20" step="0.1" value="1" class="num"></label>
-        <label class="row">Camera gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
+        <label class="row">Gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
         <label class="row">Camera offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
         <label class="row">Offset std (ADU, per-pixel) <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
         <label class="row">Read noise σ (e⁻) <input type="number" id="simulation_readnoise" min="0" max="200" step="0.1" value="2.7" class="num"></label>
@@ -1778,7 +1778,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15d · clarify photons/emitter/frame vs. background photons/px
+</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15e · fix FTM mobile OOM, memory visibility, memgb max 64GB
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1943,9 +1943,9 @@ const PARAMS = {
 
   // ---- memory / streaming ----
   // memgb = RAM budget for caching decoded frames before falling back to streaming
-  memgb: { type:'number', id:'memgb', label:'Memory budget (GB)', min:0.5, max:8, step:0.5, default:3, int:false },
+  memgb: { type:'number', id:'memgb', label:'Memory budget (GB)', min:0.5, max:64, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
-  chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:1000, int:false },
+  chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
 
   // ---- simulation ----
   // frames = number of frames the built-in synthetic-stack generator produces
@@ -5541,6 +5541,29 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       onLog(`  Temporal median filtering ON (window=${config.ftmWindow}) — Localize runs on FTM-corrected frames `+
             `(chunk size ${ftmChunkSize.toLocaleString()} frames → ~${ftmNChunks} chunk${ftmNChunks>1?'s':''} for this Run; `+
             `chunkmb=${config.chunkmb} — shrink it for more, smaller chunks and more frequent progress updates).`);
+      // Peak-memory visibility: a mobile tab that gets killed for memory pressure
+      // fails with NO JS-visible error at all (no exception, no onerror — the page
+      // just reloads blank), so the only real defence is not approaching that
+      // ceiling in the first place, and telling the user what "it" even was when a
+      // Run mysteriously stops. ctx+corrected together are ~chunkmb MB by
+      // construction (CHUNK above is derived from chunkmb/2 for exactly that
+      // reason); memgb's "cache the whole stack in RAM" decision is a SEPARATE
+      // budget that adds on top, not a shared ceiling with chunkmb — a large
+      // fully-cached stack plus a large FTM chunk can add up well past either
+      // number alone. Advisory threshold (~800 MB combined) is a rough,
+      // deliberately conservative line for what a mobile Safari/Chrome tab can be
+      // trusted with under real-world (multi-tab/background-app) memory pressure —
+      // gated on config.memgb staying at/below its old 8 GB ceiling, so a desktop/
+      // workstation user who has deliberately raised it (up to the new 64 GB max)
+      // has already told us they have headroom and doesn't get nagged every Run.
+      // Nothing here can detect or prevent a mobile OOM kill, only make a risky
+      // config visible before it happens instead of after.
+      const stackResidentMB = stack.streaming ? 0 : Math.round(nStack*w*h*4/1e6);
+      const totalMB = stackResidentMB + config.chunkmb;
+      const looksRisky = config.memgb<=8 && totalMB>800;
+      onLog(`  Estimated peak memory: ~${config.chunkmb} MB for FTM's own chunk working set`+
+            (stackResidentMB ? ` + ~${stackResidentMB} MB for the already-cached stack = ~${totalMB} MB total` : '')+
+            `.`+(looksRisky ? ` ⚠ That's a lot for a browser tab, especially on mobile — if a Run stops with no further log line, lower Stream heap (chunkmb) and/or Memory budget (memgb) first.` : ''));
     }
   }
   const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
@@ -5632,7 +5655,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         // as FTM's background window always has been.
         const ctxStart=Math.max(0, Math.min(nStack-ftmWin, coreStart-half));
         const ctxEnd=Math.max(0, Math.min(nStack-ftmWin, coreEnd-1-half))+ftmWin;
-        const ctxFrames=new Array(ctxEnd-ctxStart);
+        let ctxFrames=new Array(ctxEnd-ctxStart);
         const BLKf=32;
         for(let b=ctxStart; b<ctxEnd; b+=BLKf){
           const ta=performance.now();
@@ -5650,6 +5673,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         try{ corrected=await ftmChunkParallel(ctxFrames, w, h, ctxStart, coreStart, coreEnd, ftmWin, nStack, camoffset, pool); }
         catch(ex){ err=ex; break; }
         ftmWorkMs+=performance.now()-tFtm0;
+        // ctxFrames (the chunk's raw context — up to CHUNK+ftmWin frames) is dead
+        // once ftmChunkParallel returns `corrected`, but stays IN SCOPE (same while-
+        // loop iteration/closure) through the detect/fit dispatch below — which has
+        // its own, separate memory cost (structured-clone postMessage per batch).
+        // CHUNK was sized assuming only ctx+corrected coexist (see its comment), not
+        // ctx+corrected+in-flight batch clones; dropping the reference explicitly
+        // here (not just relying on the engine to prove it's unreachable inside a
+        // still-live closure) lets the GC reclaim it before that next allocation
+        // wave, instead of silently running over the intended budget for the rest
+        // of this chunk. Root cause of a real mobile OOM at chunkmb=1000.
+        ctxFrames=null;
         // Detect/fit phase for this chunk — same per-batch protocol/message
         // shape as the non-FTM continuous loop below, just sourcing frames
         // from `corrected` (already in memory) instead of an async fetch,
