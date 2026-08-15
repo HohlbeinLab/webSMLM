@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15g</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15h</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1732,7 +1732,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15g · PCFO weight cap, low-signal-first warning, frames=200
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15h · PCFO: fix offset bias (IRLS), robust outlier clip
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4880,35 +4880,72 @@ function pcfoWeightFloor(pts){
   const sorted=pts.map(p=>p.noisevar).sort((a,b)=>a-b);
   return Math.max(1e-9, sorted[Math.floor(sorted.length*0.1)]);
 }
-function pcfoRegress(pts,rnstd){
-  const nT=pts.length;
-  if(nT<2) return null;
-  const wFloor=pcfoWeightFloor(pts);
+// Robust outlier clip (Tukey fences: [Q1-3·IQR, Q3+3·IQR]) applied to noisevar before it
+// enters the fit or R² at all. pcfoWeightFloor only protects against a near-zero noisevar
+// (which would otherwise blow up its own weight) — it does nothing for the opposite case, a
+// single tile with a wildly HIGH noisevar (a dead/hot/saturated-pixel tile, a masked region,
+// or any other single-tile measurement fluke): even a "normal", prediction-based IRLS weight
+// can't stop one astronomically large y from swamping the weighted sums directly (verified:
+// one such point flipped the fitted gain's sign and drove it three orders of magnitude off).
+// 3×IQR is a generous, standard robust-statistics fence — it clips genuine pathological
+// outliers without touching ordinary heteroscedastic spread in a well-behaved dataset.
+function pcfoClipPoints(pts){
+  const sorted=pts.map(p=>p.noisevar).sort((a,b)=>a-b), n=sorted.length;
+  const q1=sorted[Math.floor(n*0.25)], q3=sorted[Math.floor(n*0.75)], iqr=Math.max(1e-9,q3-q1);
+  const lo=Math.max(1e-9,q1-3*iqr), hi=q3+3*iqr;
+  return pts.map(p=>({imsig:p.imsig, noisevar:Math.min(hi,Math.max(lo,p.noisevar))}));
+}
+// One weighted-least-squares pass, given an arbitrary per-point weight function.
+function pcfoLinFit(pts,weightOf){
   let sW=0,sWx=0,sWy=0,sWxx=0,sWxy=0;
   for(const p of pts){
-    const y=p.noisevar, w=1/Math.max(wFloor*wFloor,y*y);
-    sW+=w; sWx+=w*p.imsig; sWy+=w*y; sWxx+=w*p.imsig*p.imsig; sWxy+=w*p.imsig*y;
+    const w=weightOf(p);
+    sW+=w; sWx+=w*p.imsig; sWy+=w*p.noisevar; sWxx+=w*p.imsig*p.imsig; sWxy+=w*p.imsig*p.noisevar;
   }
   const det=sW*sWxx-sWx*sWx;
   if(!isFinite(det)||Math.abs(det)<1e-12) return null;
-  const gain=(sW*sWxy-sWx*sWy)/det;
-  const c=(sWxx*sWy-sWx*sWxy)/det;
+  return { gain:(sW*sWxy-sWx*sWy)/det, c:(sWxx*sWy-sWx*sWxy)/det };
+}
+function pcfoRegress(rawPts,rnstd){
+  if(rawPts.length<2) return null;
+  const pts=pcfoClipPoints(rawPts);
+  const wFloor=pcfoWeightFloor(pts);
+  // Seed with an unweighted (all-weights-1) fit, then iteratively reweight using the CURRENT
+  // fit's PREDICTED y at each point — not that point's own noisy noisevar. Weighting by the
+  // observation itself (1/noisevar_observed²) makes the weight correlate with that same
+  // point's own noise realization; since 1/y² is convex, a downward noise excursion inflates
+  // a point's weight more than an equal upward excursion shrinks it (Jensen's inequality),
+  // systematically pulling the fit — and the extrapolated offset — low. Verified numerically:
+  // the single-pass 1/y_obs² weighting biased the fitted offset by up to several ADU at
+  // realistic per-tile noise levels, while both unweighted OLS and this iterative reweighting
+  // (which converges in a handful of passes) came out essentially unbiased.
+  let fit=pcfoLinFit(pts,()=>1);
+  if(!fit) return null;
+  for(let it=0; it<5; it++){
+    const cur=fit;
+    const next=pcfoLinFit(pts, p=>{ const yhat=cur.gain*p.imsig+cur.c; return 1/Math.max(wFloor*wFloor,yhat*yhat); });
+    if(!next) break;
+    fit=next;
+  }
+  const {gain,c}=fit;
   if(!isFinite(gain)||gain===0) return null;
   const offset=-c/gain+gain*rnstd*rnstd;
   return {gain,c,offset};
 }
-// Weighted R² of the pooled fit (same capped 1/noisevar² weights as pcfoRegress, so it
-// reflects what was actually optimized) — a debug/linearity check: PCFO's whole premise is
-// that per-tile noise variance scales linearly with mean signal (shot-noise-dominated,
-// Poisson statistics), so a low R² means that assumption doesn't hold for this
+// Weighted R² of the pooled fit (same clip + converged IRLS weights as pcfoRegress's final
+// pass, so it reflects what was actually optimized) — a debug/linearity check: PCFO's whole
+// premise is that per-tile noise variance scales linearly with mean signal (shot-noise-
+// dominated, Poisson statistics), so a low R² means that assumption doesn't hold for this
 // stack (saturation, non-uniform illumination, strong fixed-pattern/read noise, …)
 // and the reported gain/offset shouldn't be trusted.
-function pcfoRSquared(pts,gainSlope,c){
+function pcfoRSquared(rawPts,gainSlope,c){
+  const pts=pcfoClipPoints(rawPts);
   const wFloor=pcfoWeightFloor(pts);
-  let sW=0,sWy=0; for(const p of pts){ const w=1/Math.max(wFloor*wFloor,p.noisevar*p.noisevar); sW+=w; sWy+=w*p.noisevar; }
+  const weightOf=p=>{ const yhat=gainSlope*p.imsig+c; return 1/Math.max(wFloor*wFloor,yhat*yhat); };
+  let sW=0,sWy=0; for(const p of pts){ const w=weightOf(p); sW+=w; sWy+=w*p.noisevar; }
   const meanY=sWy/sW;
   let ssRes=0,ssTot=0;
-  for(const p of pts){ const w=1/Math.max(wFloor*wFloor,p.noisevar*p.noisevar), pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY;
+  for(const p of pts){ const w=weightOf(p), pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY;
     ssRes+=w*d*d; ssTot+=w*dt*dt; }
   return ssTot>0 ? 1-ssRes/ssTot : NaN;
 }
@@ -4948,7 +4985,7 @@ function drawPcfoPlot(){
   ctx.fillText('image signal (ADU)', mL+pw/2, mT+ph+26);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('noise variance (ADU²)',0,0); ctx.restore();
   ctx.textAlign='right'; ctx.textBaseline='alphabetic';
-  ctx.fillText(`n = ${pts.length.toLocaleString()} tiles · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
+  ctx.fillText(`gain = ${(1/fit.gain).toFixed(3)} photons/ADU · offset = ${fit.offset.toFixed(1)} ADU · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
   $('rawInfo').textContent='— PCFO: image signal vs. noise variance per tile · slope→gain, intercept→offset · scrub a frame to return';
   registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymax,yBot:ymin, fmt:(vx,vy)=>`${vx.toFixed(0)} ADU · ${vy.toFixed(0)} ADU²`});
   _replotRaw=drawPcfoPlot;
