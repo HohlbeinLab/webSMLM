@@ -208,14 +208,20 @@ locs per frame.
 reproduced live via **Preview pairs**, both giving the same result): a sharp
 **distance peak at ~2.5 µm** (median 2536 nm) against the expected smooth
 combinatorial background, and within that window a **dominant angle at
-~0°/180°** (essentially horizontal, and — see `docs/REFACTOR_PLAN.md`'s
-sSMLM follow-ups — genuinely present on *both* sides in comparable numbers,
-not just one: many 0th-order points have a real dim partner to either side
-simultaneously). The module's own `PARAMS` defaults
-(`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) already sit on
-this dataset's own peak for a zero-config first run, recovering 504,731
-pairs (59.0% of all localizations paired), mean distance 2546 ± 79 nm, mean
-angle 1.9°.
+~0°/180°** (essentially horizontal). The apparent presence on *both* sides
+turned out to be a diagnostic dead end, not a real symmetric ±1st-order
+signal — see `docs/REFACTOR_PLAN.md`'s sSMLM entry for the investigation
+(brightness turned out unreliable for telling 0th from 1st order; PSF width
+(σ) gave a real but imperfect signal; the mechanism that actually worked was
+purely directional self-disqualification). The module's own `PARAMS`
+defaults (`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) already
+sit on this dataset's own peak for a zero-config first run, recovering
+547,183 pairs (64.0% of all localizations paired), mean distance
+2546 ± 73 nm. A mean-position sanity check — averaging all accepted
+0th-order positions and separately all their matched 1st-order positions —
+reproduces this as a (2544, 87) nm separation (magnitude 2546 nm, angle
+2.0°), matching the per-pair distance statistic from a completely
+independent computation and confirming the pairs found are self-consistent.
 
 ## Useful properties to note for benchmarking
 

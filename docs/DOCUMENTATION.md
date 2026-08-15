@@ -109,7 +109,7 @@ says.
   placeholder, FSC not implemented), and **NeNA**/**FRC**
   (`nenaBtn`/`frcBtn`). See **locprecision** module.
 - **Spectral SMLM analysis** (`sSmlmBox`) — `sSmlmDistMin`/`sSmlmDistMax`/
-  `sSmlmAngleCenter`/`sSmlmAngleTol`/`sSmlmIntensityOrder`, and
+  `sSmlmAngleCenter`/`sSmlmAngleTol`/`sSmlmRequireNarrower`, and
   **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**
   (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn`).
   Enabled as soon as there are localizations (Run or **Load data**), not
@@ -459,13 +459,16 @@ headless equivalent.
 |---|---|---|---|---|---|---|
 | `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 2200 |
 | `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 2800 |
-| `sSmlmAngleCenter` | sSMLM pair angle (deg) | number | -90 | 90 | 1 | 0 |
+| `sSmlmAngleCenter` | sSMLM pair angle (deg) | number | -180 | 180 | 1 | 0 |
 | `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
-| `sSmlmIntensityOrder` | Require decreasing order intensity | bool | — | — | — | true |
+| `sSmlmRequireNarrower` | Require narrower 0th order (σ) | bool | — | — | — | false |
 
-The distance/angle defaults match the deposited reference dataset's own
-grating dispersion (`experimental_data/sSMLM_Fig2_locs.csv`) — a different
-setup's dispersion sits elsewhere, so don't trust these blind. **Preview
+`sSmlmAngleCenter` is a genuine SIGNED bearing (the 1st order's fixed
+direction from its 0th order), not an undirected line — see §3's **sSMLM**
+entry for why. The distance/angle defaults match the deposited reference
+dataset's own grating dispersion (`experimental_data/sSMLM_Fig2_locs.csv`)
+— a different setup's dispersion sits elsewhere, so don't trust these
+blind. **Preview
 pairs** draws live distance/angle histograms of the *candidate* pairs in the
 current window (reusing the table module's own `computeHist()`/
 `drawHistogram()`, fed candidate values instead of a table column) so the
@@ -694,12 +697,51 @@ is what to know before touching that module, not a restatement of its code.
   Zijlstra, Albertazzi & Hohlbein, *Nano Lett.* **22**(21), 8618–8625 (2022),
   [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140).
   `sSmlmCandidates(locs, px, distMin, distMax, angleCenter, angleTol,
-  requireDimmer)` enumerates same-frame candidate pairs within the given
-  distance/angle window (angle mod 180° — undirected, since a pair's two
-  points have no inherent order); `pairCore(locs, px, config, hooks)` (same
-  signature shape as `driftCore`) sorts them by closeness to the expected
-  angle and greedily accepts non-conflicting pairs — the same tie-break rule
-  `sSMLMAnalyzer`'s own README describes. **2-point pairs only for now**
+  onProgress)` enumerates same-frame candidate pairs within the given
+  distance window and within `angleTol` of `angleCenter` OR
+  `angleCenter+180°` (either point could turn out to be the upstream one —
+  see below), returning both the undirected line angle/deviation (`angle`,
+  `dAngle`, `sAngle` — what **Preview pairs**' diagnostic histogram plots)
+  and the raw, unfolded, directed bearing (`rawAngle`) `pairCore` needs.
+
+  Role assignment (which point of a candidate is 0th vs 1st order) is
+  **directional, not brightness-based** — an earlier version required the
+  paired point to be dimmer (physically plausible: the grating splits each
+  emitter's intensity), but real-data investigation found photon count
+  barely correlates with which side of a pair is which (≈50/50 even at
+  confident intensity gaps, most likely PSF-overlap/crowding corrupting
+  photon estimates at real emitter densities — a hypothesis that a genuinely
+  symmetric ±1st-order signal explained the same data was also tested and
+  ruled out, since the "wrong-side" population's intensity-*ratio* profile
+  turned out statistically indistinguishable from the real side, which a
+  genuinely weaker physical order shouldn't produce). `sSmlmAngleCenter` is
+  therefore a genuine SIGNED bearing (full ±180°) — the 1st order's fixed
+  direction from its 0th order, the same for every emitter in the image —
+  rather than an undirected line. `pairCore(locs, px, config, hooks)`
+  classifies each candidate by comparing its `rawAngle` to `angleCenter`:
+  whichever point is upstream on that bearing is the 0th-order candidate,
+  the other its 1st. A point only qualifies as 0th order if it has **at
+  least one** such outgoing candidate **and zero** candidates on the
+  *opposite* bearing (which would mean it looks like it could itself be
+  sitting where a 1st order would be, i.e. more likely someone else's 1st
+  order than a genuine 0th) — self-disqualifying, no external reference
+  signal needed. Closest-to-expected-bearing wins any remaining ties when a
+  single downstream point is claimed by more than one qualifying upstream
+  candidate. This was verified against the real reference dataset to
+  recover *more* pairs than the old brightness-gated approach (64.0% vs
+  59.0%), with only ~5% of points landing in the genuinely ambiguous
+  "candidate on both sides" bucket it correctly excludes — and a
+  mean-position sanity check (mean of all accepted 0th-order positions vs.
+  mean of all their matched 1st-order positions) reproduces the configured
+  ~2500 nm/~2° separation almost exactly, confirming the pairs found are
+  self-consistent rather than an artifact. PSF width (σ) showed a real but
+  imperfect ~65–70% correlation with role (consistent with the 1st order's
+  spectral smearing broadening its PSF relative to the undispersed 0th) and
+  is available as an optional, default-off extra confidence gate
+  (`sSmlmRequireNarrower` — requires the qualified 0th candidate's own σ to
+  be smaller than its chosen 1st order's) rather than a requirement, since
+  it's still well short of reliable enough to gate on by default.
+  **2-point pairs only for now**
   (0th+1st) — multi-order chaining, and FFT-based automatic angle/distance
   detection (`sSMLMAnalyzer`'s `AngleAnalyzer.java` renders localizations to
   an image and 2D-FFTs it to find the dominant periodic peak), are tracked

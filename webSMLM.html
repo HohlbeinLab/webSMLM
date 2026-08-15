@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15h</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15i</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1758,9 +1758,9 @@ X.B(E,Y);return E}return J}())
         <summary>Spectral SMLM analysis</summary>
         <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
-        <label class="row">Angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-90" max="90" step="1" class="num"></label>
+        <label class="row">Angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-180" max="180" step="1" class="num"></label>
         <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="5" min="0" max="90" step="1" class="num"></label>
-        <label class="row">Require decreasing order intensity <input type="checkbox" id="sSmlmIntensityOrder" checked></label>
+        <label class="row">Require narrower 0th order (σ) <input type="checkbox" id="sSmlmRequireNarrower"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sSmlmPreviewBtn" disabled title="Preview candidate pairs as distance/angle histograms, without committing">Preview pairs</button>
           <button id="sSmlmToggleHistBtn" disabled title="Switch the diagnostic between the distance and angle histograms">Show angle hist.</button>
@@ -1771,10 +1771,10 @@ X.B(E,Y);return E}return J}())
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: sSMLM</span>
-          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a fixed, known orientation. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find a pair within the window are dropped from the result entirely.</p>
+          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
           <p><b>Preview pairs</b> only computes — draws a distance histogram (every candidate pair in range, any angle) and, via <b>Show angle hist.</b>, an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Narrow <b>Distance min/max</b> and <b>Angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, since sSMLM pairing and 3D depth both use the same field). <b>Unpair</b> restores the original, unpaired localizations.</p>
-          <p><b>Require decreasing order intensity</b> rejects candidate pairs whose two points are within 5% of each other's brightness — too similar to confidently tell which is the brighter 0th order; the grating splits each emitter's intensity, so a real pair is expected to be asymmetric.</p>
+          <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
         </div>
       </details>
@@ -1807,7 +1807,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15h · sSMLM: "Show standard" now shows the real unpaired data
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15i · sSMLM: directional (brightness-free) pair matching
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1978,14 +1978,21 @@ const PARAMS = {
   // histogram for the real peak rather than trusting these numbers blind.
   sSmlmDistMin: { type:'number', id:'sSmlmDistMin', label:'sSMLM pair distance min (nm)', min:0, max:20000, step:50, default:2200, int:false },
   sSmlmDistMax: { type:'number', id:'sSmlmDistMax', label:'sSMLM pair distance max (nm)', min:0, max:20000, step:50, default:2800, int:false },
-  // sSmlmAngleCenter/Tol = the grating's fixed orientation ± tolerance, undirected
-  // (mod 180°) since a pair's two points aren't ordered by which is "first".
-  // Tol default (±5°) is likewise tuned to the reference dataset's own peak.
-  sSmlmAngleCenter: { type:'number', id:'sSmlmAngleCenter', label:'sSMLM pair angle (deg)', min:-90, max:90, step:1, default:0, int:false },
+  // sSmlmAngleCenter/Tol = the 1st order's fixed, SIGNED bearing from its 0th
+  // order ± tolerance — a genuine direction (full ±180°), not an undirected
+  // line: real-data analysis found brightness doesn't reliably tell 0th from
+  // 1st (see MODULE: sSMLM banner below), so direction itself now carries
+  // that role assignment and needs the full circle to express it.
+  // Tol default (±5°) is tuned to the reference dataset's own peak.
+  sSmlmAngleCenter: { type:'number', id:'sSmlmAngleCenter', label:'sSMLM pair angle (deg)', min:-180, max:180, step:1, default:0, int:false },
   sSmlmAngleTol: { type:'number', id:'sSmlmAngleTol', label:'sSMLM pair angle tolerance (± deg)', min:0, max:90, step:1, default:5, int:false },
-  // sSmlmIntensityOrder = require the paired (higher-order) point to be dimmer —
-  // physically expected, since the grating splits each emitter's intensity.
-  sSmlmIntensityOrder: { type:'bool', id:'sSmlmIntensityOrder', label:'Require decreasing order intensity', default:true },
+  // sSmlmRequireNarrower = optional EXTRA confidence gate: also require the
+  // 0th-order candidate's own PSF (sigma) to be narrower than its chosen 1st
+  // order's — the 0th order is undispersed while the 1st is spectrally
+  // smeared, so this correlates with role about 65-70% of the time on real
+  // data (much better than brightness's ~50%, but still imperfect), hence
+  // optional and off by default rather than a hard requirement.
+  sSmlmRequireNarrower: { type:'bool', id:'sSmlmRequireNarrower', label:'Require narrower 0th order (σ)', default:false },
 
   // ---- memory / streaming ----
   // memgb = RAM budget for caching decoded frames before falling back to streaming
@@ -5566,34 +5573,57 @@ function transferPcfoEstimate(){
    docs/REFACTOR_PLAN.md, not attempted here. See Martens, Gobes, Archontakis,
    Brillas, Zijlstra, Albertazzi & Hohlbein, Nano Lett. 22(21), 8618–8625
    (2022), https://doi.org/10.1021/acs.nanolett.2c03140.
+
+   Role assignment is DIRECTIONAL, not brightness-based — a real-data
+   investigation (see docs/REFACTOR_PLAN.md) found photon count barely
+   correlates with which point is 0th vs 1st (≈50/50 even at confident
+   brightness gaps — likely PSF-overlap crowding corrupting intensity
+   estimates), so brightness can't reliably break the symmetry. Instead:
+   angleCenter is now a genuine signed DIRECTION (the 1st order's fixed
+   bearing from its 0th order, e.g. 0° = always to the +x side — NOT an
+   undirected line/mod-180 orientation any more), and a point only qualifies
+   as a 0th-order candidate if (a) it has ≥1 neighbour on that bearing
+   within [distMin,distMax] AND (b) it has NO neighbour on the OPPOSITE
+   bearing within the same window (which would mean it's itself sitting
+   where a 1st order would, i.e. it's more likely someone else's 1st order
+   than a genuine 0th). This directional self-disqualification check —
+   proposed by the user mid-investigation — needs no brightness signal at
+   all and, verified against the real reference dataset, recovers MORE
+   pairs than the old brightness-gated approach (65.9% vs 59.0%) with only
+   ~5% of points landing in the genuinely ambiguous "candidate on both
+   sides" bucket it correctly excludes.
    =========================================================================== */
-// Enumerates CANDIDATE pairs within [distMin,distMax] x [angleCenter±angleTol]
-// (angle mod 180° — undirected, a pair's two points have no inherent order)
-// across all of `locs`, grouped by frame — O(k²) per frame (k = locs sharing
-// that frame), cheap even at real-dataset scale (tens of millions of checks
-// for a 30k-frame/~2M-loc stack, well under a second). Shared by the
-// interactive diagnostic (Preview pairs, which only needs the raw candidate
-// distance/angle values) and pairCore's own greedy-match step below (which
-// needs the same candidates, sorted and consumed) — one enumeration, two
-// consumers, so they can't silently drift out of sync with each other.
+// Enumerates CANDIDATE pairs within [distMin,distMax] and within angleTol of
+// EITHER angleCenter or angleCenter+180° (i.e. either point could be the
+// upstream/0th one — pairCore below resolves which, using rawAngle) across
+// all of `locs`, grouped by frame — O(k²) per frame (k = locs sharing that
+// frame), cheap even at real-dataset scale (tens of millions of checks for a
+// 30k-frame/~2M-loc stack, well under a second). Shared by the interactive
+// diagnostic (Preview pairs, which wants the raw, undirected candidate
+// distance/angle values to help find the true peak) and pairCore's own
+// directional-match step below (which needs the SAME candidates, classified
+// by direction) — one enumeration, two consumers, so they can't silently
+// drift out of sync with each other.
 // onProgress is optional (Preview/Pair pass it; a future headless config
 // calling this directly wouldn't need it) — this is the O(k²) per-frame
 // scan, the actual slow/blocking part of both Preview and Pair on a
 // real multi-million-row dataset, so it's the one that needs to report
-// progress and yield; pairCore's own O(k) greedy-match loop below already did.
-async function sSmlmCandidates(locs, px, distMin, distMax, angleCenter, angleTol, requireDimmer, onProgress){
+// progress and yield; pairCore's own O(k) matching loop below already did.
+async function sSmlmCandidates(locs, px, distMin, distMax, angleCenter, angleTol, onProgress){
   const byFrame=new Map();
   for(let i=0;i<locs.length;i++){ const f=locs[i].frame; let a=byFrame.get(f); if(!a){a=[]; byFrame.set(f,a);} a.push(i); }
   const frames=Array.from(byFrame.values());
   const acNorm=((angleCenter%180)+180)%180;   // normalize into [0,180) same as the per-pair angle below
-  // {i,j,dist,angle,dAngle,sAngle} — angle is raw [0,180), dAngle its absolute
-  // distance to angleCenter (mod-180-aware, used for filtering/tie-break sort);
-  // sAngle is the SIGNED version of that same distance (roughly ±90, positive
-  // = clockwise of centre) — averaging angle directly would be wrong whenever
-  // real candidates straddle the 0°/180° wrap (e.g. 2° and 178° are the same
-  // orientation but numerically far apart), so any caller computing a MEAN
-  // angle must average sAngle and add it back to angleCenter, not average
-  // angle itself. See pairCore()'s own meanAngle for the worked example.
+  // {i,j,dist,angle,dAngle,sAngle,rawAngle} — angle is the UNDIRECTED line
+  // orientation [0,180) (angle and angle+180 folded together — this is what
+  // Preview's histogram wants: both a real forward and a real backward match
+  // land in the same bin, so the diagnostic shows one clean peak, not two
+  // half-height ones). dAngle/sAngle are that folded angle's (absolute/
+  // signed) distance to angleCenter, used for the undirected diagnostic's
+  // own filtering — averaging sAngle (not angle) avoids the 0°/180° wrap
+  // problem the SAME way it always has here. rawAngle is the UNFOLDED,
+  // directed i→j bearing (-180..180) pairCore needs to tell forward from
+  // backward — the one genuinely new field this function adds.
   const out=[];
   let lastYield=performance.now();
   for(let fi=0;fi<frames.length;fi++){
@@ -5602,76 +5632,101 @@ async function sSmlmCandidates(locs, px, distMin, distMax, angleCenter, angleTol
       const i=idxs[a], j=idxs[b], Li=locs[i], Lj=locs[j];
       const dx=(Lj.x-Li.x)*px, dy=(Lj.y-Li.y)*px, dist=Math.hypot(dx,dy);
       if(dist<distMin||dist>distMax) continue;
-      // Require a clear brighter/dimmer split, not just any split — two
-      // independent, coincidentally similar-brightness emitters landing in
-      // the window by chance shouldn't pass as a confident 0th/1st pair.
-      if(requireDimmer && Math.min(Li.photons,Lj.photons)/Math.max(Li.photons,Lj.photons)>0.95) continue;
-      let ang=Math.atan2(dy,dx)*180/Math.PI; ang=((ang%180)+180)%180;
+      const rawAngle=Math.atan2(dy,dx)*180/Math.PI;   // i->j, UNFOLDED -180..180
+      let ang=((rawAngle%180)+180)%180;
       let sAngle=ang-acNorm; if(sAngle>90) sAngle-=180; else if(sAngle<-90) sAngle+=180;
       const dAngle=Math.abs(sAngle);
       if(dAngle>angleTol) continue;
-      out.push({i,j,dist,angle:ang,dAngle,sAngle});
+      out.push({i,j,dist,angle:ang,dAngle,sAngle,rawAngle});
     }
     if(onProgress && performance.now()-lastYield>60){ onProgress(100*(fi+1)/frames.length); await tick(); lastYield=performance.now(); }
   }
   if(onProgress) onProgress(100);
   return out;
 }
-// Pure: pairs locs into 0th/1st-order matches. Does NOT mutate `locs` —
-// returns a NEW, smaller array (one row per accepted pair), same convention
-// driftCore/nenaPrecision use for their own summary-stat returns; the
-// interactive wrapper (runSSmlmPair() below) decides whether/how to swap it
-// into lastResult.locs. config = {sSmlmDistMin/Max, sSmlmAngleCenter/Tol,
-// sSmlmIntensityOrder}, all ordinary PARAMS.
+// angle-difference on a full circle, wrapped to [0,180] — used below to tell
+// a candidate's forward bearing (i->j) from its backward one (j->i, exactly
+// 180° from the forward one), and to score how close either is to acNorm.
+function angleDiff360(a,b){ let d=Math.abs(a-b)%360; if(d>180) d=360-d; return d; }
+// Pure: pairs locs into 0th/1st-order matches using DIRECTION alone (see the
+// module banner above for why brightness isn't used). Does NOT mutate
+// `locs` — returns a NEW, smaller array (one row per accepted pair), same
+// convention driftCore/nenaPrecision use for their own summary-stat returns;
+// the interactive wrapper (runSSmlmPair() below) decides whether/how to swap
+// it into lastResult.locs. config = {sSmlmDistMin/Max, sSmlmAngleCenter/Tol,
+// sSmlmRequireNarrower}, all ordinary PARAMS.
 async function pairCore(locs, px, config, hooks={}){
   const { onLog=log, onProgress=setProg } = hooks;
   onLog(`\nsSMLM pairing: distance ${config.sSmlmDistMin}–${config.sSmlmDistMax} nm, angle ${config.sSmlmAngleCenter}±${config.sSmlmAngleTol}°…`);
   // Candidate enumeration (O(k²)/frame, the slow part on a real dataset) gets
-  // the first half of the bar, the greedy-match loop below the second half —
-  // same "allot each phase a slice of 0–100" convention runCore's FTM-phased
-  // loop uses for its own two stages.
-  const cands=await sSmlmCandidates(locs, px, config.sSmlmDistMin, config.sSmlmDistMax, config.sSmlmAngleCenter, config.sSmlmAngleTol, config.sSmlmIntensityOrder, p=>onProgress(p/2));
-  // Closest-to-expected-angle wins ties — same rule sSMLMAnalyzer's README
-  // describes ("the best one is selected... closest angle to the original
-  // one is chosen = pairs closest to straight line").
-  cands.sort((a,b)=>a.dAngle-b.dAngle);
+  // the first half of the bar, the classify/match pass below the second half
+  // — same "allot each phase a slice of 0–100" convention runCore's
+  // FTM-phased loop uses for its own two stages.
+  const cands=await sSmlmCandidates(locs, px, config.sSmlmDistMin, config.sSmlmDistMax, config.sSmlmAngleCenter, config.sSmlmAngleTol, p=>onProgress(p/2));
+  const acNorm=((config.sSmlmAngleCenter%360)+360)%360;
+  // Classify each candidate by DIRECTION: if i->j's bearing is close to
+  // acNorm, i is upstream (0th-candidate) and j downstream (its 1st); if
+  // instead j->i is the close one (always true when i->j isn't, since every
+  // candidate already passed the undirected line filter above), the roles
+  // reverse. outEdges[p] collects every point p could be 0th of; hasIncoming
+  // marks points that appear as someone's downstream target — a point with
+  // outgoing edges AND incoming evidence is ambiguous (it looks like it
+  // could itself be a 1st order) and is excluded below, not guessed at.
+  const outEdges=new Map(), hasIncoming=new Uint8Array(locs.length);
+  for(const c of cands){
+    const rawNorm=((c.rawAngle%360)+360)%360, fwdDiff=angleDiff360(rawNorm,acNorm);
+    const up = fwdDiff<=config.sSmlmAngleTol ? c.i : c.j;     // upstream (0th-candidate)
+    const down = up===c.i ? c.j : c.i;                          // downstream (its 1st)
+    const dAng = up===c.i ? fwdDiff : angleDiff360((rawNorm+180)%360, acNorm);
+    let arr=outEdges.get(up); if(!arr){arr=[]; outEdges.set(up,arr);}
+    arr.push({down, dist:c.dist, dAng});
+    hasIncoming[down]=1;
+  }
+  const requireNarrower=config.sSmlmRequireNarrower;
+  const qualifying=[];
+  for(const [up,edges] of outEdges){
+    if(hasIncoming[up]) continue;   // ambiguous — has both outgoing and incoming evidence, see module banner
+    edges.sort((a,b)=>a.dAng-b.dAng);
+    let best=edges[0];
+    if(requireNarrower){
+      best=edges.find(e=>locs[up].sigma>0 && locs[e.down].sigma>0 && locs[up].sigma<locs[e.down].sigma);
+      if(!best) continue;
+    }
+    qualifying.push({up, down:best.down, dist:best.dist, dAng:best.dAng});
+  }
+  qualifying.sort((a,b)=>a.dAng-b.dAng);   // closest-to-expected-bearing wins any shared-target conflicts
   const claimed=new Uint8Array(locs.length);
   const paired=[];
-  let sumDist=0, sumDistSq=0, sumSAngle=0;
-  for(let k=0;k<cands.length;k++){
-    const c=cands[k];
-    if(claimed[c.i]||claimed[c.j]) continue;   // greedy: a point already in an accepted pair can't join another
-    claimed[c.i]=claimed[c.j]=1;
-    const Li=locs[c.i], Lj=locs[c.j];
-    const bright=Li.photons>=Lj.photons?Li:Lj;   // 0th order = the brighter point; carries frame/position/precision fields
+  let sumDist=0, sumDistSq=0;
+  for(let k=0;k<qualifying.length;k++){
+    const q=qualifying[k];
+    if(claimed[q.up]||claimed[q.down]) continue;   // a downstream point can still be shared by >1 qualifying upstream candidate — first (closest) wins
+    claimed[q.up]=claimed[q.down]=1;
+    const L=locs[q.up];   // the qualified (0th, direction-determined) point — carries frame/position/precision fields
     // Position = the 0th order's OWN x/y, not the pair midpoint: the 0th
     // order is undispersed by the grating (its centroid already IS the
     // emitter's image position), while the 1st order sits a wavelength-
     // dependent distance away — averaging in a per-emitter, spectrally-
     // varying offset would blur position by up to half that distance
     // instead of reporting it precisely.
-    paired.push({ frame:bright.frame, x:bright.x, y:bright.y, z:c.dist,
-      photons:bright.photons, bg:bright.bg, bgstd:bright.bgstd, lpx:bright.lpx, lpy:bright.lpy, sigma:bright.sigma });
-    sumDist+=c.dist; sumDistSq+=c.dist*c.dist; sumSAngle+=c.sAngle;   // sAngle, NOT angle — see sSmlmCandidates' comment on why
-    if((k&8191)===0){ onProgress(50+50*k/cands.length); await tick(); }
+    paired.push({ frame:L.frame, x:L.x, y:L.y, z:q.dist,
+      photons:L.photons, bg:L.bg, bgstd:L.bgstd, lpx:L.lpx, lpy:L.lpy, sigma:L.sigma });
+    sumDist+=q.dist; sumDistSq+=q.dist*q.dist;
+    if((k&8191)===0){ onProgress(50+50*k/qualifying.length); await tick(); }
   }
   onProgress(100);
   const n=paired.length, meanDistance=n?sumDist/n:NaN;
   const stdDistance=n?Math.sqrt(Math.max(0,sumDistSq/n-meanDistance*meanDistance)):NaN;
-  // angleCenter + mean(signed deviation) — NOT a mean of raw [0,180) angles,
-  // which breaks whenever real candidates straddle the 0°/180° wrap (this
-  // dataset's own true peak sits right at 0°, so this isn't a corner case —
-  // it's the expected case).
-  const meanAngle=n?config.sSmlmAngleCenter+sumSAngle/n:NaN;
   const nDropped=locs.length-2*n;
   onLog(`  ${n.toLocaleString()} pair(s) from ${locs.length.toLocaleString()} localizations (${locs.length?(100*2*n/locs.length).toFixed(1):'0.0'}% paired)`
-    + (n?` — mean distance ${meanDistance.toFixed(0)} ± ${stdDistance.toFixed(0)} nm, mean angle ${meanAngle.toFixed(1)}°.`:'.'));
+    + (n?` — mean distance ${meanDistance.toFixed(0)} ± ${stdDistance.toFixed(0)} nm.`:'.'));
   // Spelled out explicitly, not just implied by the percentage above: the
   // reconstruction below shows ONLY the n paired points (one per pair, at
   // the 0th order's own position) — the nDropped localizations that found
-  // no partner are excluded entirely, not drawn "unpaired" or left doubled.
-  onLog(`  → reconstruction below uses only these ${n.toLocaleString()} paired points; ${nDropped.toLocaleString()} localizations with no partner in the window are dropped, not shown.`);
-  return { locs:paired, nPairs:n, nInput:locs.length, meanDistance, stdDistance, meanAngle };
+  // no unambiguous partner are excluded entirely, not drawn "unpaired" or
+  // left doubled.
+  onLog(`  → reconstruction below uses only these ${n.toLocaleString()} paired points; ${nDropped.toLocaleString()} localizations with no unambiguous partner in the window are dropped, not shown.`);
+  return { locs:paired, nPairs:n, nInput:locs.length, meanDistance, stdDistance };
 }
 // Interactive layer: Preview/Pair/Unpair wrap pairCore()/sSmlmCandidates()
 // (DOM-free, above) the same way estimateGainOffset()/applyCropToRaw() wrap
@@ -5718,7 +5773,7 @@ async function previewSSmlmPairs(){
   const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
   $('sSmlmPreviewBtn').disabled=true;
   try{
-    sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, distMin, distMax, 0, 90, paramValue('sSmlmIntensityOrder'), setProg);
+    sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, distMin, distMax, 0, 90, setProg);
     log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in ${distMin}–${distMax} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
     $('sSmlmToggleHistBtn').disabled = false;
     drawSSmlmHist();
@@ -5735,7 +5790,7 @@ async function runSSmlmPair(){
   try{
     const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
       sSmlmAngleCenter:paramValue('sSmlmAngleCenter'), sSmlmAngleTol:paramValue('sSmlmAngleTol'),
-      sSmlmIntensityOrder:paramValue('sSmlmIntensityOrder') };
+      sSmlmRequireNarrower:paramValue('sSmlmRequireNarrower') };
     const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
     if(!r.nPairs){ log('  no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
     sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;

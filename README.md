@@ -137,7 +137,7 @@ walk-through of every step.
   uncertainty estimate. See the caveat on ADU-to-photon conversion below.
 - **Spectral SMLM (sSMLM)**: pairs 0th/1st-order localizations from a
   diffraction grating in the emission path — each emitter appears twice per
-  frame, offset by a wavelength-dependent distance at a fixed orientation.
+  frame, offset by a wavelength-dependent distance in a fixed direction.
   Interactive distance/angle histograms help find your setup's own window;
   pairing replaces the localizations with one row per pair (position = the
   0th order's own, undispersed position; colour = inter-order distance, a

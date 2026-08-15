@@ -144,17 +144,30 @@ relevant one before editing rather than scrolling:
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
 - **sSMLM** — spectrally resolved SMLM: pairs 0th/1st-order localizations from a diffraction
   grating (ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
-  Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). `sSmlmCandidates()` enumerates same-frame
-  candidates within a distance/angle window (angle mod 180° — undirected); `pairCore()`
-  (`driftCore`-shaped) sorts by closeness to the expected angle and greedily accepts
-  non-conflicting pairs. **2-point pairs only** (0th+1st) — multi-order chaining and FFT-based
-  angle/distance auto-detection are `docs/REFACTOR_PLAN.md` follow-ups, not implemented; the
-  interactive **Preview pairs** distance/angle histograms (reusing `computeHist()`/
-  `drawHistogram()` from **table**) cover "find my window" instead. An unpaired localization is
-  dropped from the result, not carried through unchanged. A pair's reported position is the 0th
-  order's OWN x/y (undispersed — its centroid already is the true position), not the midpoint:
-  the 1st order's offset varies per emitter with wavelength, so averaging would blur position by
-  up to half that offset. Stores the inter-order distance in the paired loc's `z` — same trick the
+  Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). Role assignment (which point of a pair is
+  0th vs 1st) is **directional, not brightness-based** — real-data investigation found photon
+  count barely correlates with position (≈50/50 even at confident intensity gaps, likely
+  PSF-overlap/crowding corrupting photon estimates at real emitter densities), so
+  `sSmlmAngleCenter` is now a genuine SIGNED bearing (full ±180°, not an undirected line) and
+  `sSmlmCandidates()` returns both the undirected `angle`/`dAngle` (for Preview's diagnostic
+  histogram) and the raw unfolded `rawAngle` `pairCore()` needs. `pairCore()` classifies each
+  candidate by direction into `outEdges`/`hasIncoming` maps, then a point qualifies as a 0th order
+  only if it has ≥1 outgoing edge (a candidate on the configured bearing) AND zero incoming
+  evidence (no candidate on the opposite bearing, which would mean it's more likely someone else's
+  1st order) — self-disqualifying, no brightness needed; verified against real data to recover
+  MORE pairs than the old brightness-gated approach (64.0% vs 59.0%) with only ~5% of points
+  landing in the genuinely ambiguous "both sides" bucket it correctly excludes. PSF width (σ)
+  showed a real but imperfect ~65–70% correlation with role (1st order is spectrally smeared,
+  hence broader) and is available as an optional, default-OFF extra filter
+  (`sSmlmRequireNarrower`) — not required, since it's still far from reliable enough to gate on by
+  default. **2-point pairs only** (0th+1st) — multi-order chaining and FFT-based angle/distance
+  auto-detection are `docs/REFACTOR_PLAN.md` follow-ups, not implemented; the interactive
+  **Preview pairs** distance/angle histograms (reusing `computeHist()`/`drawHistogram()` from
+  **table**) cover "find my window" instead. An unpaired localization is dropped from the result,
+  not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
+  — its centroid already is the true position), not the midpoint: the 1st order's offset varies
+  per emitter with wavelength, so averaging would blur position by up to half that offset. Stores
+  the inter-order distance in the paired loc's `z` — same trick the
   prior-art tool's own `ThunderSTORM.csv` output uses — so the existing `zcolor` depth-coded
   render path needs no changes (the **table** module relabels the `z` column to `dist` while the
   paired set is what's shown); **Pair** refuses if the current result already has real 3D `z`, and
