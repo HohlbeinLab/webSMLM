@@ -60,6 +60,13 @@ walk-through of every step.
   Picasso `gaussmle`). MLE is statistically optimal at low photon counts and
   reports a proper per-localization **CRLB uncertainty**. A **first/last
   frame** range restricts a Run to part of the loaded stack.
+- **Estimates camera gain/offset from the data itself**: the Rieger–Heintzman
+  photon-conversion-factor method (PCFO) tiles a sample of frames, regresses
+  mean signal against high-spatial-frequency noise variance, and reports the
+  fit for you to review — a separate **Transfer estimates** step then applies
+  it to the gain/offset used for localization, no dedicated calibration
+  acquisition needed. A diagnostic signal-vs-noise-variance plot lets you
+  check the underlying linearity assumption before trusting the result.
 - **3D astigmatism**, two independent ways: **Phasor 3D** (z from the phasor
   magnitude ratio) and **Gaussian MLE 3D** (z from the elliptical σ_x/σ_y widths)
   — a built-in cross-check. Calibrate a bead z-stack — every spot is fit both by
@@ -186,6 +193,10 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   *Simultaneous multiple-emitter fitting for single molecule super-resolution
   imaging*, *Biomed. Opt. Express* **2**(5), 1377–1393 (2011).
   https://doi.org/10.1364/BOE.2.001377
+- **Gain/offset estimation (PCFO)** (the camera-calibration method implemented
+  here): R. Heintzmann, P. K. Relich, R. P. J. Nieuwenhuizen, K. A. Lidke,
+  B. Rieger, *Calibrating photon counts from a single image*, arXiv:1611.05654.
+  https://arxiv.org/abs/1611.05654
 - **LS vs MLE fitting**: K. I. Mortensen et al., *Nat. Methods* **7**, 377–381
   (2010). https://doi.org/10.1038/nmeth.1447 — and localization-precision
   theory: R. E. Thompson, D. R. Larson, W. W. Webb, *Biophys. J.* **82**,
@@ -234,8 +245,10 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   (the spherical-shell counterpart to 2D FRC) is not implemented.
 - **Intensities are in ADU unless a camera gain is entered**, in which case the
   exported `intensity [photon]` and `uncertainty [nm]` columns are not on a
-  physical scale. A single scalar gain also suits EMCCD better than sCMOS, where
-  gain, offset and read noise vary per pixel — see
+  physical scale — PCFO (above) can estimate gain/offset directly from a
+  loaded stack if you don't already have calibrated values. Still just a
+  single scalar either way: it suits EMCCD well, but not sCMOS, where gain,
+  offset and read noise vary per pixel — see
   [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md).
 - Dense samples with overlapping PSFs are fitted with a **single-emitter model**,
   which biases positions where emitters overlap. Multi-emitter fitting would

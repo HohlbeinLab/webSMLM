@@ -111,16 +111,17 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   emitter.
 - **σ_PSF estimation from the data**, instead of a fixed, user-supplied
   value.
-- **Photon calibration beyond a single scalar gain/offset.** A scalar
-  reasonably approximates an EMCCD chip, but most current SMLM runs on
-  sCMOS, where gain, offset and read noise are all pixel-dependent (and
-  non-uniform read noise also affects detection — a noisy pixel can
-  masquerade as an emitter). Two options, increasing in rigor: (1) estimate
-  gain from the data itself via a photon-transfer curve (variance-vs-mean
-  across frames, slope = gain — feasible since every frame is already
-  streamed through); (2) per-pixel gain/offset/variance calibration maps,
-  with a noise model that uses them — see Huang et al., *Nat. Methods*
-  **10**, 653–658 (2013), https://doi.org/10.1038/nmeth.2488.
+- **Photon calibration beyond a single scalar gain/offset.** Single-image
+  gain/offset estimation from the data itself (PCFO, a photon-transfer-curve
+  variant — tile-wise mean-signal-vs-noise-variance regression, not a
+  variance-vs-mean-across-frames curve) shipped in 0.10.2 — see
+  `CHANGELOG.md`. A scalar still reasonably approximates an EMCCD chip, but
+  most current SMLM runs on sCMOS, where gain, offset and read noise are all
+  pixel-dependent (and non-uniform read noise also affects detection — a
+  noisy pixel can masquerade as an emitter); still open: **per-pixel**
+  gain/offset/variance calibration maps, with a noise model that uses them —
+  see Huang et al., *Nat. Methods* **10**, 653–658 (2013),
+  https://doi.org/10.1038/nmeth.2488.
 - Optional **fiducial-based drift correction** when beads are present
   (simpler and more accurate than AIM for that specific case).
 - **3D point-cloud view** — an interactive, rotatable scatter (orthographic
