@@ -39,12 +39,35 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140),
   ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer)).
   Remaining, not yet implemented:
+  - **±1st-order (not just single-partner) matching** — direct analysis of
+    the real reference dataset (sampled ~3,000 frames, all same-frame
+    pairwise candidates in the 2200–2800 nm window with a clear
+    brighter/dimmer split) shows the true signal is **bimodal, not
+    single-sided**: ~36,761 candidates at ~0° and ~38,833 at ~180°
+    (symmetric within noise) — i.e. many 0th-order points have a genuine
+    dim partner on BOTH sides simultaneously (measured: 36.3% of bright
+    points with ≥1 valid candidate have candidates on both sides), matching
+    a grating that disperses symmetric +1st/−1st orders rather than just one
+    side. This is why `sSmlmCandidates()`'s angle window is intentionally
+    undirected (mod 180°, not a signed vector check) — restricting to one
+    direction would silently discard roughly a third of the true pairs, not
+    filter noise. But Phase 1's 2-point-only greedy match can still only
+    claim ONE side per 0th-order point; the other side's true dim partner
+    then has nowhere left to go (its only candidate is already claimed) and
+    is silently dropped from the result along with genuine noise-only
+    unpaired points — this is very likely a real, non-trivial contributor to
+    Phase 1's ~64% pairing rate (not all of the shortfall is combinatorial
+    background). Extending matching to keep both sides per 0th order (and
+    deciding what a "pair" even means/reports when there are two, e.g. two
+    z values instead of one) is the concrete, evidenced version of what
+    was previously an unvalidated "multi-order chaining" idea below.
   - **Multi-order chaining** (0-1-2-3+, matching `sSMLMAnalyzer`'s
-    `sSMLMA.java` full feature set) — Phase 1 deliberately handles 2-point
-    pairs only; nothing in the real Fig. 2 reference dataset examined so far
-    demonstrates a genuine 2nd-order signal to validate a chaining
-    implementation against, so this needs its own dataset/validation, not
-    just the algorithm.
+    `sSMLMA.java` full feature set) — true higher orders (2nd, 3rd — same
+    side as 1st, further out) are a distinct question from the ±1st-order
+    symmetry just confirmed above; nothing examined so far demonstrates a
+    genuine 2nd-order signal at a *different* distance from the 1st-order
+    band, so that part still needs its own dataset/validation, not just the
+    algorithm.
   - **FFT-based automatic angle/distance detection**, matching
     `sSMLMAnalyzer`'s `AngleAnalyzer.java` (render localizations to an
     image, 2D-FFT it, find the dominant periodic peak — not a drop-in for

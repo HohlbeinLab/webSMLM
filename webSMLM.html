@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15f</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15g</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1807,7 +1807,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15f · sSMLM: live z-range sync from distance fields
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15g · sSMLM: explicit dropped-loc count in the Pair log
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5663,8 +5663,14 @@ async function pairCore(locs, px, config, hooks={}){
   // dataset's own true peak sits right at 0°, so this isn't a corner case —
   // it's the expected case).
   const meanAngle=n?config.sSmlmAngleCenter+sumSAngle/n:NaN;
+  const nDropped=locs.length-2*n;
   onLog(`  ${n.toLocaleString()} pair(s) from ${locs.length.toLocaleString()} localizations (${locs.length?(100*2*n/locs.length).toFixed(1):'0.0'}% paired)`
     + (n?` — mean distance ${meanDistance.toFixed(0)} ± ${stdDistance.toFixed(0)} nm, mean angle ${meanAngle.toFixed(1)}°.`:'.'));
+  // Spelled out explicitly, not just implied by the percentage above: the
+  // reconstruction below shows ONLY the n paired points (one per pair, at
+  // the 0th order's own position) — the nDropped localizations that found
+  // no partner are excluded entirely, not drawn "unpaired" or left doubled.
+  onLog(`  → reconstruction below uses only these ${n.toLocaleString()} paired points; ${nDropped.toLocaleString()} localizations with no partner in the window are dropped, not shown.`);
   return { locs:paired, nPairs:n, nInput:locs.length, meanDistance, stdDistance, meanAngle };
 }
 // Interactive layer: Preview/Pair/Unpair wrap pairCore()/sSmlmCandidates()
