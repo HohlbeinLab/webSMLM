@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15e</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15f</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1807,7 +1807,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15e · sSMLM: 0th-order position, drop table shortcut, dist column
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15f · sSMLM: live z-range sync from distance fields
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5766,6 +5766,19 @@ $('sSmlmPreviewBtn').addEventListener('click',previewSSmlmPairs);
 $('sSmlmToggleHistBtn').addEventListener('click',toggleSSmlmHist);
 $('sSmlmPairBtn').addEventListener('click',runSSmlmPair);
 $('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
+// Re-narrowing Distance min/max while a paired result is already showing
+// (e.g. after fixing a wrong pixel size) re-scales the colour axis to match
+// immediately, without needing to click Pair again — the locs' own z values
+// don't change (they're not re-paired), only the colour range they're
+// viewed through. Only meaningful once sSmlmOriginalLocs shows pairing is
+// active; before that these fields don't touch zmin/zmax at all.
+function syncSSmlmZRangeFromDist(){
+  if(sSmlmOriginalLocs==null) return;
+  $('zmin').value=paramValue('sSmlmDistMin'); $('zmax').value=paramValue('sSmlmDistMax');
+  if(lastResult) rerender(true);
+}
+$('sSmlmDistMin').addEventListener('change',syncSSmlmZRangeFromDist);
+$('sSmlmDistMax').addEventListener('change',syncSSmlmZRangeFromDist);
 
 /* ===========================================================================
    MODULE: pipeline

@@ -733,7 +733,15 @@ is what to know before touching that module, not a restatement of its code.
   pair's distance is already within that window by construction, so it's the
   natural colour-scale range, and it re-syncs on every Pair (e.g. after
   narrowing the window post-calibration-fix); this is the same `zmin`/`zmax`
-  pair a future real-3D `z` would use, not a separate field. A "Show
+  pair a future real-3D `z` would use, not a separate field.
+  `syncSSmlmZRangeFromDist()` keeps this live even *without* re-pairing: a
+  `change` listener on `sSmlmDistMin`/`sSmlmDistMax` re-applies the same
+  `zmin`/`zmax` assignment and calls `rerender(true)` whenever those fields
+  change while `sSmlmOriginalLocs` shows pairing is already active, so
+  narrowing the window re-scales the colour axis on the *existing* paired
+  locs immediately — a no-op before the first Pair (nothing to recolour yet)
+  and after Unpair (the fields no longer mean anything for the current, now
+  unpaired, result). A "Show
   spectral"/"Show standard" button inline in the reconstruction panel title
   (`sSmlmColorBtn`, same pattern as the raw panel's FTM toggle) flips
   `zcolor` without a trip to Rendering settings. Paired locs are already
