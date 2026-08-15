@@ -229,6 +229,14 @@ Both paths suppress the fit crosshairs (not the ROI boxes) outside `fitFirstFram
 — `fitFrameRange()` is the single place deciding "in range" for both `showFrame()` and `runCore()`,
 so scrubbing to a frame a Run would never touch can't show a misleading live-fit result there.
 
+### Button label length
+
+Sidebar/panel-title buttons must fit on one line at the sidebar's normal width — a label that
+wraps reads as broken layout, not a design choice. Abbreviate rather than let a label wrap:
+"Show dist. hist." not "Show distance hist." (see the sSMLM section's histogram-toggle button).
+Favour standard, unambiguous abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that
+could be misread.
+
 ### Syntax gotcha
 
 Leading-unary `**` is a SyntaxError in both JavaScriptCore and V8: write `-((x-d)**2)`, never
