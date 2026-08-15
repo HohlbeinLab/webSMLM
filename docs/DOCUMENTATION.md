@@ -132,7 +132,16 @@ window resize.
   `ftmEnabled` is checked, its own label reading "Show FTM corrected" /
   "Show raw"), toggles the panel between the raw frame and its live
   FTM-corrected preview — the title itself stays fixed at "Raw frame" — see
-  [§2](#2-parameters-params-registry)'s FTM section.
+  [§2](#2-parameters-params-registry)'s FTM section. Hovering shows a
+  crosshair + readout of the pixel under the cursor — `x=`/`y=` (native pixel
+  index, 0-based) and its value in ADU, plus the photon-converted equivalent
+  once `gain`/`camoffset` are set away from the uncalibrated 1/0 default
+  (`rawPixelData`, the array `drawRaw()` was actually given — raw camera data,
+  or FTM-corrected when the raw/FTM toggle is on — kept separately from
+  `rawFull`, which is only a lossy min/max-normalized 8-bit render). Reuses
+  the same hover mechanism as the plot surfaces above (`registerPlotHover`/
+  `drawPlotHover`); no readout while zoomed out past fit and hovering the
+  letterboxed border outside the actual frame.
 - **SMLM reconstruction** (`sr` canvas) — the accumulated super-resolution
   render, or (before a Run) a quick averaged data projection, or the 3D
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
