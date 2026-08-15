@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15h</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15i</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1732,7 +1732,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15h · PCFO: fix offset bias (IRLS), robust outlier clip
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15i · PCFO: back to unweighted fit (IRLS togglable) for testing
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4906,22 +4906,27 @@ function pcfoLinFit(pts,weightOf){
   if(!isFinite(det)||Math.abs(det)<1e-12) return null;
   return { gain:(sW*sWxy-sWx*sWy)/det, c:(sWxx*sWy-sWx*sWxy)/det };
 }
+// Flip to true to re-enable the heteroscedasticity-aware IRLS reweighting below (was the
+// default; see the comment on the loop). false = plain unweighted OLS on the (still
+// outlier-clipped, see pcfoClipPoints) points — simpler, and both were verified unbiased
+// (including under a true right-skewed chi-squared noise model, not just Gaussian), so this
+// is purely a precision/efficiency choice, not a correctness one.
+const PCFO_USE_IRLS=false;
 function pcfoRegress(rawPts,rnstd){
   if(rawPts.length<2) return null;
   const pts=pcfoClipPoints(rawPts);
   const wFloor=pcfoWeightFloor(pts);
-  // Seed with an unweighted (all-weights-1) fit, then iteratively reweight using the CURRENT
-  // fit's PREDICTED y at each point — not that point's own noisy noisevar. Weighting by the
-  // observation itself (1/noisevar_observed²) makes the weight correlate with that same
-  // point's own noise realization; since 1/y² is convex, a downward noise excursion inflates
-  // a point's weight more than an equal upward excursion shrinks it (Jensen's inequality),
-  // systematically pulling the fit — and the extrapolated offset — low. Verified numerically:
-  // the single-pass 1/y_obs² weighting biased the fitted offset by up to several ADU at
-  // realistic per-tile noise levels, while both unweighted OLS and this iterative reweighting
-  // (which converges in a handful of passes) came out essentially unbiased.
-  let fit=pcfoLinFit(pts,()=>1);
+  let fit=pcfoLinFit(pts,()=>1);   // unweighted (all-weights-1) seed fit
   if(!fit) return null;
-  for(let it=0; it<5; it++){
+  // Optional: iteratively reweight using the CURRENT fit's PREDICTED y at each point — not
+  // that point's own noisy noisevar. Weighting by the observation itself (1/noisevar_observed²)
+  // makes the weight correlate with that same point's own noise realization; since 1/y² is
+  // convex, a downward noise excursion inflates a point's weight more than an equal upward
+  // excursion shrinks it (Jensen's inequality), pulling the fit low — verified this by several
+  // ADU at realistic noise levels. Weighting by the PREDICTION instead avoids that, and (also
+  // verified) recovers the true gain/offset whether the per-tile noise is symmetric or
+  // properly right-skewed (chi-squared-like, as real per-tile noisevar estimates are).
+  if(PCFO_USE_IRLS) for(let it=0; it<5; it++){
     const cur=fit;
     const next=pcfoLinFit(pts, p=>{ const yhat=cur.gain*p.imsig+cur.c; return 1/Math.max(wFloor*wFloor,yhat*yhat); });
     if(!next) break;
@@ -4941,7 +4946,7 @@ function pcfoRegress(rawPts,rnstd){
 function pcfoRSquared(rawPts,gainSlope,c){
   const pts=pcfoClipPoints(rawPts);
   const wFloor=pcfoWeightFloor(pts);
-  const weightOf=p=>{ const yhat=gainSlope*p.imsig+c; return 1/Math.max(wFloor*wFloor,yhat*yhat); };
+  const weightOf=PCFO_USE_IRLS ? p=>{ const yhat=gainSlope*p.imsig+c; return 1/Math.max(wFloor*wFloor,yhat*yhat); } : ()=>1;
   let sW=0,sWy=0; for(const p of pts){ const w=weightOf(p); sW+=w; sWy+=w*p.noisevar; }
   const meanY=sWy/sW;
   let ssRes=0,ssTot=0;
