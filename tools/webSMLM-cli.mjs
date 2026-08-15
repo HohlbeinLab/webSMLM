@@ -48,8 +48,9 @@
 // §2 Fit / §8) on --file itself before localizing, overriding --gain/--camoffset
 // with the estimate (summary.json's "pcfo" field records what was found; falls
 // back to whatever --gain/--camoffset were passed if PCFO can't fit, e.g. too
-// few usable tiles) — the headless equivalent of clicking "Estimate gain/offset"
-// then "Localize". --pcfoFrames/--pcfoK/--pcfoRnstd (PARAMS overrides) tune it.
+// few usable tiles) — the headless equivalent of clicking "Estimate", "Transfer
+// estimates", then "Localize". --pcfoFrames/--pcfoK/--pcfoRnstd (PARAMS
+// overrides) tune it.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';

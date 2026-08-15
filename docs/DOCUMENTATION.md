@@ -63,14 +63,17 @@ says.
   (independent of the fit-side `gain`/`camoffset` below, so simulated ground
   truth and the fit's assumed camera can be matched or intentionally
   mismatched for testing) — see **simulation** module.
-- **Gain/offset estimation** (`pcfoBox`) — `pcfoFrames`/`pcfoK`/`pcfoRnstd`
-  and the **Estimate gain/offset** button (`pcfoBtn`, disabled until a stack
-  is loaded/simulated). Runs the Rieger–Heintzman photon-conversion-factor
-  method (PCFO) on the loaded/simulated stack and fills the `gain`/
-  `camoffset` fields in **Localisation settings** below — no separate
-  calibration acquisition needed. Placed here, before **3D calibration**,
-  since both are one-off "derive a number from data, then use it below"
-  steps run before the main Localize. See **fit** module, `pcfoCore()`.
+- **Gain & offset estimation** (`pcfoBox`) — `pcfoFrames`/`pcfoK`/`pcfoRnstd`
+  and two buttons: **Estimate** (`pcfoBtn`, disabled until a stack is
+  loaded/simulated) runs the Rieger–Heintzman photon-conversion-factor
+  method (PCFO) on the loaded/simulated stack — no separate calibration
+  acquisition needed — but only *computes*, it doesn't touch `gain`/
+  `camoffset` itself; **Transfer estimates** (`pcfoTransferBtn`, disabled
+  until a successful Estimate) is the separate, explicit step that copies
+  the last estimate into the `gain`/`camoffset` fields in **Localisation
+  settings** below. Placed here, before **3D calibration**, since both are
+  one-off "derive a number from data, then use it below" steps run before
+  the main Localize. See **fit** module, `pcfoCore()`.
 - **3D calibration** (`calibBox`) — `calFirst`/`calLast`/`calStep`/`calRef`
   (per-dataset working state, *not* in `PARAMS` — resets from the loaded
   stack), `calFixedXY`, and the **Calibrate**/**Save calib.** buttons
@@ -312,17 +315,25 @@ CRLB) are already true photon units. See the **fit** module.
 
 ### Gain/offset estimation (PCFO)
 
+Sidebar section label: **Gain & offset estimation**.
+
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `pcfoFrames` | Frames sampled | number (int) | 1 | 5000 | 10 | 200 |
 | `pcfoK` | k_thresh (spatial freq.) | number | 0.1 | 1 | 0.05 | 0.9 |
 | `pcfoRnstd` | Readout noise σ (e⁻) | number | 0 | 200 | 0.01 | 2.89 |
 
-**Estimate gain/offset** (`pcfoBtn`) runs the Rieger–Heintzman
-photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen,
-Lidke & Rieger, [arXiv:1611.05654](https://arxiv.org/abs/1611.05654)) on the
-loaded/simulated stack — no separate calibration acquisition needed — and
-fills `gain`/`camoffset` above directly. `pcfoFrames` seeded-random frames
+Two buttons, side by side. **Estimate** (`pcfoBtn`) runs the
+Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich,
+Nieuwenhuizen, Lidke & Rieger,
+[arXiv:1611.05654](https://arxiv.org/abs/1611.05654)) on the loaded/simulated
+stack — no separate calibration acquisition needed. It only *computes* — it
+does **not** touch `gain`/`camoffset` itself. **Transfer estimates**
+(`pcfoTransferBtn`, disabled until a successful Estimate) is the separate,
+explicit step that copies the last result into the `gain`/`camoffset` fields
+in **Localisation settings** — keeps a stale/unwanted estimate from silently
+overwriting values set by hand in between; both buttons reset to disabled on
+a new **Load movie**/**Simulate movie**. `pcfoFrames` seeded-random frames
 are sampled; each is tiled at a size auto-derived from the field of view
 (aiming for a ~4×4 grid, rounded to a power of two — the noise-variance
 estimate needs an FFT — floored at 64px, never below 2×2; **not** a page
@@ -343,8 +354,8 @@ way if left out; if both are present, combine them in quadrature
 (√(read_noise²+offset_std²), photon-equivalent units) — the default (2.89)
 matches the **Simulation settings** panel's own defaults
 (`simulation_readnoise` 2.7 e⁻ + `simulation_offset_std` 3 ADU) combined this
-way, for a clean Simulate-movie → Estimate-gain/offset self-test out of the
-box. A diagnostic scatter (signal vs. noise-variance, fitted line, R²) is
+way, for a clean Simulate movie → Estimate → Transfer estimates self-test out
+of the box. A diagnostic scatter (signal vs. noise-variance, fitted line, R²) is
 drawn on the raw panel after each run (`drawPcfoPlot()`, the same
 left-panel-plot pattern as calibration/FRC/NeNA curves) so the underlying
 linearity (shot-noise-dominated) assumption can be checked visually — R² <
@@ -526,8 +537,10 @@ is what to know before touching that module, not a restatement of its code.
   gain/offset estimation from a loaded/simulated stack directly (no
   calibration acquisition needed) — see
   [§2/Gain-offset estimation (PCFO)](#gainoffset-estimation-pcfo). Its
-  interactive wrapper is `estimateGainOffset()` (the **Estimate gain/offset**
-  button); `pcfoCore()` itself is DOM-free, same `*Core(config, stack,
+  interactive wrapper is `estimateGainOffset()` (the **Estimate** button;
+  `transferPcfoEstimate()`, the separate **Transfer estimates** button, then
+  applies the result to `gain`/`camoffset`); `pcfoCore()` itself is DOM-free,
+  same `*Core(config, stack,
   hooks)` split as `runCore`/`driftCore`/`calibrationCore`, reachable
   headlessly via `config.estimateGainOffset` ([§8](#8-headless-api-window-websmlm)).
 - **render** — accumulates localizations into an offscreen buffer `srFull`;
@@ -783,7 +796,8 @@ const result = await window.webSMLM.analyze({
   (PCFO)](#gainoffset-estimation-pcfo)) on the SAME stack `config.file`/
   `config.files` just loaded, **before** the main run, then overrides
   `config.gain`/`config.camoffset` with the estimate — the headless
-  equivalent of clicking **Estimate gain/offset** then **Localize**.
+  equivalent of clicking **Estimate**, **Transfer estimates**, then
+  **Localize**.
   `pcfoFrames`/`pcfoK`/`pcfoRnstd` are ordinary `PARAMS` fields tuning it. If
   PCFO can't fit (too few usable tiles — e.g. a very small frame), `config.gain`/
   `config.camoffset` are left as given (or their `PARAMS` defaults) and
