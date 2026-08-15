@@ -131,7 +131,13 @@ relevant one before editing rather than scrolling:
   actually change a result rather than just rescaling it.
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
-  without refitting.
+  without refitting. `LUT_CPS` control-point maps: `fire`/`inferno`/`viridis`/`turbo` are smooth
+  hue ramps for continuously-varying data (intensity, real 3D depth); `diverging` (ColorBrewer
+  RdBu-11) has a genuine white midpoint for data with a meaningful threshold/split instead, and
+  `spectral` (Bruton wavelength→RGB, 380–700 nm, denser control points through the fast-changing
+  580–620 nm yellow/orange band) gives real visible-spectrum colours for a value that already IS a
+  wavelength proxy — both aimed at **sSMLM**'s distance colouring; **Pair** auto-selects
+  `diverging`.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
@@ -163,7 +169,13 @@ relevant one before editing rather than scrolling:
   default. **2-point pairs only** (0th+1st) — multi-order chaining and FFT-based angle/distance
   auto-detection are `docs/REFACTOR_PLAN.md` follow-ups, not implemented; the interactive
   **Preview pairs** distance/angle histograms (reusing `computeHist()`/`drawHistogram()` from
-  **table**) cover "find my window" instead. An unpaired localization is dropped from the result,
+  **table**) cover "find my window" instead. The angle histogram plots each candidate's `rawAngle`
+  AND its exact reverse (`+180°`, both `wrap360()`-ed into a window centred 90° off
+  `sSmlmAngleCenter` so neither peak sits at the seam) — plotting only the raw single bearing looks
+  wildly asymmetric, since which of a candidate's two points gets the smaller array index (and
+  therefore which direction `rawAngle` reports) is a row-order accident, not evenly split in real
+  data; doubling it makes the two peaks equal, as an undirected diagnostic should show. An unpaired
+  localization is dropped from the result,
   not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
   — its centroid already is the true position), not the midpoint: the 1st order's offset varies
   per emitter with wavelength, so averaging would blur position by up to half that offset. Stores

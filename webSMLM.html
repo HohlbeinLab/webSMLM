@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15i</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16a</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1690,6 +1690,8 @@ X.B(E,Y);return E}return J}())
             <option value="inferno">Inferno</option>
             <option value="viridis">Viridis</option>
             <option value="turbo">Blue–Green–Red (Turbo)</option>
+            <option value="diverging">Blue–White–Red (diverging)</option>
+            <option value="spectral">Visible spectrum</option>
             <option value="grey">Grey</option>
           </select></label>
         <label class="row">Display max
@@ -1758,7 +1760,7 @@ X.B(E,Y);return E}return J}())
         <summary>Spectral SMLM analysis</summary>
         <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
-        <label class="row">Angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-180" max="180" step="1" class="num"></label>
+        <label class="row">Primary angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-180" max="180" step="1" class="num"></label>
         <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="5" min="0" max="90" step="1" class="num"></label>
         <label class="row">Require narrower 0th order (σ) <input type="checkbox" id="sSmlmRequireNarrower"></label>
         <div class="btnrow" style="margin-top:6px">
@@ -1771,8 +1773,8 @@ X.B(E,Y);return E}return J}())
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: sSMLM</span>
-          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
-          <p><b>Preview pairs</b> only computes — draws a distance histogram (every candidate pair in range, any angle) and, via <b>Show angle hist.</b>, an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Narrow <b>Distance min/max</b> and <b>Angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit.</p>
+          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
+          <p><b>Preview pairs</b> only computes — draws a distance histogram (every candidate pair in range, any angle) and, via <b>Show angle hist.</b>, an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, since sSMLM pairing and 3D depth both use the same field). <b>Unpair</b> restores the original, unpaired localizations.</p>
           <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
@@ -1807,7 +1809,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15i · sSMLM: directional (brightness-free) pair matching
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16a · sSMLM: fixed angle histogram, diverging/spectral LUTs
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1911,7 +1913,7 @@ const PARAMS = {
   // rblur = σ_render, display-only Gaussian smoothing applied to the rendered reconstruction
   rblur: { type:'number', id:'rblur', label:'Render blur σ_render (px)', min:0, max:1, step:0.05, default:0.25, int:false },
   // lut = "look-up table", the colour map applied to the reconstruction
-  lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','grey'], default:'fire' },
+  lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','diverging','spectral','grey'], default:'fire' },
   // lutpct = percentile used for display-max clipping, so one hot pixel can't dim the rest
   lutpct: { type:'enum', id:'lutpct', label:'Display max percentile', options:['99.9','99.5','99','100'], default:'99.9' },
   // zcolor = render 3D results with hue = z (depth-coded) instead of a flat colour map
@@ -1984,7 +1986,7 @@ const PARAMS = {
   // 1st (see MODULE: sSMLM banner below), so direction itself now carries
   // that role assignment and needs the full circle to express it.
   // Tol default (±5°) is tuned to the reference dataset's own peak.
-  sSmlmAngleCenter: { type:'number', id:'sSmlmAngleCenter', label:'sSMLM pair angle (deg)', min:-180, max:180, step:1, default:0, int:false },
+  sSmlmAngleCenter: { type:'number', id:'sSmlmAngleCenter', label:'sSMLM pair primary angle (deg)', min:-180, max:180, step:1, default:0, int:false },
   sSmlmAngleTol: { type:'number', id:'sSmlmAngleTol', label:'sSMLM pair angle tolerance (± deg)', min:0, max:90, step:1, default:5, int:false },
   // sSmlmRequireNarrower = optional EXTRA confidence gate: also require the
   // 0th-order candidate's own PSF (sigma) to be narrower than its chosen 1st
@@ -3638,7 +3640,22 @@ let rawCropMode=false, rawCropPt0=null;
    "fire" reproduces the original black→red→yellow→white ramp. "inferno" and
    "viridis" are the matplotlib maps, sampled every 0.1 and linearly
    interpolated — both perceptually uniform, so equal steps in density read as
-   equal steps in brightness (fire does not have that property).
+   equal steps in brightness (fire does not have that property). "diverging"
+   is ColorBrewer's RdBu-11 (reversed: blue=low, red=high) — unlike the
+   others, it has a genuine white MIDPOINT rather than a smoothly rotating
+   hue, so it reads at a glance which side of the mapped range's centre a
+   value falls on (e.g. distances below vs. above the mean) — a smooth
+   rainbow map has no equivalent "neutral" colour to anchor that read against.
+   Meant for exactly this: a value with a meaningful threshold/split, not a
+   continuously-varying one (for real, unimodal 3D depth, turbo/inferno's
+   smooth ramp is usually still the better fit). "spectral" approximates the
+   true visible-light spectrum (Bruton's wavelength→RGB, 380–700 nm) rather
+   than a perceptually-uniform hue rotation — sampled DENSER around the
+   580–620 nm yellow/orange band, where real spectral colour genuinely
+   changes fast, and coarser through the broader blue/green/red bands where
+   it doesn't — matching the physically uneven transition widths turbo's
+   uniform hue sweep doesn't have. The natural choice for sSMLM's distance
+   colouring, since that value already IS a wavelength proxy.
    ------------------------------------------------------------------------- */
 const LUT_CPS={
   inferno:[[0,0,4],[22,11,57],[66,10,104],[106,23,110],[147,38,103],
@@ -3646,7 +3663,12 @@ const LUT_CPS={
   viridis:[[68,1,84],[72,40,120],[62,73,137],[49,104,142],[38,130,142],
            [31,158,137],[53,183,121],[110,206,88],[181,222,43],[216,226,25],[253,231,37]],
   turbo:[[48,18,59],[64,101,224],[31,168,245],[24,215,203],[85,242,94],
-         [168,242,44],[219,213,44],[245,161,42],[246,107,36],[205,46,13],[122,4,3]]
+         [168,242,44],[219,213,44],[245,161,42],[246,107,36],[205,46,13],[122,4,3]],
+  diverging:[[5,48,97],[33,102,172],[67,147,195],[146,197,222],[209,229,240],
+             [247,247,247],[253,219,199],[244,165,130],[214,96,77],[178,24,43],[103,0,31]],
+  spectral:[[255,0,255],[128,0,255],[0,0,255],[0,102,255],[0,204,255],[0,255,255],
+            [0,255,128],[0,255,0],[73,255,0],[146,255,0],[219,255,0],[255,255,0],
+            [255,216,0],[255,177,0],[255,98,0],[255,0,0],[255,0,0]]
 };
 const _lutCache={};
 function getLUT(name){
@@ -5748,9 +5770,30 @@ async function pairCore(locs, px, config, hooks={}){
 //   sSmlmLastCands/sSmlmHistMode back the distance/angle histogram toggle
 //   so switching views doesn't need recomputing candidates.
 let sSmlmOriginalLocs=null, sSmlmPairedLocs=null, sSmlmShowingRaw=false, sSmlmLastCands=null, sSmlmHistMode='dist';
+// wrap x into [lo,lo+360) — used below to plot the FULL circle of candidate
+// bearings without an artificial seam landing on either real peak. A plain
+// [0,360) (or the old folded [0,180)) range puts a seam exactly AT 0°/180°,
+// which is exactly where the two real peaks sit for a near-horizontal
+// grating — splitting one peak's negative-angle half off to the opposite
+// end of the plot. Centring the wrap 90° away from Preview's own scan
+// centre (always 0°, see previewSSmlmPairs) keeps BOTH the forward (~0°)
+// and backward (~180°) peaks 90° clear of the seam, whatever the true
+// grating rotation turns out to be.
+function wrap360(x,lo){ return ((x-lo)%360+360)%360 + lo; }
 function drawSSmlmHist(){
   if(!sSmlmLastCands) return;
-  const vals = sSmlmLastCands.map(c=> sSmlmHistMode==='dist' ? c.dist : c.angle);
+  // Each candidate's rawAngle is i->j for WHICHEVER of the pair happens to
+  // have the smaller array index — an accident of file/detection order, not
+  // geometry, and (verified against the real reference CSV) not evenly
+  // split: one direction can dominate the raw candidate list roughly 9:1
+  // over the other purely from row-ordering, making the two peaks look
+  // wildly unequal even though they describe the same underlying
+  // relationships. Plotting BOTH a candidate's bearing AND its reverse
+  // (rawAngle+180) fixes this by construction — every candidate contributes
+  // exactly once to each peak, so they come out equal, which is what an
+  // undirected diagnostic should show regardless of row order.
+  const vals = sSmlmHistMode==='dist' ? sSmlmLastCands.map(c=>c.dist)
+    : sSmlmLastCands.flatMap(c=>[wrap360(c.rawAngle,-90), wrap360(c.rawAngle+180,-90)]);
   computeHist(sSmlmHistMode==='dist' ? 'sSMLM pair distance' : 'sSMLM pair angle', vals, sSmlmHistMode==='dist' ? 'nm' : 'deg');
   drawHistogram();
 }
@@ -5809,6 +5852,12 @@ async function runSSmlmPair(){
     // default rather than leaving the reconstruction looking unchanged (the
     // usual complaint: "I paired but don't see any sSMLM output").
     $('zcolor').checked = true;
+    // A smoothly-rotating hue (the usual depth LUTs) has no visual "centre"
+    // to read a below/above-threshold split against; the diverging map's
+    // white midpoint gives distance one, matching what this data actually
+    // needs — same auto-switch pattern updateMethodUI() uses for 3D's own
+    // depth LUT default.
+    $('lut').value='diverging';
     rerender(true);
     $('sSmlmUnpairBtn').disabled=false;
     $('sSmlmColorBtn').style.display='';
