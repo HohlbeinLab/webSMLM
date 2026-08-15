@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15f</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15g</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1644,7 +1644,7 @@ X.B(E,Y);return E}return J}())
       <label class="row">Gain/offset estimation <button id="pcfoBtn" type="button" disabled style="width:80px;padding:9px 4px" title="Estimate gain/offset">Estimate</button></label>
       <details class="sim" id="pcfoBox">
         <summary>Gain/offset estimation settings</summary>
-        <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="100" min="1" max="5000" step="10" class="num"></label>
+        <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="200" min="1" max="5000" step="10" class="num"></label>
         <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1.4" step="0.05" class="num"></label>
         <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.7" min="0" max="200" step="1" class="num"></label>
         <details class="info"><summary>…further info…</summary>
@@ -1732,7 +1732,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15f · rename PCFO labels to "Gain/offset estimation"
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15g · PCFO weight cap, low-signal-first warning, frames=200
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1815,8 +1815,10 @@ const PARAMS = {
 
   // ---- PCFO (photon-conversion-factor & offset): estimates gain/camoffset above from the
   // stack itself, via the Rieger–Heintzman high-spatial-frequency noise method (estimateGainOffset)
-  // pcfoFrames = how many seeded-random frames to sample and average PCFO statistics over
-  pcfoFrames: { type:'number', id:'pcfoFrames', label:'PCFO: frames sampled', min:1, max:5000, step:10, default:100, int:true },
+  // pcfoFrames = how many seeded-random frames to sample and average PCFO statistics over;
+  // pickSeededFrames() already caps this at the stack's actual frame count, so a shorter
+  // stack just uses every frame rather than erroring or resampling
+  pcfoFrames: { type:'number', id:'pcfoFrames', label:'PCFO: frames sampled', min:1, max:5000, step:10, default:200, int:true },
   // pcfoK = spatial-frequency cutoff (fraction of Nyquist) above which content is assumed noise-only
   pcfoK: { type:'number', id:'pcfoK', label:'PCFO: k_thresh (spatial freq.)', min:0.1, max:1.4, step:0.05, default:0.9, int:false },
   // pcfoRnstd = camera dark-frame read-noise std, in electrons; set to 0 if unknown/negligible for
@@ -4863,12 +4865,28 @@ function pcfoFrameTilePoints(img,w,h,S,kThresh){
 // larger, not because they're more reliable. Weighting by 1/noisevar² (using the observed
 // noisevar as the plug-in estimate of the true variance) is the standard correction for
 // photon-transfer-curve-style variance-vs-mean fits.
+// The raw weight is otherwise unbounded as noisevar->0, so a single degenerate tile (dead/
+// saturated/masked pixels, or just an unlucky near-zero variance draw) could dominate the
+// whole fit — verified: one such point flipped the fitted slope's sign entirely in testing,
+// and a fixed multiple-of-the-median cap (e.g. 25x) still let it pull the fit substantially,
+// since a modest cap still lets one point outweigh a sizeable chunk of a modest-N dataset.
+// Floor the noisevar used for weighting at the pooled 10th-percentile value instead: this
+// ties the cap to the actual spread of the (mostly well-behaved) data rather than an
+// arbitrary ratio, so a degenerate point's weight is bounded to roughly what the dimmest
+// NATURALLY-occurring tile in this dataset would get — it can't be artificially inflated
+// past that no matter how close to zero its measured noisevar is. Shared by pcfoRegress and
+// pcfoRSquared so the reported R² reflects what was actually optimized.
+function pcfoWeightFloor(pts){
+  const sorted=pts.map(p=>p.noisevar).sort((a,b)=>a-b);
+  return Math.max(1e-9, sorted[Math.floor(sorted.length*0.1)]);
+}
 function pcfoRegress(pts,rnstd){
   const nT=pts.length;
   if(nT<2) return null;
+  const wFloor=pcfoWeightFloor(pts);
   let sW=0,sWx=0,sWy=0,sWxx=0,sWxy=0;
   for(const p of pts){
-    const y=p.noisevar, w=1/Math.max(1e-9,y*y);
+    const y=p.noisevar, w=1/Math.max(wFloor*wFloor,y*y);
     sW+=w; sWx+=w*p.imsig; sWy+=w*y; sWxx+=w*p.imsig*p.imsig; sWxy+=w*p.imsig*y;
   }
   const det=sW*sWxx-sWx*sWx;
@@ -4879,17 +4897,18 @@ function pcfoRegress(pts,rnstd){
   const offset=-c/gain+gain*rnstd*rnstd;
   return {gain,c,offset};
 }
-// Weighted R² of the pooled fit (same 1/noisevar² weights as pcfoRegress, so it reflects
-// what was actually optimized) — a debug/linearity check: PCFO's whole premise is that
-// per-tile noise variance scales linearly with mean signal (shot-noise-dominated,
+// Weighted R² of the pooled fit (same capped 1/noisevar² weights as pcfoRegress, so it
+// reflects what was actually optimized) — a debug/linearity check: PCFO's whole premise is
+// that per-tile noise variance scales linearly with mean signal (shot-noise-dominated,
 // Poisson statistics), so a low R² means that assumption doesn't hold for this
 // stack (saturation, non-uniform illumination, strong fixed-pattern/read noise, …)
 // and the reported gain/offset shouldn't be trusted.
 function pcfoRSquared(pts,gainSlope,c){
-  let sW=0,sWy=0; for(const p of pts){ const w=1/Math.max(1e-9,p.noisevar*p.noisevar); sW+=w; sWy+=w*p.noisevar; }
+  const wFloor=pcfoWeightFloor(pts);
+  let sW=0,sWy=0; for(const p of pts){ const w=1/Math.max(wFloor*wFloor,p.noisevar*p.noisevar); sW+=w; sWy+=w*p.noisevar; }
   const meanY=sWy/sW;
   let ssRes=0,ssTot=0;
-  for(const p of pts){ const w=1/Math.max(1e-9,p.noisevar*p.noisevar), pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY;
+  for(const p of pts){ const w=1/Math.max(wFloor*wFloor,p.noisevar*p.noisevar), pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY;
     ssRes+=w*d*d; ssTot+=w*dt*dt; }
   return ssTot>0 ? 1-ssRes/ssTot : NaN;
 }
@@ -4970,7 +4989,7 @@ async function estimateGainOffset(){
     log(`  gain = ${gainPhPerADU.toFixed(3)}${isFinite(gStd)?' ± '+gStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(oStd)?' ± '+oStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
     pcfoLastPts=pts; pcfoLastFit=fit; pcfoLastR2=pcfoRSquared(pts,fit.gain,fit.c);
     log(`  linearity check: R² = ${pcfoLastR2.toFixed(4)} (signal vs. noise-variance across ${pts.length} tiles)`
-      + `${pcfoLastR2<0.3?' — LOW: tiles do not sit on a line; check for saturation, non-uniform illumination, or non-Poissonian noise before trusting this result.':'.'}`);
+      + `${pcfoLastR2<0.3?' — LOW: tiles do not sit on a line; most likely too low a photon count — or, less commonly, saturation, non-uniform illumination, or non-Poissonian noise. Check the plot before trusting this result.':'.'}`);
     drawPcfoPlot();
     $('gain').value=gainPhPerADU.toFixed(3); $('camoffset').value=Math.round(fit.offset);
   }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
