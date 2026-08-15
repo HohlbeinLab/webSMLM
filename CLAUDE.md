@@ -142,6 +142,20 @@ relevant one before editing rather than scrolling:
 - **drift** — AIM (adaptive intersection maximization), point-based, 2D+z.
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
+- **sSMLM** — spectrally resolved SMLM: pairs 0th/1st-order localizations from a diffraction
+  grating (ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
+  Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). `sSmlmCandidates()` enumerates same-frame
+  candidates within a distance/angle window (angle mod 180° — undirected); `pairCore()`
+  (`driftCore`-shaped) sorts by closeness to the expected angle and greedily accepts
+  non-conflicting pairs. **2-point pairs only** (0th+1st) — multi-order chaining and FFT-based
+  angle/distance auto-detection are `docs/REFACTOR_PLAN.md` follow-ups, not implemented; the
+  interactive **Preview pairs** distance/angle histograms (reusing `computeHist()`/
+  `drawHistogram()` from **table**) cover "find my window" instead. Stores the inter-order
+  distance in the paired loc's `z` — same trick the prior-art tool's own `ThunderSTORM.csv`
+  output uses — so the existing `zcolor` depth-coded render path needs no changes; **Pair**
+  refuses if the current result already has real 3D `z`. Swaps `lastResult.locs` for the paired
+  set, keeping `sSmlmOriginalLocs` as a backup — the same pattern **in/out**'s raw-panel crop
+  tool uses for `originalStack`.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

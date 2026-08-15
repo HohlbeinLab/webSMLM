@@ -135,6 +135,15 @@ walk-through of every step.
 - **Exports** localizations as ThunderSTORM-compatible CSV, including
   background-subtracted intensity, background level and a Thompson/Larson/Webb
   uncertainty estimate. See the caveat on ADU-to-photon conversion below.
+- **Spectral SMLM (sSMLM)**: pairs 0th/1st-order localizations from a
+  diffraction grating in the emission path — each emitter appears twice per
+  frame, offset by a wavelength-dependent distance at a fixed orientation.
+  Interactive distance/angle histograms help find your setup's own window;
+  pairing replaces the localizations with one row per pair (position =
+  midpoint, colour = inter-order distance, a wavelength proxy, via the
+  existing depth-coding render option). Ported from
+  [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
+  2-point pairs only for now — see `docs/REFACTOR_PLAN.md`.
 
 ## Performance
 

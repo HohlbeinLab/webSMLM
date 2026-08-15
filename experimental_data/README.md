@@ -175,6 +175,42 @@ regression checks don't depend on re-downloading from EPFL.
 `sequence-as-stack-MT0.N1.LD-AS-Exp.tif` (158.9 MB) stays local-only regardless
 (over the 100 MB hard limit).
 
+## Fourth reference dataset — spectral SMLM (sSMLM) pair-finding
+
+`sSMLM_Fig2_locs.csv` (108 MB, 2,075,193 rows) — real localizations similar
+to Figure 2A of Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi &
+Hohlbein, *Enabling Spectrally Resolved Single-Molecule Localization
+Microscopy at High Emitter Densities*, *Nano Lett.* **22**(21), 8618–8625
+(2022), [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140).
+The full dataset behind the paper — TIFF stacks for Figures 2–4 and
+Supplementary Figures 1–2, plus processed CSVs, 19.3 GB total — is on Zenodo:
+[10.5281/zenodo.6778964](https://doi.org/10.5281/zenodo.6778964), *"Enabling
+spectrally resolved single-molecule localization microscopy at high emitter
+densities: Dataset"* (same authors). Unlike the stacks above, this is
+**not** a raw camera stack — it's already in webSMLM's own CSV export shape
+(`id,frame,x [nm],y [nm],sigma [nm],intensity [photon],offset [photon],
+bkgstd [photon],uncertainty [nm]`, no `z` column), so it loads directly via
+**Load data**, no conversion needed. It's *raw, unpaired* localizations —
+the input the **Spectral SMLM analysis** module's pairing step is meant to
+consume, not a pre-paired reference to diff against.
+
+| Property | Value |
+|---|---|
+| Frames | 31,407 |
+| Localizations | 2,075,193 (~66/frame) |
+| Field of view | ~23.4 × 13.5 µm |
+
+**Verified pairing parameters** (found by direct analysis before the
+**Spectral SMLM analysis** module was built — sampled ~1,500–3,000 frames,
+computed all same-frame pairwise distances/angles — then reproduced live via
+**Preview pairs** once the module existed, both giving the same result):
+a sharp **distance peak at ~2.5 µm** (2300–2700 nm captures it cleanly)
+against the expected smooth combinatorial background, and within that
+window a **dominant angle at ~0°** (essentially horizontal). Pairing with
+`sSmlmDistMin=2300, sSmlmDistMax=2700, sSmlmAngleCenter=0, sSmlmAngleTol=10`
+recovers 667,868 pairs (64.4% of all localizations paired), mean distance
+2541 ± 69 nm, mean angle 2.0°.
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations

@@ -31,79 +31,33 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     to converge on real corrected-background statistics, but not yet
     confirmed against real data.
 
-- **Spectrally resolved SMLM (sSMLM) — new "Spectral SMLM analysis" module,
-  targeted for v0.11.0.** A diffraction grating placed in the emission path
-  splits each emitter into a 0th-order (undispersed) and one or more
-  higher-order PSFs, spatially offset from the 0th by a distance that
-  depends on the emitter's wavelength; finding those pairs/chains per frame
-  and taking their midpoint as the emitter position turns an ordinary SMLM
-  stack into a spectrally-resolved one, without a beam-splitter or a second
-  camera. From Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi &
-  Hohlbein, *Enabling Spectrally Resolved Single-Molecule Localization
-  Microscopy at High Emitter Densities*, **Nano Lett.** 22(21), 8618–8625 (2022),
-  [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140) —
-  a low-dispersion blazed transmission grating close to the image plane, so
-  the 0th order stays a normal undispersed PSF and the 1st is only slightly
-  elongated, keeping spatial and spectral resolution both usable at once
-  (the paper's point, vs. higher-dispersion sSMLM designs that trade one for
-  the other). Existing prior art to build from/against, not a from-scratch
-  design: [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer)
-  (Gobes/Martens/Hohlbein, ImageJ/Java + a MATLAB port), which already takes
-  ThunderSTORM-shaped CSV in (`frame,x,y,intensity` — the same columns
-  webSMLM already exports) and does:
-  - **Angle/distance auto-detection** (`AngleAnalyzer.java`): renders the
-    localizations to an image, 2D-FFTs it (ImageJ's `FFT`/a `Directionality_`
-    plugin), and finds the dominant periodic peak's angle + radius — the
-    grating's orientation and the 0th↔1st spacing both show up as a
-    Fourier-domain feature, since the pair offset is *itself* periodic
-    across all emitters. Conceptually reusable (render → 2D FFT → find the
-    peak) but not a drop-in: webSMLM's own inline FFT (`locprecision`
-    module, used for FRC) is a 1D radix-2 transform applied separably, not
-    a 2D image FFT + peak-finding routine — this would need its own,
-    probably simpler, implementation rather than reusing FRC's code
-    directly. Manual angle/distance entry (a few µm range, known
-    orientation, both refined later per the paper's own workflow) needs to
-    stay available regardless, as a fallback and for validation.
-  - **Per-frame pairing** (`sSMLMA.java`): candidate pairs filtered by
-    angle + distance window, chained into multi-order sequences (0-1, 1-2,
-    2-3 → 0-1-2-3) when more than one higher order is requested, best-match
-    tie-breaking by closest angle to the expected grating angle ("straight
-    line" wins). Optional filters worth carrying over: each higher order
-    must be dimmer than the last (physically expected — the grating splits
-    intensity), and a minimum-neighbour-count spatial consistency check to
-    reject sparse false pairs.
-  - **Output position + colour coding**: emitter position = the pair's
-    midpoint, refined by averaging the left/right-shift asymmetry the paper
-    notes between 0th and 1st (halved, added back to the first point) rather
-    than a naive average; inter-order distance (a direct proxy for
-    wavelength) becomes the colour/depth channel. webSMLM already has
-    exactly this rendering machinery for a different z-like quantity
-    (`zcolor`/`zmin`/`zmax`, **render** module) — sSMLM's "distance" is
-    structurally the same kind of per-localization scalar an existing
-    astigmatic Run currently fills with real z, so the depth-coded render
-    path likely needs a source-agnostic tweak (color by "whatever scalar
-    channel is active", not hardcoded to z) rather than a parallel
-    implementation.
-  - Sits at the same pipeline layer as drift correction/NeNA/FRC — a new
-    stage consuming an already-completed Run's `lastResult.locs` and
-    producing a reduced, derived set (one row per pair/chain instead of one
-    per raw localization) — structurally close to `clusterEvents()`'s
-    existing raw-vs-merged split (`getBaseLocs()`, table module) more than
-    to anything in detect/fit, so that seam is worth checking first before
-    inventing a new one.
-  - Proposed UI: a new collapsible sidebar section, **Spectral SMLM
-    analysis**, at the bottom of the current stack (after Localization
-    precision) — gated on having localizations, same as NeNA/FRC/drift.
-  - Next concrete step, not yet done: the user will add a reference
-    dataset (localizations CSV from a real acquisition, already analysed by
-    `sSMLMAnalyzer`) to `experimental_data/`, so any webSMLM implementation
-    has a known-correct pairing result to validate against directly —
-    the same "compare against an established reference" approach FTM/PCFO/
-    drift validation already used in this codebase, not synthetic-only.
-  - Targeted for **v0.11.0** — not scoped down to an implementation plan
-    yet, this entry is the landing point for the idea and the prior art;
-    detailed design (which pieces above get built first, exact UI/`PARAMS`
-    shape) is still open, likely once the reference dataset above lands.
+- **Spectrally resolved SMLM (sSMLM) — follow-ups beyond the Phase 1 "Spectral
+  SMLM analysis" module** (2-point 0th/1st-order pairing, shipped v0.11.0 —
+  see `CLAUDE.md`/`docs/DOCUMENTATION.md`'s **sSMLM** module entry for the
+  design; from Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi &
+  Hohlbein, *Nano Lett.* 22(21), 8618–8625 (2022),
+  [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140),
+  ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer)).
+  Remaining, not yet implemented:
+  - **Multi-order chaining** (0-1-2-3+, matching `sSMLMAnalyzer`'s
+    `sSMLMA.java` full feature set) — Phase 1 deliberately handles 2-point
+    pairs only; nothing in the real Fig. 2 reference dataset examined so far
+    demonstrates a genuine 2nd-order signal to validate a chaining
+    implementation against, so this needs its own dataset/validation, not
+    just the algorithm.
+  - **FFT-based automatic angle/distance detection**, matching
+    `sSMLMAnalyzer`'s `AngleAnalyzer.java` (render localizations to an
+    image, 2D-FFT it, find the dominant periodic peak — not a drop-in for
+    webSMLM's own inline FFT, which is a 1D radix-2 transform for FRC, not a
+    2D image FFT + peak-finding routine). Phase 1's **Preview pairs**
+    distance/angle histograms cover the same "find my window" need more
+    simply for now.
+  - **Headless (`window.webSMLM.analyze()`/CLI) exposure** — natural next
+    step once Phase 1 has seen real interactive use, same two-step pattern
+    as `config.estimateGainOffset`/`config.cropX0` earlier in 0.10.x.
+  - A minimum-neighbour-count spatial consistency filter (reject sparse
+    false pairs with too few nearby confirmed pairs) — `sSMLMAnalyzer` has
+    one, Phase 1 doesn't.
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive

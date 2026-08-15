@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15a</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15b</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1754,6 +1754,30 @@ X.B(E,Y);return E}return J}())
           <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
         </div>
       </details>
+      <details class="sim" id="sSmlmBox">
+        <summary>Spectral SMLM analysis</summary>
+        <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="200" min="0" max="20000" step="50" class="num"></label>
+        <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="6000" min="0" max="20000" step="50" class="num"></label>
+        <label class="row">Angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-90" max="90" step="1" class="num"></label>
+        <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="90" min="0" max="90" step="1" class="num"></label>
+        <label class="row">Require decreasing order intensity <input type="checkbox" id="sSmlmIntensityOrder" checked></label>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="sSmlmPreviewBtn" disabled title="Preview candidate pairs as distance/angle histograms, without committing">Preview pairs</button>
+          <button id="sSmlmToggleHistBtn" disabled title="Switch the diagnostic between the distance and angle histograms">Show angle hist.</button>
+        </div>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="sSmlmPairBtn" disabled title="Pair 0th/1st-order localizations using the settings above">Pair</button>
+          <button id="sSmlmUnpairBtn" disabled title="Restore the original, unpaired localizations">Unpair</button>
+        </div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: sSMLM</span>
+          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a fixed, known orientation. The paired midpoint becomes the emitter's position; the inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed.</p>
+          <p><b>Preview pairs</b> only computes — draws a distance histogram (every candidate pair in range, any angle) and, via <b>Show angle hist.</b>, an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Narrow <b>Distance min/max</b> and <b>Angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit.</p>
+          <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, since sSMLM pairing and 3D depth both use the same field). <b>Unpair</b> restores the original, unpaired localizations.</p>
+          <p><b>Require decreasing order intensity</b> rejects candidate pairs whose two points are within 5% of each other's brightness — too similar to confidently tell which is the brighter 0th order; the grating splits each emitter's intensity, so a real pair is expected to be asymmetric.</p>
+          <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
+        </div>
+      </details>
     </div>
   </aside>
 
@@ -1783,7 +1807,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15a · start 0.11.0-dev
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15b · sSMLM Phase 1 (pairing)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1945,6 +1969,21 @@ const PARAMS = {
   // ---- precision ----
   // frc3d = compute FRC over spherical shells instead of 2D rings (not yet implemented — UI placeholder)
   frc3d: { type:'bool', id:'frc3d', label:'3D shells (FSC)', default:false },
+
+  // ---- sSMLM (spectrally resolved SMLM, diffraction-grating pair finding) ----
+  // sSmlmDistMin/Max = the 0th/1st-order pair search window (nm) — wide by default
+  // (a "few micrometres" per the technique, but not tuned to any one setup); narrow
+  // it after checking Preview pairs' distance histogram for the real peak.
+  sSmlmDistMin: { type:'number', id:'sSmlmDistMin', label:'sSMLM pair distance min (nm)', min:0, max:20000, step:50, default:200, int:false },
+  sSmlmDistMax: { type:'number', id:'sSmlmDistMax', label:'sSMLM pair distance max (nm)', min:0, max:20000, step:50, default:6000, int:false },
+  // sSmlmAngleCenter/Tol = the grating's fixed orientation ± tolerance, undirected
+  // (mod 180°) since a pair's two points aren't ordered by which is "first".
+  // Tol defaults to unrestricted (±90°) — same reasoning as the wide distance window.
+  sSmlmAngleCenter: { type:'number', id:'sSmlmAngleCenter', label:'sSMLM pair angle (deg)', min:-90, max:90, step:1, default:0, int:false },
+  sSmlmAngleTol: { type:'number', id:'sSmlmAngleTol', label:'sSMLM pair angle tolerance (± deg)', min:0, max:90, step:1, default:90, int:false },
+  // sSmlmIntensityOrder = require the paired (higher-order) point to be dimmer —
+  // physically expected, since the grating splits each emitter's intensity.
+  sSmlmIntensityOrder: { type:'bool', id:'sSmlmIntensityOrder', label:'Require decreasing order intensity', default:true },
 
   // ---- memory / streaming ----
   // memgb = RAM budget for caching decoded frames before falling back to streaming
@@ -5507,6 +5546,173 @@ function transferPcfoEstimate(){
 }
 
 /* ===========================================================================
+   MODULE: sSMLM — spectrally resolved SMLM (diffraction-grating pair finding).
+   A grating in the emission path splits each emitter into a 0th (undispersed)
+   and one or more higher-order PSFs, offset by a wavelength-dependent
+   distance at a fixed, known orientation. Pairing them per frame and taking
+   the midpoint recovers the emitter position; the inter-order distance
+   itself is a wavelength proxy, stored in the paired loc's `z` field so the
+   EXISTING zcolor/zmin/zmax depth-coded render path (MODULE: render) colours
+   by it with no changes there — the same trick the prior-art Java tool this
+   was ported from (HohlbeinLab/sSMLMAnalyzer) uses in its own ThunderSTORM.csv
+   output. 2-point pairs only for now (0th+1st) — multi-order chaining and
+   FFT-based angle/distance auto-detection are tracked as follow-ups in
+   docs/REFACTOR_PLAN.md, not attempted here. See Martens, Gobes, Archontakis,
+   Brillas, Zijlstra, Albertazzi & Hohlbein, Nano Lett. 22(21), 8618–8625
+   (2022), https://doi.org/10.1021/acs.nanolett.2c03140.
+   =========================================================================== */
+// Enumerates CANDIDATE pairs within [distMin,distMax] x [angleCenter±angleTol]
+// (angle mod 180° — undirected, a pair's two points have no inherent order)
+// across all of `locs`, grouped by frame — O(k²) per frame (k = locs sharing
+// that frame), cheap even at real-dataset scale (tens of millions of checks
+// for a 30k-frame/~2M-loc stack, well under a second). Shared by the
+// interactive diagnostic (Preview pairs, which only needs the raw candidate
+// distance/angle values) and pairCore's own greedy-match step below (which
+// needs the same candidates, sorted and consumed) — one enumeration, two
+// consumers, so they can't silently drift out of sync with each other.
+function sSmlmCandidates(locs, px, distMin, distMax, angleCenter, angleTol, requireDimmer){
+  const byFrame=new Map();
+  for(let i=0;i<locs.length;i++){ const f=locs[i].frame; let a=byFrame.get(f); if(!a){a=[]; byFrame.set(f,a);} a.push(i); }
+  const acNorm=((angleCenter%180)+180)%180;   // normalize into [0,180) same as the per-pair angle below
+  // {i,j,dist,angle,dAngle,sAngle} — angle is raw [0,180), dAngle its absolute
+  // distance to angleCenter (mod-180-aware, used for filtering/tie-break sort);
+  // sAngle is the SIGNED version of that same distance (roughly ±90, positive
+  // = clockwise of centre) — averaging angle directly would be wrong whenever
+  // real candidates straddle the 0°/180° wrap (e.g. 2° and 178° are the same
+  // orientation but numerically far apart), so any caller computing a MEAN
+  // angle must average sAngle and add it back to angleCenter, not average
+  // angle itself. See pairCore()'s own meanAngle for the worked example.
+  const out=[];
+  for(const idxs of byFrame.values()){
+    for(let a=0;a<idxs.length;a++)for(let b=a+1;b<idxs.length;b++){
+      const i=idxs[a], j=idxs[b], Li=locs[i], Lj=locs[j];
+      const dx=(Lj.x-Li.x)*px, dy=(Lj.y-Li.y)*px, dist=Math.hypot(dx,dy);
+      if(dist<distMin||dist>distMax) continue;
+      // Require a clear brighter/dimmer split, not just any split — two
+      // independent, coincidentally similar-brightness emitters landing in
+      // the window by chance shouldn't pass as a confident 0th/1st pair.
+      if(requireDimmer && Math.min(Li.photons,Lj.photons)/Math.max(Li.photons,Lj.photons)>0.95) continue;
+      let ang=Math.atan2(dy,dx)*180/Math.PI; ang=((ang%180)+180)%180;
+      let sAngle=ang-acNorm; if(sAngle>90) sAngle-=180; else if(sAngle<-90) sAngle+=180;
+      const dAngle=Math.abs(sAngle);
+      if(dAngle>angleTol) continue;
+      out.push({i,j,dist,angle:ang,dAngle,sAngle});
+    }
+  }
+  return out;
+}
+// Pure: pairs locs into 0th/1st-order matches. Does NOT mutate `locs` —
+// returns a NEW, smaller array (one row per accepted pair), same convention
+// driftCore/nenaPrecision use for their own summary-stat returns; the
+// interactive wrapper (runSSmlmPair() below) decides whether/how to swap it
+// into lastResult.locs. config = {sSmlmDistMin/Max, sSmlmAngleCenter/Tol,
+// sSmlmIntensityOrder}, all ordinary PARAMS.
+async function pairCore(locs, px, config, hooks={}){
+  const { onLog=log, onProgress=setProg } = hooks;
+  onLog(`\nsSMLM pairing: distance ${config.sSmlmDistMin}–${config.sSmlmDistMax} nm, angle ${config.sSmlmAngleCenter}±${config.sSmlmAngleTol}°…`);
+  const cands=sSmlmCandidates(locs, px, config.sSmlmDistMin, config.sSmlmDistMax, config.sSmlmAngleCenter, config.sSmlmAngleTol, config.sSmlmIntensityOrder);
+  // Closest-to-expected-angle wins ties — same rule sSMLMAnalyzer's README
+  // describes ("the best one is selected... closest angle to the original
+  // one is chosen = pairs closest to straight line").
+  cands.sort((a,b)=>a.dAngle-b.dAngle);
+  const claimed=new Uint8Array(locs.length);
+  const paired=[];
+  let sumDist=0, sumDistSq=0, sumSAngle=0;
+  for(let k=0;k<cands.length;k++){
+    const c=cands[k];
+    if(claimed[c.i]||claimed[c.j]) continue;   // greedy: a point already in an accepted pair can't join another
+    claimed[c.i]=claimed[c.j]=1;
+    const Li=locs[c.i], Lj=locs[c.j];
+    const bright=Li.photons>=Lj.photons?Li:Lj;   // 0th order = the brighter point; carries frame/precision fields
+    paired.push({ frame:bright.frame, x:(Li.x+Lj.x)/2, y:(Li.y+Lj.y)/2, z:c.dist,
+      photons:bright.photons, bg:bright.bg, bgstd:bright.bgstd, lpx:bright.lpx, lpy:bright.lpy, sigma:bright.sigma });
+    sumDist+=c.dist; sumDistSq+=c.dist*c.dist; sumSAngle+=c.sAngle;   // sAngle, NOT angle — see sSmlmCandidates' comment on why
+    if((k&8191)===0){ onProgress(100*k/cands.length); await tick(); }
+  }
+  onProgress(100);
+  const n=paired.length, meanDistance=n?sumDist/n:NaN;
+  const stdDistance=n?Math.sqrt(Math.max(0,sumDistSq/n-meanDistance*meanDistance)):NaN;
+  // angleCenter + mean(signed deviation) — NOT a mean of raw [0,180) angles,
+  // which breaks whenever real candidates straddle the 0°/180° wrap (this
+  // dataset's own true peak sits right at 0°, so this isn't a corner case —
+  // it's the expected case).
+  const meanAngle=n?config.sSmlmAngleCenter+sumSAngle/n:NaN;
+  onLog(`  ${n.toLocaleString()} pair(s) from ${locs.length.toLocaleString()} localizations (${locs.length?(100*2*n/locs.length).toFixed(1):'0.0'}% paired)`
+    + (n?` — mean distance ${meanDistance.toFixed(0)} ± ${stdDistance.toFixed(0)} nm, mean angle ${meanAngle.toFixed(1)}°.`:'.'));
+  return { locs:paired, nPairs:n, nInput:locs.length, meanDistance, stdDistance, meanAngle };
+}
+// Interactive layer: Preview/Pair/Unpair wrap pairCore()/sSmlmCandidates()
+// (DOM-free, above) the same way estimateGainOffset()/applyCropToRaw() wrap
+// pcfoCore()/makeCroppedStack() — reads paramValue()s, writes DOM/log,
+// otherwise a thin shell. sSmlmOriginalLocs is the "keep the pre-pairing
+// locs so Unpair can restore them" backup, same pattern as crop's
+// originalStack; sSmlmLastCands/sSmlmHistMode back the distance/angle
+// histogram toggle so switching views doesn't need recomputing candidates.
+let sSmlmOriginalLocs=null, sSmlmLastCands=null, sSmlmHistMode='dist';
+function drawSSmlmHist(){
+  if(!sSmlmLastCands) return;
+  const vals = sSmlmLastCands.map(c=> sSmlmHistMode==='dist' ? c.dist : c.angle);
+  computeHist(sSmlmHistMode==='dist' ? 'sSMLM pair distance' : 'sSMLM pair angle', vals, sSmlmHistMode==='dist' ? 'nm' : 'deg');
+  drawHistogram();
+}
+function toggleSSmlmHist(){
+  if(!sSmlmLastCands) return;
+  sSmlmHistMode = sSmlmHistMode==='dist' ? 'angle' : 'dist';
+  $('sSmlmToggleHistBtn').textContent = sSmlmHistMode==='dist' ? 'Show angle hist.' : 'Show distance hist.';
+  drawSSmlmHist();
+}
+// Preview computes candidates but commits nothing — always full angle range
+// (0±90°, ignoring the Angle/tolerance fields) so narrowing distance first
+// can't hide the true angle peak behind an already-wrong angle guess; only
+// distMin/distMax (the field you're meant to iterate on first) gate it.
+// Matches the two-step read (broad distance histogram, then angle histogram
+// within the resulting peak) used to verify this design against the real
+// Fig2 dataset before building it — see docs/REFACTOR_PLAN.md.
+function previewSSmlmPairs(){
+  if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
+  sSmlmLastCands=sSmlmCandidates(lastResult.locs, lastResult.px, distMin, distMax, 0, 90, paramValue('sSmlmIntensityOrder'));
+  log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in ${distMin}–${distMax} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
+  $('sSmlmToggleHistBtn').disabled = false;
+  drawSSmlmHist();
+}
+async function runSSmlmPair(){
+  if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  if(lastResult.locs.some(L=>isFinite(L.z))){
+    log('⚠ sSMLM pairing needs 2D localizations — the current result already has real z (a 3D fit method). Re-run with a 2D method first.');
+    return;
+  }
+  $('sSmlmPairBtn').disabled=true;
+  try{
+    const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
+      sSmlmAngleCenter:paramValue('sSmlmAngleCenter'), sSmlmAngleTol:paramValue('sSmlmAngleTol'),
+      sSmlmIntensityOrder:paramValue('sSmlmIntensityOrder') };
+    const r=await pairCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
+    if(!r.nPairs){ log('  no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
+    sSmlmOriginalLocs = sSmlmOriginalLocs || lastResult.locs;   // only ever set from the TRUE original, so re-pairing while already paired keeps chaining off it
+    lastResult.locs = r.locs;
+    renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';   // old filters/z-range referenced the pre-pairing locs
+    rerender(true);
+    $('sSmlmUnpairBtn').disabled=false;
+    log(`  Colour by depth (Rendering settings) now shows inter-order distance, not real z.`);
+  }catch(err){ log(`⚠ sSMLM pairing failed: ${err.name}: ${err.message}`); }
+  finally{ $('sSmlmPairBtn').disabled=false; setProg(null); }
+}
+function unpairSSmlm(){
+  if(!sSmlmOriginalLocs) return;
+  const nPaired=lastResult.locs.length;
+  lastResult.locs=sSmlmOriginalLocs; sSmlmOriginalLocs=null;
+  renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  rerender(true);
+  $('sSmlmUnpairBtn').disabled=true;
+  log(`Unpaired — restored ${lastResult.locs.length.toLocaleString()} original localizations (was ${nPaired.toLocaleString()} pairs).`);
+}
+$('sSmlmPreviewBtn').addEventListener('click',previewSSmlmPairs);
+$('sSmlmToggleHistBtn').addEventListener('click',toggleSSmlmHist);
+$('sSmlmPairBtn').addEventListener('click',runSSmlmPair);
+$('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
+
+/* ===========================================================================
    MODULE: pipeline
    =========================================================================== */
 let stopRequested=false;
@@ -5988,6 +6194,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; sSmlmOriginalLocs=null;
   try{
     const method=paramValue('method');
     const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
@@ -6014,6 +6221,7 @@ async function run(){
 
     $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
     $('nenaBtn').disabled = $('frcBtn').disabled = r.locs.length===0;
+    $('sSmlmPreviewBtn').disabled = $('sSmlmPairBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
@@ -6176,6 +6384,7 @@ $('genBtn').addEventListener('click',async()=>{
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; sSmlmOriginalLocs=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -6199,6 +6408,7 @@ $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; sSmlmOriginalLocs=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -6491,6 +6701,8 @@ $('csvFile').addEventListener('change', async e=>{
     rerender();
     $('saveBtn').disabled=false; $('tableBtn').disabled=false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('frcBtn').disabled=false;
+    $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; sSmlmOriginalLocs=null;   // a freshly-loaded result invalidates any prior pairing state
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
     const has3d=locs.some(L=>isFinite(L.z)), isClustered=locs[0].nMerged!==undefined;

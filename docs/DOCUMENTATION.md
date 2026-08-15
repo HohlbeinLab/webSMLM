@@ -108,6 +108,12 @@ says.
 - **Localization precision (NeNA / FRC)** (`precBox`) — `frc3d` (UI
   placeholder, FSC not implemented), and **NeNA**/**FRC**
   (`nenaBtn`/`frcBtn`). See **locprecision** module.
+- **Spectral SMLM analysis** (`sSmlmBox`) — `sSmlmDistMin`/`sSmlmDistMax`/
+  `sSmlmAngleCenter`/`sSmlmAngleTol`/`sSmlmIntensityOrder`, and
+  **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**
+  (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn`).
+  Enabled as soon as there are localizations (Run or **Load data**), not
+  gated on a specific fit method. See **sSMLM** module.
 
 ### Main panels
 
@@ -445,6 +451,27 @@ headless equivalent.
 |---|---|---|---|---|---|---|
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
 
+### sSMLM (spectrally resolved SMLM, diffraction-grating pair finding)
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 200 |
+| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 6000 |
+| `sSmlmAngleCenter` | sSMLM pair angle (deg) | number | -90 | 90 | 1 | 0 |
+| `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 90 |
+| `sSmlmIntensityOrder` | Require decreasing order intensity | bool | — | — | — | true |
+
+The distance/angle defaults are deliberately wide (unrestricted angle, a
+generic multi-µm distance range) rather than tuned to any one grating —
+**Preview pairs** draws live distance/angle histograms of the *candidate*
+pairs in the current window (reusing the table module's own
+`computeHist()`/`drawHistogram()`, fed candidate values instead of a table
+column) so the real peak for your own setup is visible before narrowing
+these fields and committing with **Pair**. See
+[§3](#3-module-reference)'s **sSMLM** entry for the full pairing algorithm
+and why this workflow — rather than automatic angle detection — was chosen
+for the first implementation.
+
 ### Memory / streaming
 
 | id | Label | Type | Min | Max | Step | Default |
@@ -654,6 +681,40 @@ is what to know before touching that module, not a restatement of its code.
   pixel size), with NeNA rejected if implausibly larger than the mode tier
   (a sign clustering has removed the genuine repeat-detection pairs NeNA
   needs, letting its fit latch onto inter-molecule spacing instead).
+- **sSMLM** — spectrally resolved SMLM: a diffraction grating in the
+  emission path splits each emitter into a 0th (undispersed) and a 1st-order
+  PSF, offset by a wavelength-dependent distance at a fixed, known
+  orientation; pairing them per frame and taking the midpoint recovers the
+  emitter position, with the distance itself a wavelength proxy. Ported from
+  [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer)
+  (ImageJ/Java + MATLAB) — see Martens, Gobes, Archontakis, Brillas,
+  Zijlstra, Albertazzi & Hohlbein, *Nano Lett.* **22**(21), 8618–8625 (2022),
+  [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140).
+  `sSmlmCandidates(locs, px, distMin, distMax, angleCenter, angleTol,
+  requireDimmer)` enumerates same-frame candidate pairs within the given
+  distance/angle window (angle mod 180° — undirected, since a pair's two
+  points have no inherent order); `pairCore(locs, px, config, hooks)` (same
+  signature shape as `driftCore`) sorts them by closeness to the expected
+  angle and greedily accepts non-conflicting pairs — the same tie-break rule
+  `sSMLMAnalyzer`'s own README describes. **2-point pairs only for now**
+  (0th+1st) — multi-order chaining, and FFT-based automatic angle/distance
+  detection (`sSMLMAnalyzer`'s `AngleAnalyzer.java` renders localizations to
+  an image and 2D-FFTs it to find the dominant periodic peak), are tracked
+  as follow-ups in `docs/REFACTOR_PLAN.md`, not implemented here — the
+  **Preview pairs** distance/angle histograms cover the same "find my
+  window" need more simply for a first version, verified against a real
+  ~2M-localization reference dataset (`experimental_data/README.md`) before
+  building the rest around it. Pairing stores the inter-order distance in
+  the paired loc's `z` field (the same trick `sSMLMAnalyzer`'s own
+  `ThunderSTORM.csv` output already uses), so the *existing*
+  `zcolor`/`zmin`/`zmax` depth-coded render path (**render** module) colours
+  by it with no changes there; **Pair** refuses if the current result
+  already has real finite `z` (a 3D fit method) rather than silently
+  overwriting real depth. `runSSmlmPair()`/`unpairSSmlm()` swap
+  `lastResult.locs` for the paired/original set, keeping a backup
+  (`sSmlmOriginalLocs`) the same way the raw-panel crop tool keeps
+  `originalStack` — table/CSV/render need no further changes, since paired
+  locs are the same `{frame,x,y,z,intensity,...}` shape any other result is.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table
