@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15a</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15b</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1733,7 +1733,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15a · PCFO tile size now shrinks to keep a >=2x2 grid
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15b · PCFO plot now zooms to the data, not the origin
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4894,19 +4894,26 @@ function drawPcfoPlot(){
   const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
   rawFull=null; rawIsPlot=true; rawPlotName='pcfo'; $('rawTitle').textContent='PCFO: signal vs. noise variance';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
-  let xmax=0,ymax=0; for(const p of pts){ if(p.imsig>xmax)xmax=p.imsig; if(p.noisevar>ymax)ymax=p.noisevar; }
-  xmax=Math.max(xmax,1)*1.05; ymax=Math.max(ymax,1)*1.08;
+  // zoom to the point cloud + fitted line's own extent, not the origin — the
+  // intercept can be far from (0,0) (that's the whole point of the offset fit),
+  // so anchoring axes at 0 would squeeze the actual data into a corner.
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  for(const p of pts){ if(p.imsig<xmin)xmin=p.imsig; if(p.imsig>xmax)xmax=p.imsig; if(p.noisevar<ymin)ymin=p.noisevar; if(p.noisevar>ymax)ymax=p.noisevar; }
+  const yAtXmin=fit.gain*xmin+fit.c, yAtXmax=fit.gain*xmax+fit.c;   // keep the drawn line segment fully on-plot
+  ymin=Math.min(ymin,yAtXmin,yAtXmax); ymax=Math.max(ymax,yAtXmin,yAtXmax);
+  const xpad=Math.max(1,(xmax-xmin)*0.08), ypad=Math.max(1,(ymax-ymin)*0.10);
+  xmin-=xpad; xmax+=xpad; ymin-=ypad; ymax+=ypad;
   const mL=58,mR=16,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
-  const X=v=>mL+pw*v/xmax, Y=v=>mT+ph*(1-v/ymax);
+  const X=v=>mL+pw*(v-xmin)/(xmax-xmin), Y=v=>mT+ph*(1-(v-ymin)/(ymax-ymin));
   ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const c of niceTicks(0,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
+  for(const c of niceTicks(ymin,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(0,xmax,6)){ const x=X(v); ctx.fillText(v.toFixed(0),x,mT+ph+6); }
+  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText(v.toFixed(0),x,mT+ph+6); }
   ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
   ctx.fillStyle='rgba(66,133,244,0.45)';
   for(const p of pts){ ctx.beginPath(); ctx.arc(X(p.imsig),Y(p.noisevar),2.2,0,2*Math.PI); ctx.fill(); }
   ctx.strokeStyle='#d1242f'; ctx.lineWidth=1.6; ctx.beginPath();
-  ctx.moveTo(X(0),Y(fit.c)); ctx.lineTo(X(xmax),Y(fit.gain*xmax+fit.c)); ctx.stroke();
+  ctx.moveTo(X(xmin),Y(yAtXmin)); ctx.lineTo(X(xmax),Y(yAtXmax)); ctx.stroke();
   ctx.restore();
   ctx.strokeStyle='#57606a'; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
   ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
@@ -4915,7 +4922,7 @@ function drawPcfoPlot(){
   ctx.textAlign='right'; ctx.textBaseline='alphabetic';
   ctx.fillText(`n = ${pts.length.toLocaleString()} tiles · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
   $('rawInfo').textContent='— PCFO: image signal vs. noise variance per tile · slope→gain, intercept→offset · scrub a frame to return';
-  registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:xmax,yTop:ymax,yBot:0, fmt:(vx,vy)=>`${vx.toFixed(0)} ADU · ${vy.toFixed(0)} ADU²`});
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymax,yBot:ymin, fmt:(vx,vy)=>`${vx.toFixed(0)} ADU · ${vy.toFixed(0)} ADU²`});
   _replotRaw=drawPcfoPlot;
   syncSaveImg();
 }
