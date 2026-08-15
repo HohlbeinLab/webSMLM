@@ -35,7 +35,14 @@ relevant one before editing rather than scrolling:
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). Also accepts a multi-file selection
   (Ctrl/Cmd+click several single-frame TIFFs) via `loadTiffSequence()` — natural-sorted by
-  filename, decoded and concatenated into one stack, one file read at a time. FTM (`ftmEnabled`/
+  filename, decoded and concatenated into one stack, one file read at a time. `makeCroppedStack()`
+  (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
+  every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
+  `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a
+  full stack swap, not a search-region restriction threaded through detect/fit, so nothing
+  downstream needs a coordinate offset added back and every consumer (FTM below, calibration,
+  PCFO, workers, render/export) just sees a smaller stack the same way it'd see any smaller loaded
+  file. FTM (`ftmEnabled`/
   `ftmWindow`, controls living in the **fit** module's `PARAMS` group and sidebar section despite
   the functions below sitting in in/out) is a per-pixel sliding-window temporal median
   subtraction — floored at `camoffset` and added back, not floored at zero, see **fit** below for

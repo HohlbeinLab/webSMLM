@@ -141,7 +141,20 @@ window resize.
   `rawFull`, which is only a lossy min/max-normalized 8-bit render). Reuses
   the same hover mechanism as the plot surfaces above (`registerPlotHover`/
   `drawPlotHover`); no readout while zoomed out past fit and hovering the
-  letterboxed border outside the actual frame.
+  letterboxed border outside the actual frame. `rawCropBtn`, inline in this
+  panel's own title (enabled as soon as a stack is loaded, unlike `cropBtn`
+  below), is a **second, unrelated crop tool** — click two corners to
+  **replace the loaded `stack`** with just that native-pixel region
+  (`makeCroppedStack()`, MODULE: in/out) rather than filtering an existing
+  result: Localize, scrubbing, FTM, calibration, PCFO all then only ever see
+  the cropped region, the same way they'd see any smaller loaded file — real
+  speed-up, not a display filter, and logged (`Cropped to x…`). Same
+  click-two-corners/toggle-to-undo interaction as `cropBtn`, but deselecting
+  restores the *original* stack (kept in `originalStack` while a crop is
+  active) rather than removing a table filter — see
+  [§3](#3-module-reference)'s **in/out** entry and
+  [§8](#8-headless-api-window-websmlm)'s `cropX0`/`cropY0`/`cropX1`/`cropY1`
+  for the headless equivalent.
 - **SMLM reconstruction** (`sr` canvas) — the accumulated super-resolution
   render, or (before a Run) a quick averaged data projection, or the 3D
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
@@ -556,6 +569,20 @@ is what to know before touching that module, not a restatement of its code.
   runs right after either loader finishes, replacing `stack` with a fresh
   `makeStack()`-backed one holding the temporal-median-corrected frames —
   see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.
+  `makeCroppedStack(rawStack,x0,y0,x1,y1)` is the raw-panel crop tool's
+  (`rawCropBtn`) own wrapper, same idea: every fetched frame is sliced to
+  the `[x0,x1)×[y0,y1)` sub-rectangle, with that corner becoming the new
+  `(0,0)` — deliberately a full stack *replacement*, not a search-region
+  restriction threaded through detection/fitting, so nothing downstream
+  needs a coordinate offset added back; a smaller `stack` is indistinguishable
+  from having loaded a smaller file to begin with. No caching layer — each
+  fetch re-slices from whatever `rawStack` already does, so "uncrop"
+  (`originalStack`, kept only while a crop is active) and re-scrubbing both
+  just re-fetch from the original, same as the first load did. Composes for
+  free with everything above it (FTM wraps whatever `stack` currently is,
+  so cropping first then enabling FTM correctly runs the temporal median
+  over the smaller frames too) since nothing else in the codebase assumes a
+  particular frame size.
 - **simulation** — the built-in synthetic stack generator ("Simulate
   movie"). Demo/validation/teaching data, not a core analysis path. Emitters
   follow a Poisson-process arrival/exponential-lifetime model over a
@@ -816,6 +843,15 @@ const result = await window.webSMLM.analyze({
 - `config.file`/`config.files` — a `File` or an array of `File`s (same
   multi-file-sequence support as Ctrl/Cmd+click **Load movie**), loaded via
   the existing `loadTiffFile`/`loadTiffSequence`. One of the two is required.
+- `config.cropX0`/`config.cropY0`/`config.cropX1`/`config.cropY1` — not
+  `PARAMS` entries (per-dataset pixel geometry, same treatment as `calFirst`/
+  `calLast`). If any is given, `config.file`/`config.files` is immediately
+  replaced with just that native-pixel `[x0,x1)×[y0,y1)` sub-rectangle
+  (`makeCroppedStack()`, [§3](#3-module-reference)'s **in/out** entry) before
+  anything else — `estimateGainOffset`, `runCore` — touches it, the headless
+  equivalent of the raw-panel crop tool. An omitted bound defaults to that
+  edge of the full frame (`0`/`0`/width/height). Throws if the resulting
+  region is under 8×8 px.
 - `config.calibrationJson` — a **parsed** calibration JSON object (§7), not
   a file/string. There's no interactive session's loaded calibration to fall
   back on headlessly, so a 3D method needs this explicitly; `analyze()`
@@ -917,6 +953,7 @@ no driving script, works by just opening the link in any browser.
   settings JSON.
 - `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset` work as
   `=1`/`=true` flags too, same as passing them to `analyze()` directly.
+  `cropX0`/`cropY0`/`cropX1`/`cropY1` work as plain numeric params the same way.
 - `fileUrl` (required to actually run) and `calibrationJson` come from
   **`fileUrl`/`calibrationUrl`** query params instead — both must be
   fetchable URLs, not local paths (the browser has no way to name a local
@@ -986,6 +1023,11 @@ was found: `gain`/`gainStd`/`offset`/`offsetStd`/`r2`, `pts` trimmed since it's
 redundant with the log's own summary line and can run into the thousands);
 `--pcfoFrames`/`--pcfoK`/`--pcfoRnstd` (`PARAMS` overrides) tune it — see
 [§8](#8-headless-api-window-websmlm)'s `config.estimateGainOffset`.
+`--cropX0`/`--cropY0`/`--cropX1`/`--cropY1` (any subset — an omitted bound
+defaults to that edge of the full frame) replace `--file` with just that
+native-pixel sub-rectangle before anything else touches it, the headless
+equivalent of the raw-panel crop tool — see
+[§8](#8-headless-api-window-websmlm)'s `config.cropX0` for the full behaviour.
 `--headed` opens a real (non-headless) window — note that the
 window itself stays visually idle throughout, since `analyze()` never
 touches the DOM while running, by design (that's what makes it safe to run

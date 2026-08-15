@@ -107,6 +107,13 @@ walk-through of every step.
   with the length in nm and an x-zoomable/pannable plot. A **crop tool** next to
   it adds an x/y-range filter from two clicked corners, restricting the
   reconstruction, export, NeNA and FRC to that region like any other table filter.
+- **Crops before analysis, not just after**: a second crop tool, in the raw
+  frame panel, replaces the loaded stack with just a clicked region — as if a
+  smaller file had been loaded to begin with, so Localize (detection *and*
+  fitting) only ever processes that region, genuinely faster rather than
+  filtering an already-finished result. Deselecting the tool restores the
+  original stack. Also scriptable headlessly (`config.cropX0`/`cropY0`/
+  `cropX1`/`cropY1`, or `--cropX0`/… on the CLI).
 - **Save/Load settings** as JSON to reproduce an analysis configuration.
 - **Works on small screens**: single-column layout on phones and tablets, with
   drag/pinch-to-zoom navigation of the reconstruction (plus a scale bar).

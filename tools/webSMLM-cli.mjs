@@ -22,6 +22,7 @@
 //   node webSMLM-cli.mjs --calibration beadstack.tif --calibrationOnly --calStep 10 --pxnm 160 --out ./calib-out
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeFRC --headed --out ./somewhere/else
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --method gaussmle
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --cropX0 100 --cropY0 0 --cropX1 600 --cropY1 400
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -51,6 +52,12 @@
 // few usable tiles) — the headless equivalent of clicking "Estimate", "Transfer
 // estimates", then "Localize". --pcfoFrames/--pcfoK/--pcfoRnstd (PARAMS
 // overrides) tune it.
+// --cropX0/--cropY0/--cropX1/--cropY1 (any subset — an omitted bound defaults
+// to that edge of the full frame) replace --file with just that native-pixel
+// sub-rectangle before anything else touches it — the headless equivalent of
+// the raw-panel crop tool: Localize (and PCFO, if also requested) only ever
+// see the cropped region, both faster (smaller frames) and reproducible
+// (logged, not a manual click). Throws if the resulting region is under 8x8 px.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
@@ -192,7 +199,7 @@ try {
                      : spec.type === 'enum' ? String(raw) : +raw;
       } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
-      } else if (key === 'calFirst' || key === 'calLast') {
+      } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
       }
     }

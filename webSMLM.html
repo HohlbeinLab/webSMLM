@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.3-dev · build 2026-08-15c</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.3-dev · build 2026-08-15d</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1760,7 +1760,7 @@ X.B(E,Y);return E}return J}())
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <canvas id="raw"></canvas>
         <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
           <span style="color:var(--muted);font-size:12px">Frame</span>
@@ -1783,7 +1783,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.3-dev · build 2026-08-15c · raw-frame pixel hover readout (x/y/ADU/photon)
+</span></noscript>webSMLM v0.10.3-dev · build 2026-08-15d · raw-panel crop tool (restricts Localize to a region), headless config.cropX0-Y1
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2146,6 +2146,9 @@ document.addEventListener('paste', e=>{
 // (former slider value-labels removed — those controls are now number inputs)
 
 let stack=null, groundTruth=null, lastResult=null, stackName='webSMLM';
+// The pre-crop stack, kept only so the raw-panel crop tool (below) can restore
+// it on "uncrop" — null whenever no crop is active. See makeCroppedStack().
+let originalStack=null;
 let rawFtmView=false;   // raw panel toggle: show the FTM-corrected preview instead of the raw frame — see ftmFrame()
 let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for scoring drift correction)
 // ground-truth ON events from the simulator — one entry per instantiated emitter's single
@@ -2443,6 +2446,28 @@ function makeFtmStack(rawStack, win, camoffset, chunkmb, hooks={}){
   }
   return {w,h,n,px,getFrames, getFrame(){ throw new Error('FTM stack: use getFrames()'); },
     get ftmMs(){ return ftmMs; }};
+}
+
+// Raw-panel crop: wraps a stack so every fetched frame is sliced down to the
+// [x0,x1)x[y0,y1) sub-rectangle, with the crop's own top-left corner becoming
+// the new (0,0) — deliberately NOT a search-region restriction applied later
+// in the pipeline (which would need coordinate offsets re-added everywhere
+// downstream, and wouldn't shrink band-pass filtering cost). Cropping just
+// REPLACES the module-level `stack` with one of these (see applyCropToRaw()/
+// uncropRaw()), so detect/fit/FTM/calibration/PCFO/render/export all see a
+// smaller stack the exact same way they'd see any smaller loaded file — no
+// special-casing needed anywhere else. No caching layer: every fetch re-slices
+// from whatever rawStack already does (resident array or re-decoded), so
+// uncropping and re-scrubbing re-fetches from the original, same as the first
+// load did.
+function makeCroppedStack(rawStack, x0, y0, x1, y1){
+  const cw=x1-x0, ch=y1-y0;
+  const cropOne=full=>{ const out=new Float32Array(cw*ch);
+    for(let row=0;row<ch;row++) out.set(full.subarray((y0+row)*rawStack.w+x0, (y0+row)*rawStack.w+x0+cw), row*cw);
+    return out; };
+  return {w:cw, h:ch, n:rawStack.n, px:rawStack.px, streaming:!!rawStack.streaming,
+    getFrame(){ throw new Error('Cropped stack: use getFrames()'); },   // matches makeFtmStack's own convention — nothing calls getFrame() (singular) anywhere in this codebase, getFrames() is the uniform interface
+    async getFrames(s,e){ return (await rawStack.getFrames(s,e)).map(cropOne); }};
 }
 
 /* ===========================================================================
@@ -3555,6 +3580,11 @@ let profileData=null, profileView=null;   // line-profile plot data + x-axis vie
 // pipeline the data table uses — crop is just a spatial filter, not a
 // separate mechanism (reconstruction, export, NeNA and FRC all see it).
 let cropMode=false, cropPt0=null;
+// Raw-panel crop: same click-two-corners gesture, but commits by swapping the
+// module-level `stack` for a makeCroppedStack() wrapper (see MODULE: in/out)
+// instead of pushing a table filter — a completely different mechanism from
+// the reconstruction crop above despite the similar UI, see applyCropToRaw().
+let rawCropMode=false, rawCropPt0=null;
 
 /* -- colour maps -------------------------------------------------------------
    "fire" reproduces the original black→red→yellow→white ramp. "inferno" and
@@ -3940,6 +3970,10 @@ function drawSpotOverlays(ctx,v,spots,locs,DW,DH){
 function drawRawOverlays(ctx,DW,DH){
   drawSpotOverlays(ctx,rawView,rawSpots,rawLocs,DW,DH);
   drawScaleBar(ctx,DW,DH, paramValue('pxnm')/rawView.zoom);        // camera px size / zoom
+  if(rawCropPt0){   // first-corner dot while picking a raw crop — mirrors the reconstruction crop tool's own dot
+    const z=rawView.zoom, sw=DW/z, sh=DH/z, sx=rawView.cx-sw/2, sy=rawView.cy-sh/2;
+    ctx.fillStyle='#3fb950'; ctx.beginPath(); ctx.arc((rawCropPt0.x-sx)*z,(rawCropPt0.y-sy)*z,3.5,0,7); ctx.fill();
+  }
 }
 function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
@@ -6139,9 +6173,12 @@ $('loadBtn').addEventListener('click',()=>$('file').click());
 
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
+    // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
+    // previous stack (or the previous stack itself, as originalStack) is meaningless now.
+    originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     $('pxnm').value=stack.px;   // keep the shared pixel-size control (scale bar, re-run config, …) in sync with the simulated stack's own px
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
@@ -6149,7 +6186,7 @@ $('genBtn').addEventListener('click',async()=>{
     initScrub();
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('rawCropBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
     log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
@@ -6161,7 +6198,10 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
+  // previous stack (or the previous stack itself, as originalStack) is meaningless now.
+  originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
   syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
@@ -6172,7 +6212,7 @@ $('file').addEventListener('change',async e=>{
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('rawCropBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider (or scroll over the image) to browse the stack.':''}`);
   }catch(err){ log('TIFF load failed: '+err.message); }
 });
@@ -6669,6 +6709,75 @@ function recomputeIfShown(){
   if(rawPlotName==='frc') computeFRC();
   else if(rawPlotName==='nena') computeNeNA();
 }
+// Raw-panel crop tool: click-two-corners like the reconstruction crop above,
+// but commits by swapping `stack` for a makeCroppedStack() wrapper (MODULE:
+// in/out) instead of pushing a table filter — see the module comment on
+// rawCropMode. Shared click->native-pixel transform with the pixel-hover
+// readout (fmtRawPixel/registerPlotHover('raw',...) in drawRawView()).
+function rawClickToNative(e){
+  const cv=$('raw'), r=cv.getBoundingClientRect();
+  const cw=cv.clientWidth||cv.width, ch=cv.clientHeight||cv.height;
+  const px=(e.clientX-r.left)*cw/r.width, py=(e.clientY-r.top)*ch/r.height;
+  const sw=cw/rawView.zoom, sh=ch/rawView.zoom;
+  return {nx:rawView.cx+sw*(px/cw-0.5), ny:rawView.cy+sh*(py/ch-0.5)};
+}
+// A crop/uncrop invalidates any existing result the same way loading a new
+// stack does — old locs/reconstruction are against a FOV that no longer
+// matches what `stack` now returns. Same reset list the load handlers use
+// (genBtn/#file's change listeners), minus pcfoLastGain/Offset (a camera
+// property, not spatial, stays valid) and rawFull (drawRaw() resizes it
+// itself once showFrame(0) below runs).
+function resetAfterCropChange(){
+  lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
+  rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null;
+  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+}
+async function applyCropToRaw(x0,y0,x1,y1){
+  if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
+  originalStack = originalStack || stack;   // only ever set from the TRUE original, so re-cropping while still in crop mode keeps chaining off it, not an intermediate crop
+  const ow=originalStack.w, oh=originalStack.h;
+  stack = makeCroppedStack(originalStack, x0, y0, x1, y1);
+  resetAfterCropChange();
+  { const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView(); }
+  syncSaveImg();
+  initScrub();
+  showStackProjection();      // background fill of the SR panel — not awaited
+  await showFrame(0);
+  log(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${ow}×${oh}) — Localize will only see this region. Deselect the crop tool to restore the full frame.`);
+}
+async function uncropRaw(){
+  if(!originalStack) return;
+  const cw=stack.w, ch=stack.h;
+  stack=originalStack; originalStack=null;
+  resetAfterCropChange();
+  { const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView(); }
+  syncSaveImg();
+  initScrub();
+  showStackProjection();
+  await showFrame(0);
+  log(`Uncropped — restored the original ${stack.w}×${stack.h} stack (was cropped to ${cw}×${ch}).`);
+}
+$('rawCropBtn').addEventListener('click',async()=>{
+  rawCropMode=!rawCropMode; $('rawCropBtn').classList.toggle('on',rawCropMode); rawCropPt0=null;
+  if(rawCropMode){
+    $('rawInfo').textContent='— crop: click one corner, then the opposite corner';
+  } else if(originalStack){
+    // Deselecting undoes the crop — mirrors the reconstruction crop tool exactly.
+    await uncropRaw();
+  }
+  drawRawView();
+});
+$('raw').addEventListener('click',async e=>{
+  if(!rawCropMode || !stack) return;
+  const {nx,ny}=rawClickToNative(e);
+  if(!rawCropPt0){ rawCropPt0={x:nx,y:ny}; drawRawView(); return; }
+  const x0=Math.max(0,Math.floor(Math.min(rawCropPt0.x,nx)));
+  const x1=Math.min(stack.w,Math.ceil(Math.max(rawCropPt0.x,nx)));
+  const y0=Math.max(0,Math.floor(Math.min(rawCropPt0.y,ny)));
+  const y1=Math.min(stack.h,Math.ceil(Math.max(rawCropPt0.y,ny)));
+  rawCropPt0=null;
+  await applyCropToRaw(x0,y0,x1,y1);   // stays in rawCropMode — pick another crop, or click the button to undo and exit
+});
 // Line-profile X-axis zoom (wheel / trackpad + touch pinch); Y stays fixed. Only
 // active while the profile plot is shown — otherwise the raw navigator handles it.
 (function(){ const cv=$('raw');
@@ -7195,6 +7304,15 @@ function calibFromJson(o){
 //                          with no indication anything was defaulted.
 //   calibrationOnly       — build/return the calibration only, skip the main
 //                          analysis entirely (config.file/files not required)
+//   cropX0/cropY0/cropX1/cropY1 — replace config.file/files with just this
+//                          native-pixel sub-rectangle BEFORE anything else
+//                          touches it (makeCroppedStack(), MODULE: in/out) —
+//                          the headless equivalent of the raw-panel crop
+//                          tool. Any bound omitted defaults to that edge of
+//                          the full frame. Not PARAMS entries (per-dataset
+//                          pixel geometry, same treatment as calFirst/
+//                          calLast) — throws if the resulting region is
+//                          under 8x8 px.
 //   correctDrift          — run AIM drift correction after fitting
 //   computeNeNA/computeFRC — also compute those (numeric result only for now)
 //   estimateGainOffset    — run PCFO gain/offset estimation (pcfoCore, see
@@ -7249,7 +7367,21 @@ async function analyze(config){
   }
   if(cfg.calibrationOnly) return { calib, calibJsonText, logText: logLines.join('\n') };
 
-  const stack = cfg.files ? await loadTiffSequence(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+  let stack = cfg.files ? await loadTiffSequence(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+  // config.cropX0/Y0/X1/Y1 — the headless equivalent of the raw-panel crop tool
+  // (MODULE: in/out, makeCroppedStack()): replaces `stack` with a cropped
+  // wrapper BEFORE anything else (PCFO, runCore) touches it, matching the
+  // interactive tool exactly — everything downstream just sees a smaller
+  // stack, no coordinate offsets anywhere. Not PARAMS entries (per-dataset
+  // pixel geometry, same treatment as calFirst/calLast). Any bound omitted
+  // defaults to that edge of the full frame (0/0/w/h), so e.g. only
+  // cropX0+cropX1 crops full-height columns.
+  if(cfg.cropX0!=null || cfg.cropY0!=null || cfg.cropX1!=null || cfg.cropY1!=null){
+    const x0=cfg.cropX0??0, y0=cfg.cropY0??0, x1=cfg.cropX1??stack.w, y1=cfg.cropY1??stack.h;
+    if(x1-x0<8 || y1-y0<8) throw new Error(`analyze(): crop region too small (${x1-x0}×${y1-y0} px, minimum 8×8) — check cropX0/cropY0/cropX1/cropY1`);
+    onLog(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${stack.w}×${stack.h}) — analysing this region only.`);
+    stack = makeCroppedStack(stack, x0, y0, x1, y1);
+  }
   // config.estimateGainOffset runs PCFO (see MODULE: fit, pcfoCore) on the SAME stack
   // about to be localized, then overrides cfg.gain/cfg.camoffset with the estimate before
   // runCore uses them for the ADU->photon conversion — the natural headless equivalent of
@@ -7358,6 +7490,7 @@ async function runAutorun(){
     if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
                           : spec.type==='enum' ? val : +val; continue; }
     if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset') config[key]=(val==='1'||val==='true');
+    if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
   }
   const fileUrl=qp.get('fileUrl');
   if(!fileUrl){ log('autorun=1 but no ?fileUrl= given — nothing to analyze.'); return; }
