@@ -14,7 +14,7 @@ a comment should only explain a non-obvious *why*, not *what* (see
 `PARAMS` registry, `PARAMS` is authoritative — this file describes it, not
 the other way round.
 
-Line/anchor references below point at `webSMLM.html` as of **v0.10.2**;
+Line/anchor references below point at `webSMLM.html` as of **v0.10.3**;
 exact line numbers will drift as the file grows, but the `id=`/function names
 they're built from won't.
 
