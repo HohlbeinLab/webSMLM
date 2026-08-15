@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15b</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15c</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1647,16 +1647,15 @@ X.B(E,Y);return E}return J}())
         <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="100" min="1" max="5000" step="10" class="num"></label>
         <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1.4" step="0.05" class="num"></label>
         <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.7" min="0" max="200" step="1" class="num"></label>
-        <label class="row">Tile size (px) <input type="number" id="pcfoTilePx" value="300" min="64" max="2000" step="10" class="num"></label>
         <details class="info"><summary>…further info…</summary>
           <div class="hint"><b>Frames sampled</b> — how many seeded-random frames to average over.
           <b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is
           assumed noise-only; 0.9 follows the Rieger–Heintzman default.
           <b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible
           (default 2.7 matches the Simulation panel's own default read noise, for a clean self-test).
-          <b>Tile size</b> — target tile width/height in px; rounded down to the nearest power of two
-          (min 64px) since the noise-variance estimate needs an FFT, and tiles the whole frame
-          contiguously at that size (e.g. target 300px on a 600×600 frame → 256px tiles, 2×2).</div></details>
+          Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a
+          ~4×4 grid, rounded to a power of two since the noise-variance estimate needs an FFT, floored
+          at 64px, and never below 2×2) so there's nothing to re-tune per stack.</div></details>
       </details>
       <details class="info"><summary>…further info…</summary>
         <div class="hint">[module: export] <b>Pixel size (nm)</b> sets the physical scale used by the scale
@@ -1733,7 +1732,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15b · PCFO plot now zooms to the data, not the origin
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15c · PCFO: weighted fit, auto tile size, no more tile-size setting
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1823,8 +1822,6 @@ const PARAMS = {
   // pcfoRnstd = camera dark-frame read-noise std, in electrons; set to 0 if unknown/negligible for
   // real camera data — defaults to 2.7 to match simulation_readnoise's default for a clean self-test
   pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:1, default:2.7, int:false },
-  // pcfoTilePx = target tile width/height in px for the PCFO signal/noise-variance regression
-  pcfoTilePx: { type:'number', id:'pcfoTilePx', label:'PCFO: tile size (px)', min:64, max:2000, step:10, default:300, int:true },
 
   // ---- calibration ----
   // calStep = the z-stage step size (nm) between consecutive calibration-stack frames
@@ -4821,21 +4818,20 @@ function pcfoTileStats(img,w,x0,y0,S,kThresh,filfac){
   return {imsig:sum/(S*S), noisevar};
 }
 // grid a frame into tilesX×tilesY cells, return one {imsig,noisevar} pair per cell.
-// pcfoTileStats' FFT is radix-2 (power-of-two lengths only), unlike MATLAB's fft2
-// which accepts any tile size — so the configured target is rounded DOWN to the
-// nearest power of two (floor 64px: below that there's too little high-frequency
-// content for a stable noise-variance estimate) rather than left at a fixed 32px
-// while the rest of each tile went unused (that mismatch was a real bug: a tile
-// only contributed its top-left 32×32 corner, discarding the rest of the cell).
-// A tile size that leaves only a 1×1 grid (target close to/above the frame size)
-// starves the gain+offset regression of spatial spread — with one tile/frame, the
-// only variation across pooled points is whatever the mean signal happens to drift
-// by frame-to-frame, which is often too little to pin down two parameters, so the
-// fit goes singular ("too few usable data points"). Halve S until the grid is at
-// least 2×2 (still floored at 64px) so a too-large tile target degrades gracefully
-// instead of failing outright.
-function pcfoTileSize(targetPx,w,h){
-  let S=64; while(S*2<=targetPx) S*=2;
+// pcfoTileStats' FFT is radix-2 (power-of-two lengths only), unlike MATLAB's fft2 which
+// accepts any tile size — so this isn't a user setting, it's derived from the field of
+// view: aim for ~4 tiles across the shorter dimension (rounded down to the nearest power
+// of two, floor 64px — below that there's too little high-frequency content for a stable
+// noise-variance estimate), which keeps roughly the same TILE COUNT (and hence regression
+// point density/R²) regardless of frame size, rather than a fixed pixel target that leaves
+// a huge frame under-tiled or a small one over-tiled. A grid that would collapse to 1×1
+// (very small frames) starves the gain+offset regression of spatial spread — with one
+// tile/frame the only variation across pooled points is whatever the mean signal happens
+// to drift by frame-to-frame, often too little to pin down two parameters, so the fit goes
+// singular ("too few usable data points") — so S is halved further until the grid is at
+// least 2×2 (still floored at 64px).
+function pcfoTileSize(w,h){
+  let S=64; while(S*2<=Math.floor(Math.min(w,h)/4)) S*=2;
   while(S>64 && (Math.floor(w/S)<2 || Math.floor(h/S)<2)) S/=2;
   return S;
 }
@@ -4855,33 +4851,46 @@ function pcfoFrameTilePoints(img,w,h,S,kThresh){
   }
   return pts;
 }
-// 2-parameter linear regression (noisevar vs. imsig) over a pooled set of tile points.
-// Returns the raw-ADU slope/intercept (gain,c) plus the offset in Rieger-Heintzman's
-// convention — gain here is ADU/photon (noisevar-vs-signal slope), not webSMLM's
-// photons/ADU camera-gain field; the caller inverts it (see estimateGainOffset).
+// 2-parameter WEIGHTED linear regression (noisevar vs. imsig) over a pooled set of tile
+// points. Returns the raw-ADU slope/intercept (gain,c) plus the offset in
+// Rieger-Heintzman's convention — gain here is ADU/photon (noisevar-vs-signal slope),
+// not webSMLM's photons/ADU camera-gain field; the caller inverts it (see
+// estimateGainOffset). Weight = 1/noisevar² : each tile's noisevar is itself an average
+// of |FFT|² over a fixed number of high-frequency bins, a chi-squared-family estimator
+// whose variance scales with the SQUARE of the true value at (roughly) constant relative
+// precision — so brighter tiles have proportionally noisier noisevar estimates, and an
+// unweighted (ordinary) fit gives them outsized leverage purely because their y-values are
+// larger, not because they're more reliable. Weighting by 1/noisevar² (using the observed
+// noisevar as the plug-in estimate of the true variance) is the standard correction for
+// photon-transfer-curve-style variance-vs-mean fits.
 function pcfoRegress(pts,rnstd){
   const nT=pts.length;
   if(nT<2) return null;
-  let sR=0,sR2=0,sS=0,sRS=0;
-  for(const p of pts){ sR+=p.imsig; sR2+=p.imsig*p.imsig; sS+=p.noisevar; sRS+=p.imsig*p.noisevar; }
-  const parmatRR=sR2/nT, parmatRS=sR/nT, parvecR=sRS/nT, parvecS=sS/nT;
-  const det=parmatRR-parmatRS*parmatRS;                   // parmatSS=1
+  let sW=0,sWx=0,sWy=0,sWxx=0,sWxy=0;
+  for(const p of pts){
+    const y=p.noisevar, w=1/Math.max(1e-9,y*y);
+    sW+=w; sWx+=w*p.imsig; sWy+=w*y; sWxx+=w*p.imsig*p.imsig; sWxy+=w*p.imsig*y;
+  }
+  const det=sW*sWxx-sWx*sWx;
   if(!isFinite(det)||Math.abs(det)<1e-12) return null;
-  const gain=(parvecR-parvecS*parmatRS)/det;
-  const c=(parmatRR*parvecS-parmatRS*parvecR)/det;
+  const gain=(sW*sWxy-sWx*sWy)/det;
+  const c=(sWxx*sWy-sWx*sWxy)/det;
   if(!isFinite(gain)||gain===0) return null;
   const offset=-c/gain+gain*rnstd*rnstd;
   return {gain,c,offset};
 }
-// R² of the pooled fit — a debug/linearity check: PCFO's whole premise is that
+// Weighted R² of the pooled fit (same 1/noisevar² weights as pcfoRegress, so it reflects
+// what was actually optimized) — a debug/linearity check: PCFO's whole premise is that
 // per-tile noise variance scales linearly with mean signal (shot-noise-dominated,
 // Poisson statistics), so a low R² means that assumption doesn't hold for this
 // stack (saturation, non-uniform illumination, strong fixed-pattern/read noise, …)
 // and the reported gain/offset shouldn't be trusted.
 function pcfoRSquared(pts,gainSlope,c){
-  let sumY=0; for(const p of pts) sumY+=p.noisevar; const meanY=sumY/pts.length;
+  let sW=0,sWy=0; for(const p of pts){ const w=1/Math.max(1e-9,p.noisevar*p.noisevar); sW+=w; sWy+=w*p.noisevar; }
+  const meanY=sWy/sW;
   let ssRes=0,ssTot=0;
-  for(const p of pts){ const pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY; ssRes+=d*d; ssTot+=dt*dt; }
+  for(const p of pts){ const w=1/Math.max(1e-9,p.noisevar*p.noisevar), pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY;
+    ssRes+=w*d*d; ssTot+=w*dt*dt; }
   return ssTot>0 ? 1-ssRes/ssTot : NaN;
 }
 let pcfoLastPts=null, pcfoLastFit=null, pcfoLastR2=NaN;
@@ -4930,13 +4939,11 @@ async function estimateGainOffset(){
   if(!stack){ log('Load a stack first.'); return; }
   $('pcfoBtn').disabled=true;
   try{
-    const NFRAMES=paramValue('pcfoFrames'), K_THRESH=paramValue('pcfoK'),
-          RNSTD=paramValue('pcfoRnstd'), TILE_TARGET_PX=paramValue('pcfoTilePx');
-    const S=pcfoTileSize(TILE_TARGET_PX,stack.w,stack.h);
+    const NFRAMES=paramValue('pcfoFrames'), K_THRESH=paramValue('pcfoK'), RNSTD=paramValue('pcfoRnstd');
+    const S=pcfoTileSize(stack.w,stack.h);
     const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
     const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
-    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px`
-      + `${S<pcfoTileSize(TILE_TARGET_PX,1e9,1e9)?` (target ${TILE_TARGET_PX}px, shrunk further to keep a ≥2×2 grid)`:` (target ${TILE_TARGET_PX}px, rounded down to a power of two)`}…`);
+    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px (auto-sized from the ${stack.w}×${stack.h} field of view)…`);
     const pts=[];
     for(const fi of idx){
       const img=(await stack.getFrames(fi,fi+1))[0];
