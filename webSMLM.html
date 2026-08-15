@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15i</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15j</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1514,10 +1514,12 @@ X.B(E,Y);return E}return J}())
           time (drawn from up to 5×lifetime before frame 0) and an exponentially-distributed ON duration (mean =
           "ON lifetime"). Photons/frame is scaled by the fraction of a frame the emitter was actually on, so a half-frame
           overlap emits half the photons. Background is Poisson like the signal. Camera gain/offset/offset-std/read-noise
-          forward-model a real sensor: Gaussian read noise (σ in electrons — same convention as the PCFO panel's own
-          "Readout noise σ (e⁻)" field, so the two can be set to matching values for a clean self-consistency test) is
-          added to the photon count before the gain conversion, then a per-pixel offset map (Gaussian around the mean
-          offset, fixed for the whole stack) is added — independent of the fit-side camera gain/offset.
+          forward-model a real sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
+          gain conversion, then a per-pixel offset map (Gaussian around the mean offset, fixed for the whole stack) is
+          added — independent of the fit-side camera gain/offset. For a clean PCFO self-consistency test, its "Readout
+          noise σ (e⁻)" field needs BOTH of these combined in quadrature (√(read_noise²+offset_std²), offset_std
+          converted to photons via this panel's gain) — a static per-pixel offset pattern looks identical to read
+          noise in a single frame's Fourier content, so leaving it out biases the fitted offset the same way.
           Total sample drift over all frames, in a random direction (linear from frame 0).
           0 = none. Used to test drift correction — the true drift is stored for scoring.</div></details>
       </details>
@@ -1645,14 +1647,19 @@ X.B(E,Y);return E}return J}())
       <details class="sim" id="pcfoBox">
         <summary>Gain/offset estimation settings</summary>
         <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="200" min="1" max="5000" step="10" class="num"></label>
-        <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1.4" step="0.05" class="num"></label>
-        <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.7" min="0" max="200" step="1" class="num"></label>
+        <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1" step="0.05" class="num"></label>
+        <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.89" min="0" max="200" step="0.01" class="num"></label>
         <details class="info"><summary>…further info…</summary>
           <div class="hint"><b>Frames sampled</b> — how many seeded-random frames to average over.
           <b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is
           assumed noise-only; 0.9 follows the Rieger–Heintzman default.
-          <b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible
-          (default 2.7 matches the Simulation panel's own default read noise, for a clean self-test).
+          <b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible.
+          Must include ANY spatially-white, frame-invariant noise, not just true per-frame read
+          noise — a static per-pixel offset pattern (fixed-pattern noise) looks identical to read
+          noise in a single frame's Fourier content, so it biases the fitted offset the same way if
+          left out. If both are present, combine them in quadrature (√(read_noise²+offset_std²), all
+          in photon-equivalent units); the default (2.89) matches the Simulation panel's own default
+          read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this way, for a clean self-test.
           Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a
           ~4×4 grid, rounded to a power of two since the noise-variance estimate needs an FFT, floored
           at 64px, and never below 2×2) so there's nothing to re-tune per stack.</div></details>
@@ -1732,7 +1739,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15i · PCFO: back to unweighted fit (IRLS togglable) for testing
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15j · found root cause of offset bias: fixed-pattern noise
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1820,10 +1827,21 @@ const PARAMS = {
   // stack just uses every frame rather than erroring or resampling
   pcfoFrames: { type:'number', id:'pcfoFrames', label:'PCFO: frames sampled', min:1, max:5000, step:10, default:200, int:true },
   // pcfoK = spatial-frequency cutoff (fraction of Nyquist) above which content is assumed noise-only
-  pcfoK: { type:'number', id:'pcfoK', label:'PCFO: k_thresh (spatial freq.)', min:0.1, max:1.4, step:0.05, default:0.9, int:false },
-  // pcfoRnstd = camera dark-frame read-noise std, in electrons; set to 0 if unknown/negligible for
-  // real camera data — defaults to 2.7 to match simulation_readnoise's default for a clean self-test
-  pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:1, default:2.7, int:false },
+  // k_thresh max is 1 (not e.g. 1.4): filfac=1-pi*k^2/4 (the "area outside a circle of
+  // radius k within a square of side 2" formula) is only valid while that circle still fits
+  // inside the square, i.e. k<=1 — beyond that the formula goes negative and the whole
+  // normalization blows up (verified: k=1.3 produced offset/R^2 many orders of magnitude off).
+  pcfoK: { type:'number', id:'pcfoK', label:'PCFO: k_thresh (spatial freq.)', min:0.1, max:1, step:0.05, default:0.9, int:false },
+  // pcfoRnstd = the TOTAL spatially-white, frame-invariant noise std, in photon-equivalent
+  // units; set to 0 if unknown/negligible for real camera data. Must include any static
+  // per-pixel offset pattern (fixed-pattern noise) as well as true read noise — a single
+  // frame's Fourier content can't tell the two apart (verified: leaving out a 3 ADU
+  // fixed-pattern offset std biased the fitted offset by several ADU even with the true
+  // per-frame read noise correctly entered). Default 2.89 = sqrt(2.7²+(3/(1/0.34))²), i.e.
+  // simulation_readnoise (2.7 e⁻) and simulation_offset_std (3 ADU, converted to photons via
+  // the default simulation_gain) combined in quadrature, so a fresh Simulate+Estimate round
+  // trip is unbiased with both panels left at their defaults.
+  pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:0.01, default:2.89, int:false },
 
   // ---- calibration ----
   // calStep = the z-stage step size (nm) between consecutive calibration-stack frames
