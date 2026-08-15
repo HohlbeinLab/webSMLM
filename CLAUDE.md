@@ -140,6 +140,14 @@ relevant one before editing rather than scrolling:
   wavelength→RGB, 380–700 nm, denser control points through the fast-changing 580–620 nm
   yellow/orange band) gives real visible-spectrum colours instead, for a value that already IS a
   wavelength proxy — aimed at **sSMLM**'s distance colouring, which **Pair** auto-selects it for.
+  `hsvBlue` is a closed-loop full hue cycle (240°→cyan→green→yellow→red→magenta→violet→240° again,
+  saturation/value pinned to 1) matching a colour scheme from the sSMLM paper's own figures —
+  unlike every other map here it's cyclic, so BOTH ends of the mapped range land on the same hue
+  (blue) by design, not an artifact to fix. `drawDepthBar()` (the on-canvas colour-scale strip)
+  sits top-RIGHT, not top-left — sSMLM's paired reconstruction only plots locs that found a
+  partner, usually far sparser than the full FOV, so real content tends to sit left-of-centre with
+  actual empty space on the right; the bar's ticks/labels extend left (into the panel) so they're
+  never clipped by the canvas edge.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
@@ -186,7 +194,12 @@ relevant one before editing rather than scrolling:
   makes the two peaks equal, as an undirected diagnostic should show. `fitSSmlmAngle()` (**Fit
   angle & tol.**) estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same distance-windowed,
   doubled-bearing data — 2°-bin peak detection + half-max-width walk, simple by design, usually a
-  conservative/narrow starting point rather than a final answer. An unpaired
+  conservative/narrow starting point rather than a final answer. Both histograms also draw the
+  CURRENTLY configured window as markers (`computeHist()`'s optional 4th `markers` param) — the
+  distance one shows `sSmlmDistMin`/`Max` as two lines over the full wide scan; the angle one
+  mirrors `sSmlmAngleCenter`±`sSmlmAngleTol` onto both plotted peaks. `refreshSSmlmHistIfShown()`
+  (a `change` listener on all four fields) redraws whichever histogram is on screen so the markers
+  track the fields live, without needing a manual re-click. An unpaired
   localization is dropped from the result,
   not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
   — its centroid already is the true position), not the midpoint: the 1st order's offset varies

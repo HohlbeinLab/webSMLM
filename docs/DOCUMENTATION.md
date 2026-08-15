@@ -365,7 +365,7 @@ run with substantial FTM time look artificially starved.
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
 | `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
-| `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `spectral`, `grey`) |
+| `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `spectral`, `hsvBlue`, `grey`) |
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
 | `zcolor` | Colour by depth (z) | bool | — | — | — | false |
 
@@ -375,7 +375,16 @@ spectral colour changes fastest) is aimed at `zcolor` use with data that
 already IS a wavelength proxy — like sSMLM's inter-order distance — rather
 than raw intensity or generic depth, where turbo/inferno's smooth hue ramp
 usually still reads better. **Pair** (see **sSMLM**) auto-selects it for
-exactly this reason.
+exactly this reason. `hsvBlue` is a closed-loop full HSV hue cycle (240°,
+blue → cyan → green → yellow → red → magenta → violet → 240° again,
+saturation/value pinned to 1) matching a colour scheme used in the sSMLM
+paper's own figures — the only cyclic map here, so the two ends of the
+mapped range deliberately land on the same hue rather than two different
+ones. The on-canvas colour-scale strip (`drawDepthBar()`) is drawn top-RIGHT
+of the reconstruction panel, not top-left — chosen because sSMLM's paired
+result usually only plots a sparse subset of the full field of view, so
+real content tends to sit left-of-centre with genuine empty space on the
+right.
 
 ### Export (camera ADU→photon conversion)
 
@@ -507,8 +516,13 @@ doubled-bearing data: peak-bin detection (2° bins) + half-max-width walk,
 then fills both fields in — a simple, defensible estimate (not a full
 Gaussian fit, matching the bar this app's other auxiliary estimates like
 PCFO/NeNA set), usually conservative/narrow, meant as a starting point you
-can widen by hand rather than a final answer. Narrow these fields (by hand
-or via the fit) to the real peak, then commit with **Pair**. See
+can widen by hand rather than a final answer. Both histograms also overlay
+the currently configured window as vertical marker lines — distance min/max
+on the distance histogram, primary angle ± tolerance (mirrored onto both
+plotted peaks) on the angle one — and refresh live as you edit any of the
+four fields while that histogram is on screen, no manual re-click needed.
+Narrow these fields (by hand or via the fit) to the real peak, then commit
+with **Pair**. See
 [§3](#3-module-reference)'s **sSMLM** entry for the full pairing algorithm
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.

@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16b</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16d</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1691,6 +1691,7 @@ X.B(E,Y);return E}return J}())
             <option value="viridis">Viridis</option>
             <option value="turbo">Blue–Green–Red (Turbo)</option>
             <option value="spectral">Visible spectrum</option>
+            <option value="hsvBlue">HSV (blue loop)</option>
             <option value="grey">Grey</option>
           </select></label>
         <label class="row">Display max
@@ -1765,9 +1766,9 @@ X.B(E,Y);return E}return J}())
         <div class="btnrow" style="margin-top:6px">
           <button id="sSmlmPreviewBtn" disabled title="Preview candidate pairs as distance/angle histograms, without committing">Preview pairs</button>
           <button id="sSmlmDistHistBtn" disabled title="Show the candidate distance histogram">Show dist. hist.</button>
-          <button id="sSmlmAngleHistBtn" disabled title="Show the candidate angle histogram">Show angle hist.</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
+          <button id="sSmlmAngleHistBtn" disabled title="Show the candidate angle histogram">Show angle hist.</button>
           <button id="sSmlmFitAngleBtn" disabled title="Estimate Primary angle and Angle tolerance from the current angle histogram's peak (half-max width) and fill them in below">Fit angle &amp; tol.</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
@@ -1812,7 +1813,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16b · crop-confirm, wide dist. hist. + markers, angle auto-fit
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16d · sSMLM: live hist. markers, HSV-blue LUT, colour bar right
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1916,7 +1917,7 @@ const PARAMS = {
   // rblur = σ_render, display-only Gaussian smoothing applied to the rendered reconstruction
   rblur: { type:'number', id:'rblur', label:'Render blur σ_render (px)', min:0, max:1, step:0.05, default:0.25, int:false },
   // lut = "look-up table", the colour map applied to the reconstruction
-  lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','spectral','grey'], default:'fire' },
+  lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','spectral','hsvBlue','grey'], default:'fire' },
   // lutpct = percentile used for display-max clipping, so one hot pixel can't dim the rest
   lutpct: { type:'enum', id:'lutpct', label:'Display max percentile', options:['99.9','99.5','99','100'], default:'99.9' },
   // zcolor = render 3D results with hue = z (depth-coded) instead of a flat colour map
@@ -3651,7 +3652,13 @@ let rawCropMode=false, rawCropPt0=null;
    blue/green/red bands where it doesn't — matching the physically uneven
    transition widths turbo's uniform hue sweep doesn't have. The natural
    choice for sSMLM's distance colouring, since that value already IS a
-   wavelength proxy.
+   wavelength proxy. "hsvBlue" is a full 360° HSV hue cycle — saturation and
+   value both pinned to 1, hue swept from 240° (blue) clockwise (decreasing
+   hue) through cyan/green/yellow/red/magenta/violet back to 240° — matching
+   a colour scheme from the sSMLM paper's own figures: unlike every other map
+   here, it's a closed LOOP, so the two ends of the mapped range land on the
+   SAME hue (blue) rather than two different ones, which is the point for
+   this specific look, not a bug to fix.
    ------------------------------------------------------------------------- */
 const LUT_CPS={
   inferno:[[0,0,4],[22,11,57],[66,10,104],[106,23,110],[147,38,103],
@@ -3662,7 +3669,9 @@ const LUT_CPS={
          [168,242,44],[219,213,44],[245,161,42],[246,107,36],[205,46,13],[122,4,3]],
   spectral:[[255,0,255],[128,0,255],[0,0,255],[0,102,255],[0,204,255],[0,255,255],
             [0,255,128],[0,255,0],[73,255,0],[146,255,0],[219,255,0],[255,255,0],
-            [255,216,0],[255,177,0],[255,98,0],[255,0,0],[255,0,0]]
+            [255,216,0],[255,177,0],[255,98,0],[255,0,0],[255,0,0]],
+  hsvBlue:[[0,0,255],[0,128,255],[0,255,255],[0,255,128],[0,255,0],[128,255,0],
+           [255,255,0],[255,128,0],[255,0,0],[255,0,128],[255,0,255],[128,0,255],[0,0,255]]
 };
 const _lutCache={};
 function getLUT(name){
@@ -3876,19 +3885,26 @@ function renderProfile(){
   _replotRaw=renderProfile;
   syncSaveImg();
 }
-// vertical depth colourbar (top-left), mapping the current LUT to the z range.
-// Ticks + labels at the max (+), zero and min positions.
+// vertical depth colourbar (top-RIGHT), mapping the current LUT to the z
+// range. Right side, not left: sSMLM's paired reconstruction only plots the
+// subset of locs that found a partner, which is usually far sparser than
+// the full field of view, so the panel's actual content tends to sit
+// left-of-centre with real empty space on the right — putting the bar
+// there instead of over the left edge (its original spot) keeps it clear of
+// the data far more often. Ticks + labels (extending LEFT, into the panel,
+// so they're never clipped by the canvas edge) at the max (+), zero and min
+// positions.
 function drawDepthBar(ctx,DW,DH,zlo,zhi){
-  const lut=getLUT(paramValue('lut')), x=16, y=16, bw=12, bh=140;
+  const lut=getLUT(paramValue('lut')), bw=12, bh=140, x=DW-16-bw, y=16;
   for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
     ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
   ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
   const span=Math.max(1e-9, zhi-zlo), yOf=v=>y+bh*(zhi-v)/span, fmt=v=>(v>0?'+':'')+v.toFixed(0)+' nm';
-  ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of [zhi, 0, zlo]){ if(v>zhi+1e-6||v<zlo-1e-6) continue;   // skip 0 if outside the range
     const yy=Math.max(y,Math.min(y+bh,yOf(v)));
-    ctx.beginPath(); ctx.moveTo(x+bw, yy); ctx.lineTo(x+bw+4, yy); ctx.stroke();   // tick on the bar
-    ctx.fillText(fmt(v), x+bw+7, yy); }
+    ctx.beginPath(); ctx.moveTo(x-4, yy); ctx.lineTo(x, yy); ctx.stroke();   // tick on the bar
+    ctx.fillText(fmt(v), x-7, yy); }
 }
 // nmPerDisp = physical nanometres per displayed pixel; caller supplies it so the
 // same bar serves the reconstruction (px/mag/zoom) and the raw frame (px/zoom).
@@ -5801,6 +5817,19 @@ function drawSSmlmHist(){
     // is what an undirected diagnostic should show regardless of row order.
     vals=sSmlmLastCands.filter(c=>c.dist>=distMin&&c.dist<=distMax)
       .flatMap(c=>[wrap360(c.rawAngle,-90), wrap360(c.rawAngle+180,-90)]);
+    // Same idea as the distance markers, mirrored onto BOTH plotted peaks
+    // (forward and its reverse, see the doubling above) since the fields
+    // configure one bearing but this histogram always shows both. Centre
+    // marker labelled; the ±tolerance boundary lines are left unlabelled
+    // (position alone is legible — tol is often only a few degrees, and
+    // three labels stacked that close together would just overlap).
+    const ac=paramValue('sSmlmAngleCenter'), tol=paramValue('sSmlmAngleTol');
+    markers=[];
+    for(const base of [ac, ac+180]){
+      markers.push({x:wrap360(base,-90), label:'angle'});
+      markers.push({x:wrap360(base-tol,-90), label:''});
+      markers.push({x:wrap360(base+tol,-90), label:''});
+    }
   }
   computeHist(sSmlmHistMode==='dist' ? 'sSMLM pair distance' : 'sSMLM pair angle', vals, sSmlmHistMode==='dist' ? 'nm' : 'deg', markers);
   drawHistogram();
@@ -5952,6 +5981,20 @@ function syncSSmlmZRangeFromDist(){
 }
 $('sSmlmDistMin').addEventListener('change',syncSSmlmZRangeFromDist);
 $('sSmlmDistMax').addEventListener('change',syncSSmlmZRangeFromDist);
+// Live-refresh the sSMLM histogram's marker lines (distance min/max, or
+// angle/tolerance) whenever the relevant field changes while that histogram
+// is already on screen — otherwise the lines go stale until the next manual
+// Show dist./angle hist. click. No-op if a different plot (or no plot, or
+// no candidates yet) is currently showing.
+function refreshSSmlmHistIfShown(){
+  if(!sSmlmLastCands || !rawIsPlot || rawPlotName!=='histogram' || !histData) return;
+  if(histData.col!=='sSMLM pair distance' && histData.col!=='sSMLM pair angle') return;
+  drawSSmlmHist();
+}
+$('sSmlmDistMin').addEventListener('change',refreshSSmlmHistIfShown);
+$('sSmlmDistMax').addEventListener('change',refreshSSmlmHistIfShown);
+$('sSmlmAngleCenter').addEventListener('change',refreshSSmlmHistIfShown);
+$('sSmlmAngleTol').addEventListener('change',refreshSSmlmHistIfShown);
 
 /* ===========================================================================
    MODULE: pipeline
