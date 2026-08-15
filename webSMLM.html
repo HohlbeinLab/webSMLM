@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15d</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15e</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1769,12 +1769,9 @@ X.B(E,Y);return E}return J}())
           <button id="sSmlmPairBtn" disabled title="Pair 0th/1st-order localizations using the settings above">Pair</button>
           <button id="sSmlmUnpairBtn" disabled title="Restore the original, unpaired localizations">Unpair</button>
         </div>
-        <div class="btnrow" style="margin-top:6px">
-          <button id="sSmlmTableBtn" disabled title="Show the paired localizations in the same sortable, filterable table as View data + filtering">View data + filtering</button>
-        </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: sSMLM</span>
-          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a fixed, known orientation. The paired midpoint becomes the emitter's position; the inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed.</p>
+          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a fixed, known orientation. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in <b>z</b>, so the existing depth-coding render option (Rendering settings → Colour by depth) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find a pair within the window are dropped from the result entirely.</p>
           <p><b>Preview pairs</b> only computes — draws a distance histogram (every candidate pair in range, any angle) and, via <b>Show angle hist.</b>, an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Narrow <b>Distance min/max</b> and <b>Angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, since sSMLM pairing and 3D depth both use the same field). <b>Unpair</b> restores the original, unpaired localizations.</p>
           <p><b>Require decreasing order intensity</b> rejects candidate pairs whose two points are within 5% of each other's brightness — too similar to confidently tell which is the brighter 0th order; the grating splits each emitter's intensity, so a real pair is expected to be asymmetric.</p>
@@ -1810,7 +1807,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15d · sSMLM: dataset defaults, z-range sync, table shortcut
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15e · sSMLM: 0th-order position, drop table shortcut, dist column
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5554,8 +5551,12 @@ function transferPcfoEstimate(){
    MODULE: sSMLM — spectrally resolved SMLM (diffraction-grating pair finding).
    A grating in the emission path splits each emitter into a 0th (undispersed)
    and one or more higher-order PSFs, offset by a wavelength-dependent
-   distance at a fixed, known orientation. Pairing them per frame and taking
-   the midpoint recovers the emitter position; the inter-order distance
+   distance at a fixed, known orientation. Pairing them per frame recovers
+   the emitter position — taken from the 0th-order point itself, NOT the
+   pair's midpoint: the 0th order is undispersed (its centroid IS the
+   emitter's actual image position), while the 1st order's offset varies
+   with wavelength, so averaging the two would smear position by half that
+   spectrally-varying distance, emitter to emitter. The inter-order distance
    itself is a wavelength proxy, stored in the paired loc's `z` field so the
    EXISTING zcolor/zmin/zmax depth-coded render path (MODULE: render) colours
    by it with no changes there — the same trick the prior-art Java tool this
@@ -5642,8 +5643,14 @@ async function pairCore(locs, px, config, hooks={}){
     if(claimed[c.i]||claimed[c.j]) continue;   // greedy: a point already in an accepted pair can't join another
     claimed[c.i]=claimed[c.j]=1;
     const Li=locs[c.i], Lj=locs[c.j];
-    const bright=Li.photons>=Lj.photons?Li:Lj;   // 0th order = the brighter point; carries frame/precision fields
-    paired.push({ frame:bright.frame, x:(Li.x+Lj.x)/2, y:(Li.y+Lj.y)/2, z:c.dist,
+    const bright=Li.photons>=Lj.photons?Li:Lj;   // 0th order = the brighter point; carries frame/position/precision fields
+    // Position = the 0th order's OWN x/y, not the pair midpoint: the 0th
+    // order is undispersed by the grating (its centroid already IS the
+    // emitter's image position), while the 1st order sits a wavelength-
+    // dependent distance away — averaging in a per-emitter, spectrally-
+    // varying offset would blur position by up to half that distance
+    // instead of reporting it precisely.
+    paired.push({ frame:bright.frame, x:bright.x, y:bright.y, z:c.dist,
       photons:bright.photons, bg:bright.bg, bgstd:bright.bgstd, lpx:bright.lpx, lpy:bright.lpy, sigma:bright.sigma });
     sumDist+=c.dist; sumDistSq+=c.dist*c.dist; sumSAngle+=c.sAngle;   // sAngle, NOT angle — see sSmlmCandidates' comment on why
     if((k&8191)===0){ onProgress(50+50*k/cands.length); await tick(); }
@@ -6241,7 +6248,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
   try{
     const method=paramValue('method');
@@ -6267,7 +6274,7 @@ async function run(){
     // now that lastResult exists so locsForFrame() can index them
     if(r.lastFrame) drawRaw(r.lastFrame,r.w,r.h,r.lastSpots, r.lastFrameIdx>=0?locsForFrame(r.lastFrameIdx):null);
 
-    $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('sSmlmTableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
+    $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
     $('nenaBtn').disabled = $('frcBtn').disabled = r.locs.length===0;
     $('sSmlmPreviewBtn').disabled = $('sSmlmPairBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
@@ -6431,7 +6438,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -6455,7 +6462,7 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -6747,7 +6754,7 @@ $('csvFile').addEventListener('change', async e=>{
     renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
     rerender();
-    $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('sSmlmTableBtn').disabled = false; $('driftBtn').disabled=false;
+    $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;   // a freshly-loaded result invalidates any prior pairing state
@@ -6990,7 +6997,7 @@ function rawClickToNative(e){
 function resetAfterCropChange(){
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null;
-  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true;
+  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
 }
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
@@ -7277,9 +7284,15 @@ function locTableData(baseLocs, isClustered){
   const sigPSF=paramValue('psf');   // gain/offset are applied inside the fit itself now, not here
   const has3d=locs.some(L=>isFinite(L.z));
   const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
-  const cols=['id','frame','x','y'].concat(has3d?['z']:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
-  const dec={id:0,frame:0,x:1,y:1,z:1,sigma_xy:1,sigma_z:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
-  const unit={x:'nm',y:'nm',z:'nm',sigma_xy:'nm',sigma_z:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
+  // sSMLM pairing stores inter-order DISTANCE in the z field (see MODULE:
+  // sSMLM), not real depth — label the column "dist" while that's active
+  // (sSmlmOriginalLocs is only ever set while a paired result is showing) so
+  // the table reads as what it actually is, not depth.
+  const isPaired = has3d && sSmlmOriginalLocs!=null;
+  const zKey = isPaired ? 'dist' : 'z';
+  const cols=['id','frame','x','y'].concat(has3d?[zKey]:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
+  const dec={id:0,frame:0,x:1,y:1,[zKey]:1,sigma_xy:1,sigma_z:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
+  const unit={x:'nm',y:'nm',[zKey]:'nm',sigma_xy:'nm',sigma_z:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -7287,7 +7300,7 @@ function locTableData(baseLocs, isClustered){
     let sPx=L.sigma||0; if(!(sPx>0)) sPx=sigPSF; const sNm=sPx*px;
     const unc=(isFinite(L.lpx)&&isFinite(L.lpy))?Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px:precisionNm(sNm,px,N,bs);
     const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma_xy:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
-    if(has3d) r.z=isFinite(L.z)?L.z:NaN;
+    if(has3d) r[zKey]=isFinite(L.z)?L.z:NaN;
     if(hasZUnc) r.sigma_z=isFinite(L.lpz)?L.lpz:NaN;   // already nm — see zFromWidths
     if(isClustered) r.nmerged=L.nMerged||1;
     rows[i]=r; }
@@ -7456,7 +7469,6 @@ function wireHelp(){
   const tm=$('tableModal');
   if(tm){ const thide=()=>tm.classList.remove('open');
     $('tableBtn').addEventListener('click',openTable);
-    $('sSmlmTableBtn').addEventListener('click',openTable);   // same table/filters as tableBtn — just a convenience shortcut from the sSMLM section, no separate data source
     $('tableClose').addEventListener('click',thide);
     tm.addEventListener('click',e=>{ if(e.target===tm) thide(); });
     // Autocomplete for the filter box: every field the box actually accepts —

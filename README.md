@@ -139,9 +139,10 @@ walk-through of every step.
   diffraction grating in the emission path — each emitter appears twice per
   frame, offset by a wavelength-dependent distance at a fixed orientation.
   Interactive distance/angle histograms help find your setup's own window;
-  pairing replaces the localizations with one row per pair (position =
-  midpoint, colour = inter-order distance, a wavelength proxy, via the
-  existing depth-coding render option). Ported from
+  pairing replaces the localizations with one row per pair (position = the
+  0th order's own, undispersed position; colour = inter-order distance, a
+  wavelength proxy, via the existing depth-coding render option). Ported
+  from
   [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
   2-point pairs only for now — see `docs/REFACTOR_PLAN.md`.
 

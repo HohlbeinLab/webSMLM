@@ -110,13 +110,12 @@ says.
   (`nenaBtn`/`frcBtn`). See **locprecision** module.
 - **Spectral SMLM analysis** (`sSmlmBox`) — `sSmlmDistMin`/`sSmlmDistMax`/
   `sSmlmAngleCenter`/`sSmlmAngleTol`/`sSmlmIntensityOrder`, and
-  **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**/
-  **View data + filtering** (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/
-  `sSmlmPairBtn`/`sSmlmUnpairBtn`/`sSmlmTableBtn` — the last just a
-  convenience shortcut that opens the exact same table/filter modal as the
-  top-level **View data + filtering** button, §1 item 5). Enabled as soon as
-  there are localizations (Run or **Load data**), not gated on a specific
-  fit method. See **sSMLM** module.
+  **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**
+  (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn`).
+  Enabled as soon as there are localizations (Run or **Load data**), not
+  gated on a specific fit method. Paired locs are already `lastResult.locs`,
+  so the top-level **View data + filtering** button (§1 item 5) works on
+  them directly — no separate table here. See **sSMLM** module.
 
 ### Main panels
 
@@ -688,8 +687,8 @@ is what to know before touching that module, not a restatement of its code.
 - **sSMLM** — spectrally resolved SMLM: a diffraction grating in the
   emission path splits each emitter into a 0th (undispersed) and a 1st-order
   PSF, offset by a wavelength-dependent distance at a fixed, known
-  orientation; pairing them per frame and taking the midpoint recovers the
-  emitter position, with the distance itself a wavelength proxy. Ported from
+  orientation; pairing them per frame recovers the emitter position, with
+  the distance itself a wavelength proxy. Ported from
   [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer)
   (ImageJ/Java + MATLAB) — see Martens, Gobes, Archontakis, Brillas,
   Zijlstra, Albertazzi & Hohlbein, *Nano Lett.* **22**(21), 8618–8625 (2022),
@@ -708,29 +707,38 @@ is what to know before touching that module, not a restatement of its code.
   **Preview pairs** distance/angle histograms cover the same "find my
   window" need more simply for a first version, verified against a real
   ~2M-localization reference dataset (`experimental_data/README.md`) before
-  building the rest around it. Pairing stores the inter-order distance in
-  the paired loc's `z` field (the same trick `sSMLMAnalyzer`'s own
-  `ThunderSTORM.csv` output already uses), so the *existing*
-  `zcolor`/`zmin`/`zmax` depth-coded render path (**render** module) colours
-  by it with no changes there; **Pair** refuses if the current result
-  already has real finite `z` (a 3D fit method) rather than silently
-  overwriting real depth. `runSSmlmPair()`/`unpairSSmlm()` swap
-  `lastResult.locs` for the paired/original set, keeping a backup
-  (`sSmlmOriginalLocs`) the same way the raw-panel crop tool keeps
-  `originalStack` — table/CSV/render need no further changes, since paired
-  locs are the same `{frame,x,y,z,intensity,...}` shape any other result is.
-  **Pair** also turns on `zcolor` and sets `zmin`/`zmax` to the *configured*
-  `sSmlmDistMin`/`sSmlmDistMax` (not `rerender()`'s usual 1st–99th-percentile
-  auto-fit) — every accepted pair's distance is already within that window by
-  construction, so it's the natural colour-scale range, and it re-syncs on
-  every Pair (e.g. after narrowing the window post-calibration-fix); this is
-  the same `zmin`/`zmax` pair a future real-3D `z` would use, not a separate
-  field. A "Show spectral"/"Show standard" button inline in the
-  reconstruction panel title (`sSmlmColorBtn`, same pattern as the raw
-  panel's FTM toggle) flips `zcolor` without a trip to Rendering settings;
-  `sSmlmTableBtn` is a same-section shortcut to the ordinary **View data +
-  filtering** table/filter modal (no separate table — paired locs already
-  are `lastResult.locs`).
+  building the rest around it. A localization that finds no partner within
+  the window is dropped from the result entirely — the output only ever
+  contains accepted pairs. Each accepted pair's reported position is the
+  **0th order's own** x/y, not the midpoint between the two: the 0th order
+  is undispersed, so its centroid already IS the emitter's true image
+  position, while the 1st order sits a wavelength-dependent (i.e.
+  emitter-to-emitter varying) distance away — averaging the two would blur
+  position by up to half that spectrally-varying offset instead of reporting
+  it precisely. Pairing stores the inter-order distance in the paired loc's
+  `z` field (the same trick `sSMLMAnalyzer`'s own `ThunderSTORM.csv` output
+  already uses), so the *existing* `zcolor`/`zmin`/`zmax` depth-coded render
+  path (**render** module) colours by it with no changes there; **Pair**
+  refuses if the current result already has real finite `z` (a 3D fit
+  method) rather than silently overwriting real depth. `runSSmlmPair()`/
+  `unpairSSmlm()` swap `lastResult.locs` for the paired/original set, keeping
+  a backup (`sSmlmOriginalLocs`) the same way the raw-panel crop tool keeps
+  `originalStack` — CSV/render need no further changes, since paired locs
+  are the same `{frame,x,y,z,intensity,...}` shape any other result is; the
+  **table** module's `locTableData()` relabels the `z` column to `dist` when
+  `sSmlmOriginalLocs` shows pairing is active, so it reads as what it is
+  (inter-order distance) rather than depth. **Pair** also turns on `zcolor`
+  and sets `zmin`/`zmax` to the *configured* `sSmlmDistMin`/`sSmlmDistMax`
+  (not `rerender()`'s usual 1st–99th-percentile auto-fit) — every accepted
+  pair's distance is already within that window by construction, so it's the
+  natural colour-scale range, and it re-syncs on every Pair (e.g. after
+  narrowing the window post-calibration-fix); this is the same `zmin`/`zmax`
+  pair a future real-3D `z` would use, not a separate field. A "Show
+  spectral"/"Show standard" button inline in the reconstruction panel title
+  (`sSmlmColorBtn`, same pattern as the raw panel's FTM toggle) flips
+  `zcolor` without a trip to Rendering settings. Paired locs are already
+  `lastResult.locs`, so the top-level **View data + filtering** button works
+  on them directly — no separate table for sSMLM.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table
