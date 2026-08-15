@@ -111,6 +111,16 @@ says.
 
 ### Main panels
 
+`#canvases` (the grid wrapping both) gets a `.stacked` class — switching it
+from side-by-side (`minmax(0,1fr) minmax(0,1fr)` columns) to a single column —
+whenever the loaded stack's `h/w < 0.5` (set in `initScrub()`, alongside the
+`--frame-ar` custom property both canvases share); a very wide/short frame
+would otherwise render tiny twice over (squeezed to half width on top of
+already being short). A `ResizeObserver` on `#canvases` (not just a `window`
+`resize` listener, which only fires for actual viewport changes) redraws both
+panels' backing stores whenever their on-screen box size changes for *any*
+reason — this toggle, the sidebar dock/float/collapse buttons, or an actual
+window resize.
 - **Raw frame** (`raw` canvas) — the loaded stack's current frame with
   detected ROIs (green) and accepted localizations (magenta crosshairs)
   overlaid; doubles as a **plot surface** for FRC/NeNA/drift/calibration

@@ -1326,6 +1326,11 @@ X.B(E,Y);return E}return J}())
   select.sel{flex:0 0 60%;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  /* very wide/short frames (h/w < 0.5): side by side would squeeze each panel to
+     half width on top of already being short, rendering tiny — stack them instead
+     so each gets the full width. Toggled in JS (initScrub()) from the loaded
+     stack's own aspect ratio, independent of the viewport-width breakpoint below. */
+  .canvases.stacked{grid-template-columns:1fr}
   .canvases > .card{min-width:0}   /* allow the panels to shrink below their content size */
   .card{padding:6px}
   /* one-line headers: title kept intact, caption truncates with an ellipsis, so a
@@ -1439,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.3-dev · build 2026-08-15a</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.3-dev · build 2026-08-15b</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1753,7 +1758,7 @@ X.B(E,Y);return E}return J}())
   </aside>
 
   <main class="main">
-    <div class="canvases">
+    <div class="canvases" id="canvases">
       <div class="card">
         <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <canvas id="raw"></canvas>
@@ -1778,7 +1783,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.3-dev · build 2026-08-15a · start 0.10.3-dev
+</span></noscript>webSMLM v0.10.3-dev · build 2026-08-15b · stack panels for wide/short frames, ResizeObserver refit
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -6251,6 +6256,9 @@ function initScrub(){
     $('fitLastFrame').value=stack.n; $('fitFirstFrame').value=1;  // default Localize range = whole stack too
     // both panels take the stack's aspect ratio (raw frame + reconstruction share it → equal, no letterbox)
     document.documentElement.style.setProperty('--frame-ar', stack.w+' / '+stack.h);
+    // very wide/short frames: side-by-side squeezes each panel to half width on top
+    // of already being short, rendering tiny — stack them full-width instead.
+    $('canvases').classList.toggle('stacked', stack.h/stack.w<0.5);
     calFixedPts=null; _projCache=null;      // a new stack invalidates any previously fixed positions/projection
     $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
     const st=$('calLocateStatus'); if(st) st.style.display='none'; }
@@ -6738,15 +6746,27 @@ for(const _id of ['raw','sr']){ const _cv=$(_id);
   _cv.addEventListener('mousemove',e=>{ if(_plotHover[_id]) drawPlotHover(_id,e.clientX,e.clientY); });
   _cv.addEventListener('mouseleave',()=>{ if(_plotHover[_id]) drawPlotHover(_id,null,null); });
 }
-// Re-render the active plot on window resize so its backing store tracks the new
-// on-screen size and text stays crisp (debounced).
+// Re-render the active plot/frame whenever either panel's actual on-screen box
+// size changes, so the backing store — and text crispness — tracks it (debounced,
+// since a live window drag or ResizeObserver can both fire many times a second).
+// A plain `window` resize listener alone misses layout changes with no viewport
+// resize behind them (sidebar dock/float toggle, the aspect-ratio-driven
+// side-by-side/stacked switch above, a scrollbar appearing/disappearing) — those
+// used to only self-correct on the next unrelated redraw (e.g. scrubbing a
+// frame), which reads as "the window didn't resize the panels". A ResizeObserver
+// on #canvases (the shared grid — covers both panels' boxes with one observer)
+// fires for the actual cause, not a proxy for it, so it catches all of the above
+// natively; window's own resize listener is kept alongside it as a belt-and-braces
+// fallback (harmless overlap — both funnel through the same debounce timer).
 let _plotResizeT=null;
-window.addEventListener('resize',()=>{ clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
+const refitCanvases=()=>{ clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
   if(rawIsPlot && _replotRaw) _replotRaw();
   else if(rawFull){ if(rawView.atFit) fitRawView(); clampRawView(); drawRawView(); }   // refit only if it was fitted; else keep on-screen scale
   if(srIsPlot && _replotSr) _replotSr();
   else if(srFull){ if(view.atFit) fitView(); clampView(); drawView(); }
-}, 120); });
+}, 120); };
+window.addEventListener('resize', refitCanvases);
+if(typeof ResizeObserver!=='undefined') new ResizeObserver(refitCanvases).observe($('canvases'));
 
 // help modal — wire after full DOM parse (the modal markup follows this script,
 // so its elements don't exist yet at first execution).

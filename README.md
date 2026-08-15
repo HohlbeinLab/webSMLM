@@ -96,7 +96,10 @@ walk-through of every step.
 - **Navigate both panels**: independent zoom/pan (wheel or pinch, drag,
   double-click to reset) on the raw frame and the reconstruction, plus a frame
   slider to scrub the stack. Both panels take the loaded stack's data aspect
-  ratio, so they stay equal-sized with no letterboxing. The controls panel is
+  ratio, so they stay equal-sized with no letterboxing; very wide/short frames
+  (height under half the width) stack the two panels instead of placing them
+  side by side, so each still renders at full width rather than being squeezed
+  small twice over. The controls panel is
   **collapsible** — on desktop, re-opening it after a collapse floats it as an
   overlay so toggling never resizes the display windows.
 - **Measures distances / line profiles**: click two points in the reconstruction
