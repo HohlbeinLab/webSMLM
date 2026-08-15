@@ -43,10 +43,11 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     the real reference dataset (sampled ~3,000 frames, all same-frame
     pairwise candidates in the 2200–2800 nm window with a clear
     brighter/dimmer split) shows the true signal is **bimodal, not
-    single-sided**: ~36,761 candidates at ~0° and ~38,833 at ~180°
-    (symmetric within noise) — i.e. many 0th-order points have a genuine
-    dim partner on BOTH sides simultaneously (measured: 36.3% of bright
-    points with ≥1 valid candidate have candidates on both sides), matching
+    single-sided**: ~31,346 candidates at ~0° and ~34,129 at ~180°
+    (symmetric within noise, reproduced across two versions of the reference
+    CSV) — i.e. many 0th-order points have a genuine dim partner on BOTH
+    sides simultaneously (measured: 34.7% of bright points with ≥1 valid
+    candidate have candidates on both sides), matching
     a grating that disperses symmetric +1st/−1st orders rather than just one
     side. This is why `sSmlmCandidates()`'s angle window is intentionally
     undirected (mod 180°, not a signed vector check) — restricting to one
