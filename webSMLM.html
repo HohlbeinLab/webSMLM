@@ -1436,7 +1436,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-14c</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.1-dev · build 2026-08-15a</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1505,7 +1505,7 @@ X.B(E,Y);return E}return J}())
         <label class="row">Camera offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
         <label class="row">Offset std (ADU, per-pixel) <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
         <label class="row">Read noise σ (e⁻) <input type="number" id="simulation_readnoise" min="0" max="200" step="0.1" value="2.7" class="num"></label>
-        <label class="row">Background (photons/frame) <input type="number" id="simbg" min="0" max="500" step="1" value="40" class="num"></label>
+        <label class="row">Background (photons/frame) <input type="number" id="simbg" min="0" max="500" step="1" value="0" class="num"></label>
         <label class="row">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">[module: simulation] "Emitter density" is a physical areal density — the average number of ON
@@ -1646,13 +1646,14 @@ X.B(E,Y);return E}return J}())
         <summary>PCFO settings</summary>
         <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="100" min="1" max="5000" step="10" class="num"></label>
         <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1.4" step="0.05" class="num"></label>
-        <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="0" min="0" max="200" step="1" class="num"></label>
+        <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.7" min="0" max="200" step="1" class="num"></label>
         <label class="row">Tile size (px) <input type="number" id="pcfoTilePx" value="300" min="64" max="2000" step="10" class="num"></label>
         <details class="info"><summary>…further info…</summary>
           <div class="hint"><b>Frames sampled</b> — how many seeded-random frames to average over.
           <b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is
           assumed noise-only; 0.9 follows the Rieger–Heintzman default.
-          <b>Readout noise σ</b> — camera dark-frame std, in electrons; 0 if unknown/negligible.
+          <b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible
+          (default 2.7 matches the Simulation panel's own default read noise, for a clean self-test).
           <b>Tile size</b> — target tile width/height in px; rounded down to the nearest power of two
           (min 64px) since the noise-variance estimate needs an FFT, and tiles the whole frame
           contiguously at that size (e.g. target 300px on a 600×600 frame → 256px tiles, 2×2).</div></details>
@@ -1732,7 +1733,7 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1-dev · build 2026-08-14c · simulation read noise exposed, matches PCFO units
+</span></noscript>webSMLM v0.10.1-dev · build 2026-08-15a · PCFO tile size now shrinks to keep a >=2x2 grid
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1819,8 +1820,9 @@ const PARAMS = {
   pcfoFrames: { type:'number', id:'pcfoFrames', label:'PCFO: frames sampled', min:1, max:5000, step:10, default:100, int:true },
   // pcfoK = spatial-frequency cutoff (fraction of Nyquist) above which content is assumed noise-only
   pcfoK: { type:'number', id:'pcfoK', label:'PCFO: k_thresh (spatial freq.)', min:0.1, max:1.4, step:0.05, default:0.9, int:false },
-  // pcfoRnstd = camera dark-frame read-noise std, in electrons; 0 if unknown/negligible
-  pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:1, default:0, int:false },
+  // pcfoRnstd = camera dark-frame read-noise std, in electrons; set to 0 if unknown/negligible for
+  // real camera data — defaults to 2.7 to match simulation_readnoise's default for a clean self-test
+  pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:1, default:2.7, int:false },
   // pcfoTilePx = target tile width/height in px for the PCFO signal/noise-variance regression
   pcfoTilePx: { type:'number', id:'pcfoTilePx', label:'PCFO: tile size (px)', min:64, max:2000, step:10, default:300, int:true },
 
@@ -1872,7 +1874,7 @@ const PARAMS = {
   // distributed activation; fractional (e.g. 3.5 frames) and physically motivated (exponential decay)
   simlifetime: { type:'number', id:'simlifetime', label:'Simulated ON lifetime (frames, mean)', min:0.1, max:20, step:0.1, default:1, int:false },
   // simbg = mean background photon rate/frame, folded into the same Poisson shot-noise draw as signal
-  simbg: { type:'number', id:'simbg', label:'Simulation background (photons/frame)', min:0, max:500, step:1, default:40, int:false },
+  simbg: { type:'number', id:'simbg', label:'Simulation background (photons/frame)', min:0, max:500, step:1, default:0, int:false },
   // simulation_gain = forward-model photons→ADU conversion factor (ADU = offset + photons/gain),
   // the inverse direction of the fit-side `gain`; deliberately a separate param so simulated ground
   // truth and the fit's assumed camera model can be matched or intentionally mismatched for testing
@@ -4825,8 +4827,17 @@ function pcfoTileStats(img,w,x0,y0,S,kThresh,filfac){
 // content for a stable noise-variance estimate) rather than left at a fixed 32px
 // while the rest of each tile went unused (that mismatch was a real bug: a tile
 // only contributed its top-left 32×32 corner, discarding the rest of the cell).
-function pcfoTileSize(targetPx){
-  let S=64; while(S*2<=targetPx) S*=2; return S;
+// A tile size that leaves only a 1×1 grid (target close to/above the frame size)
+// starves the gain+offset regression of spatial spread — with one tile/frame, the
+// only variation across pooled points is whatever the mean signal happens to drift
+// by frame-to-frame, which is often too little to pin down two parameters, so the
+// fit goes singular ("too few usable data points"). Halve S until the grid is at
+// least 2×2 (still floored at 64px) so a too-large tile target degrades gracefully
+// instead of failing outright.
+function pcfoTileSize(targetPx,w,h){
+  let S=64; while(S*2<=targetPx) S*=2;
+  while(S>64 && (Math.floor(w/S)<2 || Math.floor(h/S)<2)) S/=2;
+  return S;
 }
 // tile the WHOLE frame contiguously at size S×S (partial tiles at the right/bottom
 // edge dropped) — every pixel is used by exactly one tile's imsig/noisevar, unlike
@@ -4914,10 +4925,11 @@ async function estimateGainOffset(){
   try{
     const NFRAMES=paramValue('pcfoFrames'), K_THRESH=paramValue('pcfoK'),
           RNSTD=paramValue('pcfoRnstd'), TILE_TARGET_PX=paramValue('pcfoTilePx');
-    const S=pcfoTileSize(TILE_TARGET_PX);
+    const S=pcfoTileSize(TILE_TARGET_PX,stack.w,stack.h);
     const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
     const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
-    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px (target ${TILE_TARGET_PX}px, rounded down to a power of two)…`);
+    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px`
+      + `${S<pcfoTileSize(TILE_TARGET_PX,1e9,1e9)?` (target ${TILE_TARGET_PX}px, shrunk further to keep a ≥2×2 grid)`:` (target ${TILE_TARGET_PX}px, rounded down to a power of two)`}…`);
     const pts=[];
     for(const fi of idx){
       const img=(await stack.getFrames(fi,fi+1))[0];
