@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.3-dev · build 2026-08-15d</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.3-dev · build 2026-08-15e</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1783,7 +1783,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.3-dev · build 2026-08-15d · raw-panel crop tool (restricts Localize to a region), headless config.cropX0-Y1
+</span></noscript>webSMLM v0.10.3-dev · build 2026-08-15e · FTM chunk log now shows the padded context range too
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2418,7 +2418,7 @@ function makeFtmStack(rawStack, win, camoffset, chunkmb, hooks={}){
         const ctxStart=Math.max(0, Math.min(n-win, coreStart-half));
         const ctxEnd=Math.max(0, Math.min(n-win, coreEnd-1-half))+win;
         const ctxFrames=new Array(ctxEnd-ctxStart);
-        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk)…`);
+        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk, context ${ctxStart+1}–${ctxEnd})…`);
         const BLK=32;   // fetch in blocks, not one call — avoids a single giant read on a sliced/streamed stack
         for(let b=ctxStart; b<ctxEnd; b+=BLK){
           const bl=await rawStack.getFrames(b, Math.min(ctxEnd,b+BLK));
@@ -5726,7 +5726,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           for(let i=0;i<bl.length;i++) ctxFrames[b-ctxStart+i]=bl[i];
         }
         if(err) break;
-        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk)…`);
+        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk, context ${ctxStart+1}–${ctxEnd})…`);
         onProgress(100*(coreStart-firstIdx)/n);   // frames before this chunk are done (both phases); this chunk's own FTM phase has no finer-grained progress of its own — see docs/DOCUMENTATION.md
         const tFtm0=performance.now();
         let corrected;
