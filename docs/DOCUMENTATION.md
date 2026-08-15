@@ -110,10 +110,13 @@ says.
   (`nenaBtn`/`frcBtn`). See **locprecision** module.
 - **Spectral SMLM analysis** (`sSmlmBox`) — `sSmlmDistMin`/`sSmlmDistMax`/
   `sSmlmAngleCenter`/`sSmlmAngleTol`/`sSmlmIntensityOrder`, and
-  **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**
-  (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn`).
-  Enabled as soon as there are localizations (Run or **Load data**), not
-  gated on a specific fit method. See **sSMLM** module.
+  **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**/
+  **View data + filtering** (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/
+  `sSmlmPairBtn`/`sSmlmUnpairBtn`/`sSmlmTableBtn` — the last just a
+  convenience shortcut that opens the exact same table/filter modal as the
+  top-level **View data + filtering** button, §1 item 5). Enabled as soon as
+  there are localizations (Run or **Load data**), not gated on a specific
+  fit method. See **sSMLM** module.
 
 ### Main panels
 
@@ -455,19 +458,20 @@ headless equivalent.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 200 |
-| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 6000 |
+| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 2200 |
+| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 2800 |
 | `sSmlmAngleCenter` | sSMLM pair angle (deg) | number | -90 | 90 | 1 | 0 |
-| `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 90 |
+| `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
 | `sSmlmIntensityOrder` | Require decreasing order intensity | bool | — | — | — | true |
 
-The distance/angle defaults are deliberately wide (unrestricted angle, a
-generic multi-µm distance range) rather than tuned to any one grating —
-**Preview pairs** draws live distance/angle histograms of the *candidate*
-pairs in the current window (reusing the table module's own
-`computeHist()`/`drawHistogram()`, fed candidate values instead of a table
-column) so the real peak for your own setup is visible before narrowing
-these fields and committing with **Pair**. See
+The distance/angle defaults match the deposited reference dataset's own
+grating dispersion (`experimental_data/sSMLM_Fig2_locs.csv`) — a different
+setup's dispersion sits elsewhere, so don't trust these blind. **Preview
+pairs** draws live distance/angle histograms of the *candidate* pairs in the
+current window (reusing the table module's own `computeHist()`/
+`drawHistogram()`, fed candidate values instead of a table column) so the
+real peak for your own setup is visible before narrowing these fields and
+committing with **Pair**. See
 [§3](#3-module-reference)'s **sSMLM** entry for the full pairing algorithm
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
@@ -715,6 +719,18 @@ is what to know before touching that module, not a restatement of its code.
   (`sSmlmOriginalLocs`) the same way the raw-panel crop tool keeps
   `originalStack` — table/CSV/render need no further changes, since paired
   locs are the same `{frame,x,y,z,intensity,...}` shape any other result is.
+  **Pair** also turns on `zcolor` and sets `zmin`/`zmax` to the *configured*
+  `sSmlmDistMin`/`sSmlmDistMax` (not `rerender()`'s usual 1st–99th-percentile
+  auto-fit) — every accepted pair's distance is already within that window by
+  construction, so it's the natural colour-scale range, and it re-syncs on
+  every Pair (e.g. after narrowing the window post-calibration-fix); this is
+  the same `zmin`/`zmax` pair a future real-3D `z` would use, not a separate
+  field. A "Show spectral"/"Show standard" button inline in the
+  reconstruction panel title (`sSmlmColorBtn`, same pattern as the raw
+  panel's FTM toggle) flips `zcolor` without a trip to Rendering settings;
+  `sSmlmTableBtn` is a same-section shortcut to the ordinary **View data +
+  filtering** table/filter modal (no separate table — paired locs already
+  are `lastResult.locs`).
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table

@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15c</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15d</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1756,10 +1756,10 @@ X.B(E,Y);return E}return J}())
       </details>
       <details class="sim" id="sSmlmBox">
         <summary>Spectral SMLM analysis</summary>
-        <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="200" min="0" max="20000" step="50" class="num"></label>
-        <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="6000" min="0" max="20000" step="50" class="num"></label>
+        <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
+        <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-90" max="90" step="1" class="num"></label>
-        <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="90" min="0" max="90" step="1" class="num"></label>
+        <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="5" min="0" max="90" step="1" class="num"></label>
         <label class="row">Require decreasing order intensity <input type="checkbox" id="sSmlmIntensityOrder" checked></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sSmlmPreviewBtn" disabled title="Preview candidate pairs as distance/angle histograms, without committing">Preview pairs</button>
@@ -1768,6 +1768,9 @@ X.B(E,Y);return E}return J}())
         <div class="btnrow" style="margin-top:6px">
           <button id="sSmlmPairBtn" disabled title="Pair 0th/1st-order localizations using the settings above">Pair</button>
           <button id="sSmlmUnpairBtn" disabled title="Restore the original, unpaired localizations">Unpair</button>
+        </div>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="sSmlmTableBtn" disabled title="Show the paired localizations in the same sortable, filterable table as View data + filtering">View data + filtering</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: sSMLM</span>
@@ -1807,7 +1810,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15c · sSMLM: progress bar + spectral-view toggle
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15d · sSMLM: dataset defaults, z-range sync, table shortcut
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1971,16 +1974,18 @@ const PARAMS = {
   frc3d: { type:'bool', id:'frc3d', label:'3D shells (FSC)', default:false },
 
   // ---- sSMLM (spectrally resolved SMLM, diffraction-grating pair finding) ----
-  // sSmlmDistMin/Max = the 0th/1st-order pair search window (nm) — wide by default
-  // (a "few micrometres" per the technique, but not tuned to any one setup); narrow
-  // it after checking Preview pairs' distance histogram for the real peak.
-  sSmlmDistMin: { type:'number', id:'sSmlmDistMin', label:'sSMLM pair distance min (nm)', min:0, max:20000, step:50, default:200, int:false },
-  sSmlmDistMax: { type:'number', id:'sSmlmDistMax', label:'sSMLM pair distance max (nm)', min:0, max:20000, step:50, default:6000, int:false },
+  // sSmlmDistMin/Max = the 0th/1st-order pair search window (nm). Defaults
+  // (2200–2800 nm) match the deposited reference dataset's own grating
+  // dispersion (experimental_data/sSMLM_Fig2_locs.csv) — a *different* setup's
+  // dispersion will sit elsewhere, so re-check Preview pairs' distance
+  // histogram for the real peak rather than trusting these numbers blind.
+  sSmlmDistMin: { type:'number', id:'sSmlmDistMin', label:'sSMLM pair distance min (nm)', min:0, max:20000, step:50, default:2200, int:false },
+  sSmlmDistMax: { type:'number', id:'sSmlmDistMax', label:'sSMLM pair distance max (nm)', min:0, max:20000, step:50, default:2800, int:false },
   // sSmlmAngleCenter/Tol = the grating's fixed orientation ± tolerance, undirected
   // (mod 180°) since a pair's two points aren't ordered by which is "first".
-  // Tol defaults to unrestricted (±90°) — same reasoning as the wide distance window.
+  // Tol default (±5°) is likewise tuned to the reference dataset's own peak.
   sSmlmAngleCenter: { type:'number', id:'sSmlmAngleCenter', label:'sSMLM pair angle (deg)', min:-90, max:90, step:1, default:0, int:false },
-  sSmlmAngleTol: { type:'number', id:'sSmlmAngleTol', label:'sSMLM pair angle tolerance (± deg)', min:0, max:90, step:1, default:90, int:false },
+  sSmlmAngleTol: { type:'number', id:'sSmlmAngleTol', label:'sSMLM pair angle tolerance (± deg)', min:0, max:90, step:1, default:5, int:false },
   // sSmlmIntensityOrder = require the paired (higher-order) point to be dimmer —
   // physically expected, since the grating splits each emitter's intensity.
   sSmlmIntensityOrder: { type:'bool', id:'sSmlmIntensityOrder', label:'Require decreasing order intensity', default:true },
@@ -5708,7 +5713,16 @@ async function runSSmlmPair(){
     if(!r.nPairs){ log('  no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
     sSmlmOriginalLocs = sSmlmOriginalLocs || lastResult.locs;   // only ever set from the TRUE original, so re-pairing while already paired keeps chaining off it
     lastResult.locs = r.locs;
-    renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';   // old filters/z-range referenced the pre-pairing locs
+    renderLocs=null; _tableFilters=[];
+    // z-range = the configured pair-distance window, not an auto-fit percentile
+    // (zRange()'s usual 1st–99th-pct fallback) — every accepted pair's z is
+    // already within [distMin,distMax] by construction (sSmlmCandidates
+    // filters on it), so the window IS the natural colour-scale range, and
+    // keeping the two in sync means re-narrowing the window (e.g. after
+    // fixing a wrong pixel-size/calibration) immediately re-scales the
+    // colour axis too, ready for the eventual real-3D z-axis reuse of these
+    // same fields.
+    $('zmin').value=cfg.sSmlmDistMin; $('zmax').value=cfg.sSmlmDistMax;
     // Pairing's whole point is the colour-by-distance view — turn it on by
     // default rather than leaving the reconstruction looking unchanged (the
     // usual complaint: "I paired but don't see any sSMLM output").
@@ -6227,7 +6241,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
   try{
     const method=paramValue('method');
@@ -6253,7 +6267,7 @@ async function run(){
     // now that lastResult exists so locsForFrame() can index them
     if(r.lastFrame) drawRaw(r.lastFrame,r.w,r.h,r.lastSpots, r.lastFrameIdx>=0?locsForFrame(r.lastFrameIdx):null);
 
-    $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
+    $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('sSmlmTableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
     $('nenaBtn').disabled = $('frcBtn').disabled = r.locs.length===0;
     $('sSmlmPreviewBtn').disabled = $('sSmlmPairBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
@@ -6417,7 +6431,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -6441,7 +6455,7 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -6733,7 +6747,7 @@ $('csvFile').addEventListener('change', async e=>{
     renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
     rerender();
-    $('saveBtn').disabled=false; $('tableBtn').disabled=false; $('driftBtn').disabled=false;
+    $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('sSmlmTableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;   // a freshly-loaded result invalidates any prior pairing state
@@ -6976,7 +6990,7 @@ function rawClickToNative(e){
 function resetAfterCropChange(){
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null;
-  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; $('sSmlmTableBtn').disabled = true;
 }
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
@@ -7442,6 +7456,7 @@ function wireHelp(){
   const tm=$('tableModal');
   if(tm){ const thide=()=>tm.classList.remove('open');
     $('tableBtn').addEventListener('click',openTable);
+    $('sSmlmTableBtn').addEventListener('click',openTable);   // same table/filters as tableBtn — just a convenience shortcut from the sSMLM section, no separate data source
     $('tableClose').addEventListener('click',thide);
     tm.addEventListener('click',e=>{ if(e.target===tm) thide(); });
     // Autocomplete for the filter box: every field the box actually accepts —

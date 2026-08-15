@@ -209,7 +209,11 @@ against the expected smooth combinatorial background, and within that
 window a **dominant angle at ~0°** (essentially horizontal). Pairing with
 `sSmlmDistMin=2300, sSmlmDistMax=2700, sSmlmAngleCenter=0, sSmlmAngleTol=10`
 recovers 667,868 pairs (64.4% of all localizations paired), mean distance
-2541 ± 69 nm, mean angle 2.0°.
+2541 ± 69 nm, mean angle 2.0°. The module's own `PARAMS` defaults
+(`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) are set to this
+dataset's own dispersion for a zero-config first run — slightly wider than
+the window above, giving 659,056 pairs (63.5%), mean distance 2545 ± 82 nm,
+mean angle 1.9°.
 
 ## Useful properties to note for benchmarking
 
