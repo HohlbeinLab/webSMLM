@@ -42,7 +42,11 @@ relevant one before editing rather than scrolling:
   full stack swap, not a search-region restriction threaded through detect/fit, so nothing
   downstream needs a coordinate offset added back and every consumer (FTM below, calibration,
   PCFO, workers, render/export) just sees a smaller stack the same way it'd see any smaller loaded
-  file. FTM (`ftmEnabled`/
+  file. Deselecting `rawCropBtn` while `lastResult` exists (i.e. there's a Run's worth of
+  downstream results computed from the cropped region only) confirms first —
+  `resetAfterCropChange()` erases `lastResult` (and sSMLM pairing state, same reset every fresh
+  Run/Load/Simulate does) unconditionally, no undo, and this button sits right next to the raw
+  panel's own title where a misclick reading something else in that panel is easy. FTM (`ftmEnabled`/
   `ftmWindow`, controls living in the **fit** module's `PARAMS` group and sidebar section despite
   the functions below sitting in in/out) is a per-pixel sliding-window temporal median
   subtraction — floored at `camoffset` and added back, not floored at zero, see **fit** below for
@@ -132,12 +136,10 @@ relevant one before editing rather than scrolling:
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
   without refitting. `LUT_CPS` control-point maps: `fire`/`inferno`/`viridis`/`turbo` are smooth
-  hue ramps for continuously-varying data (intensity, real 3D depth); `diverging` (ColorBrewer
-  RdBu-11) has a genuine white midpoint for data with a meaningful threshold/split instead, and
-  `spectral` (Bruton wavelength→RGB, 380–700 nm, denser control points through the fast-changing
-  580–620 nm yellow/orange band) gives real visible-spectrum colours for a value that already IS a
-  wavelength proxy — both aimed at **sSMLM**'s distance colouring; **Pair** auto-selects
-  `diverging`.
+  hue ramps for continuously-varying data (intensity, real 3D depth); `spectral` (Bruton
+  wavelength→RGB, 380–700 nm, denser control points through the fast-changing 580–620 nm
+  yellow/orange band) gives real visible-spectrum colours instead, for a value that already IS a
+  wavelength proxy — aimed at **sSMLM**'s distance colouring, which **Pair** auto-selects it for.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
@@ -169,12 +171,22 @@ relevant one before editing rather than scrolling:
   default. **2-point pairs only** (0th+1st) — multi-order chaining and FFT-based angle/distance
   auto-detection are `docs/REFACTOR_PLAN.md` follow-ups, not implemented; the interactive
   **Preview pairs** distance/angle histograms (reusing `computeHist()`/`drawHistogram()` from
-  **table**) cover "find my window" instead. The angle histogram plots each candidate's `rawAngle`
-  AND its exact reverse (`+180°`, both `wrap360()`-ed into a window centred 90° off
-  `sSmlmAngleCenter` so neither peak sits at the seam) — plotting only the raw single bearing looks
-  wildly asymmetric, since which of a candidate's two points gets the smaller array index (and
-  therefore which direction `rawAngle` reports) is a row-order accident, not evenly split in real
-  data; doubling it makes the two peaks equal, as an undirected diagnostic should show. An unpaired
+  **table**) cover "find my window" instead — always fetched over a WIDE fixed scan (0–6000 nm,
+  wider if `sSmlmDistMax` already exceeds that; any angle), ignoring the current field values, so
+  narrowing either one first can't hide the true peak or clip the histogram to the wrong window.
+  **Show dist. hist.** plots that full wide scan with the current Distance min/max overlaid as
+  vertical markers (`computeHist()`'s new optional 4th `markers` param, `[{x,label}]`, read live at
+  draw time); **Show angle hist.**, unlike the distance one, DOES restrict to the current distance
+  window (angle signal is only sharp within the real peak — pooling the wide scan's off-peak
+  distances would just dilute it with background) and plots each candidate's `rawAngle` AND its
+  exact reverse (`+180°`, both `wrap360()`-ed into a window centred 90° off `sSmlmAngleCenter` so
+  neither peak sits at the seam) — plotting only the raw single bearing looks wildly asymmetric,
+  since which of a candidate's two points gets the smaller array index (and therefore which
+  direction `rawAngle` reports) is a row-order accident, not evenly split in real data; doubling it
+  makes the two peaks equal, as an undirected diagnostic should show. `fitSSmlmAngle()` (**Fit
+  angle & tol.**) estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same distance-windowed,
+  doubled-bearing data — 2°-bin peak detection + half-max-width walk, simple by design, usually a
+  conservative/narrow starting point rather than a final answer. An unpaired
   localization is dropped from the result,
   not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
   — its centroid already is the true position), not the midpoint: the 1st order's offset varies

@@ -110,8 +110,9 @@ says.
   (`nenaBtn`/`frcBtn`). See **locprecision** module.
 - **Spectral SMLM analysis** (`sSmlmBox`) — `sSmlmDistMin`/`sSmlmDistMax`/
   `sSmlmAngleCenter`/`sSmlmAngleTol`/`sSmlmRequireNarrower`, and
-  **Preview pairs**/**Show angle hist.**/**Pair**/**Unpair**
-  (`sSmlmPreviewBtn`/`sSmlmToggleHistBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn`).
+  **Preview pairs**/**Show dist. hist.**/**Show angle hist.**/**Fit angle &
+  tol.**/**Pair**/**Unpair** (`sSmlmPreviewBtn`/`sSmlmDistHistBtn`/
+  `sSmlmAngleHistBtn`/`sSmlmFitAngleBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn`).
   Enabled as soon as there are localizations (Run or **Load data**), not
   gated on a specific fit method. Paired locs are already `lastResult.locs`,
   so the top-level **View data + filtering** button (§1 item 5) works on
@@ -364,20 +365,17 @@ run with substantial FTM time look artificially starved.
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
 | `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
-| `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `diverging`, `spectral`, `grey`) |
+| `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `spectral`, `grey`) |
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
 | `zcolor` | Colour by depth (z) | bool | — | — | — | false |
 
-`diverging` (ColorBrewer RdBu-11, blue→white→red) and `spectral`
-(Bruton's visible-light wavelength→RGB approximation, 380–700 nm, sampled
-denser through the 580–620 nm yellow/orange band where real spectral colour
-changes fastest) are both aimed at `zcolor` use, not raw intensity — a
-smoothly-rotating hue (turbo/inferno) has no natural "centre" to read a
-below/above-threshold split against, and isn't tied to any real-world
-colour meaning; `diverging` gives that centre, `spectral` gives real
-wavelength colours for data (like sSMLM's inter-order distance) that
-already IS a wavelength proxy. **Pair** (see **sSMLM**) auto-selects
-`diverging` for exactly this reason.
+`spectral` (Bruton's visible-light wavelength→RGB approximation, 380–700 nm,
+sampled denser through the 580–620 nm yellow/orange band where real
+spectral colour changes fastest) is aimed at `zcolor` use with data that
+already IS a wavelength proxy — like sSMLM's inter-order distance — rather
+than raw intensity or generic depth, where turbo/inferno's smooth hue ramp
+usually still reads better. **Pair** (see **sSMLM**) auto-selects it for
+exactly this reason.
 
 ### Export (camera ADU→photon conversion)
 
@@ -479,20 +477,38 @@ headless equivalent.
 line — see §3's **sSMLM** entry for why. The distance/angle defaults match
 the deposited reference dataset's own grating dispersion
 (`experimental_data/sSMLM_Fig2_locs.csv`) — a different setup's dispersion
-sits elsewhere, so don't trust these blind. **Preview
-pairs** draws live distance/angle histograms of the *candidate* pairs in the
-current window (reusing the table module's own `computeHist()`/
-`drawHistogram()`, fed candidate values instead of a table column) so the
-real peak for your own setup is visible before narrowing these fields and
-committing with **Pair**. The angle histogram plots each candidate's bearing
-AND its exact reverse (`rawAngle`/`rawAngle+180`, both wrapped into a
-360°-window centred 90° away from `sSmlmAngleCenter` so neither the forward
-nor the backward peak sits at the plot's own seam) — a candidate's *raw*
-single bearing depends on which of its two points happens to have the
-smaller array index, an accident of row order that (verified against the
-real reference CSV) is not evenly split and would otherwise make the two
-peaks look wildly, misleadingly unequal; plotting both directions makes them
-come out equal, as an undirected diagnostic should. See
+sits elsewhere, so don't trust these blind. **Preview pairs** fetches
+candidates over a WIDE, fixed scan — distance 0–6000 nm (wider still if
+Distance max is already past that) at any angle — ignoring the
+Distance/Angle fields entirely, reusing the table module's own
+`computeHist()`/`drawHistogram()` (fed candidate values instead of a table
+column). **Show dist. hist.** plots that full wide scan with the
+*currently configured* Distance min/max overlaid as vertical reference
+lines (read live, so editing the fields and re-clicking moves the lines
+without a fresh Preview) — showing the whole distance picture, not just
+whatever's inside the window, makes it visible whether the window is
+actually sitting on the real peak. **Show angle hist.**, by contrast,
+*does* restrict to the currently configured distance window (also read
+live) — the angle signal is only sharp within the real peak, so pooling
+in the wide scan's off-peak distances would just dilute it with
+background — and plots each candidate's bearing AND its exact reverse
+(`rawAngle`/`rawAngle+180`, both wrapped into a 360°-window centred 90°
+away from `sSmlmAngleCenter` so neither the forward nor the backward peak
+sits at the plot's own seam): a candidate's *raw* single bearing depends
+on which of its two points happens to have the smaller array index, an
+accident of row order that (verified against the real reference CSV) is
+not evenly split and would otherwise make the two peaks look wildly,
+misleadingly unequal; plotting both directions makes them come out equal,
+as an undirected diagnostic should. Both histograms accumulate same-frame
+candidates across every frame in the stack (never cross-frame pairs) —
+one pooled plot, not one frame's worth. **Fit angle & tol.** estimates
+Primary angle/Angle tolerance directly from that same distance-windowed,
+doubled-bearing data: peak-bin detection (2° bins) + half-max-width walk,
+then fills both fields in — a simple, defensible estimate (not a full
+Gaussian fit, matching the bar this app's other auxiliary estimates like
+PCFO/NeNA set), usually conservative/narrow, meant as a starting point you
+can widen by hand rather than a final answer. Narrow these fields (by hand
+or via the fit) to the real peak, then commit with **Pair**. See
 [§3](#3-module-reference)'s **sSMLM** entry for the full pairing algorithm
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
