@@ -156,12 +156,20 @@ relevant one before editing rather than scrolling:
   the 1st order's offset varies per emitter with wavelength, so averaging would blur position by
   up to half that offset. Stores the inter-order distance in the paired loc's `z` — same trick the
   prior-art tool's own `ThunderSTORM.csv` output uses — so the existing `zcolor` depth-coded
-  render path needs no changes (the **table** module relabels the `z` column to `dist` while
-  `sSmlmOriginalLocs` shows pairing is active); **Pair** refuses if the current result already has
-  real 3D `z`, and also sets `zmin`/`zmax` to the configured distance window (not the usual
-  auto-fit) since every accepted pair's `z` already lies inside it by construction. Swaps
-  `lastResult.locs` for the paired set, keeping `sSmlmOriginalLocs` as a backup — the same pattern
-  **in/out**'s raw-panel crop tool uses for `originalStack`.
+  render path needs no changes (the **table** module relabels the `z` column to `dist` while the
+  paired set is what's shown); **Pair** refuses if the current result already has real 3D `z`, and
+  also sets `zmin`/`zmax` to the configured distance window (not the usual auto-fit) since every
+  accepted pair's `z` already lies inside it by construction. Three module-level vars track state:
+  `sSmlmOriginalLocs` (the TRUE raw backup, captured once — same pattern **in/out**'s raw-panel
+  crop tool uses for `originalStack` — and ALSO the authoritative pairing input: Preview/Pair
+  always read `sSmlmOriginalLocs || lastResult.locs`, never `lastResult.locs` alone, since that may
+  currently be an already-paired subset with no 1st-order companions left to find — get this wrong
+  and re-Pairing trips the "already has real z" 3D guard on the first pairing's own distance-as-z),
+  `sSmlmPairedLocs` (latest Pair result, replaced on re-Pair), and `sSmlmShowingRaw` (which of the
+  two `lastResult.locs` currently is). The reconstruction-panel toggle (`sSmlmColorBtn`, "Show
+  spectral"/"Show standard") swaps `lastResult.locs` between them (plus `zcolor` to match) — a real
+  data swap, not just a colour flip — so "Show standard" is the literal unpaired reconstruction,
+  without discarding the pairing the way Unpair does.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

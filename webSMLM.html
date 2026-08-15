@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15g</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-15h</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1807,7 +1807,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15g · sSMLM: explicit dropped-loc count in the Pair log
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-15h · sSMLM: "Show standard" now shows the real unpaired data
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5676,11 +5676,23 @@ async function pairCore(locs, px, config, hooks={}){
 // Interactive layer: Preview/Pair/Unpair wrap pairCore()/sSmlmCandidates()
 // (DOM-free, above) the same way estimateGainOffset()/applyCropToRaw() wrap
 // pcfoCore()/makeCroppedStack() — reads paramValue()s, writes DOM/log,
-// otherwise a thin shell. sSmlmOriginalLocs is the "keep the pre-pairing
-// locs so Unpair can restore them" backup, same pattern as crop's
-// originalStack; sSmlmLastCands/sSmlmHistMode back the distance/angle
-// histogram toggle so switching views doesn't need recomputing candidates.
-let sSmlmOriginalLocs=null, sSmlmLastCands=null, sSmlmHistMode='dist';
+// otherwise a thin shell.
+//   sSmlmOriginalLocs — the TRUE raw/unpaired locs, captured once on the
+//     FIRST successful Pair and kept until Unpair. Doubles as (a) the
+//     backup Unpair restores and (b) the authoritative pairing INPUT, so
+//     Preview/Pair always operate on the real raw data even while the
+//     "standard" (raw) view is what's currently on screen via the toggle
+//     below — never on lastResult.locs directly, which may currently BE
+//     the already-paired subset (pairing that again would look for 1st-
+//     order companions among points that no longer have any).
+//   sSmlmPairedLocs — the most recent successful Pair result; re-Pairing
+//     (e.g. after narrowing the window) replaces this without touching
+//     sSmlmOriginalLocs.
+//   sSmlmShowingRaw — which of the two is currently assigned to
+//     lastResult.locs / drawn in the reconstruction (see sSmlmColorBtn).
+//   sSmlmLastCands/sSmlmHistMode back the distance/angle histogram toggle
+//   so switching views doesn't need recomputing candidates.
+let sSmlmOriginalLocs=null, sSmlmPairedLocs=null, sSmlmShowingRaw=false, sSmlmLastCands=null, sSmlmHistMode='dist';
 function drawSSmlmHist(){
   if(!sSmlmLastCands) return;
   const vals = sSmlmLastCands.map(c=> sSmlmHistMode==='dist' ? c.dist : c.angle);
@@ -5702,10 +5714,11 @@ function toggleSSmlmHist(){
 // Fig2 dataset before building it — see docs/REFACTOR_PLAN.md.
 async function previewSSmlmPairs(){
   if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  const rawLocs = sSmlmOriginalLocs || lastResult.locs;   // always the raw input, see block comment above
   const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
   $('sSmlmPreviewBtn').disabled=true;
   try{
-    sSmlmLastCands=await sSmlmCandidates(lastResult.locs, lastResult.px, distMin, distMax, 0, 90, paramValue('sSmlmIntensityOrder'), setProg);
+    sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, distMin, distMax, 0, 90, paramValue('sSmlmIntensityOrder'), setProg);
     log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in ${distMin}–${distMax} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
     $('sSmlmToggleHistBtn').disabled = false;
     drawSSmlmHist();
@@ -5713,7 +5726,8 @@ async function previewSSmlmPairs(){
 }
 async function runSSmlmPair(){
   if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
-  if(lastResult.locs.some(L=>isFinite(L.z))){
+  const rawLocs = sSmlmOriginalLocs || lastResult.locs;   // always the raw input, see block comment above — re-Pairing must not pair an already-paired subset
+  if(rawLocs.some(L=>isFinite(L.z))){
     log('⚠ sSMLM pairing needs 2D localizations — the current result already has real z (a 3D fit method). Re-run with a 2D method first.');
     return;
   }
@@ -5722,10 +5736,10 @@ async function runSSmlmPair(){
     const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
       sSmlmAngleCenter:paramValue('sSmlmAngleCenter'), sSmlmAngleTol:paramValue('sSmlmAngleTol'),
       sSmlmIntensityOrder:paramValue('sSmlmIntensityOrder') };
-    const r=await pairCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
+    const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
     if(!r.nPairs){ log('  no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
-    sSmlmOriginalLocs = sSmlmOriginalLocs || lastResult.locs;   // only ever set from the TRUE original, so re-pairing while already paired keeps chaining off it
-    lastResult.locs = r.locs;
+    sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;
+    lastResult.locs = sSmlmPairedLocs;
     renderLocs=null; _tableFilters=[];
     // z-range = the configured pair-distance window, not an auto-fit percentile
     // (zRange()'s usual 1st–99th-pct fallback) — every accepted pair's z is
@@ -5744,14 +5758,15 @@ async function runSSmlmPair(){
     $('sSmlmUnpairBtn').disabled=false;
     $('sSmlmColorBtn').style.display='';
     updateSSmlmColorBtnLabel();
-    log(`  Reconstruction now colour-coded by inter-order distance (not real z) — toggle "${$('sSmlmColorBtn').textContent}" above the reconstruction, or the "Colour by depth" checkbox in Rendering settings, to switch back.`);
+    log(`  Reconstruction now shows the paired result, colour-coded by inter-order distance (not real z) — click "${$('sSmlmColorBtn').textContent}" above the reconstruction to compare against the original, unpaired data.`);
   }catch(err){ log(`⚠ sSMLM pairing failed: ${err.name}: ${err.message}`); }
   finally{ $('sSmlmPairBtn').disabled=false; setProg(null); }
 }
 function unpairSSmlm(){
   if(!sSmlmOriginalLocs) return;
-  const nPaired=lastResult.locs.length;
-  lastResult.locs=sSmlmOriginalLocs; sSmlmOriginalLocs=null;
+  const nPaired=sSmlmPairedLocs ? sSmlmPairedLocs.length : lastResult.locs.length;
+  lastResult.locs=sSmlmOriginalLocs;
+  sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
   renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   rerender(true);
   $('sSmlmUnpairBtn').disabled=true;
@@ -5759,27 +5774,34 @@ function unpairSSmlm(){
   log(`Unpaired — restored ${lastResult.locs.length.toLocaleString()} original localizations (was ${nPaired.toLocaleString()} pairs).`);
 }
 // Inline toggle on the reconstruction panel itself — same "button in the
-// panel title" pattern as the raw panel's rawFtmBtn. Just flips the existing
-// zcolor PARAM (paired locs already carry distance in z, see pairCore above)
-// so it stays a single source of truth with the Rendering-settings checkbox.
-function updateSSmlmColorBtnLabel(){ $('sSmlmColorBtn').textContent = paramValue('zcolor') ? 'Show standard' : 'Show spectral'; }
+// panel title" pattern as the raw panel's rawFtmBtn. Genuinely swaps which
+// loc set is drawn (raw vs. the last paired result), not just the colour —
+// "Show standard" means the actual standard (unpaired) reconstruction, the
+// same data Unpair would restore, just without discarding the pairing
+// (sSmlmPairedLocs survives the round trip, so toggling back is instant and
+// re-Pairing/Unpair still see the correct state either way).
+function updateSSmlmColorBtnLabel(){ $('sSmlmColorBtn').textContent = sSmlmShowingRaw ? 'Show spectral' : 'Show standard'; }
 $('sSmlmColorBtn').addEventListener('click',()=>{
-  $('zcolor').checked = !$('zcolor').checked;
+  if(!lastResult || sSmlmOriginalLocs==null || sSmlmPairedLocs==null) return;
+  sSmlmShowingRaw = !sSmlmShowingRaw;
+  lastResult.locs = sSmlmShowingRaw ? sSmlmOriginalLocs : sSmlmPairedLocs;
+  renderLocs=null; _tableFilters=[];
+  $('zcolor').checked = !sSmlmShowingRaw;   // colour-by-distance only means anything for the paired view
   updateSSmlmColorBtnLabel();
-  if(lastResult) rerender(true);
+  rerender(true);
 });
 $('sSmlmPreviewBtn').addEventListener('click',previewSSmlmPairs);
 $('sSmlmToggleHistBtn').addEventListener('click',toggleSSmlmHist);
 $('sSmlmPairBtn').addEventListener('click',runSSmlmPair);
 $('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
-// Re-narrowing Distance min/max while a paired result is already showing
-// (e.g. after fixing a wrong pixel size) re-scales the colour axis to match
-// immediately, without needing to click Pair again — the locs' own z values
-// don't change (they're not re-paired), only the colour range they're
-// viewed through. Only meaningful once sSmlmOriginalLocs shows pairing is
-// active; before that these fields don't touch zmin/zmax at all.
+// Re-narrowing Distance min/max while the paired ("spectral") view is
+// showing (e.g. after fixing a wrong pixel size) re-scales the colour axis
+// to match immediately, without needing to click Pair again — the locs' own
+// z values don't change (they're not re-paired), only the colour range
+// they're viewed through. No-op before the first Pair, and while the
+// "standard" (raw) view is toggled on, since it doesn't use zmin/zmax.
 function syncSSmlmZRangeFromDist(){
-  if(sSmlmOriginalLocs==null) return;
+  if(sSmlmOriginalLocs==null || sSmlmShowingRaw) return;
   $('zmin').value=paramValue('sSmlmDistMin'); $('zmax').value=paramValue('sSmlmDistMax');
   if(lastResult) rerender(true);
 }
@@ -6268,7 +6290,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
   try{
     const method=paramValue('method');
     const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
@@ -6458,7 +6480,7 @@ $('genBtn').addEventListener('click',async()=>{
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -6482,7 +6504,7 @@ $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -6776,7 +6798,7 @@ $('csvFile').addEventListener('change', async e=>{
     $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
-    $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null;   // a freshly-loaded result invalidates any prior pairing state
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmToggleHistBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
     const has3d=locs.some(L=>isFinite(L.z)), isClustered=locs[0].nMerged!==undefined;

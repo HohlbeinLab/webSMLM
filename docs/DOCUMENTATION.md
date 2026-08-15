@@ -721,12 +721,26 @@ is what to know before touching that module, not a restatement of its code.
   path (**render** module) colours by it with no changes there; **Pair**
   refuses if the current result already has real finite `z` (a 3D fit
   method) rather than silently overwriting real depth. `runSSmlmPair()`/
-  `unpairSSmlm()` swap `lastResult.locs` for the paired/original set, keeping
-  a backup (`sSmlmOriginalLocs`) the same way the raw-panel crop tool keeps
-  `originalStack` — CSV/render need no further changes, since paired locs
-  are the same `{frame,x,y,z,intensity,...}` shape any other result is; the
-  **table** module's `locTableData()` relabels the `z` column to `dist` when
-  `sSmlmOriginalLocs` shows pairing is active, so it reads as what it is
+  `unpairSSmlm()` swap `lastResult.locs` for the paired/original set. Three
+  module-level variables track pairing state: `sSmlmOriginalLocs` is the TRUE
+  raw/unpaired backup, captured once on the first successful Pair (the same
+  pattern the raw-panel crop tool uses for `originalStack`) — it is also the
+  *authoritative pairing input*: Preview/Pair always compute from
+  `sSmlmOriginalLocs || lastResult.locs`, never from `lastResult.locs`
+  directly, since that may currently BE the already-paired subset (pairing
+  or previewing against an already-paired set would search for 1st-order
+  companions among points that no longer have any — this was a real bug
+  before the input was pinned to the raw backup: clicking **Pair** a second
+  time used to trip the "already has real z" 3D guard, misreading the first
+  pairing's own distance-as-z as if it were a real depth result).
+  `sSmlmPairedLocs` is the most recent successful Pair result, replaced on
+  every re-Pair without touching `sSmlmOriginalLocs`. `sSmlmShowingRaw`
+  tracks which of the two is currently assigned to `lastResult.locs`. CSV/
+  render need no further changes either way, since paired locs are the same
+  `{frame,x,y,z,intensity,...}` shape any other result is; the **table**
+  module's `locTableData()` relabels the `z` column to `dist` whenever the
+  currently-shown locs are the paired set (recognised the same way: finite
+  `z` while `sSmlmOriginalLocs` is set), so it reads as what it is
   (inter-order distance) rather than depth. **Pair** also turns on `zcolor`
   and sets `zmin`/`zmax` to the *configured* `sSmlmDistMin`/`sSmlmDistMax`
   (not `rerender()`'s usual 1st–99th-percentile auto-fit) — every accepted
@@ -737,16 +751,18 @@ is what to know before touching that module, not a restatement of its code.
   `syncSSmlmZRangeFromDist()` keeps this live even *without* re-pairing: a
   `change` listener on `sSmlmDistMin`/`sSmlmDistMax` re-applies the same
   `zmin`/`zmax` assignment and calls `rerender(true)` whenever those fields
-  change while `sSmlmOriginalLocs` shows pairing is already active, so
-  narrowing the window re-scales the colour axis on the *existing* paired
-  locs immediately — a no-op before the first Pair (nothing to recolour yet)
-  and after Unpair (the fields no longer mean anything for the current, now
-  unpaired, result). A "Show
-  spectral"/"Show standard" button inline in the reconstruction panel title
-  (`sSmlmColorBtn`, same pattern as the raw panel's FTM toggle) flips
-  `zcolor` without a trip to Rendering settings. Paired locs are already
-  `lastResult.locs`, so the top-level **View data + filtering** button works
-  on them directly — no separate table for sSMLM.
+  change while the paired ("spectral") view is showing — a no-op before the
+  first Pair, and while the "standard" (raw) view is toggled on, since
+  neither has a colour scale to update. A "Show spectral"/"Show standard"
+  button inline in the reconstruction panel title (`sSmlmColorBtn`, same
+  pattern as the raw panel's FTM toggle) genuinely swaps which loc set is
+  drawn — `lastResult.locs = sSmlmShowingRaw ? sSmlmOriginalLocs :
+  sSmlmPairedLocs`, plus `zcolor` set to match — not just the colour flag;
+  "Show standard" shows the literal unpaired reconstruction (the same data
+  Unpair would restore), without discarding the pairing the way Unpair does,
+  so toggling back to "Show spectral" is instant. Paired locs are already
+  `lastResult.locs` while shown, so the top-level **View data + filtering**
+  button works on them directly — no separate table for sSMLM.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table
