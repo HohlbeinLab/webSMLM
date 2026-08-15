@@ -14,7 +14,7 @@ a comment should only explain a non-obvious *why*, not *what* (see
 `PARAMS` registry, `PARAMS` is authoritative — this file describes it, not
 the other way round.
 
-Line/anchor references below point at `webSMLM.html` as of **v0.10.1-dev**;
+Line/anchor references below point at `webSMLM.html` as of **v0.10.2-dev**;
 exact line numbers will drift as the file grows, but the `id=`/function names
 they're built from won't.
 
@@ -55,8 +55,22 @@ says.
 
 - **Memory & streaming** (`memBox`) — `memgb` (RAM budget before falling
   back to streaming) and `chunkmb` (streaming chunk size). See **in/out**.
-- **Simulation settings** (`simBox`) — `frames`, `dens`, `phot`, `driftpx`;
-  only relevant when using **Simulate movie**.
+- **Simulation settings** (`simBox`) — `frames`, `simulation_pxnm`, `dens`,
+  `phot`, `simlifetime`, `simulation_gain`, `simulation_offset`,
+  `simulation_offset_std`, `simulation_readnoise`, `simbg`, `driftpx`; only
+  relevant when using **Simulate movie**. `simulation_gain`/`simulation_offset`/
+  `simulation_offset_std`/`simulation_readnoise` forward-model a real sensor
+  (independent of the fit-side `gain`/`camoffset` below, so simulated ground
+  truth and the fit's assumed camera can be matched or intentionally
+  mismatched for testing) — see **simulation** module.
+- **Gain/offset estimation** (`pcfoBox`) — `pcfoFrames`/`pcfoK`/`pcfoRnstd`
+  and the **Estimate gain/offset** button (`pcfoBtn`, disabled until a stack
+  is loaded/simulated). Runs the Rieger–Heintzman photon-conversion-factor
+  method (PCFO) on the loaded/simulated stack and fills the `gain`/
+  `camoffset` fields in **Localisation settings** below — no separate
+  calibration acquisition needed. Placed here, before **3D calibration**,
+  since both are one-off "derive a number from data, then use it below"
+  steps run before the main Localize. See **fit** module, `pcfoCore()`.
 - **3D calibration** (`calibBox`) — `calFirst`/`calLast`/`calStep`/`calRef`
   (per-dataset working state, *not* in `PARAMS` — resets from the loaded
   stack), `calFixedXY`, and the **Calibrate**/**Save calib.** buttons
@@ -296,6 +310,50 @@ Applied inside every fit function itself — `(raw−camoffset)×gain` — befor
 the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
 CRLB) are already true photon units. See the **fit** module.
 
+### Gain/offset estimation (PCFO)
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `pcfoFrames` | Frames sampled | number (int) | 1 | 5000 | 10 | 200 |
+| `pcfoK` | k_thresh (spatial freq.) | number | 0.1 | 1 | 0.05 | 0.9 |
+| `pcfoRnstd` | Readout noise σ (e⁻) | number | 0 | 200 | 0.01 | 2.89 |
+
+**Estimate gain/offset** (`pcfoBtn`) runs the Rieger–Heintzman
+photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen,
+Lidke & Rieger, [arXiv:1611.05654](https://arxiv.org/abs/1611.05654)) on the
+loaded/simulated stack — no separate calibration acquisition needed — and
+fills `gain`/`camoffset` above directly. `pcfoFrames` seeded-random frames
+are sampled; each is tiled at a size auto-derived from the field of view
+(aiming for a ~4×4 grid, rounded to a power of two — the noise-variance
+estimate needs an FFT — floored at 64px, never below 2×2; **not** a page
+control, since there's nothing to re-tune per stack). Per tile, mean signal
+(`imsig`) vs. high-spatial-frequency, noise-only variance (`noisevar`,
+`pcfoK` sets the Nyquist-fraction cutoff above which content is assumed
+noise) is measured, pooled across every sampled frame's tiles, robustly
+outlier-clipped (Tukey fences on `noisevar`, `pcfoClipPoints()` — a single
+dead/saturated/masked tile can otherwise dominate an ordinary least-squares
+fit), then fit by plain OLS linear regression (`pcfoRegress()`): the slope
+gives gain, the intercept (combined with `pcfoRnstd`) gives offset. A
+leave-one-out jackknife over the pooled points gives a rough ± uncertainty
+on both. `pcfoRnstd` — camera dark-frame std, in electrons — must include
+ANY spatially-white, frame-invariant noise, not just true per-frame read
+noise: a static per-pixel fixed-pattern offset looks identical to read noise
+in a single frame's Fourier content, so it biases the fitted offset the same
+way if left out; if both are present, combine them in quadrature
+(√(read_noise²+offset_std²), photon-equivalent units) — the default (2.89)
+matches the **Simulation settings** panel's own defaults
+(`simulation_readnoise` 2.7 e⁻ + `simulation_offset_std` 3 ADU) combined this
+way, for a clean Simulate-movie → Estimate-gain/offset self-test out of the
+box. A diagnostic scatter (signal vs. noise-variance, fitted line, R²) is
+drawn on the raw panel after each run (`drawPcfoPlot()`, the same
+left-panel-plot pattern as calibration/FRC/NeNA curves) so the underlying
+linearity (shot-noise-dominated) assumption can be checked visually — R² <
+0.3 logs a low-linearity warning (too low a photon count is the most common
+cause; saturation, non-uniform illumination or non-Poissonian noise are
+less common ones). See the **fit** module (`pcfoCore()`) and
+[§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
+headless equivalent.
+
 ### 3D calibration
 
 | id | Label | Type | Min | Max | Step | Default |
@@ -330,9 +388,47 @@ CRLB) are already true photon units. See the **fit** module.
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `frames` | Simulated frame count | number (int) | 50 | 800 | 50 | 300 |
-| `dens` | Simulated blink density | number | 0.003 | 0.04 | 0.001 | 0.010 |
-| `phot` | Simulated photons/emitter | number (int) | 200 | 2500 | 50 | 900 |
+| `simulation_pxnm` | Simulation pixel size (nm) | number | 10 | 500 | 1 | 100 |
+| `dens` | Emitter density (emitters/µm²/frame) | number | 0 | 5 | 0.01 | 0.05 |
+| `phot` | Simulated photons/frame | number (int) | 0 | 50000 | 50 | 900 |
+| `simlifetime` | Simulated ON lifetime (frames, mean) | number | 0.1 | 20 | 0.1 | 1 |
+| `simulation_gain` | Simulation camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 0.34 |
+| `simulation_offset` | Simulation camera offset (ADU) | number | 0 | 65535 | 1 | 100 |
+| `simulation_offset_std` | Simulation offset std (ADU, per-pixel) | number | 0 | 200 | 0.5 | 3 |
+| `simulation_readnoise` | Simulation read noise σ (e⁻) | number | 0 | 200 | 0.1 | 2.7 |
+| `simbg` | Simulation background (photons/frame) | number | 0 | 500 | 1 | 0 |
 | `driftpx` | Simulated total drift (px) | number | 0 | 30 | 0.5 | 0 |
+
+`dens` is a **physical areal density** (ON emitters/µm²/frame), not tied to
+how densely the internal ground-truth structure (`buildStructure()`) happens
+to sample candidate points. Emitters arrive as a Poisson process over the
+whole field of view at randomly chosen structure sites; each turns on
+**exactly once** (no repeated blinking) — a fractional start time (drawn
+from up to 5×`simlifetime` before frame 0, so the exponential's early tail
+can already be mid-event at frame 0) and an exponentially-distributed ON
+duration (mean = `simlifetime`). `phot` scales by each emitter's overlap
+fraction with a given frame, so e.g. a half-frame overlap emits half the
+photons. `simbg` is Poisson like the signal.
+
+The forward **camera model** — decoupled from the fit-side `gain`/
+`camoffset` ([Export](#export-camera-aduphoton-conversion) above), so
+simulated ground truth and the fit's assumed camera can be matched (for a
+clean self-test) or intentionally mismatched (to test robustness) — applies,
+per pixel, in this order: Poisson shot noise on (background + PSF signal) →
+Gaussian read noise (`simulation_readnoise`, electrons) added before the
+gain conversion → `simulation_gain` converts photons+read-noise to ADU → a
+**fixed per-pixel offset map** (`simulation_offset` mean, `simulation_offset_std`
+Gaussian spread, generated once per stack and reused every frame — modelling
+real sensor fixed-pattern offset noise) is added → clamped ≥ 0.
+`simulation_pxnm` is this panel's own pixel size (kept separate from the
+shared `pxnm` render/load control so **Simulation settings** is
+self-contained); the shared `pxnm` control is synced to it automatically
+after a stack is generated, so the scale bar / a re-run config stay
+consistent. Ground-truth emitter events (`x,y,tStart,tEnd,photonsTotal`) are
+stored in `groundTruthEvents` for comparison against recovered
+localizations. `driftpx` (as before) accumulates linearly over all frames in
+a random direction; the true per-frame drift is stored (`simTrueDrift`) for
+scoring drift correction. See the **simulation** module.
 
 ### Pipeline behaviour
 
@@ -402,8 +498,15 @@ is what to know before touching that module, not a restatement of its code.
   `makeStack()`-backed one holding the temporal-median-corrected frames —
   see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.
 - **simulation** — the built-in synthetic stack generator ("Simulate
-  movie"). Demo/validation/teaching data, not a core analysis path; stores
-  the true per-frame drift (`simTrueDrift`) for scoring drift correction.
+  movie"). Demo/validation/teaching data, not a core analysis path. Emitters
+  follow a Poisson-process arrival/exponential-lifetime model over a
+  physical areal density (`dens`), run through a forward camera model
+  (shot noise → read noise → gain → fixed-pattern offset), decoupled from
+  the fit-side `gain`/`camoffset` so ground truth and the fit's assumed
+  camera can be matched or intentionally mismatched — see
+  [§2](#2-parameters-params-registry)/Simulation. Stores the true per-frame
+  drift (`simTrueDrift`) for scoring drift correction and the true emitter
+  events (`groundTruthEvents`) for future recovery comparisons.
 - **detect** — per-frame band-pass, one of three filters selectable via
   `detFilter`: wavelet (default), DoG, or uniform box — each thresholded
   differently (see [§2](#2-parameters-params-registry)/Detect). `detectSpots()`
@@ -418,7 +521,15 @@ is what to know before touching that module, not a restatement of its code.
   returns `lpsx`/`lpsy` (fit precision of the σx/σy widths), consumed by
   `zFromWidths()` to estimate `lpz` — an approximate z-precision via error
   propagation through the calibration curve's local slope (not a true joint
-  CRLB, since z isn't a parameter of the pixel-level fit).
+  CRLB, since z isn't a parameter of the pixel-level fit). `pcfoCore()` is a
+  separate, one-off tool living in this module: Rieger–Heintzman PCFO
+  gain/offset estimation from a loaded/simulated stack directly (no
+  calibration acquisition needed) — see
+  [§2/Gain-offset estimation (PCFO)](#gainoffset-estimation-pcfo). Its
+  interactive wrapper is `estimateGainOffset()` (the **Estimate gain/offset**
+  button); `pcfoCore()` itself is DOM-free, same `*Core(config, stack,
+  hooks)` split as `runCore`/`driftCore`/`calibrationCore`, reachable
+  headlessly via `config.estimateGainOffset` ([§8](#8-headless-api-window-websmlm)).
 - **render** — accumulates localizations into an offscreen buffer `srFull`;
   a `view` (zoom/pan) transform draws the visible region + scale bar. Colour
   maps, blur and display scaling apply without refitting. `srIsRecon` tracks
@@ -667,6 +778,18 @@ const result = await window.webSMLM.analyze({
   result field is omitted).
 - `config.correctDrift` / `config.computeNeNA` / `config.computeFRC` —
   booleans, not `PARAMS` entries, gating optional pipeline stages.
+- `config.estimateGainOffset` — boolean, not a `PARAMS` entry. Runs
+  `pcfoCore()` (PCFO gain/offset estimation, [§2/Gain-offset estimation
+  (PCFO)](#gainoffset-estimation-pcfo)) on the SAME stack `config.file`/
+  `config.files` just loaded, **before** the main run, then overrides
+  `config.gain`/`config.camoffset` with the estimate — the headless
+  equivalent of clicking **Estimate gain/offset** then **Localize**.
+  `pcfoFrames`/`pcfoK`/`pcfoRnstd` are ordinary `PARAMS` fields tuning it. If
+  PCFO can't fit (too few usable tiles — e.g. a very small frame), `config.gain`/
+  `config.camoffset` are left as given (or their `PARAMS` defaults) and
+  `result.pcfo` is `null`, same as the interactive button leaving the fields
+  untouched on failure. Not available in `config.calibrationOnly` mode (no
+  stack is loaded there).
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
   be interactively (0–100), for a driving script's own progress reporting.
 - `config.onLog(msg)` — optional, called for every line `analyze()` would
@@ -683,7 +806,14 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText}`:
+**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo}`:
+- `pcfo` is `{gain, gainStd, offset, offsetStd, r2, pts, fit}` (`pcfoCore()`'s
+  return shape) when `estimateGainOffset` was requested and PCFO found
+  enough usable tiles to fit, else `null`. `gain`/`offset` are what
+  `config.gain`/`config.camoffset` were overridden to (so already reflected
+  in `settingsText`/every downstream photon-unit conversion); `pts` is the
+  full per-tile signal/noise-variance point cloud PCFO fit, for a driving
+  script that wants to build its own diagnostic plot.
 - `calib`/`calibJsonText` are only non-null when `calibrationFile`/
   `calibrationFiles` was given — a freshly-built calibration is worth
   writing out for reuse (`calibJsonText` is the same `*.calib.json` text
@@ -723,8 +853,8 @@ no driving script, works by just opening the link in any browser.
   `+val`, `bool` → `val==='1'||val==='true'`, `enum` → the string as-is).
   Unrecognised keys are silently ignored, same tolerance as a loaded
   settings JSON.
-- `correctDrift`/`computeNeNA`/`computeFRC` work as `=1`/`=true` flags too,
-  same as passing them to `analyze()` directly.
+- `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset` work as
+  `=1`/`=true` flags too, same as passing them to `analyze()` directly.
 - `fileUrl` (required to actually run) and `calibrationJson` come from
   **`fileUrl`/`calibrationUrl`** query params instead — both must be
   fetchable URLs, not local paths (the browser has no way to name a local
@@ -781,12 +911,19 @@ node webSMLM-cli.mjs --file /path/to/stack.tif --pxnm 160 --method gaussmle
 ```
 
 Writes `result.csv`, `settings.json`, `log.txt`, `reconstruction.png` and
-`summary.json` (localization count + timings + drift/NeNA/FRC results) to
-`--out` — which defaults to a `webSMLM-out` folder **next to `--file`**, not
-wherever the shell happens to be, unless given explicitly. Any `--key=value`
-not listed in the script's header comment is passed straight through as a
-`PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248 --camoffset=100`;
-`--correctDrift`/`--computeNeNA`/`--computeFRC` are bare boolean flags;
+`summary.json` (localization count + timings + drift/NeNA/FRC/PCFO results)
+to `--out` — which defaults to a `webSMLM-out` folder **next to `--file`**,
+not wherever the shell happens to be, unless given explicitly. Any
+`--key=value` not listed in the script's header comment is passed straight
+through as a `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248
+--camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/
+`--estimateGainOffset` are bare boolean flags — the last runs PCFO gain/offset
+estimation on `--file` itself before localizing and overrides `--gain`/
+`--camoffset` with the estimate (`summary.json`'s `pcfo` field records what
+was found: `gain`/`gainStd`/`offset`/`offsetStd`/`r2`, `pts` trimmed since it's
+redundant with the log's own summary line and can run into the thousands);
+`--pcfoFrames`/`--pcfoK`/`--pcfoRnstd` (`PARAMS` overrides) tune it — see
+[§8](#8-headless-api-window-websmlm)'s `config.estimateGainOffset`.
 `--headed` opens a real (non-headless) window — note that the
 window itself stays visually idle throughout, since `analyze()` never
 touches the DOM while running, by design (that's what makes it safe to run

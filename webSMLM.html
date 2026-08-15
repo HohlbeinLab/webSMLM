@@ -1439,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15a</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15b</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1774,7 +1774,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15a · merge PR #5 (PCFO gain/offset estimation + simulation camera model)
+</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15b · headless PCFO (config.estimateGainOffset), docs
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5375,44 +5375,58 @@ function drawPcfoPlot(){
   _replotRaw=drawPcfoPlot;
   syncSaveImg();
 }
+// DOM-free core (Layer 1, same split as runCore/driftCore/calibrationCore — see
+// docs/REFACTOR_PLAN.md): takes an explicit `stack` and a flat `config` (pcfoFrames/
+// pcfoK/pcfoRnstd, PARAMS-shaped) so window.webSMLM.analyze() can drive PCFO on the
+// exact stack it's about to localize, with no page/DOM present at all. onLog/onProgress
+// default to no-ops, mirroring every other *Core's hook contract.
+async function pcfoCore(config, stack, hooks={}){
+  const { onLog=()=>{}, onProgress=()=>{} } = hooks;
+  const NFRAMES=config.pcfoFrames, K_THRESH=config.pcfoK, RNSTD=config.pcfoRnstd;
+  const S=pcfoTileSize(stack.w,stack.h);
+  const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
+  const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
+  onLog(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px (auto-sized from the ${stack.w}×${stack.h} field of view)…`);
+  const pts=[];
+  for(let i=0;i<idx.length;i++){
+    const img=(await stack.getFrames(idx[i],idx[i]+1))[0];
+    pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,K_THRESH));
+    onProgress(100*(i+1)/idx.length);
+    await tick();
+  }
+  const fit=pcfoRegress(pts,RNSTD);
+  if(!fit){ onLog(`  too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return null; }
+  // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
+  // camera calibration convention); webSMLM's Camera gain field is photons/ADU, so invert.
+  const gain=1/fit.gain;
+  // leave-one-out jackknife over the pooled points, for a rough uncertainty estimate.
+  // NB this measures sensitivity to dropping one of (frames × tiles) pooled points,
+  // not frame-to-frame stability the way the MATLAB reference's per-frame-then-average
+  // approach does — with many tiles it tends to read tighter than that.
+  const jGains=[], jOffsets=[];
+  for(let i=0;i<pts.length;i++){
+    const r=pcfoRegress(pts.slice(0,i).concat(pts.slice(i+1)),RNSTD);
+    if(r){ jGains.push(1/r.gain); jOffsets.push(r.offset); }
+  }
+  const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+  const std=a=>{ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); };
+  const gainStd=jGains.length>1?std(jGains):NaN, offsetStd=jOffsets.length>1?std(jOffsets):NaN;
+  const r2=pcfoRSquared(pts,fit.gain,fit.c);
+  onLog(`  gain = ${gain.toFixed(3)}${isFinite(gainStd)?' ± '+gainStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(offsetStd)?' ± '+offsetStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
+  onLog(`  linearity check: R² = ${r2.toFixed(4)} (signal vs. noise-variance across ${pts.length} tiles)`
+    + `${r2<0.3?' — LOW: tiles do not sit on a line; most likely too low a photon count — or, less commonly, saturation, non-uniform illumination, or non-Poissonian noise. Check the plot before trusting this result.':'.'}`);
+  return { gain, gainStd, offset:fit.offset, offsetStd, r2, pts, fit };
+}
 async function estimateGainOffset(){
   if(!stack){ log('Load a stack first.'); return; }
   $('pcfoBtn').disabled=true;
   try{
-    const NFRAMES=paramValue('pcfoFrames'), K_THRESH=paramValue('pcfoK'), RNSTD=paramValue('pcfoRnstd');
-    const S=pcfoTileSize(stack.w,stack.h);
-    const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
-    const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
-    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px (auto-sized from the ${stack.w}×${stack.h} field of view)…`);
-    const pts=[];
-    for(const fi of idx){
-      const img=(await stack.getFrames(fi,fi+1))[0];
-      pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,K_THRESH));
-      await tick();
-    }
-    const fit=pcfoRegress(pts,RNSTD);
-    if(!fit){ log(`  too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return; }
-    // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
-    // camera calibration convention); webSMLM's Camera gain field is photons/ADU, so invert.
-    const gainPhPerADU=1/fit.gain;
-    // leave-one-out jackknife over the pooled points, for a rough uncertainty estimate.
-    // NB this measures sensitivity to dropping one of (frames × tiles) pooled points,
-    // not frame-to-frame stability the way the MATLAB reference's per-frame-then-average
-    // approach does — with many tiles it tends to read tighter than that.
-    const jGains=[], jOffsets=[];
-    for(let i=0;i<pts.length;i++){
-      const r=pcfoRegress(pts.slice(0,i).concat(pts.slice(i+1)),RNSTD);
-      if(r){ jGains.push(1/r.gain); jOffsets.push(r.offset); }
-    }
-    const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
-    const std=a=>{ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); };
-    const gStd=jGains.length>1?std(jGains):NaN, oStd=jOffsets.length>1?std(jOffsets):NaN;
-    log(`  gain = ${gainPhPerADU.toFixed(3)}${isFinite(gStd)?' ± '+gStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(oStd)?' ± '+oStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
-    pcfoLastPts=pts; pcfoLastFit=fit; pcfoLastR2=pcfoRSquared(pts,fit.gain,fit.c);
-    log(`  linearity check: R² = ${pcfoLastR2.toFixed(4)} (signal vs. noise-variance across ${pts.length} tiles)`
-      + `${pcfoLastR2<0.3?' — LOW: tiles do not sit on a line; most likely too low a photon count — or, less commonly, saturation, non-uniform illumination, or non-Poissonian noise. Check the plot before trusting this result.':'.'}`);
+    const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
+    const r=await pcfoCore(cfg, stack, {onLog:log});
+    if(!r) return;
+    pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2;
     drawPcfoPlot();
-    $('gain').value=gainPhPerADU.toFixed(3); $('camoffset').value=Math.round(fit.offset);
+    $('gain').value=r.gain.toFixed(3); $('camoffset').value=Math.round(r.offset);
   }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
   finally{ $('pcfoBtn').disabled=false; }
 }
@@ -7091,11 +7105,22 @@ function calibFromJson(o){
 //                          analysis entirely (config.file/files not required)
 //   correctDrift          — run AIM drift correction after fitting
 //   computeNeNA/computeFRC — also compute those (numeric result only for now)
+//   estimateGainOffset    — run PCFO gain/offset estimation (pcfoCore, see
+//                          MODULE: fit) on config.file/files BEFORE fitting,
+//                          overriding config.gain/camoffset with the estimate
+//                          (left untouched if PCFO can't fit — e.g. too few
+//                          usable tiles); pcfoFrames/pcfoK/pcfoRnstd are
+//                          ordinary PARAMS tuning it, already defaulted by
+//                          defaultConfig() above
 //   onProgress            — optional (0..100) callback for a driving script's
 //                          own progress reporting
 // Returns {locs, csvText, logText, settingsText, timings, reconstructionPng,
-// drift, nena, frc, w, h, px, mag, calib, calibJsonText} — every text/PNG
+// drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo} — every text/PNG
 // field is ready to write straight to disk, no further conversion needed.
+// pcfo is {gain, gainStd, offset, offsetStd, r2, pts, fit} when
+// estimateGainOffset was requested and PCFO found enough usable tiles to fit,
+// else null; settingsText already reflects whatever gain/camoffset ended up
+// used (the PCFO estimate, if it overrode them).
 // calib/calibJsonText are only non-null when calibrationFile/Files was given
 // (a freshly-built calibration is worth writing out for reuse, unlike one
 // loaded from an existing calibrationJson); calibrationOnly returns only
@@ -7133,6 +7158,20 @@ async function analyze(config){
   if(cfg.calibrationOnly) return { calib, calibJsonText, logText: logLines.join('\n') };
 
   const stack = cfg.files ? await loadTiffSequence(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+  // config.estimateGainOffset runs PCFO (see MODULE: fit, pcfoCore) on the SAME stack
+  // about to be localized, then overrides cfg.gain/cfg.camoffset with the estimate before
+  // runCore uses them for the ADU->photon conversion — the natural headless equivalent of
+  // clicking "Estimate gain/offset" and then "Localize" interactively. A null result (too
+  // few usable tile points) leaves cfg.gain/cfg.camoffset untouched, same as the interactive
+  // button leaving the fields alone on failure.
+  let pcfo=null;
+  if(cfg.estimateGainOffset){
+    pcfo = await pcfoCore(cfg, stack, {onLog, onProgress});
+    if(pcfo){
+      onLog(`  overriding gain ${cfg.gain} -> ${pcfo.gain.toFixed(3)} photons/ADU, offset ${cfg.camoffset} -> ${Math.round(pcfo.offset)} ADU (PCFO estimate).`);
+      cfg.gain=pcfo.gain; cfg.camoffset=Math.round(pcfo.offset);
+    }
+  }
   // Mirrors run()'s needCal guard, self-contained since there's no calMethods
   // global reflecting an interactive session's loaded calibration headlessly
   // — without this, a 3D method silently falls back to z=NaN for every loc
@@ -7170,7 +7209,7 @@ async function analyze(config){
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
            drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
-           calib, calibJsonText };
+           calib, calibJsonText, pcfo };
 }
 // Loops analyze() over multiple files with the same config (per-file
 // overrides via configs[i] are not needed yet — add if a real use case
@@ -7226,7 +7265,7 @@ async function runAutorun(){
     const spec=PARAMS[key];
     if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
                           : spec.type==='enum' ? val : +val; continue; }
-    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC') config[key]=(val==='1'||val==='true');
+    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset') config[key]=(val==='1'||val==='true');
   }
   const fileUrl=qp.get('fileUrl');
   if(!fileUrl){ log('autorun=1 but no ?fileUrl= given — nothing to analyze.'); return; }

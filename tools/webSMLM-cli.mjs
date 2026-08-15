@@ -21,6 +21,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --method mle3d --calibration beadstack.tif --calStep 10 --pxnm 160
 //   node webSMLM-cli.mjs --calibration beadstack.tif --calibrationOnly --calStep 10 --pxnm 160 --out ./calib-out
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeFRC --headed --out ./somewhere/else
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --method gaussmle
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -42,7 +43,13 @@
 // Any other --key=value is passed straight through as a PARAMS override
 // (docs/DOCUMENTATION.md §2) — e.g. --winr=6 --gain=0.5. Bare flags (no
 // value) become `true` — useful for --correctDrift/--computeNeNA/
-// --computeFRC/--calibrationOnly and any PARAMS bool.
+// --computeFRC/--calibrationOnly/--estimateGainOffset and any PARAMS bool.
+// --estimateGainOffset runs PCFO gain/offset estimation (docs/DOCUMENTATION.md
+// §2 Fit / §8) on --file itself before localizing, overriding --gain/--camoffset
+// with the estimate (summary.json's "pcfo" field records what was found; falls
+// back to whatever --gain/--camoffset were passed if PCFO can't fit, e.g. too
+// few usable tiles) — the headless equivalent of clicking "Estimate gain/offset"
+// then "Localize". --pcfoFrames/--pcfoK/--pcfoRnstd (PARAMS overrides) tune it.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
@@ -182,7 +189,7 @@ try {
       if (spec) {
         config[key] = spec.type === 'bool' ? (raw === '1' || raw === 'true' || raw === true)
                      : spec.type === 'enum' ? String(raw) : +raw;
-      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly') {
+      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast') {
         config[key] = +raw;
@@ -209,6 +216,10 @@ try {
       nLocalizations: r.locs.length, csvText: r.csvText, settingsText: r.settingsText,
       logText: r.logText, reconstructionPng: r.reconstructionPng, timings: r.timings,
       drift: r.drift, nena: r.nena, frc: r.frc, calibJsonText: r.calibJsonText,
+      // pts (one point per tile per sampled frame) is redundant with the log's
+      // gain/offset/R² summary and can run into the thousands — trimmed here
+      // the same way locs itself is dropped in favor of csvText above.
+      pcfo: r.pcfo ? { gain: r.pcfo.gain, gainStd: r.pcfo.gainStd, offset: r.pcfo.offset, offsetStd: r.pcfo.offsetStd, r2: r.pcfo.r2 } : null,
     };
   }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG });
 
@@ -227,7 +238,7 @@ try {
     if (result.calibJsonText) writeFileSync(join(outDir, calibOutName), result.calibJsonText);
     writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
       nLocalizations: result.nLocalizations, timings: result.timings,
-      drift: result.drift, nena: result.nena, frc: result.frc,
+      drift: result.drift, nena: result.nena, frc: result.frc, pcfo: result.pcfo,
     }, null, 2));
 
     printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}`);
