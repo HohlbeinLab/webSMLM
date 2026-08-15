@@ -1439,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.1 · proof-of-concept</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15a</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1501,12 +1501,69 @@ X.B(E,Y);return E}return J}())
       <details class="sim" id="simBox">
         <summary>Simulation settings</summary>
         <label class="row">Frames <input type="number" id="frames" min="50" max="800" step="50" value="300" class="num"></label>
-        <label class="row">Blink density <input type="number" id="dens" min="0.003" max="0.04" step="0.001" value="0.010" class="num"></label>
-        <label class="row">Photons <input type="number" id="phot" min="200" max="2500" step="50" value="900" class="num"></label>
+        <label class="row">Pixel size (nm) <input type="number" id="simulation_pxnm" min="10" max="500" step="1" value="100" class="num"></label>
+        <label class="row">Emitter density (µm⁻²·frame⁻¹) <input type="number" id="dens" min="0" max="5" step="0.01" value="0.05" class="num"></label>
+        <label class="row">Photons/frame <input type="number" id="phot" min="0" max="50000" step="50" value="900" class="num"></label>
+        <label class="row">ON lifetime (frames, mean) <input type="number" id="simlifetime" min="0.1" max="20" step="0.1" value="1" class="num"></label>
+        <label class="row">Camera gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
+        <label class="row">Camera offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
+        <label class="row">Offset std (ADU, per-pixel) <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
+        <label class="row">Read noise σ (e⁻) <input type="number" id="simulation_readnoise" min="0" max="200" step="0.1" value="2.7" class="num"></label>
+        <label class="row">Background (photons/frame) <input type="number" id="simbg" min="0" max="500" step="1" value="0" class="num"></label>
         <label class="row">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: simulation</span>
-          <p>Total sample drift over all frames, in a random direction (linear from frame 0). 0 = none. Used to test drift correction — the true drift is stored for scoring.</p>
+          <p><b>Emitter density</b> is a physical areal density — the average number of ON emitters per µm² in any
+          given frame — independent of how densely the ground-truth structure is sampled. Emitters arrive as a
+          Poisson process at randomly chosen structure sites; each turns on exactly once: a fractional start time
+          (drawn from up to 5×lifetime before frame 0, so the exponential's tail can already be mid-event at frame 0)
+          and an exponentially-distributed ON duration (mean = <b>ON lifetime</b>). <b>Photons/frame</b> is scaled by
+          the fraction of a frame the emitter was actually on, so e.g. a half-frame overlap emits half the photons.</p>
+          <p><b>Background</b> is Poisson like the signal. <b>Camera gain/offset/offset std/read noise</b>
+          forward-model a real sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
+          gain conversion, then a per-pixel offset map (Gaussian around the mean offset, fixed for the whole stack)
+          is added — independent of the fit-side camera gain/offset used for localization. For a clean
+          self-consistency test with the <b>Gain/offset estimation</b> section's own readout-noise field, combine
+          read noise and offset std in quadrature (√(read_noise²+offset_std²), offset std converted to photons via
+          this panel's gain) — a static per-pixel offset pattern looks identical to read noise in a single frame's
+          Fourier content, so leaving it out biases the fitted offset the same way.</p>
+          <p><b>Drift (px, total)</b> — total sample drift over all frames, in a random direction (linear from
+          frame 0). 0 = none. Used to test drift correction — the true drift is stored for scoring.</p>
+        </div>
+      </details>
+      <details class="sim" id="pcfoBox">
+        <summary>Gain/offset estimation</summary>
+        <label class="row">Frames sampled <input type="number" id="pcfoFrames" value="200" min="1" max="5000" step="10" class="num"></label>
+        <label class="row">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1" step="0.05" class="num"></label>
+        <label class="row">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.89" min="0" max="200" step="0.01" class="num"></label>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="pcfoBtn" type="button" disabled title="Estimate gain/offset from the loaded/simulated stack">Estimate gain/offset</button>
+        </div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden><span class="pill">module: fit</span>
+          <p>Estimates camera gain (photons/ADU) and offset (ADU) directly from the loaded stack via the
+          Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen, Lidke &amp;
+          Rieger, <a href="https://arxiv.org/abs/1611.05654" target="_blank" rel="noopener">arXiv:1611.05654</a>) —
+          no separate calibration acquisition needed. Tiles a sample of frames, measures mean signal vs.
+          high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression; fills
+          the Camera gain / Camera offset fields in Localisation settings directly, and draws a diagnostic
+          signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying linearity
+          assumption can be checked visually rather than trusted blindly.</p>
+          <ul>
+            <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
+            <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
+            noise-only; 0.9 follows the Rieger–Heintzman default.</li>
+            <li><b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible. Must
+            include ANY spatially-white, frame-invariant noise, not just true per-frame read noise — a static
+            per-pixel offset pattern (fixed-pattern noise) looks identical to read noise in a single frame's
+            Fourier content, so it biases the fitted offset the same way if left out. If both are present, combine
+            them in quadrature (√(read_noise²+offset_std²), in photon-equivalent units); the default (2.89) matches
+            the Simulation panel's own default read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this
+            way, for a clean self-test.</li>
+          </ul>
+          <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
+          rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
+          2×2) so there's nothing to re-tune per stack.</p>
         </div>
       </details>
       <details class="sim" id="calibBox">
@@ -1716,7 +1773,8 @@ X.B(E,Y);return E}return J}())
     <div class="card" style="margin-top:16px">
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
-</span></noscript>webSMLM v0.10.1
+
+</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15a · merge PR #5 (PCFO gain/offset estimation + simulation camera model)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1836,6 +1894,29 @@ const PARAMS = {
   // camoffset = "camera offset", the camera's baseline ADU level, subtracted before gain conversion
   camoffset: { type:'number', id:'camoffset', label:'Camera offset (ADU)', min:0, max:65535, step:1, default:0, int:false },
 
+  // ---- PCFO (photon-conversion-factor & offset): estimates gain/camoffset above from the
+  // stack itself, via the Rieger–Heintzman high-spatial-frequency noise method (estimateGainOffset)
+  // pcfoFrames = how many seeded-random frames to sample and average PCFO statistics over;
+  // pickSeededFrames() already caps this at the stack's actual frame count, so a shorter
+  // stack just uses every frame rather than erroring or resampling
+  pcfoFrames: { type:'number', id:'pcfoFrames', label:'PCFO: frames sampled', min:1, max:5000, step:10, default:200, int:true },
+  // pcfoK = spatial-frequency cutoff (fraction of Nyquist) above which content is assumed noise-only
+  // k_thresh max is 1 (not e.g. 1.4): filfac=1-pi*k^2/4 (the "area outside a circle of
+  // radius k within a square of side 2" formula) is only valid while that circle still fits
+  // inside the square, i.e. k<=1 — beyond that the formula goes negative and the whole
+  // normalization blows up (verified: k=1.3 produced offset/R^2 many orders of magnitude off).
+  pcfoK: { type:'number', id:'pcfoK', label:'PCFO: k_thresh (spatial freq.)', min:0.1, max:1, step:0.05, default:0.9, int:false },
+  // pcfoRnstd = the TOTAL spatially-white, frame-invariant noise std, in photon-equivalent
+  // units; set to 0 if unknown/negligible for real camera data. Must include any static
+  // per-pixel offset pattern (fixed-pattern noise) as well as true read noise — a single
+  // frame's Fourier content can't tell the two apart (verified: leaving out a 3 ADU
+  // fixed-pattern offset std biased the fitted offset by several ADU even with the true
+  // per-frame read noise correctly entered). Default 2.89 = sqrt(2.7²+(3/(1/0.34))²), i.e.
+  // simulation_readnoise (2.7 e⁻) and simulation_offset_std (3 ADU, converted to photons via
+  // the default simulation_gain) combined in quadrature, so a fresh Simulate+Estimate round
+  // trip is unbiased with both panels left at their defaults.
+  pcfoRnstd: { type:'number', id:'pcfoRnstd', label:'PCFO: readout noise σ (e⁻)', min:0, max:200, step:0.01, default:2.89, int:false },
+
   // ---- calibration ----
   // calStep = the z-stage step size (nm) between consecutive calibration-stack frames
   calStep: { type:'number', id:'calStep', label:'Calibration z-step (nm)', min:0.1, max:null, step:1, default:10, int:false },
@@ -1865,10 +1946,44 @@ const PARAMS = {
   // ---- simulation ----
   // frames = number of frames the built-in synthetic-stack generator produces
   frames: { type:'number', id:'frames', label:'Simulated frame count', min:50, max:800, step:50, default:300, int:true },
-  // dens = "density", mean fraction of simulated emitters ON (blinking) per frame
-  dens: { type:'number', id:'dens', label:'Simulated blink density', min:0.003, max:0.04, step:0.001, default:0.010, int:false },
-  // phot = "photons", mean photon count per simulated emitter per frame
-  phot: { type:'number', id:'phot', label:'Simulated photons/emitter', min:200, max:2500, step:50, default:900, int:true },
+  // simulation_pxnm = physical camera pixel size (nm) of the simulated stack — separate from the
+  // shared `pxnm` render/load param so simulation settings stay self-contained; the generated
+  // stack's own px is synced from this value (see genBtn handler) so the rest of the app (scale
+  // bar, re-run config, etc., which read the shared `pxnm`) stays consistent afterward.
+  simulation_pxnm: { type:'number', id:'simulation_pxnm', label:'Simulation pixel size (nm)', min:10, max:500, step:1, default:100, int:false },
+  // dens = "density", the average number of ON emitters per µm² per frame — a physical areal
+  // density, independent of frame count or how densely buildStructure() samples candidate points.
+  // Internally converted to a Poisson emitter-arrival rate (= dens*area/lifetime) so that the mean
+  // instantaneous occupied density across the movie equals dens; each arrival is instantiated at a
+  // randomly chosen structure site and gets exactly one ON period (see simlifetime) — never re-activates.
+  dens: { type:'number', id:'dens', label:'Emitter density (emitters/µm²/frame)', min:0, max:5, step:0.01, default:0.05, int:false },
+  // phot = "photons", photon emission rate per simulated emitter while ON, in photons/frame; an
+  // emitter active for only a fraction of a frame (partial overlap with its ON period) emits
+  // proportionally fewer photons that frame
+  phot: { type:'number', id:'phot', label:'Simulated photons/frame', min:0, max:50000, step:50, default:900, int:true },
+  // simlifetime = mean ON-period duration (frames) of a simulated emitter's single, exponentially-
+  // distributed activation; fractional (e.g. 3.5 frames) and physically motivated (exponential decay)
+  simlifetime: { type:'number', id:'simlifetime', label:'Simulated ON lifetime (frames, mean)', min:0.1, max:20, step:0.1, default:1, int:false },
+  // simbg = mean background photon rate/frame, folded into the same Poisson shot-noise draw as signal
+  simbg: { type:'number', id:'simbg', label:'Simulation background (photons/frame)', min:0, max:500, step:1, default:0, int:false },
+  // simulation_gain = forward-model photons→ADU conversion factor (ADU = offset + photons/gain),
+  // the inverse direction of the fit-side `gain`; deliberately a separate param so simulated ground
+  // truth and the fit's assumed camera model can be matched or intentionally mismatched for testing
+  simulation_gain: { type:'number', id:'simulation_gain', label:'Simulation camera gain (photons/ADU)', min:0.001, max:1000, step:0.01, default:0.34, int:false },
+  // simulation_offset = mean camera baseline (ADU) of the per-pixel offset map (see simulation_offset_std)
+  simulation_offset: { type:'number', id:'simulation_offset', label:'Simulation camera offset (ADU)', min:0, max:65535, step:1, default:100, int:false },
+  // simulation_offset_std = per-pixel Gaussian spread (ADU) around simulation_offset, modelling
+  // realistic fixed-pattern offset variation; the resulting per-pixel map is generated once per
+  // stack and reused for every frame (a real sensor's fixed pattern doesn't re-randomize per frame)
+  simulation_offset_std: { type:'number', id:'simulation_offset_std', label:'Simulation offset std (ADU, per-pixel)', min:0, max:200, step:0.5, default:3, int:false },
+  // simulation_readnoise = Gaussian read noise σ, in photo-electrons — same convention as the PCFO
+  // panel's own pcfoRnstd, so the two can be set to matching values for a clean self-consistency
+  // test (see estimateGainOffset). Applied before the gain conversion (ADU = offset +
+  // (photons+read-noise)/gain), the physically standard order (a real camera's read noise
+  // originates pre-ADC, referred back to electrons on the spec sheet) — previously hardcoded to a
+  // fixed 8 ADU added AFTER the gain conversion, which silently meant a different (and gain-
+  // dependent) noise level than whatever a user entered into the PCFO panel's own e⁻ field.
+  simulation_readnoise: { type:'number', id:'simulation_readnoise', label:'Simulation read noise σ (e⁻)', min:0, max:200, step:0.1, default:2.7, int:false },
   // driftpx = total simulated sample drift (px) over the whole synthetic stack, for testing drift correction
   driftpx: { type:'number', id:'driftpx', label:'Simulated total drift (px)', min:0, max:30, step:0.5, default:0, int:false },
 
@@ -2023,6 +2138,10 @@ document.addEventListener('paste', e=>{
 let stack=null, groundTruth=null, lastResult=null, stackName='webSMLM';
 let rawFtmView=false;   // raw panel toggle: show the FTM-corrected preview instead of the raw frame — see ftmFrame()
 let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for scoring drift correction)
+// ground-truth ON events from the simulator — one entry per instantiated emitter's single
+// activation ({x,y,tStart,tEnd,photonsTotal}, frame units) — kept for later comparison against
+// recovered localizations; not consumed anywhere yet.
+let groundTruthEvents=null;
 const readBudget = ()=> paramValue('memgb')*1073741824;   // frame-cache memory budget
 
 /* ===========================================================================
@@ -2338,24 +2457,74 @@ function buildStructure(w,h){
 
 async function generateSynthetic(){
   const w=128,h=128;
-  const n=paramValue('frames'), pOn=paramValue('dens'), photons=paramValue('phot');
-  const px=paramValue('pxnm'), sigma=1.3, bg=40, readNoise=8;
+  const n=paramValue('frames'), dens=paramValue('dens'), photPerFrame=paramValue('phot');
+  const lifetime=paramValue('simlifetime'), bg=paramValue('simbg');
+  const simGain=paramValue('simulation_gain'), simOffset=paramValue('simulation_offset'), simOffsetStd=paramValue('simulation_offset_std');
+  const readNoiseE=paramValue('simulation_readnoise');   // electrons, applied before the gain conversion — see PARAMS.simulation_readnoise
+  const px=paramValue('simulation_pxnm'), sigma=1.3;
   // optional linear sample drift accumulating to driftPx over all frames, in a
   // random direction — the ground truth for testing drift correction.
   const driftPx=paramValue('driftpx'), dang=Math.random()*2*Math.PI;
   const ddx=Math.cos(dang), ddy=Math.sin(dang);
   const driftAt=fi=> n>1 ? fi/(n-1)*driftPx : 0;   // magnitude at frame fi
-  const gt=buildStructure(w,h), frames=[], rad=Math.ceil(sigma*3);
+  const gt=buildStructure(w,h), rad=Math.ceil(sigma*3);
+
+  // `dens` is a physical areal density (emitters/µm²/frame), independent of how densely
+  // buildStructure() happens to sample candidate points. Convert to a Poisson emitter-arrival
+  // process over the whole FOV: mean instantaneous occupied density = dens, so with a mean ON
+  // duration of `lifetime` the arrival rate needed is (dens*area)/lifetime per frame-time. Total
+  // expected arrivals over the lead-in + movie window then follows from that rate. Each arrival
+  // is placed at a randomly chosen structure site (candidates may host more than one arrival over
+  // the movie — e.g. repeated single-molecule binding/activation at the same physical site) and
+  // gets exactly one fractional ON period — start time uniform over [-5·lifetime, n) so the
+  // exponential's early tail can already be mid-event at frame 0, duration ~
+  // Exponential(mean=lifetime) — and never re-activates. Per frame, photon output scales with the
+  // emitter's overlap fraction with that frame, so e.g. a half-frame overlap emits half the photons.
+  const areaUm2=(w*px/1000)*(h*px/1000);
+  const arrivalRate=lifetime>0 ? (dens*areaUm2)/lifetime : 0;
+  const lead=5*lifetime, rangeLen=n+lead;
+  const nEvents=poisson(arrivalRate*rangeLen);
+  const events=[];                                 // ground-truth {x,y,tStart,tEnd} per emitter
+  const frameEvents=Array.from({length:n}, ()=>[]); // per-frame [x,y,overlapFraction]
+  for(let e=0;e<nEvents;e++){
+    const gi=Math.floor(Math.random()*gt.length), ex=gt[gi][0], ey=gt[gi][1];
+    const tStart=-lead+Math.random()*rangeLen;
+    const tEnd=tStart-lifetime*Math.log(1-Math.random());   // exponential duration, mean=lifetime
+    events.push({x:ex, y:ey, tStart, tEnd});
+    const f0=Math.max(0,Math.floor(tStart)), f1=Math.min(n-1,Math.floor(tEnd));
+    for(let fi=f0; fi<=f1; fi++){
+      const ov=Math.min(fi+1,tEnd)-Math.max(fi,tStart);
+      if(ov>0) frameEvents[fi].push([ex, ey, ov]);
+    }
+  }
+  groundTruthEvents = events.map(e=>{
+    const s=Math.max(e.tStart,0), t=Math.min(e.tEnd,n);
+    return {x:e.x, y:e.y, tStart:e.tStart, tEnd:e.tEnd, photonsTotal:photPerFrame*Math.max(0,t-s)};
+  });
+
+  // fixed per-pixel camera offset map — real sensor fixed-pattern offset noise is a static
+  // per-pixel property, so it's drawn once per stack and reused for every frame, not resampled.
+  const offsetMap=new Float32Array(w*h);
+  for(let i=0;i<offsetMap.length;i++) offsetMap[i]=simOffset+simOffsetStd*gauss();
+
+  const frames=[];
   let lastYield=performance.now();
   for(let fi=0; fi<n; fi++){
     const dmag=driftAt(fi), drx=dmag*ddx, dry=dmag*ddy;
     const img=new Float32Array(w*h).fill(bg);
-    for(let m=0;m<gt.length;m++){ if(Math.random()>pOn) continue;
-      const mx=gt[m][0]+drx, my=gt[m][1]+dry, A=photons/(2*Math.PI*sigma*sigma), x0=Math.round(mx), y0=Math.round(my);
+    for(const [ex,ey,ov] of frameEvents[fi]){
+      const mx=ex+drx, my=ey+dry, A=(photPerFrame*ov)/(2*Math.PI*sigma*sigma), x0=Math.round(mx), y0=Math.round(my);
       for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
         const x=x0+dx,y=y0+dy; if(x<0||y<0||x>=w||y>=h) continue;
         img[y*w+x]+=A*Math.exp(-((x-mx)**2+(y-my)**2)/(2*sigma*sigma)); } }
-    for(let i=0;i<img.length;i++){ img[i]=poisson(img[i])+readNoise*gauss(); if(img[i]<0)img[i]=0; }
+    // shot noise (Poisson) plus read noise (Gaussian, electrons) combine before the gain
+    // conversion to ADU — the physically standard order, and what makes simulation_readnoise
+    // directly comparable to PCFO's own electron-domain read-noise field — then the per-pixel
+    // fixed offset is added and the result clamped.
+    for(let i=0;i<img.length;i++){
+      const adu=offsetMap[i]+(poisson(img[i])+readNoiseE*gauss())/simGain;
+      img[i]=adu<0?0:adu;
+    }
     frames.push(img);
     if(performance.now()-lastYield > 50){          // yield on a time budget to keep the UI responsive
       setProg(100*fi/n);
@@ -2367,6 +2536,7 @@ async function generateSynthetic(){
   // store the true per-frame drift (nm) so drift correction can be scored
   simTrueDrift = driftPx>0 ? {n, px, dx:fi=>driftAt(fi)*ddx, dy:fi=>driftAt(fi)*ddy, total:driftPx} : null;
   if(driftPx>0) log(`Simulated ${driftPx} px total drift along (${ddx.toFixed(2)}, ${ddy.toFixed(2)}).`);
+  log(`Simulated ${events.length} emitters (of ${gt.length} candidates) over ${n} frames.`);
   return makeStack(w,h,n,px, fi=>frames[fi]);
 }
 
@@ -5031,6 +5201,222 @@ async function computeFRC(){
   finally{ $('frcBtn').disabled=false; setProg(null); }
 }
 
+/* ---- PCFO (photon-conversion-factor & offset) — camera gain/offset from the
+   high-spatial-frequency (noise-only) content of raw frames: mean signal vs.
+   noise variance per image tile, linear regression. Rieger & Heintzman method
+   (Heintzmann, Relich, Nieuwenhuizen, Lidke & Rieger, arXiv:1611.05654;
+   Stallinga, TU Delft, pcfo_fftfix.m). Reuses fft2d (mirror-doubled tiles). ---- */
+function mulberry32(seed){
+  let a=seed>>>0;
+  return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+}
+function pickSeededFrames(n,count,seed){
+  const rnd=mulberry32(seed), pool=Array.from({length:n},(_,i)=>i);
+  const picked=[];
+  for(let k=0;k<Math.min(count,n);k++){
+    const j=(rnd()*pool.length)|0;
+    picked.push(pool[j]); pool.splice(j,1);
+  }
+  return picked;
+}
+// mirror-double an S×S block to N=2S (square, power-of-2) and FFT it.
+function pcfoTileStats(img,w,x0,y0,S,kThresh,filfac){
+  const N=2*S;
+  const re=new Float64Array(N*N), im=new Float64Array(N*N);
+  let sum=0;
+  for(let y=0;y<S;y++){
+    for(let x=0;x<S;x++){
+      const v=img[(y0+y)*w+(x0+x)]; sum+=v;
+      re[y*N+x]=v; re[y*N+(N-1-x)]=v;                    // horizontal mirror
+      re[(N-1-y)*N+x]=v; re[(N-1-y)*N+(N-1-x)]=v;         // vertical mirror
+    }
+  }
+  fft2d(re,im,N,-1);
+  let noisevar=0;
+  const norm=1/(filfac*N*N);
+  for(let y=0;y<N;y++){
+    const ky=(y<N/2?y:y-N)/(N/2);
+    for(let x=0;x<N;x++){
+      const kx=(x<N/2?x:x-N)/(N/2);
+      if(Math.sqrt(kx*kx+ky*ky)>kThresh){
+        const i=y*N+x; noisevar+=(re[i]*re[i]+im[i]*im[i])*norm;
+      }
+    }
+  }
+  noisevar/=(N*N);
+  return {imsig:sum/(S*S), noisevar};
+}
+// grid a frame into tilesX×tilesY cells, return one {imsig,noisevar} pair per cell.
+// pcfoTileStats' FFT is radix-2 (power-of-two lengths only), unlike MATLAB's fft2 which
+// accepts any tile size — so this isn't a user setting, it's derived from the field of
+// view: aim for ~4 tiles across the shorter dimension (rounded down to the nearest power
+// of two, floor 64px — below that there's too little high-frequency content for a stable
+// noise-variance estimate), which keeps roughly the same TILE COUNT (and hence regression
+// point density/R²) regardless of frame size, rather than a fixed pixel target that leaves
+// a huge frame under-tiled or a small one over-tiled. A grid that would collapse to 1×1
+// (very small frames) starves the gain+offset regression of spatial spread — with one
+// tile/frame the only variation across pooled points is whatever the mean signal happens
+// to drift by frame-to-frame, often too little to pin down two parameters, so the fit goes
+// singular ("too few usable data points") — so S is halved further until the grid is at
+// least 2×2 (still floored at 64px).
+function pcfoTileSize(w,h){
+  let S=64; while(S*2<=Math.floor(Math.min(w,h)/4)) S*=2;
+  while(S>64 && (Math.floor(w/S)<2 || Math.floor(h/S)<2)) S/=2;
+  return S;
+}
+// tile the WHOLE frame contiguously at size S×S (partial tiles at the right/bottom
+// edge dropped) — every pixel is used by exactly one tile's imsig/noisevar, unlike
+// a sparse per-cell corner-sample.
+function pcfoFrameTilePoints(img,w,h,S,kThresh){
+  const filfac=1-Math.PI*kThresh*kThresh/4;
+  const tilesX=Math.max(1,Math.floor(w/S)), tilesY=Math.max(1,Math.floor(h/S));
+  const pts=[];
+  for(let jty=0;jty<tilesY;jty++){
+    const y0=jty*S;
+    for(let jtx=0;jtx<tilesX;jtx++){
+      const x0=jtx*S;
+      pts.push(pcfoTileStats(img,w,x0,y0,S,kThresh,filfac));
+    }
+  }
+  return pts;
+}
+// Robust outlier clip (Tukey fences: [Q1-3·IQR, Q3+3·IQR]) applied to noisevar before it
+// enters the fit or R² at all. A single tile with a wildly high OR near-zero noisevar
+// (dead/hot/saturated pixels, a masked region, or any other single-tile measurement fluke)
+// can otherwise dominate an ordinary least-squares fit outright — verified: one such point
+// flipped the fitted gain's sign and drove it orders of magnitude off. 3×IQR is a generous,
+// standard robust-statistics fence — it clips genuine pathological outliers without
+// touching ordinary heteroscedastic spread in a well-behaved dataset.
+function pcfoClipPoints(pts){
+  const sorted=pts.map(p=>p.noisevar).sort((a,b)=>a-b), n=sorted.length;
+  const q1=sorted[Math.floor(n*0.25)], q3=sorted[Math.floor(n*0.75)], iqr=Math.max(1e-9,q3-q1);
+  const lo=Math.max(1e-9,q1-3*iqr), hi=q3+3*iqr;
+  return pts.map(p=>({imsig:p.imsig, noisevar:Math.min(hi,Math.max(lo,p.noisevar))}));
+}
+// 2-parameter ordinary least-squares linear regression (noisevar vs. imsig) over a pooled,
+// outlier-clipped (pcfoClipPoints) set of tile points. Returns the raw-ADU slope/intercept
+// (gain,c) plus the offset in Rieger-Heintzman's convention — gain here is ADU/photon
+// (noisevar-vs-signal slope), not webSMLM's photons/ADU camera-gain field; the caller
+// inverts it (see estimateGainOffset).
+//
+// Deliberately unweighted, not 1/noisevar²-weighted: each tile's noisevar is itself a
+// chi-squared-family estimator (an average of |FFT|² over a fixed number of high-frequency
+// bins), so weighting by the OBSERVED noisevar makes the weight correlate with that same
+// point's own noise realization — since 1/y² is convex, a downward noise excursion inflates
+// a point's weight more than an equal upward excursion shrinks it (Jensen's inequality),
+// systematically biasing the fit (and the extrapolated offset) low. Verified numerically:
+// biased the offset by several ADU at realistic per-tile noise levels; plain OLS came out
+// essentially unbiased, including under a true right-skewed chi-squared noise model (not
+// just a symmetric Gaussian one).
+function pcfoRegress(rawPts,rnstd){
+  if(rawPts.length<2) return null;
+  const pts=pcfoClipPoints(rawPts);
+  let sX=0,sY=0,sXX=0,sXY=0;
+  for(const p of pts){ sX+=p.imsig; sY+=p.noisevar; sXX+=p.imsig*p.imsig; sXY+=p.imsig*p.noisevar; }
+  const n=pts.length, det=n*sXX-sX*sX;
+  if(!isFinite(det)||Math.abs(det)<1e-12) return null;
+  const gain=(n*sXY-sX*sY)/det, c=(sXX*sY-sX*sXY)/det;
+  if(!isFinite(gain)||gain===0) return null;
+  const offset=-c/gain+gain*rnstd*rnstd;
+  return {gain,c,offset};
+}
+// R² of the pooled, outlier-clipped fit — a debug/linearity check: PCFO's whole premise is
+// that per-tile noise variance scales linearly with mean signal (shot-noise-dominated,
+// Poisson statistics), so a low R² means that assumption doesn't hold for this
+// stack (saturation, non-uniform illumination, strong fixed-pattern/read noise, …)
+// and the reported gain/offset shouldn't be trusted.
+function pcfoRSquared(rawPts,gainSlope,c){
+  const pts=pcfoClipPoints(rawPts);
+  let sumY=0; for(const p of pts) sumY+=p.noisevar; const meanY=sumY/pts.length;
+  let ssRes=0,ssTot=0;
+  for(const p of pts){ const pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY; ssRes+=d*d; ssTot+=dt*dt; }
+  return ssTot>0 ? 1-ssRes/ssTot : NaN;
+}
+let pcfoLastPts=null, pcfoLastFit=null, pcfoLastR2=NaN;
+// Diagnostic scatter (LEFT/raw panel, see the plot pattern in MODULE: render):
+// image signal vs. noise variance per tile, with the fitted line — lets a user
+// visually confirm the tiles fall on a line before trusting the fitted gain/offset.
+function drawPcfoPlot(){
+  if(!pcfoLastPts||!pcfoLastFit) return;
+  const pts=pcfoLastPts, fit=pcfoLastFit;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  rawFull=null; rawIsPlot=true; rawPlotName='pcfo'; $('rawTitle').textContent='PCFO: signal vs. noise variance';
+  ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
+  // zoom to the point cloud + fitted line's own extent, not the origin — the
+  // intercept can be far from (0,0) (that's the whole point of the offset fit),
+  // so anchoring axes at 0 would squeeze the actual data into a corner.
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  for(const p of pts){ if(p.imsig<xmin)xmin=p.imsig; if(p.imsig>xmax)xmax=p.imsig; if(p.noisevar<ymin)ymin=p.noisevar; if(p.noisevar>ymax)ymax=p.noisevar; }
+  const yAtXmin=fit.gain*xmin+fit.c, yAtXmax=fit.gain*xmax+fit.c;   // keep the drawn line segment fully on-plot
+  ymin=Math.min(ymin,yAtXmin,yAtXmax); ymax=Math.max(ymax,yAtXmin,yAtXmax);
+  const xpad=Math.max(1,(xmax-xmin)*0.08), ypad=Math.max(1,(ymax-ymin)*0.10);
+  xmin-=xpad; xmax+=xpad; ymin-=ypad; ymax+=ypad;
+  const mL=58,mR=16,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
+  const X=v=>mL+pw*(v-xmin)/(xmax-xmin), Y=v=>mT+ph*(1-(v-ymin)/(ymax-ymin));
+  ctx.strokeStyle='#c9d1d9'; ctx.fillStyle='#57606a'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const c of niceTicks(ymin,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText(v.toFixed(0),x,mT+ph+6); }
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
+  ctx.fillStyle='rgba(66,133,244,0.45)';
+  for(const p of pts){ ctx.beginPath(); ctx.arc(X(p.imsig),Y(p.noisevar),2.2,0,2*Math.PI); ctx.fill(); }
+  ctx.strokeStyle='#d1242f'; ctx.lineWidth=1.6; ctx.beginPath();
+  ctx.moveTo(X(xmin),Y(yAtXmin)); ctx.lineTo(X(xmax),Y(yAtXmax)); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle='#57606a'; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
+  ctx.fillStyle='#24292f'; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('image signal (ADU)', mL+pw/2, mT+ph+26);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('noise variance (ADU²)',0,0); ctx.restore();
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillText(`gain = ${(1/fit.gain).toFixed(3)} photons/ADU · offset = ${fit.offset.toFixed(1)} ADU · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
+  $('rawInfo').textContent='— PCFO: image signal vs. noise variance per tile · slope→gain, intercept→offset · scrub a frame to return';
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymax,yBot:ymin, fmt:(vx,vy)=>`${vx.toFixed(0)} ADU · ${vy.toFixed(0)} ADU²`});
+  _replotRaw=drawPcfoPlot;
+  syncSaveImg();
+}
+async function estimateGainOffset(){
+  if(!stack){ log('Load a stack first.'); return; }
+  $('pcfoBtn').disabled=true;
+  try{
+    const NFRAMES=paramValue('pcfoFrames'), K_THRESH=paramValue('pcfoK'), RNSTD=paramValue('pcfoRnstd');
+    const S=pcfoTileSize(stack.w,stack.h);
+    const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
+    const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
+    log(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px (auto-sized from the ${stack.w}×${stack.h} field of view)…`);
+    const pts=[];
+    for(const fi of idx){
+      const img=(await stack.getFrames(fi,fi+1))[0];
+      pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,K_THRESH));
+      await tick();
+    }
+    const fit=pcfoRegress(pts,RNSTD);
+    if(!fit){ log(`  too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return; }
+    // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
+    // camera calibration convention); webSMLM's Camera gain field is photons/ADU, so invert.
+    const gainPhPerADU=1/fit.gain;
+    // leave-one-out jackknife over the pooled points, for a rough uncertainty estimate.
+    // NB this measures sensitivity to dropping one of (frames × tiles) pooled points,
+    // not frame-to-frame stability the way the MATLAB reference's per-frame-then-average
+    // approach does — with many tiles it tends to read tighter than that.
+    const jGains=[], jOffsets=[];
+    for(let i=0;i<pts.length;i++){
+      const r=pcfoRegress(pts.slice(0,i).concat(pts.slice(i+1)),RNSTD);
+      if(r){ jGains.push(1/r.gain); jOffsets.push(r.offset); }
+    }
+    const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+    const std=a=>{ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); };
+    const gStd=jGains.length>1?std(jGains):NaN, oStd=jOffsets.length>1?std(jOffsets):NaN;
+    log(`  gain = ${gainPhPerADU.toFixed(3)}${isFinite(gStd)?' ± '+gStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(oStd)?' ± '+oStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
+    pcfoLastPts=pts; pcfoLastFit=fit; pcfoLastR2=pcfoRSquared(pts,fit.gain,fit.c);
+    log(`  linearity check: R² = ${pcfoLastR2.toFixed(4)} (signal vs. noise-variance across ${pts.length} tiles)`
+      + `${pcfoLastR2<0.3?' — LOW: tiles do not sit on a line; most likely too low a photon count — or, less commonly, saturation, non-uniform illumination, or non-Poissonian noise. Check the plot before trusting this result.':'.'}`);
+    drawPcfoPlot();
+    $('gain').value=gainPhPerADU.toFixed(3); $('camoffset').value=Math.round(fit.offset);
+  }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
+  finally{ $('pcfoBtn').disabled=false; }
+}
+
 /* ===========================================================================
    MODULE: pipeline
    =========================================================================== */
@@ -5664,16 +6050,17 @@ $('loadBtn').addEventListener('click',()=>$('file').click());
 
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true; lastDrift=null;
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
+    $('pxnm').value=stack.px;   // keep the shared pixel-size control (scale bar, re-run config, …) in sync with the simulated stack's own px
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     syncSaveImg();   // the old stack's content is gone; disable Save image until showFrame(0) below draws something new
     initScrub();
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
     log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
@@ -5685,7 +6072,7 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled=true;
   syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
@@ -5696,7 +6083,7 @@ $('file').addEventListener('change',async e=>{
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider (or scroll over the image) to browse the stack.':''}`);
   }catch(err){ log('TIFF load failed: '+err.message); }
 });
@@ -5829,6 +6216,7 @@ $('driftShowBtn').addEventListener('click',()=>{ if(lastDrift) drawDriftCurve();
 // 0.8.0 (in development): localization-precision estimators. Scaffolded UI only.
 $('nenaBtn').addEventListener('click',computeNeNA);
 $('frcBtn').addEventListener('click',computeFRC);
+$('pcfoBtn').addEventListener('click',estimateGainOffset);
 
 // Phasor 3D: reveal the Load-calibration control only for that method
 function updateMethodUI(){
