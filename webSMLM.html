@@ -1439,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15c</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15d</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1503,13 +1503,13 @@ X.B(E,Y);return E}return J}())
         <label class="row">Frames <input type="number" id="frames" min="50" max="800" step="50" value="300" class="num"></label>
         <label class="row">Pixel size (nm) <input type="number" id="simulation_pxnm" min="10" max="500" step="1" value="100" class="num"></label>
         <label class="row">Emitter density (µm⁻²·frame⁻¹) <input type="number" id="dens" min="0" max="5" step="0.01" value="0.05" class="num"></label>
-        <label class="row">Photons/frame <input type="number" id="phot" min="0" max="50000" step="50" value="900" class="num"></label>
+        <label class="row">Photons/emitter/frame <input type="number" id="phot" min="0" max="50000" step="50" value="900" class="num"></label>
         <label class="row">ON lifetime (frames, mean) <input type="number" id="simlifetime" min="0.1" max="20" step="0.1" value="1" class="num"></label>
         <label class="row">Camera gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
         <label class="row">Camera offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
         <label class="row">Offset std (ADU, per-pixel) <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
         <label class="row">Read noise σ (e⁻) <input type="number" id="simulation_readnoise" min="0" max="200" step="0.1" value="2.7" class="num"></label>
-        <label class="row">Background (photons/frame) <input type="number" id="simbg" min="0" max="500" step="1" value="0" class="num"></label>
+        <label class="row">Background (photons/px) <input type="number" id="simbg" min="0" max="500" step="1" value="0" class="num"></label>
         <label class="row">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: simulation</span>
@@ -1517,9 +1517,11 @@ X.B(E,Y);return E}return J}())
           given frame — independent of how densely the ground-truth structure is sampled. Emitters arrive as a
           Poisson process at randomly chosen structure sites; each turns on exactly once: a fractional start time
           (drawn from up to 5×lifetime before frame 0, so the exponential's tail can already be mid-event at frame 0)
-          and an exponentially-distributed ON duration (mean = <b>ON lifetime</b>). <b>Photons/frame</b> is scaled by
-          the fraction of a frame the emitter was actually on, so e.g. a half-frame overlap emits half the photons.</p>
-          <p><b>Background</b> is Poisson like the signal. <b>Camera gain/offset/offset std/read noise</b>
+          and an exponentially-distributed ON duration (mean = <b>ON lifetime</b>). <b>Photons/emitter/frame</b> is
+          scaled by the fraction of a frame the emitter was actually on, so e.g. a half-frame overlap emits half the
+          photons.</p>
+          <p><b>Background</b> (photons/px, Poisson like the signal) is added at every pixel independently, every
+          frame. <b>Camera gain/offset/offset std/read noise</b>
           forward-model a real sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
           gain conversion, then a per-pixel offset map (Gaussian around the mean offset, fixed for the whole stack)
           is added — independent of the fit-side camera gain/offset used for localization. For a clean
@@ -1776,7 +1778,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15c · Estimate/Transfer estimates split, Gain label
+</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15d · clarify photons/emitter/frame vs. background photons/px
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1959,15 +1961,16 @@ const PARAMS = {
   // instantaneous occupied density across the movie equals dens; each arrival is instantiated at a
   // randomly chosen structure site and gets exactly one ON period (see simlifetime) — never re-activates.
   dens: { type:'number', id:'dens', label:'Emitter density (emitters/µm²/frame)', min:0, max:5, step:0.01, default:0.05, int:false },
-  // phot = "photons", photon emission rate per simulated emitter while ON, in photons/frame; an
+  // phot = "photons", photon emission rate per simulated emitter while ON, in photons/emitter/frame; an
   // emitter active for only a fraction of a frame (partial overlap with its ON period) emits
   // proportionally fewer photons that frame
-  phot: { type:'number', id:'phot', label:'Simulated photons/frame', min:0, max:50000, step:50, default:900, int:true },
+  phot: { type:'number', id:'phot', label:'Simulated photons/emitter/frame', min:0, max:50000, step:50, default:900, int:true },
   // simlifetime = mean ON-period duration (frames) of a simulated emitter's single, exponentially-
   // distributed activation; fractional (e.g. 3.5 frames) and physically motivated (exponential decay)
   simlifetime: { type:'number', id:'simlifetime', label:'Simulated ON lifetime (frames, mean)', min:0.1, max:20, step:0.1, default:1, int:false },
-  // simbg = mean background photon rate/frame, folded into the same Poisson shot-noise draw as signal
-  simbg: { type:'number', id:'simbg', label:'Simulation background (photons/frame)', min:0, max:500, step:1, default:0, int:false },
+  // simbg = mean background photon rate PER PIXEL, every frame — every pixel independently gets
+  // this many background photons (mean), folded into the same Poisson shot-noise draw as signal
+  simbg: { type:'number', id:'simbg', label:'Simulation background (photons/px)', min:0, max:500, step:1, default:0, int:false },
   // simulation_gain = forward-model photons→ADU conversion factor (ADU = offset + photons/gain),
   // the inverse direction of the fit-side `gain`; deliberately a separate param so simulated ground
   // truth and the fit's assumed camera model can be matched or intentionally mismatched for testing

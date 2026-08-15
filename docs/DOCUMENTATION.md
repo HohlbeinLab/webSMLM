@@ -401,13 +401,13 @@ headless equivalent.
 | `frames` | Simulated frame count | number (int) | 50 | 800 | 50 | 300 |
 | `simulation_pxnm` | Simulation pixel size (nm) | number | 10 | 500 | 1 | 100 |
 | `dens` | Emitter density (emitters/µm²/frame) | number | 0 | 5 | 0.01 | 0.05 |
-| `phot` | Simulated photons/frame | number (int) | 0 | 50000 | 50 | 900 |
+| `phot` | Simulated photons/emitter/frame | number (int) | 0 | 50000 | 50 | 900 |
 | `simlifetime` | Simulated ON lifetime (frames, mean) | number | 0.1 | 20 | 0.1 | 1 |
 | `simulation_gain` | Simulation camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 0.34 |
 | `simulation_offset` | Simulation camera offset (ADU) | number | 0 | 65535 | 1 | 100 |
 | `simulation_offset_std` | Simulation offset std (ADU, per-pixel) | number | 0 | 200 | 0.5 | 3 |
 | `simulation_readnoise` | Simulation read noise σ (e⁻) | number | 0 | 200 | 0.1 | 2.7 |
-| `simbg` | Simulation background (photons/frame) | number | 0 | 500 | 1 | 0 |
+| `simbg` | Simulation background (photons/px) | number | 0 | 500 | 1 | 0 |
 | `driftpx` | Simulated total drift (px) | number | 0 | 30 | 0.5 | 0 |
 
 `dens` is a **physical areal density** (ON emitters/µm²/frame), not tied to
@@ -417,9 +417,12 @@ whole field of view at randomly chosen structure sites; each turns on
 **exactly once** (no repeated blinking) — a fractional start time (drawn
 from up to 5×`simlifetime` before frame 0, so the exponential's early tail
 can already be mid-event at frame 0) and an exponentially-distributed ON
-duration (mean = `simlifetime`). `phot` scales by each emitter's overlap
-fraction with a given frame, so e.g. a half-frame overlap emits half the
-photons. `simbg` is Poisson like the signal.
+duration (mean = `simlifetime`). `phot` is per-emitter, per (fully-occupied)
+frame — an emitter's actual output in a given frame scales by its overlap
+fraction with that frame, so e.g. a half-frame overlap emits half `phot`.
+`simbg` is a **per-pixel** rate (every pixel gets `simbg` photons of
+background independently, every frame — not a total budget spread across
+the frame), Poisson like the signal.
 
 The forward **camera model** — decoupled from the fit-side `gain`/
 `camoffset` ([Export](#export-camera-aduphoton-conversion) above), so
