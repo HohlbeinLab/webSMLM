@@ -177,7 +177,7 @@ regression checks don't depend on re-downloading from EPFL.
 
 ## Fourth reference dataset — spectral SMLM (sSMLM) pair-finding
 
-`sSMLM_Fig2_locs.csv` (108 MB, 2,075,193 rows) — real localizations similar
+`sSMLM_Fig2_locs.csv` (92 MB, 1,710,773 rows) — real localizations similar
 to Figure 2A of Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi &
 Hohlbein, *Enabling Spectrally Resolved Single-Molecule Localization
 Microscopy at High Emitter Densities*, *Nano Lett.* **22**(21), 8618–8625
@@ -192,28 +192,30 @@ densities: Dataset"* (same authors). Unlike the stacks above, this is
 bkgstd [photon],uncertainty [nm]`, no `z` column), so it loads directly via
 **Load data**, no conversion needed. It's *raw, unpaired* localizations —
 the input the **Spectral SMLM analysis** module's pairing step is meant to
-consume, not a pre-paired reference to diff against.
+consume, not a pre-paired reference to diff against. This copy replaced an
+earlier deposit (2,075,193 rows) with better localizations and drift
+correction applied — same frame count and pairing signal, fewer/cleaner
+locs per frame.
 
 | Property | Value |
 |---|---|
 | Frames | 31,407 |
-| Localizations | 2,075,193 (~66/frame) |
-| Field of view | ~23.4 × 13.5 µm |
+| Localizations | 1,710,773 (~54.5/frame) |
+| Field of view | ~24.2 × 12.3 µm |
 
-**Verified pairing parameters** (found by direct analysis before the
-**Spectral SMLM analysis** module was built — sampled ~1,500–3,000 frames,
-computed all same-frame pairwise distances/angles — then reproduced live via
-**Preview pairs** once the module existed, both giving the same result):
-a sharp **distance peak at ~2.5 µm** (2300–2700 nm captures it cleanly)
-against the expected smooth combinatorial background, and within that
-window a **dominant angle at ~0°** (essentially horizontal). Pairing with
-`sSmlmDistMin=2300, sSmlmDistMax=2700, sSmlmAngleCenter=0, sSmlmAngleTol=10`
-recovers 667,868 pairs (64.4% of all localizations paired), mean distance
-2541 ± 69 nm, mean angle 2.0°. The module's own `PARAMS` defaults
-(`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) are set to this
-dataset's own dispersion for a zero-config first run — slightly wider than
-the window above, giving 659,056 pairs (63.5%), mean distance 2545 ± 82 nm,
-mean angle 1.9°.
+**Verified pairing parameters** (found by direct analysis — sampled
+~3,000 frames, computed all same-frame pairwise distances/angles — then
+reproduced live via **Preview pairs**, both giving the same result): a sharp
+**distance peak at ~2.5 µm** (median 2536 nm) against the expected smooth
+combinatorial background, and within that window a **dominant angle at
+~0°/180°** (essentially horizontal, and — see `docs/REFACTOR_PLAN.md`'s
+sSMLM follow-ups — genuinely present on *both* sides in comparable numbers,
+not just one: many 0th-order points have a real dim partner to either side
+simultaneously). The module's own `PARAMS` defaults
+(`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) already sit on
+this dataset's own peak for a zero-config first run, recovering 504,731
+pairs (59.0% of all localizations paired), mean distance 2546 ± 79 nm, mean
+angle 1.9°.
 
 ## Useful properties to note for benchmarking
 
