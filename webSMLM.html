@@ -1439,7 +1439,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15e</span></h1>
+  <h1>webSMLM <span class="pill">v0.10.2-dev · build 2026-08-15f</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1778,7 +1778,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15e · fix FTM mobile OOM, memory visibility, memgb max 64GB
+</span></noscript>webSMLM v0.10.2-dev · build 2026-08-15f · wire Estimate gain/offset into the progress bar
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5427,13 +5427,13 @@ async function estimateGainOffset(){
   $('pcfoBtn').disabled=true;
   try{
     const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
-    const r=await pcfoCore(cfg, stack, {onLog:log});
+    const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
     if(!r) return;
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
     drawPcfoPlot();
     $('pcfoTransferBtn').disabled=false;
   }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
-  finally{ $('pcfoBtn').disabled=false; }
+  finally{ $('pcfoBtn').disabled=false; setProg(null); }
 }
 // Estimate only computes (pcfoLastGain/pcfoLastOffset); this is the separate,
 // explicit step that actually applies the last estimate to Localisation
