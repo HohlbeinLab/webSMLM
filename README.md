@@ -29,7 +29,11 @@ walk-through of every step.
 ## What it does
 
 - **Loads** multi-frame TIFF stacks (8/16/32-bit, little- or big-endian,
-  uncompressed or deflate/LZW-compressed). 16-bit depth is preserved.
+  uncompressed or deflate/LZW-compressed). 16-bit depth is preserved. A
+  multi-file selection (Ctrl/Cmd+click) auto-detects whether the files are
+  one-frame-each (natural-sorted into a sequence, e.g. a per-frame camera
+  dump) or several multi-frame files to concatenate end-to-end into one
+  continuous stack.
 - **Handles very large stacks.** Files too big to hold in memory are read frame
   by frame with `File.slice()`, so the file is never fully loaded. Contiguous
   ImageJ stacks (single directory entry, frames laid out after it — as written
@@ -86,7 +90,7 @@ walk-through of every step.
   events** (`tempClusteringXY`/`tempClusteringZ` filters), reducing noise at the
   cost of localization density.
 - **Renders** a super-resolution image with adjustable magnification and blur,
-  a choice of colour maps (Fire, Inferno, Viridis, Turbo, Grey) and
+  a choice of colour maps (Fire, Inferno, Viridis, Turbo, HSV-blue, Grey) and
   percentile-based display scaling. All render settings apply instantly without
   refitting.
 - **Builds up live**: the raw frame refreshes during a run with detected ROIs
@@ -247,6 +251,12 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   Jabermoradi et al., *Enabling single-molecule localization microscopy in
   turbid food emulsions*, *Phil. Trans. R. Soc. A* **380**(2220), 20200164
   (2022). https://doi.org/10.1098/rsta.2020.0164
+- **Spectral SMLM (sSMLM)** (the 0th/1st-order pairing analysis implemented
+  here, ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer)):
+  K. J. A. Martens, M. Gobes, E. Archontakis, R. R. Brillas, N. Zijlstra,
+  L. Albertazzi, J. Hohlbein, *Enabling Spectrally Resolved Single-Molecule
+  Localization Microscopy at High Emitter Densities*, *Nano Lett.* **22**(21),
+  8618–8625 (2022). https://doi.org/10.1021/acs.nanolett.2c03140
 - **Overview**: M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021).
   https://doi.org/10.1038/s43586-021-00038-x
 
