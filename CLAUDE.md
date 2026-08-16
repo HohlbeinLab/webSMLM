@@ -136,18 +136,18 @@ relevant one before editing rather than scrolling:
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
   without refitting. `LUT_CPS` control-point maps: `fire`/`inferno`/`viridis`/`turbo` are smooth
-  hue ramps for continuously-varying data (intensity, real 3D depth); `spectral` (Bruton
-  wavelength→RGB, 380–700 nm, denser control points through the fast-changing 580–620 nm
-  yellow/orange band) gives real visible-spectrum colours instead, for a value that already IS a
-  wavelength proxy — aimed at **sSMLM**'s distance colouring, which **Pair** auto-selects it for.
-  `hsvBlue` is a closed-loop full hue cycle (240°→cyan→green→yellow→red→magenta→violet→240° again,
-  saturation/value pinned to 1) matching a colour scheme from the sSMLM paper's own figures —
-  unlike every other map here it's cyclic, so BOTH ends of the mapped range land on the same hue
-  (blue) by design, not an artifact to fix. `drawDepthBar()` (the on-canvas colour-scale strip)
-  sits top-RIGHT, not top-left — sSMLM's paired reconstruction only plots locs that found a
-  partner, usually far sparser than the full FOV, so real content tends to sit left-of-centre with
-  actual empty space on the right; the bar's ticks/labels extend left (into the panel) so they're
-  never clipped by the canvas edge.
+  hue ramps for continuously-varying data (intensity, real 3D depth); `hsvBlue` is a closed-loop
+  full hue cycle (240°→cyan→green→yellow→red→magenta→violet→240° again, saturation/value pinned to
+  1) matching a colour scheme from the sSMLM paper's own figures — unlike every other map here it's
+  cyclic, so BOTH ends of the mapped range land on the same hue (blue) by design, not an artifact
+  to fix; **Pair** auto-selects it. `drawDepthBar()` (the on-canvas colour-scale strip) anchors to
+  the actual DATA's own right edge and vertical centre (`srFull._locMaxXpx`/`_locMidYpx`, cached
+  once per `rerender()` in NATIVE px — not rescanned on every pan/zoom redraw — then converted
+  through the current `view`/zoom on each draw), falling back to the bare top-right canvas corner
+  only if there's no cached extent. A fixed corner alone looked disconnected: sSMLM's paired
+  reconstruction is often a sparse subset of a much larger FOV, so the bar could end up floating in
+  empty space far from the actual content it's meant to label. Ticks/labels extend left (into the
+  panel) so they're never clipped by the canvas edge.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
@@ -193,13 +193,16 @@ relevant one before editing rather than scrolling:
   direction `rawAngle` reports) is a row-order accident, not evenly split in real data; doubling it
   makes the two peaks equal, as an undirected diagnostic should show. `fitSSmlmAngle()` (**Fit
   angle & tol.**) estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same distance-windowed,
-  doubled-bearing data — 2°-bin peak detection + half-max-width walk, simple by design, usually a
-  conservative/narrow starting point rather than a final answer. Both histograms also draw the
-  CURRENTLY configured window as markers (`computeHist()`'s optional 4th `markers` param) — the
-  distance one shows `sSmlmDistMin`/`Max` as two lines over the full wide scan; the angle one
-  mirrors `sSmlmAngleCenter`±`sSmlmAngleTol` onto both plotted peaks. `refreshSSmlmHistIfShown()`
-  (a `change` listener on all four fields) redraws whichever histogram is on screen so the markers
-  track the fields live, without needing a manual re-click. An unpaired
+  doubled-bearing data — 2°-bin peak detection + half-max-width walk, THEN DOUBLED as a safety
+  margin (verified against the real reference dataset: the raw half-max width alone came out ~1°,
+  vs. the ~5° that actually worked well by hand — halfMaxTol*2 trades some precision back for
+  recall closer to a hand-tuned window's). Both histograms also draw the CURRENTLY configured
+  window as markers (`computeHist()`'s optional 4th `markers` param) — the distance one shows
+  `sSmlmDistMin`/`Max` as two lines over the full wide scan; the angle one mirrors
+  `sSmlmAngleCenter`±`sSmlmAngleTol` onto both plotted peaks. `refreshSSmlmHistIfShown()` (a
+  `change` listener on all four fields, and also called directly at the end of `fitSSmlmAngle()`)
+  redraws whichever histogram is on screen so the markers track the fields live — both from manual
+  edits and right after a fit — without needing a manual re-click. An unpaired
   localization is dropped from the result,
   not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
   — its centroid already is the true position), not the midpoint: the 1st order's offset varies

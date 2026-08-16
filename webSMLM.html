@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16d</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16e</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1690,7 +1690,6 @@ X.B(E,Y);return E}return J}())
             <option value="inferno">Inferno</option>
             <option value="viridis">Viridis</option>
             <option value="turbo">Blue–Green–Red (Turbo)</option>
-            <option value="spectral">Visible spectrum</option>
             <option value="hsvBlue">HSV (blue loop)</option>
             <option value="grey">Grey</option>
           </select></label>
@@ -1813,7 +1812,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16d · sSMLM: live hist. markers, HSV-blue LUT, colour bar right
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16e · sSMLM: colour bar anchored to data, 2x angle tol. safety
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -1917,7 +1916,7 @@ const PARAMS = {
   // rblur = σ_render, display-only Gaussian smoothing applied to the rendered reconstruction
   rblur: { type:'number', id:'rblur', label:'Render blur σ_render (px)', min:0, max:1, step:0.05, default:0.25, int:false },
   // lut = "look-up table", the colour map applied to the reconstruction
-  lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','spectral','hsvBlue','grey'], default:'fire' },
+  lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','hsvBlue','grey'], default:'fire' },
   // lutpct = percentile used for display-max clipping, so one hot pixel can't dim the rest
   lutpct: { type:'enum', id:'lutpct', label:'Display max percentile', options:['99.9','99.5','99','100'], default:'99.9' },
   // zcolor = render 3D results with hue = z (depth-coded) instead of a flat colour map
@@ -3644,21 +3643,14 @@ let rawCropMode=false, rawCropPt0=null;
    "fire" reproduces the original black→red→yellow→white ramp. "inferno" and
    "viridis" are the matplotlib maps, sampled every 0.1 and linearly
    interpolated — both perceptually uniform, so equal steps in density read as
-   equal steps in brightness (fire does not have that property). "spectral"
-   approximates the true visible-light spectrum (Bruton's wavelength→RGB,
-   380–700 nm) rather than a perceptually-uniform hue rotation — sampled
-   DENSER around the 580–620 nm yellow/orange band, where real spectral
-   colour genuinely changes fast, and coarser through the broader
-   blue/green/red bands where it doesn't — matching the physically uneven
-   transition widths turbo's uniform hue sweep doesn't have. The natural
-   choice for sSMLM's distance colouring, since that value already IS a
-   wavelength proxy. "hsvBlue" is a full 360° HSV hue cycle — saturation and
-   value both pinned to 1, hue swept from 240° (blue) clockwise (decreasing
-   hue) through cyan/green/yellow/red/magenta/violet back to 240° — matching
-   a colour scheme from the sSMLM paper's own figures: unlike every other map
-   here, it's a closed LOOP, so the two ends of the mapped range land on the
-   SAME hue (blue) rather than two different ones, which is the point for
-   this specific look, not a bug to fix.
+   equal steps in brightness (fire does not have that property). "hsvBlue" is
+   a full 360° HSV hue cycle — saturation and value both pinned to 1, hue
+   swept from 240° (blue) clockwise (decreasing hue) through
+   cyan/green/yellow/red/magenta/violet back to 240° — matching a colour
+   scheme from the sSMLM paper's own figures: unlike every other map here,
+   it's a closed LOOP, so the two ends of the mapped range land on the SAME
+   hue (blue) rather than two different ones, which is the point for this
+   specific look, not a bug to fix.
    ------------------------------------------------------------------------- */
 const LUT_CPS={
   inferno:[[0,0,4],[22,11,57],[66,10,104],[106,23,110],[147,38,103],
@@ -3667,9 +3659,6 @@ const LUT_CPS={
            [31,158,137],[53,183,121],[110,206,88],[181,222,43],[216,226,25],[253,231,37]],
   turbo:[[48,18,59],[64,101,224],[31,168,245],[24,215,203],[85,242,94],
          [168,242,44],[219,213,44],[245,161,42],[246,107,36],[205,46,13],[122,4,3]],
-  spectral:[[255,0,255],[128,0,255],[0,0,255],[0,102,255],[0,204,255],[0,255,255],
-            [0,255,128],[0,255,0],[73,255,0],[146,255,0],[219,255,0],[255,255,0],
-            [255,216,0],[255,177,0],[255,98,0],[255,0,0],[255,0,0]],
   hsvBlue:[[0,0,255],[0,128,255],[0,255,255],[0,255,128],[0,255,0],[128,255,0],
            [255,255,0],[255,128,0],[255,0,0],[255,0,128],[255,0,255],[128,0,255],[0,0,255]]
 };
@@ -3885,17 +3874,28 @@ function renderProfile(){
   _replotRaw=renderProfile;
   syncSaveImg();
 }
-// vertical depth colourbar (top-RIGHT), mapping the current LUT to the z
-// range. Right side, not left: sSMLM's paired reconstruction only plots the
-// subset of locs that found a partner, which is usually far sparser than
-// the full field of view, so the panel's actual content tends to sit
-// left-of-centre with real empty space on the right — putting the bar
-// there instead of over the left edge (its original spot) keeps it clear of
-// the data far more often. Ticks + labels (extending LEFT, into the panel,
-// so they're never clipped by the canvas edge) at the max (+), zero and min
-// positions.
+// vertical depth colourbar, anchored just to the RIGHT of the actual DATA
+// content (not the bare canvas corner — see the srFull._locMaxXpx/_locMidYpx
+// caching in rerender()): sSMLM's paired reconstruction is often a sparse
+// subset of a much larger field of view, so a fixed canvas-corner position
+// can end up floating in empty space far from anything, disconnected from
+// the image it's meant to label. Falls back to the old top-right-corner
+// spot if there's no cached content extent (e.g. a plot, not a real
+// reconstruction) or the content already reaches the canvas edge. Ticks +
+// labels extend LEFT (into the panel) so they're never clipped by the
+// canvas edge.
 function drawDepthBar(ctx,DW,DH,zlo,zhi){
-  const lut=getLUT(paramValue('lut')), bw=12, bh=140, x=DW-16-bw, y=16;
+  const lut=getLUT(paramValue('lut')), bw=12, bh=140;
+  let x=DW-16-bw, y=16;
+  if(srFull && srFull._locMaxXpx!=null && lastResult && lastResult.mag && view.zoom>0){
+    const sw=DW/view.zoom, sx=view.cx-sw/2, sy=view.cy-DH/view.zoom/2;
+    const contentRightDisp=(srFull._locMaxXpx*lastResult.mag-sx)*view.zoom;
+    x=Math.min(DW-16-bw, Math.max(8, contentRightDisp+10));
+    if(srFull._locMidYpx!=null){
+      const contentMidYDisp=(srFull._locMidYpx*lastResult.mag-sy)*view.zoom;
+      y=Math.min(DH-16-bh, Math.max(16, contentMidYDisp-bh/2));
+    }
+  }
   for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
     ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
   ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
@@ -3966,6 +3966,16 @@ function rerender(keepView,isPreview){
                         lastResult.locs);   // colour scale always pinned to the full dataset, see renderSuperRes
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
+  // Cached once per render (native px, NOT display px — drawDepthBar converts
+  // via the current view/zoom on each draw) rather than rescanned every
+  // frame: sSMLM's paired result is often a sparse subset of a much larger
+  // field of view, so drawDepthBar anchors to the DATA's own right edge
+  // instead of just the canvas corner — an O(n) scan of up to millions of
+  // locs on every pan/zoom redraw would be wasteful when the data itself
+  // only changes on an actual re-render.
+  if(zColor){ let mx=-Infinity,mnY=Infinity,mxY=-Infinity;
+    for(const L of rlocs){ if(L.x>mx) mx=L.x; if(L.y<mnY) mnY=L.y; if(L.y>mxY) mxY=L.y; }
+    srFull._locMaxXpx=isFinite(mx)?mx:null; srFull._locMidYpx=isFinite(mnY)?(mnY+mxY)/2:null; }
   if(srFull.width!==pw || srFull.height!==ph){ measureLine=null; measurePt0=null; cropPt0=null; }  // srFull coords changed
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
@@ -5865,9 +5875,15 @@ function fitSSmlmAngle(){
   while(leftW<nb/2 && hist[((pk-leftW-1)%nb+nb)%nb]>=halfMax) leftW++;
   while(rightW<nb/2 && hist[((pk+rightW+1)%nb+nb)%nb]>=halfMax) rightW++;
   let center=lo+(pk+0.5)*bw; if(center>180) center-=360;
-  const tol=Math.max(1,Math.round((leftW+rightW)/2*bw));
+  // Half-max width alone is a tight, "core of the peak only" estimate (verified
+  // against the real reference dataset: ~1° vs. the ~5° that actually worked
+  // well by hand) — doubling it as a safety margin trades some of that
+  // precision for recovering more of the real pairs sitting in the peak's
+  // wings, closer to a hand-tuned window's own recall.
+  const halfMaxTol=Math.max(1,Math.round((leftW+rightW)/2*bw)), tol=halfMaxTol*2;
   $('sSmlmAngleCenter').value=center.toFixed(1); $('sSmlmAngleTol').value=tol;
-  log(`\nsSMLM angle fit: primary angle ${center.toFixed(1)}°, tolerance ±${tol}° (half-max width of the histogram peak, ${pkVal.toLocaleString()} candidates at the peak vs. ${bg.toLocaleString()} background).`);
+  log(`\nsSMLM angle fit: primary angle ${center.toFixed(1)}°, tolerance ±${tol}° (2× the ±${halfMaxTol}° half-max width of the histogram peak, ${pkVal.toLocaleString()} candidates at the peak vs. ${bg.toLocaleString()} background).`);
+  refreshSSmlmHistIfShown();   // the histogram's own marker lines (if shown) should reflect the just-fitted values immediately, not just after the next manual redraw
 }
 // Preview computes candidates but commits nothing — always a WIDE, FIXED scan
 // (distance 0–6000 nm — or wider still if the configured Distance max is
@@ -5922,10 +5938,9 @@ async function runSSmlmPair(){
     // default rather than leaving the reconstruction looking unchanged (the
     // usual complaint: "I paired but don't see any sSMLM output").
     $('zcolor').checked = true;
-    // The distance value here already IS a wavelength proxy, so real visible-
-    // spectrum colours are the natural fit — same auto-switch pattern
-    // updateMethodUI() uses for 3D's own depth LUT default.
-    $('lut').value='spectral';
+    // Matches the colour scheme from the sSMLM paper's own figures — same
+    // auto-switch pattern updateMethodUI() uses for 3D's own depth LUT default.
+    $('lut').value='hsvBlue';
     rerender(true);
     $('sSmlmUnpairBtn').disabled=false;
     $('sSmlmColorBtn').style.display='';
