@@ -236,8 +236,14 @@ relevant one before editing rather than scrolling:
   localization is dropped from the result,
   not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
   — its centroid already is the true position), not the midpoint: the 1st order's offset varies
-  per emitter with wavelength, so averaging would blur position by up to half that offset. Stores
-  the inter-order distance in the paired loc's `z` — same trick the
+  per emitter with wavelength, so averaging would blur position by up to half that offset. Each
+  paired row also carries `sigma1st` — the 1st order's OWN `sigma` (already read once for
+  `sSmlmRequireNarrower`'s comparison, threaded through instead of discarded), exported as a
+  `"sigma1st [nm]"` CSV column and a `sigma1st` table column whenever any paired loc has it. NOT a
+  directional/long-axis width: every 2D fit method (phasor/LS/2D MLE) fits one symmetric `sigma`,
+  no `sx`/`sy` split the way the 3D astigmatic fit has — this is the closest available proxy for
+  "how much wider the spectrally-smeared 1st order looks," not a true per-axis PSF decomposition.
+  Stores the inter-order distance in the paired loc's `z` — same trick the
   prior-art tool's own `ThunderSTORM.csv` output uses — so the existing `zcolor` depth-coded
   render path needs no changes (the **table** module relabels the `z` column to `dist` while the
   paired set is what's shown); **Pair** refuses if the current result already has real 3D `z`, and

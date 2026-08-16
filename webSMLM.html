@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16h</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16i</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1812,7 +1812,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16h · table: pre-allocation memory guard
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16i · sSMLM: save 1st-order sigma to CSV/table
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4253,12 +4253,14 @@ function buildCsvText(locs, px, sigPSF){
   const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
   const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
+  const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output only — see pairCore
   const zcol=has3d?'"z [nm]",':'';
   // "sigma [nm]" kept as-is (not "sigma_xy") for ThunderSTORM CSV compatibility;
-  // sigma_z is a webSMLM-specific addition, same as n_merged below.
+  // sigma_z/sigma1st are webSMLM-specific additions, same as n_merged below.
   const zsigcol=hasZUnc?',"sigma_z [nm]"':'';
+  const s1col=hasSigma1st?',"sigma1st [nm]"':'';
   const mcol=isClustered?',"n_merged [frames]"':'';
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${mcol}\n`];
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${s1col}${mcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -4274,9 +4276,10 @@ function buildCsvText(locs, px, sigPSF){
     const sNm=sPx*px, unc=(isFinite(L.lpx)&&isFinite(L.lpy)) ? Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px : precisionNm(sNm,px,N,bs);
     const zc=has3d?`${isFinite(L.z)?L.z.toFixed(1):''},`:'';
     const zsc=hasZUnc?`,${isFinite(L.lpz)?L.lpz.toFixed(1):''}`:'';   // already nm — see zFromWidths
+    const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
     const mc=isClustered?`,${L.nMerged||1}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${mc}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${s1c}${mc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -5875,8 +5878,17 @@ async function pairCore(locs, px, config, hooks={}){
     // dependent distance away — averaging in a per-emitter, spectrally-
     // varying offset would blur position by up to half that distance
     // instead of reporting it precisely.
+    // sigma1st = the 1st order's OWN sigma (locs[q.down], already read once
+    // above for sSmlmRequireNarrower — carried through here instead of
+    // discarded). NOT a directional/long-axis width: every 2D fit method
+    // (gaussianMLE/gaussianFit/phasorFit — sSMLM pairing requires 2D, see
+    // the guard above runSSmlmPair) fits a single symmetric sigma, with no
+    // sx/sy split the way the 3D astigmatic fit has; this is the closest
+    // available proxy for "how much wider the spectrally-smeared 1st order
+    // looks," not a true per-axis decomposition of an elongated PSF.
     paired.push({ frame:L.frame, x:L.x, y:L.y, z:q.dist,
-      photons:L.photons, bg:L.bg, bgstd:L.bgstd, lpx:L.lpx, lpy:L.lpy, sigma:L.sigma });
+      photons:L.photons, bg:L.bg, bgstd:L.bgstd, lpx:L.lpx, lpy:L.lpy, sigma:L.sigma,
+      sigma1st:locs[q.down].sigma });
     sumDist+=q.dist; sumDistSq+=q.dist*q.dist;
     if((k&8191)===0){ onProgress(50+50*k/qualifying.length); await tick(); }
   }
@@ -7088,7 +7100,7 @@ function parseCsvLocs(text){
   const idx=name=>cols.indexOf(name);
   const iFrame=idx('frame'), iX=idx('x'), iY=idx('y'), iZ=idx('z'), iSigma=idx('sigma'),
         iN=idx('intensity'), iBg=idx('offset'), iBs=idx('bkgstd'), iUnc=idx('uncertainty'),
-        iSigZ=idx('sigma_z'), iMerged=idx('n_merged');
+        iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
   let maxXpx=0, maxYpx=0;
@@ -7104,6 +7116,7 @@ function parseCsvLocs(text){
     // whether it came from a real CRLB or the LS/phasor formula estimate) is lost.
     if(iUnc>=0 && p[iUnc]!==''){ const u=(+p[iUnc])/px; L.lpx=u; L.lpy=u; }
     if(iSigZ>=0 && p[iSigZ]!=='') L.lpz=+p[iSigZ];
+    if(iSig1>=0 && p[iSig1]!=='') L.sigma1st=(+p[iSig1])/px;
     if(iMerged>=0) L.nMerged=+p[iMerged];
     if(L.x>maxXpx) maxXpx=L.x; if(L.y>maxYpx) maxYpx=L.y;
     locs[i-1]=L;
@@ -7699,9 +7712,10 @@ function locTableData(baseLocs, isClustered){
   // the table reads as what it actually is, not depth.
   const isPaired = has3d && sSmlmOriginalLocs!=null;
   const zKey = isPaired ? 'dist' : 'z';
-  const cols=['id','frame','x','y'].concat(has3d?[zKey]:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
-  const dec={id:0,frame:0,x:1,y:1,[zKey]:1,sigma_xy:1,sigma_z:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
-  const unit={x:'nm',y:'nm',[zKey]:'nm',sigma_xy:'nm',sigma_z:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
+  const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output (or a paired CSV reload) — see pairCore
+  const cols=['id','frame','x','y'].concat(has3d?[zKey]:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
+  const dec={id:0,frame:0,x:1,y:1,[zKey]:1,sigma_xy:1,sigma_z:1,sigma1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
+  const unit={x:'nm',y:'nm',[zKey]:'nm',sigma_xy:'nm',sigma_z:'nm',sigma1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -7711,6 +7725,7 @@ function locTableData(baseLocs, isClustered){
     const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma_xy:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
     if(has3d) r[zKey]=isFinite(L.z)?L.z:NaN;
     if(hasZUnc) r.sigma_z=isFinite(L.lpz)?L.lpz:NaN;   // already nm — see zFromWidths
+    if(hasSigma1st) r.sigma1st=(isFinite(L.sigma1st)&&L.sigma1st>0)?L.sigma1st*px:NaN;
     if(isClustered) r.nmerged=L.nMerged||1;
     rows[i]=r; }
   return {cols,dec,unit,rows};

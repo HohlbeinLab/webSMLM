@@ -860,7 +860,14 @@ is what to know before touching that module, not a restatement of its code.
   position, while the 1st order sits a wavelength-dependent (i.e.
   emitter-to-emitter varying) distance away — averaging the two would blur
   position by up to half that spectrally-varying offset instead of reporting
-  it precisely. Pairing stores the inter-order distance in the paired loc's
+  it precisely. Each paired row also carries `sigma1st` — the 1st order's own
+  `sigma` (`locs[e.down].sigma`, already read once for `sSmlmRequireNarrower`'s
+  comparison above, threaded through here instead of discarded), exported as
+  a `sigma1st [nm]` CSV column (see §6) and shown as a `sigma1st` table
+  column (see §5) whenever present — not a directional/long-axis width, since
+  no 2D fit method computes one, but the closest available proxy for how much
+  wider the spectrally-smeared 1st order looks vs. the 0th. Pairing stores
+  the inter-order distance in the paired loc's
   `z` field (the same trick `sSMLMAnalyzer`'s own `ThunderSTORM.csv` output
   already uses), so the *existing* `zcolor`/`zmin`/`zmax` depth-coded render
   path (**render** module) colours by it with no changes there; **Pair**
@@ -963,10 +970,13 @@ open, doesn't rebuild) and a log line explains why, rather than risking a
 tab crash — raise the budget, or narrow the result with a filter/crop/
 temporal-clustering clause first.
 
-**Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`
-(3D only), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate z-precision —
-not available for Phasor 3D), `intensity`, `offset`, `bkgstd`, `uncertainty`,
-`nmerged` (only once clustering is active).
+**Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`/
+`dist` (3D only — relabelled `dist` while an sSMLM paired result is showing,
+see §3 sSMLM), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate
+z-precision — not available for Phasor 3D), `sigma1st` (sSMLM paired
+results only — the 1st order's own sigma, see §3 sSMLM/§6), `intensity`,
+`offset`, `bkgstd`, `uncertainty`, `nmerged` (only once clustering is
+active).
 
 **Filter syntax:** `field op value`, chained with `and`/`or`
 (e.g. `intensity > 1000 and uncertainty < 20`); `op` ∈ `> < >= <= == = !=`.
@@ -1010,16 +1020,23 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"n_merged [frames]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"sigma1st [nm]"][,"n_merged [frames]"]
 ```
 
 - `z [nm]` only present for a 3D result.
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
-- `sigma_z [nm]` (MLE 3D, when available) and `n_merged [frames]` (when
-  temporal clustering is active) are webSMLM-specific additions appended
-  after the standard columns — safe for a strict ThunderSTORM reader to
-  ignore.
+- `sigma_z [nm]`, `sigma1st [nm]` (when available) and `n_merged [frames]`
+  (when temporal clustering is active) are webSMLM-specific additions
+  appended after the standard columns — safe for a strict ThunderSTORM
+  reader to ignore.
+- `sigma1st [nm]` is sSMLM-**Pair**-specific: the 1st order's own `sigma`
+  (see §3 sSMLM), carried through from `pairCore()` rather than the pair's
+  reported `sigma [nm]`, which is still the 0th order's. Not a directional/
+  long-axis width — every 2D fit method fits one symmetric `sigma`; this is
+  the closest available proxy for how much wider the spectrally-smeared 1st
+  order looks. Round-trips through **Load data** (`parseCsvLocs()`) like
+  `sigma_z`/`n_merged` do.
 - Exports the *currently filtered* subset (`renderLocs||lastResult.locs`),
   the same set the reconstruction shows — logged explicitly when a filter is
   active, together with the unfiltered total.
