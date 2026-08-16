@@ -55,6 +55,8 @@ says.
 
 - **Memory & streaming** (`memBox`) — `memgb` (RAM budget before falling
   back to streaming) and `chunkmb` (streaming chunk size). See **in/out**.
+  `memgb` also gates the **render** module's own pre-allocation size check —
+  see **Rendering settings** and **render** below.
 - **Simulation settings** (`simBox`) — `frames`, `simulation_pxnm`, `dens`,
   `phot`, `simlifetime`, `simulation_gain`, `simulation_offset`,
   `simulation_offset_std`, `simulation_readnoise`, `simbg`, `driftpx`; only
@@ -101,7 +103,11 @@ says.
   `(raw−camoffset)×gain` before fitting, see **fit** / **export** modules.
 - **Rendering settings** (`renderBox`) — `mag`, `rblur`, `lut`, `lutpct`,
   `zcolor` (3D results only), `zmin`/`zmax` (3D results only, per-dataset
-  working state, *not* in `PARAMS`). See **render** module.
+  working state, *not* in `PARAMS`). See **render** module. `mag`'s UI range
+  (4–25) is a general-purpose bound only — a high `mag` combined with a
+  large loaded frame can still be refused at render time by the size/memory
+  guard below (checked against the *actual* frame size, not just the slider
+  range).
 - **Drift correction (AIM)** (`driftBox`) — `driftSeg`, `driftRoi`,
   `driftZ`, and **Correct drift**/**Show drift** (`driftBtn`/`driftShowBtn`).
   See **drift** module.
@@ -715,6 +721,39 @@ is what to know before touching that module, not a restatement of its code.
   whether `srFull` is the real per-localization reconstruction (vs. the
   pre-Run data projection or a calibration bead composite) — gates the crop
   tool and the nm-per-pixel conversion (`srNmPerPx()`).
+
+  `renderSuperRes()`'s accumulator buffers are DENSE — one value per
+  super-resolution pixel across the *whole* `(w×mag)×(h×mag)` grid,
+  regardless of how many localizations there actually are (500 locs and 5
+  million locs allocate the identical buffer size for a given frame size +
+  Magnification) — so memory scales as **O(frame area × mag²)**, entirely
+  decoupled from data volume. `checkRenderSize()` runs before any
+  allocation and throws if either side would exceed `CANVAS_MAX_DIM`
+  (16384 px — a hard per-browser canvas-creation limit, not a soft budget)
+  or if the estimated peak concurrent footprint (the count accumulator +
+  an optional z-accumulator with `zcolor` + `blur()`'s own transient
+  dst/tmp scratch with `rblur>0` + the final `ImageData` output + the
+  canvas's own backing store) exceeds `memgb` — the *same* Memory budget
+  control stack loading already uses (§2, Memory & streaming), not a
+  second, separate setting. `rerender()` (interactive) catches the throw,
+  logs what to change (lower Magnification, crop the region, or raise the
+  budget), and leaves whatever reconstruction was already on screen in
+  place rather than blanking the panel or crashing the tab; the headless
+  `analyze()` path does not catch it, letting it propagate — the same
+  "throws immediately" precedent its other preconditions (e.g. a
+  too-small crop region) already follow.
+
+  The count accumulator (`acc`) is a `Uint16Array`, not `Float32Array` — a
+  per-pixel hit count is always a non-negative integer, so this halves
+  that buffer's footprint at no precision cost; `zacc` (a *sum* of z
+  values in nm, genuinely fractional) stays `Float32Array`. A plain
+  `Uint16Array` silently *wraps* past 65535 on overflow rather than
+  clamping, which would otherwise corrupt density data on an extreme
+  pile-up (many tens of thousands of localizations landing on the exact
+  same reconstructed pixel) — the increment is guarded explicitly
+  (`if(acc[idx]<65535) acc[idx]++`, else count it as saturated) and a
+  single warning is logged per render if any pixel actually saturates,
+  rather than risking that silent corruption.
 - **export** — ThunderSTORM-compatible CSV, see [§6](#6-csv-export-format).
   `photons`/`bg`/`bgstd` are already true photon units by the time they
   reach export (conversion happens inside the fit) — export does no further

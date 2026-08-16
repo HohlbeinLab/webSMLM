@@ -160,6 +160,24 @@ relevant one before editing rather than scrolling:
   reconstruction is often a sparse subset of a much larger FOV, so the bar could end up floating in
   empty space far from the actual content it's meant to label. Ticks/labels extend left (into the
   panel) so they're never clipped by the canvas edge.
+
+  `renderSuperRes()`'s accumulator buffers are DENSE, not sparse — one value per super-resolution
+  pixel across the WHOLE `(w×mag)×(h×mag)` grid regardless of localization count, so memory scales
+  as O(w·h·mag²), completely decoupled from data volume. `checkRenderSize()` runs before any
+  allocation: refuses (throws) if either side would exceed `CANVAS_MAX_DIM` (16384 — a hard
+  per-browser canvas-creation wall, not a soft budget) or if the estimated concurrent footprint
+  (count accumulator + optional z-accumulator + `blur()`'s own dst/tmp scratch, when Render blur is
+  on, + the final `ImageData` + the canvas's own backing store) exceeds the existing `memgb`
+  control — the SAME "Memory budget (GB)" setting stack loading already uses, not a second one.
+  `rerender()` catches the throw, logs what to change (lower Magnification, crop, or raise the
+  budget), and leaves the PREVIOUS `srFull` on screen rather than blanking or crashing; the headless
+  `analyze()` path lets it propagate, same "throws immediately" precedent as its other preconditions.
+  The count accumulator (`acc`) is `Uint16Array`, not `Float32Array` — a per-pixel hit count is
+  always a non-negative integer, so this halves that buffer's footprint for free; `zacc` (summed z
+  in nm, genuinely fractional) stays `Float32Array`. `Uint16Array` WRAPS silently past 65535 on a
+  naive `+=1` rather than clamping, so the increment is guarded explicitly (`if(acc[idx]<65535)
+  acc[idx]++`) and a one-line warning is logged if any pixel saturates, rather than risking silent
+  density corruption on an extreme (real-world-unlikely) localization pile-up.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so

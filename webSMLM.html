@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16f</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16g</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1812,7 +1812,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16f · in/out: combine several multi-frame TIFFs into one stack
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16g · render: memory guard + Uint16 accumulator
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3769,26 +3769,68 @@ function displayMax(buf,pct){
 // colour scale stays pinned to the whole dataset and doesn't renormalize
 // (brighten/dim) every time a filter changes what's actually painted; a crop
 // then shows exactly the same colours as the un-cropped view, just zoomed.
-function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs){
-  const W=w*mag, H=h*mag, acc=new Float32Array(W*H), zacc=zColor?new Float32Array(W*H):null;
+// Hard safety limits, checked BEFORE allocating anything: the render
+// buffers are DENSE (one value per super-resolution pixel, W×H, regardless
+// of how many localizations there actually are — 500 locs and 5 million
+// locs allocate exactly the same size for a given frame/Magnification), so
+// a large native frame combined with a high Magnification can blow up to
+// tens of GB with nothing to stop it otherwise. CANVAS_MAX_DIM is a
+// conservative per-side cap most browsers enforce on canvas creation
+// regardless of available memory (a hard technical wall, not a soft
+// budget); the memgb check is the same philosophy as the stack-loading
+// memory budget (readBudget()), just applied to rendering instead — reusing
+// the SAME user-facing "Memory budget (GB)" control rather than a second,
+// separate setting.
+const CANVAS_MAX_DIM=16384;
+function checkRenderSize(W,H,w,h,mag,zColor,blurPx){
+  if(W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM)
+    throw new Error(`Reconstruction would be ${W}×${H} px (frame ${w}×${h} × ${mag}×) — exceeds the ~${CANVAS_MAX_DIM}px per-side canvas limit most browsers enforce. Lower Magnification or crop the region first.`);
+  const px=W*H;
+  // Concurrently-alive buffers, worst case: the count accumulator (Uint16,
+  // 2 bytes — see below), the z-sum accumulator (Float32, only with Colour
+  // by depth), blur()'s own dst+tmp scratch (Float32 each, only with
+  // Render blur), the final ImageData output, and the canvas's own backing
+  // store (browser-internal, same order of magnitude as ImageData).
+  let bytes=px*2;
+  if(zColor) bytes+=px*4;
+  if(blurPx>0) bytes+=px*4*2;
+  bytes+=px*4*2;
+  const budget=paramValue('memgb')*1073741824;
+  if(bytes>budget)
+    throw new Error(`Reconstruction at ${W}×${H} px (frame ${w}×${h} × ${mag}×) would need ~${fmtBytes(bytes)}, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Lower Magnification, crop the region, or raise the budget if you have the RAM.`);
+}
+function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,onLog=log){
+  const W=w*mag, H=h*mag;
+  checkRenderSize(W,H,w,h,mag,zColor,blurPx);
+  // Per-pixel hit COUNT — always a non-negative integer, so Uint16 (not
+  // Float32) halves this buffer's footprint; zacc holds SUMMED z (nm)
+  // values instead, genuinely fractional, so it stays Float32. Uint16
+  // natively WRAPS past 65535 on overflow (silent corruption, not
+  // clamping) — saturate explicitly instead, since a real pixel hitting
+  // 65,535+ localizations needs an extreme density at one exact
+  // reconstructed position and is not expected in normal use.
+  const acc=new Uint16Array(W*H), zacc=zColor?new Float32Array(W*H):null;
+  let satCount=0;
   for(const L of locs){
     // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
     if(zColor && (!isFinite(L.z)||L.z<zlo||L.z>zhi)) continue;
     const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
     if(ix<0||iy<0||ix>=W||iy>=H) continue; const idx=iy*W+ix;
-    acc[idx]+=1; if(zColor) zacc[idx]+=L.z; }
+    if(acc[idx]<65535) acc[idx]++; else satCount++;
+    if(zColor) zacc[idx]+=L.z; }
+  if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
   // Blur density and z-sum together, so the depth hue is the density-weighted
   // mean z over the neighbourhood: meanz = blur(Σz)/blur(count).
   const buf = blurPx>0 ? blur(acc,W,H,blurPx*mag*0.3) : acc;
   const zbuf = zColor ? (blurPx>0 ? blur(zacc,W,H,blurPx*mag*0.3) : zacc) : null;
   let normBuf=buf;
   if(normLocs && normLocs!==locs){
-    const nacc=new Float32Array(W*H);
+    const nacc=new Uint16Array(W*H);
     for(const L of normLocs){
       if(zColor && (!isFinite(L.z)||L.z<zlo||L.z>zhi)) continue;
       const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
       if(ix<0||iy<0||ix>=W||iy>=H) continue;
-      nacc[iy*W+ix]+=1; }
+      const nidx=iy*W+ix; if(nacc[nidx]<65535) nacc[nidx]++; }
     normBuf = blurPx>0 ? blur(nacc,W,H,blurPx*mag*0.3) : nacc;
   }
   const norm=displayMax(normBuf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo);
@@ -4031,9 +4073,21 @@ function rerender(keepView,isPreview){
   }
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   const rlocs = renderLocs || lastResult.locs;   // table filter can restrict the rendered subset
-  srFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
-                        paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
-                        lastResult.locs);   // colour scale always pinned to the full dataset, see renderSuperRes
+  let newSrFull;
+  try{
+    newSrFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
+                          paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
+                          lastResult.locs);   // colour scale always pinned to the full dataset, see renderSuperRes
+  }catch(err){
+    // Magnification/frame-size combination too big to render (see
+    // checkRenderSize() in renderSuperRes) — keep showing whatever was
+    // there before rather than crashing or blanking the panel; the log
+    // message already says what to change (lower Magnification, crop, or
+    // raise the Memory budget).
+    log(`⚠ Reconstruction not updated: ${err.message}`);
+    return;
+  }
+  srFull=newSrFull;
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
   // Cached once per render (native px, NOT display px — drawDepthBar converts
@@ -8041,7 +8095,7 @@ async function analyze(config){
   const paramsOnly={}; for(const id in PARAMS) paramsOnly[id]=cfg[id];   // drop file/calibrationJson/onProgress/… — not PARAMS entries
   const zc = cfg.zcolor && locs.some(L=>isFinite(L.z));
   const zr = zc ? (zRange(locs)||{lo:0,hi:1}) : {lo:0,hi:1};
-  const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi);
+  const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, onLog);
   return { locs, csvText:parts.join(''), logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
