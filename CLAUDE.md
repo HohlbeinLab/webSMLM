@@ -275,7 +275,15 @@ relevant one before editing rather than scrolling:
   set rather than which rows currently pass. `getBaseLocs()` is the single place that decides
   whether the base is raw `lastResult.locs` or clustered events; everything else (`_tableData`,
   `renderLocs`, export, NeNA, FRC) is unaware of the distinction and just consumes whichever it
-  gets, the same loc-shape either way.
+  gets, the same loc-shape either way. `checkTableSize()` guards `locTableData()` the same way
+  `checkRenderSize()` guards **render**'s buffers — each table row is a small JS object (~10-12
+  numeric fields), estimated at ~200 bytes/row (V8 per-object overhead, not just the raw field
+  bytes) against `memgb`; throws if over budget, caught at all three build sites
+  (`openTable()`/`rebuildTableData()`/the SR-crop click handler) so a too-large table fails with a
+  log message and leaves whatever was on screen before, rather than risking an uncontrolled crash.
+  Same `memgb`-is-a-per-feature-ceiling-not-a-shared-pool reasoning as the render guard: it was
+  originally scoped to just the loaded stack's own frame cache, and there's no reliable in-browser
+  signal for actually-free RAM to check against instead.
 
 ### Web Worker gotcha (read before touching detect/fit/workers)
 

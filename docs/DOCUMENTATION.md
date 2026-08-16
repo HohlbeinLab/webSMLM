@@ -55,8 +55,14 @@ says.
 
 - **Memory & streaming** (`memBox`) — `memgb` (RAM budget before falling
   back to streaming) and `chunkmb` (streaming chunk size). See **in/out**.
-  `memgb` also gates the **render** module's own pre-allocation size check —
-  see **Rendering settings** and **render** below.
+  `memgb` is reused (as a rough per-feature ceiling, not a pool shared/
+  subtracted across features — there's no reliable in-browser signal for
+  actually-free RAM to check against instead) by two other pre-allocation
+  size checks: the **render** module's reconstruction buffers (see
+  **Rendering settings**/**render**) and the **table** module's row-building
+  (§5 · Table & filter grammar) — both throw with a clear log message and
+  leave whatever was on screen before, rather than risking a crash, if the
+  current Magnification/frame size or localization count would exceed it.
 - **Simulation settings** (`simBox`) — `frames`, `simulation_pxnm`, `dens`,
   `phot`, `simlifetime`, `simulation_gain`, `simulation_offset`,
   `simulation_offset_std`, `simulation_readnoise`, `simbg`, `driftpx`; only
@@ -945,6 +951,17 @@ Written by **Save settings**, read by **Load settings**.
 Opened by **View data + filtering**. Base row set is `getBaseLocs()` — raw
 localizations, or (if a `tempClusteringXY`/`tempClusteringZ` clause is
 active) merged events from `clusterEvents()`.
+
+Building the table's rows is checked against the **Memory budget (GB)**
+setting first (`checkTableSize()`, ~200 bytes/row estimated — a small JS
+object per row costs meaningfully more than its raw numeric fields once V8's
+own per-object overhead is counted) — the same size-before-allocating
+philosophy the **render** module's reconstruction buffers use, reusing the
+same `memgb` control rather than a second, separate one. If a huge
+localization count would exceed it, the table doesn't open (or, if already
+open, doesn't rebuild) and a log line explains why, rather than risking a
+tab crash — raise the budget, or narrow the result with a filter/crop/
+temporal-clustering clause first.
 
 **Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`
 (3D only), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate z-precision —

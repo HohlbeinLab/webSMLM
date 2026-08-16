@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16g</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16h</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1812,7 +1812,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16g · render: memory guard + Uint16 accumulator
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16h · table: pre-allocation memory guard
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -7311,7 +7311,8 @@ $('sr').addEventListener('click',e=>{
   // test a column that no longer exists on a raw-locs rebuild and reject
   // every row).
   const base=getBaseLocs();
-  _tableData=locTableData(base, base!==lastResult.locs);
+  try{ _tableData=locTableData(base, base!==lastResult.locs); }
+  catch(err){ log(`⚠ Crop filter not applied: ${err.message}`); return; }   // stay in crop mode — the user can try a smaller region
   _tableFilters.push({expr:`crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm`,
     fn:r=>r.x>=x0&&r.x<=x1&&r.y>=y0&&r.y<=y1});
   renderTable(); applyFilterToReconstruction();
@@ -7657,12 +7658,38 @@ function getBaseLocs(){
 function rebuildTableData(){
   if(!lastResult) return;
   const base=getBaseLocs();
-  _tableData=locTableData(base, base!==lastResult.locs);
+  try{ _tableData=locTableData(base, base!==lastResult.locs); }
+  catch(err){ log(`⚠ Table not updated: ${err.message}`); return; }   // leaves the previous _tableData/table view in place
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
   renderTable(); applyFilterToReconstruction();
 }
+// Same "check before allocating, throw with a clear message rather than risk
+// an uncontrolled crash" philosophy as checkRenderSize() (MODULE: render) —
+// unlike the render buffers, the table's memory scales with LOCALIZATION
+// COUNT, not frame size × Magnification, but the risk is the same: nothing
+// currently stops it. Each row is a small JS object with ~10-12 numeric
+// fields — V8's per-object overhead (hidden class, header, property
+// storage) makes this comfortably more than the ~40 raw bytes the same
+// fields would take packed into a typed array; ~200 bytes/row is a rough
+// but conservative estimate, not a precise guarantee (browsers don't expose
+// real object memory layout to JS). Reuses `memgb` — the SAME "Memory
+// budget" control stack loading and rendering already use — as a rough
+// PER-FEATURE ceiling, not a pool shared/subtracted across features: memgb
+// was originally scoped to just the loaded stack's own frame cache
+// (readBudget()'s comment: "RAM budget for caching decoded frames"), and
+// there's no reliable in-browser signal for actually-free RAM to check
+// against instead, so treating it as "how much any one feature may use" is
+// the pragmatic choice — a stack that streamed instead of caching (using
+// almost none of the budget) can still leave plenty of real headroom for
+// the table even though this check doesn't know that.
+function checkTableSize(n){
+  const estBytes=n*200, budget=paramValue('memgb')*1073741824;
+  if(estBytes>budget)
+    throw new Error(`View data + filtering would need ~${fmtBytes(estBytes)} for ${n.toLocaleString()} rows, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Raise the budget if you have the RAM, or narrow the result first (a table/crop filter, or temporal clustering) before opening it.`);
+}
 function locTableData(baseLocs, isClustered){
   const locs=baseLocs||lastResult.locs, {px}=lastResult;
+  checkTableSize(locs.length);
   const sigPSF=paramValue('psf');   // gain/offset are applied inside the fit itself now, not here
   const has3d=locs.some(L=>isFinite(L.z));
   const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
@@ -7705,7 +7732,9 @@ function parseFilter(str,cols){
 function openTable(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first — nothing to tabulate.'); return; }
   const base=getBaseLocs();
-  _tableData=locTableData(base, base!==lastResult.locs); $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
+  try{ _tableData=locTableData(base, base!==lastResult.locs); }
+  catch(err){ log(`⚠ Table not opened: ${err.message}`); return; }   // modal stays closed rather than opening on incomplete data
+  $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
   $('tableHistCol').innerHTML=_tableData.cols.filter(c=>c!=='id'&&c!=='frame').map(c=>`<option value="${c}"${c==='intensity'?' selected':''}>${c}</option>`).join('');
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
   renderTable();                       // reconstruction already reflects the persisted filters (renderLocs)
