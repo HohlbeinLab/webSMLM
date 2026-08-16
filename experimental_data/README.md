@@ -195,51 +195,52 @@ regression checks don't depend on re-downloading from EPFL.
 
 ## Fourth reference dataset — spectral SMLM (sSMLM) pair-finding
 
-`sSMLM_Fig2_locs.csv` (92 MB, 1,710,773 rows) — real localizations similar
-to Figure 2A of Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi &
-Hohlbein, *Enabling Spectrally Resolved Single-Molecule Localization
-Microscopy at High Emitter Densities*, *Nano Lett.* **22**(21), 8618–8625
-(2022), [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140).
+`sSMLM_Fig2_locs.csv` — real localizations from the same lineage as Figure 2A
+of Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi & Hohlbein,
+*Enabling Spectrally Resolved Single-Molecule Localization Microscopy at
+High Emitter Densities*, *Nano Lett.* **22**(21), 8618–8625 (2022),
+[10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140).
 The full dataset behind the paper — TIFF stacks for Figures 2–4 and
 Supplementary Figures 1–2, plus processed CSVs, 19.3 GB total — is on Zenodo:
 [10.5281/zenodo.6778964](https://doi.org/10.5281/zenodo.6778964), *"Enabling
 spectrally resolved single-molecule localization microscopy at high emitter
-densities: Dataset"* (same authors). Unlike the stacks above, this is
-**not** a raw camera stack — it's already in webSMLM's own CSV export shape
-(`id,frame,x [nm],y [nm],sigma [nm],intensity [photon],offset [photon],
-bkgstd [photon],uncertainty [nm]`, no `z` column), so it loads directly via
-**Load data**, no conversion needed. It's *raw, unpaired* localizations —
-the input the **Spectral SMLM analysis** module's pairing step is meant to
-consume, not a pre-paired reference to diff against. This copy replaced an
-earlier deposit (2,075,193 rows) with better localizations and drift
-correction applied — same frame count and pairing signal, fewer/cleaner
-locs per frame.
+densities: Dataset"* (same authors).
 
-| Property | Value |
-|---|---|
-| Frames | 31,407 |
-| Localizations | 1,710,773 (~54.5/frame) |
-| Field of view | ~24.2 × 12.3 µm |
+**Current copy is PAIRED output** (46 MB, 757,715 rows, `id,frame,x [nm],
+y [nm],z [nm],sigma [nm],intensity [photon],offset [photon],bkgstd [photon],
+uncertainty [nm]` — note the `z` column), from Localize run across **4
+combined, cropped movies loaded together** via the multi-file "combine
+several multi-frame TIFFs" path (`loadTiffFilesAuto()`/`makeConcatStack()`,
+see **in/out** in `CLAUDE.md`), then **Pair**. 100,000 frames total, z holds
+the inter-order distance (~2,994–3,110 nm here), same trick as always. Load
+via **Load data**, not **Load movie** — there's no raw stack behind this
+copy, only the localizations. Loading it correctly shows `(3D)` and
+**Pair** correctly *refuses* it (`⚠ sSMLM pairing needs 2D localizations —
+the current result already has real z...`) — this is the guard working as
+intended, a real, natural test case for "don't silently re-pair
+already-paired data" that's worth keeping around specifically for that,
+not a dataset to feed through **Preview pairs**/**Pair** again.
 
-**Verified pairing parameters** (found by direct analysis — sampled
-~3,000 frames, computed all same-frame pairwise distances/angles — then
-reproduced live via **Preview pairs**, both giving the same result): a sharp
+An earlier version of this file (92 MB, 1,710,773 rows, **raw/unpaired**,
+31,407 frames, ~54.5 loc/frame, ~24.2 × 12.3 µm FOV) was used to validate
+the pairing algorithm itself before this repo had its own multi-movie test
+case — kept here for the record, not reproducible from the current file:
+direct analysis (sampled ~3,000 frames, all same-frame pairwise
+distances/angles, then reproduced live via **Preview pairs**) found a sharp
 **distance peak at ~2.5 µm** (median 2536 nm) against the expected smooth
-combinatorial background, and within that window a **dominant angle at
-~0°/180°** (essentially horizontal). The apparent presence on *both* sides
-turned out to be a diagnostic dead end, not a real symmetric ±1st-order
-signal — see `docs/REFACTOR_PLAN.md`'s sSMLM entry for the investigation
-(brightness turned out unreliable for telling 0th from 1st order; PSF width
-(σ) gave a real but imperfect signal; the mechanism that actually worked was
-purely directional self-disqualification). The module's own `PARAMS`
-defaults (`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) already
-sit on this dataset's own peak for a zero-config first run, recovering
-547,183 pairs (64.0% of all localizations paired), mean distance
-2546 ± 73 nm. A mean-position sanity check — averaging all accepted
-0th-order positions and separately all their matched 1st-order positions —
-reproduces this as a (2544, 87) nm separation (magnitude 2546 nm, angle
-2.0°), matching the per-pair distance statistic from a completely
-independent computation and confirming the pairs found are self-consistent.
+combinatorial background, and a **dominant angle at ~0°/180°** within that
+window — the apparent presence on *both* sides turned out to be a
+diagnostic dead end, not a real symmetric ±1st-order signal (see
+`docs/REFACTOR_PLAN.md`'s sSMLM entry: brightness turned out unreliable for
+telling 0th from 1st order; PSF width (σ) gave a real but imperfect signal;
+the mechanism that actually worked was purely directional
+self-disqualification). The module's own `PARAMS` defaults
+(`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) were tuned to that
+peak, recovering 547,183 pairs (64.0%) there, mean distance 2546 ± 73 nm — a
+mean-position sanity check (averaging all 0th-order positions vs. all
+matched 1st-order positions, an entirely independent computation from the
+per-pair distance stat) reproduced a (2544, 87) nm separation, confirming
+the pairs found were self-consistent.
 
 ## Useful properties to note for benchmarking
 
