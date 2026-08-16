@@ -26,7 +26,7 @@ they're built from won't.
 
 | Row | Button | id | Does |
 |---|---|---|---|
-| 1 | **Load movie** | `loadBtn` | Opens a file picker for one multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate them (natural-sorted by filename) into one stack — see **in/out** below. |
+| 1 | **Load movie** | `loadBtn` | Opens a file picker for one multi-frame TIFF, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs (one file = one frame, e.g. a per-frame camera dump) OR several multi-frame TIFFs from ONE continuous acquisition that got split across files purely by size (each file = a chunk of frames); which one is auto-detected from the first file's own frame count, no separate control needed — see **in/out** below. |
 | 1 | **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation settings* module — no file needed, useful for a quick smoke-test or teaching demo. |
 | 2 | **Load settings** | `loadSetBtn` | Opens a `.json` file (as saved by **Save settings**) and applies every recognised `{id: value}` pair to the `PARAMS` registry — unknown/legacy keys are logged and ignored, not errored on. |
 | 2 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
@@ -647,9 +647,16 @@ is what to know before touching that module, not a restatement of its code.
 - **in/out** — TIFF parsing. In-memory vs. streamed loading (`memgb`
   budget); contiguous ImageJ stacks are indexed arithmetically, multi-IFD
   (Micro-Manager MMStack) stacks by walking the IFD chain — never fully
-  loaded, read via `File.slice()`. `loadTiffSequence()` accepts a multi-file
-  selection (several single-frame TIFFs), natural-sorted by filename and
-  decoded/concatenated into one stack. `runFTM()` (optional, `ftmEnabled`)
+  loaded, read via `File.slice()`. `loadTiffFilesAuto()` handles a multi-file
+  selection, auto-detecting which of two cases it is from the first
+  (naturally-sorted) file's own frame count: exactly 1 frame → every file is
+  one frame (`loadTiffSequence()`, natural-sorted and concatenated — e.g. a
+  per-frame camera dump); more than 1 → every file is its own chunk of ONE
+  continuous acquisition split across files purely by size (`makeConcatStack()`,
+  each file loaded normally via `loadTiffFile()` so it keeps whichever
+  strategy — in-memory/sliced/streamed — its own size calls for, then
+  concatenated end-to-end). No separate control for which case applies; it's
+  inferred automatically. `runFTM()` (optional, `ftmEnabled`)
   runs right after either loader finishes, replacing `stack` with a fresh
   `makeStack()`-backed one holding the temporal-median-corrected frames —
   see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.
@@ -1043,8 +1050,10 @@ const result = await window.webSMLM.analyze({
   registry defaults need to appear; `defaultConfig()` (also exposed) fills
   the rest with `PARAMS[id].default`, no DOM read at all.
 - `config.file`/`config.files` — a `File` or an array of `File`s (same
-  multi-file-sequence support as Ctrl/Cmd+click **Load movie**), loaded via
-  the existing `loadTiffFile`/`loadTiffSequence`. One of the two is required.
+  multi-file support as Ctrl/Cmd+click **Load movie**, including the
+  auto-detected "several single-frame files" vs. "several chunks of one
+  continuous acquisition" cases — see **in/out**), loaded via the existing
+  `loadTiffFile`/`loadTiffFilesAuto`. One of the two is required.
 - `config.cropX0`/`config.cropY0`/`config.cropX1`/`config.cropY1` — not
   `PARAMS` entries (per-dataset pixel geometry, same treatment as `calFirst`/
   `calLast`). If any is given, `config.file`/`config.files` is immediately
@@ -1096,7 +1105,7 @@ const result = await window.webSMLM.analyze({
   otherwise only collect into `logText` — a driving script can watch the run
   live instead of waiting for the whole thing to finish and reading
   `result.logText` after the fact. Every hook inside the pipeline
-  (`loadTiffFile`/`loadTiffSequence`, `runCore`, `driftCore`,
+  (`loadTiffFile`/`loadTiffFilesAuto`, `runCore`, `driftCore`,
   `frcResolution`, `calibrationCore`) defaults to the real interactive
   `log()`/`setProg()` when not given one explicitly, so nothing that would
   show in the interactive Log window goes missing headlessly — `analyze()`

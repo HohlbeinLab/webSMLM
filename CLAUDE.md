@@ -33,9 +33,21 @@ relevant one before editing rather than scrolling:
   pure display/layout (CSS) and per-dataset working state (`calFirst`/`calLast`/`zmin`/`zmax`).
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
-  multi-GB files via `File.slice()` (never fully loaded). Also accepts a multi-file selection
-  (Ctrl/Cmd+click several single-frame TIFFs) via `loadTiffSequence()` — natural-sorted by
-  filename, decoded and concatenated into one stack, one file read at a time. `makeCroppedStack()`
+  multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)
+  goes through `loadTiffFilesAuto()`, which auto-detects which of two combining strategies
+  applies — no separate UI control for this, it's inferred from `files[0]`'s own frame count, same
+  "file[0] sets the rules the rest must match" convention already used for width/height: exactly 1
+  frame → `loadTiffSequence()` (natural-sorted, one file = one frame — e.g. GATTAquant's
+  per-frame camera dump); more than 1 → `makeConcatStack()` (each file loaded normally via
+  `loadTiffFile()`, so each keeps whichever strategy — in-memory/sliced/streamed — its own size
+  calls for, then concatenated end-to-end) — for one continuous acquisition split across several
+  files purely by size, a DIFFERENT scenario from the per-frame case despite both starting from a
+  multi-file selection. `makeConcatStack()` only implements `getFrames()` (never `getFrame()`,
+  same convention as `makeCroppedStack()`/`makeFtmStack()`), routing a requested range across
+  however many component stacks it spans via a prefix-sum frame-count table. Same `loadTiffFilesAuto()`
+  entry point backs the interactive file input, calibration loading, and the headless
+  `cfg.files`/`cfg.calibrationFiles` config (see **pipeline** below) — one detection path, three
+  callers. `makeCroppedStack()`
   (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a

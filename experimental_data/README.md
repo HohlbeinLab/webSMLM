@@ -74,6 +74,24 @@ its harmonics, so FRC — which assumes a generic, non-periodic structure —
 picks those harmonics up as apparent resolution. Expect this on any
 sufficiently periodic sample; it isn't extra resolved detail.
 
+**`GATTA-PAINT-80R-raw_cropped.tif`** (82×83 px, 1999 frames, big-endian) is a
+smaller ImageJ-cropped derivative of the dataset above, kept alongside a
+byte-identical duplicate (`GATTA-PAINT-80R-raw_cropped copy.tif`) specifically
+to exercise `loadTiffFilesAuto()`'s OTHER multi-file case: several files that
+are each ALREADY multi-frame stacks in their own right (unlike the per-frame
+originals above), meant to be concatenated end-to-end as one continuous
+acquisition split across files purely by size — not one file per frame.
+Selecting both (Ctrl/Cmd+click **Load movie**) auto-detects this from the
+first file's own frame count and loads a combined 3998-frame stack
+(1999+1999) via `makeConcatStack()`; **Localize** runs cleanly across the
+file boundary (verified: 21,598 localizations from 3998/3998 frames, no
+errors). `makeConcatStack()` also rejects a frame-size mismatch across files
+(checked against `GATTA-PAINT-80R-raw_cropped.tif` paired with the 150×150
+`sequence-as-stack-Beads-AS-Exp.tif` below — throws immediately, `runBtn`
+stays disabled, load fails cleanly rather than silently combining
+incompatible files). See **in/out** in `CLAUDE.md`/`docs/DOCUMENTATION.md`
+for the design.
+
 ## Second benchmark dataset — 3D STORM (very large, ~4.9 GB)
 
 3D STORM of spectrin rings in neurons, by **Christophe Leterrier**, on figshare:

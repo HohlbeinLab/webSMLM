@@ -1444,7 +1444,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16e</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.0-dev · build 2026-08-16f</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1812,7 +1812,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16e · sSMLM: colour bar anchored to data, 2x angle tol. safety
+</span></noscript>webSMLM v0.11.0-dev · build 2026-08-16f · in/out: combine several multi-frame TIFFs into one stack
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2783,6 +2783,76 @@ async function loadTiffSequence(fileList, onLog=log){
   };
   return {w,h,n,px,sliced:true,getFrames,
           getFrame(){ throw new Error('multi-file stack: use getFrames()'); }};
+}
+
+// Concatenates several ALREADY-LOADED file stacks end-to-end into one virtual
+// stack, frame-for-frame in the given order — for one continuous acquisition
+// that got split across multiple files purely by size (same field of view,
+// same recording), the opposite case from loadTiffSequence's "one file is
+// one frame". Each component stack keeps whatever loading strategy
+// loadTiffFile() picked for IT individually (in-memory / sliced / streamed)
+// — this wrapper only routes a requested [s,e) range across however many
+// component stacks it spans, same "getFrames() is the only interface
+// anything calls" convention makeCroppedStack/makeFtmStack already use, so
+// nothing downstream needs to know a concatenation happened at all.
+function makeConcatStack(stacks, names){
+  const w=stacks[0].w, h=stacks[0].h, px=stacks[0].px;
+  for(let i=1;i<stacks.length;i++){
+    if(stacks[i].w!==w || stacks[i].h!==h)
+      throw new Error(`${names[i]}: ${stacks[i].w}×${stacks[i].h} doesn't match ${w}×${h} (${names[0]}) — all files must be the same frame size to be treated as one continuous stack`);
+  }
+  const starts=[0]; for(const s of stacks) starts.push(starts[starts.length-1]+s.n);
+  const n=starts[starts.length-1];
+  // Which component stack a given GLOBAL frame index falls into — binary
+  // search over the prefix-sum frame-count table (starts), cheap even for
+  // hundreds of files.
+  const locate=fi=>{ let lo=0,hi=stacks.length-1;
+    while(lo<hi){ const mid=(lo+hi+1)>>1; if(starts[mid]<=fi) lo=mid; else hi=mid-1; }
+    return lo; };
+  return {w,h,n,px,streaming:stacks.some(s=>s.streaming),
+    getFrame(){ throw new Error('Concatenated stack: use getFrames()'); },
+    async getFrames(s,e){
+      e=Math.min(e,n); if(e<=s) return [];
+      const out=[]; let fi=s;
+      while(fi<e){
+        const si=locate(fi), stk=stacks[si], localStart=fi-starts[si], localEnd=Math.min(e-starts[si], stk.n);
+        out.push(...await stk.getFrames(localStart, localEnd));
+        fi=starts[si]+localEnd;
+      }
+      return out;
+    }};
+}
+// Resolves a multi-file selection into one loaded stack, auto-detecting
+// which of the two combining strategies applies — no separate UI control
+// needed for this "third loading option": it's decided from the first
+// (naturally-sorted) file's OWN frame count, same "file[0] sets the rules"
+// convention loadTiffSequence already uses for width/height.
+//   - first file has exactly 1 frame -> assume EVERY file is one frame
+//     (loadTiffSequence's existing behaviour: a per-frame camera dump, e.g.
+//     GATTAquant's GATTA-PAINT download).
+//   - first file has >1 frame -> assume every file is its own chunk of ONE
+//     continuous recording (e.g. an acquisition auto-split by the camera
+//     software once it hit a file-size limit) and concatenate them via
+//     makeConcatStack(), loading each file the normal way via loadTiffFile()
+//     so each one individually gets whichever strategy (in-memory / sliced /
+//     streamed) its own size calls for.
+// The single-file case is handled by the caller (loadTiffFile() directly) —
+// this function is only ever reached with >=1 files, called from the
+// `multi` branch of a selection.
+async function loadTiffFilesAuto(fileList, onLog=log){
+  const all=[...fileList];
+  const files=all.filter(f=>/\.tiff?$/i.test(f.name)).sort((a,b)=>naturalCompare(a.name,b.name));
+  if(all.length!==files.length) onLog(`  (${all.length-files.length} non-.tif/.tiff file(s) in the selection were skipped)`);
+  if(!files.length) throw new Error('no .tif/.tiff files in the selection');
+  if(files.length===1) return loadTiffFile(files[0], onLog);
+  const first=await loadTiffFile(files[0], onLog);
+  if(first.n===1) return loadTiffSequence(files, onLog);   // re-decodes files[0] again, but a single-frame file is tiny — not worth threading the already-loaded stack through
+  onLog(`Multi-file stack: ${files.length} files, ${files[0].name} has ${first.n} frames — treating each file as a CHUNK of one continuous stack (not one frame per file).`);
+  const stacks=[first];
+  for(let i=1;i<files.length;i++) stacks.push(await loadTiffFile(files[i], onLog));
+  const combined=makeConcatStack(stacks, files.map(f=>f.name));
+  onLog(`  ${files.length} files → ${combined.n.toLocaleString()} frames total (${stacks.map(s=>s.n).join('+')}) · ${combined.w}×${combined.h}.`);
+  return combined;
 }
 
 // Stream a large multi-IFD TIFF: follow the IFD chain via File.slice to build a
@@ -6715,7 +6785,7 @@ $('file').addEventListener('change',async e=>{
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
   try{
-    stack = multi ? await loadTiffSequence(fs) : await loadTiffFile(fs[0]);
+    stack = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     initScrub();
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
@@ -7890,7 +7960,7 @@ async function analyze(config){
 
   let calib=null, cal3d=null, cal3dW=null, calibJsonText=null;
   if(cfg.calibrationFile || cfg.calibrationFiles){
-    const calStack = cfg.calibrationFiles ? await loadTiffSequence(cfg.calibrationFiles, onLog) : await loadTiffFile(cfg.calibrationFile, onLog);
+    const calStack = cfg.calibrationFiles ? await loadTiffFilesAuto(cfg.calibrationFiles, onLog) : await loadTiffFile(cfg.calibrationFile, onLog);
     const calFirst = config.calFirst!=null ? config.calFirst : 1;
     const calLast  = config.calLast!=null  ? config.calLast  : calStack.n;
     const defaulted=[];
@@ -7910,7 +7980,7 @@ async function analyze(config){
   }
   if(cfg.calibrationOnly) return { calib, calibJsonText, logText: logLines.join('\n') };
 
-  let stack = cfg.files ? await loadTiffSequence(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+  let stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
   // config.cropX0/Y0/X1/Y1 — the headless equivalent of the raw-panel crop tool
   // (MODULE: in/out, makeCroppedStack()): replaces `stack` with a cropped
   // wrapper BEFORE anything else (PCFO, runCore) touches it, matching the
