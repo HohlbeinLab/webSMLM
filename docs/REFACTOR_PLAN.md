@@ -19,7 +19,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      doesn't slow the file's growth, but the size problem is about
      editability (human and AI-assisted), not runtime performance (browsers
      don't care about a multi-MB JS file). **Chosen for now.** Landed in
-     0.11.1-dev: a top-of-file **MODULE INDEX** comment block giving each
+     v0.11.1: a top-of-file **MODULE INDEX** comment block giving each
      module's current line number, refreshed alongside every build-letter
      bump (see `CLAUDE.md`'s Branch & release workflow) rather than left to
      rot — cheap enough to check every round that it should actually stay
@@ -48,7 +48,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      front would fight that overlap rather than accommodate it. Revisit only
      if a module turns out to need almost nothing from the shared pipeline.
 
-  **Physical reorder — done in 0.11.1-dev.** The file's physical `MODULE:`
+  **Physical reorder — done in v0.11.1.** The file's physical `MODULE:`
   order had one mismatch against `CLAUDE.md`'s documented order: **export**
   physically sat before **workers**, the reverse of the doc — a leftover of
   modules being retrofitted onto code that predates them, not a deliberate
@@ -201,7 +201,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     false pairs with too few nearby confirmed pairs) — `sSMLMAnalyzer` has
     one, Phase 1 doesn't.
 
-  **Headless exposure — shipped 2026-08-17 (v0.11.1-dev)**, alongside a data-model
+  **Headless exposure — shipped v0.11.1 (2026-08-17)**, alongside a data-model
   fix it depended on. Checking headless status surfaced a real, live bug: pairing
   stored the inter-order distance IN `z` (aliasing/overwriting it), and
   `driftCore`'s "Correct z too (3D)" gate keyed off the same `has3d` check the

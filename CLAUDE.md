@@ -333,7 +333,7 @@ relevant one before editing rather than scrolling:
   originally scoped to just the loaded stack's own frame cache, and there's no reliable in-browser
   signal for actually-free RAM to check against instead.
 
-The list above is in the file's actual physical order (as of 0.11.1-dev, **workers** and
+The list above is in the file's actual physical order (as of v0.11.1, **workers** and
 **export** were swapped to match — see `docs/REFACTOR_PLAN.md` for the reasoning and how it was
 verified safe: both are pure declarations, no cross-referencing top-level state, so JS hoisting
 made the physical move a no-op for behavior).
