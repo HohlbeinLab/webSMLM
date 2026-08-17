@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-17d; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-17e; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -28,15 +28,15 @@
     detect          3127   per-frame band-pass + local-maxima detection
     fit             3383   phasor / LS / Poisson-MLE 2D+3D localization
     render          3740   accumulate to offscreen buffer; view/colour/blur
-    workers         4293   frame-parallel detect/fit worker pool
-    export          4449   ThunderSTORM-compatible CSV
-    3D calibration  4615   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           4990   AIM drift correction (2D+z)
-    locprecision    5222   NeNA + FRC
-    sSMLM           5815   spectrally resolved SMLM pair-finding
-    pipeline        6254   top-level orchestration, *Core()/wrapper split
-    table           7673   localizations table, filtering, histograms
-    headless API    8070   window.webSMLM.analyze()/analyzeBatch()
+    workers         4307   frame-parallel detect/fit worker pool
+    export          4463   ThunderSTORM-compatible CSV
+    3D calibration  4629   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5004   AIM drift correction (2D+z)
+    locprecision    5236   NeNA + FRC
+    sSMLM           5829   spectrally resolved SMLM pair-finding
+    pipeline        6268   top-level orchestration, *Core()/wrapper split
+    table           7692   localizations table, filtering, histograms
+    headless API    8089   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1467,7 +1467,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.1-dev · build 2026-08-17d</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.1-dev · build 2026-08-17e</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1723,10 +1723,10 @@ X.B(E,Y);return E}return J}())
             <option value="99">99 %</option>
             <option value="100">Max</option>
           </select></label>
-        <label class="row" id="zcolorRow" style="display:none;margin-top:8px">Colour by depth (z) <input type="checkbox" id="zcolor"></label>
+        <label class="row" id="zcolorRow" style="display:none;margin-top:8px"><span id="zcolorLabel">Colour by depth (z)</span> <input type="checkbox" id="zcolor"></label>
         <div id="zrangeRow" style="display:none">
-          <label class="row">z min (nm) <input type="number" id="zmin" step="10" class="num" placeholder="auto"></label>
-          <label class="row">z max (nm) <input type="number" id="zmax" step="10" class="num" placeholder="auto"></label>
+          <label class="row"><span id="zminLabel">z min (nm)</span> <input type="number" id="zmin" step="10" class="num" placeholder="auto"></label>
+          <label class="row"><span id="zmaxLabel">z max (nm)</span> <input type="number" id="zmax" step="10" class="num" placeholder="auto"></label>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: render</span>
@@ -1835,7 +1835,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.1-dev · build 2026-08-17d · sSMLM: dist now independent of z (fixes drift-z corrupting paired data), headless Pair support
+</span></noscript>webSMLM v0.11.1-dev · build 2026-08-17e · z/dist colour-scale labels now switch live instead of always saying "z"
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4124,6 +4124,20 @@ function rerender(keepView,isPreview){
   const hasZ=lastResult.locs.some(L=>isFinite(L.z));
   const hasDist=lastResult.locs.some(L=>isFinite(L.dist));
   const colorField = hasZ ? 'z' : (hasDist ? 'dist' : null);
+  // Labels name whichever field is ACTUALLY active, not a static "z" that
+  // would be flat wrong for an sSMLM-paired result (colouring by distance,
+  // not depth) — checked to fit on one line at the sidebar's normal width
+  // before picking this wording, same "no wrap" bar CLAUDE.md's button-label
+  // rule sets for buttons. No-op (and harmless) while the row is hidden.
+  if(colorField==='dist'){
+    $('zcolorLabel').textContent='Colour by distance (sSMLM)';
+    $('zminLabel').textContent='sSMLM distance min (nm)';
+    $('zmaxLabel').textContent='sSMLM distance max (nm)';
+  } else {
+    $('zcolorLabel').textContent='Colour by depth (z)';
+    $('zminLabel').textContent='z min (nm)';
+    $('zmaxLabel').textContent='z max (nm)';
+  }
   $('zcolorRow').style.display = colorField ? 'flex' : 'none';
   { const zr=$('driftZRow'); if(zr) zr.style.display = hasZ ? 'flex' : 'none'; }
   // 3D shells (FSC) not implemented yet — keep the row hidden.
@@ -7109,6 +7123,11 @@ function updateMethodUI(){
   // dist (a paired result) — either stays colourable, see rerender().
   if(is3d){ $('zcolorRow').style.display='flex'; $('zcolor').checked=true;
     $('lut').value='turbo';                          // depth-friendly diverging map
+    // A 3D method means real z is coming, not an sSMLM dist — set the "z"
+    // wording directly rather than waiting for a rerender() that may not
+    // happen yet (e.g. switching method before any Localize/srFull exists).
+    $('zcolorLabel').textContent='Colour by depth (z)';
+    $('zminLabel').textContent='z min (nm)'; $('zmaxLabel').textContent='z max (nm)';
     if(srFull) rerender(true); }
   else { const colourable = lastResult && lastResult.locs.some(L=>isFinite(L.z)||isFinite(L.dist));
          $('zcolorRow').style.display = colourable ? 'flex' : 'none'; }

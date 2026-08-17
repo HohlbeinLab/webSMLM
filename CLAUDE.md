@@ -268,7 +268,13 @@ relevant one before editing rather than scrolling:
   parameter (`'z'` or `'dist'`) instead of hardcoding `.z`, so the SAME depth-coded render path
   colours by either; `rerender()`/`analyze()` derive it as `hasZ ? 'z' : (hasDist ? 'dist' : null)`
   — only one is ever reachable today (see the guard below), so this is unambiguous, but the seam is
-  real, not hypothetical. This split is also what fixed a genuine bug found while making it: drift
+  real, not hypothetical. The sidebar's own **Colour by depth (z)**/**z min/max (nm)** labels
+  (`zcolorLabel`/`zminLabel`/`zmaxLabel` spans) are set from the SAME `colorField` in `rerender()`
+  — "z min (nm)" would be flatly wrong wording while these controls are actually constraining an
+  sSMLM `dist`, so they read "sSMLM distance min (nm)" etc. instead whenever `colorField==='dist'`;
+  `updateMethodUI()`'s 3D-method branch also sets the "z" wording directly (not just via a
+  `rerender()` call, which may not have fired yet — e.g. switching method before any Localize).
+  This split is also what fixed a genuine bug found while making it: drift
   correction's "Correct z too (3D)" option used to key off the same `has3d` check the colour toggle
   used, so it would show — and if ticked, silently 1-D-"correct" — a paired result's spectral
   `dist` as if it were spatial depth. `driftZRow`'s visibility (and `driftCore`'s own `has3d` gate)

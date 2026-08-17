@@ -108,8 +108,11 @@ says.
   `gain`, `camoffset` — applied inside every fit function as
   `(raw−camoffset)×gain` before fitting, see **fit** / **export** modules.
 - **Rendering settings** (`renderBox`) — `mag`, `rblur`, `lut`, `lutpct`,
-  `zcolor` (3D results only), `zmin`/`zmax` (3D results only, per-dataset
-  working state, *not* in `PARAMS`). See **render** module. `mag`'s UI range
+  `zcolor` (3D or sSMLM-paired results only), `zmin`/`zmax` (same, per-dataset
+  working state, *not* in `PARAMS`). Their labels ("Colour by depth (z)"/
+  "z min/max (nm)" vs. "Colour by distance (sSMLM)"/"sSMLM distance min/max
+  (nm)") switch live depending on which of `z`/`dist` the current result
+  actually has — see **render**/**sSMLM** modules. `mag`'s UI range
   (4–25) is a general-purpose bound only — a high `mag` combined with a
   large loaded frame can still be refused at render time by the size/memory
   guard below (checked against the *actual* frame size, not just the slider
