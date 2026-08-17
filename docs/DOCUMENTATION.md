@@ -668,7 +668,15 @@ is what to know before touching that module, not a restatement of its code.
   each file loaded normally via `loadTiffFile()` so it keeps whichever
   strategy — in-memory/sliced/streamed — its own size calls for, then
   concatenated end-to-end). No separate control for which case applies; it's
-  inferred automatically. `runFTM()` (optional, `ftmEnabled`)
+  inferred automatically. Multi-file candidates are filtered by sniffing the
+  real TIFF magic bytes (`isTiffFile()`), not the filename extension — a
+  file merely *named* `.tif` isn't required, and a file that IS TIFF-formatted
+  underneath loads correctly regardless of its extension (`#file`'s `accept`
+  also lists `.nd2`, since a real sample turned out to be a mislabeled TIFF
+  export — see `docs/REFACTOR_PLAN.md`'s ND2 entry); genuinely unparseable
+  content fails with a clear error (`loadTiff()` validates the raw
+  ImageWidth/ImageLength tags before trusting a decode) rather than
+  producing `NaN`-sized buffers downstream. `runFTM()` (optional, `ftmEnabled`)
   runs right after either loader finishes, replacing `stack` with a fresh
   `makeStack()`-backed one holding the temporal-median-corrected frames —
   see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.

@@ -242,6 +242,33 @@ matched 1st-order positions, an entirely independent computation from the
 per-pair distance stat) reproduced a (2544, 87) nm separation, confirming
 the pairs found were self-consistent.
 
+## Fifth reference dataset — `example_stack100.nd2` (ND2 loading investigation)
+
+From Christophe Leterrier's [`cleterrier/DECODE_NC`](https://github.com/cleterrier/DECODE_NC)
+repo (NeuroCyto tools for the DECODE SMLM software), placed here to validate
+Nikon ND2 loading support — see `docs/REFACTOR_PLAN.md`'s ND2 entry for the
+full feasibility research. **Surprising finding**: despite the `.nd2`
+extension, this file's actual bytes are a big-endian **ImageJ TIFF** stack
+(`MM\x00\x2a` magic, embedded `ImageJ=1.53c\nimages=100\nframes=100...`
+description) — independently confirmed by walking its IFD chain byte-by-byte
+(exactly 100 well-formed IFDs) and by loading it through webSMLM's existing
+TIFF path end to end: 100 frames, 256×256, Localize finds 8,681 real
+localizations (92% of 9,421 candidates kept), worker pool engages normally.
+Not a genuine native Nikon ND2 binary container — almost certainly a
+portability export DECODE_NC's own notebook pipeline produces, just named
+`.nd2` in that repo. **Does not unblock real native-ND2 parsing** (still no
+sample of the actual proprietary binary format to validate a parser
+against), but it did surface and fix a real, general robustness gap: the
+file-input's `accept` filter and the multi-file loader
+(`loadTiffFilesAuto()`/`loadTiffSequence()`) used to trust the `.tif`/`.tiff`
+*extension*; they now sniff the real magic bytes instead (`isTiffFile()`),
+so a mislabeled-but-genuinely-TIFF file like this one loads correctly, and
+genuinely non-TIFF content (e.g. a real native ND2 binary, or any other
+unsupported format) now fails with a clear error instead of silently
+producing `NaN`-sized buffers and canvas errors downstream — a real bug that
+existed before this file surfaced it, since nothing had exercised that path.
+See **in/out** in `CLAUDE.md`/`docs/DOCUMENTATION.md` for the design.
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations

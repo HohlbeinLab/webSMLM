@@ -50,7 +50,21 @@ relevant one before editing rather than scrolling:
   however many component stacks it spans via a prefix-sum frame-count table. Same `loadTiffFilesAuto()`
   entry point backs the interactive file input, calibration loading, and the headless
   `cfg.files`/`cfg.calibrationFiles` config (see **pipeline** below) — one detection path, three
-  callers. `makeCroppedStack()`
+  callers. Multi-file selection filters candidates by SNIFFING the real TIFF magic bytes
+  (`isTiffFile()`, "II*\0"/"MM\0*") rather than trusting the filename extension — needed because
+  some tools export (or a user renames) a TIFF stack with a non-.tif extension (`.nd2`, in the
+  real case that found this: `experimental_data/example_stack100.nd2`, an ImageJ TIFF export from
+  Christophe Leterrier's DECODE_NC repo, real bytes despite the name — see
+  `docs/REFACTOR_PLAN.md`'s ND2 entry); the `#file` input's `accept` attribute lists `.nd2`
+  alongside `.tif`/`.tiff` for exactly this. `loadTiff()`/`loadTiffFile()`'s fast path/
+  `loadTiffSequence()`'s `decodeOne()` all additionally validate the raw ImageWidth/ImageLength
+  tags (`t256`/`t257`) are present and positive before trusting a `UTIF.decode()` result — UTIF
+  returns one EMPTY ifd object (no exception, no empty array) for genuinely non-TIFF bytes, so
+  without this a real native ND2 binary (or any other unsupported format) would silently produce
+  `NaN` dimensions instead of a clean error. Check `t256`/`t257`, NOT `.width`/`.height` — those
+  are only set as a side effect of `UTIF.decodeImage()`, so checking them beforehand silently
+  checks `undefined>0` and rejects every file, valid or not (a real regression, caught immediately
+  by testing against the sample above rather than shipped). `makeCroppedStack()`
   (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a

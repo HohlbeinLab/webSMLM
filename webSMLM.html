@@ -18,25 +18,25 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-17b; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-17c; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
     params          1853   PARAMS registry, single source of truth for params
     in/out          2237   TIFF parsing, in-memory/streamed loading, FTM
     simulation      2550   synthetic stack generator ("Simulate movie")
-    detect          3090   per-frame band-pass + local-maxima detection
-    fit             3346   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3703   accumulate to offscreen buffer; view/colour/blur
-    workers         4233   frame-parallel detect/fit worker pool
-    export          4389   ThunderSTORM-compatible CSV
-    3D calibration  4550   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           4925   AIM drift correction (2D+z)
-    locprecision    5157   NeNA + FRC
-    sSMLM           5750   spectrally resolved SMLM pair-finding
-    pipeline        6174   top-level orchestration, *Core()/wrapper split
-    table           7591   localizations table, filtering, histograms
-    headless API    7989   window.webSMLM.analyze()/analyzeBatch()
+    detect          3127   per-frame band-pass + local-maxima detection
+    fit             3383   phasor / LS / Poisson-MLE 2D+3D localization
+    render          3740   accumulate to offscreen buffer; view/colour/blur
+    workers         4270   frame-parallel detect/fit worker pool
+    export          4426   ThunderSTORM-compatible CSV
+    3D calibration  4587   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           4962   AIM drift correction (2D+z)
+    locprecision    5194   NeNA + FRC
+    sSMLM           5787   spectrally resolved SMLM pair-finding
+    pipeline        6211   top-level orchestration, *Core()/wrapper split
+    table           7628   localizations table, filtering, histograms
+    headless API    8026   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1467,7 +1467,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.1-dev · build 2026-08-17b</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.1-dev · build 2026-08-17c</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1476,7 +1476,7 @@ X.B(E,Y);return E}return J}())
     <!-- actions -->
     <div class="group">
       <div class="btnrow">
-        <button id="loadBtn" title="Select a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate them into one stack">Load movie</button>
+        <button id="loadBtn" title="Select a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate them into one stack. .nd2 is accepted too, but only if it's actually TIFF-formatted underneath (some tools export/rename it that way) — native Nikon ND2 binaries aren't supported yet.">Load movie</button>
         <button id="genBtn">Simulate movie</button>
       </div>
       <div class="btnrow">
@@ -1500,7 +1500,7 @@ X.B(E,Y);return E}return J}())
       </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="csvFile" accept=".csv" hidden>
-      <input type="file" id="file" accept=".tif,.tiff" multiple hidden>
+      <input type="file" id="file" accept=".tif,.tiff,.nd2" multiple hidden>
       <input type="file" id="setFile" accept=".json" hidden>
       <!-- No listener attached on purpose: a conduit for tools/webSMLM-cli.mjs
            (Layer 2, docs/DOCUMENTATION.md §8) to stash a File via
@@ -1835,7 +1835,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.1-dev · build 2026-08-17b · reordered export/workers to match documented module order
+</span></noscript>webSMLM v0.11.1-dev · build 2026-08-17c · load-movie now sniffs real TIFF bytes, not just the .tif/.tiff extension
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2686,7 +2686,15 @@ async function loadTiffFile(file, onLog=log){
   const SLICE_MIN = 1.5*1073741824;              // ~1.5 GB
   const head=await file.slice(0, Math.min(fileSize, 1<<24)).arrayBuffer();   // 16 MB
   let hifds=null; try{ hifds=UTIF.decode(head); }catch(_){}
-  if(hifds && hifds.length===1){
+  // UTIF.decode() on non-TIFF bytes (e.g. a genuine native ND2 binary picked
+  // via the now-widened .nd2 accept filter) doesn't throw or return an empty
+  // array — it returns one EMPTY ifd object, no tags at all. .width/.height
+  // are only set by decodeImage() below, not by decode() itself, so the raw
+  // ImageWidth/ImageLength tags (t256/t257) are what's actually checkable
+  // beforehand. Require them before trusting this fast path at all;
+  // otherwise fall through to loadTiff() below, whose own guard produces a
+  // clean error instead of NaN-sized buffers/canvases downstream.
+  if(hifds && hifds.length===1 && hifds[0].t256 && hifds[0].t256[0]>0 && hifds[0].t257 && hifds[0].t257[0]>0){
     UTIF.decodeImage(head, hifds[0]);
     const w=hifds[0].width, h=hifds[0].height;
     const dv=t=>{ const v=hifds[0][t]; return !v?'':(typeof v==='string'?v:(v.join?v.join(''):String(v))); };
@@ -2766,6 +2774,19 @@ function naturalCompare(a,b){
   return 0;
 }
 
+// Sniffs the real file signature instead of trusting the extension/name — so
+// a multi-file selection is filtered by what a file actually IS, not what
+// it's called. Needed because some tools export (or users rename) an
+// ImageJ-style TIFF stack with a non-.tif extension (e.g. a .nd2 file that
+// turns out to be TIFF-formatted underneath — a real case found via a user
+// sample, see docs/REFACTOR_PLAN.md's ND2 entry); a name-only filter would
+// silently skip it even though loadTiffFile()/loadTiff() below already parse
+// purely from bytes and don't care what the file is named.
+async function isTiffFile(f){
+  const b=new Uint8Array(await f.slice(0,4).arrayBuffer());
+  return (b[0]===0x49&&b[1]===0x49&&b[2]===0x2A&&b[3]===0)      // "II*\0" little-endian
+      || (b[0]===0x4D&&b[1]===0x4D&&b[2]===0&&b[3]===0x2A);     // "MM\0*" big-endian
+}
 // Load a folder's worth of single-frame TIFFs (e.g. GATTAquant's GATTA-PAINT
 // download, or any per-frame camera dump) selected via Ctrl/Cmd+click on the
 // file input, as one concatenated stack — without a separate ImageJ step.
@@ -2776,14 +2797,20 @@ function naturalCompare(a,b){
 async function loadTiffSequence(fileList, onLog=log){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const all=[...fileList];
-  const files=all.filter(f=>/\.tiff?$/i.test(f.name)).sort((a,b)=>naturalCompare(a.name,b.name));
-  if(all.length!==files.length) onLog(`  (${all.length-files.length} non-.tif/.tiff file(s) in the selection were skipped)`);
-  if(!files.length) throw new Error('no .tif/.tiff files in the selection');
+  const isTiff=await Promise.all(all.map(isTiffFile));
+  const files=all.filter((f,i)=>isTiff[i]).sort((a,b)=>naturalCompare(a.name,b.name));
+  if(all.length!==files.length) onLog(`  (${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
+  if(!files.length) throw new Error('no TIFF-formatted files in the selection');
   const n=files.length, px=paramValue('pxnm');
   const decodeOne=async f=>{
     const buf=await f.arrayBuffer();
     const ifds=UTIF.decode(buf);
-    if(!ifds.length) throw new Error(`${f.name}: no image data`);
+    // Same empty-ifd guard as loadTiff() (t256/t257, not .width/.height —
+    // those aren't set until decodeImage() below runs) — belt-and-braces
+    // here since isTiffFile() already sniffed the magic bytes upstream, but
+    // a truncated/corrupted file can still pass that check and fail here.
+    if(!ifds.length || !ifds[0].t256 || !(ifds[0].t256[0]>0) || !ifds[0].t257 || !(ifds[0].t257[0]>0))
+      throw new Error(`${f.name}: not a readable TIFF file`);
     UTIF.decodeImage(buf, ifds[0]);
     return ifds[0];
   };
@@ -2864,9 +2891,10 @@ function makeConcatStack(stacks, names){
 // `multi` branch of a selection.
 async function loadTiffFilesAuto(fileList, onLog=log){
   const all=[...fileList];
-  const files=all.filter(f=>/\.tiff?$/i.test(f.name)).sort((a,b)=>naturalCompare(a.name,b.name));
-  if(all.length!==files.length) onLog(`  (${all.length-files.length} non-.tif/.tiff file(s) in the selection were skipped)`);
-  if(!files.length) throw new Error('no .tif/.tiff files in the selection');
+  const isTiff=await Promise.all(all.map(isTiffFile));
+  const files=all.filter((f,i)=>isTiff[i]).sort((a,b)=>naturalCompare(a.name,b.name));
+  if(all.length!==files.length) onLog(`  (${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
+  if(!files.length) throw new Error('no TIFF-formatted files in the selection');
   if(files.length===1) return loadTiffFile(files[0], onLog);
   const first=await loadTiffFile(files[0], onLog);
   if(first.n===1) return loadTiffSequence(files, onLog);   // re-decodes files[0] again, but a single-frame file is tiny — not worth threading the already-loaded stack through
@@ -2952,7 +2980,16 @@ async function loadMultiIfdStreaming(file, fileSize, onLog=log){
 async function loadTiff(fileBuf, fileSize, onLog=log){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const ifds=UTIF.decode(fileBuf);
-  if(!ifds.length) throw new Error('no image frames found in file');
+  // UTIF.decode() on non-TIFF bytes doesn't throw or return an empty array —
+  // it returns one EMPTY ifd object (no tags at all), so this is the one
+  // place that actually catches a genuinely unsupported file (e.g. a real
+  // native Nikon ND2 binary, now selectable via the widened .nd2 accept
+  // filter) with a clean error instead of NaN dimensions propagating into
+  // canvas/typed-array allocations downstream. .width/.height aren't set
+  // until decodeImage() runs, so check the raw ImageWidth/ImageLength tags
+  // (t256/t257) instead — decode() itself already populates those.
+  if(!ifds.length || !ifds[0].t256 || !(ifds[0].t256[0]>0) || !ifds[0].t257 || !(ifds[0].t257[0]>0))
+    throw new Error('not a readable TIFF file (no valid image dimensions found — native Nikon ND2 binaries are not supported yet)');
   UTIF.decodeImage(fileBuf, ifds[0]);                 // decode first -> dimensions
   const w=ifds[0].width, h=ifds[0].height, n=ifds.length, px=paramValue('pxnm');
   const frameBytes=w*h*4, need=n*frameBytes, budget=readBudget();

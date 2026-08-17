@@ -101,6 +101,34 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     (from the requesting user or the lab's own scopes) before writing any
     parser code, the same "get a real reference dataset first" approach
     used for the sSMLM CSV and the other `experimental_data/` fixtures.
+  - **Picasso** (jungmannlab, already used elsewhere in this codebase for
+    AIM drift correction and the Gaussian MLE fitters) confirmed to lean on
+    the same reference: its `ND2Movie`/`load_nd2()` in `picasso/io.py` is a
+    thin Dask-based wrapper — `import nd2; nd2.ND2File(path)` — around
+    exactly `tlambert03/nd2`, not a separate from-scratch parser. Independent
+    confirmation that library is the standard, actively-used choice in the
+    SMLM-tooling community, not just the one this project happened to find.
+  - **A first real sample landed 2026-08-17** — `experimental_data/
+    example_stack100.nd2`, from Christophe Leterrier's `DECODE_NC` repo —
+    but turned out to be a big-endian **ImageJ TIFF** underneath (`MM\x00\x2a`
+    magic, `images=100\nframes=100` description), not a genuine native ND2
+    binary; confirmed by walking its IFD chain directly and by loading it
+    end-to-end through the existing TIFF path (100 frames, 256×256, 8,681
+    real localizations). **Still doesn't unblock the actual parser work** —
+    the real blocker (a genuine proprietary-format sample) is unchanged —
+    but it did surface and fix a real, separate robustness gap, landed the
+    same day: the file-input `accept` filter and `loadTiffFilesAuto()`/
+    `loadTiffSequence()` used to trust the `.tif`/`.tiff` *extension*; they
+    now sniff the real magic bytes (`isTiffFile()`), and `loadTiff()`/
+    `loadTiffFile()`/`loadTiffSequence()`'s `decodeOne()` all validate the
+    raw ImageWidth/ImageLength tags (`t256`/`t257` — UTIF only sets the
+    convenience `.width`/`.height` properties as a side effect of
+    `decodeImage()`, so checking those before calling it silently checked
+    `undefined>0` and broke every file, a regression caught immediately by
+    testing against this real sample) before trusting a decode, so
+    genuinely unparseable content (a real native ND2 binary, or anything
+    else) now fails with a clear error instead of `NaN`-sized buffers and
+    canvas errors propagating downstream. See **in/out** in `CLAUDE.md`.
 
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
