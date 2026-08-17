@@ -48,16 +48,23 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
      front would fight that overlap rather than accommodate it. Revisit only
      if a module turns out to need almost nothing from the shared pipeline.
 
-  **Immediate concrete follow-up**: the file's physical `MODULE:` order
-  doesn't yet match `CLAUDE.md`'s documented order in one place — **export**
-  physically sits before **workers**, the reverse of the doc — a leftover of
+  **Physical reorder — done in 0.11.1-dev.** The file's physical `MODULE:`
+  order had one mismatch against `CLAUDE.md`'s documented order: **export**
+  physically sat before **workers**, the reverse of the doc — a leftover of
   modules being retrofitted onto code that predates them, not a deliberate
-  choice. A full physical reorder (aligning file order with the documented
-  list end to end) is a real, scoped task worth its own dedicated pass with a
-  full syntax check + smoke test — not something to bundle into an unrelated
-  edit — since JS hoisting makes function-declaration order safe to move but
-  any top-level `const`/`let` initialization or DOM-listener registration
-  that (even indirectly) depends on evaluation order needs checking first.
+  choice. Fixed as its own dedicated pass (not bundled into an unrelated
+  edit): confirmed first that neither section has top-level `const`/`let`
+  state the other reads, nor any `addEventListener` wiring in either range
+  (both are pure function/data declarations, hoisted regardless of position,
+  so a physical move is a behavioral no-op in JS) — then moved the block and
+  re-verified with the syntax check, a direct call to the moved
+  `buildCsvText()`, constructing a real `Worker` from the moved
+  `workerSource()` (would throw a `ReferenceError` immediately if
+  `WORKER_PRELUDE` had gone stale), and a full Localize run with
+  `paramOverrides` forcing worker dispatch (`↑ 8 workers · 82% utilisation`,
+  correct localization count) to exercise the pool path for real, not just
+  its single-threaded fallback. File's physical order now matches
+  `CLAUDE.md`'s documented list end to end.
 
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module

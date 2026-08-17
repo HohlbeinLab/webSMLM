@@ -294,11 +294,10 @@ relevant one before editing rather than scrolling:
   originally scoped to just the loaded stack's own frame cache, and there's no reliable in-browser
   signal for actually-free RAM to check against instead.
 
-The list above is in the file's actual physical order, with one known exception: **export**
-(CSV) physically sits before **workers** in `webSMLM.html`, opposite their order here — an
-artifact of modules not being a deliberate organizing principle from the project's early days
-(they were retrofitted onto code that already existed). Not worth a blind reorder mid-edit; see
-`docs/REFACTOR_PLAN.md` for the plan to actually align physical order with this list.
+The list above is in the file's actual physical order (as of 0.11.1-dev, **workers** and
+**export** were swapped to match — see `docs/REFACTOR_PLAN.md` for the reasoning and how it was
+verified safe: both are pure declarations, no cross-referencing top-level state, so JS hoisting
+made the physical move a no-op for behavior).
 
 ### Web Worker gotcha (read before touching detect/fit/workers)
 
