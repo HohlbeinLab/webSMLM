@@ -6,9 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM):
 the entire application — HTML, CSS, all JavaScript, and the two bundled decoders (pako, UTIF) —
-lives in `webSMLM.html` (~6400 lines). It loads a raw TIFF stack, detects/localizes emitters,
-and renders a super-resolution image, **entirely client-side** (no upload, no server, no network
-calls at runtime). `index.html` is just a redirect to `webSMLM.html` for the bare Pages URL.
+lives in `webSMLM.html` (growing past 8000 lines; the file's own top-of-file **MODULE INDEX**
+comment gives current per-module line numbers — re-`grep -n "MODULE:"` if it looks stale, and
+refresh it alongside a build-letter bump when a change has moved things by more than a few
+lines). It loads a raw TIFF stack, detects/localizes emitters, and renders a super-resolution
+image, **entirely client-side** (no upload, no server, no network calls at runtime). `index.html`
+is just a redirect to `webSMLM.html` for the bare Pages URL.
 
 `webSMLM.html` itself has **no build system, no package.json, no dependency install, and no test
 runner.** "Running" the app = opening `webSMLM.html` in a browser (double-click, or the hosted
@@ -291,6 +294,12 @@ relevant one before editing rather than scrolling:
   originally scoped to just the loaded stack's own frame cache, and there's no reliable in-browser
   signal for actually-free RAM to check against instead.
 
+The list above is in the file's actual physical order, with one known exception: **export**
+(CSV) physically sits before **workers** in `webSMLM.html`, opposite their order here — an
+artifact of modules not being a deliberate organizing principle from the project's early days
+(they were retrofitted onto code that already existed). Not worth a blind reorder mid-edit; see
+`docs/REFACTOR_PLAN.md` for the plan to actually align physical order with this list.
+
 ### Web Worker gotcha (read before touching detect/fit/workers)
 
 Workers are **not** separate files. `workerSource()` builds worker code by calling `.toString()`
@@ -390,7 +399,10 @@ slower than V8), so keep validation inputs small.
   `webSMLM_local`** (no need to ask first — this one's a standing instruction), so each testable
   round has real git history, not just an accumulating uncommitted diff. This is independent of
   releasing: `webSMLM_local` accumulates fine-grained commits continuously; `main` only receives
-  them in a batch, at an explicit release, per the cadence above.
+  them in a batch, at an explicit release, per the cadence above. **Same round: check the
+  top-of-file MODULE INDEX comment against a fresh `grep -n "MODULE:"`** and refresh any line
+  number that's drifted by more than a few lines — cheap to check every time, and it's the whole
+  point of the index that it stays trustworthy rather than becoming another stale comment.
 - Every release also updates `CHANGELOG.md` (newest first; DOI column) and, where the release
   closes out or changes a roadmap item, `docs/REFACTOR_PLAN.md`. Pages typically redeploys ~1-2 min
   after a push; check with `gh api repos/HohlbeinLab/webSMLM/pages/builds/latest`.

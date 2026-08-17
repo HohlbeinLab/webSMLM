@@ -6,6 +6,59 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
+  prompted by two large candidate modules — single-particle tracking (SPT)
+  and single-molecule FRET (smFRET) — that would each add a few thousand
+  lines). GitHub Pages can technically serve sibling files that `webSMLM.html`
+  loads at runtime (`fetch()`/dynamic `import()`), but `file://` (the
+  double-click-to-run path the whole single-file design exists for) blocks
+  that under CORS in Chromium, inconsistently across browsers — splitting
+  the *core* app this way would break the "download and it just works"
+  promise unevenly, so it's ruled out. Three options were weighed:
+  1. **Lean harder on the existing `MODULE:` banner convention** — cheapest,
+     doesn't slow the file's growth, but the size problem is about
+     editability (human and AI-assisted), not runtime performance (browsers
+     don't care about a multi-MB JS file). **Chosen for now.** Landed in
+     0.11.1-dev: a top-of-file **MODULE INDEX** comment block giving each
+     module's current line number, refreshed alongside every build-letter
+     bump (see `CLAUDE.md`'s Branch & release workflow) rather than left to
+     rot — cheap enough to check every round that it should actually stay
+     trustworthy, unlike a one-off comment.
+  2. **Dev-time-only source split, single-file at ship time**: a `tools/`-tier
+     build script (Node, no runtime dependency, matching the existing
+     `tools/` precedent of separate optional tooling) concatenates
+     `src/*.js` fragments into the final `webSMLM.html`. Solves editability
+     without touching the deployed artifact or the `file://` promise at
+     all. **Planned next step once SPT/smFRET actually start landing and
+     option 1 stops being enough** — not implemented yet. Real cost: it
+     makes `webSMLM.html` a build product rather than the literal source of
+     truth, a bigger philosophy shift than option 1, worth doing only when
+     actually needed rather than pre-emptively.
+  3. **Split SPT/smFRET out as their own single-file sibling apps**
+     (`webSPT.html`, `webFRET.html`), mirroring the existing
+     `docs/layout_bare.html` precedent ("backed up from webSMLM's chrome for
+     future single-file projects"). **Considered and set aside**: SPT and
+     smFRET would share too much of webSMLM's own pipeline (TIFF loading,
+     worker pool, table/render/export) to cleanly separate, and some real
+     analyses combine the two techniques directly — per the user, e.g.
+     Fontana, Fijen, Lemay, Mathwig & Hohlbein, *High-throughput,
+     non-equilibrium studies of single biomolecules using glass-made
+     nanofluidic devices*, *Lab Chip* (2018),
+     [10.1039/C8LC01175C](https://doi.org/10.1039/C8LC01175C) — splitting up
+     front would fight that overlap rather than accommodate it. Revisit only
+     if a module turns out to need almost nothing from the shared pipeline.
+
+  **Immediate concrete follow-up**: the file's physical `MODULE:` order
+  doesn't yet match `CLAUDE.md`'s documented order in one place — **export**
+  physically sits before **workers**, the reverse of the doc — a leftover of
+  modules being retrofitted onto code that predates them, not a deliberate
+  choice. A full physical reorder (aligning file order with the documented
+  list end to end) is a real, scoped task worth its own dedicated pass with a
+  full syntax check + smoke test — not something to bundle into an unrelated
+  edit — since JS hoisting makes function-declaration order safe to move but
+  any top-level `const`/`let` initialization or DOM-listener registration
+  that (even indirectly) depends on evaluation order needs checking first.
+
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
   note for the current design. Remaining:
