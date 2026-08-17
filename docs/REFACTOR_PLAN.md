@@ -197,12 +197,34 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     2D image FFT + peak-finding routine). Phase 1's **Preview pairs**
     distance/angle histograms cover the same "find my window" need more
     simply for now.
-  - **Headless (`window.webSMLM.analyze()`/CLI) exposure** — natural next
-    step once Phase 1 has seen real interactive use, same two-step pattern
-    as `config.estimateGainOffset`/`config.cropX0` earlier in 0.10.x.
   - A minimum-neighbour-count spatial consistency filter (reject sparse
     false pairs with too few nearby confirmed pairs) — `sSMLMAnalyzer` has
     one, Phase 1 doesn't.
+
+  **Headless exposure — shipped 2026-08-17 (v0.11.1-dev)**, alongside a data-model
+  fix it depended on. Checking headless status surfaced a real, live bug: pairing
+  stored the inter-order distance IN `z` (aliasing/overwriting it), and
+  `driftCore`'s "Correct z too (3D)" gate keyed off the same `has3d` check the
+  colour-by-depth toggle used — so a paired result would show that option, and
+  ticking it would silently 1-D-"correct" the spectral distance as if it were
+  spatial drift, corrupting it. Fixed at the root rather than patched: `dist` is
+  now its own field, `z` is never touched by `pairCore()` at all — which also
+  unblocks a future 3D-fit + sSMLM combination (a loc could carry real depth AND
+  spectral distance simultaneously without one clobbering the other), the
+  original reason this was raised rather than just adding a driftZ guard.
+  `renderSuperRes()`/`zRange()` gained a `colorField` parameter (`'z'` or
+  `'dist'`) so the one depth-coded render path serves both without duplication;
+  `rerender()`/`analyze()` derive it from `hasZ`/`hasDist`. `pairCore()` itself
+  now throws on bad input (real 3D `z`, or already-paired `dist`) rather than
+  only the interactive wrapper checking — the second guard is new, needed
+  because with `z` no longer touched, re-pairing an already-paired result could
+  no longer be caught as a side effect of the old z-guard. `config.sSmlmPair`
+  (headless), `--sSmlmPair` (CLI), `sSmlmPair=1` (autorun) all wire to the same
+  `pairCore()` call, run right after Localize, before drift/NeNA/FRC. See
+  **sSMLM** in `CLAUDE.md` for the full design; verified with direct `pairCore()`
+  guard tests, a real button-click UI round-trip (Localize → Pair → confirm
+  `driftZRow` stays hidden → Show standard/spectral toggle → Unpair), and a
+  headless `analyze({sSmlmPair:true, ...})` call, all via Playwright.
 
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive

@@ -875,13 +875,28 @@ is what to know before touching that module, not a restatement of its code.
   column (see §5) whenever present — not a directional/long-axis width, since
   no 2D fit method computes one, but the closest available proxy for how much
   wider the spectrally-smeared 1st order looks vs. the 0th. Pairing stores
-  the inter-order distance in the paired loc's
-  `z` field (the same trick `sSMLMAnalyzer`'s own `ThunderSTORM.csv` output
-  already uses), so the *existing* `zcolor`/`zmin`/`zmax` depth-coded render
-  path (**render** module) colours by it with no changes there; **Pair**
-  refuses if the current result already has real finite `z` (a 3D fit
-  method) rather than silently overwriting real depth. `runSSmlmPair()`/
-  `unpairSSmlm()` swap `lastResult.locs` for the paired/original set. Three
+  the inter-order distance in its OWN `dist` field — deliberately **never**
+  `z`, an earlier design that aliased `z` was reverted (2026-08-17) so a
+  future 3D-fit + sSMLM combination could carry real depth AND spectral
+  distance on the same loc without one overwriting the other; `pairCore()`
+  never even sets `z`. The **render** module's `renderSuperRes()`/`zRange()`
+  take an explicit `colorField` (`'z'` or `'dist'`) instead of hardcoding
+  `.z`, so the same depth-coded path colours by either; the interactive
+  wrapper and `analyze()` (see §8) each derive it as `hasZ ? 'z' : (hasDist ?
+  'dist' : null)` — only one is ever reachable today, but the seam is real.
+  This split also fixed a genuine bug: drift correction's "Correct z too
+  (3D)" option used to key off the same check the colour toggle used, so a
+  paired result could show it and — if ticked — silently 1-D-"correct" its
+  spectral `dist` as if it were spatial depth; drift's z-row/gate is keyed on
+  real `z` alone now, never `dist`, which can't happen once the fields are
+  genuinely independent. **`pairCore()` itself throws** (not just the
+  interactive wrapper — every caller, headless included, gets the same
+  protection) if the input already has real 3D `z`, OR already has a `dist`
+  field (i.e. is already-paired output); the second guard is new alongside
+  the split — with `z` no longer touched by pairing, re-pairing an
+  already-paired result can no longer be caught as a side effect of the
+  z-guard the way it used to be. `runSSmlmPair()`/`unpairSSmlm()` swap
+  `lastResult.locs` for the paired/original set. Three
   module-level variables track pairing state: `sSmlmOriginalLocs` is the TRUE
   raw/unpaired backup, captured once on the first successful Pair (the same
   pattern the raw-panel crop tool uses for `originalStack`) — it is also the
@@ -889,25 +904,18 @@ is what to know before touching that module, not a restatement of its code.
   `sSmlmOriginalLocs || lastResult.locs`, never from `lastResult.locs`
   directly, since that may currently BE the already-paired subset (pairing
   or previewing against an already-paired set would search for 1st-order
-  companions among points that no longer have any — this was a real bug
-  before the input was pinned to the raw backup: clicking **Pair** a second
-  time used to trip the "already has real z" 3D guard, misreading the first
-  pairing's own distance-as-z as if it were a real depth result).
+  companions among points that no longer have any).
   `sSmlmPairedLocs` is the most recent successful Pair result, replaced on
   every re-Pair without touching `sSmlmOriginalLocs`. `sSmlmShowingRaw`
-  tracks which of the two is currently assigned to `lastResult.locs`. CSV/
-  render need no further changes either way, since paired locs are the same
-  `{frame,x,y,z,intensity,...}` shape any other result is; the **table**
-  module's `locTableData()` relabels the `z` column to `dist` whenever the
-  currently-shown locs are the paired set (recognised the same way: finite
-  `z` while `sSmlmOriginalLocs` is set), so it reads as what it is
-  (inter-order distance) rather than depth. **Pair** also turns on `zcolor`
+  tracks which of the two is currently assigned to `lastResult.locs`. The
+  **table** module's `locTableData()` shows `dist` and `z` as independent,
+  optional columns (present whenever any loc has a finite value), not one
+  aliasing/relabelling the other. **Pair** also turns on `zcolor`
   and sets `zmin`/`zmax` to the *configured* `sSmlmDistMin`/`sSmlmDistMax`
   (not `rerender()`'s usual 1st–99th-percentile auto-fit) — every accepted
   pair's distance is already within that window by construction, so it's the
   natural colour-scale range, and it re-syncs on every Pair (e.g. after
-  narrowing the window post-calibration-fix); this is the same `zmin`/`zmax`
-  pair a future real-3D `z` would use, not a separate field.
+  narrowing the window post-calibration-fix).
   `syncSSmlmZRangeFromDist()` keeps this live even *without* re-pairing: a
   `change` listener on `sSmlmDistMin`/`sSmlmDistMax` re-applies the same
   `zmin`/`zmax` assignment and calls `rerender(true)` whenever those fields
@@ -922,7 +930,9 @@ is what to know before touching that module, not a restatement of its code.
   Unpair would restore), without discarding the pairing the way Unpair does,
   so toggling back to "Show spectral" is instant. Paired locs are already
   `lastResult.locs` while shown, so the top-level **View data + filtering**
-  button works on them directly — no separate table for sSMLM.
+  button works on them directly — no separate table for sSMLM. **Headless**
+  (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before
+  drift/NeNA/FRC — see §8.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table
@@ -978,13 +988,13 @@ open, doesn't rebuild) and a log line explains why, rather than risking a
 tab crash — raise the budget, or narrow the result with a filter/crop/
 temporal-clustering clause first.
 
-**Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`/
-`dist` (3D only — relabelled `dist` while an sSMLM paired result is showing,
-see §3 sSMLM), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate
-z-precision — not available for Phasor 3D), `sigma1st` (sSMLM paired
-results only — the 1st order's own sigma, see §3 sSMLM/§6), `intensity`,
-`offset`, `bkgstd`, `uncertainty`, `nmerged` (only once clustering is
-active).
+**Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`
+(a real 3D fit only), `dist` (sSMLM paired results only — the inter-order
+distance; an INDEPENDENT column from `z`, not an alias of it — see §3
+sSMLM), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate z-precision —
+not available for Phasor 3D), `sigma1st` (sSMLM paired results only — the
+1st order's own sigma, see §3 sSMLM/§6), `intensity`, `offset`, `bkgstd`,
+`uncertainty`, `nmerged` (only once clustering is active).
 
 **Filter syntax:** `field op value`, chained with `and`/`or`
 (e.g. `intensity > 1000 and uncertainty < 20`); `op` ∈ `> < >= <= == = !=`.
@@ -1028,23 +1038,27 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"sigma1st [nm]"][,"n_merged [frames]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"n_merged [frames]"]
 ```
 
-- `z [nm]` only present for a 3D result.
+- `z [nm]` only present for a real 3D result (a 3D fit method).
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
-- `sigma_z [nm]`, `sigma1st [nm]` (when available) and `n_merged [frames]`
-  (when temporal clustering is active) are webSMLM-specific additions
-  appended after the standard columns — safe for a strict ThunderSTORM
-  reader to ignore.
+- `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]` (each when available) and
+  `n_merged [frames]` (when temporal clustering is active) are
+  webSMLM-specific additions appended after the standard columns — safe for
+  a strict ThunderSTORM reader to ignore.
+- `dist [nm]` is sSMLM-**Pair**-specific: the inter-order distance
+  (see §3 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
+  for it; `pairCore()` never sets `z`, so a paired-only export has `dist`
+  but not `z`. Round-trips through **Load data** (`parseCsvLocs()`).
 - `sigma1st [nm]` is sSMLM-**Pair**-specific: the 1st order's own `sigma`
   (see §3 sSMLM), carried through from `pairCore()` rather than the pair's
   reported `sigma [nm]`, which is still the 0th order's. Not a directional/
   long-axis width — every 2D fit method fits one symmetric `sigma`; this is
   the closest available proxy for how much wider the spectrally-smeared 1st
   order looks. Round-trips through **Load data** (`parseCsvLocs()`) like
-  `sigma_z`/`n_merged` do.
+  `sigma_z`/`dist`/`n_merged` do.
 - Exports the *currently filtered* subset (`renderLocs||lastResult.locs`),
   the same set the reconstruction shows — logged explicitly when a filter is
   active, together with the unfiltered total.
@@ -1167,6 +1181,19 @@ const result = await window.webSMLM.analyze({
   result field is omitted).
 - `config.correctDrift` / `config.computeNeNA` / `config.computeFRC` —
   booleans, not `PARAMS` entries, gating optional pipeline stages.
+- `config.sSmlmPair` (v0.11.1) — boolean, not a `PARAMS` entry. Runs
+  `pairCore()` (spectral SMLM pairing, see **sSMLM** in `CLAUDE.md`) right
+  after Localize, before drift/NeNA/FRC — the headless equivalent of
+  clicking **Pair**. `config.sSmlmDistMin`/`sSmlmDistMax`/`sSmlmAngleCenter`/
+  `sSmlmAngleTol`/`sSmlmRequireNarrower` (ordinary `PARAMS` fields) configure
+  the window. `pairCore()` itself throws — propagating as a rejected
+  `analyze()` promise, same "throws immediately" precedent as this API's
+  other preconditions — if the localizations already have real 3D `z` (a 3D
+  fit method) or already have a `dist` field (already-paired output).
+  `result.sSmlmPair` records `{nPairs, nInput, meanDistance, stdDistance}`
+  (`null` if `sSmlmPair` wasn't requested); on success `result.locs` (and
+  therefore `result.csvText`/`result.reconstructionPng`) reflect the
+  *paired* set, same as an interactive Pair replacing `lastResult.locs`.
 - `config.estimateGainOffset` — boolean, not a `PARAMS` entry. Runs
   `pcfoCore()` (PCFO gain/offset estimation, [§2/Gain-offset estimation
   (PCFO)](#gainoffset-estimation-pcfo)) on the SAME stack `config.file`/
@@ -1196,7 +1223,7 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo}`:
+**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair}`:
 - `pcfo` is `{gain, gainStd, offset, offsetStd, r2, pts, fit}` (`pcfoCore()`'s
   return shape) when `estimateGainOffset` was requested and PCFO found
   enough usable tiles to fit, else `null`. `gain`/`offset` are what
@@ -1225,6 +1252,13 @@ const result = await window.webSMLM.analyze({
   positions (drift correction mutates in place), so `csvText`/the
   reconstruction/NeNA/FRC all see corrected coordinates automatically, same
   as the interactive pipeline.
+- `sSmlmPair` is `{nPairs, nInput, meanDistance, stdDistance}` when
+  `sSmlmPair` was requested, else `null` — `locs` already reflects the
+  *paired* set (fewer rows, each carrying `dist` instead of the raw pair's
+  two separate rows), so `csvText`/`reconstructionPng`/any subsequent
+  `correctDrift`/`computeNeNA`/`computeFRC` all see the paired result
+  automatically, same as the interactive pipeline. Runs BEFORE those other
+  optional stages (see **sSMLM** in `CLAUDE.md`).
 
 `window.webSMLM.analyzeBatch(files, config)` loops `analyze()` over
 multiple files with the same config (no per-file override yet). Sequential,
@@ -1243,9 +1277,10 @@ no driving script, works by just opening the link in any browser.
   `+val`, `bool` → `val==='1'||val==='true'`, `enum` → the string as-is).
   Unrecognised keys are silently ignored, same tolerance as a loaded
   settings JSON.
-- `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset` work as
-  `=1`/`=true` flags too, same as passing them to `analyze()` directly.
-  `cropX0`/`cropY0`/`cropX1`/`cropY1` work as plain numeric params the same way.
+- `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset`/`sSmlmPair`
+  work as `=1`/`=true` flags too, same as passing them to `analyze()`
+  directly. `cropX0`/`cropY0`/`cropX1`/`cropY1` work as plain numeric params
+  the same way.
 - `fileUrl` (required to actually run) and `calibrationJson` come from
   **`fileUrl`/`calibrationUrl`** query params instead — both must be
   fetchable URLs, not local paths (the browser has no way to name a local
@@ -1308,13 +1343,19 @@ not wherever the shell happens to be, unless given explicitly. Any
 `--key=value` not listed in the script's header comment is passed straight
 through as a `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248
 --camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/
-`--estimateGainOffset` are bare boolean flags — the last runs PCFO gain/offset
-estimation on `--file` itself before localizing and overrides `--gain`/
-`--camoffset` with the estimate (`summary.json`'s `pcfo` field records what
-was found: `gain`/`gainStd`/`offset`/`offsetStd`/`r2`, `pts` trimmed since it's
-redundant with the log's own summary line and can run into the thousands);
-`--pcfoFrames`/`--pcfoK`/`--pcfoRnstd` (`PARAMS` overrides) tune it — see
-[§8](#8-headless-api-window-websmlm)'s `config.estimateGainOffset`.
+`--estimateGainOffset`/`--sSmlmPair` are bare boolean flags — the last-but-one
+runs PCFO gain/offset estimation on `--file` itself before localizing and
+overrides `--gain`/`--camoffset` with the estimate (`summary.json`'s `pcfo`
+field records what was found: `gain`/`gainStd`/`offset`/`offsetStd`/`r2`,
+`pts` trimmed since it's redundant with the log's own summary line and can
+run into the thousands); `--pcfoFrames`/`--pcfoK`/`--pcfoRnstd` (`PARAMS`
+overrides) tune it — see [§8](#8-headless-api-window-websmlm)'s
+`config.estimateGainOffset`. `--sSmlmPair` pairs 0th/1st-order spectral SMLM
+localizations right after Localize (`--sSmlmDistMin`/`--sSmlmDistMax`/
+`--sSmlmAngleCenter`/`--sSmlmAngleTol`/`--sSmlmRequireNarrower`, ordinary
+`PARAMS` overrides, configure the window; `summary.json`'s `sSmlmPair` field
+records `nPairs`/`nInput`/`meanDistance`/`stdDistance`) — see
+[§8](#8-headless-api-window-websmlm)'s `config.sSmlmPair`.
 `--cropX0`/`--cropY0`/`--cropX1`/`--cropY1` (any subset — an omitted bound
 defaults to that edge of the full frame) replace `--file` with just that
 native-pixel sub-rectangle before anything else touches it, the headless

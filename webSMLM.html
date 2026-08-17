@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-17c; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-17d; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -28,15 +28,15 @@
     detect          3127   per-frame band-pass + local-maxima detection
     fit             3383   phasor / LS / Poisson-MLE 2D+3D localization
     render          3740   accumulate to offscreen buffer; view/colour/blur
-    workers         4270   frame-parallel detect/fit worker pool
-    export          4426   ThunderSTORM-compatible CSV
-    3D calibration  4587   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           4962   AIM drift correction (2D+z)
-    locprecision    5194   NeNA + FRC
-    sSMLM           5787   spectrally resolved SMLM pair-finding
-    pipeline        6211   top-level orchestration, *Core()/wrapper split
-    table           7628   localizations table, filtering, histograms
-    headless API    8026   window.webSMLM.analyze()/analyzeBatch()
+    workers         4293   frame-parallel detect/fit worker pool
+    export          4449   ThunderSTORM-compatible CSV
+    3D calibration  4615   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           4990   AIM drift correction (2D+z)
+    locprecision    5222   NeNA + FRC
+    sSMLM           5815   spectrally resolved SMLM pair-finding
+    pipeline        6254   top-level orchestration, *Core()/wrapper split
+    table           7673   localizations table, filtering, histograms
+    headless API    8070   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1467,7 +1467,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.1-dev · build 2026-08-17c</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.1-dev · build 2026-08-17d</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1835,7 +1835,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.1-dev · build 2026-08-17c · load-movie now sniffs real TIFF bytes, not just the .tif/.tiff extension
+</span></noscript>webSMLM v0.11.1-dev · build 2026-08-17d · sSMLM: dist now independent of z (fixes drift-z corrupting paired data), headless Pair support
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -3859,25 +3859,31 @@ function checkRenderSize(W,H,w,h,mag,zColor,blurPx){
   if(bytes>budget)
     throw new Error(`Reconstruction at ${W}×${H} px (frame ${w}×${h} × ${mag}×) would need ~${fmtBytes(bytes)}, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Lower Magnification, crop the region, or raise the budget if you have the RAM.`);
 }
-function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,onLog=log){
+function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log){
   const W=w*mag, H=h*mag;
   checkRenderSize(W,H,w,h,mag,zColor,blurPx);
   // Per-pixel hit COUNT — always a non-negative integer, so Uint16 (not
-  // Float32) halves this buffer's footprint; zacc holds SUMMED z (nm)
-  // values instead, genuinely fractional, so it stays Float32. Uint16
+  // Float32) halves this buffer's footprint; zacc holds SUMMED colorField
+  // (nm) values instead, genuinely fractional, so it stays Float32. Uint16
   // natively WRAPS past 65535 on overflow (silent corruption, not
   // clamping) — saturate explicitly instead, since a real pixel hitting
   // 65,535+ localizations needs an extreme density at one exact
   // reconstructed position and is not expected in normal use.
+  // colorField selects WHICH per-loc value drives the colour: 'z' (real
+  // depth, a 3D fit method) or 'dist' (sSMLM's inter-order distance,
+  // deliberately a separate field from z — see MODULE: sSMLM). Never both
+  // at once today (pairCore refuses 3D input), but keeping this a
+  // parameter rather than hardcoding .z means a future combined 3D+sSMLM
+  // result could pick either without a render-side rewrite.
   const acc=new Uint16Array(W*H), zacc=zColor?new Float32Array(W*H):null;
   let satCount=0;
   for(const L of locs){
     // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
-    if(zColor && (!isFinite(L.z)||L.z<zlo||L.z>zhi)) continue;
+    if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
     const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
     if(ix<0||iy<0||ix>=W||iy>=H) continue; const idx=iy*W+ix;
     if(acc[idx]<65535) acc[idx]++; else satCount++;
-    if(zColor) zacc[idx]+=L.z; }
+    if(zColor) zacc[idx]+=L[colorField]; }
   if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
   // Blur density and z-sum together, so the depth hue is the density-weighted
   // mean z over the neighbourhood: meanz = blur(Σz)/blur(count).
@@ -3887,7 +3893,7 @@ function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,
   if(normLocs && normLocs!==locs){
     const nacc=new Uint16Array(W*H);
     for(const L of normLocs){
-      if(zColor && (!isFinite(L.z)||L.z<zlo||L.z>zhi)) continue;
+      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
       const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
       if(ix<0||iy<0||ix>=W||iy>=H) continue;
       const nidx=iy*W+ix; if(nacc[nidx]<65535) nacc[nidx]++; }
@@ -4093,9 +4099,11 @@ function drawScaleBar(ctx,DW,DH,nmPerDisp){
 }
 // keepView: used by the live preview during a run, so the reconstruction can
 // refresh without yanking the user's zoom/pan back to fit on every update.
-// 1st–99th z percentiles as a robust colour range (once per result)
-function zRange(locs){
-  const zs=[]; for(const L of locs) if(isFinite(L.z)) zs.push(L.z);
+// 1st–99th percentiles of `field` as a robust colour range (once per
+// result) — field defaults to 'z' (real depth) but rerender()/analyze()
+// pass 'dist' for an sSMLM-paired result, which never has real z.
+function zRange(locs, field='z'){
+  const zs=[]; for(const L of locs) if(isFinite(L[field])) zs.push(L[field]);
   if(zs.length<2) return null; zs.sort((a,b)=>a-b);
   return {lo:zs[Math.floor(zs.length*0.01)], hi:zs[Math.floor(zs.length*0.99)]};
 }
@@ -4104,19 +4112,34 @@ function rerender(keepView,isPreview){
   $('srTitle').textContent='SMLM reconstruction';
   const mag=paramValue('mag'), rblur=paramValue('rblur');
   lastResult.mag=mag;
-  const has3d=lastResult.locs.some(L=>isFinite(L.z));
-  $('zcolorRow').style.display = has3d ? 'flex' : 'none';
-  { const zr=$('driftZRow'); if(zr) zr.style.display = has3d ? 'flex' : 'none'; }
+  // Real 3D z (an actual 3D fit method) and sSMLM's paired inter-order
+  // distance are DELIBERATE, independent fields (see MODULE: sSMLM /
+  // pairCore) — never conflated, so a future combined 3D+sSMLM result could
+  // carry both without one silently overwriting the other. Only one is ever
+  // reachable today (pairing still refuses real-3D input), so picking
+  // whichever is present is unambiguous; colorField is what actually gets
+  // read per-loc for colouring (renderSuperRes/zRange). Critically, driftZ
+  // stays gated on hasZ ALONE, never hasDist — sSMLM's spectral distance
+  // must never be mistaken for spatial depth and "drift-corrected".
+  const hasZ=lastResult.locs.some(L=>isFinite(L.z));
+  const hasDist=lastResult.locs.some(L=>isFinite(L.dist));
+  const colorField = hasZ ? 'z' : (hasDist ? 'dist' : null);
+  $('zcolorRow').style.display = colorField ? 'flex' : 'none';
+  { const zr=$('driftZRow'); if(zr) zr.style.display = hasZ ? 'flex' : 'none'; }
   // 3D shells (FSC) not implemented yet — keep the row hidden.
-  const zColor = has3d && paramValue('zcolor');
+  const zColor = !!colorField && paramValue('zcolor');
   $('zrangeRow').style.display = zColor ? 'block' : 'none';
   // z range only matters (and is only computed) in depth mode. Doing it
   // unconditionally sorted the whole loc list on every live-preview render —
   // O(n log n) growing per preview, which crawled to a halt on big 3D stacks.
   let zlo=0, zhi=1;
   if(zColor){
-    if(!lastResult.zr) lastResult.zr=zRange(lastResult.locs);
-    const auto=lastResult.zr||{lo:0,hi:1};
+    // Cached PER FIELD (not one shared slot) — switching between a real-z
+    // and an sSMLM dist view (e.g. the "Show standard"/"Show spectral"
+    // toggle) must not read a stale range computed for the other field.
+    if(!lastResult.zr) lastResult.zr={};
+    if(!lastResult.zr[colorField]) lastResult.zr[colorField]=zRange(lastResult.locs, colorField);
+    const auto=lastResult.zr[colorField]||{lo:0,hi:1};
     // isPreview = a mid-Run preview render, on a partial/growing locs subset
     // (see run()). Never let that lock in zmin/zmax: on a long run the FIRST
     // preview fires early with only a few, unrepresentative localizations —
@@ -4137,7 +4160,7 @@ function rerender(keepView,isPreview){
   try{
     newSrFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
                           paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
-                          lastResult.locs);   // colour scale always pinned to the full dataset, see renderSuperRes
+                          lastResult.locs, colorField||'z');   // colour scale always pinned to the full dataset, see renderSuperRes
   }catch(err){
     // Magnification/frame-size combination too big to render (see
     // checkRenderSize() in renderSuperRes) — keep showing whatever was
@@ -4468,15 +4491,19 @@ function precisionNm(sNm,aNm,N,bPh){
 function buildCsvText(locs, px, sigPSF){
   const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
   const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
+  // sSMLM's inter-order distance is its own field, independent of z (see
+  // MODULE: sSMLM / pairCore) — its own optional column, not a z alias.
+  const hasDist=locs.some(L=>isFinite(L.dist));
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output only — see pairCore
   const zcol=has3d?'"z [nm]",':'';
   // "sigma [nm]" kept as-is (not "sigma_xy") for ThunderSTORM CSV compatibility;
-  // sigma_z/sigma1st are webSMLM-specific additions, same as n_merged below.
+  // sigma_z/dist/sigma1st are webSMLM-specific additions, same as n_merged below.
   const zsigcol=hasZUnc?',"sigma_z [nm]"':'';
+  const distcol=hasDist?',"dist [nm]"':'';
   const s1col=hasSigma1st?',"sigma1st [nm]"':'';
   const mcol=isClustered?',"n_merged [frames]"':'';
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${s1col}${mcol}\n`];
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${mcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -4492,10 +4519,11 @@ function buildCsvText(locs, px, sigPSF){
     const sNm=sPx*px, unc=(isFinite(L.lpx)&&isFinite(L.lpy)) ? Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px : precisionNm(sNm,px,N,bs);
     const zc=has3d?`${isFinite(L.z)?L.z.toFixed(1):''},`:'';
     const zsc=hasZUnc?`,${isFinite(L.lpz)?L.lpz.toFixed(1):''}`:'';   // already nm — see zFromWidths
+    const dc=hasDist?`,${isFinite(L.dist)?L.dist.toFixed(1):''}`:'';   // already nm — see pairCore (sSmlmCandidates converts px->nm itself)
     const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
     const mc=isClustered?`,${L.nMerged||1}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${s1c}${mc}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${mc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -5886,6 +5914,17 @@ function angleDiff360(a,b){ let d=Math.abs(a-b)%360; if(d>180) d=360-d; return d
 // sSmlmRequireNarrower}, all ordinary PARAMS.
 async function pairCore(locs, px, config, hooks={}){
   const { onLog=log, onProgress=setProg } = hooks;
+  // Both guards THROW (not just log-and-return) so every caller — the
+  // interactive wrapper below AND any future headless one — gets the same
+  // protection with no separate check to remember. Real z (a 3D fit) and
+  // an already-paired `dist` field are two INDEPENDENT reasons pairing
+  // can't run on this input; each gets its own message rather than one
+  // generic "bad input" error, since the fix ("re-run 2D" vs. "load the
+  // raw data") is different for each.
+  if(locs.some(L=>isFinite(L.z)))
+    throw new Error('sSMLM pairing needs 2D localizations — the current result already has real z (a 3D fit method). Re-run with a 2D method first.');
+  if(locs.some(L=>isFinite(L.dist)))
+    throw new Error('sSMLM pairing needs raw (unpaired) localizations — the current result already has a dist field (already-paired output). Load/generate the original raw data first.');
   onLog(`\nsSMLM pairing: distance ${config.sSmlmDistMin}–${config.sSmlmDistMax} nm, angle ${config.sSmlmAngleCenter}±${config.sSmlmAngleTol}°…`);
   // Candidate enumeration (O(k²)/frame, the slow part on a real dataset) gets
   // the first half of the bar, the classify/match pass below the second half
@@ -5942,11 +5981,17 @@ async function pairCore(locs, px, config, hooks={}){
     // above for sSmlmRequireNarrower — carried through here instead of
     // discarded). NOT a directional/long-axis width: every 2D fit method
     // (gaussianMLE/gaussianFit/phasorFit — sSMLM pairing requires 2D, see
-    // the guard above runSSmlmPair) fits a single symmetric sigma, with no
-    // sx/sy split the way the 3D astigmatic fit has; this is the closest
-    // available proxy for "how much wider the spectrally-smeared 1st order
-    // looks," not a true per-axis decomposition of an elongated PSF.
-    paired.push({ frame:L.frame, x:L.x, y:L.y, z:q.dist,
+    // the guard above) fits a single symmetric sigma, with no sx/sy split
+    // the way the 3D astigmatic fit has; this is the closest available
+    // proxy for "how much wider the spectrally-smeared 1st order looks,"
+    // not a true per-axis decomposition of an elongated PSF.
+    // dist (NOT z) carries the inter-order distance — deliberately its own
+    // field, never overwriting z, so a future 3D-fit + sSMLM combination
+    // could carry real depth AND spectral distance on the same loc without
+    // one silently clobbering the other (see MODULE: sSMLM in CLAUDE.md).
+    // L.z is guaranteed absent here (the guard above refuses real-3D input),
+    // so simply never setting z is equivalent to "leave it untouched."
+    paired.push({ frame:L.frame, x:L.x, y:L.y, dist:q.dist,
       photons:L.photons, bg:L.bg, bgstd:L.bgstd, lpx:L.lpx, lpy:L.lpy, sigma:L.sigma,
       sigma1st:locs[q.down].sigma });
     sumDist+=q.dist; sumDistSq+=q.dist*q.dist;
@@ -6107,10 +6152,8 @@ async function previewSSmlmPairs(){
 async function runSSmlmPair(){
   if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
   const rawLocs = sSmlmOriginalLocs || lastResult.locs;   // always the raw input, see block comment above — re-Pairing must not pair an already-paired subset
-  if(rawLocs.some(L=>isFinite(L.z))){
-    log('⚠ sSMLM pairing needs 2D localizations — the current result already has real z (a 3D fit method). Re-run with a 2D method first.');
-    return;
-  }
+  // pairCore() itself throws on real-3D or already-paired input (see its own
+  // guards) — caught below, same as any other pairing failure.
   $('sSmlmPairBtn').disabled=true;
   try{
     const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
@@ -7061,13 +7104,14 @@ function updateMethodUI(){
   const m=paramValue('method'), is3d = m==='phasor3d'||m==='mle3d';
   $('cal3dRow').style.display = is3d ? 'block' : 'none';
   // Reveal the depth-colour toggle (ticked) the moment a 3D method is chosen —
-  // not only after a run. For a 2D method, keep it shown only if the current
-  // results still carry z, so an existing 3D reconstruction stays colourable.
+  // not only after a run. For a 2D method, keep it shown if the current
+  // results still carry real z (an existing 3D reconstruction) OR an sSMLM
+  // dist (a paired result) — either stays colourable, see rerender().
   if(is3d){ $('zcolorRow').style.display='flex'; $('zcolor').checked=true;
     $('lut').value='turbo';                          // depth-friendly diverging map
     if(srFull) rerender(true); }
-  else { const has3d = lastResult && lastResult.locs.some(L=>isFinite(L.z));
-         $('zcolorRow').style.display = has3d ? 'flex' : 'none'; }
+  else { const colourable = lastResult && lastResult.locs.some(L=>isFinite(L.z)||isFinite(L.dist));
+         $('zcolorRow').style.display = colourable ? 'flex' : 'none'; }
 }
 $('method').addEventListener('change',updateMethodUI); updateMethodUI();
 
@@ -7160,7 +7204,7 @@ function parseCsvLocs(text){
   const idx=name=>cols.indexOf(name);
   const iFrame=idx('frame'), iX=idx('x'), iY=idx('y'), iZ=idx('z'), iSigma=idx('sigma'),
         iN=idx('intensity'), iBg=idx('offset'), iBs=idx('bkgstd'), iUnc=idx('uncertainty'),
-        iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st');
+        iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st'), iDist=idx('dist');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
   let maxXpx=0, maxYpx=0;
@@ -7176,6 +7220,7 @@ function parseCsvLocs(text){
     // whether it came from a real CRLB or the LS/phasor formula estimate) is lost.
     if(iUnc>=0 && p[iUnc]!==''){ const u=(+p[iUnc])/px; L.lpx=u; L.lpy=u; }
     if(iSigZ>=0 && p[iSigZ]!=='') L.lpz=+p[iSigZ];
+    if(iDist>=0 && p[iDist]!=='') L.dist=+p[iDist];   // already nm, no px conversion — see pairCore
     if(iSig1>=0 && p[iSig1]!=='') L.sigma1st=(+p[iSig1])/px;
     if(iMerged>=0) L.nMerged=+p[iMerged];
     if(L.x>maxXpx) maxXpx=L.x; if(L.y>maxYpx) maxYpx=L.y;
@@ -7201,10 +7246,10 @@ $('csvFile').addEventListener('change', async e=>{
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
-    const has3d=locs.some(L=>isFinite(L.z)), isClustered=locs[0].nMerged!==undefined;
+    const has3d=locs.some(L=>isFinite(L.z)), hasDist=locs.some(L=>isFinite(L.dist)), isClustered=locs[0].nMerged!==undefined;
     log(`Loaded ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} from ${f.name}, `+
         `${nFrames.toLocaleString()} frames (${(locs.length/Math.max(1,nFrames)).toFixed(1)} loc/frame)`+
-        `${has3d?' (3D)':''} — using the current Pixel size (${px} nm) and Magnification to render; `+
+        `${has3d?' (3D)':''}${hasDist?' (sSMLM paired)':''} — using the current Pixel size (${px} nm) and Magnification to render; `+
         `no raw frame data, so re-detection/live preview aren't available for this data.`);
     openTable();
   }catch(err){ log('Load data failed: '+err.message+'.'); }
@@ -7764,18 +7809,16 @@ function locTableData(baseLocs, isClustered){
   const locs=baseLocs||lastResult.locs, {px}=lastResult;
   checkTableSize(locs.length);
   const sigPSF=paramValue('psf');   // gain/offset are applied inside the fit itself now, not here
-  const has3d=locs.some(L=>isFinite(L.z));
-  const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
-  // sSMLM pairing stores inter-order DISTANCE in the z field (see MODULE:
-  // sSMLM), not real depth — label the column "dist" while that's active
-  // (sSmlmOriginalLocs is only ever set while a paired result is showing) so
-  // the table reads as what it actually is, not depth.
-  const isPaired = has3d && sSmlmOriginalLocs!=null;
-  const zKey = isPaired ? 'dist' : 'z';
+  const hasZ=locs.some(L=>isFinite(L.z));
+  const hasZUnc=hasZ && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
+  // sSMLM pairing stores the inter-order DISTANCE in its own `dist` field —
+  // deliberately independent of z (see MODULE: sSMLM / pairCore), so both
+  // can appear as their own columns rather than one aliasing the other.
+  const hasDist=locs.some(L=>isFinite(L.dist));
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output (or a paired CSV reload) — see pairCore
-  const cols=['id','frame','x','y'].concat(has3d?[zKey]:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
-  const dec={id:0,frame:0,x:1,y:1,[zKey]:1,sigma_xy:1,sigma_z:1,sigma1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
-  const unit={x:'nm',y:'nm',[zKey]:'nm',sigma_xy:'nm',sigma_z:'nm',sigma1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
+  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_z:1,sigma1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0};
+  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_z:'nm',sigma1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -7783,7 +7826,8 @@ function locTableData(baseLocs, isClustered){
     let sPx=L.sigma||0; if(!(sPx>0)) sPx=sigPSF; const sNm=sPx*px;
     const unc=(isFinite(L.lpx)&&isFinite(L.lpy))?Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px:precisionNm(sNm,px,N,bs);
     const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma_xy:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
-    if(has3d) r[zKey]=isFinite(L.z)?L.z:NaN;
+    if(hasZ) r.z=isFinite(L.z)?L.z:NaN;
+    if(hasDist) r.dist=isFinite(L.dist)?L.dist:NaN;
     if(hasZUnc) r.sigma_z=isFinite(L.lpz)?L.lpz:NaN;   // already nm — see zFromWidths
     if(hasSigma1st) r.sigma1st=(isFinite(L.sigma1st)&&L.sigma1st>0)?L.sigma1st*px:NaN;
     if(isClustered) r.nmerged=L.nMerged||1;
@@ -8175,7 +8219,19 @@ async function analyze(config){
   if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
   if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
   const r = await runCore(cfg, stack, {zcal:cal3d, wcal:cal3dW}, {onLog, onProgress});
-  const locs=r.locs;
+  let locs=r.locs;
+  // config.sSmlmPair — the headless equivalent of clicking Pair (MODULE:
+  // sSMLM): pairCore() itself throws (real z present, or the input is
+  // already-paired output) rather than analyze() needing its own guard, so
+  // this propagates immediately like every other analyze() precondition.
+  // Runs before drift/NeNA/FRC, same as the interactive convention (Pair,
+  // then optionally correct drift/measure precision on the paired set).
+  let sSmlmPair=null;
+  if(cfg.sSmlmPair && locs.length){
+    sSmlmPair = await pairCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
+    if(sSmlmPair.nPairs) locs = sSmlmPair.locs;
+    else onLog('  no pairs found — widen sSmlmDistMin/Max/sSmlmAngleTol and try again.');
+  }
   let drift=null;
   if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
   let nena=null, frc=null;
@@ -8197,14 +8253,19 @@ async function analyze(config){
     onLog('    meaningful until a real ADU→photon conversion is entered.');
   }
   const paramsOnly={}; for(const id in PARAMS) paramsOnly[id]=cfg[id];   // drop file/calibrationJson/onProgress/… — not PARAMS entries
-  const zc = cfg.zcolor && locs.some(L=>isFinite(L.z));
-  const zr = zc ? (zRange(locs)||{lo:0,hi:1}) : {lo:0,hi:1};
-  const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, onLog);
+  // Real 3D z and sSMLM's dist are independent fields (see pairCore) — only
+  // one is ever reachable today, so picking whichever is present is
+  // unambiguous; colorField says which one renderSuperRes/zRange read.
+  const hasZ = locs.some(L=>isFinite(L.z)), hasDist = locs.some(L=>isFinite(L.dist));
+  const colorField = hasZ ? 'z' : (hasDist ? 'dist' : 'z');
+  const zc = cfg.zcolor && (hasZ || hasDist);
+  const zr = zc ? (zRange(locs, colorField)||{lo:0,hi:1}) : {lo:0,hi:1};
+  const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog);
   return { locs, csvText:parts.join(''), logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
            drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
-           calib, calibJsonText, pcfo };
+           calib, calibJsonText, pcfo, sSmlmPair };
 }
 // Loops analyze() over multiple files with the same config (per-file
 // overrides via configs[i] are not needed yet — add if a real use case
@@ -8260,7 +8321,7 @@ async function runAutorun(){
     const spec=PARAMS[key];
     if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
                           : spec.type==='enum' ? val : +val; continue; }
-    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset') config[key]=(val==='1'||val==='true');
+    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair') config[key]=(val==='1'||val==='true');
     if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
   }
   const fileUrl=qp.get('fileUrl');

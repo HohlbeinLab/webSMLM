@@ -260,22 +260,41 @@ relevant one before editing rather than scrolling:
   directional/long-axis width: every 2D fit method (phasor/LS/2D MLE) fits one symmetric `sigma`,
   no `sx`/`sy` split the way the 3D astigmatic fit has — this is the closest available proxy for
   "how much wider the spectrally-smeared 1st order looks," not a true per-axis PSF decomposition.
-  Stores the inter-order distance in the paired loc's `z` — same trick the
-  prior-art tool's own `ThunderSTORM.csv` output uses — so the existing `zcolor` depth-coded
-  render path needs no changes (the **table** module relabels the `z` column to `dist` while the
-  paired set is what's shown); **Pair** refuses if the current result already has real 3D `z`, and
-  also sets `zmin`/`zmax` to the configured distance window (not the usual auto-fit) since every
-  accepted pair's `z` already lies inside it by construction. Three module-level vars track state:
+  Stores the inter-order distance in its own `dist` field — **deliberately never `z`**, an earlier
+  design that overwrote/aliased `z` was reverted (2026-08-17) specifically so a future 3D-fit +
+  sSMLM combination could carry real depth AND spectral distance on the same loc without one
+  silently clobbering the other; `pairCore()` never even sets `z` (the guard below guarantees it's
+  always absent on its input already). `renderSuperRes()`/`zRange()` take an explicit `colorField`
+  parameter (`'z'` or `'dist'`) instead of hardcoding `.z`, so the SAME depth-coded render path
+  colours by either; `rerender()`/`analyze()` derive it as `hasZ ? 'z' : (hasDist ? 'dist' : null)`
+  — only one is ever reachable today (see the guard below), so this is unambiguous, but the seam is
+  real, not hypothetical. This split is also what fixed a genuine bug found while making it: drift
+  correction's "Correct z too (3D)" option used to key off the same `has3d` check the colour toggle
+  used, so it would show — and if ticked, silently 1-D-"correct" — a paired result's spectral
+  `dist` as if it were spatial depth. `driftZRow`'s visibility (and `driftCore`'s own `has3d` gate)
+  is keyed on real `z` alone now, never `dist`, which structurally can't happen once the two fields
+  are genuinely independent. **`pairCore()` itself throws** (not just the interactive wrapper) if
+  the input already has real 3D `z`, OR if it already has a `dist` field (i.e. is already-paired
+  output) — the second guard is new alongside the `z`/`dist` split: with `z` no longer touched by
+  pairing, re-pairing an already-paired result can no longer be caught as a side effect of the
+  z-guard the way it used to be, so it needs its own explicit check. Both guards apply to every
+  caller uniformly, interactive or headless. Interactively, **Pair** also
+  sets `zmin`/`zmax` to the configured distance window (not the usual auto-fit) since every
+  accepted pair's `dist` already lies inside it by construction. Three module-level vars track state:
   `sSmlmOriginalLocs` (the TRUE raw backup, captured once — same pattern **in/out**'s raw-panel
   crop tool uses for `originalStack` — and ALSO the authoritative pairing input: Preview/Pair
   always read `sSmlmOriginalLocs || lastResult.locs`, never `lastResult.locs` alone, since that may
-  currently be an already-paired subset with no 1st-order companions left to find — get this wrong
-  and re-Pairing trips the "already has real z" 3D guard on the first pairing's own distance-as-z),
+  currently be an already-paired subset with no 1st-order companions left to find),
   `sSmlmPairedLocs` (latest Pair result, replaced on re-Pair), and `sSmlmShowingRaw` (which of the
   two `lastResult.locs` currently is). The reconstruction-panel toggle (`sSmlmColorBtn`, "Show
   spectral"/"Show standard") swaps `lastResult.locs` between them (plus `zcolor` to match) — a real
   data swap, not just a colour flip — so "Show standard" is the literal unpaired reconstruction,
-  without discarding the pairing the way Unpair does.
+  without discarding the pairing the way Unpair does. **Headless**: `config.sSmlmPair` (v0.11.1)
+  runs pairing right after Localize, before drift/NeNA/FRC — same config-gated-optional-step
+  pattern as `config.correctDrift`/`config.estimateGainOffset`; `pairCore()`'s own throws propagate
+  immediately (no separate headless guard needed), and the result's `sSmlmPair` field records
+  `nPairs`/`nInput`/`meanDistance`/`stdDistance`. `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and
+  `?autorun=`'s `sSmlmPair=1` both forward to it.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper
