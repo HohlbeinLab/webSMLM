@@ -66,6 +66,42 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   its single-threaded fallback. File's physical order now matches
   `CLAUDE.md`'s documented list end to end.
 
+- **Nikon ND2 loading — feasibility researched 2026-08-17, blocked on a real
+  sample file.** Requested by a new user. ND2 has **no official public
+  specification** — every existing reader (Bio-Formats, both `nd2reader`
+  packages) is reverse-engineered, and there are two genuinely different
+  format variants:
+  - **Legacy**: image data is **JPEG2000-compressed**. Not worth attempting
+    — no lightweight JS JPEG2000 decoder exists comparable to what `pako`
+    already does for deflate; a real decoder would be a large, complex
+    addition disproportionate to likely benefit. Detect and reject with a
+    clear error rather than half-support it.
+  - **Modern** (NIS-Elements 4.0+, chunk-based container, file signature
+    literally `"ND2 FILE SIGNATURE CHUNK NAME01!Ver3.0"`): image data is
+    **uncompressed or Zip/deflate-compressed** — the tractable case, since
+    `pako` is already inlined for exactly that compression. A loader would
+    reimplement the chunk-map container parsing (analogous in spirit to how
+    **in/out** already walks TIFF's multi-IFD chain) and plug into the
+    existing `getFrame()/getFrames()` stack abstraction, so nothing
+    downstream (detect/fit/FTM/etc.) needs to know the source format.
+  - **License landscape matters here**: Bio-Formats' ND2 reader and both
+    `nd2reader` packages are GPLv3+/GPL — not safe to port code from into
+    this CC-BY project (same reasoning that already keeps this codebase
+    MIT-only for `pako`/UTIF). [`tlambert03/nd2`](https://github.com/tlambert03/nd2)
+    is **BSD-3-Clause**, pure Python, no Nikon SDK dependency for the modern
+    format — the one safe reference to port chunk-parsing logic from, with
+    attribution in the head banner matching the `pako`/UTIF precedent. No
+    existing JS/WASM ND2 reader was found anywhere (the one "web ND2
+    viewer" that exists, `miuraTakashi/ND2-Viewer`, is a Flask server
+    calling `tlambert03/nd2` in Python — nothing runs client-side).
+  - **Real blocker**: no spec means real risk of subtly-wrong metadata
+    (frame dimensions, bit depth, pixel calibration) with no way to
+    validate short of a real file — there's no ground truth to check
+    against otherwise. **Waiting on a real modern-variant ND2 sample**
+    (from the requesting user or the lab's own scopes) before writing any
+    parser code, the same "get a real reference dataset first" approach
+    used for the sSMLM CSV and the other `experimental_data/` fixtures.
+
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
   note for the current design. Remaining:
