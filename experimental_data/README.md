@@ -291,6 +291,28 @@ non-positive D (a real, expected artifact of the localization-error
 correction for near-immobile tracks, not a bug — see **spt** in
 `CLAUDE.md`).
 
+## Seventh & eighth reference datasets — genuine native ND2 binaries
+
+`2026-07-13_BHK21_EphB2_mEos4_substack_0-100.nd2` (13.9 MB, 100 frames) and
+`2026-07-13_BHK21_EphB2_mEos4_substack_0-500.nd2` (68.0 MB, 500 frames) —
+real STORM/PALM acquisitions (mEos4, BHK21 cells, EphB2), placed to unblock
+Nikon ND2 loading (see `docs/REFACTOR_PLAN.md`'s ND2 entry). Unlike the
+earlier `example_stack100.nd2` (which turned out to be a mislabeled TIFF),
+these are confirmed **genuine native ND2 binaries**: `file(1)` reports
+"data" (unrecognized), magic `0x0ABECEDA` at offset 0, the literal
+`"ND2 FILE SIGNATURE CHUNK NAME01!Ver3.0"` string at offset 0x10.
+
+The chunk container format was reverse-engineered directly from these two
+files (cross-validated against each other, byte-identical structure except
+frame count) — see `docs/REFACTOR_PLAN.md` for the full chunk-header/
+`ImageAttributesLV!` decode. Confirmed: 256×256, 16-bit storage (14-bit
+significant), single channel, frame count recoverable three independent
+ways (counting `ImageDataSeq` chunks, the `uiSequenceCount` metadata field,
+and the filename itself — all agree: 100 and 500 respectively). Real pixel
+payload bytes read as plausible uncompressed camera data, no decompression
+applied. No webSMLM parser code exists yet — this was read-only structure
+reconnaissance (Python, offline).
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations

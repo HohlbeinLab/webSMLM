@@ -66,8 +66,9 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   its single-threaded fallback. File's physical order now matches
   `CLAUDE.md`'s documented list end to end.
 
-- **Nikon ND2 loading — feasibility researched 2026-08-17, blocked on a real
-  sample file.** Requested by a new user. ND2 has **no official public
+- **Nikon ND2 loading — feasibility researched 2026-08-17; real chunk format
+  reverse-engineered from a genuine sample 2026-08-18, ready to build.**
+  Requested by a new user. ND2 has **no official public
   specification** — every existing reader (Bio-Formats, both `nd2reader`
   packages) is reverse-engineered, and there are two genuinely different
   format variants:
@@ -129,6 +130,75 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     genuinely unparseable content (a real native ND2 binary, or anything
     else) now fails with a clear error instead of `NaN`-sized buffers and
     canvas errors propagating downstream. See **in/out** in `CLAUDE.md`.
+  - **Two genuine native ND2 binaries landed 2026-08-18** —
+    `experimental_data/2026-07-13_BHK21_EphB2_mEos4_substack_0-{100,500}.nd2`
+    (real STORM/PALM acquisitions, mEos4, confirmed by direct byte
+    inspection: `file(1)` reports "data", magic `0x0ABECEDA` at offset 0,
+    the literal `"ND2 FILE SIGNATURE CHUNK NAME01!Ver3.0"` string at offset
+    0x10 — the real thing this time, not another TIFF-in-disguise). The
+    chunk container format was reverse-engineered directly from these two
+    files (cross-validated against each other — byte-identical structure
+    except `uiSequenceCount`, see below), not guessed or copied from any
+    GPL source:
+    - **Chunk header** (16 bytes, all little-endian): magic `u32`
+      (`0x0ABECEDA`, constant across every chunk) + `dataOffset` `u32`
+      (bytes from chunk start to where the payload begins) + `dataLen` `u32`
+      (payload byte length) + 4 reserved/zero bytes. A null/`!`-terminated
+      ASCII chunk name follows immediately at chunk-start+16 (e.g.
+      `"ImageDataSeq|42!"`), then padding, then the payload starts at
+      chunk-start+`dataOffset`. Each chunk (header+name+payload) is padded
+      up to the next 4096-byte boundary before the next chunk begins —
+      confirmed exactly: `dataOffset+dataLen` rounded up to the next 4096
+      multiple equals the measured stride between consecutive
+      `ImageDataSeq` chunks in both files, every time.
+    - **Frame count** = a plain count of `"ImageDataSeq|N!"` chunks — 100
+      and 500 respectively, exactly matching each file's own filename
+      (`substack_0-100`/`substack_0-500`) and independently matching the
+      `uiSequenceCount` metadata field below. Three independent signals
+      agreeing is strong confidence this part is right.
+    - **`ImageAttributesLV!`** (found right before the trailing chunk map)
+      holds the real declarative metadata — width/height/bit depth/frame
+      count — encoded in Nikon's own binary key-value format (unofficial
+      name "LV", likely "Labeled Value"): a container record
+      (`SLxImageAttributes`, type `0x0b`) holds N child fields, each
+      `[type: u8][nameLen: u8, INCLUDES a trailing null][name: UTF-16LE,
+      nameLen×2 bytes][value: type-dependent width]`. Decoded by hand
+      against real bytes (not assumed): `uiWidth`=256, `uiWidthBytes`=512
+      (256×2, confirming 16-bit storage independent of the next field),
+      `uiHeight`=256, `uiComp`=1 (single channel), `uiBpcInMemory`=16,
+      `uiBpcSignificant`=14 (14-bit ADC stored in 16-bit words — a
+      completely ordinary sCMOS/EMCCD figure), `uiSequenceCount`=100 (file
+      1) / 500 (file 2) — matching the independently-counted frame count
+      exactly in both files. Only the scalar-field shape is decoded so far,
+      not the full recursive container grammar (nested `SLx*` structs still
+      unexplored) — enough to read dimensions/frame count, not yet a
+      general-purpose metadata parser.
+    - **Compression**: `eCompression`=2 present in the same chunk (meaning
+      not yet independently verified — no confirmed enum mapping found from
+      an authoritative source), but a direct check of real
+      `ImageDataSeq|0!` payload bytes as raw uint16 values produced a
+      completely plausible camera frame (background ~100–140 ADU, a bright
+      region up to 20,211) with NO decompression applied at all — real
+      compressed/entropy-coded data would not look like that. Working
+      hypothesis, not yet a certainty: this real-world sample's pixel data
+      is stored **fully uncompressed**, simpler than the "uncompressed or
+      deflate" case the original feasibility research anticipated — `pako`
+      may not even be needed for files like these two.
+    - **`ND2 FILEMAP SIGNATURE NAME 0001!`** confirmed as the last chunk in
+      both files — the trailing chunk-map/index existence predicted by the
+      original research is real; not yet decoded (a real parser would
+      prefer reading this index over a full linear magic-byte scan, which
+      is what this investigation used and which does not scale well to
+      much larger files).
+    - **Not yet done**: an actual parser wired into **in/out**'s
+      `getFrame()/getFrames()` stack abstraction — this was header/structure
+      reconnaissance (Python, offline, read-only), no webSMLM code written.
+      Next real step when picked back up: a minimal JS reader — walk the
+      file for the chunk map (or fall back to linear scan), read
+      `ImageAttributesLV!` for width/height/frame count, expose
+      `ImageDataSeq|N!` payloads as typed-array frames — same shape as
+      `loadTiffFile()`'s return value so nothing downstream needs to know
+      the source format.
 
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
