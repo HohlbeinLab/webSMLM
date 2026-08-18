@@ -288,9 +288,27 @@ relevant one before editing rather than scrolling:
   log a "gain 1 / offset 0" warning when a user hasn't set real camera values.
 - **3D calibration** — astigmatic: σ_x/σ_y vs z bead curves, JSON save/load. Astigmatism is the
   only method implemented; other 3D approaches (Double Helix, Biplane) would live here too.
-- **drift** — AIM (adaptive intersection maximization), point-based, 2D+z.
+  `calibrationCore()` takes the same `shouldStop` hook `runCore()` (Localize) does, checked at the
+  same yield point as its progress/preview callbacks (a Stop click can only be observed while
+  yielding); `runCalibration()` enables `stopBtn` and resets `stopRequested` the same way `run()`
+  does. Unlike Localize there is no partial-result path on stop: the frame loop returns
+  `{stopped:true}` immediately rather than falling through to the quadratic/phasor-ratio fit —
+  fitting only the frames seen so far would silently produce a BIASED curve (missing the rest of
+  the z-range), not a smaller-but-still-correct one, so `runCalibration()` discards everything and
+  returns early rather than accepting a wrong calibration. Added after a real workflow slip
+  (3D calibration accidentally triggered on an ordinary movie, with no way to cancel the resulting
+  long run).
+- **drift** — AIM (adaptive intersection maximization), point-based, 2D+z. `drawDriftCurve()`'s
+  own green (`#0a7d32`)/magenta (`#c81cc8`)/blue (`#3572b0`) drift-x/y/z palette is treated as the
+  project's reference colour pairing — other plots' own green/magenta curves (NeNA, **spt**'s
+  track-length fit) were retroactively matched to it rather than picking independent colours, so a
+  colour means the same thing across plots as much as it reasonably can.
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
+  `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +
+  short-range + long-range terms) and magenta (`#c81cc8`, the signal-Rayleigh term alone) —
+  matching **drift**'s own green/magenta pairing; an earlier version used green for the signal term
+  and red for the full fit, swapped for this consistency.
 - **sSMLM** — spectrally resolved SMLM: pairs 0th/1st-order localizations from a diffraction
   grating (ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
   Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). Role assignment (which point of a pair is
@@ -473,7 +491,8 @@ relevant one before editing rather than scrolling:
   which measurably drags the fitted line away from the short-track end (both more populous AND more
   statistically reliable); caught from a real rendered histogram on the full lactis dataset where
   an earlier unweighted version's fit line sat nearly an order of magnitude below the first bar. The
-  fit is attached as
+  fit curve is drawn magenta (`#c81cc8`), matching **drift**'s own green/magenta pairing (an
+  earlier version used amber). The fit is attached as
   `histData.curve`/`curveLabel` — see **table**'s `computeHist()`/`drawHistogram()` entry above for
   how the shared histogram plot draws that curve generically. τ is reported in both locs and
   seconds (`× sptFrameTime`) in the log and on-plot legend; **locs≈frames only when `sptMemory=0`**
