@@ -282,14 +282,20 @@ count by 173, worth knowing if cropping to a round number; 50 ms/frame
 
 Loads and localizes through webSMLM's existing TIFF/Localize path with no
 changes needed. Full-stack run (default `pxnm=100`, `method=gaussmle`):
-74,011 localizations → **spt Track** finds 21,578 tracks, 13,645 with
-`sptTrackLenMin=2` (default) qualify for a D estimate — mean D = 0.321
-µm²/s, median D = 0.186 µm²/s (consistent with a 100-frame-subset run: mean
-0.311, median 0.182), both physically plausible for bacterial cytoplasmic
-protein diffusion. 1,217 of the full run's tracks came out with a
-non-positive D (a real, expected artifact of the localization-error
-correction for near-immobile tracks, not a bug — see **spt** in
-`CLAUDE.md`).
+74,011 localizations → **spt Track** finds 21,578 tracks (unchanged by
+`sptTrackLenMin`, which only gates the D estimate below, not linking
+itself), 5,175 with `sptTrackLenMin=5` (default as of the 2026-08-18
+refinement) qualify for a D estimate — mean D = 0.325 µm²/s, median D =
+0.264 µm²/s (consistent with a 100-frame-subset run: mean 0.290, median
+0.235), both physically plausible for bacterial cytoplasmic protein
+diffusion. 82 of the full run's tracks came out with a non-positive D (a
+real, expected artifact of the localization-error correction for
+near-immobile/short tracks, not a bug — see **spt** in `CLAUDE.md`);
+`drawSptDHist()` excludes these from the plotted histogram rather than
+clamping them into one bin. These numbers replace an earlier run under the
+pre-refinement algorithm (`sptTrackLenMin=2`, `sptTrackLenMax=8` truncation,
+D clamped rather than excluded), which is why the qualifying-track count and
+mean/median D shifted from that version.
 
 ## Seventh & eighth reference datasets — genuine native ND2 binaries
 

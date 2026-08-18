@@ -324,30 +324,50 @@ relevant one before editing rather than scrolling:
   convention `pairCore()`/`driftCore()` use) with `track_id` set on EVERY localization (even
   length-1 tracks, matching trackpy's own behaviour — length filtering happens only at the
   diffusion-coefficient step, same division of responsibility the reference pipeline uses).
-  `trackDiffusionCoeffs()` ports `diff_coeffs_per_track()` exactly: one D (µm²/s) per track meeting
-  `sptTrackLenMin`, from the gap-corrected mean single-frame squared displacement over the track's
-  first `sptTrackLenMax` localizations (longer tracks truncated, not dropped, so every qualifying
-  track gets equal weight) — `D = MSD/(4·frametime) − locError²/frametime` (2D,
-  static-localization-error-corrected); a real, expected artifact of this formula is that
-  near-immobile tracks can compute a non-positive D (MSD below the subtracted term), handled by
-  clamping to the histogram's lowest bin with a logged count, not silently dropped or crashed on.
-  **Track** (`runSptTrack()`) is idempotent and safe to re-run any time — unlike sSMLM's Pair, it
-  never reduces row count or aliases another field, only sets/overwrites `track_id`/`D_coeff`, so
-  there's no `sSmlmOriginalLocs`-style original-vs-tracked state to manage. Immediately draws a
-  histogram of D in the raw panel via the SAME `computeHist()`/`drawHistogram()` the table module's
-  histograms use, fed `log10(D)` values (`'log10(D)'` as the pseudo-column name) rather than raw D
-  — D commonly spans orders of magnitude between bound/slow and free/fast populations, matching the
-  reference pipeline's own default logarithmic axis; a real v1 shortcut, not yet nicely
-  `10^x`-formatted tick labels (`docs/REFACTOR_PLAN.md`). `sptLocError`'s **from NeNA** button
-  transfers `lastNena.sigma` (a new stash `computeNeNA()` writes, locprecision module) into it —
-  same compute-once/transfer-separately split PCFO's `pcfoLastGain`/`pcfoLastOffset` already use,
-  never silently auto-applied. `track_id`/`D_coeff` are independent, optional table/CSV columns
-  (same pattern this project already used for sSMLM's `dist`/`sigma1st`), so the existing filter
-  grammar works on tracking data for free (e.g. `D_coeff > 1 and track_id > 0`). No
-  cell-segmentation-aware tracking (the reference pipeline's `use_segmentations` branch — webSMLM
-  has no concept of cell masks), no length-resolved D histogram, no colour-by-D/by-track rendering,
-  and no headless exposure yet — all tracked as `docs/REFACTOR_PLAN.md` follow-ups, same
-  "interactive first" precedent sSMLM's own headless exposure followed.
+  `trackDiffusionCoeffs()` ports `diff_coeffs_per_track()`'s core MSD math (not its track-length
+  handling — see below): one D (µm²/s) per track with at least `sptTrackLenMin` localizations, from
+  the gap-corrected mean of ALL of that track's own single-frame squared displacements — an
+  average, explicitly NOT a linear MSD-vs-lag-time fit, matching the reference pipeline exactly
+  (its own separate `tp.utils.fit_powerlaw()` is a different, aggregate diagnostic this function
+  doesn't reproduce) — `D = MSD/(4·frametime) − locError²/frametime` (2D,
+  static-localization-error-corrected). Unlike the reference pipeline there is no `sptTrackLenMax`
+  truncation: an earlier version capped each track to its first N localizations for equal per-track
+  weighting in a length-resolved histogram, but webSMLM doesn't build that view (yet), so every
+  qualifying track's MSD now uses all of its own steps — more data per track, no arbitrary cap.
+  `trackDiffusionCoeffs()` also collects `trackLengths` for EVERY linked track regardless of
+  whether it qualifies for a D estimate — `drawSptTrackLenHist()`'s log-Y-axis (count axis; track
+  counts fall off steeply with length, and a linear axis would flatten the useful range into a
+  sliver) histogram of this is exactly how a user judges whether `sptTrackLenMin` is set sensibly
+  for their data, so it can't only show tracks already past that threshold. `computeHist()`/
+  `drawHistogram()` (table module) gained an optional 5th `logY` parameter for this — bars/ticks
+  map through `log10(count)`, with a 0-count bin naturally pinned to the axis floor via
+  `log10(max(1,c))=0`; `registerPlotHover()`'s hover readout is linear-interpolation-only and
+  transform-unaware, so log mode hands it log-space `yTop`/`yBot` bounds and undoes the transform
+  inside its own `fmt` callback instead of teaching the shared hover code a Y-scale option. A real,
+  expected artifact of the D formula is that near-immobile or very-short tracks can compute a
+  non-positive D (MSD below the subtracted error term) — `drawSptDHist()` EXCLUDES these from the
+  plotted log10(D) histogram (with a logged count, not silently dropped) rather than clamping them
+  into one bin; an earlier version's clamp pooled potentially hundreds of unrelated tracks into a
+  single artificial-looking spike with no biological meaning, which is what a log-binned
+  `np.histogram()` call (the reference pipeline's own approach) avoids implicitly by just excluding
+  out-of-range values. **Track** (`runSptTrack()`) is idempotent and safe to re-run any time —
+  unlike sSMLM's Pair, it never reduces row count or aliases another field, only sets/overwrites
+  `track_id`/`D_coeff`, so there's no `sSmlmOriginalLocs`-style original-vs-tracked state to
+  manage. Immediately draws the D histogram in the raw panel via `computeHist()`/`drawHistogram()`,
+  fed `log10(D)` values (`'log10(D)'` as the pseudo-column name) rather than raw D — D commonly
+  spans orders of magnitude between bound/slow and free/fast populations, matching the reference
+  pipeline's own default logarithmic axis; a real v1 shortcut, not yet nicely `10^x`-formatted tick
+  labels (`docs/REFACTOR_PLAN.md`). `sptLocError`'s **from NeNA** button transfers
+  `lastNena.sigma` (a new stash `computeNeNA()` writes, locprecision module) into it — same
+  compute-once/transfer-separately split PCFO's `pcfoLastGain`/`pcfoLastOffset` already use, never
+  silently auto-applied. `track_id`/`D_coeff` are independent, optional table/CSV columns (same
+  pattern this project already used for sSMLM's `dist`/`sigma1st`), so the existing filter grammar
+  works on tracking data for free (e.g. `D_coeff > 1 and track_id > 0`). No cell-segmentation-aware
+  tracking (the reference pipeline's `use_segmentations` branch — webSMLM has no concept of cell
+  masks), no length-RESOLVED D histogram (D binned by track length, distinct from the plain
+  track-length histogram above, which webSMLM does have), no colour-by-D/by-track rendering, and no
+  headless exposure yet — all tracked as `docs/REFACTOR_PLAN.md` follow-ups, same "interactive
+  first" precedent sSMLM's own headless exposure followed.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

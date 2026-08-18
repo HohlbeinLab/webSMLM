@@ -303,9 +303,28 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   `diff_coeffs_per_track()` in the user's own `sptPALM-Python` pipeline) —
   see **spt** in `CLAUDE.md` for the full design; verified against
   synthetic straight-line/crossing/gap-bridging cases AND the real bundled
-  L. lactis dataset (both a 100-frame subset and the full 1173-frame movie —
-  74,011 localizations, 21,578 tracks, mean D 0.321 µm²/s, consistent
-  between the two runs). Deliberately deferred, not forgotten:
+  L. lactis dataset (both a 100-frame subset and the full 1173-frame movie).
+  **2026-08-18 refinement round**, prompted by the user testing the real
+  dataset and spotting an artificial-looking peak at D≈10⁻³ µm²/s: fixed
+  `drawSptDHist()` to EXCLUDE non-positive D from the plotted histogram
+  (logging the excluded count) instead of clamping every such track into
+  one bin — the clamp was the actual cause of the fake peak, pooling
+  unrelated near-immobile/short tracks into a single artificial spike; also
+  dropped `sptTrackLenMax`/truncation entirely (every qualifying track's
+  MSD now uses ALL of its own steps, not a capped prefix — the truncation's
+  only purpose, equal per-track weighting for a length-resolved histogram,
+  doesn't apply yet), raised `sptTrackLenMin`'s default 2→5 per user
+  guidance, and added a **Show length hist.** button
+  (`drawSptTrackLenHist()`) — a log-Y-axis histogram of every linked
+  track's length, the intended way to judge whether **SPT min track
+  length** is set sensibly. The log-Y support is generic:
+  `computeHist()`/`drawHistogram()` (table module) gained an optional 5th
+  `logY` parameter, reusable by any future histogram that needs one.
+  `experimental_data/README.md`'s lactis entry was re-run and updated under
+  the new algorithm (74,011 localizations, 21,578 tracks unchanged — linking
+  itself didn't move — 5,175 tracks with `sptTrackLenMin=5` qualify for a D
+  estimate, mean D 0.325 µm²/s, only 82 non-positive-D tracks now excluded
+  rather than clamped). Deliberately deferred, not forgotten:
   - **Headless (`window.webSMLM.analyze()`/CLI) exposure** — same
     "interactive first, headless once it's seen real use" precedent sSMLM's
     own headless exposure followed a full version cycle after Phase 1.

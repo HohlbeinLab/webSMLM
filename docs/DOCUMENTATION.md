@@ -133,11 +133,13 @@ says.
   so the top-level **View data + filtering** button (§1 item 5) works on
   them directly — no separate table here. See **sSMLM** module.
 - **Single particle tracking** (`sptBox`) — `sptSearchRange`/`sptMemory`/
-  `sptFrameTime`/`sptLocError`/`sptTrackLenMin`/`sptTrackLenMax`, **from
-  NeNA** (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last
-  computed NeNA precision — disabled until NeNA has actually been run), and
-  **Track**/**Show D histogram** (`sptTrackBtn`/`sptDHistBtn`). Enabled as
-  soon as there are localizations, same gating as Spectral SMLM analysis.
+  `sptFrameTime`/`sptLocError`/`sptTrackLenMin`, **from NeNA**
+  (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last computed NeNA
+  precision — disabled until NeNA has actually been run), and
+  **Track**/**Show D histogram**/**Show length hist.**
+  (`sptTrackBtn`/`sptDHistBtn`/`sptTrackLenHistBtn`, the last log-Y-axis
+  track-length histogram enabled once **Track** has run). Enabled as soon as
+  there are localizations, same gating as Spectral SMLM analysis.
   **Track** immediately plots a diffusion-coefficient histogram in the raw
   panel; **Show D histogram** redraws it later without re-tracking. See
   **spt** module.
@@ -561,8 +563,7 @@ for the first implementation.
 | `sptMemory` | SPT memory (frames) | number (int) | 0 | 20 | 1 | 0 |
 | `sptFrameTime` | SPT frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
 | `sptLocError` | SPT localization error (nm) | number | 0 | 500 | 1 | 35 |
-| `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 2 |
-| `sptTrackLenMax` | SPT max track length (locs) | number (int) | 2 | 1000 | 1 | 8 |
+| `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
 
 Defaults are ported from the user's own `sptPALM-Python` pipeline's
 `set_parameters_sptPALM.py` (L. lactis sptPALM), converted from that
@@ -993,25 +994,37 @@ is what to know before touching that module, not a restatement of its code.
   idempotent and safe to re-run any time — it only sets/overwrites
   `track_id`/`D_coeff`, never drops or replaces rows, so there's no
   original-vs-tracked state to manage the way sSMLM's Pair/Unpair needs.
-  One D (µm²/s) is computed per qualifying track from its own gap-corrected
-  mean single-frame squared displacement (**SPT min/max track length** set
-  which tracks qualify and how many of their own localizations count —
-  longer tracks are truncated, not dropped, so every qualifying track gets
-  equal weight), corrected for **SPT localization error**:
-  D = MSD/(4·frame time) − error²/frame time; a near-immobile track can
-  compute a non-positive D (a real artifact of this correction, not a bug),
-  clamped into the histogram's lowest bin with a logged count rather than
-  dropped or crashed on. **Track** immediately plots a histogram of D
+  One D (µm²/s) is computed per track with at least **SPT min track
+  length** localizations, from the gap-corrected mean of ALL of that
+  track's own single-frame squared displacements — an average, not a
+  linear MSD-vs-lag-time fit, matching the reference pipeline's own
+  `diff_coeffs_per_track()` exactly — corrected for **SPT localization
+  error**: D = MSD/(4·frame time) − error²/frame time. Unlike the reference
+  pipeline there is no max-track-length truncation: an earlier webSMLM
+  version capped each track's MSD to its first N localizations for equal
+  per-track weighting in a length-resolved histogram, but that view isn't
+  built (yet), so every qualifying track's MSD now uses all of its own
+  steps. A near-immobile or very-short track can compute a non-positive D
+  (a real artifact of the localization-error correction, not a bug) —
+  **Track** excludes these from the plotted histogram (logging the excluded
+  count) rather than clamping them into one bin, which would pool unrelated
+  tracks into a fake spike. **Track** immediately plots a histogram of D
   (log<sub>10</sub>-binned — D commonly spans orders of magnitude between
   bound/slow and free/fast populations, matching the reference pipeline's
   own logarithmic default) in the raw panel, reusing the table module's own
   `computeHist()`/`drawHistogram()`; **Show D histogram** redraws it later
-  without re-tracking. `track_id`/`D_coeff` become independent, optional
-  table/CSV columns (§5/§6) the same way sSMLM's `dist`/`sigma1st` do, so
-  the existing filter grammar works on tracking data for free. No
-  cell-segmentation-aware tracking, no length-resolved D histogram, no
-  colour-by-D/by-track rendering, and no headless exposure yet — see
-  `docs/REFACTOR_PLAN.md`.
+  without re-tracking. **Show length hist.** plots the distribution of
+  every linked track's length (regardless of whether it met **SPT min
+  track length**) with a log-scaled count axis — track counts fall off
+  steeply with length, so a linear axis would flatten the useful range into
+  a sliver — the intended way to judge whether **SPT min track length** is
+  set sensibly for a given dataset. `track_id`/`D_coeff` become independent,
+  optional table/CSV columns (§5/§6) the same way sSMLM's `dist`/`sigma1st`
+  do, so the existing filter grammar works on tracking data for free. No
+  cell-segmentation-aware tracking, no length-RESOLVED D histogram (D
+  binned by track length — distinct from the plain track-length histogram
+  above), no colour-by-D/by-track rendering, and no headless exposure yet —
+  see `docs/REFACTOR_PLAN.md`.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table
