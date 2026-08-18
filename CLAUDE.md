@@ -219,6 +219,18 @@ relevant one before editing rather than scrolling:
   either. `drawRawView()`/`drawView()` (actual frame/reconstruction pixels) never pass `isPlot`, so
   they keep filling the panel's full box exactly as before.
 
+  Since raw/sr canvases are now ALWAYS the same height (both track `--frame-ar` unconditionally),
+  `.panel-body` (the div wrapping a canvas with its own trailing controls —
+  `#scrubRow`/`#srFilterNote`/`#calViewRow`) is top-aligned, NOT centred: an earlier version of
+  this same round centred each panel's canvas+controls group independently within its card, which
+  shifted the two canvases OUT of alignment with each other by roughly half of whichever trailing
+  control only one panel has at a given moment (raw's `#scrubRow` has no sr-side equivalent when
+  `#srFilterNote`/`#calViewRow` are both hidden) — a real, reported "the two panels don't line up"
+  regression, caught from a live drift-correction screenshot. Top-aligning puts both canvases flush
+  against their own `h4` always, so they start at the same y regardless of trailing-content
+  differences; any leftover height from that difference lands invisibly at the bottom of the
+  shorter card instead of visibly offsetting its canvas.
+
   Every plot function reads colours from `plotColors()` (a `{bg,grid,text,axis,bar}` object) rather
   than a hardcoded hex value, driven by a module-level `_plotExportMode` flag — `false` (dark,
   `#161b22`/`#30363d`/`#8b949e`/`#e6edf3`/`#58a6ff`, matching the app's own `:root` custom

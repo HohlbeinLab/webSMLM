@@ -6,7 +6,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **Plot panel UI polish (2026-08-18, builds d–f)**, prompted by user feedback
+- **Plot panel UI polish (2026-08-18, builds d–h)**, prompted by user feedback
   after the spt refinement round above. Shipped: (1) plots letterbox a fixed
   4/3 sub-rectangle CENTRED WITHIN the panel's own box (`setupPlot(cv,true)`)
   rather than changing the panel's own size — an earlier version within this
@@ -49,6 +49,19 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   this entire session and could not be reproduced in headless Chromium;
   user confirmed afterward it was their own observation error, not a real
   bug — no code change was needed or made.
+
+  (5, build h) The letterbox redesign in (1) introduced its OWN alignment
+  bug, caught from a live drift-correction screenshot on the real full
+  lactis dataset: `.panel-body` centred each panel's canvas+trailing-
+  controls group independently, but since raw/sr canvases are now always
+  exactly the same height, that centring shifted the two canvases out of
+  vertical alignment with each other by roughly half of whichever trailing
+  control only ONE panel has at a given moment (raw's `#scrubRow`, no sr
+  equivalent when `#srFilterNote`/`#calViewRow` are both hidden) — measured
+  as an exact 14px offset in one repro, confirmed by DOM geometry before and
+  after the fix. `.panel-body` is top-aligned now (flex's own default,
+  `justify-content:center` removed) instead — see **render** in
+  `CLAUDE.md`.
 
 - **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
   prompted by two large candidate modules — single-particle tracking (SPT)

@@ -181,9 +181,14 @@ colour first so the letterbox bars are invisible, then translating so the
 plot's own drawing code (unaware of any of this) draws into the sub-rect as
 if it were the whole canvas. 4/3 matches matplotlib's own default figure
 size. Each canvas's own controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`)
-are wrapped with it in a `.panel-body` div, which still centers the group
-vertically within any leftover card height as a safety net (raw/sr
-normally already match exactly, since both share `--frame-ar`).
+are wrapped with it in a `.panel-body` div, which is top-aligned (NOT
+centered) — since raw/sr canvases are now always exactly the same height,
+centering each panel's own canvas+controls group independently used to
+shift the two canvases out of alignment with each other by roughly half of
+whichever trailing control only one panel has (raw's `#scrubRow` has no sr
+equivalent when `#srFilterNote`/`#calViewRow` are both hidden). Top-aligning
+keeps both canvases flush against their own title row always, so they start
+at the same y regardless of what trailing content either panel has.
 
 Every plot function reads its colours from `plotColors()` rather than a
 hardcoded hex value: dark on screen (`#161b22` background, matching the

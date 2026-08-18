@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18g; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18h; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
-    params          1896   PARAMS registry, single source of truth for params
-    in/out          2310   TIFF parsing, in-memory/streamed loading, FTM
-    simulation      2623   synthetic stack generator ("Simulate movie")
-    detect          3200   per-frame band-pass + local-maxima detection
-    fit             3456   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3813   accumulate to offscreen buffer; view/colour/blur
-    workers         4440   frame-parallel detect/fit worker pool
-    export          4596   ThunderSTORM-compatible CSV
-    3D calibration  4781   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5157   AIM drift correction (2D+z)
-    locprecision    5390   NeNA + FRC
-    sSMLM           5999   spectrally resolved SMLM pair-finding
-    spt             6438   single particle tracking, trackpy-inspired
-    pipeline        6818   top-level orchestration, *Core()/wrapper split
-    table           8270   localizations table, filtering, histograms
-    headless API    8694   window.webSMLM.analyze()/analyzeBatch()
+    params          1903   PARAMS registry, single source of truth for params
+    in/out          2317   TIFF parsing, in-memory/streamed loading, FTM
+    simulation      2630   synthetic stack generator ("Simulate movie")
+    detect          3207   per-frame band-pass + local-maxima detection
+    fit             3463   phasor / LS / Poisson-MLE 2D+3D localization
+    render          3820   accumulate to offscreen buffer; view/colour/blur
+    workers         4447   frame-parallel detect/fit worker pool
+    export          4603   ThunderSTORM-compatible CSV
+    3D calibration  4788   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5164   AIM drift correction (2D+z)
+    locprecision    5397   NeNA + FRC
+    sSMLM           6006   spectrally resolved SMLM pair-finding
+    spt             6445   single particle tracking, trackpy-inspired
+    pipeline        6825   top-level orchestration, *Core()/wrapper split
+    table           8277   localizations table, filtering, histograms
+    headless API    8701   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1358,15 +1358,22 @@ X.B(E,Y);return E}return J}())
   .canvases > .card{min-width:0}   /* allow the panels to shrink below their content size */
   /* Both canvases always track --frame-ar (even for a plot — see
      setupPlot()'s own letterboxing in the render module of the main
-     script), so raw/sr are normally already the same height with nothing
-     left over here. .panel-body (canvas + its own controls: scrubRow/
-     srFilterNote/calViewRow) still centres as a group in whatever leftover
-     height a card ends up with, as a safety net for the rare case the two
-     DO diverge, while h4 stays pinned to the top and the canvas keeps its
-     own tight spacing to those controls. */
+     script), so raw/sr are ALWAYS the same height, full stop — .panel-body
+     (canvas + its own controls: scrubRow/srFilterNote/calViewRow) stays
+     top-aligned (flex's own default), NOT centred: centring each panel's
+     own canvas+controls GROUP independently used to shift the two canvases
+     out of vertical alignment with each other by (roughly) half of
+     whichever trailing control only ONE of the two panels has (raw's
+     scrubRow has no sr equivalent when srFilterNote/calViewRow are both
+     hidden) — a real, reported "the two panels don't line up" regression.
+     Top-aligning puts both canvases flush against their own h4 always, so
+     they always start at the same y regardless of what trailing content
+     either panel happens to have; any leftover height from that trailing-
+     content difference lands invisibly at the very bottom of the shorter
+     card instead. */
   .canvases > .card{display:flex;flex-direction:column}
   .canvases > .card > h4{flex:0 0 auto}
-  .canvases > .card > .panel-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
+  .canvases > .card > .panel-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
   .card{padding:6px}
   /* one-line headers: title kept intact, caption truncates with an ellipsis, so a
      long caption can never wrap to a 2nd line and make a panel taller than its
@@ -1479,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18g</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18h</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1877,7 +1884,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18g · plots letterbox in-canvas (panel height never changes), PCFO axis scaling fix
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18h · fix raw/sr panel canvas misalignment introduced by the letterbox redesign
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
