@@ -16,14 +16,30 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   hook into) but light for export (`exportPanel()` flips `_plotExportMode`,
   redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots, redraws
   back) — see **render** in `CLAUDE.md` for the full mechanism. (3) A
-  **Stack panels**/**Side by side** button (`layoutToggleBtn`, new
-  `.canvases-toolbar` row) replaces the previous "code always decides"
-  behaviour: `layoutOverride` takes precedence over the `h/w<0.5`
-  auto-heuristic once clicked, and sticks across further loads this
-  session. Deliberately deferred: no UI to reset `layoutOverride` back to
-  `null` (auto) once set — not clearly needed yet (a second click always
-  gets you the other state, which for a 2-state toggle is the same thing
-  unless a THIRD future layout mode gets added, at which point revisit).
+  **Stack panels**/**Side by side** button (`layoutToggleBtn`) replaces the
+  previous "code always decides" behaviour: `layoutOverride` takes
+  precedence over the `h/w<0.5` auto-heuristic once clicked, and sticks
+  across further loads this session. Initially its own dedicated
+  `.canvases-toolbar` row above the panel grid, per follow-up feedback the
+  same day: that row read as wasted vertical space for one small button, so
+  it moved onto the right side of the **Log** card's own title bar instead
+  (`clearLogBtn`/`exportLogBtn` grouped on the left of that same bar,
+  `.canvases-toolbar` removed entirely). Deliberately deferred: no UI to
+  reset `layoutOverride` back to `null` (auto) once set — not clearly
+  needed yet (a second click always gets you the other state, which for a
+  2-state toggle is the same thing unless a THIRD future layout mode gets
+  added, at which point revisit).
+
+  Same-day user report, unresolved: the sidebar's 📌 "dock the floating
+  panel back" button (`#sidePin`) reportedly renders invisible in floating
+  mode. Confirmed via `git show` that this button/emoji predates this
+  entire session (untouched by any commit here) and could not be
+  reproduced in headless Chromium (screenshot + DOM inspection both show it
+  visible, on top, and functional). Possibly an emoji-font fallback issue
+  specific to the user's real browser/OS rather than a CSS/layout bug —
+  needs the user to confirm via their own browser's element inspector
+  whether the `<button>` exists at that spot even if the glyph looks blank,
+  before further investigation.
 
 - **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
   prompted by two large candidate modules — single-particle tracking (SPT)

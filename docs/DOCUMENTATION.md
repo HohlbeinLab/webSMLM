@@ -159,7 +159,7 @@ whenever the loaded stack's `h/w < 0.5` (the default suggestion, applied via
 custom property both canvases share); a very wide/short frame would
 otherwise render tiny twice over (squeezed to half width on top of already
 being short). The **Stack panels**/**Side by side** button
-(`layoutToggleBtn`, top-right above the panel row) overrides this: once
+(`layoutToggleBtn`, right side of the Log panel's own title bar — see §1) overrides this: once
 clicked, `layoutOverride` (true/false) takes over from the `h/w<0.5`
 heuristic and sticks across further loads this session, rather than every
 new movie silently resetting the user's own choice — `applyLayout()` is the
@@ -231,9 +231,13 @@ dark to match the rest of the UI.
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
   σ-width and phasor-magnitude views (3D calibration only).
 - **Log** (`log`) — every module writes here; `clearLogBtn`/`exportLogBtn`
-  clear it or save it as a `.txt` file. The single shared progress bar
-  (`#bar`/`#prog`, below the action buttons) is fed by every long-running
-  operation (Localize, Calibrate, drift, NeNA, FRC, file loads).
+  (grouped with the "Log" title on the left of its title bar) clear it or
+  save it as a `.txt` file. `layoutToggleBtn` ("Stack panels"/"Side by
+  side" — see **Main panels** above) sits on the right of the same title
+  bar, rather than its own dedicated row above the canvases. The single
+  shared progress bar (`#bar`/`#prog`, below the action buttons) is fed by
+  every long-running operation (Localize, Calibrate, drift, NeNA, FRC, file
+  loads).
 
 ---
 

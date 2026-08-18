@@ -232,12 +232,15 @@ relevant one before editing rather than scrolling:
   The side-by-side/stacked panel layout (`.canvases.stacked`, single column) is resolved by
   `applyLayout()`: `layoutOverride` (module-level, `null`/`true`/`false`) takes precedence over the
   `stack.h/stack.w<0.5` auto-heuristic once the user clicks **Stack panels**/**Side by side**
-  (`layoutToggleBtn`, in a new `.canvases-toolbar` row above the panel grid) — the override then
-  sticks across further loads this session rather than the next movie's own aspect ratio silently
-  resetting the user's choice, replacing the old "code always decides" behaviour. `initScrub()`
-  calls `applyLayout()` instead of setting the class directly; the click handler also calls
-  `refitCanvases()` immediately, since the panel boxes just changed shape and the visible plot/
-  frame shouldn't wait for the next unrelated redraw to catch up.
+  (`layoutToggleBtn`) — the override then sticks across further loads this session rather than the
+  next movie's own aspect ratio silently resetting the user's choice, replacing the old "code
+  always decides" behaviour. `initScrub()` calls `applyLayout()` instead of setting the class
+  directly; the click handler also calls `refitCanvases()` immediately, since the panel boxes just
+  changed shape and the visible plot/frame shouldn't wait for the next unrelated redraw to catch
+  up. `layoutToggleBtn` itself lives on the right of the **Log** card's own title bar (grouped
+  there with `clearLogBtn`/`exportLogBtn` on the left of the same bar) rather than a dedicated row
+  above the canvases — an earlier version used a standalone `.canvases-toolbar` row for just this
+  one button, which read as wasted vertical space once the Log title bar had room for it instead.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
