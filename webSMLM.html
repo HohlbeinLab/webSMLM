@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18f; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18g; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
-    params          1901   PARAMS registry, single source of truth for params
-    in/out          2315   TIFF parsing, in-memory/streamed loading, FTM
-    simulation      2628   synthetic stack generator ("Simulate movie")
-    detect          3205   per-frame band-pass + local-maxima detection
-    fit             3461   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3818   accumulate to offscreen buffer; view/colour/blur
-    workers         4412   frame-parallel detect/fit worker pool
-    export          4568   ThunderSTORM-compatible CSV
-    3D calibration  4753   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5129   AIM drift correction (2D+z)
-    locprecision    5362   NeNA + FRC
-    sSMLM           5964   spectrally resolved SMLM pair-finding
-    spt             6403   single particle tracking, trackpy-inspired
-    pipeline        6783   top-level orchestration, *Core()/wrapper split
-    table           8229   localizations table, filtering, histograms
-    headless API    8653   window.webSMLM.analyze()/analyzeBatch()
+    params          1896   PARAMS registry, single source of truth for params
+    in/out          2310   TIFF parsing, in-memory/streamed loading, FTM
+    simulation      2623   synthetic stack generator ("Simulate movie")
+    detect          3200   per-frame band-pass + local-maxima detection
+    fit             3456   phasor / LS / Poisson-MLE 2D+3D localization
+    render          3813   accumulate to offscreen buffer; view/colour/blur
+    workers         4440   frame-parallel detect/fit worker pool
+    export          4596   ThunderSTORM-compatible CSV
+    3D calibration  4781   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5157   AIM drift correction (2D+z)
+    locprecision    5390   NeNA + FRC
+    sSMLM           5999   spectrally resolved SMLM pair-finding
+    spt             6438   single particle tracking, trackpy-inspired
+    pipeline        6818   top-level orchestration, *Core()/wrapper split
+    table           8270   localizations table, filtering, histograms
+    headless API    8694   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1356,13 +1356,14 @@ X.B(E,Y);return E}return J}())
      stack's own aspect ratio, independent of the viewport-width breakpoint below. */
   .canvases.stacked{grid-template-columns:1fr}
   .canvases > .card{min-width:0}   /* allow the panels to shrink below their content size */
-  /* Grid stretches both cards to match the taller row sibling, but a canvas
-     fixed at its own aspect ratio (4/3 plots, or a movie whose ratio differs
-     from the OTHER panel's) doesn't fill that height — it used to just sit
-     top-aligned, leaving dead space below it. .panel-body (canvas + its own
-     controls: scrubRow/srFilterNote/calViewRow) is centred as a group in
-     whatever leftover height the card ends up with, while h4 stays pinned to
-     the top and the canvas keeps its own tight spacing to those controls. */
+  /* Both canvases always track --frame-ar (even for a plot — see
+     setupPlot()'s own letterboxing in the render module of the main
+     script), so raw/sr are normally already the same height with nothing
+     left over here. .panel-body (canvas + its own controls: scrubRow/
+     srFilterNote/calViewRow) still centres as a group in whatever leftover
+     height a card ends up with, as a safety net for the rare case the two
+     DO diverge, while h4 stays pinned to the top and the canvas keeps its
+     own tight spacing to those controls. */
   .canvases > .card{display:flex;flex-direction:column}
   .canvases > .card > h4{flex:0 0 auto}
   .canvases > .card > .panel-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
@@ -1383,12 +1384,6 @@ X.B(E,Y);return E}return J}())
      data loads. */
   canvas#sr,canvas#raw{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0}
   canvas#sr:active,canvas#raw:active{cursor:grabbing}
-  /* Line plots/histograms (setupPlot(cv,true)) use a fixed 4/3 aspect ratio
-     instead of --frame-ar, so a movie with an unusual frame aspect ratio
-     never stretches a plot's axes into an unreadable shape — matplotlib's
-     own default figure size (6.4x4.8in) is exactly 4/3, so this matches the
-     look of the sptPALM-Python reference plots this module is ported from. */
-  canvas#sr.is-plot,canvas#raw.is-plot{aspect-ratio:4/3}
   /* single shared progress track, permanently visible (empty at rest) below the
      action buttons — every long-running op (Localize, calibration, drift
      correction, NeNA, FRC, file loading) feeds it via setProg(), rather than
@@ -1484,7 +1479,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18f</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18g</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1882,7 +1877,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18f · moved Clear/Export log + Side by side toggle into the Log panel's own title bar
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18g · plots letterbox in-canvas (panel height never changes), PCFO axis scaling fix
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4012,24 +4007,57 @@ function syncSaveImg(){ const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||sr
 // and stays crisp at any window size (re-rendered on resize). Returns W/H in CSS
 // px. NOTE: this leaves the context transform scaled — the frame/reconstruction
 // drawers (drawRawView/drawView) reset it to identity before they paint.
-// isPlot toggles the .is-plot CSS class, which overrides the panel's usual
-// --frame-ar (locked to the loaded movie's own w/h, so raw frame and SR
-// reconstruction always match) with a fixed, movie-independent aspect ratio —
-// a movie with an extreme frame aspect ratio (very wide/narrow sensor crop)
-// would otherwise stretch every line plot/histogram into the same shape,
-// which reads badly for axes/labels. Every plot-drawing function passes
-// true; drawRawView()/drawView() (actual frame/reconstruction pixels) don't,
-// so they keep tracking the movie's real aspect ratio as before.
+// isPlot letterboxes a fixed 4/3 sub-rectangle, centred within the panel's
+// own box, instead of changing the panel's OWN size — the panel keeps
+// tracking --frame-ar (the loaded movie's own w/h) exactly like the frame/
+// reconstruction views do, so switching a panel between a frame and a plot
+// never changes that panel's height (an earlier version instead switched
+// the canvas's own CSS aspect-ratio to 4/3 for plots, which — combined with
+// CSS Grid stretching both panels to match whichever sibling was taller —
+// made a panel's height jump around depending on what the OTHER panel
+// happened to be showing, exactly the instability this avoids). Every
+// plot-drawing function passes true; drawRawView()/drawView() (actual
+// frame/reconstruction pixels) don't, so they keep filling the panel's
+// full box as before. _plotLetterboxOx/Oy stash the offset for
+// registerPlotHover() to fold into its own coordinates, since ctx is
+// pre-translated here but drawPlotHover()'s own hit-testing works in
+// canvas-local (untranslated) CSS px.
+let _plotLetterboxOx=0, _plotLetterboxOy=0;
 function setupPlot(cv, isPlot=false){
-  cv.classList.toggle('is-plot', !!isPlot);
   const dpr=Math.min(2, window.devicePixelRatio||1);
   const W=Math.max(1,Math.round(cv.clientWidth||cv.width/dpr)), H=Math.max(1,Math.round(cv.clientHeight||cv.height/dpr));
   const bw=Math.round(W*dpr), bh=Math.round(H*dpr);
   if(cv.width!==bw||cv.height!==bh){ cv.width=bw; cv.height=bh; }
   const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  _plotLetterboxOx=0; _plotLetterboxOy=0;
+  if(isPlot){
+    ctx.fillStyle=plotColors().bg; ctx.fillRect(0,0,W,H);   // letterbox bars use the SAME bg as the plot itself, so the seam is invisible
+    const targetRatio=4/3;
+    let pw=W, ph=W/targetRatio;
+    if(ph>H){ ph=H; pw=H*targetRatio; }
+    const ox=(W-pw)/2, oy=(H-ph)/2;
+    _plotLetterboxOx=ox; _plotLetterboxOy=oy;
+    ctx.translate(ox,oy);
+    return {ctx, W:pw, H:ph, dpr};
+  }
   return {ctx, W, H, dpr};
 }
 const PLOT_FONT='sans-serif';   // one standard font for all in-graph text
+// matplotlib-style axis "offset notation": an axis whose values commonly run
+// large (PCFO's noise variance can be in the hundreds of thousands, ADU²)
+// used to print full 6-digit tick labels that visually collided with the
+// rotated axis-name text. Ticks instead show small (always single-digit-
+// plus-decimal) scaled numbers, with a single "×10ⁿ" multiplier drawn once
+// near the axis — n = floor(log10(maxAbs)), the largest power of ten that
+// still leaves at least one digit before the decimal point (NOT engineering
+// notation's multiple-of-3 rounding, which would leave 750000 as "750×10³"
+// — three digits, not the "1-2 digit" ticks this is meant to produce).
+function axisScale(maxAbs){
+  if(!isFinite(maxAbs) || maxAbs<1000) return {scale:1, decimals:0, label:''};
+  const exp=Math.floor(Math.log10(maxAbs));
+  const sup='⁰¹²³⁴⁵⁶⁷⁸⁹';
+  return {scale:Math.pow(10,exp), decimals:1, label:'×10'+String(exp).split('').map(d=>sup[+d]).join('')};
+}
 // Every plot draw function reads its palette from here (never a hardcoded
 // hex) so the whole plot suite can switch look with one flag flip. On
 // screen this always reads 'dark', matching the app's own permanently-dark
@@ -5870,12 +5898,18 @@ function drawPcfoPlot(){
   ymin=Math.min(ymin,yAtXmin,yAtXmax); ymax=Math.max(ymax,yAtXmin,yAtXmax);
   const xpad=Math.max(1,(xmax-xmin)*0.08), ypad=Math.max(1,(ymax-ymin)*0.10);
   xmin-=xpad; xmax+=xpad; ymin-=ypad; ymax+=ypad;
-  const mL=58,mR=16,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
+  const mL=58,mR=16,mT=44,mB=48, pw=W-mL-mR, ph=H-mT-mB;
   const X=v=>mL+pw*(v-xmin)/(xmax-xmin), Y=v=>mT+ph*(1-(v-ymin)/(ymax-ymin));
+  // Full 6-digit ADU²/ADU tick labels used to visually collide with the
+  // rotated axis-name text (mL=58 leaves little room) — scale into small
+  // numbers plus a single "×10ⁿ" multiplier per axis instead (see
+  // axisScale()), matplotlib's own "offset notation" convention.
+  const yScale=axisScale(Math.max(Math.abs(ymin),Math.abs(ymax)));
+  const xScale=axisScale(Math.max(Math.abs(xmin),Math.abs(xmax)));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const c of niceTicks(ymin,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
+  for(const c of niceTicks(ymin,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText((c/yScale.scale).toFixed(yScale.decimals),mL-6,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText(v.toFixed(0),x,mT+ph+6); }
+  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText((v/xScale.scale).toFixed(xScale.decimals),x,mT+ph+6); }
   ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
   ctx.fillStyle='rgba(66,133,244,0.45)';
   for(const p of pts){ ctx.beginPath(); ctx.arc(X(p.imsig),Y(p.noisevar),2.2,0,2*Math.PI); ctx.fill(); }
@@ -5884,10 +5918,11 @@ function drawPcfoPlot(){
   ctx.restore();
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.fillText('image signal (ADU)', mL+pw/2, mT+ph+26);
+  ctx.fillText(`image signal (ADU)${xScale.label?' ('+xScale.label+')':''}`, mL+pw/2, mT+ph+26);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('noise variance (ADU²)',0,0); ctx.restore();
-  ctx.textAlign='right'; ctx.textBaseline='alphabetic';
-  ctx.fillText(`gain = ${(1/fit.gain).toFixed(3)} photons/ADU · offset = ${fit.offset.toFixed(1)} ADU · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
+  if(yScale.label){ ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.font='11px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-20); }
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT;
+  ctx.fillStyle=C.axis; ctx.fillText(`gain = ${(1/fit.gain).toFixed(3)} photons/ADU · offset = ${fit.offset.toFixed(1)} ADU · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
   $('rawInfo').textContent='— PCFO: image signal vs. noise variance per tile · slope→gain, intercept→offset · scrub a frame to return';
   registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymax,yBot:ymin, fmt:(vx,vy)=>`${vx.toFixed(0)} ADU · ${vy.toFixed(0)} ADU²`});
   _replotRaw=drawPcfoPlot;
@@ -8141,12 +8176,18 @@ $('raw').addEventListener('click',async e=>{
    The snapshot is cleared whenever the panel switches to a frame / reconstruction
    (drawRawView / drawView) so a stale plot can't paint over live pixels. ------- */
 const _plotHover={raw:null,sr:null};
+// m's mL/mT are in the plot's OWN (possibly letterboxed, translated) local
+// coordinates — same ones setupPlot(cv,true) handed back as W/H to the
+// caller — but drawPlotHover()'s own hit-testing reads clientX/Y against
+// the canvas element's untranslated CSS box, so the letterbox offset
+// (still live in _plotLetterboxOx/Oy from this same draw call) gets folded
+// in here once, rather than every plot function needing to know about it.
 function registerPlotHover(id,m){          // m={mL,mT,pw,ph,xA,xB,yTop,yBot,fmt}
   const cv=$(id); let snap=_plotHover[id]&&_plotHover[id].snap;
   if(!snap) snap=document.createElement('canvas');
   snap.width=cv.width; snap.height=cv.height;
   snap.getContext('2d').drawImage(cv,0,0);
-  _plotHover[id]={...m,snap};
+  _plotHover[id]={...m, mL:(m.mL||0)+_plotLetterboxOx, mT:(m.mT||0)+_plotLetterboxOy, snap};
 }
 function drawPlotHover(id,clientX,clientY){
   const h=_plotHover[id]; if(!h) return;

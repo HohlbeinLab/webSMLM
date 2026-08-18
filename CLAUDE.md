@@ -196,25 +196,28 @@ relevant one before editing rather than scrolling:
   acc[idx]++`) and a one-line warning is logged if any pixel saturates, rather than risking silent
   density corruption on an extreme (real-world-unlikely) localization pile-up.
 
-  `setupPlot(cv, isPlot=false)` (shared by every draw function on the raw/sr canvases) toggles an
-  `.is-plot` CSS class on the canvas. Normally both canvases share `aspect-ratio:var(--frame-ar,1)`
-  — the loaded movie's own w/h — so the raw frame and SR reconstruction always match size. A line
-  plot or histogram drawn on the SAME canvas (raw-panel plot pattern, above) inherited that same
-  ratio, so a movie with an unusual frame aspect ratio (very wide/narrow sensor crop) stretched
-  every plot's axes into an unreadable shape. `isPlot=true` (every plot-drawing function passes
-  it; `drawRawView()`/`drawView()`, which paint actual frame/reconstruction pixels, don't) instead
-  applies a fixed `aspect-ratio:4/3` via `.is-plot`, independent of the loaded movie — matplotlib's
-  own default figure size (6.4×4.8in) is exactly 4/3, which is also what this matches visually
-  against the `sptPALM-Python` reference plots **spt** is ported from.
-
-  A card's own height is stretched by CSS Grid to match its row's taller sibling (e.g. the
-  reconstruction panel showing the movie's own aspect ratio next to a 4/3 plot in the other panel),
-  which used to leave a fixed-aspect canvas top-aligned with dead space below it. Each canvas and
-  its own following controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`) are now wrapped in a
-  `.panel-body` div (`#canvases > .card` is `display:flex;flex-direction:column`, `h4` pinned via
-  `flex:0 0 auto`, `.panel-body` taking the rest via `flex:1 1 auto;justify-content:center`), so
-  the canvas+controls group is centred as a unit in whatever leftover height the card ends up
-  with, while keeping its own tight internal spacing (canvas-to-scrubRow etc.) unchanged.
+  `setupPlot(cv, isPlot=false)` (shared by every draw function on the raw/sr canvases) letterboxes
+  a fixed 4/3 sub-rectangle, centred within the panel's own box, for plots — rather than changing
+  the CANVAS's own size. An earlier version instead gave `.is-plot` canvases their own
+  `aspect-ratio:4/3` CSS (matplotlib's own default figure-size ratio), decoupled from the movie's
+  real shape — which fixed axis stretching, but at a cost: since CSS Grid stretches both cards in a
+  row to match whichever sibling is taller, a panel's HEIGHT then depended on whatever the OTHER
+  panel happened to be showing, so switching one panel between a frame and a plot could make it
+  (and its sibling) resize, which read as visually unstable. Now the canvas's own CSS box always
+  tracks `--frame-ar` (the loaded movie's own w/h) exactly like a real frame/reconstruction view
+  would — a panel's height genuinely never changes depending on what it (or its sibling) currently
+  shows — and `isPlot=true` instead: fills the WHOLE canvas with `plotColors().bg` first, computes
+  a centred 4/3 sub-rect within that box (shrunk to fit width or height, whichever binds), stashes
+  the offset in `_plotLetterboxOx/Oy`, and `ctx.translate()`s to it before returning the sub-rect's
+  own (smaller) W/H as if it were the whole canvas — so every existing plot-drawing function's own
+  code, written against a `{ctx,W,H}` it assumes starts at `(0,0)`, needed ZERO changes; letterbox
+  bars (top/bottom for a movie shorter-than-4/3, left/right for one taller) use the exact same bg
+  colour as the plot itself, so the seam is invisible. `registerPlotHover()` folds the same
+  `_plotLetterboxOx/Oy` into the `mL`/`mT` a caller hands it (once, centrally) since
+  `drawPlotHover()`'s own hit-testing reads `clientX`/`Y` against the canvas's real, UNtranslated
+  CSS box — every individual plot function's own `registerPlotHover(...)` call needed no change
+  either. `drawRawView()`/`drawView()` (actual frame/reconstruction pixels) never pass `isPlot`, so
+  they keep filling the panel's full box exactly as before.
 
   Every plot function reads colours from `plotColors()` (a `{bg,grid,text,axis,bar}` object) rather
   than a hardcoded hex value, driven by a module-level `_plotExportMode` flag — `false` (dark,
@@ -228,6 +231,19 @@ relevant one before editing rather than scrolling:
   live view stays dark to match the rest of the UI. A few accent colours (fit-line green/red/
   magenta, the exponential-fit orange, marker red) stay hardcoded across both palettes — chosen to
   read clearly against either background, unlike the axis/grid/bar/background set.
+
+  `axisScale(maxAbs)` gives an axis whose values commonly run large (PCFO's noise variance can be
+  in the hundreds of thousands, ADU²) matplotlib-style "offset notation": full 6-digit tick labels
+  used to visually collide with that axis's own rotated name text, so ticks instead show small
+  (always a single digit plus one decimal) scaled numbers, with a single `×10ⁿ` multiplier drawn
+  once near the axis — `n = floor(log10(maxAbs))`, the largest power of ten leaving ≥1 digit before
+  the decimal point. This is genuine SCIENTIFIC notation (one arbitrary power per axis, picked to
+  fit that axis's own range), not engineering notation's multiple-of-3 rounding, which was tried
+  first and rejected: for a 500 000–750 000 ADU² range it would print "750×10³" — three digits, not
+  the "1–2 digit" ticks this exists to produce. `drawPcfoPlot()` is the one plot that currently
+  needs it (its noise-variance axis is the one that visually collided); the helper lives in
+  **render** rather than that function so any other plot with the same large-number problem can
+  reuse it without duplicating the log10/superscript logic.
 
   The side-by-side/stacked panel layout (`.canvases.stacked`, single column) is resolved by
   `applyLayout()`: `layoutOverride` (module-level, `null`/`true`/`false`) takes precedence over the

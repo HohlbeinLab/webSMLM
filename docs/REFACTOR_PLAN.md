@@ -6,40 +6,49 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **Plot panel UI polish (2026-08-18, build d)**, prompted by user feedback
-  after the spt refinement round above. Shipped: (1) fixed-aspect-ratio
-  plots (`.is-plot`, 4/3) are now vertically centred within their card via a
-  new `.panel-body` wrapper, instead of sitting top-aligned with dead space
-  below whenever CSS Grid stretches the card taller than the plot itself.
+- **Plot panel UI polish (2026-08-18, builds d–f)**, prompted by user feedback
+  after the spt refinement round above. Shipped: (1) plots letterbox a fixed
+  4/3 sub-rectangle CENTRED WITHIN the panel's own box (`setupPlot(cv,true)`)
+  rather than changing the panel's own size — an earlier version within this
+  same round instead gave `.is-plot` canvases their own `aspect-ratio:4/3`
+  CSS, which fixed axis stretching but (combined with CSS Grid stretching
+  both cards in a row to match whichever sibling was taller) made a panel's
+  height depend on whatever the OTHER panel happened to be showing —
+  switching one panel between a frame and a plot could resize BOTH panels,
+  which read as visually unstable; a same-day follow-up report ("keep it
+  squared... otherwise the window sizes change all the time") is what
+  prompted the letterbox redesign — see **render** in `CLAUDE.md` for the
+  full mechanism, including how `registerPlotHover()` absorbs the
+  letterbox offset so no individual plot function needed to change.
   (2) Plots render dark on screen (`plotColors()`, matching the app's own
   permanently-dark chrome — there's no separate app light/dark theme to
   hook into) but light for export (`exportPanel()` flips `_plotExportMode`,
   redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots, redraws
-  back) — see **render** in `CLAUDE.md` for the full mechanism. (3) A
-  **Stack panels**/**Side by side** button (`layoutToggleBtn`) replaces the
-  previous "code always decides" behaviour: `layoutOverride` takes
-  precedence over the `h/w<0.5` auto-heuristic once clicked, and sticks
-  across further loads this session. Initially its own dedicated
-  `.canvases-toolbar` row above the panel grid, per follow-up feedback the
-  same day: that row read as wasted vertical space for one small button, so
-  it moved onto the right side of the **Log** card's own title bar instead
-  (`clearLogBtn`/`exportLogBtn` grouped on the left of that same bar,
-  `.canvases-toolbar` removed entirely). Deliberately deferred: no UI to
-  reset `layoutOverride` back to `null` (auto) once set — not clearly
-  needed yet (a second click always gets you the other state, which for a
-  2-state toggle is the same thing unless a THIRD future layout mode gets
-  added, at which point revisit).
+  back). (3) A **Stack panels**/**Side by side** button (`layoutToggleBtn`)
+  replaces the previous "code always decides" behaviour: `layoutOverride`
+  takes precedence over the `h/w<0.5` auto-heuristic once clicked, and
+  sticks across further loads this session — lives on the right of the
+  **Log** card's own title bar (`clearLogBtn`/`exportLogBtn` grouped on the
+  left of that same bar), not a dedicated row above the canvases (an
+  earlier version's `.canvases-toolbar`, removed after same-day feedback
+  that it read as wasted vertical space for one small button). (4) PCFO's
+  noise-variance axis (commonly hundreds of thousands, ADU²) had tick
+  labels visually colliding with its own rotated axis-name text — fixed via
+  a new shared `axisScale()` helper (scientific notation, single leading
+  digit + one decimal, `×10ⁿ` drawn once near the axis) rather than
+  engineering notation's multiple-of-3 rounding, which was tried first and
+  rejected for still leaving 3-digit ticks on this specific range.
+  Deliberately deferred: no UI to reset `layoutOverride` back to `null`
+  (auto) once set — not clearly needed yet (a second click always gets you
+  the other state, which for a 2-state toggle is the same thing unless a
+  THIRD future layout mode gets added, at which point revisit).
 
-  Same-day user report, unresolved: the sidebar's 📌 "dock the floating
-  panel back" button (`#sidePin`) reportedly renders invisible in floating
-  mode. Confirmed via `git show` that this button/emoji predates this
-  entire session (untouched by any commit here) and could not be
-  reproduced in headless Chromium (screenshot + DOM inspection both show it
-  visible, on top, and functional). Possibly an emoji-font fallback issue
-  specific to the user's real browser/OS rather than a CSS/layout bug —
-  needs the user to confirm via their own browser's element inspector
-  whether the `<button>` exists at that spot even if the glyph looks blank,
-  before further investigation.
+  Same-day user report, resolved as a non-issue: the sidebar's 📌 "dock the
+  floating panel back" button (`#sidePin`) reportedly rendered invisible in
+  floating mode. Confirmed via `git show` that this button/emoji predates
+  this entire session and could not be reproduced in headless Chromium;
+  user confirmed afterward it was their own observation error, not a real
+  bug — no code change was needed or made.
 
 - **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
   prompted by two large candidate modules — single-particle tracking (SPT)

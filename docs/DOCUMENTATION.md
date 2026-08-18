@@ -170,17 +170,20 @@ stores whenever their on-screen box size changes for *any* reason — this
 toggle, the sidebar dock/float/collapse buttons, or an actual window resize.
 
 A line plot or histogram drawn on either canvas (the raw/SR panel plot
-pattern below) does NOT inherit `--frame-ar` — `setupPlot(cv,true)` (every
-plot-drawing function passes `true`; the frame/reconstruction drawers don't)
-applies a fixed `aspect-ratio:4/3` via an `.is-plot` CSS class instead, so a
-movie with an unusual frame aspect ratio never stretches a plot's axes into
-an unreadable shape. 4/3 matches matplotlib's own default figure size. Each
-canvas's own controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`) are wrapped
-with it in a `.panel-body` div, which centers the group vertically within
-whatever leftover height the card ends up with (from CSS Grid stretching
-both cards to the row's taller sibling) — a canvas that doesn't fill that
-height (a 4/3 plot, or a movie whose aspect ratio differs from the other
-panel's) no longer just sits top-aligned with dead space below it.
+pattern below) does NOT resize the panel itself — the canvas always keeps
+tracking `--frame-ar` exactly like a real frame/reconstruction view, so a
+panel's height never changes depending on whether it (or its sibling) is
+currently showing a frame or a plot. Instead, `setupPlot(cv,true)` (every
+plot-drawing function passes `true`; the frame/reconstruction drawers
+don't) letterboxes a fixed 4/3 sub-rectangle centred within the panel's own
+(unchanged) box — filling the whole canvas with the plot's own background
+colour first so the letterbox bars are invisible, then translating so the
+plot's own drawing code (unaware of any of this) draws into the sub-rect as
+if it were the whole canvas. 4/3 matches matplotlib's own default figure
+size. Each canvas's own controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`)
+are wrapped with it in a `.panel-body` div, which still centers the group
+vertically within any leftover card height as a safety net (raw/sr
+normally already match exactly, since both share `--frame-ar`).
 
 Every plot function reads its colours from `plotColors()` rather than a
 hardcoded hex value: dark on screen (`#161b22` background, matching the
@@ -510,7 +513,11 @@ left-panel-plot pattern as calibration/FRC/NeNA curves) so the underlying
 linearity (shot-noise-dominated) assumption can be checked visually — R² <
 0.3 logs a low-linearity warning (too low a photon count is the most common
 cause; saturation, non-uniform illumination or non-Poissonian noise are
-less common ones). See the **fit** module (`pcfoCore()`) and
+less common ones). Noise variance (ADU²) commonly runs into the hundreds of
+thousands, where full tick labels used to visually collide with the axis's
+own rotated name; both axes scale into small (1 digit + 1 decimal) numbers
+plus a single `×10ⁿ` multiplier instead (`axisScale()`, render module — see
+**render** in `CLAUDE.md`). See the **fit** module (`pcfoCore()`) and
 [§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
 headless equivalent.
 
