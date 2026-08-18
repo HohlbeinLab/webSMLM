@@ -6,6 +6,25 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **Plot panel UI polish (2026-08-18, build d)**, prompted by user feedback
+  after the spt refinement round above. Shipped: (1) fixed-aspect-ratio
+  plots (`.is-plot`, 4/3) are now vertically centred within their card via a
+  new `.panel-body` wrapper, instead of sitting top-aligned with dead space
+  below whenever CSS Grid stretches the card taller than the plot itself.
+  (2) Plots render dark on screen (`plotColors()`, matching the app's own
+  permanently-dark chrome — there's no separate app light/dark theme to
+  hook into) but light for export (`exportPanel()` flips `_plotExportMode`,
+  redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots, redraws
+  back) — see **render** in `CLAUDE.md` for the full mechanism. (3) A
+  **Stack panels**/**Side by side** button (`layoutToggleBtn`, new
+  `.canvases-toolbar` row) replaces the previous "code always decides"
+  behaviour: `layoutOverride` takes precedence over the `h/w<0.5`
+  auto-heuristic once clicked, and sticks across further loads this
+  session. Deliberately deferred: no UI to reset `layoutOverride` back to
+  `null` (auto) once set — not clearly needed yet (a second click always
+  gets you the other state, which for a 2-state toggle is the same thing
+  unless a THIRD future layout mode gets added, at which point revisit).
+
 - **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
   prompted by two large candidate modules — single-particle tracking (SPT)
   and single-molecule FRET (smFRET) — that would each add a few thousand

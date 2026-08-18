@@ -206,6 +206,38 @@ relevant one before editing rather than scrolling:
   applies a fixed `aspect-ratio:4/3` via `.is-plot`, independent of the loaded movie — matplotlib's
   own default figure size (6.4×4.8in) is exactly 4/3, which is also what this matches visually
   against the `sptPALM-Python` reference plots **spt** is ported from.
+
+  A card's own height is stretched by CSS Grid to match its row's taller sibling (e.g. the
+  reconstruction panel showing the movie's own aspect ratio next to a 4/3 plot in the other panel),
+  which used to leave a fixed-aspect canvas top-aligned with dead space below it. Each canvas and
+  its own following controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`) are now wrapped in a
+  `.panel-body` div (`#canvases > .card` is `display:flex;flex-direction:column`, `h4` pinned via
+  `flex:0 0 auto`, `.panel-body` taking the rest via `flex:1 1 auto;justify-content:center`), so
+  the canvas+controls group is centred as a unit in whatever leftover height the card ends up
+  with, while keeping its own tight internal spacing (canvas-to-scrubRow etc.) unchanged.
+
+  Every plot function reads colours from `plotColors()` (a `{bg,grid,text,axis,bar}` object) rather
+  than a hardcoded hex value, driven by a module-level `_plotExportMode` flag — `false` (dark,
+  `#161b22`/`#30363d`/`#8b949e`/`#e6edf3`/`#58a6ff`, matching the app's own `:root` custom
+  properties) on screen always, since webSMLM has never had a separate light/dark app theme to
+  hook a toggle into; `true` (the original light palette, `#f6f8fa`/etc.) only inside
+  `exportPanel()`'s "plot" branch, which flips the flag, calls the panel's own `_replotRaw`/
+  `_replotSr` to redraw once in light colours onto the SAME visible canvas, snapshots that via
+  `cv.toBlob()`, then flips back and redraws again so the on-screen view is left exactly as it
+  was — a saved PNG reads better with a white background once pasted into a paper/report, but the
+  live view stays dark to match the rest of the UI. A few accent colours (fit-line green/red/
+  magenta, the exponential-fit orange, marker red) stay hardcoded across both palettes — chosen to
+  read clearly against either background, unlike the axis/grid/bar/background set.
+
+  The side-by-side/stacked panel layout (`.canvases.stacked`, single column) is resolved by
+  `applyLayout()`: `layoutOverride` (module-level, `null`/`true`/`false`) takes precedence over the
+  `stack.h/stack.w<0.5` auto-heuristic once the user clicks **Stack panels**/**Side by side**
+  (`layoutToggleBtn`, in a new `.canvases-toolbar` row above the panel grid) — the override then
+  sticks across further loads this session rather than the next movie's own aspect ratio silently
+  resetting the user's choice, replacing the old "code always decides" behaviour. `initScrub()`
+  calls `applyLayout()` instead of setting the class directly; the click handler also calls
+  `refitCanvases()` immediately, since the panel boxes just changed shape and the visible plot/
+  frame shouldn't wait for the next unrelated redraw to catch up.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so

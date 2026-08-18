@@ -154,21 +154,44 @@ says.
 
 `#canvases` (the grid wrapping both) gets a `.stacked` class — switching it
 from side-by-side (`minmax(0,1fr) minmax(0,1fr)` columns) to a single column —
-whenever the loaded stack's `h/w < 0.5` (set in `initScrub()`, alongside the
-`--frame-ar` custom property both canvases share); a very wide/short frame
-would otherwise render tiny twice over (squeezed to half width on top of
-already being short). A `ResizeObserver` on `#canvases` (not just a `window`
-`resize` listener, which only fires for actual viewport changes) redraws both
-panels' backing stores whenever their on-screen box size changes for *any*
-reason — this toggle, the sidebar dock/float/collapse buttons, or an actual
-window resize.
+whenever the loaded stack's `h/w < 0.5` (the default suggestion, applied via
+`applyLayout()` — called from `initScrub()` alongside the `--frame-ar`
+custom property both canvases share); a very wide/short frame would
+otherwise render tiny twice over (squeezed to half width on top of already
+being short). The **Stack panels**/**Side by side** button
+(`layoutToggleBtn`, top-right above the panel row) overrides this: once
+clicked, `layoutOverride` (true/false) takes over from the `h/w<0.5`
+heuristic and sticks across further loads this session, rather than every
+new movie silently resetting the user's own choice — `applyLayout()` is the
+single place that resolves override-vs-heuristic into the actual class. A
+`ResizeObserver` on `#canvases` (not just a `window` `resize` listener,
+which only fires for actual viewport changes) redraws both panels' backing
+stores whenever their on-screen box size changes for *any* reason — this
+toggle, the sidebar dock/float/collapse buttons, or an actual window resize.
 
 A line plot or histogram drawn on either canvas (the raw/SR panel plot
 pattern below) does NOT inherit `--frame-ar` — `setupPlot(cv,true)` (every
 plot-drawing function passes `true`; the frame/reconstruction drawers don't)
 applies a fixed `aspect-ratio:4/3` via an `.is-plot` CSS class instead, so a
 movie with an unusual frame aspect ratio never stretches a plot's axes into
-an unreadable shape. 4/3 matches matplotlib's own default figure size.
+an unreadable shape. 4/3 matches matplotlib's own default figure size. Each
+canvas's own controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`) are wrapped
+with it in a `.panel-body` div, which centers the group vertically within
+whatever leftover height the card ends up with (from CSS Grid stretching
+both cards to the row's taller sibling) — a canvas that doesn't fill that
+height (a 4/3 plot, or a movie whose aspect ratio differs from the other
+panel's) no longer just sits top-aligned with dead space below it.
+
+Every plot function reads its colours from `plotColors()` rather than a
+hardcoded hex value: dark on screen (`#161b22` background, matching the
+app's own permanently-dark chrome — there's no separate light/dark app
+theme to switch between), light (`#f6f8fa`, the original palette) only for
+`exportPanel()`'s "plot" branch — which flips the shared `_plotExportMode`
+flag, calls the panel's own `_replotRaw`/`_replotSr` to redraw once in
+light colours, snapshots that, then flips back and redraws again so the
+on-screen view is left exactly as it was. A saved PNG is meant for a
+paper/report, where a white background reads better; the live view stays
+dark to match the rest of the UI.
 - **Raw frame** (`raw` canvas) — the loaded stack's current frame with
   detected ROIs (green) and accepted localizations (magenta crosshairs)
   overlaid; doubles as a **plot surface** for FRC/NeNA/drift/calibration
