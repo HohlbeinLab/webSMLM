@@ -83,7 +83,17 @@ relevant one before editing rather than scrolling:
   chunk (width/height/frame count/bit depth) sits near EOF, after all frame data, and metadata
   chunk count is confirmed frame-count-independent (4 before/45 after the frame run in both real
   samples) so this walk's cost scales only with the per-frame header count, not file size beyond
-  that. `ImageAttributesLV!`/`ImageCalibrationLV|0!` are decoded via `parseNd2LvField()`, a
+  that. Each `ImageDataSeq|N!` chunk's payload is a `ND2_FRAME_HEADER_BYTES`(=24)-byte per-frame
+  sub-header (contents unidentified, never parsed) THEN the pixel array — a real bug shipped
+  initially by getting this backwards (pixel data assumed to start at payload byte 0, with an
+  assumed trailer after it instead): decoded without throwing, since nothing checks pixel VALUES,
+  just dimensions/frame-count, so it silently corrupted row 0's first ~6 pixels into spikes tens of
+  thousands of ADU above what this camera's declared 14-bit ADC can produce; only visible from a
+  live screenshot (an unexplained bright dot, top-left of the raw panel) and confirmed/fixed by
+  cross-validating byte-for-byte (whole frame, several frames spanning both real samples) against
+  the independent reference implementation, BSD-3-Clause `tlambert03/nd2` — installed and run
+  locally for exactly this check, not ported from. `ImageAttributesLV!`/`ImageCalibrationLV|0!` are
+  unaffected (no such per-record header), decoded via `parseNd2LvField()`, a
   recursive reader for Nikon's own binary key-value ("LV") format: `type(u8)+nameLen(u8, UTF-16
   code units including the trailing null)+name(UTF-16LE)+value`; a container (type `0x0b`) holds
   `childCount(u32)+byteLen(u64)` then recurses exactly `childCount` times — **`byteLen` must never

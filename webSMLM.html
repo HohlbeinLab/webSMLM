@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18o; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18p; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
     params          1904   PARAMS registry, single source of truth for params
     in/out          2318   TIFF/ND2 parsing, in-memory/streamed loading, FTM
     simulation      2631   synthetic stack generator ("Simulate movie")
-    detect          3372   per-frame band-pass + local-maxima detection
-    fit             3628   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3985   accumulate to offscreen buffer; view/colour/blur
-    workers         4613   frame-parallel detect/fit worker pool
-    export          4769   ThunderSTORM-compatible CSV
-    3D calibration  4954   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5342   AIM drift correction (2D+z)
-    locprecision    5580   NeNA + FRC
-    sSMLM           6204   spectrally resolved SMLM pair-finding
-    spt             6643   single particle tracking, trackpy-inspired
-    pipeline        7073   top-level orchestration, *Core()/wrapper split
-    table           8525   localizations table, filtering, histograms
-    headless API    8953   window.webSMLM.analyze()/analyzeBatch()
+    detect          3390   per-frame band-pass + local-maxima detection
+    fit             3646   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4003   accumulate to offscreen buffer; view/colour/blur
+    workers         4631   frame-parallel detect/fit worker pool
+    export          4787   ThunderSTORM-compatible CSV
+    3D calibration  4972   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5360   AIM drift correction (2D+z)
+    locprecision    5598   NeNA + FRC
+    sSMLM           6222   spectrally resolved SMLM pair-finding
+    spt             6661   single particle tracking, trackpy-inspired
+    pipeline        7091   top-level orchestration, *Core()/wrapper split
+    table           8543   localizations table, filtering, histograms
+    headless API    8971   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18o</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18p</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1885,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18o · spt: "from NeNA" now runs NeNA on demand if it hasn't been computed yet
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18p · in/out: fixed ND2 row-0 pixel corruption (24-byte per-frame header was misread as pixels)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2760,11 +2760,29 @@ function ifdToFloat(ifd,w,h){
 // is a flat, sequential run of these from byte 0 to EOF (confirmed against
 // both samples: every chunk, data or metadata, follows the same stride
 // formula with no exceptions). `ImageDataSeq|N!` chunks hold frame N's raw
-// pixel data (confirmed uncompressed: uint16 LE, row-major, exactly
-// width×height×2 bytes, followed by an 8-byte trailer this parser ignores);
+// pixel data: a 24-byte per-frame sub-header (contents unidentified — likely
+// a timestamp/sequence field, never parsed since nothing here needs it) THEN
+// the pixel array itself, uncompressed uint16 LE row-major, exactly
+// width×height×2 bytes. An earlier version of this parser had this backwards
+// (pixels assumed to start at byte 0, with an assumed 8-byte trailer after
+// them) — plausible-looking but WRONG, since it decoded byte-for-byte
+// without throwing (no dimension/length check catches a systematic 24-byte
+// shift, only wrong pixel VALUES do): it silently corrupted row 0's first
+// ~6 pixels into implausible spikes (tens of thousands of ADU, impossible
+// for this camera's declared 14-bit ADC) by reading straight through the
+// sub-header as if it were pixel data. Caught from a user screenshot showing
+// an unexpected bright dot at the top-left of the raw panel — not visible
+// from format documentation or a dimensions/frame-count sanity check alone.
+// Fixed and cross-validated BYTE-FOR-BYTE (whole-frame, multiple frames
+// spanning both real sample files) against the independent reference
+// implementation, BSD-3-Clause tlambert03/nd2 (github.com/tlambert03/nd2) —
+// not ported from, just used to confirm this parser's own from-scratch
+// re-derivation lands on the same pixels.
 // `ImageAttributesLV!`/`ImageCalibrationLV|0!` hold metadata in Nikon's own
-// undocumented binary key-value format, decoded by parseNd2Lv() below.
+// undocumented binary key-value format, decoded by parseNd2Lv() below —
+// unaffected by this bug, they have no such per-record header.
 const ND2_MAGIC=0x0abeceda;
+const ND2_FRAME_HEADER_BYTES=24;   // per-frame sub-header preceding each ImageDataSeq's pixel array — see above
 async function isNd2File(f){
   if(f.size<4) return false;
   const dv=new DataView(await f.slice(0,4).arrayBuffer());
@@ -2844,7 +2862,7 @@ async function loadNd2File(file, onLog=log){
     const payloadStart=ch.chunkPos+ch.dataOffset;
     if(ch.name.startsWith('ImageDataSeq|')){
       const idx=parseInt(ch.name.slice('ImageDataSeq|'.length),10);
-      if(Number.isFinite(idx)) frameOffsets[idx]={off:payloadStart,len:ch.dataLen};
+      if(Number.isFinite(idx)) frameOffsets[idx]={off:payloadStart+ND2_FRAME_HEADER_BYTES,len:ch.dataLen};
     }else if(ch.name==='ImageAttributesLV!'){
       const buf=await file.slice(payloadStart,payloadStart+ch.dataLen).arrayBuffer();
       attrs=parseNd2LvField(new DataView(buf),16).value;

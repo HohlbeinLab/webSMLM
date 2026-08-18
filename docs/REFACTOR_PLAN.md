@@ -300,6 +300,36 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
       full existing TIFF/SPT/drift/color regression suite, confirming the
       `loadTiffFile()` dispatch change didn't disturb the TIFF path. See
       **in/out** in `CLAUDE.md` for the full design.
+    - **Real bug found and fixed 2026-08-18, same day: row-0 pixel
+      corruption.** User spotted an unexplained bright dot at the top-left
+      of the raw panel on a freshly loaded ND2 movie and flagged it as
+      possibly a bad decode. It was: each `ImageDataSeq|N!` payload actually
+      starts with a 24-byte per-frame sub-header (contents unidentified,
+      never parsed) BEFORE the pixel array — the initial implementation had
+      this backwards, assuming pixels start at payload byte 0 with a trailer
+      after them instead, so it silently read straight through the
+      sub-header as if it were the first ~6 pixels of row 0. No existing
+      check caught this (dimensions, frame count, and chunk boundaries were
+      all still self-consistent — a systematic byte-offset shift within an
+      otherwise well-formed chunk doesn't trip any of those), only the
+      resulting pixel VALUES were wrong: tens of thousands of ADU, well
+      above what this camera's declared 14-bit ADC (`uiBpcSignificant`=14,
+      max 16383) can physically produce. Confirmed and fixed by installing
+      the independent reference implementation (`pip install nd2` —
+      BSD-3-Clause `tlambert03/nd2`) and cross-validating byte-for-byte,
+      whole-frame, across 7 frames spanning both real samples (0, 1, 2, 8,
+      9/250, 99/499) — 100% match once the 24-byte skip is added, zero
+      mismatch on every pixel. The impact was not merely cosmetic: on the
+      500-frame sample, Localize went from 5 localizations before the fix to
+      24,533 after — the corrupted outlier pixel was skewing the per-frame
+      background/threshold statistic across the WHOLE frame, not just
+      misrendering one corner. Fixed at the single point that matters
+      (`frameOffsets[idx].off` now stores `payloadStart+ND2_FRAME_HEADER_BYTES`
+      instead of `payloadStart`) — `getFrames()`/`decodeOne()` needed no
+      changes, since they already just trust whatever offset `frameOffsets`
+      hands them. Re-verified against both real samples afterward (full
+      Localize run on each, headless `analyze()`, and the general TIFF/SPT/
+      drift regression suite) — see **in/out** in `CLAUDE.md`.
 
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
