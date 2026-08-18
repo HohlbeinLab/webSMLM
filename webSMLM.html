@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18n; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18o; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -33,11 +33,11 @@
     3D calibration  4954   astigmatic sigma_x/sigma_y vs z bead curves
     drift           5342   AIM drift correction (2D+z)
     locprecision    5580   NeNA + FRC
-    sSMLM           6203   spectrally resolved SMLM pair-finding
-    spt             6642   single particle tracking, trackpy-inspired
-    pipeline        7069   top-level orchestration, *Core()/wrapper split
-    table           8521   localizations table, filtering, histograms
-    headless API    8949   window.webSMLM.analyze()/analyzeBatch()
+    sSMLM           6204   spectrally resolved SMLM pair-finding
+    spt             6643   single particle tracking, trackpy-inspired
+    pipeline        7073   top-level orchestration, *Core()/wrapper split
+    table           8525   localizations table, filtering, histograms
+    headless API    8953   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18n</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18o</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1832,7 +1832,7 @@ X.B(E,Y);return E}return J}())
         <label class="row">Frame time (s) <input type="number" id="sptFrameTime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
         <label class="row">Localization error (nm) <input type="number" id="sptLocError" value="35" min="0" max="500" step="1" class="num"></label>
         <div class="btnrow" style="margin-top:2px">
-          <button id="sptLocErrorFromNenaBtn" disabled title="Fill Localization error in from the last computed NeNA precision (run NeNA first)">from NeNA</button>
+          <button id="sptLocErrorFromNenaBtn" disabled title="Fill Localization error in from the NeNA precision (runs NeNA first if it hasn't been computed yet)">from NeNA</button>
         </div>
         <label class="row">Min track length (locs) <input type="number" id="sptTrackLenMin" value="5" min="2" max="1000" step="1" class="num"></label>
         <label class="row">D plot min (µm²/s) <input type="number" id="sptDPlotMin" value="0.004" min="0.0001" max="1000" step="0.001" class="num"></label>
@@ -1885,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18n · in/out: native Nikon .nd2 loader (single-channel, 16-bit, uncompressed)
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18o · spt: "from NeNA" now runs NeNA on demand if it hasn't been computed yet
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5717,13 +5717,14 @@ function drawNenaPlot(res){
   syncSaveImg();
 }
 // Stashed here (not just returned) so the SPT module's "from NeNA" button
-// can transfer the last computed precision into sptLocError without
-// re-running NeNA — same compute-once/transfer-separately split PCFO's own
-// pcfoLastGain/pcfoLastOffset already use for gain/offset.
+// can transfer the last computed precision into sptLocError, computing it
+// on demand first if NeNA hasn't been run yet — same compute-once/
+// transfer-separately split PCFO's own pcfoLastGain/pcfoLastOffset already
+// use for gain/offset.
 let lastNena=null;
 async function computeNeNA(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
-  $('nenaBtn').disabled=true;
+  $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
     if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
@@ -5731,12 +5732,12 @@ async function computeNeNA(){
     const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p));
     setProg(null);
     if(r.err){ log('  '+r.err+'.'); return; }
-    lastNena=r; $('sptLocErrorFromNenaBtn').disabled=false;   // SPT's "from NeNA" transfer now has something real to transfer
+    lastNena=r;
     log(`  σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
     log('  Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
     drawNenaPlot(r);                                  // histogram + fit on the left panel
   }catch(err){ log(`⚠ NeNA failed: ${err.name}: ${err.message}`); }
-  finally{ $('nenaBtn').disabled=false; setProg(null); }
+  finally{ $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; setProg(null); }
 }
 
 /* ---- FRC (Fourier Ring Correlation) — image resolution at the 1/7 threshold.
@@ -7055,11 +7056,14 @@ $('sptLocError').addEventListener('change', recomputeSptD);
 // underlying D values — re-plot (if shown) without touching lastSpt itself.
 $('sptDPlotMin').addEventListener('change', refreshSptDHistIfShown);
 $('sptDPlotMax').addEventListener('change', refreshSptDHistIfShown);
-// "from NeNA" mirrors PCFO's Transfer-estimates gating — disabled in the
-// HTML by default, enabled by computeNeNA() itself once lastNena actually
-// holds a result (locprecision module), so this handler can trust it's set.
-$('sptLocErrorFromNenaBtn').addEventListener('click', ()=>{
-  if(!lastNena) return;
+// Gated the same as nenaBtn itself (there's a result to measure precision
+// on), not on lastNena — clicking this before NeNA has ever been run this
+// session now runs it first (computeNeNA(), locprecision module) rather
+// than being disabled/a dead end; a re-click after NeNA has already run
+// just transfers the existing lastNena without recomputing.
+$('sptLocErrorFromNenaBtn').addEventListener('click', async ()=>{
+  if(!lastNena) await computeNeNA();
+  if(!lastNena) return;   // computeNeNA() already logged why (no result / fit failed)
   $('sptLocError').value=lastNena.sigma.toFixed(1);
   recomputeSptD();
 });
@@ -7545,7 +7549,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   try{
     const method=paramValue('method');
@@ -7572,7 +7576,7 @@ async function run(){
     if(r.lastFrame) drawRaw(r.lastFrame,r.w,r.h,r.lastSpots, r.lastFrameIdx>=0?locsForFrame(r.lastFrameIdx):null);
 
     $('saveBtn').disabled = r.locs.length===0; $('tableBtn').disabled = r.locs.length===0; $('driftBtn').disabled = r.locs.length===0;
-    $('nenaBtn').disabled = $('frcBtn').disabled = r.locs.length===0;
+    $('nenaBtn').disabled = $('sptLocErrorFromNenaBtn').disabled = $('frcBtn').disabled = r.locs.length===0;
     $('sSmlmPreviewBtn').disabled = $('sSmlmPairBtn').disabled = r.locs.length===0;
     $('sptTrackBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
@@ -7736,7 +7740,7 @@ $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
+    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -7760,7 +7764,7 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -8062,7 +8066,7 @@ $('csvFile').addEventListener('change', async e=>{
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
     rerender();
     $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
-    $('nenaBtn').disabled=false; $('frcBtn').disabled=false;
+    $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
     $('sptTrackBtn').disabled=false; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the D histogram itself needs a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
@@ -8306,7 +8310,7 @@ function rawClickToNative(e){
 function resetAfterCropChange(){
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null;
-  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   // lastResult=null above orphans any sSMLM pairing state too (unpairSSmlm()
   // would otherwise try to write lastResult.locs on a null lastResult) — same
   // reset every fresh Run/Load/Simulate already does, needed here for the
