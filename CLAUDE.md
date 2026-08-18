@@ -505,12 +505,30 @@ relevant one before editing rather than scrolling:
   compute-once/transfer-separately split PCFO's `pcfoLastGain`/`pcfoLastOffset` already use, never
   silently auto-applied. `track_id`/`D_coeff` are independent, optional table/CSV columns (same
   pattern this project already used for sSMLM's `dist`/`sigma1st`), so the existing filter grammar
-  works on tracking data for free (e.g. `D_coeff > 1 and track_id > 0`). No cell-segmentation-aware
+  works on tracking data for free (e.g. `D_coeff > 1 and track_id > 0`) — the general **Save data**
+  button's per-localization CSV already gains these columns automatically once Track has run,
+  needing no separate button. **Save spt data** (`sptSaveBtn`, `exportSptSummary()`) is a genuinely
+  DIFFERENT export instead: `sptTrackSummary()` aggregates `lastResult.locs` into one row per
+  TRACK (`track_id`, `n_locs`, `D_coeff`, `mean_x`/`mean_y` — the track's own centroid, `nm`,
+  computed from `lastResult.px`) rather than one row per localization — built from the tracked
+  locs directly, not `lastSpt`'s own `diffCoeffs`/`trackIds` arrays, since those only cover
+  QUALIFYING tracks; every linked track gets a row here (blank `D_coeff` if it didn't qualify),
+  matching `track_id` being set on every localization regardless of qualification. **Headless**
+  (v0.11.2):
+  `config.sptTrack` runs tracking after Localize — unlike `config.sSmlmPair`, which runs BEFORE
+  drift/NeNA/FRC, this runs AFTER them: `sptCore()` never drops rows (track_id/D_coeff are added
+  columns, not a row filter, unlike pairing), so there's no row-count reason to run it early, but a
+  per-track D genuinely benefits from drift-corrected coordinates (uncorrected systematic drift
+  would inflate D), matching the sidebar's own Drift correction → Single particle tracking
+  ordering. The result's `spt` field records `nTracks`/`nQualify`/`meanD`/`medianD` — deliberately a
+  small summary, not the full per-track `diffCoeffs`/`trackIds`/`trackLengths` arrays `sptCore()`
+  itself returns (`trackMSD` in particular is a `Map`, not JSON-serialisable at all — would
+  silently become `{}` under `JSON.stringify()` if returned as-is). `tools/webSMLM-cli.mjs`'s
+  `--sptTrack` and `?autorun=`'s `sptTrack=1` both forward to it. No cell-segmentation-aware
   tracking (the reference pipeline's `use_segmentations` branch — webSMLM has no concept of cell
   masks), no length-RESOLVED D histogram (D binned by track length, distinct from the plain
-  track-length histogram above, which webSMLM does have), no colour-by-D/by-track rendering, and no
-  headless exposure yet — all tracked as `docs/REFACTOR_PLAN.md` follow-ups, same "interactive
-  first" precedent sSMLM's own headless exposure followed.
+  track-length histogram above, which webSMLM does have), and no colour-by-D/by-track rendering —
+  tracked as `docs/REFACTOR_PLAN.md` follow-ups.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

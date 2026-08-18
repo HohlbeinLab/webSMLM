@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18l; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18m; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
-    params          1903   PARAMS registry, single source of truth for params
-    in/out          2317   TIFF parsing, in-memory/streamed loading, FTM
-    simulation      2630   synthetic stack generator ("Simulate movie")
-    detect          3207   per-frame band-pass + local-maxima detection
-    fit             3463   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3820   accumulate to offscreen buffer; view/colour/blur
-    workers         4457   frame-parallel detect/fit worker pool
-    export          4613   ThunderSTORM-compatible CSV
-    3D calibration  4798   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5185   AIM drift correction (2D+z)
-    locprecision    5423   NeNA + FRC
-    sSMLM           6046   spectrally resolved SMLM pair-finding
-    spt             6485   single particle tracking, trackpy-inspired
-    pipeline        6871   top-level orchestration, *Core()/wrapper split
-    table           8323   localizations table, filtering, histograms
-    headless API    8751   window.webSMLM.analyze()/analyzeBatch()
+    params          1904   PARAMS registry, single source of truth for params
+    in/out          2318   TIFF parsing, in-memory/streamed loading, FTM
+    simulation      2631   synthetic stack generator ("Simulate movie")
+    detect          3208   per-frame band-pass + local-maxima detection
+    fit             3464   phasor / LS / Poisson-MLE 2D+3D localization
+    render          3821   accumulate to offscreen buffer; view/colour/blur
+    workers         4449   frame-parallel detect/fit worker pool
+    export          4605   ThunderSTORM-compatible CSV
+    3D calibration  4790   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5178   AIM drift correction (2D+z)
+    locprecision    5416   NeNA + FRC
+    sSMLM           6039   spectrally resolved SMLM pair-finding
+    spt             6478   single particle tracking, trackpy-inspired
+    pipeline        6905   top-level orchestration, *Core()/wrapper split
+    table           8357   localizations table, filtering, histograms
+    headless API    8785   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18l</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18m</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1841,6 +1841,7 @@ X.B(E,Y);return E}return J}())
           <button id="sptTrackBtn" disabled title="Link localizations into trajectories and compute a diffusion coefficient per track">Track</button>
           <button id="sptDHistBtn" disabled title="Show the diffusion-coefficient histogram again">Show D histogram</button>
           <button id="sptTrackLenHistBtn" disabled title="Show a histogram of track lengths (log-scaled count axis) with an exponential lifetime fit — helps pick Min track length">Show length hist.</button>
+          <button id="sptSaveBtn" disabled title="Save a per-track summary CSV (track_id, n_locs, D_coeff, mean x/y, first/last frame) — one row per track, not per localization">Save spt data</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: spt</span>
@@ -1884,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18l · colour consistency (NeNA/drift/spt fit), Stop now cancels a running 3D calibration
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18m · spt: headless CLI/analyze() exposure (config.sptTrack), new Save spt data per-track CSV
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -6713,10 +6714,50 @@ async function runSptTrack(){
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
     $('sptTrackLenHistBtn').disabled=!r.trackLengths.length;
+    $('sptSaveBtn').disabled=!r.trackLengths.length;
     if(r.diffCoeffs.length){ $('sptDHistBtn').disabled=false; drawSptDHist(); }
     else{ $('sptDHistBtn').disabled=true; log('  no tracks met the minimum length for a D estimate — widen Min track length or Search range.'); }
   }catch(err){ log(`⚠ SPT tracking failed: ${err.name}: ${err.message}`); }
   finally{ $('sptTrackBtn').disabled=false; setProg(null); }
+}
+// One row per TRACK (not per localization) — a different aggregation than
+// the general Save data CSV, which is per-localization. Built from the
+// tracked locs directly (lastResult.locs, not lastSpt's own diffCoeffs/
+// trackIds arrays), since those only cover QUALIFYING tracks — every linked
+// track gets a row here (D_coeff blank if it didn't qualify), matching
+// track_id being set on every localization regardless of qualification.
+function sptTrackSummary(locs, px){
+  const byTrack=new Map();
+  for(const L of locs){
+    if(L.track_id===undefined || L.track_id<0) continue;
+    let a=byTrack.get(L.track_id);
+    if(!a){ a={n:0,sumX:0,sumY:0,minF:Infinity,maxF:-Infinity,D:NaN}; byTrack.set(L.track_id,a); }
+    a.n++; a.sumX+=L.x; a.sumY+=L.y;
+    if(L.frame<a.minF) a.minF=L.frame;
+    if(L.frame>a.maxF) a.maxF=L.frame;
+    if(isFinite(L.D_coeff)) a.D=L.D_coeff;   // same D_coeff repeated on every loc of a qualifying track (see trackDiffusionCoeffs) — any one of them has it
+  }
+  return [...byTrack.entries()].sort((a,b)=>a[0]-b[0]).map(([track_id,a])=>({
+    track_id, n_locs:a.n, D_coeff:a.D, mean_x:a.sumX/a.n*px, mean_y:a.sumY/a.n*px,
+    first_frame:a.minF+1, last_frame:a.maxF+1,   // 1-indexed, same convention buildCsvText() uses for the per-loc "frame" column
+  }));
+}
+function buildSptSummaryCsvText(rows){
+  const lines=['"track_id","n_locs","D_coeff [um^2/s]","mean_x [nm]","mean_y [nm]","first_frame","last_frame"'];
+  for(const r of rows) lines.push(`${r.track_id},${r.n_locs},${isFinite(r.D_coeff)?r.D_coeff.toFixed(4):''},${r.mean_x.toFixed(1)},${r.mean_y.toFixed(1)},${r.first_frame},${r.last_frame}`);
+  return lines.join('\n')+'\n';
+}
+async function exportSptSummary(){
+  if(!lastResult || !lastResult.locs.length){ log('Nothing to export — track first.'); return; }
+  const rows=sptTrackSummary(lastResult.locs, lastResult.px);
+  if(!rows.length){ log('Nothing to export — no tracked localizations found.'); return; }
+  const csvText=buildSptSummaryCsvText(rows);
+  const blob=new Blob([csvText],{type:'text/csv;charset=utf-8'});
+  const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_spt_tracks.csv';
+  const saved=await saveBlob(blob,suggestedName,'CSV (per-track summary)','text/csv','.csv');
+  if(!saved){ log('Export cancelled.'); return; }
+  const nQualify=rows.filter(r=>isFinite(r.D_coeff)).length;
+  log(`Exported ${rows.length.toLocaleString()} track(s) (${nQualify.toLocaleString()} with a D estimate) as ${saved} — one row per track, not per localization (see Save data for that).`);
 }
 // D = (msd/4 - locErrorUm^2) / frametime is exactly linear in 1/frametime,
 // and msd itself (cached per track in lastSpt.trackMSD, µm^2, purely
@@ -6839,6 +6880,7 @@ function refreshSptTrackLenHistIfShown(){
 $('sptTrackBtn').addEventListener('click', runSptTrack);
 $('sptDHistBtn').addEventListener('click', drawSptDHist);
 $('sptTrackLenHistBtn').addEventListener('click', drawSptTrackLenHist);
+$('sptSaveBtn').addEventListener('click', exportSptSummary);
 // Frame time/localization error only rescale an existing D (see
 // recomputeSptD() above) — Search range/Memory/Min track length change
 // which tracks/steps exist and still require a fresh Track click.
@@ -7340,7 +7382,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   try{
     const method=paramValue('method');
     const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
@@ -7531,7 +7573,7 @@ $('genBtn').addEventListener('click',async()=>{
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; lastSpt=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -7555,7 +7597,7 @@ $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -7859,7 +7901,7 @@ $('csvFile').addEventListener('change', async e=>{
     $('nenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
-    $('sptTrackBtn').disabled=false; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the D histogram itself needs a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
+    $('sptTrackBtn').disabled=false; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the D histogram itself needs a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
     const has3d=locs.some(L=>isFinite(L.z)), hasDist=locs.some(L=>isFinite(L.dist)), isClustered=locs[0].nMerged!==undefined;
@@ -8105,7 +8147,7 @@ function resetAfterCropChange(){
   // would otherwise try to write lastResult.locs on a null lastResult) — same
   // reset every fresh Run/Load/Simulate already does, needed here for the
   // same reason: a crop/uncrop is just as much "new data" for this state.
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
 }
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
@@ -8914,6 +8956,21 @@ async function analyze(config){
   // (e.g. the CLI) expecting 0..100, reading as permanently ~0%.
   if(cfg.computeNeNA && locs.length) nena = await nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p));
   if(cfg.computeFRC && locs.length) frc = await frcResolution(locs, cfg.pxnm, cfg.mag, p=>onProgress(100*p), onLog);
+  // config.sptTrack — the headless equivalent of clicking Track (MODULE:
+  // spt). Unlike sSmlmPair, runs AFTER drift/NeNA/FRC rather than before:
+  // sptCore() never drops rows (track_id/D_coeff are added columns, every
+  // loc keeps its own row), so there's no row-count reason to run it early
+  // the way pairing's own row reduction motivates — but a per-track
+  // diffusion coefficient DOES benefit from drift-corrected coordinates (an
+  // uncorrected systematic drift over the acquisition would inflate D), so
+  // this runs after correctDrift specifically, matching the sidebar's own
+  // Drift correction -> Single particle tracking ordering.
+  let spt=null;
+  if(cfg.sptTrack && locs.length){
+    const sr = await sptCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
+    locs = sr.locs;
+    spt = {nTracks:sr.nTracks, nQualify:sr.diffCoeffs.length, meanD:sr.meanD, medianD:sr.medianD};
+  }
   const {parts} = buildCsvText(locs, cfg.pxnm, cfg.psf);
   // Same check exportCSV()'s wrapper does interactively (only reachable
   // there via a separate Save-data click) — analyze() builds the CSV as
@@ -8937,7 +8994,7 @@ async function analyze(config){
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
            drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
-           calib, calibJsonText, pcfo, sSmlmPair };
+           calib, calibJsonText, pcfo, sSmlmPair, spt };
 }
 // Loops analyze() over multiple files with the same config (per-file
 // overrides via configs[i] are not needed yet — add if a real use case
@@ -8993,7 +9050,7 @@ async function runAutorun(){
     const spec=PARAMS[key];
     if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
                           : spec.type==='enum' ? val : +val; continue; }
-    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair') config[key]=(val==='1'||val==='true');
+    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair'||key==='sptTrack') config[key]=(val==='1'||val==='true');
     if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
   }
   const fileUrl=qp.get('fileUrl');

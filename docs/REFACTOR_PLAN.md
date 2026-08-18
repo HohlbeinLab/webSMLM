@@ -427,10 +427,23 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   `plot_diff_histograms_tracklength_resolved.py` — narrower, since that
   script's multi-panel figures use several different ratios with no single
   consistent convention; 4/3 was chosen for on-screen readability, not
-  fidelity to one specific reference figure size). Deliberately deferred, not forgotten:
-  - **Headless (`window.webSMLM.analyze()`/CLI) exposure** — same
-    "interactive first, headless once it's seen real use" precedent sSMLM's
-    own headless exposure followed a full version cycle after Phase 1.
+  fidelity to one specific reference figure size).
+
+  **Headless exposure (v0.11.2, same-day follow-up)**, same "interactive
+  first, headless once it's seen real use" precedent sSMLM's own headless
+  exposure followed: `config.sptTrack` (analyze()), `--sptTrack` (CLI), and
+  `?autorun=`'s `sptTrack=1` all forward to `sptCore()` — see **spt** in
+  `CLAUDE.md`. Deliberately runs AFTER `correctDrift`/`computeNeNA`/
+  `computeFRC` rather than before (the opposite order from `sSmlmPair`): a
+  per-track D benefits from drift-corrected coordinates, and tracking never
+  drops rows the way pairing does, so there's no row-count reason to run it
+  early. Also added **Save spt data** (`sptSaveBtn`): a per-TRACK summary
+  CSV (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`/`first_frame`/
+  `last_frame`, one row per track), distinct from the general **Save
+  data** button's per-localization CSV (which already carried
+  `track_id`/`D_coeff` columns automatically, no new work needed there).
+
+  Deliberately deferred, not forgotten:
   - **Length-resolved D histogram** (the reference pipeline's
     `D_track_length_matrix`, one histogram per track length rather than one
     pooled histogram) and **colour-reconstruction-by-D/by-track** (the

@@ -24,6 +24,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --method gaussmle
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --cropX0 100 --cropY0 0 --cropX1 600 --cropY1 400
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --sSmlmDistMin 2200 --sSmlmDistMax 2800
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --sptTrack --sptFrameTime 0.05
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -45,8 +46,8 @@
 // Any other --key=value is passed straight through as a PARAMS override
 // (docs/DOCUMENTATION.md §2) — e.g. --winr=6 --gain=0.5. Bare flags (no
 // value) become `true` — useful for --correctDrift/--computeNeNA/
-// --computeFRC/--calibrationOnly/--estimateGainOffset/--sSmlmPair and any
-// PARAMS bool.
+// --computeFRC/--calibrationOnly/--estimateGainOffset/--sSmlmPair/
+// --sptTrack and any PARAMS bool.
 // --sSmlmPair pairs 0th/1st-order spectral SMLM localizations after
 // Localize (MODULE: sSMLM, docs/DOCUMENTATION.md §8) — the headless
 // equivalent of clicking Pair. --sSmlmDistMin/--sSmlmDistMax/
@@ -54,6 +55,15 @@
 // overrides) configure the window; pairing throws if the input already has
 // real 3D z or is already-paired output (summary.json's "sSmlmPair" field
 // records nPairs/meanDistance/stdDistance either way).
+// --sptTrack links localizations into trajectories and computes a per-track
+// diffusion coefficient after Localize (MODULE: spt, docs/DOCUMENTATION.md
+// §8) — the headless equivalent of clicking Track. Unlike --sSmlmPair, runs
+// AFTER --correctDrift/--computeNeNA/--computeFRC (a per-track D benefits
+// from drift-corrected coordinates; pass --correctDrift first if you want
+// that). --sptSearchRange/--sptMemory/--sptFrameTime/--sptLocError/
+// --sptTrackLenMin (ordinary PARAMS overrides) configure it; result.csv
+// gains track_id/D_coeff columns (summary.json's "spt" field records
+// nTracks/nQualify/meanD/medianD).
 // --estimateGainOffset runs PCFO gain/offset estimation (docs/DOCUMENTATION.md
 // §2 Fit / §8) on --file itself before localizing, overriding --gain/--camoffset
 // with the estimate (summary.json's "pcfo" field records what was found; falls
@@ -206,7 +216,7 @@ try {
       if (spec) {
         config[key] = spec.type === 'bool' ? (raw === '1' || raw === 'true' || raw === true)
                      : spec.type === 'enum' ? String(raw) : +raw;
-      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair') {
+      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sptTrack') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
@@ -240,6 +250,10 @@ try {
       // sSmlmPair.locs is redundant with csvText's own "dist [nm]" column —
       // trimmed the same way pairCore's own locs array is above.
       sSmlmPair: r.sSmlmPair ? { nPairs: r.sSmlmPair.nPairs, nInput: r.sSmlmPair.nInput, meanDistance: r.sSmlmPair.meanDistance, stdDistance: r.sSmlmPair.stdDistance } : null,
+      // spt is already a small summary (no per-track arrays) — analyze()
+      // itself only returns {nTracks, nQualify, meanD, medianD}, so unlike
+      // sSmlmPair/pcfo above there's nothing further to trim here.
+      spt: r.spt,
     };
   }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG });
 
@@ -259,7 +273,7 @@ try {
     writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
       nLocalizations: result.nLocalizations, timings: result.timings,
       drift: result.drift, nena: result.nena, frc: result.frc, pcfo: result.pcfo,
-      sSmlmPair: result.sSmlmPair,
+      sSmlmPair: result.sSmlmPair, spt: result.spt,
     }, null, 2));
 
     printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}`);

@@ -136,9 +136,9 @@ says.
   `sptFrameTime`/`sptLocError`/`sptTrackLenMin`/`sptDPlotMin`/`sptDPlotMax`,
   **from NeNA** (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last
   computed NeNA precision — disabled until NeNA has actually been run), and
-  **Track**/**Show D histogram**/**Show length hist.**
-  (`sptTrackBtn`/`sptDHistBtn`/`sptTrackLenHistBtn`, the last log-Y-axis
-  track-length histogram enabled once **Track** has run). Enabled as soon as
+  **Track**/**Show D histogram**/**Show length hist.**/**Save spt data**
+  (`sptTrackBtn`/`sptDHistBtn`/`sptTrackLenHistBtn`/`sptSaveBtn`, the last
+  three enabled once **Track** has run). Enabled as soon as
   there are localizations, same gating as Spectral SMLM analysis. Editing
   **Frame time** or **Localization error** after **Track** has run rescales
   the already-computed D values (and, if shown, the D/length histograms)
@@ -147,8 +147,13 @@ says.
   tracks/steps exist. **D plot min/max** only constrain the D histogram's
   own display window and also live-refresh it if shown.
   **Track** immediately plots a diffusion-coefficient histogram in the raw
-  panel; **Show D histogram** redraws it later without re-tracking. See
-  **spt** module.
+  panel; **Show D histogram** redraws it later without re-tracking.
+  **Save spt data** writes a PER-TRACK summary CSV (`track_id`, `n_locs`,
+  `D_coeff [um^2/s]`, `mean_x [nm]`, `mean_y [nm]`, `first_frame`,
+  `last_frame` — one row per track) — a different shape from the general
+  **Save data** button's per-localization CSV, which already gains
+  `track_id`/`D_coeff` columns automatically once Track has run and needs
+  no separate button for that. See **spt** module.
 
 ### Main panels
 
@@ -1365,6 +1370,23 @@ const result = await window.webSMLM.analyze({
   (`null` if `sSmlmPair` wasn't requested); on success `result.locs` (and
   therefore `result.csvText`/`result.reconstructionPng`) reflect the
   *paired* set, same as an interactive Pair replacing `lastResult.locs`.
+- `config.sptTrack` (v0.11.2) — boolean, not a `PARAMS` entry. Runs
+  `sptCore()` (single particle tracking, see **spt** in `CLAUDE.md`) — the
+  headless equivalent of clicking **Track**. Unlike `sSmlmPair`, runs AFTER
+  `correctDrift`/`computeNeNA`/`computeFRC` rather than before: tracking
+  never drops rows (`track_id`/`D_coeff` are added columns, every
+  localization keeps its own row), so there's no row-count reason to run it
+  early the way pairing's own row reduction motivates, but a per-track
+  diffusion coefficient benefits from drift-corrected coordinates.
+  `config.sptSearchRange`/`sptMemory`/`sptFrameTime`/`sptLocError`/
+  `sptTrackLenMin` (ordinary `PARAMS` fields) configure it. `result.spt`
+  records `{nTracks, nQualify, meanD, medianD}` (`null` if `sptTrack` wasn't
+  requested) — deliberately a small summary, not `sptCore()`'s own full
+  `diffCoeffs`/`trackIds`/`trackLengths` arrays (`trackMSD` in particular is
+  a `Map`, not JSON-serialisable — would silently become `{}` under
+  `JSON.stringify()` if returned as-is); `result.locs`/`result.csvText`
+  gain `track_id`/`D_coeff` columns the same way an interactive Track adds
+  them to `lastResult.locs`, row count unchanged.
 - `config.estimateGainOffset` — boolean, not a `PARAMS` entry. Runs
   `pcfoCore()` (PCFO gain/offset estimation, [§2/Gain-offset estimation
   (PCFO)](#gainoffset-estimation-pcfo)) on the SAME stack `config.file`/
@@ -1394,7 +1416,7 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair}`:
+**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt}`:
 - `pcfo` is `{gain, gainStd, offset, offsetStd, r2, pts, fit}` (`pcfoCore()`'s
   return shape) when `estimateGainOffset` was requested and PCFO found
   enough usable tiles to fit, else `null`. `gain`/`offset` are what
@@ -1430,6 +1452,12 @@ const result = await window.webSMLM.analyze({
   `correctDrift`/`computeNeNA`/`computeFRC` all see the paired result
   automatically, same as the interactive pipeline. Runs BEFORE those other
   optional stages (see **sSMLM** in `CLAUDE.md`).
+- `spt` is `{nTracks, nQualify, meanD, medianD}` when `sptTrack` was
+  requested, else `null` — `locs` already reflects the tracked result
+  (`track_id`/`D_coeff` added, row count unchanged), so `csvText` gains
+  those two columns automatically. Runs AFTER `correctDrift`/`computeNeNA`/
+  `computeFRC` (see **spt** in `CLAUDE.md`), the opposite order from
+  `sSmlmPair`.
 
 `window.webSMLM.analyzeBatch(files, config)` loops `analyze()` over
 multiple files with the same config (no per-file override yet). Sequential,
@@ -1448,10 +1476,10 @@ no driving script, works by just opening the link in any browser.
   `+val`, `bool` → `val==='1'||val==='true'`, `enum` → the string as-is).
   Unrecognised keys are silently ignored, same tolerance as a loaded
   settings JSON.
-- `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset`/`sSmlmPair`
-  work as `=1`/`=true` flags too, same as passing them to `analyze()`
-  directly. `cropX0`/`cropY0`/`cropX1`/`cropY1` work as plain numeric params
-  the same way.
+- `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset`/`sSmlmPair`/
+  `sptTrack` work as `=1`/`=true` flags too, same as passing them to
+  `analyze()` directly. `cropX0`/`cropY0`/`cropX1`/`cropY1` work as plain
+  numeric params the same way.
 - `fileUrl` (required to actually run) and `calibrationJson` come from
   **`fileUrl`/`calibrationUrl`** query params instead — both must be
   fetchable URLs, not local paths (the browser has no way to name a local
@@ -1514,19 +1542,28 @@ not wherever the shell happens to be, unless given explicitly. Any
 `--key=value` not listed in the script's header comment is passed straight
 through as a `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248
 --camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/
-`--estimateGainOffset`/`--sSmlmPair` are bare boolean flags — the last-but-one
-runs PCFO gain/offset estimation on `--file` itself before localizing and
-overrides `--gain`/`--camoffset` with the estimate (`summary.json`'s `pcfo`
-field records what was found: `gain`/`gainStd`/`offset`/`offsetStd`/`r2`,
-`pts` trimmed since it's redundant with the log's own summary line and can
-run into the thousands); `--pcfoFrames`/`--pcfoK`/`--pcfoRnstd` (`PARAMS`
-overrides) tune it — see [§8](#8-headless-api-window-websmlm)'s
-`config.estimateGainOffset`. `--sSmlmPair` pairs 0th/1st-order spectral SMLM
-localizations right after Localize (`--sSmlmDistMin`/`--sSmlmDistMax`/
-`--sSmlmAngleCenter`/`--sSmlmAngleTol`/`--sSmlmRequireNarrower`, ordinary
-`PARAMS` overrides, configure the window; `summary.json`'s `sSmlmPair` field
-records `nPairs`/`nInput`/`meanDistance`/`stdDistance`) — see
-[§8](#8-headless-api-window-websmlm)'s `config.sSmlmPair`.
+`--estimateGainOffset`/`--sSmlmPair`/`--sptTrack` are bare boolean flags —
+the last-but-two runs PCFO gain/offset estimation on `--file` itself before
+localizing and overrides `--gain`/`--camoffset` with the estimate
+(`summary.json`'s `pcfo` field records what was found:
+`gain`/`gainStd`/`offset`/`offsetStd`/`r2`, `pts` trimmed since it's
+redundant with the log's own summary line and can run into the thousands);
+`--pcfoFrames`/`--pcfoK`/`--pcfoRnstd` (`PARAMS` overrides) tune it — see
+[§8](#8-headless-api-window-websmlm)'s `config.estimateGainOffset`.
+`--sSmlmPair` pairs 0th/1st-order spectral SMLM localizations right after
+Localize (`--sSmlmDistMin`/`--sSmlmDistMax`/`--sSmlmAngleCenter`/
+`--sSmlmAngleTol`/`--sSmlmRequireNarrower`, ordinary `PARAMS` overrides,
+configure the window; `summary.json`'s `sSmlmPair` field records
+`nPairs`/`nInput`/`meanDistance`/`stdDistance`) — see
+[§8](#8-headless-api-window-websmlm)'s `config.sSmlmPair`. `--sptTrack`
+links localizations into trajectories and computes a per-track diffusion
+coefficient, AFTER `--correctDrift`/`--computeNeNA`/`--computeFRC` (the
+opposite order from `--sSmlmPair` — a per-track D benefits from drift-
+corrected coordinates) — `--sptSearchRange`/`--sptMemory`/
+`--sptFrameTime`/`--sptLocError`/`--sptTrackLenMin` (ordinary `PARAMS`
+overrides) configure it; `result.csv` gains `track_id`/`D_coeff` columns,
+and `summary.json`'s `spt` field records `nTracks`/`nQualify`/`meanD`/
+`medianD` — see [§8](#8-headless-api-window-websmlm)'s `config.sptTrack`.
 `--cropX0`/`--cropY0`/`--cropX1`/`--cropY1` (any subset — an omitted bound
 defaults to that edge of the full frame) replace `--file` with just that
 native-pixel sub-rectangle before anything else touches it, the headless
