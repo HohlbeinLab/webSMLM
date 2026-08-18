@@ -226,6 +226,41 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   `driftZRow` stays hidden → Show standard/spectral toggle → Unpair), and a
   headless `analyze({sSmlmPair:true, ...})` call, all via Playwright.
 
+- **Single particle tracking (spt) — follow-ups beyond v0.11.2.** Shipped:
+  frame-to-frame linking (`linkTracks()`, Hungarian-optimal assignment per
+  connected component, `sptMemory`-gated gap-bridging) and per-track
+  diffusion coefficients (`trackDiffusionCoeffs()`, ported from
+  `diff_coeffs_per_track()` in the user's own `sptPALM-Python` pipeline) —
+  see **spt** in `CLAUDE.md` for the full design; verified against
+  synthetic straight-line/crossing/gap-bridging cases AND the real bundled
+  L. lactis dataset (both a 100-frame subset and the full 1173-frame movie —
+  74,011 localizations, 21,578 tracks, mean D 0.321 µm²/s, consistent
+  between the two runs). Deliberately deferred, not forgotten:
+  - **Headless (`window.webSMLM.analyze()`/CLI) exposure** — same
+    "interactive first, headless once it's seen real use" precedent sSMLM's
+    own headless exposure followed a full version cycle after Phase 1.
+  - **Length-resolved D histogram** (the reference pipeline's
+    `D_track_length_matrix`, one histogram per track length rather than one
+    pooled histogram) and **colour-reconstruction-by-D/by-track** (the
+    render module's `colorField` mechanism sSMLM's `dist` already uses
+    could extend to `D_coeff`, but D is track-level not per-loc the way z/
+    dist are, so this needs its own design, not a drop-in).
+  - **Real `10^x`-formatted tick labels** for the D histogram's log10(D)
+    x-axis — v1 ships literal log10 numbers (a deliberate, documented v1
+    shortcut, reusing `computeHist()`/`drawHistogram()` completely
+    unchanged) rather than a genuinely log-scale-aware axis.
+  - **No cell-segmentation-aware tracking** (the reference pipeline's
+    `use_segmentations` branch, tracking per-bacterium rather than across
+    the whole field of view) — webSMLM has no concept of cell masks;
+    revisit only if a real use case needs per-cell track isolation rather
+    than whole-FOV linking.
+  - **Large-subnetwork exact assignment.** `linkTracks()`'s connected
+    components above `HUNGARIAN_MAX` (120 points) fall back to greedy
+    nearest-neighbor rather than trackpy's own recursive exact-subnetwork
+    solver — real single-molecule (PALM-style, sparse) SPT data isn't
+    expected to produce components that large, but a genuinely crowded
+    dataset could exercise this fallback; no reports of it mattering yet.
+
 - **`tempClusteringMemory` — gap-frame tolerance for temporal clustering.**
   `clusterEvents()` (table module) currently requires strictly consecutive
   frame numbers to chain detections into one event (memory=0, hardcoded) —

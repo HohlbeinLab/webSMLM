@@ -269,6 +269,28 @@ producing `NaN`-sized buffers and canvas errors downstream — a real bug that
 existed before this file surfaced it, since nothing had exercised that path.
 See **in/out** in `CLAUDE.md`/`docs/DOCUMENTATION.md` for the design.
 
+## Sixth reference dataset — `Sample2_L.lactis_..._MMStack_Pos0.ome.tif` (single particle tracking)
+
+`Sample2_L.lactis_10ng-mlNR_1000f_50msft_30%green_greenfilt_1_MMStack_Pos0.ome.tif`
+(147 MB) — a real *Lactococcus lactis* sptPALM movie, the test file for the
+**spt** (single particle tracking) module (v0.11.2, see `CLAUDE.md`/
+`docs/DOCUMENTATION.md`). Verified directly rather than trusted from the
+filename: `MM\x00\x2a` magic (big-endian OME-TIFF/MMStack), 256×256,
+**1173 frames** — the filename's own "1000f" undercounts the real frame
+count by 173, worth knowing if cropping to a round number; 50 ms/frame
+(`sptFrameTime = 0.05`) does match the filename's "50msft".
+
+Loads and localizes through webSMLM's existing TIFF/Localize path with no
+changes needed. Full-stack run (default `pxnm=100`, `method=gaussmle`):
+74,011 localizations → **spt Track** finds 21,578 tracks, 13,645 with
+`sptTrackLenMin=2` (default) qualify for a D estimate — mean D = 0.321
+µm²/s, median D = 0.186 µm²/s (consistent with a 100-frame-subset run: mean
+0.311, median 0.182), both physically plausible for bacterial cytoplasmic
+protein diffusion. 1,217 of the full run's tracks came out with a
+non-positive D (a real, expected artifact of the localization-error
+correction for near-immobile tracks, not a bug — see **spt** in
+`CLAUDE.md`).
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations

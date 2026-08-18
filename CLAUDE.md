@@ -301,6 +301,53 @@ relevant one before editing rather than scrolling:
   immediately (no separate headless guard needed), and the result's `sSmlmPair` field records
   `nPairs`/`nInput`/`meanDistance`/`stdDistance`. `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and
   `?autorun=`'s `sSmlmPair=1` both forward to it.
+- **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
+  computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
+  `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
+  a literal port of its source — no way to call real Python trackpy from a static HTML page. Ported
+  from the user's own `sptPALM-Python` pipeline (L. lactis sptPALM, Martens, van Beljouw, van der
+  Els, Vink, Baas, Vogelaar, Brouns, van Baarlen, Kleerebezem & Hohlbein, *Nat. Commun.* 10, 3552,
+  2019): `tracking_sptPALM.py`'s `tp.link_df(search_range=…, memory=…)` call, and
+  `diff_coeffs_from_tracks_fast.py`'s `diff_coeffs_per_track()` for D. `linkTracks()` walks frames
+  in order; each frame's track↔candidate bipartite graph (edges within `sptSearchRange`, gated by
+  `sptMemory` for gap-bridging) is split into connected components ("subnetworks" — trackpy's own
+  term) via union-find, each solved by a self-contained Hungarian/Kuhn–Munkres implementation
+  (`hungarianAssign()`) for the minimum-total-squared-displacement assignment — keeps crossing
+  trajectories from swapping identity in the common case (verified: a synthetic two-particle
+  crossing test stays perfectly monotonic on both tracks). NOT a literal port of trackpy's own
+  recursive exact-subnetwork solver, which handles arbitrarily large ambiguous clusters exactly;
+  real single-molecule SPT data (PALM-style — only a sparse subset of molecules on at once) isn't
+  expected to hit this, but components above `HUNGARIAN_MAX` (120) fall back to greedy
+  nearest-neighbor instead, with a one-time logged warning, rather than let O(n³) stall the tab on
+  a pathologically dense frame — a real, documented scope limit, not silently glossed over. Returns
+  a NEW locs array (`linkTracks()`/`trackDiffusionCoeffs()`/`sptCore()` never mutate `locs`, same
+  convention `pairCore()`/`driftCore()` use) with `track_id` set on EVERY localization (even
+  length-1 tracks, matching trackpy's own behaviour — length filtering happens only at the
+  diffusion-coefficient step, same division of responsibility the reference pipeline uses).
+  `trackDiffusionCoeffs()` ports `diff_coeffs_per_track()` exactly: one D (µm²/s) per track meeting
+  `sptTrackLenMin`, from the gap-corrected mean single-frame squared displacement over the track's
+  first `sptTrackLenMax` localizations (longer tracks truncated, not dropped, so every qualifying
+  track gets equal weight) — `D = MSD/(4·frametime) − locError²/frametime` (2D,
+  static-localization-error-corrected); a real, expected artifact of this formula is that
+  near-immobile tracks can compute a non-positive D (MSD below the subtracted term), handled by
+  clamping to the histogram's lowest bin with a logged count, not silently dropped or crashed on.
+  **Track** (`runSptTrack()`) is idempotent and safe to re-run any time — unlike sSMLM's Pair, it
+  never reduces row count or aliases another field, only sets/overwrites `track_id`/`D_coeff`, so
+  there's no `sSmlmOriginalLocs`-style original-vs-tracked state to manage. Immediately draws a
+  histogram of D in the raw panel via the SAME `computeHist()`/`drawHistogram()` the table module's
+  histograms use, fed `log10(D)` values (`'log10(D)'` as the pseudo-column name) rather than raw D
+  — D commonly spans orders of magnitude between bound/slow and free/fast populations, matching the
+  reference pipeline's own default logarithmic axis; a real v1 shortcut, not yet nicely
+  `10^x`-formatted tick labels (`docs/REFACTOR_PLAN.md`). `sptLocError`'s **from NeNA** button
+  transfers `lastNena.sigma` (a new stash `computeNeNA()` writes, locprecision module) into it —
+  same compute-once/transfer-separately split PCFO's `pcfoLastGain`/`pcfoLastOffset` already use,
+  never silently auto-applied. `track_id`/`D_coeff` are independent, optional table/CSV columns
+  (same pattern this project already used for sSMLM's `dist`/`sigma1st`), so the existing filter
+  grammar works on tracking data for free (e.g. `D_coeff > 1 and track_id > 0`). No
+  cell-segmentation-aware tracking (the reference pipeline's `use_segmentations` branch — webSMLM
+  has no concept of cell masks), no length-resolved D histogram, no colour-by-D/by-track rendering,
+  and no headless exposure yet — all tracked as `docs/REFACTOR_PLAN.md` follow-ups, same
+  "interactive first" precedent sSMLM's own headless exposure followed.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

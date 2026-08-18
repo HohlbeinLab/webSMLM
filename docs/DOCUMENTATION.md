@@ -132,6 +132,15 @@ says.
   gated on a specific fit method. Paired locs are already `lastResult.locs`,
   so the top-level **View data + filtering** button (§1 item 5) works on
   them directly — no separate table here. See **sSMLM** module.
+- **Single particle tracking** (`sptBox`) — `sptSearchRange`/`sptMemory`/
+  `sptFrameTime`/`sptLocError`/`sptTrackLenMin`/`sptTrackLenMax`, **from
+  NeNA** (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last
+  computed NeNA precision — disabled until NeNA has actually been run), and
+  **Track**/**Show D histogram** (`sptTrackBtn`/`sptDHistBtn`). Enabled as
+  soon as there are localizations, same gating as Spectral SMLM analysis.
+  **Track** immediately plots a diffusion-coefficient histogram in the raw
+  panel; **Show D histogram** redraws it later without re-tracking. See
+  **spt** module.
 
 ### Main panels
 
@@ -544,6 +553,30 @@ then commit with **Pair**. See
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
 
+### spt (single particle tracking)
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `sptSearchRange` | SPT search range (nm) | number | 10 | 5000 | 10 | 800 |
+| `sptMemory` | SPT memory (frames) | number (int) | 0 | 20 | 1 | 0 |
+| `sptFrameTime` | SPT frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
+| `sptLocError` | SPT localization error (nm) | number | 0 | 500 | 1 | 35 |
+| `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 2 |
+| `sptTrackLenMax` | SPT max track length (locs) | number (int) | 2 | 1000 | 1 | 8 |
+
+Defaults are ported from the user's own `sptPALM-Python` pipeline's
+`set_parameters_sptPALM.py` (L. lactis sptPALM), converted from that
+pipeline's µm convention to webSMLM's own nm convention for spatial params
+(0.8 µm → 800 nm, 0.035 µm → 35 nm) — a different setup's own step sizes and
+localization precision will sit elsewhere, so treat these as a starting
+point, not a universal default. `sptFrameTime` is per-dataset acquisition
+timing that webSMLM cannot infer from the loaded stack (no embedded
+interval is read); set it to match your own movie — e.g. the bundled
+`experimental_data/` L. lactis test file is 50 ms/frame (`sptFrameTime =
+0.05`), not the reference pipeline's own 0.01 s default. See
+[§3](#3-module-reference)'s **spt** entry for the full linking/diffusion-
+coefficient algorithm.
+
 ### Memory / streaming
 
 | id | Label | Type | Min | Max | Step | Default |
@@ -936,6 +969,49 @@ is what to know before touching that module, not a restatement of its code.
   button works on them directly — no separate table for sSMLM. **Headless**
   (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before
   drift/NeNA/FRC — see §8.
+- **spt** (single particle tracking, v0.11.2) — links per-frame
+  localizations into trajectories and computes a per-track diffusion
+  coefficient. A trackpy-**inspired** variant (same `search_range`/`memory`
+  terminology and linking philosophy as the Python `trackpy` package), not a
+  literal port of its source — there's no way to call real Python trackpy
+  from a static HTML page. Ported from the user's own `sptPALM-Python`
+  pipeline (L. lactis sptPALM, Martens et al., *Nat. Commun.* 10, 3552,
+  2019): `tracking_sptPALM.py`'s `tp.link_df(search_range=…, memory=…)`
+  call, and `diff_coeffs_from_tracks_fast.py`'s `diff_coeffs_per_track()`
+  for D. Each frame's track↔candidate bipartite graph (edges within
+  **SPT search range**, gated by **SPT memory** for gap-bridging) is split
+  into small connected clusters ("subnetworks" — trackpy's own term) and
+  each solved via the Hungarian/Kuhn–Munkres algorithm for the
+  minimum-total-squared-displacement assignment, which keeps crossing
+  trajectories from swapping identity in the common case — NOT trackpy's
+  own recursive exact-subnetwork solver for arbitrarily large ambiguous
+  clusters; a pathologically dense frame falls back to a faster
+  nearest-neighbor assignment instead (logged once), a real, documented
+  scope limit real single-molecule SPT data isn't expected to hit. Every
+  localization gets a `track_id` (even length-1 tracks); track-length
+  filtering happens only at the diffusion-coefficient step. **Track** is
+  idempotent and safe to re-run any time — it only sets/overwrites
+  `track_id`/`D_coeff`, never drops or replaces rows, so there's no
+  original-vs-tracked state to manage the way sSMLM's Pair/Unpair needs.
+  One D (µm²/s) is computed per qualifying track from its own gap-corrected
+  mean single-frame squared displacement (**SPT min/max track length** set
+  which tracks qualify and how many of their own localizations count —
+  longer tracks are truncated, not dropped, so every qualifying track gets
+  equal weight), corrected for **SPT localization error**:
+  D = MSD/(4·frame time) − error²/frame time; a near-immobile track can
+  compute a non-positive D (a real artifact of this correction, not a bug),
+  clamped into the histogram's lowest bin with a logged count rather than
+  dropped or crashed on. **Track** immediately plots a histogram of D
+  (log<sub>10</sub>-binned — D commonly spans orders of magnitude between
+  bound/slow and free/fast populations, matching the reference pipeline's
+  own logarithmic default) in the raw panel, reusing the table module's own
+  `computeHist()`/`drawHistogram()`; **Show D histogram** redraws it later
+  without re-tracking. `track_id`/`D_coeff` become independent, optional
+  table/CSV columns (§5/§6) the same way sSMLM's `dist`/`sigma1st` do, so
+  the existing filter grammar works on tracking data for free. No
+  cell-segmentation-aware tracking, no length-resolved D histogram, no
+  colour-by-D/by-track rendering, and no headless exposure yet — see
+  `docs/REFACTOR_PLAN.md`.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table
@@ -997,7 +1073,9 @@ distance; an INDEPENDENT column from `z`, not an alias of it — see §3
 sSMLM), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate z-precision —
 not available for Phasor 3D), `sigma1st` (sSMLM paired results only — the
 1st order's own sigma, see §3 sSMLM/§6), `intensity`, `offset`, `bkgstd`,
-`uncertainty`, `nmerged` (only once clustering is active).
+`uncertainty`, `nmerged` (only once clustering is active), `track_id` (once
+**Track** has run — every localization gets one, see §3 spt), `D_coeff`
+(µm²/s, only on localizations whose track met **SPT min track length**).
 
 **Filter syntax:** `field op value`, chained with `and`/`or`
 (e.g. `intensity > 1000 and uncertainty < 20`); `op` ∈ `> < >= <= == = !=`.
@@ -1041,16 +1119,16 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"n_merged [frames]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
-- `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]` (each when available) and
-  `n_merged [frames]` (when temporal clustering is active) are
-  webSMLM-specific additions appended after the standard columns — safe for
-  a strict ThunderSTORM reader to ignore.
+- `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `track_id`, `D_coeff
+  [um^2/s]` (each when available) and `n_merged [frames]` (when temporal
+  clustering is active) are webSMLM-specific additions appended after the
+  standard columns — safe for a strict ThunderSTORM reader to ignore.
 - `dist [nm]` is sSMLM-**Pair**-specific: the inter-order distance
   (see §3 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
   for it; `pairCore()` never sets `z`, so a paired-only export has `dist`
@@ -1062,6 +1140,13 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   the closest available proxy for how much wider the spectrally-smeared 1st
   order looks. Round-trips through **Load data** (`parseCsvLocs()`) like
   `sigma_z`/`dist`/`n_merged` do.
+- `track_id` and `D_coeff [um^2/s]` are spt-**Track**-specific (see §3 spt)
+  — independent optional columns, present whenever any localization has
+  them; `track_id` is on every tracked localization, `D_coeff` only on
+  those whose track met **SPT min track length**. `um^2` (not `µm²`) is
+  deliberately plain ASCII in the header, matching ThunderSTORM's own
+  ASCII-only unit-bracket convention elsewhere in this format. Both
+  round-trip through **Load data** (`parseCsvLocs()`).
 - Exports the *currently filtered* subset (`renderLocs||lastResult.locs`),
   the same set the reconstruction shows — logged explicitly when a filter is
   active, together with the unfiltered total.
