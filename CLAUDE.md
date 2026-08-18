@@ -64,7 +64,40 @@ relevant one before editing rather than scrolling:
   `NaN` dimensions instead of a clean error. Check `t256`/`t257`, NOT `.width`/`.height` — those
   are only set as a side effect of `UTIF.decodeImage()`, so checking them beforehand silently
   checks `undefined>0` and rejects every file, valid or not (a real regression, caught immediately
-  by testing against the sample above rather than shipped). `makeCroppedStack()`
+  by testing against the sample above rather than shipped). **Native Nikon ND2** (the genuine
+  proprietary binary format, distinct from the TIFF-in-disguise case above) is also supported,
+  shipped v0.11.2: `isNd2File()` sniffs the real magic (`0x0ABECEDA` LE u32 at byte 0, same
+  convention as `isTiffFile()`) and `loadTiffFile()`'s very first line dispatches to
+  `loadNd2File()` when it matches — reaching all three existing callers (interactive `#file`,
+  calibration file input, headless `analyze()`'s `cfg.file`/`cfg.calibrationFile`) with no
+  caller-side changes, the same "one detection path, three callers" precedent as the TIFF sniff
+  above; `loadTiffFilesAuto()` also special-cases a lone `.nd2` selection before its TIFF-only
+  filter would otherwise silently drop it (multi-file ND2 concatenation isn't supported yet). ND2
+  has no official public spec — the format was reverse-engineered directly from two real sample
+  files (`experimental_data/2026-07-13_BHK21_EphB2_mEos4_substack_0-{100,500}.nd2`), not ported
+  from any GPL reader (Bio-Formats/nd2reader are GPL-licensed, unsafe for this CC-BY project). The
+  file is a flat sequential run of 16-byte-header chunks (`magic+dataOffset+dataLen+4 reserved`,
+  then a `!`-terminated ASCII name, then the payload), each padded to the next 4096-byte boundary;
+  `readNd2ChunkHeader()` walks the WHOLE chain from byte 0 to index every `ImageDataSeq|N!` frame
+  chunk's own byte offset — there's no shortcut, since the required `ImageAttributesLV!` metadata
+  chunk (width/height/frame count/bit depth) sits near EOF, after all frame data, and metadata
+  chunk count is confirmed frame-count-independent (4 before/45 after the frame run in both real
+  samples) so this walk's cost scales only with the per-frame header count, not file size beyond
+  that. `ImageAttributesLV!`/`ImageCalibrationLV|0!` are decoded via `parseNd2LvField()`, a
+  recursive reader for Nikon's own binary key-value ("LV") format: `type(u8)+nameLen(u8, UTF-16
+  code units including the trailing null)+name(UTF-16LE)+value`; a container (type `0x0b`) holds
+  `childCount(u32)+byteLen(u64)` then recurses exactly `childCount` times — **`byteLen` must never
+  be used as the parse boundary**, it can include trailing padding past the real fields and produce
+  a bogus extra read with a garbage type byte (a real bug caught while implementing this). String
+  fields (type `8`) are **null-terminated UTF-16LE with no length prefix**, unlike field names,
+  which use an explicit `nameLen` — also only discovered by decoding real bytes, not documented
+  anywhere. `getFrames(s,e)` does one batched `file.slice()` per requested frame range and decodes
+  each frame at its OWN explicit stored offset (never assumed back-to-back — a chunk header+name
+  sits between consecutive frame payloads, so stride arithmetic alone would misalign). The file's
+  own pixel calibration (`ImageCalibrationLV|0!`'s `dCalibration`, µm/px) is logged but never
+  auto-applied to `pxnm`, matching this project's compute-once/apply-separately convention used
+  elsewhere (NeNA→SPT, PCFO's Transfer estimates). Multi-channel and non-16-bit files throw a
+  clear unsupported-format error rather than silently misreading. `makeCroppedStack()`
   (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a

@@ -772,7 +772,15 @@ is what to know before touching that module, not a restatement of its code.
   export — see `docs/REFACTOR_PLAN.md`'s ND2 entry); genuinely unparseable
   content fails with a clear error (`loadTiff()` validates the raw
   ImageWidth/ImageLength tags before trusting a decode) rather than
-  producing `NaN`-sized buffers downstream. `runFTM()` (optional, `ftmEnabled`)
+  producing `NaN`-sized buffers downstream. Genuine native Nikon `.nd2`
+  binaries (not just the TIFF-in-disguise case above) are also supported —
+  `isNd2File()` sniffs the real magic bytes and `loadTiffFile()` dispatches
+  to a dedicated `loadNd2File()` parser, reaching the interactive `#file`
+  input, calibration file loading, and headless `analyze()`'s
+  `cfg.file`/`cfg.calibrationFile` alike with no extra wiring. Single
+  channel, 16-bit, uncompressed only; multi-channel or other bit depths
+  throw a clear unsupported-format error. See **in/out** in `CLAUDE.md` for
+  the file-format details. `runFTM()` (optional, `ftmEnabled`)
   runs right after either loader finishes, replacing `stack` with a fresh
   `makeStack()`-backed one holding the temporal-median-corrected frames —
   see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.

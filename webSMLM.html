@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18m; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18n; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
     params          1904   PARAMS registry, single source of truth for params
-    in/out          2318   TIFF parsing, in-memory/streamed loading, FTM
+    in/out          2318   TIFF/ND2 parsing, in-memory/streamed loading, FTM
     simulation      2631   synthetic stack generator ("Simulate movie")
-    detect          3208   per-frame band-pass + local-maxima detection
-    fit             3464   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3821   accumulate to offscreen buffer; view/colour/blur
-    workers         4449   frame-parallel detect/fit worker pool
-    export          4605   ThunderSTORM-compatible CSV
-    3D calibration  4790   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5178   AIM drift correction (2D+z)
-    locprecision    5416   NeNA + FRC
-    sSMLM           6039   spectrally resolved SMLM pair-finding
-    spt             6478   single particle tracking, trackpy-inspired
-    pipeline        6905   top-level orchestration, *Core()/wrapper split
-    table           8357   localizations table, filtering, histograms
-    headless API    8785   window.webSMLM.analyze()/analyzeBatch()
+    detect          3372   per-frame band-pass + local-maxima detection
+    fit             3628   phasor / LS / Poisson-MLE 2D+3D localization
+    render          3985   accumulate to offscreen buffer; view/colour/blur
+    workers         4613   frame-parallel detect/fit worker pool
+    export          4769   ThunderSTORM-compatible CSV
+    3D calibration  4954   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5342   AIM drift correction (2D+z)
+    locprecision    5580   NeNA + FRC
+    sSMLM           6203   spectrally resolved SMLM pair-finding
+    spt             6642   single particle tracking, trackpy-inspired
+    pipeline        7069   top-level orchestration, *Core()/wrapper split
+    table           8521   localizations table, filtering, histograms
+    headless API    8949   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18m</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18n</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1495,7 +1495,7 @@ X.B(E,Y);return E}return J}())
     <!-- actions -->
     <div class="group">
       <div class="btnrow">
-        <button id="loadBtn" title="Select a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate them into one stack. .nd2 is accepted too, but only if it's actually TIFF-formatted underneath (some tools export/rename it that way) — native Nikon ND2 binaries aren't supported yet.">Load movie</button>
+        <button id="loadBtn" title="Select a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate them into one stack. Native Nikon .nd2 (single file, uncompressed/16-bit single-channel) is also accepted.">Load movie</button>
         <button id="genBtn">Simulate movie</button>
       </div>
       <div class="btnrow">
@@ -1885,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18m · spt: headless CLI/analyze() exposure (config.sptTrack), new Save spt data per-track CSV
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18n · in/out: native Nikon .nd2 loader (single-channel, 16-bit, uncompressed)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2747,6 +2747,163 @@ function ifdToFloat(ifd,w,h){
 
 // Load TIFF: parse headers first (frame count), check memory, then either
 // cache all frames (with progress) or stream-decode on demand for huge files.
+// Nikon ND2 (modern/NIS-Elements 4.0+ chunk-container format) — reverse-
+// engineered from two genuine native samples (experimental_data/2026-07-13_
+// BHK21_EphB2_mEos4_substack_0-{100,500}.nd2); no official spec exists, and
+// every other reader (Bio-Formats, nd2reader) is GPL, not safe to port from
+// into this CC-BY project — see docs/REFACTOR_PLAN.md's ND2 entry for the
+// full byte-level derivation this is built from. Every chunk: a 16-byte LE
+// header (magic u32 + dataOffset u32 [bytes from the chunk's own start to
+// its payload] + dataLen u32 [payload byte length] + 4 reserved bytes),
+// then a '!'-terminated ASCII name, then the payload — the WHOLE chunk
+// (header+name+payload) padded up to the next 4096-byte boundary. The file
+// is a flat, sequential run of these from byte 0 to EOF (confirmed against
+// both samples: every chunk, data or metadata, follows the same stride
+// formula with no exceptions). `ImageDataSeq|N!` chunks hold frame N's raw
+// pixel data (confirmed uncompressed: uint16 LE, row-major, exactly
+// width×height×2 bytes, followed by an 8-byte trailer this parser ignores);
+// `ImageAttributesLV!`/`ImageCalibrationLV|0!` hold metadata in Nikon's own
+// undocumented binary key-value format, decoded by parseNd2Lv() below.
+const ND2_MAGIC=0x0abeceda;
+async function isNd2File(f){
+  if(f.size<4) return false;
+  const dv=new DataView(await f.slice(0,4).arrayBuffer());
+  return dv.getUint32(0,true)===ND2_MAGIC;
+}
+// Nikon's "LV" (Labeled Value) format: [type u8][nameLen u8 — UTF-16 code
+// units INCLUDING the trailing null][name, nameLen*2 bytes UTF-16LE][value,
+// type-dependent width]. Only the field types actually observed while
+// decoding ImageAttributesLV!/ImageCalibrationLV|0! are handled — 1=uint8,
+// 2=int32, 3=uint32, 6=float64, 8=string (null-terminated UTF-16LE, NO
+// length prefix — unlike a name, whose length IS given explicitly), and
+// 0x0b=container (childCount u32 + byteLen u64, then exactly `childCount`
+// fields recursively; byteLen itself is never used as a boundary — some
+// containers pad it past their last real field's own end, which a byteLen-
+// bounded loop misreads as one more field with a garbage type byte). An
+// unrecognised type throws rather than continuing to read at a width
+// that's just a guess, which would silently desync every field after it,
+// not just the unknown one. Reads exactly ONE field per call (a chunk
+// payload has exactly one top-level field, the chunk's own named
+// container) — callers start at offset 16, skipping 16 reserved/zero bytes
+// observed at the start of every LV chunk payload seen so far.
+function parseNd2LvField(dv, p){
+  const typ=dv.getUint8(p);
+  const nameLen=dv.getUint8(p+1);
+  let name=''; for(let i=0;i<nameLen-1;i++) name+=String.fromCharCode(dv.getUint16(p+2+i*2,true));   // UTF-16LE, drop the trailing \0
+  p+=2+nameLen*2;
+  if(typ===0x0b){
+    const childCount=dv.getUint32(p,true);   // byteLen (u64) right after this is intentionally unused — see above
+    p+=12;
+    const children={};
+    for(let i=0;i<childCount;i++){ const f=parseNd2LvField(dv,p); children[f.name]=f.value; p=f.next; }
+    return {name, value:children, next:p};
+  }
+  if(typ===1) return {name, value:dv.getUint8(p), next:p+1};
+  if(typ===2) return {name, value:dv.getInt32(p,true), next:p+4};
+  if(typ===3) return {name, value:dv.getUint32(p,true), next:p+4};
+  if(typ===6) return {name, value:dv.getFloat64(p,true), next:p+8};
+  if(typ===8){ let s='', q=p; while(!(dv.getUint8(q)===0&&dv.getUint8(q+1)===0)){ s+=String.fromCharCode(dv.getUint16(q,true)); q+=2; }
+    return {name, value:s, next:q+2}; }
+  throw new Error(`ND2: unrecognised metadata field type ${typ} ("${name}") — unsupported file`);
+}
+// Reads one chunk's header+name starting at absolute file offset `pos`. 512
+// bytes is generous headroom over every name observed in real files (the
+// longest, "CustomData|STORM_CAM_DATA_SHEET_XML-V1!", is well under 80) —
+// throws rather than silently reading past a name that somehow doesn't fit,
+// instead of guessing a bigger window blind.
+async function readNd2ChunkHeader(file, pos, fileSize){
+  const buf=await file.slice(pos, Math.min(fileSize,pos+512)).arrayBuffer();
+  const dv=new DataView(buf);
+  if(dv.byteLength<16 || dv.getUint32(0,true)!==ND2_MAGIC) return null;
+  const dataOffset=dv.getUint32(4,true), dataLen=dv.getUint32(8,true);
+  let nameEnd=-1;
+  for(let i=16;i<dv.byteLength;i++){ if(dv.getUint8(i)===0x21){ nameEnd=i; break; } }   // '!'
+  if(nameEnd<0) throw new Error(`ND2: chunk name at byte ${pos} exceeds the 512-byte probe window — unsupported file`);
+  const name=String.fromCharCode(...new Uint8Array(buf,16,nameEnd-16+1));
+  return {dataOffset, dataLen, name, chunkPos:pos, padded:Math.ceil((dataOffset+dataLen)/4096)*4096};
+}
+// Walks the WHOLE chunk chain once (data chunks included — there is no
+// shortcut to the metadata alone, since ImageAttributesLV! sits AFTER every
+// frame in both real samples) to build a per-frame offset table and read
+// dimensions/frame count. Each probe is a small, cheap local read (unlike a
+// network fetch), and the metadata chunk COUNT is independent of frame
+// count in both samples (4 before the first frame, 45 after the last,
+// whether the movie has 100 or 500 frames) — so this scales with frame
+// count only through the per-frame ImageDataSeq probes themselves, one per
+// frame, the same "walk the whole index once" cost loadMultiIfdStreaming()
+// already accepts for a multi-GB MMStack's IFD chain.
+async function loadNd2File(file, onLog=log){
+  const fileSize=file.size;
+  onLog(`ND2 file: ${fmtBytes(fileSize)} on disk — indexing chunks…`);
+  let pos=0, attrs=null, calibUmPerPx=null, lastYield=performance.now();
+  const frameOffsets=[];   // frameOffsets[i] = {off,len} — off is the ABSOLUTE byte offset of frame i's pixel payload
+  while(pos<fileSize){
+    const ch=await readNd2ChunkHeader(file,pos,fileSize);
+    if(!ch) break;
+    if(ch.name.startsWith('ND2 FILEMAP SIGNATURE')) break;   // trailing chunk index — nothing real follows it
+    const payloadStart=ch.chunkPos+ch.dataOffset;
+    if(ch.name.startsWith('ImageDataSeq|')){
+      const idx=parseInt(ch.name.slice('ImageDataSeq|'.length),10);
+      if(Number.isFinite(idx)) frameOffsets[idx]={off:payloadStart,len:ch.dataLen};
+    }else if(ch.name==='ImageAttributesLV!'){
+      const buf=await file.slice(payloadStart,payloadStart+ch.dataLen).arrayBuffer();
+      attrs=parseNd2LvField(new DataView(buf),16).value;
+    }else if(ch.name==='ImageCalibrationLV|0!'){
+      // Bonus metadata only (a logged suggestion, never applied automatically
+      // — see below) — a parse failure here shouldn't abort the whole load
+      // the way a real ImageAttributesLV failure must (width/height/frame
+      // count are required, this isn't).
+      try{
+        const buf=await file.slice(payloadStart,payloadStart+ch.dataLen).arrayBuffer();
+        const cal=parseNd2LvField(new DataView(buf),16).value;
+        if(cal && isFinite(cal.dCalibration)) calibUmPerPx=cal.dCalibration;
+      }catch(_){}
+    }
+    pos+=ch.padded;
+    if(performance.now()-lastYield>60){ setProg(Math.min(95,100*pos/fileSize)); await tick(); lastYield=performance.now(); }
+  }
+  setProg(null);
+  if(!attrs) throw new Error('ND2: no ImageAttributesLV! metadata chunk found — unsupported/corrupt file');
+  const w=attrs.uiWidth, h=attrs.uiHeight;
+  if(!(w>0) || !(h>0)) throw new Error('ND2: could not read image dimensions from ImageAttributesLV!');
+  if(attrs.uiComp!==1) throw new Error(`ND2: ${attrs.uiComp}-component (multi-channel) files are not supported yet — single channel only`);
+  if(attrs.uiBpcInMemory!==16) throw new Error(`ND2: ${attrs.uiBpcInMemory}-bit storage is not supported yet — 16-bit only`);
+  const declared=attrs.uiSequenceCount||0, found=frameOffsets.length;
+  const n=declared>0 ? Math.min(declared,found) : found;
+  if(!n) throw new Error('ND2: no ImageDataSeq chunks found — unsupported/corrupt file');
+  if(declared && declared!==found) onLog(`  ⚠ ImageAttributesLV declares ${declared} frame(s) but ${found} ImageDataSeq chunk(s) were found — using ${n}.`);
+  for(let i=0;i<n;i++) if(!frameOffsets[i]) throw new Error(`ND2: missing ImageDataSeq|${i}! chunk — corrupt or unsupported file`);
+  const px=paramValue('pxnm');
+  onLog(`  ${n} frame(s) · ${w}×${h} · 16-bit`+(calibUmPerPx?` · file's own calibration: ${(calibUmPerPx*1000).toFixed(1)} nm/px (Pixel size (nm) is NOT auto-updated — set it by hand if you want to use this).`:'.'));
+  const rawBytes=w*h*2;
+  // Fast path mirrors loadTiffFile()'s own contiguous-TIFF one: a 2-byte-
+  // aligned relative offset lets a direct Uint16Array view bulk-copy at the
+  // engine level instead of a per-pixel DataView loop. Both real samples
+  // align (chunk starts are always 4096-aligned, dataOffset was 4072 in
+  // both — even+even=even), but nothing guarantees that for every ND2
+  // writer, so this still falls back to the always-correct loop rather than
+  // assuming it.
+  const decodeOne=(buf,byteOff)=>{
+    const g=new Float32Array(w*h);
+    if(byteOff%2===0) g.set(new Uint16Array(buf,byteOff,w*h));
+    else{ const dv=new DataView(buf,byteOff,rawBytes); for(let i=0;i<w*h;i++) g[i]=dv.getUint16(i*2,true); }
+    return g;
+  };
+  // One slice per batch, like loadMultiIfdStreaming(): frame payloads are
+  // NOT back-to-back within it (each chunk's own header+name sits between
+  // one frame's payload end and the next's start), so every frame is
+  // decoded at its own explicit offset within the fetched buffer, not a
+  // computed stride.
+  const getFrames=async(s,e)=>{
+    e=Math.min(e,n); if(e<=s) return [];
+    const start=frameOffsets[s].off, end=frameOffsets[e-1].off+rawBytes;
+    const buf=await file.slice(start,end).arrayBuffer(), out=new Array(e-s);
+    for(let i=s;i<e;i++) out[i-s]=decodeOne(buf,frameOffsets[i].off-start);
+    return out;
+  };
+  return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('ND2 stack: use getFrames()'); }};
+}
+
 /* Reads only a header slice first. If the file turns out to be a contiguous
    ImageJ stack, frames are read on demand with File.slice() and the whole file
    never enters memory — engines cap ArrayBuffer size well below multi-GB (a
@@ -2757,6 +2914,7 @@ function ifdToFloat(ifd,w,h){
 // that want the text somewhere else (analyze(), returning it as logText)
 // pass their own instead.
 async function loadTiffFile(file, onLog=log){
+  if(await isNd2File(file)) return loadNd2File(file, onLog);
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const fileSize=file.size;
   // The on-demand slice paths only exist for files too big to load into one
@@ -2971,6 +3129,12 @@ function makeConcatStack(stacks, names){
 // `multi` branch of a selection.
 async function loadTiffFilesAuto(fileList, onLog=log){
   const all=[...fileList];
+  // A lone ND2 file must be caught BEFORE the TIFF-only filter below, which
+  // would otherwise silently drop it (isTiffFile() correctly says no) —
+  // loadTiffFile() itself dispatches to loadNd2File() once it gets there.
+  // Multi-file ND2 selection (combining several .nd2 files into one stack,
+  // the way TIFF's own multi-file path does) isn't supported yet.
+  if(all.length===1 && await isNd2File(all[0])) return loadTiffFile(all[0], onLog);
   const isTiff=await Promise.all(all.map(isTiffFile));
   const files=all.filter((f,i)=>isTiff[i]).sort((a,b)=>naturalCompare(a.name,b.name));
   if(all.length!==files.length) onLog(`  (${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);

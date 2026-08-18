@@ -254,15 +254,52 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
       prefer reading this index over a full linear magic-byte scan, which
       is what this investigation used and which does not scale well to
       much larger files).
-    - **Not yet done**: an actual parser wired into **in/out**'s
-      `getFrame()/getFrames()` stack abstraction — this was header/structure
-      reconnaissance (Python, offline, read-only), no webSMLM code written.
-      Next real step when picked back up: a minimal JS reader — walk the
-      file for the chunk map (or fall back to linear scan), read
-      `ImageAttributesLV!` for width/height/frame count, expose
-      `ImageDataSeq|N!` payloads as typed-array frames — same shape as
-      `loadTiffFile()`'s return value so nothing downstream needs to know
-      the source format.
+    - **Parser shipped 2026-08-18** (v0.11.2-dev): `isNd2File()` (magic-byte
+      sniff, same convention as `isTiffFile()`) + `loadNd2File()`, wired into
+      `loadTiffFile()`'s very first line so all three existing callers
+      (interactive `#file`, calibration file input, headless
+      `analyze()`'s `cfg.file`/`cfg.calibrationFile`) get ND2 support with no
+      caller-side changes — same "one detection path, three callers"
+      precedent this doc already used for TIFF's own `.nd2`-that's-really-
+      TIFF case above. Two format details corrected during implementation,
+      both wrong in the reconnaissance notes above: LV type `8` (string) is
+      **null-terminated UTF-16LE with no length prefix** (not a 4-byte
+      length-prefixed Pascal string as first guessed — confirmed by
+      correctly decoding `sObjective="Apo TIRF 100x Oil DIC N2"`), and a
+      container's child-parsing loop must stop after exactly `childCount`
+      children, **never** using the container's own `byteLen` as the
+      boundary (it can include trailing padding past the last real field,
+      which produced a bogus extra field with a garbage type byte before
+      this was caught). `readNd2ChunkHeader()` walks the full chunk chain
+      from byte 0 (confirmed on both real samples: exactly 4 metadata chunks
+      before frame 0 and 45 after the last frame, independent of frame
+      count — no shortcut to `ImageAttributesLV!` exists since it sits near
+      EOF, after all frame data) to build a per-frame byte-offset index;
+      `getFrames(s,e)` then does one batched `file.slice()` per requested
+      range and decodes each frame at its own explicit stored offset (never
+      assumed back-to-back — a chunk header+name sits between consecutive
+      payloads). Confirmed `eCompression=2` really does mean uncompressed
+      for these real files (raw uint16 payload bytes decode directly to a
+      plausible camera frame) — `pako` is not needed for the ND2 path.
+      Multi-channel (`uiComp≠1`) and non-16-bit files throw a clear
+      unsupported-format error rather than silently misreading; a lone
+      `.nd2` selection is also special-cased in `loadTiffFilesAuto()`
+      (checked before the TIFF-only filter, which would otherwise silently
+      drop it) — multi-file ND2 concatenation isn't supported yet. The
+      file's own pixel calibration (`ImageCalibrationLV|0!`'s
+      `dCalibration`, 160.4 nm/px on both real samples) is logged but never
+      auto-applied to `pxnm`, matching the project's established
+      compute-once/apply-separately convention. Verified end-to-end via
+      Playwright against both real bundled samples (100- and 500-frame): a
+      normal `#file` load, a full Localize run producing real localizations
+      from ND2-sourced frames, the calibration-file-input path (reached real
+      `calibrationCore()` spot-fitting logic and failed only because this
+      movie isn't an actual bead z-stack — not a loader bug), and headless
+      `analyze({file})`/`analyze({calibrationFile, calibrationOnly:true})`
+      via the `analyzeFileInput`/`calibrationFileInput` conduits — plus the
+      full existing TIFF/SPT/drift/color regression suite, confirming the
+      `loadTiffFile()` dispatch change didn't disturb the TIFF path. See
+      **in/out** in `CLAUDE.md` for the full design.
 
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
