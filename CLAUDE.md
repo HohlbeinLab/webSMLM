@@ -257,6 +257,18 @@ relevant one before editing rather than scrolling:
   **render** rather than that function so any other plot with the same large-number problem can
   reuse it without duplicating the log10/superscript logic.
 
+  Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
+  outward-facing tick mark at each major tick position, on both axes, in addition to any full-width/
+  height gridline already drawn there — a consistency pass, since **Drift vs frame** had no axis
+  border or tick marks at all (gridlines + labels only) before a user report, and every other plot
+  had ticks on at most one axis (PCFO/histogram: neither; NeNA/FRC: neither; the line-profile plot:
+  X only; calibration: neither). The axis border is drawn LAST, after the data (bars/points/curves),
+  not first — an axis drawn before the data can end up partly covered by it (NeNA's bars in
+  particular sit flush against the left edge); `strokeStyle` is switched to `C.text` for just the
+  tick-mark stroke and restored to `C.grid` immediately after, so the following gridline iterations
+  aren't affected. Tick labels shift outward by the same 5px (plus the original small gap) to clear
+  the new tick marks rather than sitting on top of them.
+
   The side-by-side/stacked panel layout (`.canvases.stacked`, single column) is resolved by
   `applyLayout()`: `layoutOverride` (module-level, `null`/`true`/`false`) takes precedence over the
   `stack.h/stack.w<0.5` auto-heuristic once the user clicks **Stack panels**/**Side by side**

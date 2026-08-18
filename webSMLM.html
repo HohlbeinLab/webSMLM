@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18j; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18k; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -28,16 +28,16 @@
     detect          3207   per-frame band-pass + local-maxima detection
     fit             3463   phasor / LS / Poisson-MLE 2D+3D localization
     render          3820   accumulate to offscreen buffer; view/colour/blur
-    workers         4447   frame-parallel detect/fit worker pool
-    export          4603   ThunderSTORM-compatible CSV
-    3D calibration  4788   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5164   AIM drift correction (2D+z)
-    locprecision    5397   NeNA + FRC
-    sSMLM           6006   spectrally resolved SMLM pair-finding
-    spt             6445   single particle tracking, trackpy-inspired
-    pipeline        6831   top-level orchestration, *Core()/wrapper split
-    table           8283   localizations table, filtering, histograms
-    headless API    8707   window.webSMLM.analyze()/analyzeBatch()
+    workers         4448   frame-parallel detect/fit worker pool
+    export          4604   ThunderSTORM-compatible CSV
+    3D calibration  4789   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5168   AIM drift correction (2D+z)
+    locprecision    5406   NeNA + FRC
+    sSMLM           6029   spectrally resolved SMLM pair-finding
+    spt             6468   single particle tracking, trackpy-inspired
+    pipeline        6854   top-level orchestration, *Core()/wrapper split
+    table           8306   localizations table, filtering, histograms
+    headless API    8734   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18j</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18k</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1884,7 +1884,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18j · spt: weight the track-lifetime fit by bin count, fixing an undershoot at short lengths
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18k · plots: real axis border + outward major ticks everywhere, Drift vs frame gets a y-axis
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4159,11 +4159,12 @@ function renderProfile(){
   const mL=PROF_ML,mR=PROF_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, yb=mT+ph;
   const X=v=>mL+pw*(v-x0)/xr, Y=v=>mT+ph*(1-v/ymax), inX=xx=>xx>=mL-0.5&&xx<=mL+pw+0.5;
   ctx.font='12px '+PLOT_FONT;
-  // Y major ticks: dashed horizontal gridlines + labels
+  // Y major ticks: dashed horizontal gridlines + outward tick + labels
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of niceTicks(0,ymax,5)){ const yy=Y(v);
     ctx.strokeStyle=C.grid; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle=C.text; ctx.fillText(v.toFixed(0),mL-6,yy); }
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,yy); ctx.lineTo(mL,yy); ctx.stroke();   // major tick, outward
+    ctx.fillStyle=C.text; ctx.fillText(v.toFixed(0),mL-9,yy); }
   // X ticks: major (dashed vertical gridline + long outward tick + label) and minor (short outward tick)
   const majors=niceTicks(x0,x1,6), majStep=majors.length>1?majors[1]-majors[0]:xr, minStep=majStep/5;
   ctx.strokeStyle=C.text; ctx.lineWidth=1;
@@ -5082,10 +5083,12 @@ function drawCalibration(){
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.lineWidth=1;
   ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   for(const z of niceTicks(zmin,zmax,6)){ const x=X(z); ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ph); ctx.stroke();
-    ctx.fillText(z.toFixed(0), x, mT+ph+6); }
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(z.toFixed(0), x, mT+ph+9); }
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const s of niceTicks(vmin,vmax,6)){ const y=Y(s); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
-    ctx.fillText(s.toFixed(yDec), mL-8, y); }
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(s.toFixed(yDec), mL-11,y); }
   // z=0 (focus) marker
   if(zmin<0&&zmax>0){ ctx.strokeStyle=C.text; ctx.setLineDash([4,4]);
     ctx.beginPath(); ctx.moveTo(X(0),mT); ctx.lineTo(X(0),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
@@ -5104,6 +5107,7 @@ function drawCalibration(){
     for(let i=0;i<=120;i++){ const z=zmin+(zmax-zmin)*i/120, x=X(z), y=Y(fn(z));
       i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); }
   ctx.strokeStyle=C.axis; ctx.lineWidth=1.8; fitDraw(X,Y);
+  ctx.strokeStyle=C.text; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by points/curves
   // legend
   ctx.textAlign='left'; ctx.font='12px '+PLOT_FONT;
   let lx=mL+pw - (series.length*48 + 34);
@@ -5372,13 +5376,18 @@ function drawDriftCurve(){
   const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(v.toFixed(0),mL-6,y); }
+  for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(v.toFixed(0),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const f of niceTicks(0,n-1,6)){ const x=X(f); ctx.fillText(f.toFixed(0),x,mT+ph+6); }
+  for(const f of niceTicks(0,n-1,6)){ const x=X(f);
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
+    ctx.fillText(f.toFixed(0),x,mT+ph+9); }
   const line=(get,col)=>{ ctx.strokeStyle=col; ctx.lineWidth=1.6; ctx.beginPath();
     for(let f=0;f<n;f++){ const x=X(f),y=Y(get(f)); f?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
   line(f=>-d.fdx[f]*px,'#0a7d32'); line(f=>-d.fdy[f]*px,'#c81cc8');
   if(d.fdz) line(f=>-d.fdz[f],'#3572b0');   // z drift is already in nm
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curves
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('frame', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('drift (nm)',0,0); ctx.restore();
@@ -5506,15 +5515,20 @@ function drawNenaPlot(res){
   const X=v=>mL+pw*v/Math.max(1e-9,xmax), Y=v=>mT+ph*(1-v/Math.max(1e-9,ymax));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const v of niceTicks(0,ymax,5)){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.fillText(v.toFixed(0),mL-6,yy); }
+  for(const v of niceTicks(0,ymax,5)){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,yy); ctx.lineTo(mL,yy); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(v.toFixed(0),mL-9,yy); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(0,xmax,6)){ const xx=X(v); ctx.fillText(v.toFixed(0),xx,mT+ph+6); }
+  for(const v of niceTicks(0,xmax,6)){ const xx=X(v);
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(xx,mT+ph); ctx.lineTo(xx,mT+ph+5); ctx.stroke();   // major tick, outward
+    ctx.fillText(v.toFixed(0),xx,mT+ph+9); }
   ctx.fillStyle=C.bar;                                // histogram bars
   for(let i=0;i<nb;i++){ const x0=X(d[i]-binW/2), x1=X(d[i]+binW/2), yy=Y(y[i]); ctx.fillRect(x0,yy,Math.max(1,x1-x0-1),(mT+ph)-yy); }
   ctx.strokeStyle='#0a7d32'; ctx.lineWidth=1.4; ctx.setLineDash([4,3]); ctx.beginPath();   // signal Rayleigh only
   for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,sig1(x))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke(); ctx.setLineDash([]);
   ctx.strokeStyle='#d1242f'; ctx.lineWidth=2; ctx.beginPath();                              // full fit
   for(let i=0;i<=240;i++){ const x=xmax*i/240, xx=X(x), yy=Y(Math.max(0,ff(x))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by bars/curves
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('NN distance (nm)', mL+pw/2, mT+ph+26);      // just below the tick labels
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('pairs',0,0); ctx.restore();
@@ -5710,14 +5724,19 @@ function drawFrcPlot(r){
   const {frc,freq}=r.curve, nR=frc.length, fmax=freq[nR-1]||1, lo=-0.2, hi=1.05;
   const X=v=>mL+pw*v/Math.max(1e-9,fmax), Y=v=>mT+ph*(1-(v-lo)/(hi-lo));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const v of [0,0.2,0.4,0.6,0.8,1.0]){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke(); ctx.fillText(v.toFixed(1),mL-6,yy); }
+  for(const v of [0,0.2,0.4,0.6,0.8,1.0]){ const yy=Y(v); ctx.beginPath(); ctx.moveTo(mL,yy); ctx.lineTo(mL+pw,yy); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,yy); ctx.lineTo(mL,yy); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(v.toFixed(1),mL-9,yy); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(0,fmax,6)){ const xx=X(v); ctx.fillText(v.toFixed(3),xx,mT+ph+6); }
+  for(const v of niceTicks(0,fmax,6)){ const xx=X(v);
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(xx,mT+ph); ctx.lineTo(xx,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(v.toFixed(3),xx,mT+ph+9); }
   ctx.strokeStyle='#8250df'; ctx.lineWidth=1; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(mL,Y(1/7)); ctx.lineTo(mL+pw,Y(1/7)); ctx.stroke(); ctx.setLineDash([]);  // 1/7
   ctx.strokeStyle='#0a7d32'; ctx.lineWidth=1.8; ctx.beginPath();                       // FRC curve
   for(let i=0;i<nR;i++){ const xx=X(freq[i]), yy=Y(Math.max(lo,Math.min(hi,frc[i]))); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); } ctx.stroke();
   if(isFinite(r.res)){ const fc=1/r.res; ctx.strokeStyle='#d1242f'; ctx.lineWidth=1.4; ctx.setLineDash([3,3]);  // resolution
     ctx.beginPath(); ctx.moveTo(X(fc),mT); ctx.lineTo(X(fc),mT+ph); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curve
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('spatial frequency (1/nm)', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(12,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('FRC',0,0); ctx.restore();
@@ -5914,9 +5933,13 @@ function drawPcfoPlot(){
   const yScale=axisScale(Math.max(Math.abs(ymin),Math.abs(ymax)));
   const xScale=axisScale(Math.max(Math.abs(xmin),Math.abs(xmax)));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const c of niceTicks(ymin,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText((c/yScale.scale).toFixed(yScale.decimals),mL-6,y); }
+  for(const c of niceTicks(ymin,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText((c/yScale.scale).toFixed(yScale.decimals),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText((v/xScale.scale).toFixed(xScale.decimals),x,mT+ph+6); }
+  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText((v/xScale.scale).toFixed(xScale.decimals),x,mT+ph+9); }
   ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
   ctx.fillStyle='rgba(66,133,244,0.45)';
   for(const p of pts){ ctx.beginPath(); ctx.arc(X(p.imsig),Y(p.noisevar),2.2,0,2*Math.PI); ctx.fill(); }
@@ -8572,9 +8595,13 @@ function drawHistogram(){
   const Y = logY ? (c=>mT+ph*(1-Math.log10(Math.max(1,c))/logTop)) : (c=>mT+ph*(1-c/Math.max(1,ymax)));
   const yticks = logY ? Array.from({length:logTop+1},(_,p)=>Math.pow(10,p)) : niceTicks(0,ymax,5);
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const c of yticks){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
+  for(const c of yticks){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(c.toFixed(0),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(x0,x1,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue; ctx.fillText(v.toFixed(decX),x,mT+ph+6); }
+  for(const v of niceTicks(x0,x1,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(v.toFixed(decX),x,mT+ph+9); }
   ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();       // bars clipped to the plot rect (for zoom/pan)
   ctx.fillStyle=C.bar;
   for(let i=0;i<nb;i++){ if(hist[i]<=0) continue; const bx0=X(lo+i*bw), bx1=X(lo+(i+1)*bw), y=Y(hist[i]); ctx.fillRect(bx0,y,Math.max(1,bx1-bx0-1),(mT+ph)-y); }

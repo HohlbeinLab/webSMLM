@@ -6,7 +6,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **Plot panel UI polish (2026-08-18, builds d–h)**, prompted by user feedback
+- **Plot panel UI polish (2026-08-18, builds d–k)**, prompted by user feedback
   after the spt refinement round above. Shipped: (1) plots letterbox a fixed
   4/3 sub-rectangle CENTRED WITHIN the panel's own box (`setupPlot(cv,true)`)
   rather than changing the panel's own size — an earlier version within this
@@ -62,6 +62,13 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   after the fix. `.panel-body` is top-aligned now (flex's own default,
   `justify-content:center` removed) instead — see **render** in
   `CLAUDE.md`.
+
+  (6, build k) Also a same-day follow-up: **Drift vs frame** had no axis
+  border or tick marks at all (gridlines + labels only), and every other
+  plot had ticks on at most one axis. Every plot now draws a real L-shaped
+  axis border plus a short outward-facing tick mark at each major tick, on
+  both axes, drawn LAST (after the data) so bars/points flush against an
+  axis edge (NeNA in particular) can't cover it.
 
 - **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
   prompted by two large candidate modules — single-particle tracking (SPT)
