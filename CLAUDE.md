@@ -195,6 +195,17 @@ relevant one before editing rather than scrolling:
   naive `+=1` rather than clamping, so the increment is guarded explicitly (`if(acc[idx]<65535)
   acc[idx]++`) and a one-line warning is logged if any pixel saturates, rather than risking silent
   density corruption on an extreme (real-world-unlikely) localization pile-up.
+
+  `setupPlot(cv, isPlot=false)` (shared by every draw function on the raw/sr canvases) toggles an
+  `.is-plot` CSS class on the canvas. Normally both canvases share `aspect-ratio:var(--frame-ar,1)`
+  — the loaded movie's own w/h — so the raw frame and SR reconstruction always match size. A line
+  plot or histogram drawn on the SAME canvas (raw-panel plot pattern, above) inherited that same
+  ratio, so a movie with an unusual frame aspect ratio (very wide/narrow sensor crop) stretched
+  every plot's axes into an unreadable shape. `isPlot=true` (every plot-drawing function passes
+  it; `drawRawView()`/`drawView()`, which paint actual frame/reconstruction pixels, don't) instead
+  applies a fixed `aspect-ratio:4/3` via `.is-plot`, independent of the loaded movie — matplotlib's
+  own default figure size (6.4×4.8in) is exactly 4/3, which is also what this matches visually
+  against the `sptPALM-Python` reference plots **spt** is ported from.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
@@ -357,7 +368,39 @@ relevant one before editing rather than scrolling:
   fed `log10(D)` values (`'log10(D)'` as the pseudo-column name) rather than raw D — D commonly
   spans orders of magnitude between bound/slow and free/fast populations, matching the reference
   pipeline's own default logarithmic axis; a real v1 shortcut, not yet nicely `10^x`-formatted tick
-  labels (`docs/REFACTOR_PLAN.md`). `sptLocError`'s **from NeNA** button transfers
+  labels (`docs/REFACTOR_PLAN.md`). `sptDPlotMin`/`Max` (µm²/s, defaults from
+  `set_parameters_sptPALM.py`'s own histogram range) are a DISPLAY-only axis window —
+  `drawSptDHist()` excludes tracks outside them from the plotted/binned histogram exactly like
+  non-positive D, but `meanD`/`medianD` (logged by both `sptCore()` and `recomputeSptD()`) always
+  reflect every qualifying track, never just the plotted window; the two fields live-refresh the
+  histogram (if shown) on `change`, via the same `rawIsPlot && rawPlotName==='histogram' &&
+  histData.col===…` shown-check pattern `refreshSSmlmHistIfShown()` already established, renamed
+  `refreshSptDHistIfShown()`/`refreshSptTrackLenHistIfShown()` here.
+
+  D = (MSD/4 − locErrorUm²)/frametime is exactly linear in 1/frametime, and MSD itself (cached per
+  track, µm², in `trackDiffusionCoeffs()`'s returned `trackMSD` Map — plumbed through `sptCore()`
+  into `lastSpt.trackMSD`) depends on neither frametime nor locError. `recomputeSptD()` exploits
+  this: editing **Frame time** or **Localization error** after **Track** has run rescales every
+  track's D (and `lastResult.locs`' own `D_coeff`, and `lastSpt.meanD`/`medianD`, and the D
+  histogram if shown) directly from `trackMSD`, with no re-linking or re-summing of steps — unlike
+  **Search range**/**Memory**/**Min track length**, which change which tracks/steps exist in the
+  first place and still require a fresh **Track** click. The **from NeNA** button's programmatic
+  `sptLocError.value` write doesn't itself fire a `change` event, so its handler calls
+  `recomputeSptD()` explicitly rather than relying on the listener.
+
+  `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~
+  A·exp(−L/τ) — a photobleaching-limited survival model) to its own already-built `histData` via
+  unweighted least-squares on ln(count) vs bin centre (zero-count bins skipped, same
+  non-positive-value-exclusion precedent as `drawSptDHist()`; a non-decaying or under-populated fit
+  returns `null` and the histogram still renders, just without a curve). The fit is attached as
+  `histData.curve`/`curveLabel` — see **table**'s `computeHist()`/`drawHistogram()` entry above for
+  how the shared histogram plot draws that curve generically. τ is reported in both locs and
+  seconds (`× sptFrameTime`) in the log and on-plot legend; **locs≈frames only when `sptMemory=0`**
+  — a bridged gap still counts as one "loc" of track length despite spanning >1 frame, so the
+  seconds figure is an approximation once gap-bridging is active, called out explicitly in the log
+  line rather than presented as exact. **Frame time** changes live-refresh just this label (the
+  histogram's own bins don't depend on frametime) via `refreshSptTrackLenHistIfShown()`.
+  `sptLocError`'s **from NeNA** button transfers
   `lastNena.sigma` (a new stash `computeNeNA()` writes, locprecision module) into it — same
   compute-once/transfer-separately split PCFO's `pcfoLastGain`/`pcfoLastOffset` already use, never
   silently auto-applied. `track_id`/`D_coeff` are independent, optional table/CSV columns (same
@@ -399,6 +442,17 @@ relevant one before editing rather than scrolling:
   Same `memgb`-is-a-per-feature-ceiling-not-a-shared-pool reasoning as the render guard: it was
   originally scoped to just the loaded stack's own frame cache, and there's no reliable in-browser
   signal for actually-free RAM to check against instead.
+
+  `computeHist()`/`drawHistogram()` (the shared histogram plot, reused by table-column histograms,
+  sSMLM's distance/angle histograms, and **spt**'s D/track-length histograms) can overlay a fit
+  curve: `histData.curve`, a `x=>y` function sampled across the current view and drawn in the same
+  bin-height units as the bars (so it overlays them with no separate rescaling), plus an optional
+  `histData.curveLabel` legend string. Unlike `markers` (a `computeHist()` parameter, since marker
+  positions are known before binning), `curve` isn't a `computeHist()` argument — a fit like
+  `fitTrackLifetime()` needs the ALREADY-binned `histData` (bin centres/counts) to fit against, so
+  the caller sets `histData.curve`/`curveLabel` directly after `computeHist()` returns, before
+  calling `drawHistogram()`. Defaults to `null` (cleared by every `computeHist()` call), so every
+  existing caller that never sets it renders identically to before.
 
 The list above is in the file's actual physical order (as of v0.11.1, **workers** and
 **export** were swapped to match — see `docs/REFACTOR_PLAN.md` for the reasoning and how it was

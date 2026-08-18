@@ -133,13 +133,19 @@ says.
   so the top-level **View data + filtering** button (§1 item 5) works on
   them directly — no separate table here. See **sSMLM** module.
 - **Single particle tracking** (`sptBox`) — `sptSearchRange`/`sptMemory`/
-  `sptFrameTime`/`sptLocError`/`sptTrackLenMin`, **from NeNA**
-  (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last computed NeNA
-  precision — disabled until NeNA has actually been run), and
+  `sptFrameTime`/`sptLocError`/`sptTrackLenMin`/`sptDPlotMin`/`sptDPlotMax`,
+  **from NeNA** (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last
+  computed NeNA precision — disabled until NeNA has actually been run), and
   **Track**/**Show D histogram**/**Show length hist.**
   (`sptTrackBtn`/`sptDHistBtn`/`sptTrackLenHistBtn`, the last log-Y-axis
   track-length histogram enabled once **Track** has run). Enabled as soon as
-  there are localizations, same gating as Spectral SMLM analysis.
+  there are localizations, same gating as Spectral SMLM analysis. Editing
+  **Frame time** or **Localization error** after **Track** has run rescales
+  the already-computed D values (and, if shown, the D/length histograms)
+  live, without needing to click **Track** again; **Search range**/
+  **Memory**/**Min track length** still require it, since those change which
+  tracks/steps exist. **D plot min/max** only constrain the D histogram's
+  own display window and also live-refresh it if shown.
   **Track** immediately plots a diffusion-coefficient histogram in the raw
   panel; **Show D histogram** redraws it later without re-tracking. See
   **spt** module.
@@ -156,6 +162,13 @@ already being short). A `ResizeObserver` on `#canvases` (not just a `window`
 panels' backing stores whenever their on-screen box size changes for *any*
 reason — this toggle, the sidebar dock/float/collapse buttons, or an actual
 window resize.
+
+A line plot or histogram drawn on either canvas (the raw/SR panel plot
+pattern below) does NOT inherit `--frame-ar` — `setupPlot(cv,true)` (every
+plot-drawing function passes `true`; the frame/reconstruction drawers don't)
+applies a fixed `aspect-ratio:4/3` via an `.is-plot` CSS class instead, so a
+movie with an unusual frame aspect ratio never stretches a plot's axes into
+an unreadable shape. 4/3 matches matplotlib's own default figure size.
 - **Raw frame** (`raw` canvas) — the loaded stack's current frame with
   detected ROIs (green) and accepted localizations (magenta crosshairs)
   overlaid; doubles as a **plot surface** for FRC/NeNA/drift/calibration
@@ -564,6 +577,8 @@ for the first implementation.
 | `sptFrameTime` | SPT frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
 | `sptLocError` | SPT localization error (nm) | number | 0 | 500 | 1 | 35 |
 | `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
+| `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
+| `sptDPlotMax` | SPT D plot max (µm²/s) | number | 0.0001 | 1000 | 0.1 | 10 |
 
 Defaults are ported from the user's own `sptPALM-Python` pipeline's
 `set_parameters_sptPALM.py` (L. lactis sptPALM), converted from that
@@ -1013,12 +1028,28 @@ is what to know before touching that module, not a restatement of its code.
   bound/slow and free/fast populations, matching the reference pipeline's
   own logarithmic default) in the raw panel, reusing the table module's own
   `computeHist()`/`drawHistogram()`; **Show D histogram** redraws it later
-  without re-tracking. **Show length hist.** plots the distribution of
-  every linked track's length (regardless of whether it met **SPT min
-  track length**) with a log-scaled count axis — track counts fall off
-  steeply with length, so a linear axis would flatten the useful range into
-  a sliver — the intended way to judge whether **SPT min track length** is
-  set sensibly for a given dataset. `track_id`/`D_coeff` become independent,
+  without re-tracking. **D plot min/max** (µm²/s, defaults 0.004–10 from the
+  reference pipeline's own histogram range) constrain the D histogram's
+  own display window only — tracks outside it are excluded from the plot
+  the same way non-positive D is, but the logged mean/median D always cover
+  every qualifying track. Editing **Frame time** or **Localization error**
+  after **Track** has run rescales every already-computed D (D is exactly
+  linear in 1/frame time once the underlying per-track MSD is fixed) —
+  including the D shown in the table/CSV and the D histogram if it's
+  currently open — without needing to click **Track** again; only
+  **Search range**/**Memory**/**Min track length** actually change which
+  tracks or steps exist, so only those still require a fresh **Track**.
+  **Show length hist.** plots the distribution of every linked track's
+  length (regardless of whether it met **SPT min track length**) with a
+  log-scaled count axis — track counts fall off steeply with length, so a
+  linear axis would flatten the useful range into a sliver — overlaid with
+  an exponential decay fit (a photobleaching-limited survival model,
+  count ~ e<sup>−L/τ</sup>) whose lifetime τ is logged and shown on the plot
+  in both localizations and seconds (via **Frame time** — an approximation
+  once **Memory** &gt; 0, since a bridged gap still counts as one "loc" of
+  length despite spanning more than one frame). Use this histogram to judge
+  whether **SPT min track length** is set sensibly for a given dataset.
+  `track_id`/`D_coeff` become independent,
   optional table/CSV columns (§5/§6) the same way sSMLM's `dist`/`sigma1st`
   do, so the existing filter grammar works on tracking data for free. No
   cell-segmentation-aware tracking, no length-RESOLVED D histogram (D

@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18c; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18d; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
-    params          1877   PARAMS registry, single source of truth for params
-    in/out          2286   TIFF parsing, in-memory/streamed loading, FTM
-    simulation      2599   synthetic stack generator ("Simulate movie")
-    detect          3176   per-frame band-pass + local-maxima detection
-    fit             3432   phasor / LS / Poisson-MLE 2D+3D localization
-    render          3789   accumulate to offscreen buffer; view/colour/blur
-    workers         4356   frame-parallel detect/fit worker pool
-    export          4512   ThunderSTORM-compatible CSV
-    3D calibration  4687   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5062   AIM drift correction (2D+z)
-    locprecision    5294   NeNA + FRC
-    sSMLM           5893   spectrally resolved SMLM pair-finding
-    spt             6332   single particle tracking, trackpy-inspired
-    pipeline        6618   top-level orchestration, *Core()/wrapper split
-    table           8047   localizations table, filtering, histograms
-    headless API    8463   window.webSMLM.analyze()/analyzeBatch()
+    params          1887   PARAMS registry, single source of truth for params
+    in/out          2301   TIFF parsing, in-memory/streamed loading, FTM
+    simulation      2614   synthetic stack generator ("Simulate movie")
+    detect          3191   per-frame band-pass + local-maxima detection
+    fit             3447   phasor / LS / Poisson-MLE 2D+3D localization
+    render          3804   accumulate to offscreen buffer; view/colour/blur
+    workers         4380   frame-parallel detect/fit worker pool
+    export          4536   ThunderSTORM-compatible CSV
+    3D calibration  4711   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5086   AIM drift correction (2D+z)
+    locprecision    5318   NeNA + FRC
+    sSMLM           5917   spectrally resolved SMLM pair-finding
+    spt             6356   single particle tracking, trackpy-inspired
+    pipeline        6736   top-level orchestration, *Core()/wrapper split
+    table           8165   localizations table, filtering, histograms
+    headless API    8588   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1373,6 +1373,12 @@ X.B(E,Y);return E}return J}())
      data loads. */
   canvas#sr,canvas#raw{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0}
   canvas#sr:active,canvas#raw:active{cursor:grabbing}
+  /* Line plots/histograms (setupPlot(cv,true)) use a fixed 4/3 aspect ratio
+     instead of --frame-ar, so a movie with an unusual frame aspect ratio
+     never stretches a plot's axes into an unreadable shape — matplotlib's
+     own default figure size (6.4x4.8in) is exactly 4/3, so this matches the
+     look of the sptPALM-Python reference plots this module is ported from. */
+  canvas#sr.is-plot,canvas#raw.is-plot{aspect-ratio:4/3}
   /* single shared progress track, permanently visible (empty at rest) below the
      action buttons — every long-running op (Localize, calibration, drift
      correction, NeNA, FRC, file loading) feeds it via setProg(), rather than
@@ -1468,7 +1474,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18c</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18d</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1817,16 +1823,19 @@ X.B(E,Y);return E}return J}())
           <button id="sptLocErrorFromNenaBtn" disabled title="Fill Localization error in from the last computed NeNA precision (run NeNA first)">from NeNA</button>
         </div>
         <label class="row">Min track length (locs) <input type="number" id="sptTrackLenMin" value="5" min="2" max="1000" step="1" class="num"></label>
+        <label class="row">D plot min (µm²/s) <input type="number" id="sptDPlotMin" value="0.004" min="0.0001" max="1000" step="0.001" class="num"></label>
+        <label class="row">D plot max (µm²/s) <input type="number" id="sptDPlotMax" value="10" min="0.0001" max="1000" step="0.1" class="num"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sptTrackBtn" disabled title="Link localizations into trajectories and compute a diffusion coefficient per track">Track</button>
           <button id="sptDHistBtn" disabled title="Show the diffusion-coefficient histogram again">Show D histogram</button>
-          <button id="sptTrackLenHistBtn" disabled title="Show a histogram of track lengths (log-scaled count axis) — helps pick Min track length">Show length hist.</button>
+          <button id="sptTrackLenHistBtn" disabled title="Show a histogram of track lengths (log-scaled count axis) with an exponential lifetime fit — helps pick Min track length">Show length hist.</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden><span class="pill">module: spt</span>
           <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
-          <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. <b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>Show D histogram</b> redraws it later without re-tracking; <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) — use it to judge whether <b>Min track length</b> is set sensibly for this data.</p>
+          <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
+          <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see References &amp; further reading in Help &amp; guide. No cell-segmentation-aware tracking, no length-resolved D histogram, and no headless exposure yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
         </div>
       </details>
@@ -1859,7 +1868,7 @@ X.B(E,Y);return E}return J}())
       <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18c · spt: fixed artificial D-histogram peak, track-length histogram (log Y), min-length-only track filtering
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18d · spt: D plot min/max, live D rescale on frame time/loc error, exponential track-lifetime fit, fixed 4/3 plot aspect ratio
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2069,6 +2078,12 @@ const PARAMS = {
   // track's D uses ALL of its own steps, not a truncated prefix — there's no
   // length-resolved histogram yet to need equal per-track weighting for.
   sptTrackLenMin: { type:'number', id:'sptTrackLenMin', label:'SPT min track length (locs)', min:2, max:1000, step:1, default:5, int:true },
+  // Display-only axis window for drawSptDHist() — tracks outside it are
+  // excluded from the plotted/binned log10(D) histogram (like non-positive
+  // D), but NOT from meanD/medianD, which always reflect every qualifying
+  // track. Defaults match set_parameters_sptPALM.py's own histogram range.
+  sptDPlotMin: { type:'number', id:'sptDPlotMin', label:'SPT D plot min (µm²/s)', min:0.0001, max:1000, step:0.001, default:0.004, int:false },
+  sptDPlotMax: { type:'number', id:'sptDPlotMax', label:'SPT D plot max (µm²/s)', min:0.0001, max:1000, step:0.1, default:10, int:false },
 
   // ---- memory / streaming ----
   // memgb = RAM budget for caching decoded frames before falling back to streaming
@@ -3983,7 +3998,16 @@ function syncSaveImg(){ const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||sr
 // and stays crisp at any window size (re-rendered on resize). Returns W/H in CSS
 // px. NOTE: this leaves the context transform scaled — the frame/reconstruction
 // drawers (drawRawView/drawView) reset it to identity before they paint.
-function setupPlot(cv){
+// isPlot toggles the .is-plot CSS class, which overrides the panel's usual
+// --frame-ar (locked to the loaded movie's own w/h, so raw frame and SR
+// reconstruction always match) with a fixed, movie-independent aspect ratio —
+// a movie with an extreme frame aspect ratio (very wide/narrow sensor crop)
+// would otherwise stretch every line plot/histogram into the same shape,
+// which reads badly for axes/labels. Every plot-drawing function passes
+// true; drawRawView()/drawView() (actual frame/reconstruction pixels) don't,
+// so they keep tracking the movie's real aspect ratio as before.
+function setupPlot(cv, isPlot=false){
+  cv.classList.toggle('is-plot', !!isPlot);
   const dpr=Math.min(2, window.devicePixelRatio||1);
   const W=Math.max(1,Math.round(cv.clientWidth||cv.width/dpr)), H=Math.max(1,Math.round(cv.clientHeight||cv.height/dpr));
   const bw=Math.round(W*dpr), bh=Math.round(H*dpr);
@@ -4061,7 +4085,7 @@ function profDataX(clientX){ const cv=$('raw'), r=cv.getBoundingClientRect(), Wc
   return profileView.x0 + (px-PROF_ML)/Math.max(1,pw)*xr; }
 function renderProfile(){
   if(!profileData) return;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   const {dist,prof,totalNm,ymax}=profileData, {x0,x1}=profileView, xr=Math.max(1e-9,x1-x0);
   rawFull=null; rawIsPlot=true; rawPlotName='profile'; $('rawTitle').textContent='Line profile';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
@@ -4939,7 +4963,7 @@ async function runCalibration(){
 // magnitude(z) curves depending on calView (toggled via the header button).
 function drawCalibration(){
   if(!calib) return;
-  const d=$('sr'); const {ctx,W,H}=setupPlot(d);
+  const d=$('sr'); const {ctx,W,H}=setupPlot(d,true);
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=64,mR=16,mT=40,mB=52, pw=W-mL-mR, ph=H-mT-mB;
   const zmin=calib.zmin, zmax=calib.zmax;
@@ -5259,7 +5283,7 @@ async function correctDrift(){
 function drawDriftCurve(){
   if(!lastDrift||!lastResult) return;
   const d=lastDrift, px=lastResult.px, n=d.fdx.length;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='drift'; $('rawTitle').textContent='Drift vs frame';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=60,mR=16,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
@@ -5389,7 +5413,7 @@ async function nenaPrecision(locs, px, onProgress){
 }
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='nena'; $('rawTitle').textContent='NeNA: NN distances';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=56,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
@@ -5598,7 +5622,7 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
 }
 // Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
 function drawFrcPlot(r){
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='frc'; $('rawTitle').textContent='FRC';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=52,mR=14,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
@@ -5787,7 +5811,7 @@ let pcfoLastPts=null, pcfoLastFit=null, pcfoLastR2=NaN, pcfoLastGain=null, pcfoL
 function drawPcfoPlot(){
   if(!pcfoLastPts||!pcfoLastFit) return;
   const pts=pcfoLastPts, fit=pcfoLastFit;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='pcfo'; $('rawTitle').textContent='PCFO: signal vs. noise variance';
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   // zoom to the point cloud + fitted line's own extent, not the origin — the
@@ -6503,7 +6527,7 @@ async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
     const t=trackedLocs[i].track_id; if(t<0) continue;
     let a=byTrack.get(t); if(!a){a=[]; byTrack.set(t,a);} a.push(i);
   }
-  const trackIds=[], diffCoeffs=[], trackLengths=[], dOfTrack=new Map();
+  const trackIds=[], diffCoeffs=[], trackLengths=[], dOfTrack=new Map(), trackMSD=new Map();
   const allTracks=Array.from(byTrack.entries());
   let lastYield=performance.now();
   for(let k=0;k<allTracks.length;k++){
@@ -6521,14 +6545,17 @@ async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
         sumSq+=sq; nSteps++;
       }
       if(nSteps>=1){
+        // msd (µm², spatial only) is cached per track independent of
+        // frametime/locError so recomputeSptD() can rescale D for either
+        // one instantly, without re-linking or re-summing steps.
         const msd=sumSq/nSteps, D=msd/(4*frametime)-(locErrorUm*locErrorUm)/frametime;
-        trackIds.push(tid); diffCoeffs.push(D); dOfTrack.set(tid,D);
+        trackIds.push(tid); diffCoeffs.push(D); dOfTrack.set(tid,D); trackMSD.set(tid,msd);
       }
     }
     if((k&2047)===0 && performance.now()-lastYield>60){ onProgress(70+30*(k+1)/allTracks.length); await tick(); lastYield=performance.now(); }
   }
   onProgress(100);
-  return {trackIds, diffCoeffs, trackLengths, dOfTrack};
+  return {trackIds, diffCoeffs, trackLengths, dOfTrack, trackMSD};
 }
 
 // The single entry point, matching the *Core(locs, px, config, hooks) shape
@@ -6541,7 +6568,7 @@ async function sptCore(locs, px, config, hooks={}){
   const { onLog=log, onProgress=setProg } = hooks;
   onLog(`\nSPT tracking: search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), frame time ${config.sptFrameTime} s…`);
   const tracked=await linkTracks(locs, px, config, onProgress);
-  const {trackIds, diffCoeffs, trackLengths, dOfTrack}=await trackDiffusionCoeffs(tracked, px, config, onProgress);
+  const {trackIds, diffCoeffs, trackLengths, dOfTrack, trackMSD}=await trackDiffusionCoeffs(tracked, px, config, onProgress);
   const withD=tracked.map(L=>{ const D=dOfTrack.get(L.track_id); return D===undefined ? L : {...L, D_coeff:D}; });
   const nTracks=new Set(tracked.map(L=>L.track_id)).size, n=diffCoeffs.length;
   let meanD=NaN, medianD=NaN;
@@ -6549,7 +6576,7 @@ async function sptCore(locs, px, config, hooks={}){
   onLog(`  ${nTracks.toLocaleString()} track(s) found from ${locs.length.toLocaleString()} localizations; `+
         `${n.toLocaleString()} track(s) with ≥${config.sptTrackLenMin} locs qualify for a D estimate — `+
         `mean D = ${isFinite(meanD)?meanD.toFixed(3):'n/a'} µm²/s, median D = ${isFinite(medianD)?medianD.toFixed(3):'n/a'} µm²/s.`);
-  return { locs:withD, nTracks, diffCoeffs, trackIds, trackLengths, meanD, medianD };
+  return { locs:withD, nTracks, diffCoeffs, trackIds, trackLengths, trackMSD, meanD, medianD };
 }
 // Latest sptCore() result — kept so Show D histogram can redraw without
 // re-tracking, same stash pattern lastNena/pcfoLast* use.
@@ -6570,6 +6597,30 @@ async function runSptTrack(){
   }catch(err){ log(`⚠ SPT tracking failed: ${err.name}: ${err.message}`); }
   finally{ $('sptTrackBtn').disabled=false; setProg(null); }
 }
+// D = (msd/4 - locErrorUm^2) / frametime is exactly linear in 1/frametime,
+// and msd itself (cached per track in lastSpt.trackMSD, µm^2, purely
+// spatial) doesn't depend on frametime or locError at all — so both can be
+// rescaled from the SAME cached MSDs without re-linking or re-summing
+// steps, unlike Search range/Memory/Min track length, which change which
+// tracks/steps exist in the first place and genuinely need a fresh Track.
+function recomputeSptD(){
+  if(!lastSpt || !lastSpt.trackMSD || !lastSpt.trackMSD.size || !lastResult) return;
+  const frametime=paramValue('sptFrameTime'), locErrorUm=paramValue('sptLocError')/1000;
+  const errTerm=locErrorUm*locErrorUm;
+  const trackIds=[], diffCoeffs=[], dOfTrack=new Map();
+  for(const [tid,msd] of lastSpt.trackMSD){
+    const D=msd/(4*frametime)-errTerm/frametime;
+    trackIds.push(tid); diffCoeffs.push(D); dOfTrack.set(tid,D);
+  }
+  lastResult.locs=lastResult.locs.map(L=>{ const D=dOfTrack.get(L.track_id); return D===undefined ? L : {...L, D_coeff:D}; });
+  lastSpt.trackIds=trackIds; lastSpt.diffCoeffs=diffCoeffs;
+  const n=diffCoeffs.length;
+  lastSpt.meanD=n?diffCoeffs.reduce((a,b)=>a+b,0)/n:NaN;
+  const sorted=[...diffCoeffs].sort((a,b)=>a-b);
+  lastSpt.medianD=n?sorted[Math.floor(n/2)]:NaN;
+  log(`  SPT frame time/localization error changed — D rescaled from cached MSDs: mean D = ${isFinite(lastSpt.meanD)?lastSpt.meanD.toFixed(3):'n/a'} µm²/s, median D = ${isFinite(lastSpt.medianD)?lastSpt.medianD.toFixed(3):'n/a'} µm²/s.`);
+  refreshSptDHistIfShown();
+}
 // D commonly spans orders of magnitude between bound/slow and free/fast
 // populations (matching the reference pipeline's own logarithmic default),
 // so bin in log10(D) space — reuses computeHist()/drawHistogram() unchanged,
@@ -6583,34 +6634,101 @@ async function runSptTrack(){
 // a logged count, not silently dropped), matching what the reference
 // pipeline's own log-binned `np.histogram()` call already does implicitly
 // (values below its plotted minimum simply fall outside every bin).
+// D plot min/max (sptDPlotMin/Max) are a display-only axis window: tracks
+// outside them are excluded from the plotted/binned histogram exactly like
+// non-positive D, but meanD/medianD (logged by sptCore()/recomputeSptD())
+// always reflect every qualifying track, not just the plotted window.
 function drawSptDHist(){
   if(!lastSpt || !lastSpt.diffCoeffs.length) return;
-  let nExcluded=0;
+  const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax');
+  let nNonPositive=0, nOutOfRange=0;
   const logD=[];
-  for(const d of lastSpt.diffCoeffs){ if(d>0) logD.push(Math.log10(d)); else nExcluded++; }
-  if(nExcluded) log(`  (${nExcluded.toLocaleString()} track(s) had a non-positive D after the localization-error correction — likely near-immobile or too short to estimate reliably; excluded from the histogram, not shown as a fake peak.)`);
+  for(const d of lastSpt.diffCoeffs){
+    if(d<=0){ nNonPositive++; continue; }
+    if(d<dMin || d>dMax){ nOutOfRange++; continue; }
+    logD.push(Math.log10(d));
+  }
+  if(nNonPositive) log(`  (${nNonPositive.toLocaleString()} track(s) had a non-positive D after the localization-error correction — likely near-immobile or too short to estimate reliably; excluded from the histogram, not shown as a fake peak.)`);
+  if(nOutOfRange) log(`  (${nOutOfRange.toLocaleString()} track(s) fell outside the D plot range [${dMin}, ${dMax}] µm²/s and aren't shown — widen D plot min/max to see them.)`);
   computeHist('log10(D)', logD, 'µm²/s, log10');
   drawHistogram();
+}
+// Live-refresh the D histogram (like refreshSSmlmHistIfShown()) whenever a
+// field that changes its content — not just its view — is edited while it's
+// already on screen. No-op for a different plot, or none.
+function refreshSptDHistIfShown(){
+  if(!rawIsPlot || rawPlotName!=='histogram' || !histData || histData.col!=='log10(D)') return;
+  drawSptDHist();
 }
 // A sanity-check view (per user feedback) for picking SPT min track
 // length: log Y-axis (count axis), since the number of tracks usually
 // falls off steeply with length, and a linear axis would flatten the whole
 // useful range into a sliver near zero. Reuses computeHist()/
 // drawHistogram() with the new logY option rather than a bespoke plot.
+// Exponential decay fit (photobleaching-limited survival model, count(L) ~
+// A*exp(-L/tau)) via least-squares on ln(count) vs bin center, over the SAME
+// bins the caller already built — tau/A come out already in "counts per
+// displayed bin" units, so the fit curve overlays the bars with no further
+// rescaling. Zero-count bins are skipped (ln(0) undefined) rather than
+// clamped, same non-positive-value exclusion precedent as drawSptDHist().
+function fitTrackLifetime(hd){
+  const {lo,bw,hist,nb}=hd;
+  let sx=0,sy=0,sxx=0,sxy=0,cnt=0;
+  for(let i=0;i<nb;i++){
+    const c=hist[i]; if(c<=0) continue;
+    const x=lo+(i+0.5)*bw, y=Math.log(c);
+    sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; cnt++;
+  }
+  if(cnt<2) return null;
+  const denom=cnt*sxx-sx*sx; if(!denom) return null;
+  const slope=(cnt*sxy-sx*sy)/denom;
+  if(!isFinite(slope) || slope>=0) return null;   // must actually decay, not grow/flat
+  const intercept=(sy-slope*sx)/cnt;
+  return {tau:-1/slope, A:Math.exp(intercept)};
+}
 function drawSptTrackLenHist(){
   if(!lastSpt || !lastSpt.trackLengths.length) return;
   computeHist('SPT track length', lastSpt.trackLengths, 'locs', null, true);
+  const fit=fitTrackLifetime(histData);
+  if(fit){
+    histData.curve=x=>fit.A*Math.exp(-x/fit.tau);
+    // tau is in locs (= frames when SPT memory is 0, an approximation once
+    // gap-bridging is in play — a bridged step still counts as one "loc" of
+    // track length despite spanning >1 frame); frametime converts it to a
+    // physical lifetime for the log/legend, same locs->seconds convention
+    // trackDiffusionCoeffs() already uses for D.
+    const frametime=paramValue('sptFrameTime');
+    histData.curveLabel=`τ = ${fit.tau.toFixed(2)} locs (${(fit.tau*frametime).toFixed(2)} s)`;
+    log(`  Track-length exponential fit: τ = ${fit.tau.toFixed(2)} locs ≈ ${(fit.tau*frametime).toFixed(3)} s (locs≈frames when SPT memory=0; an approximation once gap-bridging is active).`);
+  }else{
+    log(`  Track-length exponential fit: not enough populated bins (or the distribution isn't decaying) to fit — showing the histogram without a fit curve.`);
+  }
   drawHistogram();
+}
+function refreshSptTrackLenHistIfShown(){
+  if(!rawIsPlot || rawPlotName!=='histogram' || !histData || histData.col!=='SPT track length') return;
+  drawSptTrackLenHist();
 }
 $('sptTrackBtn').addEventListener('click', runSptTrack);
 $('sptDHistBtn').addEventListener('click', drawSptDHist);
 $('sptTrackLenHistBtn').addEventListener('click', drawSptTrackLenHist);
+// Frame time/localization error only rescale an existing D (see
+// recomputeSptD() above) — Search range/Memory/Min track length change
+// which tracks/steps exist and still require a fresh Track click.
+$('sptFrameTime').addEventListener('change', recomputeSptD);
+$('sptFrameTime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
+$('sptLocError').addEventListener('change', recomputeSptD);
+// D plot min/max only change the histogram's own display window, not the
+// underlying D values — re-plot (if shown) without touching lastSpt itself.
+$('sptDPlotMin').addEventListener('change', refreshSptDHistIfShown);
+$('sptDPlotMax').addEventListener('change', refreshSptDHistIfShown);
 // "from NeNA" mirrors PCFO's Transfer-estimates gating — disabled in the
 // HTML by default, enabled by computeNeNA() itself once lastNena actually
 // holds a result (locprecision module), so this handler can trust it's set.
 $('sptLocErrorFromNenaBtn').addEventListener('click', ()=>{
   if(!lastNena) return;
   $('sptLocError').value=lastNena.sigma.toFixed(1);
+  recomputeSptD();
 });
 
 /* ===========================================================================
@@ -8316,12 +8434,12 @@ function computeHist(col, vals, unit, markers, logY){
   const nb=Math.max(10,Math.min(80,Math.round(Math.sqrt(vals.length)*1.5))), bw=(hi-lo)/nb, hist=new Float64Array(nb);
   for(const v of vals){ let b=((v-lo)/bw)|0; if(b<0)b=0; if(b>=nb)b=nb-1; hist[b]++; }
   let ymax=0; for(const c of hist) if(c>ymax)ymax=c; ymax*=1.08;
-  histData={col,unit,n:vals.length,lo,hi,nb,bw,hist,ymax,markers:markers||[],logY:!!logY}; histView={x0:lo,x1:hi};
+  histData={col,unit,n:vals.length,lo,hi,nb,bw,hist,ymax,markers:markers||[],logY:!!logY,curve:null}; histView={x0:lo,x1:hi};
 }
 function drawHistogram(){
   if(!histData||!histView) return;
-  const {col,unit,lo,hi,nb,bw,hist,ymax,n,markers,logY}=histData, {x0,x1}=histView;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv);
+  const {col,unit,lo,hi,nb,bw,hist,ymax,n,markers,logY,curve}=histData, {x0,x1}=histView;
+  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='histogram'; $('rawTitle').textContent=`Histogram: ${col}`;
   ctx.fillStyle='#f6f8fa'; ctx.fillRect(0,0,W,H);
   const mL=HIST_ML,mR=HIST_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, xr=Math.max(1e-9,x1-x0), decX=(x1-x0)<10?2:0;
@@ -8341,6 +8459,12 @@ function drawHistogram(){
   ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();       // bars clipped to the plot rect (for zoom/pan)
   ctx.fillStyle='#9fb4d8';
   for(let i=0;i<nb;i++){ if(hist[i]<=0) continue; const bx0=X(lo+i*bw), bx1=X(lo+(i+1)*bw), y=Y(hist[i]); ctx.fillRect(bx0,y,Math.max(1,bx1-bx0-1),(mT+ph)-y); }
+  if(curve){   // e.g. drawSptTrackLenHist()'s exponential lifetime fit — sampled in the SAME bin-height units as the bars, so it overlays them directly in either Y scale
+    ctx.strokeStyle='#d29922'; ctx.lineWidth=1.75; ctx.beginPath();
+    const steps=120;
+    for(let i=0;i<=steps;i++){ const xv=x0+(x1-x0)*i/steps, xp=X(xv), yp=Y(Math.max(0,curve(xv))); if(i===0) ctx.moveTo(xp,yp); else ctx.lineTo(xp,yp); }
+    ctx.stroke();
+  }
   if(markers&&markers.length){
     ctx.setLineDash([4,3]); ctx.strokeStyle='#d9534f'; ctx.lineWidth=1.5;
     ctx.fillStyle='#d9534f'; ctx.font='11px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
@@ -8355,6 +8479,7 @@ function drawHistogram(){
   ctx.fillText(`${col}${unit?` (${unit})`:''}`, mL+pw/2, mT+ph+26);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText(logY?'count (log)':'count',0,0); ctx.restore();
   ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.fillText(`n = ${n.toLocaleString()}`, mL+pw, mT-4);
+  if(curve && histData.curveLabel){ ctx.fillStyle='#d29922'; ctx.fillText(histData.curveLabel, mL+pw, mT-18); }
   const zoomed = x0>lo+1e-9 || x1<hi-1e-9;
   $('rawInfo').textContent=`— histogram of ${col} · ${n.toLocaleString()} values (filtered)${zoomed?` · x ${x0.toFixed(decX)}–${x1.toFixed(decX)} (scroll/drag · dbl-click reset)`:' · scroll/pinch to zoom x'} · scrub a frame to return`;
   // log mode: registerPlotHover/drawPlotHover interpolate yTop..yBot linearly

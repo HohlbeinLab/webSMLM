@@ -324,7 +324,40 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   the new algorithm (74,011 localizations, 21,578 tracks unchanged — linking
   itself didn't move — 5,175 tracks with `sptTrackLenMin=5` qualify for a D
   estimate, mean D 0.325 µm²/s, only 82 non-positive-D tracks now excluded
-  rather than clamped). Deliberately deferred, not forgotten:
+  rather than clamped).
+
+  **2026-08-18, same-day second round**, more real-data feedback: added
+  `sptDPlotMin`/`Max` (µm²/s, defaults from the reference pipeline's own
+  histogram range) — a display-only axis window on the D histogram, tracks
+  outside it excluded from the PLOT only, never from `meanD`/`medianD`.
+  Added `recomputeSptD()`: since D = (MSD/4 − locErrorUm²)/frametime is
+  exactly linear in 1/frametime and MSD itself doesn't depend on
+  frametime/locError, `trackDiffusionCoeffs()` now also returns a
+  `trackMSD` Map (cached per track, µm², spatial only) so editing **Frame
+  time** or **Localization error** after **Track** rescales every D live —
+  in `lastSpt`, the table/CSV (`lastResult.locs`' own `D_coeff`), and the D
+  histogram if shown — with no re-linking. Added an exponential lifetime
+  fit (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ)) overlaid on the
+  track-length histogram, fit by unweighted least-squares on ln(count) vs
+  bin centre; τ logged/shown in both locs and seconds. This needed a small
+  generic extension to the shared histogram plot: `computeHist()`/
+  `drawHistogram()` (table module) now support an optional
+  `histData.curve`/`curveLabel`, set by the caller AFTER `computeHist()`
+  returns (a fit needs the already-binned data to fit against, unlike
+  `markers`, which are known ahead of binning) — see **table** in
+  `CLAUDE.md`. Also fixed a layout complaint: histograms/line plots drawn on
+  the raw/SR canvases used to inherit `--frame-ar` (the loaded movie's own
+  aspect ratio), so an unusually wide/narrow movie stretched every plot's
+  axes into an unreadable shape; `setupPlot(cv, isPlot)` now applies a fixed
+  `aspect-ratio:4/3` via a new `.is-plot` CSS class for every plot-drawing
+  function (frame/reconstruction drawers keep the movie's own ratio) — 4/3
+  matches matplotlib's own default figure size (6.4×4.8in), which is also
+  close to what the `sptPALM-Python` reference scripts use for their own
+  standalone histogram figures (`plt.figure(figsize=(4,5))` in
+  `plot_diff_histograms_tracklength_resolved.py` — narrower, since that
+  script's multi-panel figures use several different ratios with no single
+  consistent convention; 4/3 was chosen for on-screen readability, not
+  fidelity to one specific reference figure size). Deliberately deferred, not forgotten:
   - **Headless (`window.webSMLM.analyze()`/CLI) exposure** — same
     "interactive first, headless once it's seen real use" precedent sSMLM's
     own headless exposure followed a full version cycle after Phase 1.
