@@ -453,9 +453,15 @@ relevant one before editing rather than scrolling:
 
   `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~
   A·exp(−L/τ) — a photobleaching-limited survival model) to its own already-built `histData` via
-  unweighted least-squares on ln(count) vs bin centre (zero-count bins skipped, same
-  non-positive-value-exclusion precedent as `drawSptDHist()`; a non-decaying or under-populated fit
-  returns `null` and the histogram still renders, just without a curve). The fit is attached as
+  WEIGHTED least-squares on ln(count) vs bin centre, weight = the bin's own count (zero-count bins
+  skipped, same non-positive-value-exclusion precedent as `drawSptDHist()`; a non-decaying or
+  under-populated fit returns `null` and the histogram still renders, just without a curve).
+  Weighting is required, not cosmetic: bin counts are Poisson-distributed, so Var(ln(count)) ~
+  1/count — an unweighted fit gives a count-of-2 tail bin the same say as a count-of-8000 peak bin,
+  which measurably drags the fitted line away from the short-track end (both more populous AND more
+  statistically reliable); caught from a real rendered histogram on the full lactis dataset where
+  an earlier unweighted version's fit line sat nearly an order of magnitude below the first bar. The
+  fit is attached as
   `histData.curve`/`curveLabel` — see **table**'s `computeHist()`/`drawHistogram()` entry above for
   how the shared histogram plot draws that curve generically. τ is reported in both locs and
   seconds (`× sptFrameTime`) in the log and on-plot legend; **locs≈frames only when `sptMemory=0`**

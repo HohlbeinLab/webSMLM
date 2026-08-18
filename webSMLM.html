@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18i; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-18j; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -35,9 +35,9 @@
     locprecision    5397   NeNA + FRC
     sSMLM           6006   spectrally resolved SMLM pair-finding
     spt             6445   single particle tracking, trackpy-inspired
-    pipeline        6825   top-level orchestration, *Core()/wrapper split
-    table           8277   localizations table, filtering, histograms
-    headless API    8701   window.webSMLM.analyze()/analyzeBatch()
+    pipeline        6831   top-level orchestration, *Core()/wrapper split
+    table           8283   localizations table, filtering, histograms
+    headless API    8707   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18i</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18j</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1884,7 +1884,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18i · PCFO: move the y-axis ×10ⁿ multiplier flush left of the axis top
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18j · spt: weight the track-lifetime fit by bin count, fixing an undershoot at short lengths
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -6755,24 +6755,30 @@ function refreshSptDHistIfShown(){
 // useful range into a sliver near zero. Reuses computeHist()/
 // drawHistogram() with the new logY option rather than a bespoke plot.
 // Exponential decay fit (photobleaching-limited survival model, count(L) ~
-// A*exp(-L/tau)) via least-squares on ln(count) vs bin center, over the SAME
-// bins the caller already built — tau/A come out already in "counts per
-// displayed bin" units, so the fit curve overlays the bars with no further
-// rescaling. Zero-count bins are skipped (ln(0) undefined) rather than
+// A*exp(-L/tau)) via WEIGHTED least-squares on ln(count) vs bin center
+// (weight = the bin's own count), over the SAME bins the caller already
+// built — tau/A come out already in "counts per displayed bin" units, so
+// the fit curve overlays the bars with no further rescaling. Weighting by
+// count is required, not cosmetic: bin counts are Poisson-distributed, so
+// Var(ln(count)) ~ 1/count — an UNWEIGHTED fit gives the same say to a
+// count-of-2 tail bin as a count-of-8000 peak bin, which measurably drags
+// the fitted line away from the (both more populous AND more reliable)
+// short-track end, visibly undershooting it — caught from a real rendered
+// histogram where the fit line sat almost an order of magnitude below the
+// first bar. Zero-count bins are skipped (ln(0) undefined) rather than
 // clamped, same non-positive-value exclusion precedent as drawSptDHist().
 function fitTrackLifetime(hd){
   const {lo,bw,hist,nb}=hd;
-  let sx=0,sy=0,sxx=0,sxy=0,cnt=0;
+  let sw=0,swx=0,swy=0,swxx=0,swxy=0;
   for(let i=0;i<nb;i++){
     const c=hist[i]; if(c<=0) continue;
-    const x=lo+(i+0.5)*bw, y=Math.log(c);
-    sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; cnt++;
+    const x=lo+(i+0.5)*bw, y=Math.log(c), w=c;
+    sw+=w; swx+=w*x; swy+=w*y; swxx+=w*x*x; swxy+=w*x*y;
   }
-  if(cnt<2) return null;
-  const denom=cnt*sxx-sx*sx; if(!denom) return null;
-  const slope=(cnt*sxy-sx*sy)/denom;
+  const denom=sw*swxx-swx*swx; if(!denom) return null;
+  const slope=(sw*swxy-swx*swy)/denom;
   if(!isFinite(slope) || slope>=0) return null;   // must actually decay, not grow/flat
-  const intercept=(sy-slope*sx)/cnt;
+  const intercept=(swy-slope*swx)/sw;
   return {tau:-1/slope, A:Math.exp(intercept)};
 }
 function drawSptTrackLenHist(){

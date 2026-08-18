@@ -395,8 +395,14 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   in `lastSpt`, the table/CSV (`lastResult.locs`' own `D_coeff`), and the D
   histogram if shown — with no re-linking. Added an exponential lifetime
   fit (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ)) overlaid on the
-  track-length histogram, fit by unweighted least-squares on ln(count) vs
-  bin centre; τ logged/shown in both locs and seconds. This needed a small
+  track-length histogram, fit by weighted least-squares on ln(count) vs bin
+  centre (weight = the bin's own count — an UNWEIGHTED version shipped
+  first and was corrected same-day after a real rendered histogram showed
+  the fit line sitting nearly an order of magnitude below the first,
+  highest-count bar: bin counts are Poisson, so Var(ln(count)) ~ 1/count,
+  and an unweighted fit gives noisy low-count tail bins the same say as the
+  much more reliable high-count peak); τ logged/shown in both locs and
+  seconds. This needed a small
   generic extension to the shared histogram plot: `computeHist()`/
   `drawHistogram()` (table module) now support an optional
   `histData.curve`/`curveLabel`, set by the caller AFTER `computeHist()`
