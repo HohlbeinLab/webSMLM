@@ -181,7 +181,22 @@ relevant one before editing rather than scrolling:
       256×256×1200 case, 8% worker utilisation); the barrier-phased version gets full parallelism
       for both phases instead. The timing log's `↑ N workers · X% utilisation` line covers the
       detect/fit phase only — its wall-clock denominator excludes the separately-reported FTM
-      phase, or a run with substantial FTM time would look artificially starved.
+      phase, or a run with substantial FTM time would look artificially starved. Each chunk's
+      detect/fit phase resolves its own `await new Promise(...)` via a `finishChunk()` that MUST
+      check `shouldStop()` itself, not just rely on `dispatchChunk()`'s own `shouldStop()` bail-out
+      — a real, reported bug (Stop during a Run with FTM+the worker pool both active would hang
+      forever instead of stopping): every worker's `dispatchChunk()` returns immediately once
+      `shouldStop()` is true, without ever advancing `cNext` to `coreEnd`, so a `finishChunk()`
+      that only checked `cInflight===0 && (err||cNext>=coreEnd)` (missing the `shouldStop()` OR
+      term the equivalent non-FTM loop's own `finish()` already had) saw `cInflight===0` but
+      neither of the other two conditions true, and never called `resolveChunk()` — stalling the
+      whole Run inside that `await`, not just skipping the rest of one chunk. Fixed by adding
+      `shouldStop()` to `finishChunk()`'s own condition, matching `finish()`. A related, smaller
+      bug fixed alongside it: stopping THIS early (before any detect/fit batch ever completed)
+      left `tDetect+tFit===0`, and the timing log's percentage helper floors its denominator to
+      `1e-9` to avoid `0/0`, so a genuine nonzero FTM time divided by that floor printed an absurd
+      percentage (~2×10¹³%) instead of an honest "n/a" — the floor is now only used for the actual
+      division, while a separate unfloored check decides whether to print a percentage at all.
 
     Both implementations must widen a chunk's context fetch beyond naive `coreStart±window/2`
     whenever the chunk's core range comes close enough to either end of the **whole stack** (not

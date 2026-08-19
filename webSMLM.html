@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-19a; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-19b; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -36,8 +36,8 @@
     sSMLM           6290   spectrally resolved SMLM pair-finding
     spt             6729   single particle tracking, trackpy-inspired
     pipeline        7159   top-level orchestration, *Core()/wrapper split
-    table           8611   localizations table, filtering, histograms
-    headless API    9039   window.webSMLM.analyze()/analyzeBatch()
+    table           8625   localizations table, filtering, histograms
+    headless API    9053   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-19a</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-19b</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1885,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-19a · in/out: log embedded pixel size/frame interval hints from TIFF and ND2 metadata (never auto-applied)
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-19b · pipeline: fix Stop hanging forever during FTM+worker-pool Localize (finishChunk missed a shouldStop() check)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -7398,7 +7398,16 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         // and bounded to [coreStart,coreEnd) instead of the whole run.
         await new Promise(resolveChunk=>{
           let cNext=coreStart, cInflight=0;
-          const finishChunk=()=>{ if(cInflight===0 && (err||cNext>=coreEnd)) resolveChunk(); };
+          // shouldStop() must be checked here too, not just inside dispatchChunk
+          // below — a Stop click makes every worker's dispatchChunk bail out
+          // immediately without ever advancing cNext to coreEnd, so without this
+          // OR clause cInflight reaches 0 while cNext is still short of coreEnd
+          // and resolveChunk() is never called: the whole Run hangs forever
+          // inside this await, not just this chunk (a real, reported bug — Stop
+          // during FTM+worker-pool Localize hung rather than stopping). Mirrors
+          // the non-FTM loop's own `finish` a little further down, which already
+          // has this right (shouldStop()||next>=lastIdx||err).
+          const finishChunk=()=>{ if(cInflight===0 && (err||shouldStop()||cNext>=coreEnd)) resolveChunk(); };
           const dispatchChunk=wk=>{
             if(err||shouldStop()||cNext>=coreEnd){ finishChunk(); return; }
             const s=cNext, e=Math.min(coreEnd,s+BATCH); cNext=e;
@@ -7573,8 +7582,14 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // In parallel mode detect/fit are worker CPU (summed across workers) while
   // frame access is main-thread time spent inside an await that overlaps other
   // dispatches — not CPU, and not comparable. Keep them apart.
-  const base=useWorkers ? Math.max(tDetect+tFit,1e-9) : Math.max(dt,1e-9);
-  const pc=v=>(100*v/base).toFixed(0).padStart(2)+'%';
+  const rawBase=useWorkers ? tDetect+tFit : dt;
+  const base=Math.max(rawBase,1e-9);
+  // rawBase (not the floored `base`) gates whether a percentage is even
+  // meaningful — e.g. stopped so early that FTM ran but detect/fit never
+  // got a single batch (tDetect+tFit===0): dividing a genuine nonzero FTM
+  // time by the 1e-9 floor produced an absurd percentage (~2e13%) rather
+  // than an honest "no detect/fit CPU to compare against yet".
+  const pc=v=>rawBase>1e-6 ? (100*v/base).toFixed(0).padStart(2)+'%' : '  n/a';
   const ms=v=>Math.round(v).toLocaleString().padStart(7);
   if(useWorkers) onLog(`  frame I/O   ${ms(tGet)} ms       (overlapped with compute, not CPU time)`);
   else           onLog(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
