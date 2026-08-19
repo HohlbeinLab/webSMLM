@@ -66,73 +66,53 @@ relevant one before editing rather than scrolling:
   checks `undefined>0` and rejects every file, valid or not (a real regression, caught immediately
   by testing against the sample above rather than shipped). **Native Nikon ND2** (the genuine
   proprietary binary format, distinct from the TIFF-in-disguise case above) is also supported,
-  shipped v0.11.2: `isNd2File()` sniffs the real magic (`0x0ABECEDA` LE u32 at byte 0, same
-  convention as `isTiffFile()`) and `loadTiffFile()`'s very first line dispatches to
-  `loadNd2File()` when it matches — reaching all three existing callers (interactive `#file`,
-  calibration file input, headless `analyze()`'s `cfg.file`/`cfg.calibrationFile`) with no
-  caller-side changes, the same "one detection path, three callers" precedent as the TIFF sniff
-  above; `loadTiffFilesAuto()` also special-cases a lone `.nd2` selection before its TIFF-only
-  filter would otherwise silently drop it (multi-file ND2 concatenation isn't supported yet). ND2
-  has no official public spec — the format was reverse-engineered directly from two real sample
-  files (`experimental_data/2026-07-13_BHK21_EphB2_mEos4_substack_0-{100,500}.nd2`), not ported
-  from any GPL reader (Bio-Formats/nd2reader are GPL-licensed, unsafe for this CC-BY project). The
-  file is a flat sequential run of 16-byte-header chunks (`magic+dataOffset+dataLen+4 reserved`,
-  then a `!`-terminated ASCII name, then the payload), each padded to the next 4096-byte boundary;
-  `readNd2ChunkHeader()` walks the WHOLE chain from byte 0 to index every `ImageDataSeq|N!` frame
-  chunk's own byte offset — there's no shortcut, since the required `ImageAttributesLV!` metadata
-  chunk (width/height/frame count/bit depth) sits near EOF, after all frame data, and metadata
-  chunk count is confirmed frame-count-independent (4 before/45 after the frame run in both real
-  samples) so this walk's cost scales only with the per-frame header count, not file size beyond
-  that. Each `ImageDataSeq|N!` chunk's payload is a `ND2_FRAME_HEADER_BYTES`(=24)-byte per-frame
-  sub-header (contents unidentified, never parsed) THEN the pixel array — a real bug shipped
-  initially by getting this backwards (pixel data assumed to start at payload byte 0, with an
-  assumed trailer after it instead): decoded without throwing, since nothing checks pixel VALUES,
-  just dimensions/frame-count, so it silently corrupted row 0's first ~6 pixels into spikes tens of
-  thousands of ADU above what this camera's declared 14-bit ADC can produce; only visible from a
-  live screenshot (an unexplained bright dot, top-left of the raw panel) and confirmed/fixed by
-  cross-validating byte-for-byte (whole frame, several frames spanning both real samples) against
-  the independent reference implementation, BSD-3-Clause `tlambert03/nd2` — installed and run
-  locally for exactly this check, not ported from. `ImageAttributesLV!`/`ImageCalibrationLV|0!` are
-  unaffected (no such per-record header), decoded via `parseNd2LvField()`, a
-  recursive reader for Nikon's own binary key-value ("LV") format: `type(u8)+nameLen(u8, UTF-16
-  code units including the trailing null)+name(UTF-16LE)+value`; a container (type `0x0b`) holds
-  `childCount(u32)+byteLen(u64)` then recurses exactly `childCount` times — **`byteLen` must never
-  be used as the parse boundary**, it can include trailing padding past the real fields and produce
-  a bogus extra read with a garbage type byte (a real bug caught while implementing this). String
-  fields (type `8`) are **null-terminated UTF-16LE with no length prefix**, unlike field names,
-  which use an explicit `nameLen` — also only discovered by decoding real bytes, not documented
-  anywhere. `getFrames(s,e)` does one batched `file.slice()` per requested frame range and decodes
-  each frame at its OWN explicit stored offset (never assumed back-to-back — a chunk header+name
-  sits between consecutive frame payloads, so stride arithmetic alone would misalign). The file's
-  own pixel calibration (`ImageCalibrationLV|0!`'s `dCalibration`, µm/px) is logged but never
-  auto-applied to `pxnm`, matching this project's compute-once/apply-separately convention used
-  elsewhere (NeNA→SPT, PCFO's Transfer estimates). Multi-channel and non-16-bit files throw a
-  clear unsupported-format error rather than silently misreading. Two more optional, bonus-only
-  metadata chunks are logged the same log-only way (never applied): `CustomData|AcqTimesCache!`
-  (per-frame float64-ms acquisition timestamps, written by NIS-Elements' STORM module — not
-  every ND2 file has it) gives a frame-interval estimate as the MEDIAN of consecutive positive
-  diffs, not the mean, since a real sample's first couple of timestamps were near-zero
-  placeholders before the interval locked to a stable value; `CustomData|STORM_CAM_DATA_SHEET_XML-V1!`
-  (small flat UTF-16LE XML) gives camera model/bit-depth/ADU, logged purely as informational
-  context — deliberately NOT wired to `gain`/`camoffset`, since it's the camera's static
-  manufacture-time ADU-per-electron figure, not necessarily the EM gain multiplier actually
-  configured for the specific acquisition (PCFO's own empirical fit is the trustworthy source for
-  those). TIFF gets the analogous treatment via `tiffScaleHint(ifd0, desc)`, called from all three
-  TIFF-decoding call sites (`loadTiffFile()`'s fast contiguous path, `loadTiff()`, `loadTiffSequence()`)
-  right where each already reads `t270` (ImageDescription) for its `images=N` count: it also checks
-  that text for `finterval=` (seconds) and — only when the description's own `unit=` field says
-  micrometers — reads `t282`/`t283` (XResolution/YResolution, which UTIF already resolves from
-  RATIONAL to a plain float, pixels-per-unit) for a pixel-size estimate; `t296` (ResolutionUnit)
-  itself is deliberately never consulted, since ImageJ leaves it at 1 ("no absolute unit") even
-  when XResolution is meaningful and puts the real unit in the description text instead. Two real
-  ImageJ exports were seen spelling micrometers two different ways for the same meaning —
-  `unit=micron` (spelled out) and, from a different export path, a literal `unit=µm` (the SEVEN
-  ASCII characters backslash-u-0-0-B-5-m, not an actual µ character — a Java/ImageJ text-encoding
-  quirk only caught by inspecting the real decoded string) — both are recognised. All of this is
-  genuinely log-only: no "Apply" button exists for these hints (unlike NeNA→SPT's own transfer
-  button), by deliberate choice — a real cross-check this surfaced is that one bundled sample
-  file's filename implies a 50 ms frame time but its own embedded `finterval` says 5 ms; resolving
-  that kind of conflict needs a human, not an auto-fill. `makeCroppedStack()`
+  shipped v0.11.2, **experimental** — no official spec exists, so this is a from-scratch decoder
+  validated against only two real sample files (`experimental_data/*.nd2`, see
+  `experimental_data/README.md`) plus one independent reference-library cross-check, not a broad
+  corpus: `isNd2File()` sniffs the real magic (`0x0ABECEDA` LE u32 at byte 0) and
+  `loadTiffFile()`'s first line dispatches to `loadNd2File()` — reaching all three existing callers
+  (interactive, calibration, headless) with no caller-side changes, same "one detection path,
+  three callers" precedent as the TIFF sniff above; `loadTiffFilesAuto()` also special-cases a lone
+  `.nd2` selection (multi-file ND2 concatenation isn't supported yet). Reverse-engineered directly
+  from those real bytes, not ported from any GPL reader. The file is a flat run of 16-byte-header
+  chunks (`magic+dataOffset+dataLen+4 reserved`, then a `!`-terminated name, then payload), each
+  padded to the next 4096-byte boundary; `readNd2ChunkHeader()` walks the WHOLE chain from byte 0
+  to index every `ImageDataSeq|N!` frame offset — no shortcut, since the required
+  `ImageAttributesLV!` metadata chunk sits near EOF, after all frame data (metadata chunk count is
+  frame-count-independent, so cost scales with per-frame header count only). Each `ImageDataSeq|N!`
+  payload is a 24-byte (`ND2_FRAME_HEADER_BYTES`) per-frame sub-header (contents unidentified,
+  never parsed) THEN the pixel array — **the shipped parser initially had this backwards** (pixels
+  assumed at byte 0, a trailer assumed after instead), which decoded without throwing
+  (dimensions/frame-count stayed self-consistent) but silently corrupted row 0's first ~6 pixels
+  into implausible spikes; caught from a live screenshot, confirmed/fixed by cross-validating
+  byte-for-byte against the independent BSD-3-Clause `tlambert03/nd2` reference. **Get this offset
+  wrong again and nothing will throw — only pixel VALUES will be wrong.** `parseNd2LvField()`
+  recursively decodes Nikon's own binary key-value ("LV") format for `ImageAttributesLV!`/
+  `ImageCalibrationLV|0!`: a container (type `0x0b`) holds `childCount(u32)+byteLen(u64)` then
+  recurses exactly `childCount` times — **`byteLen` must never be used as the parse boundary**, it
+  can include trailing padding and produce a bogus extra read with a garbage type byte. String
+  fields (type `8`) are **null-terminated UTF-16LE with no length prefix**, unlike field names
+  (explicit `nameLen`). `getFrames(s,e)` decodes each frame at its OWN explicit stored offset
+  (never back-to-back — a chunk header+name sits between payloads). Pixel calibration
+  (`ImageCalibrationLV|0!`'s `dCalibration`) and two more bonus metadata chunks —
+  `CustomData|AcqTimesCache!` (per-frame timestamps → a MEDIAN-of-diffs frame-interval estimate,
+  robust to a couple of near-zero leading placeholders seen in real files) and
+  `CustomData|STORM_CAM_DATA_SHEET_XML-V1!` (camera model/bit-depth/ADU, informational only — NOT
+  wired to `gain`/`camoffset`, since it's the camera's static datasheet figure, not the
+  acquisition's actual EM gain setting) — are all logged, never auto-applied, matching this
+  project's compute-once/apply-separately convention (NeNA→SPT, PCFO's Transfer estimates).
+  Multi-channel and non-16-bit files throw a clear unsupported-format error. TIFF gets the
+  analogous treatment via `tiffScaleHint(ifd0, desc)` (called from all three TIFF-decoding call
+  sites): reads `finterval=` from the same `t270` description text already parsed for `images=N`,
+  and — only when the description's `unit=` field says micrometers — `t282`/`t283`
+  (XResolution/YResolution) for a pixel-size estimate; `t296` (ResolutionUnit) is deliberately
+  never consulted, since ImageJ leaves it at 1 and puts the real unit in the description text
+  instead. Two real ImageJ exports spell micrometers two different ways — `unit=micron` and a
+  literal `unit=µm` (the SEVEN ASCII characters backslash-u-0-0-B-5-m, not an actual µ character,
+  an ImageJ/Java encoding quirk only caught by inspecting the real string) — both recognised. All
+  of this is genuinely log-only, no "Apply" button, by deliberate choice: one bundled sample's
+  filename implies a 50 ms frame time but its own embedded `finterval` says 5 ms — that kind of
+  conflict needs a human, not an auto-fill. `makeCroppedStack()`
   (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a
@@ -264,106 +244,75 @@ relevant one before editing rather than scrolling:
   `renderSuperRes()`'s accumulator buffers are DENSE, not sparse — one value per super-resolution
   pixel across the WHOLE `(w×mag)×(h×mag)` grid regardless of localization count, so memory scales
   as O(w·h·mag²), completely decoupled from data volume. `checkRenderSize()` runs before any
-  allocation: refuses (throws) if either side would exceed `CANVAS_MAX_DIM` (16384 — a hard
-  per-browser canvas-creation wall, not a soft budget) or if the estimated concurrent footprint
-  (count accumulator + optional z-accumulator + `blur()`'s own dst/tmp scratch, when Render blur is
-  on, + the final `ImageData` + the canvas's own backing store) exceeds the existing `memgb`
-  control — the SAME "Memory budget (GB)" setting stack loading already uses, not a second one.
-  `rerender()` catches the throw, logs what to change (lower Magnification, crop, or raise the
-  budget), and leaves the PREVIOUS `srFull` on screen rather than blanking or crashing; the headless
-  `analyze()` path lets it propagate, same "throws immediately" precedent as its other preconditions.
-  The count accumulator (`acc`) is `Uint16Array`, not `Float32Array` — a per-pixel hit count is
-  always a non-negative integer, so this halves that buffer's footprint for free; `zacc` (summed z
-  in nm, genuinely fractional) stays `Float32Array`. `Uint16Array` WRAPS silently past 65535 on a
-  naive `+=1` rather than clamping, so the increment is guarded explicitly (`if(acc[idx]<65535)
-  acc[idx]++`) and a one-line warning is logged if any pixel saturates, rather than risking silent
-  density corruption on an extreme (real-world-unlikely) localization pile-up.
+  allocation: refuses (throws) if either side would exceed `CANVAS_MAX_DIM` (16384, a hard
+  per-browser canvas-creation wall) or if the estimated concurrent footprint (count/z accumulators,
+  `blur()`'s scratch, the final `ImageData`, the canvas backing store) exceeds `memgb` — the SAME
+  "Memory budget (GB)" setting stack loading uses, not a second one. `rerender()` catches the
+  throw, logs what to change, and leaves the PREVIOUS `srFull` on screen rather than blanking; the
+  headless `analyze()` path lets it propagate. The count accumulator (`acc`) is `Uint16Array`, not
+  `Float32Array` (a hit count is always non-negative, halving the footprint); `zacc` (summed z,
+  fractional) stays `Float32Array`. `Uint16Array` WRAPS silently past 65535 on a naive `+=1`, so the
+  increment is guarded explicitly (`if(acc[idx]<65535) acc[idx]++`) with a one-line saturation
+  warning, rather than risking silent density corruption on an extreme pile-up.
 
   `setupPlot(cv, isPlot=false)` (shared by every draw function on the raw/sr canvases) letterboxes
   a fixed 4/3 sub-rectangle, centred within the panel's own box, for plots — rather than changing
-  the CANVAS's own size. An earlier version instead gave `.is-plot` canvases their own
-  `aspect-ratio:4/3` CSS (matplotlib's own default figure-size ratio), decoupled from the movie's
-  real shape — which fixed axis stretching, but at a cost: since CSS Grid stretches both cards in a
-  row to match whichever sibling is taller, a panel's HEIGHT then depended on whatever the OTHER
-  panel happened to be showing, so switching one panel between a frame and a plot could make it
-  (and its sibling) resize, which read as visually unstable. Now the canvas's own CSS box always
-  tracks `--frame-ar` (the loaded movie's own w/h) exactly like a real frame/reconstruction view
-  would — a panel's height genuinely never changes depending on what it (or its sibling) currently
-  shows — and `isPlot=true` instead: fills the WHOLE canvas with `plotColors().bg` first, computes
-  a centred 4/3 sub-rect within that box (shrunk to fit width or height, whichever binds), stashes
-  the offset in `_plotLetterboxOx/Oy`, and `ctx.translate()`s to it before returning the sub-rect's
-  own (smaller) W/H as if it were the whole canvas — so every existing plot-drawing function's own
-  code, written against a `{ctx,W,H}` it assumes starts at `(0,0)`, needed ZERO changes; letterbox
-  bars (top/bottom for a movie shorter-than-4/3, left/right for one taller) use the exact same bg
-  colour as the plot itself, so the seam is invisible. `registerPlotHover()` folds the same
-  `_plotLetterboxOx/Oy` into the `mL`/`mT` a caller hands it (once, centrally) since
-  `drawPlotHover()`'s own hit-testing reads `clientX`/`Y` against the canvas's real, UNtranslated
-  CSS box — every individual plot function's own `registerPlotHover(...)` call needed no change
-  either. `drawRawView()`/`drawView()` (actual frame/reconstruction pixels) never pass `isPlot`, so
-  they keep filling the panel's full box exactly as before.
+  the canvas's own size (a CSS-`aspect-ratio` approach was tried first and rejected: since CSS Grid
+  stretches both cards in a row to match whichever sibling is taller, a panel's height ended up
+  depending on whatever the OTHER panel was showing). The canvas's own CSS box always tracks
+  `--frame-ar` (the loaded movie's own w/h), same as a real frame/reconstruction view, so a panel's
+  height never changes depending on what it or its sibling shows; `isPlot=true` fills the whole
+  canvas with `plotColors().bg`, computes a centred 4/3 sub-rect, stashes the offset in
+  `_plotLetterboxOx/Oy`, and `ctx.translate()`s to it before returning the sub-rect's own W/H as if
+  it were the whole canvas — so every plot-drawing function's own `{ctx,W,H}`-from-`(0,0)` code
+  needed zero changes. `registerPlotHover()` folds the same offset into the `mL`/`mT` a caller hands
+  it (once, centrally), since `drawPlotHover()`'s hit-testing reads real, untranslated
+  `clientX`/`Y`. `drawRawView()`/`drawView()` never pass `isPlot`, so they keep filling the panel's
+  full box as before.
 
-  Since raw/sr canvases are now ALWAYS the same height (both track `--frame-ar` unconditionally),
-  `.panel-body` (the div wrapping a canvas with its own trailing controls —
-  `#scrubRow`/`#srFilterNote`/`#calViewRow`) is top-aligned, NOT centred: an earlier version of
-  this same round centred each panel's canvas+controls group independently within its card, which
-  shifted the two canvases OUT of alignment with each other by roughly half of whichever trailing
-  control only one panel has at a given moment (raw's `#scrubRow` has no sr-side equivalent when
-  `#srFilterNote`/`#calViewRow` are both hidden) — a real, reported "the two panels don't line up"
-  regression, caught from a live drift-correction screenshot. Top-aligning puts both canvases flush
-  against their own `h4` always, so they start at the same y regardless of trailing-content
-  differences; any leftover height from that difference lands invisibly at the bottom of the
-  shorter card instead of visibly offsetting its canvas.
+  `.panel-body` (wrapping a canvas with its own trailing controls — `#scrubRow`/`#srFilterNote`/
+  `#calViewRow`) is top-aligned, NOT centred, since raw/sr canvases are now always the same height
+  (both track `--frame-ar` unconditionally) — centring each panel's own canvas+controls group
+  independently shifted the two canvases out of vertical alignment by roughly half of whichever
+  trailing control only one panel has at a given moment. Top-aligning puts both canvases flush
+  against their own `h4`, so any leftover height from a trailing-content difference lands invisibly
+  at the bottom of the shorter card instead of visibly offsetting its canvas.
 
-  Every plot function reads colours from `plotColors()` (a `{bg,grid,text,axis,bar}` object) rather
-  than a hardcoded hex value, driven by a module-level `_plotExportMode` flag — `false` (dark,
-  `#161b22`/`#30363d`/`#8b949e`/`#e6edf3`/`#58a6ff`, matching the app's own `:root` custom
-  properties) on screen always, since webSMLM has never had a separate light/dark app theme to
-  hook a toggle into; `true` (the original light palette, `#f6f8fa`/etc.) only inside
-  `exportPanel()`'s "plot" branch, which flips the flag, calls the panel's own `_replotRaw`/
-  `_replotSr` to redraw once in light colours onto the SAME visible canvas, snapshots that via
-  `cv.toBlob()`, then flips back and redraws again so the on-screen view is left exactly as it
-  was — a saved PNG reads better with a white background once pasted into a paper/report, but the
-  live view stays dark to match the rest of the UI. A few accent colours (fit-line green/red/
-  magenta, the exponential-fit orange, marker red) stay hardcoded across both palettes — chosen to
-  read clearly against either background, unlike the axis/grid/bar/background set.
+  Every plot function reads colours from `plotColors()` (`{bg,grid,text,axis,bar}`) rather than a
+  hardcoded hex value, driven by a module-level `_plotExportMode` flag — `false` (dark, matching the
+  app's own `:root` custom properties, since webSMLM has no separate light/dark app theme) on screen
+  always; `true` (the original light palette) only inside `exportPanel()`'s "plot" branch, which
+  flips the flag, redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots via `cv.toBlob()`,
+  then flips back and redraws again — a saved PNG reads better on a white background once pasted
+  into a report, but the live view stays dark. A few accent colours (fit-line green/red/magenta, the
+  exponential-fit orange, marker red) stay hardcoded across both palettes, chosen to read clearly
+  against either background.
 
-  `axisScale(maxAbs)` gives an axis whose values commonly run large (PCFO's noise variance can be
-  in the hundreds of thousands, ADU²) matplotlib-style "offset notation": full 6-digit tick labels
-  used to visually collide with that axis's own rotated name text, so ticks instead show small
-  (always a single digit plus one decimal) scaled numbers, with a single `×10ⁿ` multiplier drawn
-  once near the axis — `n = floor(log10(maxAbs))`, the largest power of ten leaving ≥1 digit before
-  the decimal point. This is genuine SCIENTIFIC notation (one arbitrary power per axis, picked to
-  fit that axis's own range), not engineering notation's multiple-of-3 rounding, which was tried
-  first and rejected: for a 500 000–750 000 ADU² range it would print "750×10³" — three digits, not
-  the "1–2 digit" ticks this exists to produce. `drawPcfoPlot()` is the one plot that currently
-  needs it (its noise-variance axis is the one that visually collided); the helper lives in
-  **render** rather than that function so any other plot with the same large-number problem can
-  reuse it without duplicating the log10/superscript logic.
+  `axisScale(maxAbs)` gives an axis whose values commonly run large (PCFO's noise variance can be in
+  the hundreds of thousands, ADU²) matplotlib-style "offset notation": ticks show a small (single
+  digit + one decimal) scaled number, with a single `×10ⁿ` multiplier drawn once near the axis
+  (`n = floor(log10(maxAbs))`). This is genuine SCIENTIFIC notation (one arbitrary power per axis),
+  not engineering notation's multiple-of-3 rounding, which was tried first and rejected — it still
+  left 3-digit ticks on PCFO's range (e.g. "750×10³"). Lives in **render** (not `drawPcfoPlot()`
+  itself, the one plot currently needing it) so any other plot with the same large-number problem
+  can reuse it.
 
   Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
-  outward-facing tick mark at each major tick position, on both axes, in addition to any full-width/
-  height gridline already drawn there — a consistency pass, since **Drift vs frame** had no axis
-  border or tick marks at all (gridlines + labels only) before a user report, and every other plot
-  had ticks on at most one axis (PCFO/histogram: neither; NeNA/FRC: neither; the line-profile plot:
-  X only; calibration: neither). The axis border is drawn LAST, after the data (bars/points/curves),
-  not first — an axis drawn before the data can end up partly covered by it (NeNA's bars in
-  particular sit flush against the left edge); `strokeStyle` is switched to `C.text` for just the
-  tick-mark stroke and restored to `C.grid` immediately after, so the following gridline iterations
-  aren't affected. Tick labels shift outward by the same 5px (plus the original small gap) to clear
-  the new tick marks rather than sitting on top of them.
+  outward-facing tick mark at each major tick, on both axes — every plot has this now, a
+  consistency pass after **Drift vs frame** was found missing one entirely. The axis border is drawn
+  LAST, after the data, so bars/points flush against an axis edge (NeNA in particular) can't be
+  covered by it; `strokeStyle` switches to `C.text` for just the tick-mark stroke and restores to
+  `C.grid` immediately after. Tick labels shift outward by the same 5px to clear the new marks.
 
   The side-by-side/stacked panel layout (`.canvases.stacked`, single column) is resolved by
   `applyLayout()`: `layoutOverride` (module-level, `null`/`true`/`false`) takes precedence over the
   `stack.h/stack.w<0.5` auto-heuristic once the user clicks **Stack panels**/**Side by side**
-  (`layoutToggleBtn`) — the override then sticks across further loads this session rather than the
-  next movie's own aspect ratio silently resetting the user's choice, replacing the old "code
-  always decides" behaviour. `initScrub()` calls `applyLayout()` instead of setting the class
-  directly; the click handler also calls `refitCanvases()` immediately, since the panel boxes just
-  changed shape and the visible plot/frame shouldn't wait for the next unrelated redraw to catch
-  up. `layoutToggleBtn` itself lives on the right of the **Log** card's own title bar (grouped
-  there with `clearLogBtn`/`exportLogBtn` on the left of the same bar) rather than a dedicated row
-  above the canvases — an earlier version used a standalone `.canvases-toolbar` row for just this
-  one button, which read as wasted vertical space once the Log title bar had room for it instead.
+  (`layoutToggleBtn`), and sticks across further loads this session rather than the next movie's own
+  aspect ratio silently resetting the user's choice. `initScrub()` calls `applyLayout()` instead of
+  setting the class directly; the click handler also calls `refitCanvases()` immediately, since the
+  panel boxes just changed shape. `layoutToggleBtn` lives on the right of the **Log** card's own
+  title bar (`clearLogBtn`/`exportLogBtn` grouped on the left), not a dedicated row above the
+  canvases — that read as wasted vertical space for one small button.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
@@ -395,223 +344,143 @@ relevant one before editing rather than scrolling:
 - **sSMLM** — spectrally resolved SMLM: pairs 0th/1st-order localizations from a diffraction
   grating (ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
   Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). Role assignment (which point of a pair is
-  0th vs 1st) is **directional, not brightness-based** — real-data investigation found photon
-  count barely correlates with position (≈50/50 even at confident intensity gaps, likely
-  PSF-overlap/crowding corrupting photon estimates at real emitter densities), so
-  `sSmlmAngleCenter` is now a genuine SIGNED bearing (full ±180°, not an undirected line) and
-  `sSmlmCandidates()` returns both the undirected `angle`/`dAngle` (for Preview's diagnostic
-  histogram) and the raw unfolded `rawAngle` `pairCore()` needs. `pairCore()` classifies each
-  candidate by direction into `outEdges`/`hasIncoming` maps, then a point qualifies as a 0th order
-  only if it has ≥1 outgoing edge (a candidate on the configured bearing) AND zero incoming
-  evidence (no candidate on the opposite bearing, which would mean it's more likely someone else's
-  1st order) — self-disqualifying, no brightness needed; verified against real data to recover
-  MORE pairs than the old brightness-gated approach (64.0% vs 59.0%) with only ~5% of points
-  landing in the genuinely ambiguous "both sides" bucket it correctly excludes. PSF width (σ)
-  showed a real but imperfect ~65–70% correlation with role (1st order is spectrally smeared,
-  hence broader) and is available as an optional, default-OFF extra filter
-  (`sSmlmRequireNarrower`) — not required, since it's still far from reliable enough to gate on by
-  default. **2-point pairs only** (0th+1st) — multi-order chaining and FFT-based angle/distance
-  auto-detection are `docs/REFACTOR_PLAN.md` follow-ups, not implemented; the interactive
-  **Preview pairs** distance/angle histograms (reusing `computeHist()`/`drawHistogram()` from
-  **table**) cover "find my window" instead — always fetched over a WIDE fixed scan (0–6000 nm,
-  wider if `sSmlmDistMax` already exceeds that; any angle), ignoring the current field values, so
-  narrowing either one first can't hide the true peak or clip the histogram to the wrong window.
-  **Show dist. hist.** plots that full wide scan with the current Distance min/max overlaid as
-  vertical markers (`computeHist()`'s new optional 4th `markers` param, `[{x,label}]`, read live at
-  draw time); **Show angle hist.**, unlike the distance one, DOES restrict to the current distance
-  window (angle signal is only sharp within the real peak — pooling the wide scan's off-peak
-  distances would just dilute it with background) and plots each candidate's `rawAngle` AND its
-  exact reverse (`+180°`, both `wrap360()`-ed into a window centred 90° off `sSmlmAngleCenter` so
-  neither peak sits at the seam) — plotting only the raw single bearing looks wildly asymmetric,
-  since which of a candidate's two points gets the smaller array index (and therefore which
-  direction `rawAngle` reports) is a row-order accident, not evenly split in real data; doubling it
-  makes the two peaks equal, as an undirected diagnostic should show. `fitSSmlmAngle()` (**Fit
-  angle & tol.**) estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same distance-windowed,
-  doubled-bearing data — 2°-bin peak detection + half-max-width walk, THEN DOUBLED as a safety
-  margin (verified against the real reference dataset: the raw half-max width alone came out ~1°,
-  vs. the ~5° that actually worked well by hand — halfMaxTol*2 trades some precision back for
-  recall closer to a hand-tuned window's). Both histograms also draw the CURRENTLY configured
-  window as markers (`computeHist()`'s optional 4th `markers` param) — the distance one shows
-  `sSmlmDistMin`/`Max` as two lines over the full wide scan; the angle one mirrors
-  `sSmlmAngleCenter`±`sSmlmAngleTol` onto both plotted peaks. `refreshSSmlmHistIfShown()` (a
-  `change` listener on all four fields, and also called directly at the end of `fitSSmlmAngle()`)
-  redraws whichever histogram is on screen so the markers track the fields live — both from manual
-  edits and right after a fit — without needing a manual re-click. An unpaired
-  localization is dropped from the result,
-  not carried through unchanged. A pair's reported position is the 0th order's OWN x/y (undispersed
-  — its centroid already is the true position), not the midpoint: the 1st order's offset varies
-  per emitter with wavelength, so averaging would blur position by up to half that offset. Each
-  paired row also carries `sigma1st` — the 1st order's OWN `sigma` (already read once for
-  `sSmlmRequireNarrower`'s comparison, threaded through instead of discarded), exported as a
-  `"sigma1st [nm]"` CSV column and a `sigma1st` table column whenever any paired loc has it. NOT a
-  directional/long-axis width: every 2D fit method (phasor/LS/2D MLE) fits one symmetric `sigma`,
-  no `sx`/`sy` split the way the 3D astigmatic fit has — this is the closest available proxy for
-  "how much wider the spectrally-smeared 1st order looks," not a true per-axis PSF decomposition.
-  Stores the inter-order distance in its own `dist` field — **deliberately never `z`**, an earlier
-  design that overwrote/aliased `z` was reverted (2026-08-17) specifically so a future 3D-fit +
+  0th vs 1st) is **directional, not brightness-based** — real-data investigation found photon count
+  barely correlates with position (≈50/50 even at confident intensity gaps, likely PSF-overlap/
+  crowding at real emitter densities), so `sSmlmAngleCenter` is a genuine SIGNED bearing (full
+  ±180°) and `pairCore()` classifies each candidate by direction into `outEdges`/`hasIncoming`
+  maps: a point qualifies as 0th order only if it has ≥1 outgoing edge (a candidate on the
+  configured bearing) AND zero incoming evidence (a candidate on the opposite bearing, more likely
+  someone else's 1st order) — self-disqualifying, no brightness needed; recovers more real pairs
+  than the earlier brightness-gated approach (64.0% vs 59.0%). PSF width (σ, broader for the
+  spectrally-smeared 1st order) showed only ~65–70% correlation with role — available as an
+  optional, default-OFF extra filter (`sSmlmRequireNarrower`), not required. **2-point pairs only**
+  (0th+1st) — multi-order chaining and FFT-based angle/distance auto-detection are
+  `docs/REFACTOR_PLAN.md` follow-ups; the interactive **Preview pairs** distance/angle histograms
+  (`computeHist()`/`drawHistogram()` from **table**) cover "find my window" instead — always
+  fetched over a WIDE fixed scan (0–6000 nm, any angle), ignoring the current field values, so
+  narrowing either one first can't hide the true peak. **Show angle hist.**, unlike the distance
+  one, DOES restrict to the current distance window (angle signal is only sharp within the real
+  peak) and plots each candidate's `rawAngle` AND its exact reverse (`+180°`) — which of a
+  candidate's two points gets the smaller array index (and therefore which direction `rawAngle`
+  reports) is a row-order accident, not evenly split in real data, so plotting only the raw bearing
+  looks wildly asymmetric; doubling it makes the two peaks equal. `fitSSmlmAngle()` (**Fit angle &
+  tol.**) estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same data — 2°-bin peak detection +
+  half-max-width walk, THEN DOUBLED as a safety margin (the raw half-max width alone came out ~1°
+  against real data, vs. the ~5° that actually worked by hand). Both histograms draw the currently
+  configured window as markers (`computeHist()`'s optional 4th `markers` param), refreshed live on
+  field edits and after a fit via `refreshSSmlmHistIfShown()`.
+
+  An unpaired localization is dropped from the result. A pair's reported position is the 0th
+  order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
+  offset varies per emitter with wavelength, so averaging would blur position. Each paired row also
+  carries `sigma1st` — the 1st order's own `sigma` — exported as a `"sigma1st [nm]"` CSV/table
+  column whenever present. NOT a directional/long-axis width (every 2D fit method fits one
+  symmetric `sigma`, no `sx`/`sy` split); the closest available proxy for "how much wider the
+  spectrally-smeared 1st order looks."
+
+  Stores the inter-order distance in its own `dist` field — **deliberately never `z`**: an earlier
+  design that aliased `z` was reverted, both to fix a real bug (drift correction's "Correct z too
+  (3D)" used to key off the same `has3d` check the colour toggle used, so it would silently
+  1-D-"correct" a paired result's spectral `dist` as if it were spatial depth — `driftZRow`'s
+  visibility and `driftCore`'s own gate are keyed on real `z` alone now) and so a future 3D-fit +
   sSMLM combination could carry real depth AND spectral distance on the same loc without one
-  silently clobbering the other; `pairCore()` never even sets `z` (the guard below guarantees it's
-  always absent on its input already). `renderSuperRes()`/`zRange()` take an explicit `colorField`
-  parameter (`'z'` or `'dist'`) instead of hardcoding `.z`, so the SAME depth-coded render path
-  colours by either; `rerender()`/`analyze()` derive it as `hasZ ? 'z' : (hasDist ? 'dist' : null)`
-  — only one is ever reachable today (see the guard below), so this is unambiguous, but the seam is
-  real, not hypothetical. The sidebar's own **Colour by depth (z)**/**z min/max (nm)** labels
-  (`zcolorLabel`/`zminLabel`/`zmaxLabel` spans) are set from the SAME `colorField` in `rerender()`
-  — "z min (nm)" would be flatly wrong wording while these controls are actually constraining an
-  sSMLM `dist`, so they read "sSMLM distance min (nm)" etc. instead whenever `colorField==='dist'`;
-  `updateMethodUI()`'s 3D-method branch also sets the "z" wording directly (not just via a
-  `rerender()` call, which may not have fired yet — e.g. switching method before any Localize).
-  This split is also what fixed a genuine bug found while making it: drift
-  correction's "Correct z too (3D)" option used to key off the same `has3d` check the colour toggle
-  used, so it would show — and if ticked, silently 1-D-"correct" — a paired result's spectral
-  `dist` as if it were spatial depth. `driftZRow`'s visibility (and `driftCore`'s own `has3d` gate)
-  is keyed on real `z` alone now, never `dist`, which structurally can't happen once the two fields
-  are genuinely independent. **`pairCore()` itself throws** (not just the interactive wrapper) if
-  the input already has real 3D `z`, OR if it already has a `dist` field (i.e. is already-paired
-  output) — the second guard is new alongside the `z`/`dist` split: with `z` no longer touched by
-  pairing, re-pairing an already-paired result can no longer be caught as a side effect of the
-  z-guard the way it used to be, so it needs its own explicit check. Both guards apply to every
-  caller uniformly, interactive or headless. Interactively, **Pair** also
-  sets `zmin`/`zmax` to the configured distance window (not the usual auto-fit) since every
-  accepted pair's `dist` already lies inside it by construction. Three module-level vars track state:
-  `sSmlmOriginalLocs` (the TRUE raw backup, captured once — same pattern **in/out**'s raw-panel
-  crop tool uses for `originalStack` — and ALSO the authoritative pairing input: Preview/Pair
-  always read `sSmlmOriginalLocs || lastResult.locs`, never `lastResult.locs` alone, since that may
-  currently be an already-paired subset with no 1st-order companions left to find),
-  `sSmlmPairedLocs` (latest Pair result, replaced on re-Pair), and `sSmlmShowingRaw` (which of the
-  two `lastResult.locs` currently is). The reconstruction-panel toggle (`sSmlmColorBtn`, "Show
-  spectral"/"Show standard") swaps `lastResult.locs` between them (plus `zcolor` to match) — a real
-  data swap, not just a colour flip — so "Show standard" is the literal unpaired reconstruction,
-  without discarding the pairing the way Unpair does. **Headless**: `config.sSmlmPair` (v0.11.1)
-  runs pairing right after Localize, before drift/NeNA/FRC — same config-gated-optional-step
-  pattern as `config.correctDrift`/`config.estimateGainOffset`; `pairCore()`'s own throws propagate
-  immediately (no separate headless guard needed), and the result's `sSmlmPair` field records
+  clobbering the other. `renderSuperRes()`/`zRange()` take an explicit `colorField` parameter
+  (`'z'` or `'dist'`) so the SAME depth-coded render path colours by either; `rerender()`/
+  `analyze()` derive it as `hasZ ? 'z' : (hasDist ? 'dist' : null)`. The sidebar's **Colour by depth
+  (z)**/**z min/max (nm)** labels switch wording live to "sSMLM distance" whenever
+  `colorField==='dist'`, set from `rerender()` (and `updateMethodUI()`'s 3D branch directly, in
+  case `rerender()` hasn't fired yet). **`pairCore()` itself throws** (not just the interactive
+  wrapper) if the input already has real 3D `z`, OR already has a `dist` field (already-paired
+  output) — applies to every caller uniformly. Interactively, **Pair** also sets `zmin`/`zmax` to
+  the configured distance window, since every accepted pair's `dist` already lies inside it by
+  construction. Three module-level vars track state: `sSmlmOriginalLocs` (the true raw backup,
+  captured once — also the authoritative pairing input: Preview/Pair always read
+  `sSmlmOriginalLocs || lastResult.locs`, never `lastResult.locs` alone, since that may currently
+  be an already-paired subset with no 1st-order companions left to find), `sSmlmPairedLocs` (latest
+  Pair result), and `sSmlmShowingRaw`. The reconstruction-panel toggle (`sSmlmColorBtn`, "Show
+  spectral"/"Show standard") swaps `lastResult.locs` between them (plus `zcolor`) — a real data
+  swap, not just a colour flip, without discarding the pairing the way Unpair does. **Headless**:
+  `config.sSmlmPair` runs pairing right after Localize, before drift/NeNA/FRC; `pairCore()`'s own
+  throws propagate immediately, and the result's `sSmlmPair` field records
   `nPairs`/`nInput`/`meanDistance`/`stdDistance`. `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and
   `?autorun=`'s `sSmlmPair=1` both forward to it.
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
   `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
-  a literal port of its source — no way to call real Python trackpy from a static HTML page. Ported
-  from the user's own `sptPALM-Python` pipeline (L. lactis sptPALM, Martens, van Beljouw, van der
-  Els, Vink, Baas, Vogelaar, Brouns, van Baarlen, Kleerebezem & Hohlbein, *Nat. Commun.* 10, 3552,
-  2019): `tracking_sptPALM.py`'s `tp.link_df(search_range=…, memory=…)` call, and
-  `diff_coeffs_from_tracks_fast.py`'s `diff_coeffs_per_track()` for D. `linkTracks()` walks frames
-  in order; each frame's track↔candidate bipartite graph (edges within `sptSearchRange`, gated by
-  `sptMemory` for gap-bridging) is split into connected components ("subnetworks" — trackpy's own
-  term) via union-find, each solved by a self-contained Hungarian/Kuhn–Munkres implementation
-  (`hungarianAssign()`) for the minimum-total-squared-displacement assignment — keeps crossing
-  trajectories from swapping identity in the common case (verified: a synthetic two-particle
-  crossing test stays perfectly monotonic on both tracks). NOT a literal port of trackpy's own
-  recursive exact-subnetwork solver, which handles arbitrarily large ambiguous clusters exactly;
-  real single-molecule SPT data (PALM-style — only a sparse subset of molecules on at once) isn't
-  expected to hit this, but components above `HUNGARIAN_MAX` (120) fall back to greedy
-  nearest-neighbor instead, with a one-time logged warning, rather than let O(n³) stall the tab on
-  a pathologically dense frame — a real, documented scope limit, not silently glossed over. Returns
-  a NEW locs array (`linkTracks()`/`trackDiffusionCoeffs()`/`sptCore()` never mutate `locs`, same
-  convention `pairCore()`/`driftCore()` use) with `track_id` set on EVERY localization (even
-  length-1 tracks, matching trackpy's own behaviour — length filtering happens only at the
-  diffusion-coefficient step, same division of responsibility the reference pipeline uses).
-  `trackDiffusionCoeffs()` ports `diff_coeffs_per_track()`'s core MSD math (not its track-length
-  handling — see below): one D (µm²/s) per track with at least `sptTrackLenMin` localizations, from
-  the gap-corrected mean of ALL of that track's own single-frame squared displacements — an
-  average, explicitly NOT a linear MSD-vs-lag-time fit, matching the reference pipeline exactly
-  (its own separate `tp.utils.fit_powerlaw()` is a different, aggregate diagnostic this function
-  doesn't reproduce) — `D = MSD/(4·frametime) − locError²/frametime` (2D,
-  static-localization-error-corrected). Unlike the reference pipeline there is no `sptTrackLenMax`
-  truncation: an earlier version capped each track to its first N localizations for equal per-track
-  weighting in a length-resolved histogram, but webSMLM doesn't build that view (yet), so every
-  qualifying track's MSD now uses all of its own steps — more data per track, no arbitrary cap.
-  `trackDiffusionCoeffs()` also collects `trackLengths` for EVERY linked track regardless of
-  whether it qualifies for a D estimate — `drawSptTrackLenHist()`'s log-Y-axis (count axis; track
-  counts fall off steeply with length, and a linear axis would flatten the useful range into a
-  sliver) histogram of this is exactly how a user judges whether `sptTrackLenMin` is set sensibly
-  for their data, so it can't only show tracks already past that threshold. `computeHist()`/
-  `drawHistogram()` (table module) gained an optional 5th `logY` parameter for this — bars/ticks
-  map through `log10(count)`, with a 0-count bin naturally pinned to the axis floor via
-  `log10(max(1,c))=0`; `registerPlotHover()`'s hover readout is linear-interpolation-only and
-  transform-unaware, so log mode hands it log-space `yTop`/`yBot` bounds and undoes the transform
-  inside its own `fmt` callback instead of teaching the shared hover code a Y-scale option. A real,
+  a literal port — no way to call real Python trackpy from a static HTML page. Ported from the
+  user's own `sptPALM-Python` pipeline (L. lactis sptPALM, Martens et al., *Nat. Commun.* 10, 3552,
+  2019). `linkTracks()` walks frames in order; each frame's track↔candidate bipartite graph (edges
+  within `sptSearchRange`, gated by `sptMemory` for gap-bridging) splits into connected components
+  ("subnetworks", trackpy's own term) via union-find, each solved by a self-contained
+  Hungarian/Kuhn–Munkres implementation (`hungarianAssign()`) for the minimum-total-squared-
+  displacement assignment — keeps crossing trajectories from swapping identity in the common case.
+  NOT trackpy's own recursive exact-subnetwork solver; components above `HUNGARIAN_MAX` (120) fall
+  back to greedy nearest-neighbor instead (one-time logged warning) rather than let O(n³) stall the
+  tab on a pathologically dense frame — real single-molecule SPT data isn't expected to hit this,
+  but it's a documented scope limit, not glossed over. Returns a NEW locs array (never mutates,
+  same convention `pairCore()`/`driftCore()` use) with `track_id` set on EVERY localization, even
+  length-1 tracks — length filtering happens only at the diffusion-coefficient step.
+  `trackDiffusionCoeffs()` ports `diff_coeffs_per_track()`'s core MSD math: one D (µm²/s) per track
+  with at least `sptTrackLenMin` localizations, from the gap-corrected mean of ALL of that track's
+  own single-frame squared displacements — an average, explicitly NOT a linear MSD-vs-lag-time fit,
+  matching the reference pipeline exactly — `D = MSD/(4·frametime) − locError²/frametime` (2D,
+  static-localization-error-corrected). Unlike the reference pipeline there is no
+  `sptTrackLenMax` truncation — every qualifying track's MSD uses all of its own steps, since
+  webSMLM doesn't (yet) build the length-resolved histogram truncation existed for.
+  `trackDiffusionCoeffs()` also collects `trackLengths` for EVERY linked track regardless of D
+  qualification — `drawSptTrackLenHist()`'s log-Y-axis histogram of this is how a user judges
+  whether `sptTrackLenMin` is set sensibly. `computeHist()`/`drawHistogram()` (table module) gained
+  an optional 5th `logY` parameter for this — bars/ticks map through `log10(count)`, with a
+  0-count bin pinned to the floor via `log10(max(1,c))=0`; `registerPlotHover()`'s hover readout is
+  linear-interpolation-only, so log mode hands it log-space bounds and undoes the transform inside
+  its own `fmt` callback rather than teaching the shared hover code a Y-scale option. A real,
   expected artifact of the D formula is that near-immobile or very-short tracks can compute a
-  non-positive D (MSD below the subtracted error term) — `drawSptDHist()` EXCLUDES these from the
-  plotted log10(D) histogram (with a logged count, not silently dropped) rather than clamping them
-  into one bin; an earlier version's clamp pooled potentially hundreds of unrelated tracks into a
-  single artificial-looking spike with no biological meaning, which is what a log-binned
-  `np.histogram()` call (the reference pipeline's own approach) avoids implicitly by just excluding
-  out-of-range values. **Track** (`runSptTrack()`) is idempotent and safe to re-run any time —
-  unlike sSMLM's Pair, it never reduces row count or aliases another field, only sets/overwrites
-  `track_id`/`D_coeff`, so there's no `sSmlmOriginalLocs`-style original-vs-tracked state to
-  manage. Immediately draws the D histogram in the raw panel via `computeHist()`/`drawHistogram()`,
-  fed `log10(D)` values (`'log10(D)'` as the pseudo-column name) rather than raw D — D commonly
-  spans orders of magnitude between bound/slow and free/fast populations, matching the reference
-  pipeline's own default logarithmic axis; a real v1 shortcut, not yet nicely `10^x`-formatted tick
-  labels (`docs/REFACTOR_PLAN.md`). `sptDPlotMin`/`Max` (µm²/s, defaults from
-  `set_parameters_sptPALM.py`'s own histogram range) are a DISPLAY-only axis window —
-  `drawSptDHist()` excludes tracks outside them from the plotted/binned histogram exactly like
-  non-positive D, but `meanD`/`medianD` (logged by both `sptCore()` and `recomputeSptD()`) always
-  reflect every qualifying track, never just the plotted window; the two fields live-refresh the
-  histogram (if shown) on `change`, via the same `rawIsPlot && rawPlotName==='histogram' &&
-  histData.col===…` shown-check pattern `refreshSSmlmHistIfShown()` already established, renamed
-  `refreshSptDHistIfShown()`/`refreshSptTrackLenHistIfShown()` here.
+  non-positive D — `drawSptDHist()` EXCLUDES these from the plotted log10(D) histogram (logged
+  count, not silently dropped) rather than clamping them into one bin, which would pool unrelated
+  tracks into a fake spike (a log-binned `np.histogram()`, the reference pipeline's own approach,
+  avoids this implicitly by excluding out-of-range values). **Track** (`runSptTrack()`) is
+  idempotent, safe to re-run any time — only sets/overwrites `track_id`/`D_coeff`, never
+  reduces row count. Immediately draws the D histogram in the raw panel, fed `log10(D)` — D
+  commonly spans orders of magnitude between bound/slow and free/fast populations, matching the
+  reference pipeline's own default log axis; not yet nicely `10^x`-formatted tick labels (v1
+  shortcut, `docs/REFACTOR_PLAN.md`). `sptDPlotMin`/`Max` are a DISPLAY-only axis window —
+  `meanD`/`medianD` always reflect every qualifying track, never just the plotted window.
 
   D = (MSD/4 − locErrorUm²)/frametime is exactly linear in 1/frametime, and MSD itself (cached per
-  track, µm², in `trackDiffusionCoeffs()`'s returned `trackMSD` Map — plumbed through `sptCore()`
-  into `lastSpt.trackMSD`) depends on neither frametime nor locError. `recomputeSptD()` exploits
-  this: editing **Frame time** or **Localization error** after **Track** has run rescales every
-  track's D (and `lastResult.locs`' own `D_coeff`, and `lastSpt.meanD`/`medianD`, and the D
-  histogram if shown) directly from `trackMSD`, with no re-linking or re-summing of steps — unlike
-  **Search range**/**Memory**/**Min track length**, which change which tracks/steps exist in the
-  first place and still require a fresh **Track** click. The **from NeNA** button's programmatic
-  `sptLocError.value` write doesn't itself fire a `change` event, so its handler calls
-  `recomputeSptD()` explicitly rather than relying on the listener.
+  track in `trackDiffusionCoeffs()`'s `trackMSD` Map, plumbed through to `lastSpt.trackMSD`)
+  depends on neither frametime nor locError. `recomputeSptD()` exploits this: editing **Frame
+  time** or **Localization error** after **Track** rescales every track's D (table/CSV, `lastSpt`,
+  the D histogram) directly from `trackMSD`, no re-linking — unlike **Search range**/**Memory**/
+  **Min track length**, which change which tracks/steps exist and still need a fresh **Track**.
+  The **from NeNA** button's programmatic `sptLocError.value` write doesn't fire `change`, so its
+  handler calls `recomputeSptD()` explicitly.
 
-  `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~
-  A·exp(−L/τ) — a photobleaching-limited survival model) to its own already-built `histData` via
-  WEIGHTED least-squares on ln(count) vs bin centre, weight = the bin's own count (zero-count bins
-  skipped, same non-positive-value-exclusion precedent as `drawSptDHist()`; a non-decaying or
-  under-populated fit returns `null` and the histogram still renders, just without a curve).
-  Weighting is required, not cosmetic: bin counts are Poisson-distributed, so Var(ln(count)) ~
-  1/count — an unweighted fit gives a count-of-2 tail bin the same say as a count-of-8000 peak bin,
-  which measurably drags the fitted line away from the short-track end (both more populous AND more
-  statistically reliable); caught from a real rendered histogram on the full lactis dataset where
-  an earlier unweighted version's fit line sat nearly an order of magnitude below the first bar. The
-  fit curve is drawn magenta (`#c81cc8`), matching **drift**'s own green/magenta pairing (an
-  earlier version used amber). The fit is attached as
-  `histData.curve`/`curveLabel` — see **table**'s `computeHist()`/`drawHistogram()` entry above for
-  how the shared histogram plot draws that curve generically. τ is reported in both locs and
-  seconds (`× sptFrameTime`) in the log and on-plot legend; **locs≈frames only when `sptMemory=0`**
-  — a bridged gap still counts as one "loc" of track length despite spanning >1 frame, so the
-  seconds figure is an approximation once gap-bridging is active, called out explicitly in the log
-  line rather than presented as exact. **Frame time** changes live-refresh just this label (the
-  histogram's own bins don't depend on frametime) via `refreshSptTrackLenHistIfShown()`.
-  `sptLocError`'s **from NeNA** button transfers
-  `lastNena.sigma` (a new stash `computeNeNA()` writes, locprecision module) into it — same
-  compute-once/transfer-separately split PCFO's `pcfoLastGain`/`pcfoLastOffset` already use, never
-  silently auto-applied. `track_id`/`D_coeff` are independent, optional table/CSV columns (same
-  pattern this project already used for sSMLM's `dist`/`sigma1st`), so the existing filter grammar
-  works on tracking data for free (e.g. `D_coeff > 1 and track_id > 0`) — the general **Save data**
-  button's per-localization CSV already gains these columns automatically once Track has run,
-  needing no separate button. **Save spt data** (`sptSaveBtn`, `exportSptSummary()`) is a genuinely
-  DIFFERENT export instead: `sptTrackSummary()` aggregates `lastResult.locs` into one row per
-  TRACK (`track_id`, `n_locs`, `D_coeff`, `mean_x`/`mean_y` — the track's own centroid, `nm`,
-  computed from `lastResult.px`) rather than one row per localization — built from the tracked
-  locs directly, not `lastSpt`'s own `diffCoeffs`/`trackIds` arrays, since those only cover
-  QUALIFYING tracks; every linked track gets a row here (blank `D_coeff` if it didn't qualify),
-  matching `track_id` being set on every localization regardless of qualification. **Headless**
-  (v0.11.2):
-  `config.sptTrack` runs tracking after Localize — unlike `config.sSmlmPair`, which runs BEFORE
-  drift/NeNA/FRC, this runs AFTER them: `sptCore()` never drops rows (track_id/D_coeff are added
-  columns, not a row filter, unlike pairing), so there's no row-count reason to run it early, but a
-  per-track D genuinely benefits from drift-corrected coordinates (uncorrected systematic drift
-  would inflate D), matching the sidebar's own Drift correction → Single particle tracking
-  ordering. The result's `spt` field records `nTracks`/`nQualify`/`meanD`/`medianD` — deliberately a
-  small summary, not the full per-track `diffCoeffs`/`trackIds`/`trackLengths` arrays `sptCore()`
-  itself returns (`trackMSD` in particular is a `Map`, not JSON-serialisable at all — would
-  silently become `{}` under `JSON.stringify()` if returned as-is). `tools/webSMLM-cli.mjs`'s
-  `--sptTrack` and `?autorun=`'s `sptTrack=1` both forward to it. No cell-segmentation-aware
-  tracking (the reference pipeline's `use_segmentations` branch — webSMLM has no concept of cell
-  masks), no length-RESOLVED D histogram (D binned by track length, distinct from the plain
-  track-length histogram above, which webSMLM does have), and no colour-by-D/by-track rendering —
-  tracked as `docs/REFACTOR_PLAN.md` follow-ups.
+  `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ),
+  a photobleaching-limited survival model) via WEIGHTED least-squares on ln(count) vs bin centre,
+  weight = the bin's own count. **Weighting is required, not cosmetic**: bin counts are
+  Poisson-distributed (Var(ln(count)) ~ 1/count) — an unweighted fit gives a count-of-2 tail bin
+  the same say as a count-of-8000 peak bin, dragging the fit away from the short-track end; caught
+  from a real rendered histogram where an unweighted fit sat nearly an order of magnitude below the
+  first bar. Fit curve drawn magenta (`#c81cc8`, matching **drift**'s green/magenta pairing),
+  attached as `histData.curve`/`curveLabel` (see **table**'s `computeHist()` entry). τ is reported
+  in both locs and seconds; **locs≈frames only when `sptMemory=0`** — a bridged gap still counts as
+  one "loc" despite spanning >1 frame, so the seconds figure is an approximation once
+  gap-bridging is active, called out explicitly rather than presented as exact.
+
+  `track_id`/`D_coeff` are independent, optional table/CSV columns (same pattern as sSMLM's
+  `dist`/`sigma1st`), so the filter grammar works on tracking data for free — the general **Save
+  data** CSV gains these automatically once Track has run. **Save spt data**
+  (`sptSaveBtn`/`exportSptSummary()`) is a genuinely DIFFERENT export: `sptTrackSummary()`
+  aggregates into one row per TRACK (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`) rather than
+  per localization — built from the tracked locs directly, not `lastSpt`'s own arrays (those only
+  cover qualifying tracks); every linked track gets a row here. **Headless**: `config.sptTrack`
+  runs tracking AFTER drift/NeNA/FRC (the opposite order from `sSmlmPair`) — `sptCore()` never
+  drops rows, so no row-count reason to run it early, but a per-track D benefits from
+  drift-corrected coordinates. The result's `spt` field records `nTracks`/`nQualify`/`meanD`/
+  `medianD` only — not the full per-track arrays (`trackMSD` is a `Map`, not JSON-serialisable,
+  would silently become `{}`). `tools/webSMLM-cli.mjs`'s `--sptTrack`/`?autorun=`'s `sptTrack=1`
+  forward to it. No cell-segmentation-aware tracking, no length-RESOLVED D histogram, no
+  colour-by-D/by-track rendering — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

@@ -310,14 +310,26 @@ these are confirmed **genuine native ND2 binaries**: `file(1)` reports
 
 The chunk container format was reverse-engineered directly from these two
 files (cross-validated against each other, byte-identical structure except
-frame count) — see `docs/REFACTOR_PLAN.md` for the full chunk-header/
-`ImageAttributesLV!` decode. Confirmed: 256×256, 16-bit storage (14-bit
-significant), single channel, frame count recoverable three independent
-ways (counting `ImageDataSeq` chunks, the `uiSequenceCount` metadata field,
-and the filename itself — all agree: 100 and 500 respectively). Real pixel
-payload bytes read as plausible uncompressed camera data, no decompression
-applied. No webSMLM parser code exists yet — this was read-only structure
-reconnaissance (Python, offline).
+frame count). Confirmed: 256×256, 16-bit storage (14-bit significant),
+single channel, frame count recoverable three independent ways (counting
+`ImageDataSeq` chunks, the `uiSequenceCount` metadata field, and the
+filename itself — all agree: 100 and 500 respectively). Real pixel payload
+bytes read as plausible uncompressed camera data, no decompression applied.
+
+**Parser shipped v0.11.2** (`isNd2File()`/`loadNd2File()`, see **in/out** in
+`CLAUDE.md`) — **still experimental**: no official Nikon spec exists, so
+this is a from-scratch reverse-engineered decoder validated against only
+these two real files (plus one independent reference-library cross-check),
+not a broad corpus of ND2 writers/versions. Both files here load, Localize,
+and headless-`analyze()` correctly. A real row-0 pixel-corruption bug (a
+24-byte per-frame sub-header misread as pixel data — tens of thousands of
+ADU, above the camera's declared 14-bit ceiling) was caught from a live
+screenshot and fixed same-cycle, verified byte-for-byte against the
+independent BSD-3-Clause `tlambert03/nd2` reference across both files. Real
+impact, not cosmetic: on the 500-frame file, Localize went from 5
+localizations before the fix to 24,533 after — treat any new ND2 file as
+worth a similar sanity check (e.g. compare a raw frame against another
+viewer) before trusting results from it.
 
 ## Useful properties to note for benchmarking
 

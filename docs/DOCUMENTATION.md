@@ -135,7 +135,9 @@ says.
 - **Single particle tracking** (`sptBox`) — `sptSearchRange`/`sptMemory`/
   `sptFrameTime`/`sptLocError`/`sptTrackLenMin`/`sptDPlotMin`/`sptDPlotMax`,
   **from NeNA** (`sptLocErrorFromNenaBtn`, fills `sptLocError` from the last
-  computed NeNA precision — disabled until NeNA has actually been run), and
+  computed NeNA precision — runs NeNA itself first if it hasn't been
+  computed yet this session, gated the same as the **NeNA** button itself:
+  enabled once there are localizations), and
   **Track**/**Show D histogram**/**Show length hist.**/**Save spt data**
   (`sptTrackBtn`/`sptDHistBtn`/`sptTrackLenHistBtn`/`sptSaveBtn`, the last
   three enabled once **Track** has run). Enabled as soon as
@@ -629,13 +631,16 @@ Defaults are ported from the user's own `sptPALM-Python` pipeline's
 pipeline's µm convention to webSMLM's own nm convention for spatial params
 (0.8 µm → 800 nm, 0.035 µm → 35 nm) — a different setup's own step sizes and
 localization precision will sit elsewhere, so treat these as a starting
-point, not a universal default. `sptFrameTime` is per-dataset acquisition
-timing that webSMLM cannot infer from the loaded stack (no embedded
-interval is read); set it to match your own movie — e.g. the bundled
-`experimental_data/` L. lactis test file is 50 ms/frame (`sptFrameTime =
-0.05`), not the reference pipeline's own 0.01 s default. See
-[§3](#3-module-reference)'s **spt** entry for the full linking/diffusion-
-coefficient algorithm.
+point, not a universal default. `sptFrameTime` is not auto-applied from the
+loaded stack — set it to match your own movie's real acquisition interval.
+A TIFF/ND2 file's own embedded frame interval, when present, is logged on
+load (never auto-applied — see **in/out** in `CLAUDE.md`), which can help;
+but treat it as one input, not the final word — the bundled
+`experimental_data/` L. lactis test file is a real example of why: its
+filename implies 50 ms/frame, but its own embedded `finterval` tag says
+5 ms, an unresolved 10× discrepancy (see `experimental_data/README.md`'s
+lactis entry). See [§3](#3-module-reference)'s **spt** entry for the full
+linking/diffusion-coefficient algorithm.
 
 ### Memory / streaming
 
@@ -1103,11 +1108,15 @@ is what to know before touching that module, not a restatement of its code.
   whether **SPT min track length** is set sensibly for a given dataset.
   `track_id`/`D_coeff` become independent,
   optional table/CSV columns (§5/§6) the same way sSMLM's `dist`/`sigma1st`
-  do, so the existing filter grammar works on tracking data for free. No
-  cell-segmentation-aware tracking, no length-RESOLVED D histogram (D
-  binned by track length — distinct from the plain track-length histogram
-  above), no colour-by-D/by-track rendering, and no headless exposure yet —
-  see `docs/REFACTOR_PLAN.md`.
+  do, so the existing filter grammar works on tracking data for free.
+  Headless exposure ([§8](#8-headless-api-window-websmlm)'s
+  `config.sptTrack`, shipped alongside the rest of v0.11.2) runs **Track**
+  after drift/NeNA/FRC, not before, since a per-track D benefits from
+  drift-corrected coordinates and tracking never drops rows the way
+  sSMLM's pairing does. No cell-segmentation-aware tracking, no
+  length-RESOLVED D histogram (D binned by track length — distinct from
+  the plain track-length histogram above), and no colour-by-D/by-track
+  rendering yet — see `docs/REFACTOR_PLAN.md`.
 - **pipeline** — top-level orchestration wiring the UI buttons to the
   modules; `run()` is the Localize entry point.
 - **table** — the sortable, cumulatively-filterable localizations table

@@ -33,7 +33,10 @@ walk-through of every step.
   multi-file selection (Ctrl/Cmd+click) auto-detects whether the files are
   one-frame-each (natural-sorted into a sequence, e.g. a per-frame camera
   dump) or several multi-frame files to concatenate end-to-end into one
-  continuous stack.
+  continuous stack. Native **Nikon ND2** files are also supported (single
+  channel, 16-bit, uncompressed). If the file's own metadata carries a pixel
+  size or frame interval (either format), it's logged for reference — never
+  silently applied over your own settings.
 - **Handles very large stacks.** Files too big to hold in memory are read frame
   by frame with `File.slice()`, so the file is never fully loaded. Contiguous
   ImageJ stacks (single directory entry, frames laid out after it — as written
@@ -149,6 +152,14 @@ walk-through of every step.
   from
   [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
   2-point pairs only for now — see `docs/REFACTOR_PLAN.md`.
+- **Single particle tracking (SPT)**: links per-frame localizations into
+  trajectories (a trackpy-inspired variant — optimal Hungarian assignment per
+  frame, with gap-bridging memory) and computes a per-track diffusion
+  coefficient, plotted as a log-binned histogram with an exponential
+  track-length lifetime fit. Editing frame time or localization error after
+  tracking rescales every diffusion coefficient live, without re-linking.
+  Exports a per-track summary CSV alongside the usual per-localization one.
+  Ported from the Hohlbein Lab's own `sptPALM-Python` pipeline.
 
 ## Performance
 
@@ -257,6 +268,16 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   L. Albertazzi, J. Hohlbein, *Enabling Spectrally Resolved Single-Molecule
   Localization Microscopy at High Emitter Densities*, *Nano Lett.* **22**(21),
   8618–8625 (2022). https://doi.org/10.1021/acs.nanolett.2c03140
+- **Single particle tracking (SPT)** (the linking/diffusion-coefficient
+  approach implemented here, ported from the user's own `sptPALM-Python`
+  codebase): K. J. A. Martens, S. P. B. van Beljouw, S. van der Els,
+  J. N. A. Vink, S. Baas, G. A. Vogelaar, S. J. J. Brouns, P. van Baarlen,
+  M. Kleerebezem, J. Hohlbein, *Visualisation of dCas9 target search in vivo
+  using an open-microscopy framework*, *Nat. Commun.* **10**, 3552 (2019).
+  https://doi.org/10.1038/s41467-019-11514-0 — linking is a trackpy-inspired
+  variant (same `search_range`/`memory` terminology and philosophy as the
+  Python [trackpy](https://github.com/soft-matter/trackpy) package), not a
+  literal port of its source.
 - **Overview**: M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021).
   https://doi.org/10.1038/s43586-021-00038-x
 
@@ -273,6 +294,13 @@ The in-app **Help & guide** documents each stage and lists references. Key ones:
   tools (ThunderSTORM, Picasso, FRCbar) or previously-analysed datasets — the
   numbers they report should not yet be treated as authoritative. 3D FSC
   (the spherical-shell counterpart to 2D FRC) is not implemented.
+- **Native Nikon ND2 loading is experimental.** No official Nikon
+  specification exists, so the decoder is reverse-engineered from just two
+  real sample files (single channel, 16-bit, uncompressed) — a real
+  pixel-decoding bug was already found and fixed against these two files, so
+  treat any new ND2 file as worth a sanity check (e.g. compare a raw frame
+  against another viewer) before trusting results from it. Multi-channel,
+  other bit depths, and multi-file ND2 concatenation aren't supported.
 - **Intensities are in ADU unless a camera gain is entered**, in which case the
   exported `intensity [photon]` and `uncertainty [nm]` columns are not on a
   physical scale — PCFO (above) can estimate gain/offset directly from a

@@ -6,330 +6,71 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **Plot panel UI polish (2026-08-18, builds d–k)**, prompted by user feedback
-  after the spt refinement round above. Shipped: (1) plots letterbox a fixed
-  4/3 sub-rectangle CENTRED WITHIN the panel's own box (`setupPlot(cv,true)`)
-  rather than changing the panel's own size — an earlier version within this
-  same round instead gave `.is-plot` canvases their own `aspect-ratio:4/3`
-  CSS, which fixed axis stretching but (combined with CSS Grid stretching
-  both cards in a row to match whichever sibling was taller) made a panel's
-  height depend on whatever the OTHER panel happened to be showing —
-  switching one panel between a frame and a plot could resize BOTH panels,
-  which read as visually unstable; a same-day follow-up report ("keep it
-  squared... otherwise the window sizes change all the time") is what
-  prompted the letterbox redesign — see **render** in `CLAUDE.md` for the
-  full mechanism, including how `registerPlotHover()` absorbs the
-  letterbox offset so no individual plot function needed to change.
-  (2) Plots render dark on screen (`plotColors()`, matching the app's own
-  permanently-dark chrome — there's no separate app light/dark theme to
-  hook into) but light for export (`exportPanel()` flips `_plotExportMode`,
-  redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots, redraws
-  back). (3) A **Stack panels**/**Side by side** button (`layoutToggleBtn`)
-  replaces the previous "code always decides" behaviour: `layoutOverride`
-  takes precedence over the `h/w<0.5` auto-heuristic once clicked, and
-  sticks across further loads this session — lives on the right of the
-  **Log** card's own title bar (`clearLogBtn`/`exportLogBtn` grouped on the
-  left of that same bar), not a dedicated row above the canvases (an
-  earlier version's `.canvases-toolbar`, removed after same-day feedback
-  that it read as wasted vertical space for one small button). (4) PCFO's
-  noise-variance axis (commonly hundreds of thousands, ADU²) had tick
-  labels visually colliding with its own rotated axis-name text — fixed via
-  a new shared `axisScale()` helper (scientific notation, single leading
-  digit + one decimal, `×10ⁿ` drawn once near the axis) rather than
-  engineering notation's multiple-of-3 rounding, which was tried first and
-  rejected for still leaving 3-digit ticks on this specific range.
-  Deliberately deferred: no UI to reset `layoutOverride` back to `null`
-  (auto) once set — not clearly needed yet (a second click always gets you
-  the other state, which for a 2-state toggle is the same thing unless a
-  THIRD future layout mode gets added, at which point revisit).
+- **Plot panel UI polish — SHIPPED (2026-08-18, builds d–k).** Fixed
+  letterboxing, dark-on-screen/light-on-export plots, the Stack panels/Side
+  by side toggle, PCFO's axis-scale ticks, panel vertical alignment, and a
+  consistent axis-border/tick pass across every plot — see **render** in
+  `CLAUDE.md` for the full mechanism. One still-open scrap: no UI to reset
+  `layoutOverride` back to `null` (auto) once a user has clicked **Stack
+  panels**/**Side by side** — not clearly needed yet (a second click always
+  gets the other state, which for a 2-state toggle is equivalent, unless a
+  third layout mode gets added later).
 
-  Same-day user report, resolved as a non-issue: the sidebar's 📌 "dock the
-  floating panel back" button (`#sidePin`) reportedly rendered invisible in
-  floating mode. Confirmed via `git show` that this button/emoji predates
-  this entire session and could not be reproduced in headless Chromium;
-  user confirmed afterward it was their own observation error, not a real
-  bug — no code change was needed or made.
+- **File-size/modularity strategy for `webSMLM.html`** (SPT and a possible
+  future single-molecule FRET (smFRET) module would each add a few thousand
+  lines). Splitting the *core* app across multiple files was ruled out —
+  `file://` blocks `fetch()`/dynamic `import()` under CORS in Chromium,
+  inconsistently across browsers, breaking the "download and it just works"
+  promise. **Chosen and landed (v0.11.1)**: lean on the existing `MODULE:`
+  banner convention plus the top-of-file **MODULE INDEX** line-number
+  comment, refreshed every build-letter bump. Still on the table if the file
+  keeps growing:
+  1. **Dev-time-only source split, single-file at ship time** — a `tools/`-
+     tier build script concatenates `src/*.js` fragments into the final
+     `webSMLM.html`, solving editability without touching the deployed
+     artifact or the `file://` promise. Not implemented; revisit once the
+     MODULE-banner approach alone stops being enough.
+  2. **Split SPT/smFRET out as their own single-file sibling apps**
+     (`webSPT.html`, `webFRET.html`) — considered and set aside: they'd
+     share too much of webSMLM's own pipeline (TIFF loading, worker pool,
+     table/render/export) to cleanly separate, and some real analyses
+     combine SPT and smFRET directly (Fontana, Fijen, Lemay, Mathwig &
+     Hohlbein, *Lab Chip* (2018),
+     [10.1039/C8LC01175C](https://doi.org/10.1039/C8LC01175C)). Revisit only
+     if a future module needs almost nothing from the shared pipeline.
 
-  (5, build h) The letterbox redesign in (1) introduced its OWN alignment
-  bug, caught from a live drift-correction screenshot on the real full
-  lactis dataset: `.panel-body` centred each panel's canvas+trailing-
-  controls group independently, but since raw/sr canvases are now always
-  exactly the same height, that centring shifted the two canvases out of
-  vertical alignment with each other by roughly half of whichever trailing
-  control only ONE panel has at a given moment (raw's `#scrubRow`, no sr
-  equivalent when `#srFilterNote`/`#calViewRow` are both hidden) — measured
-  as an exact 14px offset in one repro, confirmed by DOM geometry before and
-  after the fix. `.panel-body` is top-aligned now (flex's own default,
-  `justify-content:center` removed) instead — see **render** in
-  `CLAUDE.md`.
+- **Nikon ND2 loading — SHIPPED v0.11.2.** `isNd2File()`/`loadNd2File()`/
+  `parseNd2LvField()` parse the modern (NIS-Elements 4.0+) chunk-container
+  format, reverse-engineered directly from two real native samples since no
+  official spec exists (Bio-Formats/`nd2reader` are GPL, unsafe to port
+  from into this CC-BY project; the legacy JPEG2000-compressed variant is
+  rejected with a clear error rather than half-supported — no lightweight
+  JS JPEG2000 decoder exists). Wired into `loadTiffFile()`/
+  `loadTiffFilesAuto()`'s single detection path so all three existing TIFF
+  callers (interactive `#file`, calibration file input, headless
+  `analyze()`) gained ND2 support with no caller-side changes. A real row-0
+  pixel-corruption bug (a 24-byte per-frame sub-header misread as the first
+  ~6 pixels of every frame — self-consistent enough that no dimension/
+  frame-count check caught it, only the pixel VALUES were wrong) was found
+  from a user screenshot and fixed the same cycle, cross-validated
+  byte-for-byte against the independent BSD-3-Clause reference
+  `tlambert03/nd2` (installed locally for exactly this check, not ported
+  from). Embedded pixel size, frame interval (from per-frame timestamps),
+  and camera datasheet info are also logged (never auto-applied — same
+  compute-once/apply-separately convention as everywhere else). Full design
+  and history: **in/out** in `CLAUDE.md`, the 0.11.2 entry in
+  `CHANGELOG.md`.
 
-  (6, build k) Also a same-day follow-up: **Drift vs frame** had no axis
-  border or tick marks at all (gridlines + labels only), and every other
-  plot had ticks on at most one axis. Every plot now draws a real L-shaped
-  axis border plus a short outward-facing tick mark at each major tick, on
-  both axes, drawn LAST (after the data) so bars/points flush against an
-  axis edge (NeNA in particular) can't cover it.
-
-- **File-size/modularity strategy for `webSMLM.html`** (discussed 2026-08-17,
-  prompted by two large candidate modules — single-particle tracking (SPT)
-  and single-molecule FRET (smFRET) — that would each add a few thousand
-  lines). GitHub Pages can technically serve sibling files that `webSMLM.html`
-  loads at runtime (`fetch()`/dynamic `import()`), but `file://` (the
-  double-click-to-run path the whole single-file design exists for) blocks
-  that under CORS in Chromium, inconsistently across browsers — splitting
-  the *core* app this way would break the "download and it just works"
-  promise unevenly, so it's ruled out. Three options were weighed:
-  1. **Lean harder on the existing `MODULE:` banner convention** — cheapest,
-     doesn't slow the file's growth, but the size problem is about
-     editability (human and AI-assisted), not runtime performance (browsers
-     don't care about a multi-MB JS file). **Chosen for now.** Landed in
-     v0.11.1: a top-of-file **MODULE INDEX** comment block giving each
-     module's current line number, refreshed alongside every build-letter
-     bump (see `CLAUDE.md`'s Branch & release workflow) rather than left to
-     rot — cheap enough to check every round that it should actually stay
-     trustworthy, unlike a one-off comment.
-  2. **Dev-time-only source split, single-file at ship time**: a `tools/`-tier
-     build script (Node, no runtime dependency, matching the existing
-     `tools/` precedent of separate optional tooling) concatenates
-     `src/*.js` fragments into the final `webSMLM.html`. Solves editability
-     without touching the deployed artifact or the `file://` promise at
-     all. **Planned next step once SPT/smFRET actually start landing and
-     option 1 stops being enough** — not implemented yet. Real cost: it
-     makes `webSMLM.html` a build product rather than the literal source of
-     truth, a bigger philosophy shift than option 1, worth doing only when
-     actually needed rather than pre-emptively.
-  3. **Split SPT/smFRET out as their own single-file sibling apps**
-     (`webSPT.html`, `webFRET.html`), mirroring the existing
-     `docs/layout_bare.html` precedent ("backed up from webSMLM's chrome for
-     future single-file projects"). **Considered and set aside**: SPT and
-     smFRET would share too much of webSMLM's own pipeline (TIFF loading,
-     worker pool, table/render/export) to cleanly separate, and some real
-     analyses combine the two techniques directly — per the user, e.g.
-     Fontana, Fijen, Lemay, Mathwig & Hohlbein, *High-throughput,
-     non-equilibrium studies of single biomolecules using glass-made
-     nanofluidic devices*, *Lab Chip* (2018),
-     [10.1039/C8LC01175C](https://doi.org/10.1039/C8LC01175C) — splitting up
-     front would fight that overlap rather than accommodate it. Revisit only
-     if a module turns out to need almost nothing from the shared pipeline.
-
-  **Physical reorder — done in v0.11.1.** The file's physical `MODULE:`
-  order had one mismatch against `CLAUDE.md`'s documented order: **export**
-  physically sat before **workers**, the reverse of the doc — a leftover of
-  modules being retrofitted onto code that predates them, not a deliberate
-  choice. Fixed as its own dedicated pass (not bundled into an unrelated
-  edit): confirmed first that neither section has top-level `const`/`let`
-  state the other reads, nor any `addEventListener` wiring in either range
-  (both are pure function/data declarations, hoisted regardless of position,
-  so a physical move is a behavioral no-op in JS) — then moved the block and
-  re-verified with the syntax check, a direct call to the moved
-  `buildCsvText()`, constructing a real `Worker` from the moved
-  `workerSource()` (would throw a `ReferenceError` immediately if
-  `WORKER_PRELUDE` had gone stale), and a full Localize run with
-  `paramOverrides` forcing worker dispatch (`↑ 8 workers · 82% utilisation`,
-  correct localization count) to exercise the pool path for real, not just
-  its single-threaded fallback. File's physical order now matches
-  `CLAUDE.md`'s documented list end to end.
-
-- **Nikon ND2 loading — feasibility researched 2026-08-17; real chunk format
-  reverse-engineered from a genuine sample 2026-08-18, ready to build.**
-  Requested by a new user. ND2 has **no official public
-  specification** — every existing reader (Bio-Formats, both `nd2reader`
-  packages) is reverse-engineered, and there are two genuinely different
-  format variants:
-  - **Legacy**: image data is **JPEG2000-compressed**. Not worth attempting
-    — no lightweight JS JPEG2000 decoder exists comparable to what `pako`
-    already does for deflate; a real decoder would be a large, complex
-    addition disproportionate to likely benefit. Detect and reject with a
-    clear error rather than half-support it.
-  - **Modern** (NIS-Elements 4.0+, chunk-based container, file signature
-    literally `"ND2 FILE SIGNATURE CHUNK NAME01!Ver3.0"`): image data is
-    **uncompressed or Zip/deflate-compressed** — the tractable case, since
-    `pako` is already inlined for exactly that compression. A loader would
-    reimplement the chunk-map container parsing (analogous in spirit to how
-    **in/out** already walks TIFF's multi-IFD chain) and plug into the
-    existing `getFrame()/getFrames()` stack abstraction, so nothing
-    downstream (detect/fit/FTM/etc.) needs to know the source format.
-  - **License landscape matters here**: Bio-Formats' ND2 reader and both
-    `nd2reader` packages are GPLv3+/GPL — not safe to port code from into
-    this CC-BY project (same reasoning that already keeps this codebase
-    MIT-only for `pako`/UTIF). [`tlambert03/nd2`](https://github.com/tlambert03/nd2)
-    is **BSD-3-Clause**, pure Python, no Nikon SDK dependency for the modern
-    format — the one safe reference to port chunk-parsing logic from, with
-    attribution in the head banner matching the `pako`/UTIF precedent. No
-    existing JS/WASM ND2 reader was found anywhere (the one "web ND2
-    viewer" that exists, `miuraTakashi/ND2-Viewer`, is a Flask server
-    calling `tlambert03/nd2` in Python — nothing runs client-side).
-  - **Real blocker**: no spec means real risk of subtly-wrong metadata
-    (frame dimensions, bit depth, pixel calibration) with no way to
-    validate short of a real file — there's no ground truth to check
-    against otherwise. **Waiting on a real modern-variant ND2 sample**
-    (from the requesting user or the lab's own scopes) before writing any
-    parser code, the same "get a real reference dataset first" approach
-    used for the sSMLM CSV and the other `experimental_data/` fixtures.
-  - **Picasso** (jungmannlab, already used elsewhere in this codebase for
-    AIM drift correction and the Gaussian MLE fitters) confirmed to lean on
-    the same reference: its `ND2Movie`/`load_nd2()` in `picasso/io.py` is a
-    thin Dask-based wrapper — `import nd2; nd2.ND2File(path)` — around
-    exactly `tlambert03/nd2`, not a separate from-scratch parser. Independent
-    confirmation that library is the standard, actively-used choice in the
-    SMLM-tooling community, not just the one this project happened to find.
-  - **A first real sample landed 2026-08-17** — `experimental_data/
-    example_stack100.nd2`, from Christophe Leterrier's `DECODE_NC` repo —
-    but turned out to be a big-endian **ImageJ TIFF** underneath (`MM\x00\x2a`
-    magic, `images=100\nframes=100` description), not a genuine native ND2
-    binary; confirmed by walking its IFD chain directly and by loading it
-    end-to-end through the existing TIFF path (100 frames, 256×256, 8,681
-    real localizations). **Still doesn't unblock the actual parser work** —
-    the real blocker (a genuine proprietary-format sample) is unchanged —
-    but it did surface and fix a real, separate robustness gap, landed the
-    same day: the file-input `accept` filter and `loadTiffFilesAuto()`/
-    `loadTiffSequence()` used to trust the `.tif`/`.tiff` *extension*; they
-    now sniff the real magic bytes (`isTiffFile()`), and `loadTiff()`/
-    `loadTiffFile()`/`loadTiffSequence()`'s `decodeOne()` all validate the
-    raw ImageWidth/ImageLength tags (`t256`/`t257` — UTIF only sets the
-    convenience `.width`/`.height` properties as a side effect of
-    `decodeImage()`, so checking those before calling it silently checked
-    `undefined>0` and broke every file, a regression caught immediately by
-    testing against this real sample) before trusting a decode, so
-    genuinely unparseable content (a real native ND2 binary, or anything
-    else) now fails with a clear error instead of `NaN`-sized buffers and
-    canvas errors propagating downstream. See **in/out** in `CLAUDE.md`.
-  - **Two genuine native ND2 binaries landed 2026-08-18** —
-    `experimental_data/2026-07-13_BHK21_EphB2_mEos4_substack_0-{100,500}.nd2`
-    (real STORM/PALM acquisitions, mEos4, confirmed by direct byte
-    inspection: `file(1)` reports "data", magic `0x0ABECEDA` at offset 0,
-    the literal `"ND2 FILE SIGNATURE CHUNK NAME01!Ver3.0"` string at offset
-    0x10 — the real thing this time, not another TIFF-in-disguise). The
-    chunk container format was reverse-engineered directly from these two
-    files (cross-validated against each other — byte-identical structure
-    except `uiSequenceCount`, see below), not guessed or copied from any
-    GPL source:
-    - **Chunk header** (16 bytes, all little-endian): magic `u32`
-      (`0x0ABECEDA`, constant across every chunk) + `dataOffset` `u32`
-      (bytes from chunk start to where the payload begins) + `dataLen` `u32`
-      (payload byte length) + 4 reserved/zero bytes. A null/`!`-terminated
-      ASCII chunk name follows immediately at chunk-start+16 (e.g.
-      `"ImageDataSeq|42!"`), then padding, then the payload starts at
-      chunk-start+`dataOffset`. Each chunk (header+name+payload) is padded
-      up to the next 4096-byte boundary before the next chunk begins —
-      confirmed exactly: `dataOffset+dataLen` rounded up to the next 4096
-      multiple equals the measured stride between consecutive
-      `ImageDataSeq` chunks in both files, every time.
-    - **Frame count** = a plain count of `"ImageDataSeq|N!"` chunks — 100
-      and 500 respectively, exactly matching each file's own filename
-      (`substack_0-100`/`substack_0-500`) and independently matching the
-      `uiSequenceCount` metadata field below. Three independent signals
-      agreeing is strong confidence this part is right.
-    - **`ImageAttributesLV!`** (found right before the trailing chunk map)
-      holds the real declarative metadata — width/height/bit depth/frame
-      count — encoded in Nikon's own binary key-value format (unofficial
-      name "LV", likely "Labeled Value"): a container record
-      (`SLxImageAttributes`, type `0x0b`) holds N child fields, each
-      `[type: u8][nameLen: u8, INCLUDES a trailing null][name: UTF-16LE,
-      nameLen×2 bytes][value: type-dependent width]`. Decoded by hand
-      against real bytes (not assumed): `uiWidth`=256, `uiWidthBytes`=512
-      (256×2, confirming 16-bit storage independent of the next field),
-      `uiHeight`=256, `uiComp`=1 (single channel), `uiBpcInMemory`=16,
-      `uiBpcSignificant`=14 (14-bit ADC stored in 16-bit words — a
-      completely ordinary sCMOS/EMCCD figure), `uiSequenceCount`=100 (file
-      1) / 500 (file 2) — matching the independently-counted frame count
-      exactly in both files. Only the scalar-field shape is decoded so far,
-      not the full recursive container grammar (nested `SLx*` structs still
-      unexplored) — enough to read dimensions/frame count, not yet a
-      general-purpose metadata parser.
-    - **Compression**: `eCompression`=2 present in the same chunk (meaning
-      not yet independently verified — no confirmed enum mapping found from
-      an authoritative source), but a direct check of real
-      `ImageDataSeq|0!` payload bytes as raw uint16 values produced a
-      completely plausible camera frame (background ~100–140 ADU, a bright
-      region up to 20,211) with NO decompression applied at all — real
-      compressed/entropy-coded data would not look like that. Working
-      hypothesis, not yet a certainty: this real-world sample's pixel data
-      is stored **fully uncompressed**, simpler than the "uncompressed or
-      deflate" case the original feasibility research anticipated — `pako`
-      may not even be needed for files like these two.
-    - **`ND2 FILEMAP SIGNATURE NAME 0001!`** confirmed as the last chunk in
-      both files — the trailing chunk-map/index existence predicted by the
-      original research is real; not yet decoded (a real parser would
-      prefer reading this index over a full linear magic-byte scan, which
-      is what this investigation used and which does not scale well to
-      much larger files).
-    - **Parser shipped 2026-08-18** (v0.11.2-dev): `isNd2File()` (magic-byte
-      sniff, same convention as `isTiffFile()`) + `loadNd2File()`, wired into
-      `loadTiffFile()`'s very first line so all three existing callers
-      (interactive `#file`, calibration file input, headless
-      `analyze()`'s `cfg.file`/`cfg.calibrationFile`) get ND2 support with no
-      caller-side changes — same "one detection path, three callers"
-      precedent this doc already used for TIFF's own `.nd2`-that's-really-
-      TIFF case above. Two format details corrected during implementation,
-      both wrong in the reconnaissance notes above: LV type `8` (string) is
-      **null-terminated UTF-16LE with no length prefix** (not a 4-byte
-      length-prefixed Pascal string as first guessed — confirmed by
-      correctly decoding `sObjective="Apo TIRF 100x Oil DIC N2"`), and a
-      container's child-parsing loop must stop after exactly `childCount`
-      children, **never** using the container's own `byteLen` as the
-      boundary (it can include trailing padding past the last real field,
-      which produced a bogus extra field with a garbage type byte before
-      this was caught). `readNd2ChunkHeader()` walks the full chunk chain
-      from byte 0 (confirmed on both real samples: exactly 4 metadata chunks
-      before frame 0 and 45 after the last frame, independent of frame
-      count — no shortcut to `ImageAttributesLV!` exists since it sits near
-      EOF, after all frame data) to build a per-frame byte-offset index;
-      `getFrames(s,e)` then does one batched `file.slice()` per requested
-      range and decodes each frame at its own explicit stored offset (never
-      assumed back-to-back — a chunk header+name sits between consecutive
-      payloads). Confirmed `eCompression=2` really does mean uncompressed
-      for these real files (raw uint16 payload bytes decode directly to a
-      plausible camera frame) — `pako` is not needed for the ND2 path.
-      Multi-channel (`uiComp≠1`) and non-16-bit files throw a clear
-      unsupported-format error rather than silently misreading; a lone
-      `.nd2` selection is also special-cased in `loadTiffFilesAuto()`
-      (checked before the TIFF-only filter, which would otherwise silently
-      drop it) — multi-file ND2 concatenation isn't supported yet. The
-      file's own pixel calibration (`ImageCalibrationLV|0!`'s
-      `dCalibration`, 160.4 nm/px on both real samples) is logged but never
-      auto-applied to `pxnm`, matching the project's established
-      compute-once/apply-separately convention. Verified end-to-end via
-      Playwright against both real bundled samples (100- and 500-frame): a
-      normal `#file` load, a full Localize run producing real localizations
-      from ND2-sourced frames, the calibration-file-input path (reached real
-      `calibrationCore()` spot-fitting logic and failed only because this
-      movie isn't an actual bead z-stack — not a loader bug), and headless
-      `analyze({file})`/`analyze({calibrationFile, calibrationOnly:true})`
-      via the `analyzeFileInput`/`calibrationFileInput` conduits — plus the
-      full existing TIFF/SPT/drift/color regression suite, confirming the
-      `loadTiffFile()` dispatch change didn't disturb the TIFF path. See
-      **in/out** in `CLAUDE.md` for the full design.
-    - **Real bug found and fixed 2026-08-18, same day: row-0 pixel
-      corruption.** User spotted an unexplained bright dot at the top-left
-      of the raw panel on a freshly loaded ND2 movie and flagged it as
-      possibly a bad decode. It was: each `ImageDataSeq|N!` payload actually
-      starts with a 24-byte per-frame sub-header (contents unidentified,
-      never parsed) BEFORE the pixel array — the initial implementation had
-      this backwards, assuming pixels start at payload byte 0 with a trailer
-      after them instead, so it silently read straight through the
-      sub-header as if it were the first ~6 pixels of row 0. No existing
-      check caught this (dimensions, frame count, and chunk boundaries were
-      all still self-consistent — a systematic byte-offset shift within an
-      otherwise well-formed chunk doesn't trip any of those), only the
-      resulting pixel VALUES were wrong: tens of thousands of ADU, well
-      above what this camera's declared 14-bit ADC (`uiBpcSignificant`=14,
-      max 16383) can physically produce. Confirmed and fixed by installing
-      the independent reference implementation (`pip install nd2` —
-      BSD-3-Clause `tlambert03/nd2`) and cross-validating byte-for-byte,
-      whole-frame, across 7 frames spanning both real samples (0, 1, 2, 8,
-      9/250, 99/499) — 100% match once the 24-byte skip is added, zero
-      mismatch on every pixel. The impact was not merely cosmetic: on the
-      500-frame sample, Localize went from 5 localizations before the fix to
-      24,533 after — the corrupted outlier pixel was skewing the per-frame
-      background/threshold statistic across the WHOLE frame, not just
-      misrendering one corner. Fixed at the single point that matters
-      (`frameOffsets[idx].off` now stores `payloadStart+ND2_FRAME_HEADER_BYTES`
-      instead of `payloadStart`) — `getFrames()`/`decodeOne()` needed no
-      changes, since they already just trust whatever offset `frameOffsets`
-      hands them. Re-verified against both real samples afterward (full
-      Localize run on each, headless `analyze()`, and the general TIFF/SPT/
-      drift regression suite) — see **in/out** in `CLAUDE.md`.
+  Not implemented — deliberate scope limits, not oversights:
+  - **Multi-channel and non-16-bit** files throw a clear unsupported-format
+    error rather than attempting to misread them.
+  - **Multi-file ND2 concatenation** — TIFF's own `loadTiffFilesAuto()` can
+    combine several single-frame files into one stack; ND2 can't yet.
+  - The trailing `ND2 FILEMAP SIGNATURE NAME 0001!` index chunk isn't used
+    as a shortcut — `readNd2ChunkHeader()` still walks the whole chunk
+    chain linearly. Fine at the sizes tested (indexing cost scales with
+    frame count, not file size beyond that), but a genuinely huge ND2 file
+    could benefit from reading this index instead.
 
 - **FTM (fast temporal median filter) — still open.** Shipped in 0.10.1;
   see `CHANGELOG.md` for what landed and `CLAUDE.md`'s **in/out** module
@@ -427,88 +168,18 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   `driftZRow` stays hidden → Show standard/spectral toggle → Unpair), and a
   headless `analyze({sSmlmPair:true, ...})` call, all via Playwright.
 
-- **Single particle tracking (spt) — follow-ups beyond v0.11.2.** Shipped:
-  frame-to-frame linking (`linkTracks()`, Hungarian-optimal assignment per
-  connected component, `sptMemory`-gated gap-bridging) and per-track
-  diffusion coefficients (`trackDiffusionCoeffs()`, ported from
-  `diff_coeffs_per_track()` in the user's own `sptPALM-Python` pipeline) —
-  see **spt** in `CLAUDE.md` for the full design; verified against
-  synthetic straight-line/crossing/gap-bridging cases AND the real bundled
-  L. lactis dataset (both a 100-frame subset and the full 1173-frame movie).
-  **2026-08-18 refinement round**, prompted by the user testing the real
-  dataset and spotting an artificial-looking peak at D≈10⁻³ µm²/s: fixed
-  `drawSptDHist()` to EXCLUDE non-positive D from the plotted histogram
-  (logging the excluded count) instead of clamping every such track into
-  one bin — the clamp was the actual cause of the fake peak, pooling
-  unrelated near-immobile/short tracks into a single artificial spike; also
-  dropped `sptTrackLenMax`/truncation entirely (every qualifying track's
-  MSD now uses ALL of its own steps, not a capped prefix — the truncation's
-  only purpose, equal per-track weighting for a length-resolved histogram,
-  doesn't apply yet), raised `sptTrackLenMin`'s default 2→5 per user
-  guidance, and added a **Show length hist.** button
-  (`drawSptTrackLenHist()`) — a log-Y-axis histogram of every linked
-  track's length, the intended way to judge whether **SPT min track
-  length** is set sensibly. The log-Y support is generic:
-  `computeHist()`/`drawHistogram()` (table module) gained an optional 5th
-  `logY` parameter, reusable by any future histogram that needs one.
-  `experimental_data/README.md`'s lactis entry was re-run and updated under
-  the new algorithm (74,011 localizations, 21,578 tracks unchanged — linking
-  itself didn't move — 5,175 tracks with `sptTrackLenMin=5` qualify for a D
-  estimate, mean D 0.325 µm²/s, only 82 non-positive-D tracks now excluded
-  rather than clamped).
-
-  **2026-08-18, same-day second round**, more real-data feedback: added
-  `sptDPlotMin`/`Max` (µm²/s, defaults from the reference pipeline's own
-  histogram range) — a display-only axis window on the D histogram, tracks
-  outside it excluded from the PLOT only, never from `meanD`/`medianD`.
-  Added `recomputeSptD()`: since D = (MSD/4 − locErrorUm²)/frametime is
-  exactly linear in 1/frametime and MSD itself doesn't depend on
-  frametime/locError, `trackDiffusionCoeffs()` now also returns a
-  `trackMSD` Map (cached per track, µm², spatial only) so editing **Frame
-  time** or **Localization error** after **Track** rescales every D live —
-  in `lastSpt`, the table/CSV (`lastResult.locs`' own `D_coeff`), and the D
-  histogram if shown — with no re-linking. Added an exponential lifetime
-  fit (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ)) overlaid on the
-  track-length histogram, fit by weighted least-squares on ln(count) vs bin
-  centre (weight = the bin's own count — an UNWEIGHTED version shipped
-  first and was corrected same-day after a real rendered histogram showed
-  the fit line sitting nearly an order of magnitude below the first,
-  highest-count bar: bin counts are Poisson, so Var(ln(count)) ~ 1/count,
-  and an unweighted fit gives noisy low-count tail bins the same say as the
-  much more reliable high-count peak); τ logged/shown in both locs and
-  seconds. This needed a small
-  generic extension to the shared histogram plot: `computeHist()`/
-  `drawHistogram()` (table module) now support an optional
-  `histData.curve`/`curveLabel`, set by the caller AFTER `computeHist()`
-  returns (a fit needs the already-binned data to fit against, unlike
-  `markers`, which are known ahead of binning) — see **table** in
-  `CLAUDE.md`. Also fixed a layout complaint: histograms/line plots drawn on
-  the raw/SR canvases used to inherit `--frame-ar` (the loaded movie's own
-  aspect ratio), so an unusually wide/narrow movie stretched every plot's
-  axes into an unreadable shape; `setupPlot(cv, isPlot)` now applies a fixed
-  `aspect-ratio:4/3` via a new `.is-plot` CSS class for every plot-drawing
-  function (frame/reconstruction drawers keep the movie's own ratio) — 4/3
-  matches matplotlib's own default figure size (6.4×4.8in), which is also
-  close to what the `sptPALM-Python` reference scripts use for their own
-  standalone histogram figures (`plt.figure(figsize=(4,5))` in
-  `plot_diff_histograms_tracklength_resolved.py` — narrower, since that
-  script's multi-panel figures use several different ratios with no single
-  consistent convention; 4/3 was chosen for on-screen readability, not
-  fidelity to one specific reference figure size).
-
-  **Headless exposure (v0.11.2, same-day follow-up)**, same "interactive
-  first, headless once it's seen real use" precedent sSMLM's own headless
-  exposure followed: `config.sptTrack` (analyze()), `--sptTrack` (CLI), and
-  `?autorun=`'s `sptTrack=1` all forward to `sptCore()` — see **spt** in
-  `CLAUDE.md`. Deliberately runs AFTER `correctDrift`/`computeNeNA`/
-  `computeFRC` rather than before (the opposite order from `sSmlmPair`): a
-  per-track D benefits from drift-corrected coordinates, and tracking never
-  drops rows the way pairing does, so there's no row-count reason to run it
-  early. Also added **Save spt data** (`sptSaveBtn`): a per-TRACK summary
-  CSV (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`/`first_frame`/
-  `last_frame`, one row per track), distinct from the general **Save
-  data** button's per-localization CSV (which already carried
-  `track_id`/`D_coeff` columns automatically, no new work needed there).
+- **Single particle tracking (spt) — SHIPPED v0.11.2, follow-ups below.**
+  Frame-to-frame linking (`linkTracks()`, Hungarian-optimal assignment per
+  connected component, `sptMemory`-gated gap-bridging), per-track diffusion
+  coefficients (`trackDiffusionCoeffs()`, ported from `diff_coeffs_per_track()`
+  in the user's own `sptPALM-Python` pipeline), D/track-length histograms
+  with an exponential lifetime fit, live D rescaling on Frame time/
+  Localization error edits, headless exposure (`config.sptTrack`/
+  `--sptTrack`/`sptTrack=1`), and a per-track **Save spt data** summary CSV
+  — see **spt** in `CLAUDE.md` for the full design and the 0.11.2 entry in
+  `CHANGELOG.md` for the round-by-round refinement history (verified
+  against synthetic straight-line/crossing/gap-bridging cases and the real
+  bundled L. lactis dataset).
 
   Deliberately deferred, not forgotten:
   - **Length-resolved D histogram** (the reference pipeline's
