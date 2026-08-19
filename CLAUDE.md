@@ -107,7 +107,32 @@ relevant one before editing rather than scrolling:
   own pixel calibration (`ImageCalibrationLV|0!`'s `dCalibration`, µm/px) is logged but never
   auto-applied to `pxnm`, matching this project's compute-once/apply-separately convention used
   elsewhere (NeNA→SPT, PCFO's Transfer estimates). Multi-channel and non-16-bit files throw a
-  clear unsupported-format error rather than silently misreading. `makeCroppedStack()`
+  clear unsupported-format error rather than silently misreading. Two more optional, bonus-only
+  metadata chunks are logged the same log-only way (never applied): `CustomData|AcqTimesCache!`
+  (per-frame float64-ms acquisition timestamps, written by NIS-Elements' STORM module — not
+  every ND2 file has it) gives a frame-interval estimate as the MEDIAN of consecutive positive
+  diffs, not the mean, since a real sample's first couple of timestamps were near-zero
+  placeholders before the interval locked to a stable value; `CustomData|STORM_CAM_DATA_SHEET_XML-V1!`
+  (small flat UTF-16LE XML) gives camera model/bit-depth/ADU, logged purely as informational
+  context — deliberately NOT wired to `gain`/`camoffset`, since it's the camera's static
+  manufacture-time ADU-per-electron figure, not necessarily the EM gain multiplier actually
+  configured for the specific acquisition (PCFO's own empirical fit is the trustworthy source for
+  those). TIFF gets the analogous treatment via `tiffScaleHint(ifd0, desc)`, called from all three
+  TIFF-decoding call sites (`loadTiffFile()`'s fast contiguous path, `loadTiff()`, `loadTiffSequence()`)
+  right where each already reads `t270` (ImageDescription) for its `images=N` count: it also checks
+  that text for `finterval=` (seconds) and — only when the description's own `unit=` field says
+  micrometers — reads `t282`/`t283` (XResolution/YResolution, which UTIF already resolves from
+  RATIONAL to a plain float, pixels-per-unit) for a pixel-size estimate; `t296` (ResolutionUnit)
+  itself is deliberately never consulted, since ImageJ leaves it at 1 ("no absolute unit") even
+  when XResolution is meaningful and puts the real unit in the description text instead. Two real
+  ImageJ exports were seen spelling micrometers two different ways for the same meaning —
+  `unit=micron` (spelled out) and, from a different export path, a literal `unit=µm` (the SEVEN
+  ASCII characters backslash-u-0-0-B-5-m, not an actual µ character — a Java/ImageJ text-encoding
+  quirk only caught by inspecting the real decoded string) — both are recognised. All of this is
+  genuinely log-only: no "Apply" button exists for these hints (unlike NeNA→SPT's own transfer
+  button), by deliberate choice — a real cross-check this surfaced is that one bundled sample
+  file's filename implies a 50 ms frame time but its own embedded `finterval` says 5 ms; resolving
+  that kind of conflict needs a human, not an auto-fill. `makeCroppedStack()`
   (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a

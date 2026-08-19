@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-18p; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-19a; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
     params          1904   PARAMS registry, single source of truth for params
     in/out          2318   TIFF/ND2 parsing, in-memory/streamed loading, FTM
     simulation      2631   synthetic stack generator ("Simulate movie")
-    detect          3390   per-frame band-pass + local-maxima detection
-    fit             3646   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4003   accumulate to offscreen buffer; view/colour/blur
-    workers         4631   frame-parallel detect/fit worker pool
-    export          4787   ThunderSTORM-compatible CSV
-    3D calibration  4972   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5360   AIM drift correction (2D+z)
-    locprecision    5598   NeNA + FRC
-    sSMLM           6222   spectrally resolved SMLM pair-finding
-    spt             6661   single particle tracking, trackpy-inspired
-    pipeline        7091   top-level orchestration, *Core()/wrapper split
-    table           8543   localizations table, filtering, histograms
-    headless API    8971   window.webSMLM.analyze()/analyzeBatch()
+    detect          3458   per-frame band-pass + local-maxima detection
+    fit             3714   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4071   accumulate to offscreen buffer; view/colour/blur
+    workers         4699   frame-parallel detect/fit worker pool
+    export          4855   ThunderSTORM-compatible CSV
+    3D calibration  5040   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5428   AIM drift correction (2D+z)
+    locprecision    5666   NeNA + FRC
+    sSMLM           6290   spectrally resolved SMLM pair-finding
+    spt             6729   single particle tracking, trackpy-inspired
+    pipeline        7159   top-level orchestration, *Core()/wrapper split
+    table           8611   localizations table, filtering, histograms
+    headless API    9039   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-18p</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.2-dev · build 2026-08-19a</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1885,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.2-dev · build 2026-08-18p · in/out: fixed ND2 row-0 pixel corruption (24-byte per-frame header was misread as pixels)
+</span></noscript>webSMLM v0.11.2-dev · build 2026-08-19a · in/out: log embedded pixel size/frame interval hints from TIFF and ND2 metadata (never auto-applied)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2853,7 +2853,7 @@ async function readNd2ChunkHeader(file, pos, fileSize){
 async function loadNd2File(file, onLog=log){
   const fileSize=file.size;
   onLog(`ND2 file: ${fmtBytes(fileSize)} on disk — indexing chunks…`);
-  let pos=0, attrs=null, calibUmPerPx=null, lastYield=performance.now();
+  let pos=0, attrs=null, calibUmPerPx=null, frameIntervalMs=null, cameraInfo=null, lastYield=performance.now();
   const frameOffsets=[];   // frameOffsets[i] = {off,len} — off is the ABSOLUTE byte offset of frame i's pixel payload
   while(pos<fileSize){
     const ch=await readNd2ChunkHeader(file,pos,fileSize);
@@ -2876,6 +2876,36 @@ async function loadNd2File(file, onLog=log){
         const cal=parseNd2LvField(new DataView(buf),16).value;
         if(cal && isFinite(cal.dCalibration)) calibUmPerPx=cal.dCalibration;
       }catch(_){}
+    }else if(ch.name==='CustomData|AcqTimesCache!'){
+      // Per-frame acquisition timestamps (float64 ms, one per frame) written
+      // by NIS-Elements' own STORM acquisition module — not present in every
+      // ND2 file (a plain non-STORM/non-timelapse acquisition may not have
+      // it), so absence or a parse failure here is silently skipped, same
+      // bonus-only treatment as the pixel calibration above. Frame interval
+      // is the MEDIAN of consecutive positive diffs, not the mean — a real
+      // sample's first couple of timestamps were near-zero placeholders
+      // before the recorded interval locked to a stable value, and a median
+      // shrugs that off without hardcoding "skip the first N entries".
+      try{
+        const buf=await file.slice(payloadStart,payloadStart+ch.dataLen).arrayBuffer();
+        const ts=new Float64Array(buf);
+        const diffs=[]; for(let i=1;i<ts.length;i++){ const d=ts[i]-ts[i-1]; if(d>0) diffs.push(d); }
+        if(diffs.length){ diffs.sort((a,b)=>a-b); frameIntervalMs=diffs[diffs.length>>1]; }
+      }catch(_){}
+    }else if(ch.name==='CustomData|STORM_CAM_DATA_SHEET_XML-V1!'){
+      // Camera calibration datasheet (small flat XML, UTF-16LE like ND2's
+      // other text fields) — informational only, deliberately NOT wired to
+      // Gain (ADU)/Offset (PARAMS.gain/camoffset): this is the camera's
+      // static manufacture-time ADU-per-electron figure, not necessarily the
+      // EM gain multiplier actually configured for THIS acquisition, so
+      // unlike the pixel-size/frame-interval hints above it isn't a safe
+      // stand-in for PCFO's own empirically-fit gain/offset.
+      try{
+        const xml=new TextDecoder('utf-16le').decode(await file.slice(payloadStart,payloadStart+ch.dataLen).arrayBuffer());
+        const tag=n=>{ const m=new RegExp(`<${n}>([^<]*)</${n}>`,'i').exec(xml); return m?m[1]:null; };
+        const mfr=tag('Manufacturer'), model=tag('CameraModel'), serial=tag('SerialNumber'), bpc=tag('BitDepth'), adu=tag('ADU');
+        if(model) cameraInfo=`${mfr||''} ${model}${serial?` (${serial})`:''}`.trim()+(bpc?`, ${bpc}-bit`:'')+(adu?`, datasheet ADU ${adu} e-/count`:'');
+      }catch(_){}
     }
     pos+=ch.padded;
     if(performance.now()-lastYield>60){ setProg(Math.min(95,100*pos/fileSize)); await tick(); lastYield=performance.now(); }
@@ -2892,7 +2922,11 @@ async function loadNd2File(file, onLog=log){
   if(declared && declared!==found) onLog(`  ⚠ ImageAttributesLV declares ${declared} frame(s) but ${found} ImageDataSeq chunk(s) were found — using ${n}.`);
   for(let i=0;i<n;i++) if(!frameOffsets[i]) throw new Error(`ND2: missing ImageDataSeq|${i}! chunk — corrupt or unsupported file`);
   const px=paramValue('pxnm');
-  onLog(`  ${n} frame(s) · ${w}×${h} · 16-bit`+(calibUmPerPx?` · file's own calibration: ${(calibUmPerPx*1000).toFixed(1)} nm/px (Pixel size (nm) is NOT auto-updated — set it by hand if you want to use this).`:'.'));
+  const scaleParts=[];
+  if(calibUmPerPx) scaleParts.push(`pixel size ≈ ${(calibUmPerPx*1000).toFixed(1)} nm/px (file calibration)`);
+  if(frameIntervalMs) scaleParts.push(`frame interval ${frameIntervalMs.toFixed(2)} ms (from per-frame timestamps)`);
+  onLog(`  ${n} frame(s) · ${w}×${h} · 16-bit`+(scaleParts.length?` · file's own metadata: ${scaleParts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.`:'.'));
+  if(cameraInfo) onLog(`  camera: ${cameraInfo}`);
   const rawBytes=w*h*2;
   // Fast path mirrors loadTiffFile()'s own contiguous-TIFF one: a 2-byte-
   // aligned relative offset lets a direct Uint16Array view bulk-copy at the
@@ -2922,6 +2956,36 @@ async function loadNd2File(file, onLog=log){
   return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('ND2 stack: use getFrames()'); }};
 }
 
+// ImageJ TIFF stacks often carry a pixel size (XResolution/YResolution tags,
+// t282/t283 — UTIF already resolves the RATIONAL to a single float, pixels
+// per unit) and a frame interval (`finterval=`, seconds) inside the SAME
+// `t270` ImageDescription text this file already reads for its `images=N`
+// count. Logged only (never auto-applied — same "compute once, apply by
+// hand" convention as ND2's own file-calibration hint below, or PCFO's
+// Transfer estimates), since these are per-dataset working values
+// (CLAUDE.md's params module note), not something safe to silently
+// overwrite Pixel size (nm)/Frame time (s) with. ResolutionUnit (t296) is
+// deliberately NOT consulted — ImageJ leaves it at 1 ("no absolute unit")
+// even when XResolution is meaningful, and puts the REAL unit in the
+// description's own `unit=` text instead, so pixel size is only reported
+// when that text says micrometers (the only unit this project's own sample
+// files ever use for pixel calibration; anything else is left unparsed
+// rather than guessed at). Two different real ImageJ exports were seen
+// spelling "micrometers" two different ways for the exact same meaning —
+// `unit=micron` (spelled out) and, from a different export path, a literal
+// `unit=µm` (the SEVEN ASCII characters backslash-u-0-0-B-5-m, not an
+// actual µ character — an ImageJ/Java text-encoding quirk only caught by
+// inspecting the real decoded string, not documented anywhere) — both are
+// recognised.
+function tiffScaleHint(ifd0, desc){
+  const um=/unit=(\S+)/i.exec(desc);
+  const isMicron=um && /^(µm|um|microns?|\\u00b5m)$/i.test(um[1]);
+  const fi=/finterval=([\d.]+)/i.exec(desc);
+  const parts=[];
+  if(isMicron && ifd0.t282 && ifd0.t282[0]>0) parts.push(`pixel size ≈ ${(1000/ifd0.t282[0]).toFixed(1)} nm/px (XResolution+unit)`);
+  if(fi && +fi[1]>0) parts.push(`frame interval ${(+fi[1]*1000).toFixed(1)} ms (finterval)`);
+  return parts.length ? `  file's own metadata: ${parts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.` : '';
+}
 /* Reads only a header slice first. If the file turns out to be a contiguous
    ImageJ stack, frames are read on demand with File.slice() and the whole file
    never enters memory — engines cap ArrayBuffer size well below multi-GB (a
@@ -2974,6 +3038,7 @@ async function loadTiffFile(file, onLog=log){
       const px=paramValue('pxnm');
       onLog(`File: ${declared} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
       onLog(`Contiguous ImageJ stack — reading frames on demand; the file is never held in memory.`);
+      const hint=tiffScaleHint(hifds[0], dv('t270')); if(hint) onLog(hint);
       // Fast path: single-channel, native (LE) byte order, aligned offset — a
       // direct TypedArray view + Float32Array.set() bulk-copies/converts at the
       // engine level (measured ~45x faster than the per-pixel DataView loop
@@ -3074,6 +3139,8 @@ async function loadTiffSequence(fileList, onLog=log){
   const w=ifd0.width, h=ifd0.height;
   onLog(`Folder selection: ${n} single-frame TIFFs · ${w}×${h} · sorted by filename`);
   onLog(`  ${files[0].name} … ${files[n-1].name}`);
+  const descOf0=t=>{ const v=ifd0[t]; return !v?'' : (typeof v==='string'?v : (v.join?v.join(''):String(v))); };
+  const seqHint=tiffScaleHint(ifd0, descOf0('t270')); if(seqHint) onLog(seqHint);
   let cached0=ifdToFloat(ifd0,w,h);            // avoid decoding frame 0 twice
   const getFrames=async(s,e)=>{
     e=Math.min(e,n); if(e<=s) return [];
@@ -3267,6 +3334,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
   const descOf=t=>{ const v=ifds[0][t]; return !v?'' : (typeof v==='string'?v : (v.join?v.join(''):String(v))); };
   const mImg=/images=(\d+)/i.exec(descOf('t270'));
   let declared=mImg?+mImg[1]:0;
+  const scaleHint=tiffScaleHint(ifds[0], descOf('t270')); if(scaleHint) onLog(scaleHint);
   // Safety net: even without an images= record, a single IFD in a file far
   // larger than one frame means frames are going unread. Infer the count from
   // the file size rather than silently analysing a fraction of the data.
