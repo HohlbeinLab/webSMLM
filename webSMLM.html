@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-20d; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-20e; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -27,17 +27,18 @@
     simulation      2701   synthetic stack generator ("Simulate movie")
     detect          3528   per-frame band-pass + local-maxima detection
     fit             3784   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4141   accumulate to offscreen buffer; view/colour/blur
-    workers         4772   frame-parallel detect/fit worker pool
-    export          4928   ThunderSTORM-compatible CSV
-    3D calibration  5113   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5501   AIM drift correction (2D+z)
-    locprecision    5739   NeNA + FRC
-    sSMLM           6372   spectrally resolved SMLM pair-finding
-    spt             6811   single particle tracking, trackpy-inspired
-    pipeline        7241   top-level orchestration, *Core()/wrapper split
-    table           8761   localizations table, filtering, histograms
-    headless API    9189   window.webSMLM.analyze()/analyzeBatch()
+    render          4141   accumulate to offscreen buffer; view/colour/blur;
+                           SvgRecordingContext (SVG plot export recorder)
+    workers         4903   frame-parallel detect/fit worker pool
+    export          5059   ThunderSTORM-compatible CSV; exportPlotSvg()
+    3D calibration  5280   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5668   AIM drift correction (2D+z)
+    locprecision    5906   NeNA + FRC
+    sSMLM           6539   spectrally resolved SMLM pair-finding
+    spt             6978   single particle tracking, trackpy-inspired
+    pipeline        7408   top-level orchestration, *Core()/wrapper split
+    table           8929   localizations table, filtering, histograms
+    headless API    9357   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1547,7 +1548,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20d</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20e</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1579,6 +1580,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <div class="btnrow">
         <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save data</button>
         <button id="saveImgBtn" disabled title="Save a window (left or right) as a PNG">Save image</button>
+        <button id="saveSvgBtn" disabled title="Save a plot (left or right) as a vector SVG">Save plot (SVG)</button>
       </div>
       <div class="btnrow" style="margin-top:6px">
         <button id="loadCsvBtn" title="Load a CSV previously exported with Save data">Load data</button>
@@ -1955,7 +1957,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20d · new dark/light/high-contrast theme switcher (header, top-right), remembered across visits
+</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20e · new "Save plot (SVG)" vector export for plots (drift/NeNA/FRC/PCFO/calibration/line-profile/histogram)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4326,7 +4328,10 @@ function clampView(){
 }
 // "Save image" is available whenever either panel has something to show
 // (a reconstruction/frame, or a drift/calibration plot).
-function syncSaveImg(){ const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||srIsPlot||rawFull||rawIsPlot); }
+function syncSaveImg(){
+  const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||srIsPlot||rawFull||rawIsPlot);
+  const s=$('saveSvgBtn'); if(s) s.disabled = !(srIsPlot||rawIsPlot);   // SVG export: plots only, never raw/reconstruction
+}
 // Plot canvases have a backing store that CSS scales to the column, so text is
 // drawn in backing pixels — on a small screen the whole plot (labels included)
 // scales down and turns tiny; on a large one a too-small backing gets upscaled
@@ -4406,6 +4411,134 @@ function plotColors(){
   const cs=getComputedStyle(document.documentElement), v=n=>cs.getPropertyValue(n).trim();
   return {bg:v('--panel'), grid:v('--line'), text:v('--muted'), axis:v('--fg'), bar:v('--accent')};
 }
+// SVG export ("Save plot (SVG)"): a minimal from-scratch canvas→SVG recorder,
+// NOT a general-purpose shim — covers exactly the Canvas2D surface the 7
+// plot-draw functions below use (fillStyle/strokeStyle/lineWidth/font/
+// textAlign/textBaseline, path building + stroke/fill, fillRect, fillText,
+// save/restore/translate/rotate, setLineDash, rect+clip for plot-area
+// clipping, arc+fill for full-circle point markers only — no gradients,
+// patterns, drawImage, pixel data or curves anywhere in those 7 functions,
+// so none are implemented here). Each plot function runs completely
+// unchanged against an instance of this in place of a real
+// CanvasRenderingContext2D — see makeSvgPlotCanvas()/_plotTarget below —
+// same drawing code, different backend, so there is no second "SVG version"
+// of any plot to keep in sync.
+//
+// save()/translate()/rotate() each push a FRESH child <g> rather than
+// mutating the current group's own transform attribute — an SVG group
+// transform applies to ALL of a group's children, so mutating an
+// already-populated group retroactively would move siblings drawn *before*
+// the transform call too (canvas semantics only affect draws *after* the
+// call). Pushing a new nested group per transform, and having restore()
+// truncate the stack back to the depth recorded at the matching save(),
+// reproduces real canvas transform-scoping exactly. clip() applies to
+// whatever group is currently on top — correct as long as it's reached via
+// save() first (the pattern every caller here uses), since save() always
+// hands it a fresh, childless group to clip.
+class SvgRecordingContext{
+  constructor(w,h){
+    const NS='http://www.w3.org/2000/svg';
+    this.svg=document.createElementNS(NS,'svg');
+    this.svg.setAttribute('xmlns',NS);
+    this.svg.setAttribute('width',w); this.svg.setAttribute('height',h);
+    this.svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+    this.defs=document.createElementNS(NS,'defs'); this.svg.appendChild(this.defs);
+    const rootG=document.createElementNS(NS,'g'); this.svg.appendChild(rootG);
+    this._stack=[rootG]; this._saveMarks=[]; this._clipId=0;
+    this.fillStyle='#000'; this.strokeStyle='#000'; this.lineWidth=1;
+    this.font='10px sans-serif'; this.textAlign='start'; this.textBaseline='alphabetic';
+    this._dash=null; this._d=''; this._arc=null; this._rectPending=null;
+  }
+  _cur(){ return this._stack[this._stack.length-1]; }
+  _pushGroup(transformStr){
+    const NS='http://www.w3.org/2000/svg', g=document.createElementNS(NS,'g');
+    if(transformStr) g.setAttribute('transform',transformStr);
+    this._cur().appendChild(g); this._stack.push(g);
+  }
+  save(){
+    this._saveMarks.push({stackLen:this._stack.length, fillStyle:this.fillStyle, strokeStyle:this.strokeStyle,
+      lineWidth:this.lineWidth, font:this.font, textAlign:this.textAlign, textBaseline:this.textBaseline, dash:this._dash});
+    this._pushGroup(null);   // fresh, childless group so a following clip()/transform can't retroactively affect prior siblings
+  }
+  restore(){
+    if(!this._saveMarks.length) return;
+    const m=this._saveMarks.pop();
+    this._stack.length=Math.max(1,m.stackLen);
+    this.fillStyle=m.fillStyle; this.strokeStyle=m.strokeStyle; this.lineWidth=m.lineWidth;
+    this.font=m.font; this.textAlign=m.textAlign; this.textBaseline=m.textBaseline; this._dash=m.dash;
+  }
+  translate(x,y){ this._pushGroup(`translate(${x},${y})`); }
+  rotate(rad){ this._pushGroup(`rotate(${rad*180/Math.PI})`); }
+  setTransform(){ /* DPR backing-store scale — meaningless for resolution-independent vector output */ }
+  setLineDash(arr){ this._dash=(arr&&arr.length)?arr.join(','):null; }
+  beginPath(){ this._d=''; this._arc=null; }
+  moveTo(x,y){ this._d+=`M${x} ${y} `; this._arc=null; }
+  lineTo(x,y){ this._d+=`L${x} ${y} `; }
+  arc(cx,cy,r){ this._arc={cx,cy,r}; }   // only ever used as a full-circle marker (arc(cx,cy,r,0,2π)) in these plots
+  rect(x,y,w,h){ this._rectPending={x,y,w,h}; }   // only ever paired with clip() in these plots, never fill()/stroke()
+  clip(){
+    if(!this._rectPending) return;
+    const NS='http://www.w3.org/2000/svg', id='svgClip'+(this._clipId++);
+    const cp=document.createElementNS(NS,'clipPath'); cp.setAttribute('id',id);
+    const r=document.createElementNS(NS,'rect');
+    r.setAttribute('x',this._rectPending.x); r.setAttribute('y',this._rectPending.y);
+    r.setAttribute('width',this._rectPending.w); r.setAttribute('height',this._rectPending.h);
+    cp.appendChild(r); this.defs.appendChild(cp);
+    this._cur().setAttribute('clip-path',`url(#${id})`);
+    this._rectPending=null;
+  }
+  _font(){ const m=/^([\d.]+)px\s+(.+)$/.exec(this.font); return m?{size:m[1],family:m[2]}:{size:'10',family:this.font}; }
+  _anchor(){ return {left:'start',start:'start',right:'end',end:'end',center:'middle'}[this.textAlign]||'start'; }
+  // SVG dominant-baseline has no exact match for canvas's "top"/"bottom" — 'hanging'/'text-after-edge' are the
+  // closest broadly-supported approximations; a small vertical read may differ slightly from the on-screen PNG.
+  _baseline(){ return {top:'hanging',hanging:'hanging',middle:'middle',alphabetic:'auto',bottom:'text-after-edge',ideographic:'text-after-edge'}[this.textBaseline]||'auto'; }
+  fillRect(x,y,w,h){
+    const NS='http://www.w3.org/2000/svg', r=document.createElementNS(NS,'rect');
+    r.setAttribute('x',x); r.setAttribute('y',y); r.setAttribute('width',w); r.setAttribute('height',h);
+    r.setAttribute('fill',this.fillStyle); this._cur().appendChild(r);
+  }
+  stroke(){
+    if(!this._d) return;
+    const NS='http://www.w3.org/2000/svg', p=document.createElementNS(NS,'path');
+    p.setAttribute('d',this._d.trim()); p.setAttribute('fill','none');
+    p.setAttribute('stroke',this.strokeStyle); p.setAttribute('stroke-width',this.lineWidth);
+    if(this._dash) p.setAttribute('stroke-dasharray',this._dash);
+    this._cur().appendChild(p);
+  }
+  fill(){
+    const NS='http://www.w3.org/2000/svg';
+    if(this._arc){
+      const c=document.createElementNS(NS,'circle');
+      c.setAttribute('cx',this._arc.cx); c.setAttribute('cy',this._arc.cy); c.setAttribute('r',this._arc.r);
+      c.setAttribute('fill',this.fillStyle); this._cur().appendChild(c); return;
+    }
+    if(!this._d) return;
+    const p=document.createElementNS(NS,'path');
+    p.setAttribute('d',this._d.trim()); p.setAttribute('fill',this.fillStyle); p.setAttribute('stroke','none');
+    this._cur().appendChild(p);
+  }
+  fillText(str,x,y){
+    const NS='http://www.w3.org/2000/svg', t=document.createElementNS(NS,'text'), f=this._font();
+    t.setAttribute('x',x); t.setAttribute('y',y);
+    t.setAttribute('font-family',f.family); t.setAttribute('font-size',f.size);
+    t.setAttribute('text-anchor',this._anchor()); t.setAttribute('dominant-baseline',this._baseline());
+    t.setAttribute('fill',this.fillStyle); t.textContent=str;
+    this._cur().appendChild(t);
+  }
+  serialize(){ return new XMLSerializer().serializeToString(this.svg); }
+}
+// Wraps an SvgRecordingContext as a plain object duck-typing the small
+// slice of HTMLCanvasElement that setupPlot() actually touches
+// (clientWidth/clientHeight/width/height/getContext) — setupPlot() itself
+// needs zero changes to accept this in place of a real <canvas>.
+function makeSvgPlotCanvas(w,h){
+  const ctx=new SvgRecordingContext(w,h);
+  return {clientWidth:w, clientHeight:h, width:w, height:h, getContext:()=>ctx, _svgCtx:ctx};
+}
+// Set only for the duration of exportPlotSvg() below, to redirect the 7
+// plot functions' hardcoded setupPlot($('raw'|'sr'),true) target to an
+// SvgRecordingContext canvas instead of the real DOM one.
+let _plotTarget=null;
 // Re-run the plot currently shown in each panel (used on window resize so the
 // backing store — and thus text crispness — tracks the new size). Set by each
 // plot's draw fn; cleared when the panel reverts to a frame / reconstruction.
@@ -4475,7 +4608,7 @@ function profDataX(clientX){ const cv=$('raw'), r=cv.getBoundingClientRect(), Wc
   return profileView.x0 + (px-PROF_ML)/Math.max(1,pw)*xr; }
 function renderProfile(){
   if(!profileData) return;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   const {dist,prof,totalNm,ymax}=profileData, {x0,x1}=profileView, xr=Math.max(1e-9,x1-x0);
   rawFull=null; rawIsPlot=true; rawPlotName='profile'; $('rawTitle').textContent='Line profile';
   const C=plotColors();
@@ -5102,10 +5235,46 @@ async function exportPanel(which){
 // whichever one is showing.
 function saveImageClicked(){
   const L=windowContent('raw'), R=windowContent('sr');
-  if(L&&R) $('saveImgModal').classList.add('open');
+  if(L&&R){ _saveSvgPending=false; $('saveImgWhat').textContent='PNG'; $('saveImgModal').classList.add('open'); }
   else if(R) exportPanel('sr');
   else if(L) exportPanel('raw');
   else log('Nothing to save yet.');
+}
+// Vector export for a plot panel — draws the SAME plot function used on
+// screen (via _replotRaw/_replotSr) into an SvgRecordingContext instead of
+// the real canvas (_plotTarget redirection, see above), so the on-screen
+// view is never touched — unlike exportPanel()'s PNG path there is no
+// draw/snapshot/redraw-back dance needed. Raw frame / SR reconstruction are
+// never offered SVG (no vector form at real localization-count scale) —
+// saveSvgClicked() below only ever calls this when the panel is a plot.
+async function exportPlotSvg(which){
+  const isSR=which==='sr', replot=isSR?_replotSr:_replotRaw;
+  if(!replot){ log('Nothing to save — that window is not a plot.'); return; }
+  const c=windowContent(which);
+  const d=$(isSR?'sr':'raw'), DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;
+  const rec=makeSvgPlotCanvas(DW,DH);
+  _plotExportMode=true; _plotTarget=rec;
+  replot();
+  _plotTarget=null; _plotExportMode=false;
+  const svgText=rec._svgCtx.serialize();
+  const blob=new Blob([svgText],{type:'image/svg+xml'});
+  const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix+'.svg';
+  const saved=await saveBlob(blob,name,'SVG image','image/svg+xml','.svg');
+  if(!saved){ log('Image save cancelled.'); return; }
+  log(`Saved ${c.label} as ${saved} (vector SVG, ${DW}×${DH} px).`);
+}
+// The Save-plot-SVG button: only ever offers panels currently showing a
+// plot (rawIsPlot/srIsPlot) — a raw frame or reconstruction never appears
+// here even if that window has content. Reuses the same "which window?"
+// chooser modal as PNG export when both panels qualify (see saveImgModal
+// wiring below, gated on the _saveSvgPending flag set here).
+let _saveSvgPending=false;
+function saveSvgClicked(){
+  const L=rawIsPlot?windowContent('raw'):null, R=srIsPlot?windowContent('sr'):null;
+  if(L&&R){ _saveSvgPending=true; $('saveImgWhat').textContent='SVG'; $('saveImgModal').classList.add('open'); }
+  else if(R) exportPlotSvg('sr');
+  else if(L) exportPlotSvg('raw');
+  else log('Nothing to save — no plot is currently shown.');
 }
 
 /* ===========================================================================
@@ -5374,7 +5543,7 @@ async function runCalibration(){
 // magnitude(z) curves depending on calView (toggled via the header button).
 function drawCalibration(){
   if(!calib) return;
-  const d=$('sr'); const {ctx,W,H}=setupPlot(d,true);
+  const d=_plotTarget||$('sr'); const {ctx,W,H}=setupPlot(d,true);
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=64,mR=16,mT=40,mB=52, pw=W-mL-mR, ph=H-mT-mB;
@@ -5698,7 +5867,7 @@ async function correctDrift(){
 function drawDriftCurve(){
   if(!lastDrift||!lastResult) return;
   const d=lastDrift, px=lastResult.px, n=d.fdx.length;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='drift'; $('rawTitle').textContent='Drift vs frame';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -5834,7 +6003,7 @@ async function nenaPrecision(locs, px, onProgress){
 }
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='nena'; $('rawTitle').textContent='NeNA: NN distances';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -6059,7 +6228,7 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
 }
 // Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
 function drawFrcPlot(r){
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='frc'; $('rawTitle').textContent='FRC';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -6254,7 +6423,7 @@ let pcfoLastPts=null, pcfoLastFit=null, pcfoLastR2=NaN, pcfoLastGain=null, pcfoL
 function drawPcfoPlot(){
   if(!pcfoLastPts||!pcfoLastFit) return;
   const pts=pcfoLastPts, fit=pcfoLastFit;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='pcfo'; $('rawTitle').textContent='PCFO: signal vs. noise variance';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -8273,6 +8442,7 @@ $('csvFile').addEventListener('change', async e=>{
 });
 $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
+$('saveSvgBtn').addEventListener('click',saveSvgClicked);
 $('clearLogBtn').addEventListener('click',()=>{ $('log').textContent=''; });
 $('exportLogBtn').addEventListener('click',async()=>{
   const txt=$('log').textContent.replace(/^\n+/,'');
@@ -9035,7 +9205,7 @@ function computeHist(col, vals, unit, markers, logY){
 function drawHistogram(){
   if(!histData||!histView) return;
   const {col,unit,lo,hi,nb,bw,hist,ymax,n,markers,logY,curve}=histData, {x0,x1}=histView;
-  const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; rawIsPlot=true; rawPlotName='histogram'; $('rawTitle').textContent=`Histogram: ${col}`;
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -9120,8 +9290,8 @@ function wireHelp(){
   // the "save which view?" chooser (same deferred wiring — its markup follows the script)
   const sm=$('saveImgModal');
   if(sm){ const shide=()=>sm.classList.remove('open');
-    $('saveImgSR').addEventListener('click',()=>{ shide(); exportPanel('sr'); });
-    $('saveImgRaw').addEventListener('click',()=>{ shide(); exportPanel('raw'); });
+    $('saveImgSR').addEventListener('click',()=>{ shide(); (_saveSvgPending?exportPlotSvg:exportPanel)('sr'); });
+    $('saveImgRaw').addEventListener('click',()=>{ shide(); (_saveSvgPending?exportPlotSvg:exportPanel)('raw'); });
     $('saveImgCancel').addEventListener('click',shide);
     sm.addEventListener('click',e=>{ if(e.target===sm) shide(); });
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') shide(); }); }
@@ -9523,7 +9693,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
 <div class="modal-bg" id="saveImgModal">
   <div class="modal" style="max-width:340px;text-align:center">
     <h2 style="margin:0 0 8px">Save which window?</h2>
-    <p style="margin:0 0 14px">Both windows have content — pick which to export as PNG.</p>
+    <p style="margin:0 0 14px">Both windows have content — pick which to export as <span id="saveImgWhat">PNG</span>.</p>
     <div class="btnrow">
       <button id="saveImgRaw">Left window</button>
       <button id="saveImgSR">Right window</button>
