@@ -9,7 +9,7 @@ computation runs client-side.
 > packages, but a fast, zero-install way to try localization on your own data.
 
 [![Launch webSMLM](https://img.shields.io/badge/Launch-webSMLM-brightgreen?logo=googlechrome&logoColor=white)](https://hohlbeinlab.github.io/webSMLM/webSMLM.html)
-[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21445041.svg)](https://doi.org/10.5281/zenodo.21445041)
 
 ## Quick start
@@ -362,9 +362,10 @@ version DOI; pushing to `main` redeploys the Pages site.
 
 ## License
 
-© 2026 **Hohlbein et al.**, licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — see [`LICENSE`](LICENSE).
-You may share and adapt this work, including commercially, with attribution.
+© 2026 **Hohlbein et al.**, licensed under the
+[MIT License](https://opensource.org/licenses/MIT) — see [`LICENSE`](LICENSE).
+Versions 0.1.0–0.11.2 remain available under their original CC BY 4.0 terms;
+this MIT license applies going forward.
 
 Bundled third-party decoders retain their own MIT licenses:
 [UTIF.js](https://github.com/photopea/UTIF.js) and
