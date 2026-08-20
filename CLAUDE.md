@@ -301,35 +301,49 @@ relevant one before editing rather than scrolling:
   content, so it keeps one fixed high-contrast-against-anything box rather than becoming
   theme-aware for the plot case alone.
 
-  **"Save plot (SVG)"** (`saveSvgBtn`/`saveSvgClicked()`/`exportPlotSvg()`, export module) is
-  vector export, scoped to the 7 genuinely plot-shaped panels (calibration, drift, NeNA, FRC, PCFO,
+  **"Save plot / image"** (`saveImgBtn`, one button — export module) offers SVG as well as PNG,
+  but ONLY for the 7 genuinely plot-shaped panels (calibration, drift, NeNA, FRC, PCFO,
   line-profile, the shared histogram) — never the raw frame or SR reconstruction, which are real
-  pixel-density data with no meaningful vector form at real localization counts. `SvgRecordingContext`
-  (render module, next to `setupPlot()`) is a small, purpose-built class that duck-types the exact
-  Canvas2D surface those 7 functions use (paths/rects/circles/text/save/restore/translate/rotate/
-  clip — no gradients, patterns, images or curves, none of which any of them call) and records real
-  SVG DOM nodes instead of painting pixels — written from scratch rather than vendoring a
-  general-purpose canvas→SVG shim, matching this project's own repeated preference for a small
-  tailored implementation over a dependency carrying capability nothing here needs. `save()`/
-  `translate()`/`rotate()` each push a FRESH nested `<g>` rather than mutating the current group's
-  own `transform` — an SVG transform applies to ALL of a group's children, so mutating an
-  already-populated group would retroactively move siblings drawn *before* the call too; pushing a
-  new group per transform and having `restore()` truncate the stack back to the depth recorded at
-  the matching `save()` reproduces real canvas transform-scoping exactly. `makeSvgPlotCanvas(w,h)`
-  wraps a `SvgRecordingContext` as a plain object duck-typing the slice of `HTMLCanvasElement` that
-  `setupPlot()` itself touches (`clientWidth`/`clientHeight`/`width`/`height`/`getContext`) — so
-  `setupPlot()` and all 7 plot functions run completely UNCHANGED against it, no SVG-specific
-  drawing code duplicated anywhere. The redirection itself is one module-level `_plotTarget`
-  variable, consulted by each plot function's own hardcoded `setupPlot($('raw'|'sr'), true)` call
-  (`_plotTarget||$('raw')`) — `null` normally (real DOM canvas), set only for the duration of
-  `exportPlotSvg()`. Because drawing goes into the recorder instead of the real canvas,
-  `exportPlotSvg()` never needs `exportPanel()`'s own draw/snapshot/redraw-back dance — the
-  on-screen view is provably untouched. Reuses `_plotExportMode`'s light export palette (same
+  pixel-density data with no meaningful vector form at real localization counts. There is no
+  separate SVG button or in-page format picker: for a plot, `exportPanel()` delegates to
+  `exportPlotEither()`, which renders BOTH a PNG blob and an SVG string ahead of time (both are
+  cheap — one extra plot redraw each) and hands them to `savePlotEither()`, which opens ONE native
+  `showSaveFilePicker()` dialog listing both "PNG image" and "SVG image" as `types` — the OS/browser
+  dialog's own "Save as type" dropdown becomes the format picker, no custom UI needed. Since the
+  handle it returns has no separate "which type was picked" field, the actual format is read back
+  from the resolved file handle's own extension (`/\.svg$/i.test(h.name)`) to decide which of the
+  two pre-rendered payloads to write. Falls back to PNG when no native picker is available (Safari/
+  Firefox, or `file://` without picker support) — there is no in-page SVG option in that fallback.
+  A raster panel (`exportPanel()`'s own, unchanged path) still calls the single-type `saveBlob()`
+  helper as before — `savePlotEither()` is a second, plot-only sibling to it, not a replacement.
+
+  `SvgRecordingContext` (render module, next to `setupPlot()`) is a small, purpose-built class that
+  duck-types the exact Canvas2D surface those 7 functions use (paths/rects/circles/text/save/
+  restore/translate/rotate/clip — no gradients, patterns, images or curves, none of which any of
+  them call) and records real SVG DOM nodes instead of painting pixels — written from scratch
+  rather than vendoring a general-purpose canvas→SVG shim, matching this project's own repeated
+  preference for a small tailored implementation over a dependency carrying capability nothing here
+  needs. `save()`/`translate()`/`rotate()` each push a FRESH nested `<g>` rather than mutating the
+  current group's own `transform` — an SVG transform applies to ALL of a group's children, so
+  mutating an already-populated group would retroactively move siblings drawn *before* the call
+  too; pushing a new group per transform and having `restore()` truncate the stack back to the
+  depth recorded at the matching `save()` reproduces real canvas transform-scoping exactly.
+  `makeSvgPlotCanvas(w,h)` wraps a `SvgRecordingContext` as a plain object duck-typing the slice of
+  `HTMLCanvasElement` that `setupPlot()` itself touches (`clientWidth`/`clientHeight`/`width`/
+  `height`/`getContext`) — so `setupPlot()` and all 7 plot functions run completely UNCHANGED
+  against it, no SVG-specific drawing code duplicated anywhere. The redirection itself is one
+  module-level `_plotTarget` variable, consulted by each plot function's own hardcoded
+  `setupPlot($('raw'|'sr'), true)` call (`_plotTarget||$('raw')`) — `null` normally (real DOM
+  canvas), set only for the duration of the SVG render inside `exportPlotEither()`; the PNG render
+  in the same function still screenshots the real on-screen canvas directly (matching the original
+  single-format path's behaviour), so the on-screen view is only ever touched during the PNG
+  redraw/restore, never during the SVG one. Reuses `_plotExportMode`'s light export palette (same
   reasoning as PNG: reads better pasted into a paper/report) and the existing `saveImgModal`
-  left/right chooser when both panels are plots, via a `_saveSvgPending` flag the modal's two
-  buttons branch on. SVG `<text>` stays real, editable text (not converted to outlines), so it
-  re-renders with whatever font is available on the *viewing* system — a known, accepted trade-off
-  versus PNG's baked-in glyph pixels, not something this solves.
+  left/right chooser when both panels have content — that chooser only decides WHICH window, not
+  format; format is decided downstream by whichever of `exportPanel()`/`exportPlotEither()` the
+  chosen window resolves to. SVG `<text>` stays real, editable text (not converted to outlines), so
+  it re-renders with whatever font is available on the *viewing* system — a known, accepted
+  trade-off versus PNG's baked-in glyph pixels, not something this solves.
 
   **UI colour theme** (`applyTheme(name)`, params module, `dark`/`light`/`contrast`) is set via
   `[data-theme]` on `<html>`, driving ~17 CSS custom properties (`--bg`/`--panel`/`--line`/`--fg`/

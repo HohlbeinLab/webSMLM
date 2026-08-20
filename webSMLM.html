@@ -18,27 +18,27 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-20e; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-20f; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
-    params          1974   PARAMS registry, single source of truth for params
-    in/out          2388   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2701   synthetic stack generator ("Simulate movie")
-    detect          3528   per-frame band-pass + local-maxima detection
-    fit             3784   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4141   accumulate to offscreen buffer; view/colour/blur;
+    params          1972   PARAMS registry, single source of truth for params
+    in/out          2386   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2699   synthetic stack generator ("Simulate movie")
+    detect          3526   per-frame band-pass + local-maxima detection
+    fit             3782   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4139   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext (SVG plot export recorder)
-    workers         4903   frame-parallel detect/fit worker pool
-    export          5059   ThunderSTORM-compatible CSV; exportPlotSvg()
-    3D calibration  5280   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5668   AIM drift correction (2D+z)
-    locprecision    5906   NeNA + FRC
-    sSMLM           6539   spectrally resolved SMLM pair-finding
-    spt             6978   single particle tracking, trackpy-inspired
-    pipeline        7408   top-level orchestration, *Core()/wrapper split
-    table           8929   localizations table, filtering, histograms
-    headless API    9357   window.webSMLM.analyze()/analyzeBatch()
+    workers         4898   frame-parallel detect/fit worker pool
+    export          5054   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5291   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5679   AIM drift correction (2D+z)
+    locprecision    5917   NeNA + FRC
+    sSMLM           6550   spectrally resolved SMLM pair-finding
+    spt             6989   single particle tracking, trackpy-inspired
+    pipeline        7419   top-level orchestration, *Core()/wrapper split
+    table           8939   localizations table, filtering, histograms
+    headless API    9367   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1548,7 +1548,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20f</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1579,8 +1579,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </div>
       <div class="btnrow">
         <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save data</button>
-        <button id="saveImgBtn" disabled title="Save a window (left or right) as a PNG">Save image</button>
-        <button id="saveSvgBtn" disabled title="Save a plot (left or right) as a vector SVG">Save plot (SVG)</button>
+        <button id="saveImgBtn" disabled title="Save a window (left or right) as an image — plots also offer SVG in the save dialog's file-type dropdown">Save plot / image</button>
       </div>
       <div class="btnrow" style="margin-top:6px">
         <button id="loadCsvBtn" title="Load a CSV previously exported with Save data">Load data</button>
@@ -1957,7 +1956,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20e · new "Save plot (SVG)" vector export for plots (drift/NeNA/FRC/PCFO/calibration/line-profile/histogram)
+</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20f · "Save image" merged into "Save plot / image": for a plot, the save dialog's own file-type dropdown now offers PNG or SVG
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4328,10 +4327,7 @@ function clampView(){
 }
 // "Save image" is available whenever either panel has something to show
 // (a reconstruction/frame, or a drift/calibration plot).
-function syncSaveImg(){
-  const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||srIsPlot||rawFull||rawIsPlot);
-  const s=$('saveSvgBtn'); if(s) s.disabled = !(srIsPlot||rawIsPlot);   // SVG export: plots only, never raw/reconstruction
-}
+function syncSaveImg(){ const b=$('saveImgBtn'); if(b) b.disabled = !(srFull||srIsPlot||rawFull||rawIsPlot); }
 // Plot canvases have a backing store that CSS scales to the column, so text is
 // drawn in backing pixels — on a small screen the whole plot (labels included)
 // scales down and turns tiny; on a large one a too-small backing gets upscaled
@@ -4411,7 +4407,7 @@ function plotColors(){
   const cs=getComputedStyle(document.documentElement), v=n=>cs.getPropertyValue(n).trim();
   return {bg:v('--panel'), grid:v('--line'), text:v('--muted'), axis:v('--fg'), bar:v('--accent')};
 }
-// SVG export ("Save plot (SVG)"): a minimal from-scratch canvas→SVG recorder,
+// SVG export (part of "Save plot / image", for plots only): a minimal from-scratch canvas→SVG recorder,
 // NOT a general-purpose shim — covers exactly the Canvas2D surface the 7
 // plot-draw functions below use (fillStyle/strokeStyle/lineWidth/font/
 // textAlign/textBaseline, path building + stroke/fill, fillRect, fillText,
@@ -4535,7 +4531,7 @@ function makeSvgPlotCanvas(w,h){
   const ctx=new SvgRecordingContext(w,h);
   return {clientWidth:w, clientHeight:h, width:w, height:h, getContext:()=>ctx, _svgCtx:ctx};
 }
-// Set only for the duration of exportPlotSvg() below, to redirect the 7
+// Set only for the duration of exportPlotEither() below, to redirect the 7
 // plot functions' hardcoded setupPlot($('raw'|'sr'),true) target to an
 // SvgRecordingContext canvas instead of the real DOM one.
 let _plotTarget=null;
@@ -5085,6 +5081,38 @@ async function saveBlob(blob,name,desc,mime,ext){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
   return name;
 }
+// Like saveBlob(), but for a plot that's already been rendered as BOTH a
+// PNG blob and SVG text: offers both as file types in ONE native save
+// dialog (its own "Save as type" dropdown becomes the format picker), then
+// writes whichever one the user actually chose — read back from the
+// resolved file handle's own extension, since showSaveFilePicker() has no
+// separate "which type index was picked" field. Falls back to PNG (the
+// more universally supported format) when no native picker is available
+// (Safari/Firefox, or file:// without picker support) — there is no
+// in-page dialog offering SVG in that case, only the anchor-download hint
+// saveBlob() already logs once.
+async function savePlotEither(pngBlob, svgText, pngName){
+  if(window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({suggestedName:pngName,
+        types:[{description:'PNG image',accept:{'image/png':['.png']}},
+               {description:'SVG image',accept:{'image/svg+xml':['.svg']}}]});
+      const isSvg=/\.svg$/i.test(h.name);
+      const blob=isSvg ? new Blob([svgText],{type:'image/svg+xml'}) : pngBlob;
+      const ws=await h.createWritable(); await ws.write(blob); await ws.close();
+      return h.name;
+    }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
+      log(`  (save dialog unavailable: ${err&&err.message||err})`); }
+  } else if(!_dlHintShown){
+    _dlHintShown=true;
+    log('  (Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
+    log('   Enable “Ask where to save each file” in your browser to be prompted for a location.)');
+  }
+  const url=URL.createObjectURL(pngBlob), a=document.createElement('a');
+  a.href=url; a.download=pngName; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  return pngName;
+}
 
 // Thompson/Larson/Webb localization precision, with the pixelation and
 // background terms: sigma^2 = (s^2 + a^2/12)/N + 8*pi*s^4*b^2/(a^2*N^2)
@@ -5187,94 +5215,78 @@ function windowContent(which){
   return rawFull ? {label:'left window (raw frame)',suffix:'_rawframe'}
                  : (rawIsPlot ? {label:`left window (${rawPlotName} plot)`,suffix:'_'+rawPlotName} : null);
 }
-// Export a window as a PNG, exactly as shown. Image content (frame /
-// reconstruction) is re-rendered from its full-resolution *Full source at a
-// supersampled size (current zoom/pan + overlays); a direct-drawn plot (drift /
-// calibration) has no *Full, so its on-screen canvas is snapshotted as-is.
+// Export a window exactly as shown. Image content (frame / reconstruction)
+// is re-rendered from its full-resolution *Full source at a supersampled
+// size (current zoom/pan + overlays) and saved as PNG — a raster has no
+// meaningful vector form at real localization counts, so PNG is the only
+// option offered. A direct-drawn plot (drift / calibration / NeNA / FRC /
+// PCFO / line-profile / histogram) has no *Full — that case is delegated to
+// exportPlotEither() below, which lets the save dialog itself offer PNG or
+// SVG.
 async function exportPanel(which){
   const c=windowContent(which); if(!c){ log('Nothing to save — that window is empty.'); return; }
   const isSR = which==='sr', d=$(isSR?'sr':'raw');
   const full = isSR ? srFull : rawFull, V = isSR ? view : rawView;
-  let cv, outW, outH, note;
-  if(full){                                               // image content → supersample
-    const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;   // logical (CSS) view size — matches on-screen field of view
-    const s=Math.max(1/V.zoom, 2, paramValue('exportMinLong')/Math.max(DW,DH));
-    outW=Math.round(DW*s); outH=Math.round(DH*s);
-    const sw=DW/V.zoom, sh=DH/V.zoom, sx=V.cx-sw/2, sy=V.cy-sh/2;
-    cv=document.createElement('canvas'); cv.width=outW; cv.height=outH;
-    const ctx=cv.getContext('2d');
-    ctx.fillStyle='#000'; ctx.fillRect(0,0,outW,outH);    // match the panel's letterboxing
-    ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
-    ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
-    ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
-    if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
-    else drawRawOverlays(ctx,DW,DH);
-    ctx.restore();
-    note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
-  } else {                                                // a plot → snapshot the display canvas
-    cv=d; outW=d.width; outH=d.height; note=' — plot, at screen resolution';
-  }
-  // Plots render dark on screen (matching the app's own permanently-dark
-  // chrome — see plotColors()) but light for export, since a white
-  // background reads better once pasted into a paper/report. Flip the
-  // shared export-mode flag and redraw via whichever replot fn this panel
-  // currently has set (both take no args and always target $('raw')/$('sr')
-  // by closure), snapshot, then flip back and redraw again so the on-screen
-  // view is left exactly as it was.
-  const replot = full ? null : (isSR ? _replotSr : _replotRaw);
-  if(replot){ _plotExportMode=true; replot(); }
+  if(!full) return exportPlotEither(which);
+  const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;   // logical (CSS) view size — matches on-screen field of view
+  const s=Math.max(1/V.zoom, 2, paramValue('exportMinLong')/Math.max(DW,DH));
+  const outW=Math.round(DW*s), outH=Math.round(DH*s);
+  const sw=DW/V.zoom, sh=DH/V.zoom, sx=V.cx-sw/2, sy=V.cy-sh/2;
+  const cv=document.createElement('canvas'); cv.width=outW; cv.height=outH;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,outW,outH);    // match the panel's letterboxing
+  ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
+  ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
+  ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
+  if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
+  else drawRawOverlays(ctx,DW,DH);
+  ctx.restore();
+  const note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
-  if(replot){ _plotExportMode=false; replot(); }
   if(!blob){ log('Image export failed.'); return; }
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix+'.png';
   const saved=await saveBlob(blob,name,'PNG image','image/png','.png');
   if(!saved){ log('Image save cancelled.'); return; }
   log(`Saved ${c.label} as ${saved} (${outW}×${outH} px${note}, ${(blob.size/1048576).toFixed(1)} MB).`);
 }
-// The Save-image button: if both windows have content, ask which; otherwise save
-// whichever one is showing.
+// The Save-plot/image button: if both windows have content, ask which;
+// otherwise save whichever one is showing. Format (PNG vs SVG, for a plot)
+// is decided further downstream, not here — see exportPanel()/
+// exportPlotEither().
 function saveImageClicked(){
   const L=windowContent('raw'), R=windowContent('sr');
-  if(L&&R){ _saveSvgPending=false; $('saveImgWhat').textContent='PNG'; $('saveImgModal').classList.add('open'); }
+  if(L&&R) $('saveImgModal').classList.add('open');
   else if(R) exportPanel('sr');
   else if(L) exportPanel('raw');
   else log('Nothing to save yet.');
 }
-// Vector export for a plot panel — draws the SAME plot function used on
-// screen (via _replotRaw/_replotSr) into an SvgRecordingContext instead of
-// the real canvas (_plotTarget redirection, see above), so the on-screen
-// view is never touched — unlike exportPanel()'s PNG path there is no
-// draw/snapshot/redraw-back dance needed. Raw frame / SR reconstruction are
-// never offered SVG (no vector form at real localization-count scale) —
-// saveSvgClicked() below only ever calls this when the panel is a plot.
-async function exportPlotSvg(which){
-  const isSR=which==='sr', replot=isSR?_replotSr:_replotRaw;
+// Plot export: renders BOTH a PNG (screenshot of the on-screen canvas, same
+// as exportPanel()'s old plot branch) and an SVG (via SvgRecordingContext /
+// _plotTarget, see above — the real canvas is never touched for this one)
+// ahead of time, then lets the save dialog's own file-type dropdown decide
+// which one actually gets written — see savePlotEither() below. Both
+// renders are cheap (one extra plot redraw each), so computing both up
+// front is simpler than deferring rendering until after the dialog closes.
+async function exportPlotEither(which){
+  const c=windowContent(which); if(!c){ log('Nothing to save — that window is empty.'); return; }
+  const isSR=which==='sr', d=$(isSR?'sr':'raw'), replot=isSR?_replotSr:_replotRaw;
   if(!replot){ log('Nothing to save — that window is not a plot.'); return; }
-  const c=windowContent(which);
-  const d=$(isSR?'sr':'raw'), DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;
+  const outW=d.width, outH=d.height;
+  _plotExportMode=true; replot();
+  const pngBlob=await new Promise(r=>d.toBlob(r,'image/png'));
+  _plotExportMode=false; replot();                       // restore the on-screen (dark/light/contrast theme) view
+  if(!pngBlob){ log('Image export failed.'); return; }
+  const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;
   const rec=makeSvgPlotCanvas(DW,DH);
   _plotExportMode=true; _plotTarget=rec;
   replot();
   _plotTarget=null; _plotExportMode=false;
   const svgText=rec._svgCtx.serialize();
-  const blob=new Blob([svgText],{type:'image/svg+xml'});
-  const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix+'.svg';
-  const saved=await saveBlob(blob,name,'SVG image','image/svg+xml','.svg');
+  const baseName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix;
+  const saved=await savePlotEither(pngBlob, svgText, baseName+'.png');
   if(!saved){ log('Image save cancelled.'); return; }
-  log(`Saved ${c.label} as ${saved} (vector SVG, ${DW}×${DH} px).`);
-}
-// The Save-plot-SVG button: only ever offers panels currently showing a
-// plot (rawIsPlot/srIsPlot) — a raw frame or reconstruction never appears
-// here even if that window has content. Reuses the same "which window?"
-// chooser modal as PNG export when both panels qualify (see saveImgModal
-// wiring below, gated on the _saveSvgPending flag set here).
-let _saveSvgPending=false;
-function saveSvgClicked(){
-  const L=rawIsPlot?windowContent('raw'):null, R=srIsPlot?windowContent('sr'):null;
-  if(L&&R){ _saveSvgPending=true; $('saveImgWhat').textContent='SVG'; $('saveImgModal').classList.add('open'); }
-  else if(R) exportPlotSvg('sr');
-  else if(L) exportPlotSvg('raw');
-  else log('Nothing to save — no plot is currently shown.');
+  const isSvg=/\.svg$/i.test(saved);
+  log(`Saved ${c.label} as ${saved} (${isSvg?'vector SVG':`${outW}×${outH} px, screen resolution`}).`);
 }
 
 /* ===========================================================================
@@ -8442,7 +8454,6 @@ $('csvFile').addEventListener('change', async e=>{
 });
 $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
-$('saveSvgBtn').addEventListener('click',saveSvgClicked);
 $('clearLogBtn').addEventListener('click',()=>{ $('log').textContent=''; });
 $('exportLogBtn').addEventListener('click',async()=>{
   const txt=$('log').textContent.replace(/^\n+/,'');
@@ -9290,8 +9301,8 @@ function wireHelp(){
   // the "save which view?" chooser (same deferred wiring — its markup follows the script)
   const sm=$('saveImgModal');
   if(sm){ const shide=()=>sm.classList.remove('open');
-    $('saveImgSR').addEventListener('click',()=>{ shide(); (_saveSvgPending?exportPlotSvg:exportPanel)('sr'); });
-    $('saveImgRaw').addEventListener('click',()=>{ shide(); (_saveSvgPending?exportPlotSvg:exportPanel)('raw'); });
+    $('saveImgSR').addEventListener('click',()=>{ shide(); exportPanel('sr'); });
+    $('saveImgRaw').addEventListener('click',()=>{ shide(); exportPanel('raw'); });
     $('saveImgCancel').addEventListener('click',shide);
     sm.addEventListener('click',e=>{ if(e.target===sm) shide(); });
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') shide(); }); }
@@ -9693,7 +9704,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
 <div class="modal-bg" id="saveImgModal">
   <div class="modal" style="max-width:340px;text-align:center">
     <h2 style="margin:0 0 8px">Save which window?</h2>
-    <p style="margin:0 0 14px">Both windows have content — pick which to export as <span id="saveImgWhat">PNG</span>.</p>
+    <p style="margin:0 0 14px">Both windows have content — pick which to export.</p>
     <div class="btnrow">
       <button id="saveImgRaw">Left window</button>
       <button id="saveImgSR">Right window</button>
