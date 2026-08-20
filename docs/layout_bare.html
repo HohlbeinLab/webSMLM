@@ -8,10 +8,14 @@
   drawer, both measuring the real header height via --header-h rather than a
   guessed offset), a generic button row, the single shared progress bar
   (#bar/#prog), one collapsible "module" section, one labeled select, two
-  display windows (canvas placeholders), and a working Log panel (clear /
-  export as .txt). All font sizes, colours and CSS custom properties are
-  unchanged from webSMLM. No detect/fit/render/TIFF logic is included — this
-  is chrome only.
+  display windows (canvas placeholders, each wrapped in a top-aligned
+  .panel-body so a real project's own per-panel trailing controls — a scrub
+  slider, a filter note, … — never throw the two canvases out of vertical
+  alignment with each other), a side-by-side/stacked panel layout toggle
+  (layoutToggleBtn, next to the Log panel's own Clear/Export buttons — see
+  applyLayout()), and a working Log panel (clear / export as .txt). All font
+  sizes, colours and CSS custom properties are unchanged from webSMLM. No
+  detect/fit/render/TIFF logic is included — this is chrome only.
 -->
 <html lang="en">
 <head>
@@ -129,8 +133,26 @@
   select.sel{flex:0 0 60%;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  /* very wide/short content: side by side would squeeze each panel to half width
+     on top of already being short — a real project would toggle this from its own
+     loaded-data aspect ratio (see applyLayout() below) independent of the
+     viewport-width breakpoint further down; layoutToggleBtn lets the user override
+     it by hand either way. */
+  .canvases.stacked{grid-template-columns:1fr}
   .canvases > .card{min-width:0}   /* allow the panels to shrink below their content size */
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  /* Both canvases always track --frame-ar, so the two panels are always the same
+     height — .panel-body (canvas + any trailing per-panel controls a real project
+     adds below it) stays top-aligned (flex's own default), NOT centred: centring
+     each panel's own canvas+controls group independently shifts the two canvases
+     out of vertical alignment with each other by roughly half of whichever
+     trailing control only ONE of the two panels happens to have. Top-aligning puts
+     both canvases flush against their own h4 always, so they start at the same y
+     regardless of what trailing content either panel has; any leftover height from
+     that difference lands invisibly at the bottom of the shorter card instead. */
+  .canvases > .card{display:flex;flex-direction:column}
+  .canvases > .card > h4{flex:0 0 auto}
+  .canvases > .card > .panel-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
   /* one-line headers: title kept intact, caption truncates with an ellipsis, so a
      long caption can never wrap to a 2nd line and make a panel taller than its
      neighbour (both panels then stay the same height without any coupling). */
@@ -138,7 +160,7 @@
   .card h4 > span:first-child{flex:0 0 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card h4 small{color:var(--muted);font-weight:400}
   #leftInfo,#rightInfo{flex:1 1 auto;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  canvas{width:100%;image-rendering:pixelated;background:#000;border-radius:6px;display:block}
+  canvas{width:100%;image-rendering:pixelated;background:#000;border:1px solid var(--line);border-radius:6px;display:block}
   /* Both panels share one aspect ratio so they're always the same size (height:auto
      otherwise derives from each canvas's backing store, which can drift apart on
      resize / DPR re-render). --frame-ar would be set to a loaded dataset's w/h in a
@@ -240,19 +262,25 @@
   </aside>
 
   <main class="main">
-    <div class="canvases">
+    <div class="canvases" id="canvases">
       <div class="card">
         <h4><span id="leftTitle">leftwindow</span> <small id="leftInfo">— placeholder caption</small></h4>
-        <canvas id="left"></canvas>
+        <div class="panel-body">
+          <canvas id="left"></canvas>
+          <!-- a real project's own per-panel trailing controls (a scrub slider, a
+               filter note, …) go here, inside .panel-body, below the canvas -->
+        </div>
       </div>
       <div class="card">
         <h4><span id="rightTitle">rightwindow</span> <small id="rightInfo">— placeholder caption</small></h4>
-        <canvas id="right"></canvas>
+        <div class="panel-body">
+          <canvas id="right"></canvas>
+        </div>
       </div>
     </div>
 
     <div class="card" style="margin-top:16px">
-      <h4><span>Log</span><span style="display:flex;gap:6px"><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
+      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log">Ready.</div>
     </div>
   </main>
@@ -346,6 +374,26 @@ function wireHelp(){
   for(const id of ['leftInfo','rightInfo']){ const el=$(id); if(el) el.addEventListener('mouseenter',()=>{ el.title=el.textContent; }); }
 }
 if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',wireHelp); else wireHelp();
+
+// ---- side-by-side vs stacked panel layout ------------------------------
+// null = auto (a real project would decide this from its own loaded data's
+// aspect ratio, e.g. h/w<0.5 → stack, on every new load); true/false = the
+// user has manually overridden it via layoutToggleBtn, which then sticks
+// across further loads this session instead of the next dataset silently
+// resetting the user's own choice.
+let layoutOverride=null;
+function applyLayout(){
+  const stacked = layoutOverride!==null ? layoutOverride : false;   // no loaded-data aspect ratio in this bare shell
+  $('canvases').classList.toggle('stacked', stacked);
+  const btn=$('layoutToggleBtn');
+  if(btn){ btn.textContent = stacked ? 'Side by side' : 'Stack panels';
+    btn.title = stacked ? 'Switch to side-by-side panels' : 'Switch to stacked panels (full-width, one above the other)'; }
+}
+$('layoutToggleBtn').addEventListener('click', ()=>{
+  layoutOverride = !$('canvases').classList.contains('stacked');
+  applyLayout();
+  window.dispatchEvent(new Event('resize'));   // panel boxes just changed shape — re-fit hook for a real project's own canvas sizing
+});
 
 // ---- log panel --------------------------------------------------------
 $('clearLogBtn').addEventListener('click',()=>{ $('log').textContent=''; });
