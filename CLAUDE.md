@@ -569,6 +569,26 @@ relevant one before editing rather than scrolling:
   analysis logic should); only DOM-reading/writing belongs in the wrapper. See
   `docs/DOCUMENTATION.md` §8 for the full headless API and `docs/REFACTOR_PLAN.md` for the design
   rationale (three-layer split: in-page API, CLI driver, URL-param autorun).
+
+  `config.exportPlots` (also `--exportPlots`/`exportPlots=1` on the CLI/autorun) renders whichever
+  of drift/NeNA/FRC/PCFO/calibration were actually computed this call into `result.plots`, each a
+  `{pngDataUrl, svgText}` pair — reuses **render**'s `renderPlotBothFormats()`/`_plotTarget`
+  redirection (the same mechanism "Save plot / image" uses interactively, see **render** below), so
+  no visible browser window is needed, just a page context (which `analyze()` already runs inside).
+  `drawNenaPlot(res)`/`drawFrcPlot(r)` already take an explicit result parameter, so those render
+  directly; `drawDriftCurve()`/`drawPcfoPlot()`/`drawCalibration()` don't (they read
+  `lastDrift`/`lastResult`, `pcfoLastPts`/`pcfoLastFit`/`pcfoLastR2`, `calib`/`calView` respectively)
+  — three small `render*PlotHeadless()` wrappers next to each draw function stash the real
+  module-level global(s), call `renderPlotBothFormats()`, then restore them. `calib` specifically
+  needs this wrapper to live OUTSIDE `analyze()`'s own body: `analyze()` declares its own local
+  `let calib=null` (shadowing the module-level one `drawCalibration()` reads), so a function that
+  touches the real global has to be defined where that shadow doesn't apply. One flag renders
+  everything available this run, not a per-plot toggle. The calibration plot needs a FRESH build
+  this call (`calibrationFile`/`calibrationFiles`) — a bare `calibrationJson` only carries the
+  derived model, not the point cloud the plot needs. The raw frame/reconstruction are never
+  included (no vector form at real localization counts, same reasoning as the interactive button);
+  the line-profile/histogram plots are inherently interactive (a user-drawn line / a chosen table
+  column) with no headless equivalent to render from, so `exportPlots` doesn't cover them.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data + filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it

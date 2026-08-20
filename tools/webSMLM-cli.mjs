@@ -25,6 +25,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --cropX0 100 --cropY0 0 --cropX1 600 --cropY1 400
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --sSmlmDistMin 2200 --sSmlmDistMax 2800
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --sptTrack --sptFrameTime 0.05
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeNeNA --computeFRC --exportPlots
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -77,6 +78,14 @@
 // the raw-panel crop tool: Localize (and PCFO, if also requested) only ever
 // see the cropped region, both faster (smaller frames) and reproducible
 // (logged, not a manual click). Throws if the resulting region is under 8x8 px.
+// --exportPlots renders whichever of drift/NeNA/FRC/PCFO/calibration were
+// actually requested this run (--correctDrift/--computeNeNA/--computeFRC/
+// --estimateGainOffset/--calibration <bead-stack.tif>) as BOTH a PNG and an
+// SVG, written as <name>_plot.png/.svg for each (e.g. drift_plot.svg,
+// nena_plot.png) — one flag for everything available, not a toggle per
+// plot. The raw frame/reconstruction stay PNG-only as always (no vector
+// form at real localization counts); the calibration plot needs a FRESH
+// build this run (--calibration a .tif/.tiff, not a .json).
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
@@ -216,7 +225,7 @@ try {
       if (spec) {
         config[key] = spec.type === 'bool' ? (raw === '1' || raw === 'true' || raw === true)
                      : spec.type === 'enum' ? String(raw) : +raw;
-      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sptTrack') {
+      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sptTrack' || key === 'exportPlots') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
@@ -236,7 +245,7 @@ try {
     config.onProgress = pct => console.log(progressTag + pct);
     config.onLog = m => console.log(logTag + m);
     const r = await window.webSMLM.analyze(config);
-    if (config.calibrationOnly) return { calibrationOnly: true, calibJsonText: r.calibJsonText, logText: r.logText };
+    if (config.calibrationOnly) return { calibrationOnly: true, calibJsonText: r.calibJsonText, logText: r.logText, plots: r.plots };
     // Trim: locs itself can be large and is redundant with csvText for file
     // output — keep only what a CLI run actually needs to write out.
     return {
@@ -254,15 +263,33 @@ try {
       // itself only returns {nTracks, nQualify, meanD, medianD}, so unlike
       // sSmlmPair/pcfo above there's nothing further to trim here.
       spt: r.spt,
+      plots: r.plots,
     };
   }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG });
 
   const calibOutName = (calibPath ? basename(calibPath).replace(/\.(ome\.)?tiff?$/i, '') : 'webSMLM') + '_calib.json';
 
+  // --exportPlots: result.plots is {drift?, nena?, frc?, pcfo?, calibration?},
+  // each a {pngDataUrl, svgText} pair — only keys for what was actually
+  // computed this run are present. Writes <key>_plot.png/.svg for each.
+  function writePlots(plots) {
+    if (!plots) return [];
+    const written = [];
+    for (const key of Object.keys(plots)) {
+      const { pngDataUrl, svgText } = plots[key];
+      const pngName = `${key}_plot.png`, svgName = `${key}_plot.svg`;
+      writeFileSync(join(outDir, pngName), Buffer.from(pngDataUrl.replace(/^data:image\/png;base64,/, ''), 'base64'));
+      writeFileSync(join(outDir, svgName), svgText);
+      written.push(pngName, svgName);
+    }
+    return written;
+  }
+
   if (result.calibrationOnly) {
     writeFileSync(join(outDir, 'log.txt'), result.logText);
     writeFileSync(join(outDir, calibOutName), result.calibJsonText);
-    printLine(`Done: calibration written to ${join(outDir, calibOutName)}`);
+    const plotFiles = writePlots(result.plots);
+    printLine(`Done: calibration written to ${join(outDir, calibOutName)}${plotFiles.length ? ` (+ ${plotFiles.join(', ')})` : ''}`);
   } else {
     writeFileSync(join(outDir, 'result.csv'), result.csvText);
     writeFileSync(join(outDir, 'settings.json'), result.settingsText);
@@ -270,13 +297,14 @@ try {
     const pngData = result.reconstructionPng.replace(/^data:image\/png;base64,/, '');
     writeFileSync(join(outDir, 'reconstruction.png'), Buffer.from(pngData, 'base64'));
     if (result.calibJsonText) writeFileSync(join(outDir, calibOutName), result.calibJsonText);
+    const plotFiles = writePlots(result.plots);
     writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
       nLocalizations: result.nLocalizations, timings: result.timings,
       drift: result.drift, nena: result.nena, frc: result.frc, pcfo: result.pcfo,
       sSmlmPair: result.sSmlmPair, spt: result.spt,
     }, null, 2));
 
-    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}`);
+    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}${plotFiles.length ? ` (+ ${plotFiles.join(', ')})` : ''}`);
   }
 } catch (err) {
   if (barActive) { process.stdout.write('\n'); barActive = false; }

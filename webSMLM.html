@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-20f; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-20g; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -28,17 +28,18 @@
     detect          3526   per-frame band-pass + local-maxima detection
     fit             3782   phasor / LS / Poisson-MLE 2D+3D localization
     render          4139   accumulate to offscreen buffer; view/colour/blur;
-                           SvgRecordingContext (SVG plot export recorder)
-    workers         4898   frame-parallel detect/fit worker pool
-    export          5054   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5291   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5679   AIM drift correction (2D+z)
-    locprecision    5917   NeNA + FRC
-    sSMLM           6550   spectrally resolved SMLM pair-finding
-    spt             6989   single particle tracking, trackpy-inspired
-    pipeline        7419   top-level orchestration, *Core()/wrapper split
-    table           8939   localizations table, filtering, histograms
-    headless API    9367   window.webSMLM.analyze()/analyzeBatch()
+                           SvgRecordingContext, renderPlotBothFormats()
+                           (headless + interactive plot export)
+    workers         4925   frame-parallel detect/fit worker pool
+    export          5081   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5318   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5718   AIM drift correction (2D+z)
+    locprecision    5966   NeNA + FRC
+    sSMLM           6609   spectrally resolved SMLM pair-finding
+    spt             7048   single particle tracking, trackpy-inspired
+    pipeline        7478   top-level orchestration, *Core()/wrapper split
+    table           8998   localizations table, filtering, histograms
+    headless API    9426   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1548,7 +1549,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20f</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20g</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1956,7 +1957,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20f · "Save image" merged into "Save plot / image": for a plot, the save dialog's own file-type dropdown now offers PNG or SVG
+</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20g · headless analyze()/CLI gains config.exportPlots / --exportPlots: renders drift/NeNA/FRC/PCFO/calibration plots as PNG+SVG with no browser window needed
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4535,6 +4536,33 @@ function makeSvgPlotCanvas(w,h){
 // plot functions' hardcoded setupPlot($('raw'|'sr'),true) target to an
 // SvgRecordingContext canvas instead of the real DOM one.
 let _plotTarget=null;
+// Headless plot rendering (window.webSMLM.analyze()'s config.exportPlots,
+// MODULE: headless API): runs an EXISTING plot-draw function TWICE — once
+// into a real, detached <canvas> (never attached to the DOM, so no visible
+// window/screen is needed) for a PNG data URL, once into an
+// SvgRecordingContext for SVG text — via the same _plotTarget redirection
+// exportPlotEither() uses interactively. There is no on-screen panel to
+// size against headlessly, so a fixed 4:3 default is used (matches every
+// plot's own letterbox aspect). The PNG target's width/height are real
+// accessors delegating to the detached canvas's own backing store (not
+// plain properties) — setupPlot() can decide to resize the backing store
+// based on devicePixelRatio, and a plain property would silently desync
+// from the canvas actually being drawn into, clipping the result.
+const HEADLESS_PLOT_W=900, HEADLESS_PLOT_H=675;
+function renderPlotBothFormats(drawFn){
+  const cv=document.createElement('canvas'); cv.width=HEADLESS_PLOT_W; cv.height=HEADLESS_PLOT_H;
+  const pngTarget={ clientWidth:HEADLESS_PLOT_W, clientHeight:HEADLESS_PLOT_H,
+    get width(){ return cv.width; }, set width(v){ cv.width=v; },
+    get height(){ return cv.height; }, set height(v){ cv.height=v; },
+    getContext:()=>cv.getContext('2d') };
+  _plotExportMode=true; _plotTarget=pngTarget; drawFn();
+  const pngDataUrl=cv.toDataURL('image/png');
+  const rec=makeSvgPlotCanvas(HEADLESS_PLOT_W,HEADLESS_PLOT_H);
+  _plotTarget=rec; drawFn();
+  const svgText=rec._svgCtx.serialize();
+  _plotTarget=null; _plotExportMode=false;
+  return {pngDataUrl, svgText};
+}
 // Re-run the plot currently shown in each panel (used on window resize so the
 // backing store — and thus text crispness — tracks the new size). Set by each
 // plot's draw fn; cleared when the panel reverts to a frame / reconstruction.
@@ -5638,6 +5666,18 @@ function drawCalibration(){
                : `z ${vx.toFixed(0)} nm · |F| ${vy.toFixed(3)}`});
   _replotSr=drawCalibration;
 }
+// Headless calibration-plot render (window.webSMLM.analyze()'s
+// config.exportPlots): analyze() declares its OWN local `calib`/`cal3d`/
+// `cal3dW` (shadowing the module-level ones drawCalibration() actually
+// reads), so this lives outside analyze()'s scope, where `calib`/`calView`
+// below correctly resolve to the real module globals — analyze() just
+// passes its own local calibration object in as calibObj.
+function renderCalibrationPlotHeadless(calibObj){
+  const prevCalib=calib, prevView=calView;
+  calib=calibObj; calView='sigma';   // 'sigma' (Gaussian width) is always present; 'mag'/'ratio' are interactive-toggle-only views of the same beads
+  try{ return renderPlotBothFormats(drawCalibration); }
+  finally{ calib=prevCalib; calView=prevView; }
+}
 // simple "nice" axis ticks
 function niceTicks(lo,hi,n){
   if(hi<=lo) return [lo]; const raw=(hi-lo)/n, mag=Math.pow(10,Math.floor(Math.log10(raw)));
@@ -5913,6 +5953,16 @@ function drawDriftCurve(){
     fmt:(vx,vy)=>`frame ${vx.toFixed(0)} · ${vy.toFixed(1)} nm`});
   _replotRaw=drawDriftCurve;
   syncSaveImg();
+}
+// Headless drift-plot render (window.webSMLM.analyze()'s config.exportPlots)
+// — analyze() doesn't shadow lastDrift/lastResult, but stashing/restoring
+// them here (rather than inline in analyze()) keeps the same one-line-per-
+// plot pattern renderCalibrationPlotHeadless()/renderPcfoPlotHeadless() use.
+function renderDriftPlotHeadless(driftInner, px){
+  const prevDrift=lastDrift, prevResult=lastResult;
+  lastDrift=driftInner; lastResult={px};   // drawDriftCurve only reads lastResult.px
+  try{ return renderPlotBothFormats(drawDriftCurve); }
+  finally{ lastDrift=prevDrift; lastResult=prevResult; }
 }
 
 /* ===========================================================================
@@ -6481,6 +6531,16 @@ function drawPcfoPlot(){
   registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymax,yBot:ymin, fmt:(vx,vy)=>`${vx.toFixed(0)} ADU · ${vy.toFixed(0)} ADU²`});
   _replotRaw=drawPcfoPlot;
   syncSaveImg();
+}
+// Headless PCFO-plot render (window.webSMLM.analyze()'s config.exportPlots)
+// — analyze() doesn't shadow pcfoLastPts/pcfoLastFit/pcfoLastR2, but
+// stashing/restoring here keeps the same pattern as the other two headless
+// plot helpers rather than reaching into module globals inline in analyze().
+function renderPcfoPlotHeadless(pts, fit, r2){
+  const prevPts=pcfoLastPts, prevFit=pcfoLastFit, prevR2=pcfoLastR2;
+  pcfoLastPts=pts; pcfoLastFit=fit; pcfoLastR2=r2;
+  try{ return renderPlotBothFormats(drawPcfoPlot); }
+  finally{ pcfoLastPts=prevPts; pcfoLastFit=prevFit; pcfoLastR2=prevR2; }
 }
 // DOM-free core (Layer 1, same split as runCore/driftCore/calibrationCore — see
 // docs/REFACTOR_PLAN.md): takes an explicit `stack` and a flat `config` (pcfoFrames/
@@ -9373,10 +9433,11 @@ function wireHelp(){
    dialog, or a Blob-download — every result comes back as in-memory data,
    for a driving script (Layer 2, Playwright) or a future `?autorun=1`
    URL-param handler (Layer 0) to write to disk or inspect as it likes.
-   Not yet covered: FRC/NeNA return their numeric result only, no plot PNG
-   (drawFrcPlot/drawNenaPlot are still tied to the interactive #raw canvas
-   — extracting their plotting logic to target an arbitrary canvas is a
-   follow-up, not done here).
+   config.exportPlots renders drift/NeNA/FRC/PCFO/calibration plots (PNG +
+   SVG each) via the same _plotTarget redirection the interactive "Save
+   plot / image" button uses (see MODULE: render, renderPlotBothFormats())
+   — no visible window/DOM attachment needed, so this works from a true
+   headless Chromium (tools/webSMLM-cli.mjs) same as everything else here.
    =========================================================================== */
 // Every PARAMS default, no DOM at all — the base a config gets merged onto,
 // so a caller only needs to specify what it wants to override.
@@ -9428,7 +9489,8 @@ function calibFromJson(o){
 //                          calLast) — throws if the resulting region is
 //                          under 8x8 px.
 //   correctDrift          — run AIM drift correction after fitting
-//   computeNeNA/computeFRC — also compute those (numeric result only for now)
+//   computeNeNA/computeFRC — also compute those (numeric result only unless
+//                          exportPlots is also set, see below)
 //   estimateGainOffset    — run PCFO gain/offset estimation (pcfoCore, see
 //                          MODULE: fit) on config.file/files BEFORE fitting,
 //                          overriding config.gain/camoffset with the estimate
@@ -9436,11 +9498,27 @@ function calibFromJson(o){
 //                          usable tiles); pcfoFrames/pcfoK/pcfoRnstd are
 //                          ordinary PARAMS tuning it, already defaulted by
 //                          defaultConfig() above
+//   exportPlots           — also render whichever of drift/NeNA/FRC/PCFO/
+//                          calibration were actually computed above as a
+//                          {pngDataUrl, svgText} pair each, into result.plots
+//                          (e.g. result.plots.drift, only present if
+//                          correctDrift was also set) — one flag for
+//                          everything available this run, not a toggle per
+//                          plot. The calibration plot needs a FRESH build
+//                          this call (calibrationFile/calibrationFiles) —
+//                          a bare calibrationJson doesn't carry the point
+//                          cloud the plot needs, only the derived model. The
+//                          raw frame/reconstruction are never included (no
+//                          vector form at real localization counts); the
+//                          line-profile/histogram plots are inherently
+//                          interactive (a user-drawn line / a chosen table
+//                          column) and have no headless equivalent to render.
 //   onProgress            — optional (0..100) callback for a driving script's
 //                          own progress reporting
 // Returns {locs, csvText, logText, settingsText, timings, reconstructionPng,
-// drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo} — every text/PNG
-// field is ready to write straight to disk, no further conversion needed.
+// drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, plots} — every
+// text/PNG/SVG field is ready to write straight to disk, no further
+// conversion needed. plots is null unless config.exportPlots was set.
 // pcfo is {gain, gainStd, offset, offsetStd, r2, pts, fit} when
 // estimateGainOffset was requested and PCFO found enough usable tiles to fit,
 // else null; settingsText already reflects whatever gain/camoffset ended up
@@ -9479,7 +9557,10 @@ async function analyze(config){
   } else if(cfg.calibrationJson){
     ({zcal:cal3d, wcal:cal3dW} = calibFromJson(cfg.calibrationJson));
   }
-  if(cfg.calibrationOnly) return { calib, calibJsonText, logText: logLines.join('\n') };
+  if(cfg.calibrationOnly){
+    const plots = (cfg.exportPlots && calib) ? { calibration: renderCalibrationPlotHeadless(calib) } : null;
+    return { calib, calibJsonText, logText: logLines.join('\n'), plots };
+  }
 
   let stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
   // config.cropX0/Y0/X1/Y1 — the headless equivalent of the raw-panel crop tool
@@ -9575,11 +9656,30 @@ async function analyze(config){
   const zc = cfg.zcolor && (hasZ || hasDist);
   const zr = zc ? (zRange(locs, colorField)||{lo:0,hi:1}) : {lo:0,hi:1};
   const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog);
+  // config.exportPlots: renders whichever of drift/NeNA/FRC/PCFO/calibration
+  // were actually computed above as BOTH a PNG and an SVG (renderPlotBothFormats(),
+  // via the same _plotTarget redirection "Save plot / image" uses interactively
+  // — no visible window needed, see MODULE: render). One flag, not a per-plot
+  // toggle — a caller that doesn't want all of them can just ignore the keys it
+  // doesn't need. The raw frame/reconstruction are never included here (no
+  // vector form at real localization counts — same reasoning as the interactive
+  // button); the line-profile/histogram plots are inherently interactive
+  // (a user-drawn line / a chosen table column) and have no headless equivalent
+  // to render from, so they're not covered by this flag either.
+  let plots=null;
+  if(cfg.exportPlots){
+    plots={};
+    if(drift) plots.drift = renderDriftPlotHeadless(drift.drift, cfg.pxnm);
+    if(nena && !nena.err) plots.nena = renderPlotBothFormats(()=>drawNenaPlot(nena));
+    if(frc && !frc.err) plots.frc = renderPlotBothFormats(()=>drawFrcPlot(frc));
+    if(pcfo) plots.pcfo = renderPcfoPlotHeadless(pcfo.pts, pcfo.fit, pcfo.r2);
+    if((cfg.calibrationFile||cfg.calibrationFiles) && calib) plots.calibration = renderCalibrationPlotHeadless(calib);
+  }
   return { locs, csvText:parts.join(''), logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
            drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
-           calib, calibJsonText, pcfo, sSmlmPair, spt };
+           calib, calibJsonText, pcfo, sSmlmPair, spt, plots };
 }
 // Loops analyze() over multiple files with the same config (per-file
 // overrides via configs[i] are not needed yet — add if a real use case
@@ -9635,7 +9735,7 @@ async function runAutorun(){
     const spec=PARAMS[key];
     if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
                           : spec.type==='enum' ? val : +val; continue; }
-    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair'||key==='sptTrack') config[key]=(val==='1'||val==='true');
+    if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair'||key==='sptTrack'||key==='exportPlots') config[key]=(val==='1'||val==='true');
     if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
   }
   const fileUrl=qp.get('fileUrl');

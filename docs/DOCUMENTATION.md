@@ -1429,6 +1429,22 @@ const result = await window.webSMLM.analyze({
   `result.pcfo` is `null`, same as the interactive button leaving the fields
   untouched on failure. Not available in `config.calibrationOnly` mode (no
   stack is loaded there).
+- `config.exportPlots` — boolean, not a `PARAMS` entry. Renders whichever of
+  drift/NeNA/FRC/PCFO/calibration were actually computed this call (i.e.
+  `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset`/
+  `calibrationFile`(`s`) were also set) as BOTH a PNG and an SVG, returned in
+  `result.plots` — one flag for everything available this run, not a toggle
+  per plot. No visible browser window is needed (same headless-safe
+  rendering `reconstructionPng` already uses, via a detached `<canvas>`/an
+  SVG recorder — see **render** in `CLAUDE.md`). The raw frame/reconstruction
+  are never included (no vector form at real localization counts, same
+  reasoning as the interactive **Save plot / image** button); the
+  line-profile/histogram plots are inherently interactive (a user-drawn line
+  / a chosen table column) with no headless equivalent to render from. The
+  calibration plot needs a FRESH build this call (`calibrationFile`/
+  `calibrationFiles`) — a bare `calibrationJson` only carries the derived
+  model, not the point cloud the plot needs. Works in `config.calibrationOnly`
+  mode too (renders just the calibration plot, if requested).
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
   be interactively (0–100), for a driving script's own progress reporting.
 - `config.onLog(msg)` — optional, called for every line `analyze()` would
@@ -1445,7 +1461,13 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt}`:
+**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
+- `plots` is `null` unless `config.exportPlots` was set; otherwise an object
+  with only the keys for what was actually computed this run — e.g.
+  `{drift, nena}` if only `correctDrift`/`computeNeNA` were requested. Each
+  value is `{pngDataUrl, svgText}`: `pngDataUrl` is a
+  `data:image/png;base64,...` URL like `reconstructionPng`; `svgText` is a
+  ready-to-write SVG document string (no encoding needed).
 - `pcfo` is `{gain, gainStd, offset, offsetStd, r2, pts, fit}` (`pcfoCore()`'s
   return shape) when `estimateGainOffset` was requested and PCFO found
   enough usable tiles to fit, else `null`. `gain`/`offset` are what
@@ -1506,9 +1528,9 @@ no driving script, works by just opening the link in any browser.
   Unrecognised keys are silently ignored, same tolerance as a loaded
   settings JSON.
 - `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset`/`sSmlmPair`/
-  `sptTrack` work as `=1`/`=true` flags too, same as passing them to
-  `analyze()` directly. `cropX0`/`cropY0`/`cropX1`/`cropY1` work as plain
-  numeric params the same way.
+  `sptTrack`/`exportPlots` work as `=1`/`=true` flags too, same as passing
+  them to `analyze()` directly. `cropX0`/`cropY0`/`cropX1`/`cropY1` work as
+  plain numeric params the same way.
 - `fileUrl` (required to actually run) and `calibrationJson` come from
   **`fileUrl`/`calibrationUrl`** query params instead — both must be
   fetchable URLs, not local paths (the browser has no way to name a local
@@ -1567,12 +1589,16 @@ node webSMLM-cli.mjs --file /path/to/stack.tif --pxnm 160 --method gaussmle
 Writes `result.csv`, `settings.json`, `log.txt`, `reconstruction.png` and
 `summary.json` (localization count + timings + drift/NeNA/FRC/PCFO results)
 to `--out` — which defaults to a `webSMLM-out` folder **next to `--file`**,
-not wherever the shell happens to be, unless given explicitly. Any
+not wherever the shell happens to be, unless given explicitly. `--exportPlots`
+also writes `<key>_plot.png`/`<key>_plot.svg` for each of drift/NeNA/FRC/
+PCFO/calibration that was actually requested this run (see
+`config.exportPlots` above) — e.g. `--correctDrift --computeNeNA
+--exportPlots` writes `drift_plot.png`/`.svg` and `nena_plot.png`/`.svg`. Any
 `--key=value` not listed in the script's header comment is passed straight
 through as a `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248
 --camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/
-`--estimateGainOffset`/`--sSmlmPair`/`--sptTrack` are bare boolean flags —
-the last-but-two runs PCFO gain/offset estimation on `--file` itself before
+`--estimateGainOffset`/`--sSmlmPair`/`--sptTrack`/`--exportPlots` are bare
+boolean flags — the last-but-three runs PCFO gain/offset estimation on `--file` itself before
 localizing and overrides `--gain`/`--camoffset` with the estimate
 (`summary.json`'s `pcfo` field records what was found:
 `gain`/`gainStd`/`offset`/`offsetStd`/`r2`, `pts` trimmed since it's
