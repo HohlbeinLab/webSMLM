@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM):
 the entire application — HTML, CSS, all JavaScript, and the two bundled decoders (pako, UTIF) —
-lives in `webSMLM.html` (growing past 8000 lines; the file's own top-of-file **MODULE INDEX**
+lives in `webSMLM.html` (growing past 9900 lines; the file's own top-of-file **MODULE INDEX**
 comment gives current per-module line numbers — re-`grep -n "MODULE:"` if it looks stale, and
 refresh it alongside a build-letter bump when a change has moved things by more than a few
 lines). It loads a raw TIFF stack, detects/localizes emitters, and renders a super-resolution
