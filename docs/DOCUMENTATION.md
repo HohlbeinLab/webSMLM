@@ -43,6 +43,18 @@ Two more buttons live outside this action stack, top-left of the whole page:
 re-open so toggling never resizes the canvases) and `sidePin` (📌, dock a
 floating sidebar back into the normal layout).
 
+The page header itself (top-right, next to the title) holds two more
+controls: a **colour theme** switch — three small icon buttons
+(`themeLightBtn`/`themeDarkBtn`/`themeContrastBtn`, ☀/☾/◐), one click each
+to switch between dark (the app's original look), light, and a
+high-contrast theme, remembered across visits (`localStorage`, falling
+back to dark if storage is blocked) — and `layoutToggleBtn` ("Stack
+panels"/"Side by side"), which switches the two main panels between
+side-by-side and stacked (full-width, one above the other), overriding the
+automatic choice `initScrub()` makes from the loaded stack's own aspect
+ratio. Neither is a `PARAMS` entry or part of Save/Load Settings — both are
+pure display/layout, not analysis parameters.
+
 ### Sidebar — collapsible modules (below the action buttons)
 
 Each is a `<details>` element; opening one doesn't affect the others. All

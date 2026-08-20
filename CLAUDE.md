@@ -279,14 +279,47 @@ relevant one before editing rather than scrolling:
   at the bottom of the shorter card instead of visibly offsetting its canvas.
 
   Every plot function reads colours from `plotColors()` (`{bg,grid,text,axis,bar}`) rather than a
-  hardcoded hex value, driven by a module-level `_plotExportMode` flag — `false` (dark, matching the
-  app's own `:root` custom properties, since webSMLM has no separate light/dark app theme) on screen
-  always; `true` (the original light palette) only inside `exportPanel()`'s "plot" branch, which
-  flips the flag, redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots via `cv.toBlob()`,
-  then flips back and redraws again — a saved PNG reads better on a white background once pasted
-  into a report, but the live view stays dark. A few accent colours (fit-line green/red/magenta, the
-  exponential-fit orange, marker red) stay hardcoded across both palettes, chosen to read clearly
-  against either background.
+  hardcoded hex value, driven by a module-level `_plotExportMode` flag. `false` (the normal,
+  on-screen case) reads the values LIVE via `getComputedStyle(document.documentElement)` for
+  `--panel`/`--line`/`--muted`/`--fg`/`--accent` — so plots automatically track whichever of the
+  app's three UI themes (dark/light/contrast, see **params**' `applyTheme()`) is currently active,
+  with no second palette to keep in sync by hand. `true` — a completely separate, FIXED light
+  palette, independent of the UI theme — only inside `exportPanel()`'s "plot" branch, which flips
+  the flag, redraws once via the panel's `_replotRaw`/`_replotSr`, snapshots via `cv.toBlob()`, then
+  flips back and redraws again: a saved PNG reads better on a white background once pasted into a
+  report regardless of which theme you're viewing the app in, so this branch never changes. A few
+  accent colours (fit-line green/red/magenta, the exponential-fit orange, marker red) stay
+  hardcoded across every theme AND the export palette, chosen to read clearly against any of them —
+  verified visually against the contrast theme specifically when it shipped, since that palette
+  wasn't designed against a pure-black/pure-white extreme the way dark/light were. Raw-frame/
+  reconstruction overlays (ROI boxes, fit crosshairs, the scale bar, the depth-colour bar) and the
+  `LUT_CPS` reconstruction colour-map dropdown are deliberately UNTOUCHED by the UI theme — they sit
+  on top of arbitrary image/data pixels, not a themeable panel background, so a light UI theme
+  wouldn't make the *frame* or *reconstruction* pixels lighter; `drawPlotHover()`'s tooltip is the
+  same way, on purpose, despite overlaying theme-aware plot panels — it's the SAME function used for
+  the raw-frame pixel-value hover readout (`fmtRawPixel`), which does sit on arbitrary image
+  content, so it keeps one fixed high-contrast-against-anything box rather than becoming
+  theme-aware for the plot case alone.
+
+  **UI colour theme** (`applyTheme(name)`, params module, `dark`/`light`/`contrast`) is set via
+  `[data-theme]` on `<html>`, driving ~17 CSS custom properties (`--bg`/`--panel`/`--line`/`--fg`/
+  `--muted`/`--accent`/`--accent2`/`--warn`/`--danger`(+`-hover`)/`--surface`(+`-hover`)/`--deep`/
+  `--scrollbar-thumb`(+`-hover`)/`--shadow`/`--scrim`/`--row-stripe`/`--accent-tint`) that the whole
+  `<style>` block reads from instead of hardcoded hex — three small icon buttons in the header's
+  `.header-actions` (next to `layoutToggleBtn`, same area) switch it, `.active` marking the current
+  one. Persisted via `localStorage` (a genuinely new mechanism for this project — Save/Load Settings
+  is explicit JSON file export/import, not localStorage; still 100% client-side, so no conflict with
+  the single-file/no-upload design) — every access wrapped in `try/catch`, since some browsers/
+  extensions block storage entirely: a failed read falls back to `'dark'` (this app's only theme
+  before this existed, so behaviour for a blocked-storage visitor is unchanged from before), a
+  failed write is silently ignored (the theme still applies and works for the rest of the session,
+  it just won't be remembered next visit) — no error ever surfaces to the user either way. A tiny
+  separate inline `<script>` right after `</style>` (before `<body>`) pre-sets `[data-theme]` from
+  the same key before first paint, purely to avoid a flash of the wrong theme; `applyTheme()` itself
+  re-derives and re-applies the same value once the main script runs, so that snippet is
+  belt-and-suspenders, nothing depends on it. Deliberately NOT a `PARAMS` entry — `PARAMS` already
+  states it "deliberately excludes pure display/layout (CSS)" (see **params** above), and theme
+  choice is exactly that, same as sidebar collapsed/floating state.
 
   `axisScale(maxAbs)` gives an axis whose values commonly run large (PCFO's noise variance can be in
   the hundreds of thousands, ADU²) matplotlib-style "offset notation": ticks show a small (single

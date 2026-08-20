@@ -18,26 +18,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-20c; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-20d; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
-    params          1914   PARAMS registry, single source of truth for params
-    in/out          2328   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2641   synthetic stack generator ("Simulate movie")
-    detect          3468   per-frame band-pass + local-maxima detection
-    fit             3724   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4081   accumulate to offscreen buffer; view/colour/blur
-    workers         4709   frame-parallel detect/fit worker pool
-    export          4865   ThunderSTORM-compatible CSV
-    3D calibration  5050   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5438   AIM drift correction (2D+z)
-    locprecision    5676   NeNA + FRC
-    sSMLM           6309   spectrally resolved SMLM pair-finding
-    spt             6748   single particle tracking, trackpy-inspired
-    pipeline        7178   top-level orchestration, *Core()/wrapper split
-    table           8657   localizations table, filtering, histograms
-    headless API    9085   window.webSMLM.analyze()/analyzeBatch()
+    params          1974   PARAMS registry, single source of truth for params
+    in/out          2388   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2701   synthetic stack generator ("Simulate movie")
+    detect          3528   per-frame band-pass + local-maxima detection
+    fit             3784   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4141   accumulate to offscreen buffer; view/colour/blur
+    workers         4772   frame-parallel detect/fit worker pool
+    export          4928   ThunderSTORM-compatible CSV
+    3D calibration  5113   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5501   AIM drift correction (2D+z)
+    locprecision    5739   NeNA + FRC
+    sSMLM           6372   spectrally resolved SMLM pair-finding
+    spt             6811   single particle tracking, trackpy-inspired
+    pipeline        7241   top-level orchestration, *Core()/wrapper split
+    table           8761   localizations table, filtering, histograms
+    headless API    9189   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1227,10 +1227,44 @@ X.B(E,Y);return E}return J}())
 /* ═══════════ VENDORED LIBRARY — UTIF.js 3.1.0 — END ═══════════ */
 </script>
 <style>
-  :root{
+  /* Theme tokens: three parallel palettes, selected by [data-theme] on <html>
+     (see applyTheme() in the params module) — dark/light/contrast. :root
+     also carries the dark values as a pre-JS/no-JS fallback (belt-and-
+     suspenders; applyTheme() always sets data-theme before first paint, so
+     this is never actually load-bearing in practice). Values chosen for
+     dark match the app's own long-standing (pre-theme-switcher) palette
+     exactly, so a dark-theme user sees zero visual change from before this
+     existed. */
+  :root, [data-theme="dark"]{
     --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3;
     --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950; --warn:#d29922;
-    --danger:#da3633;
+    --danger:#da3633; --danger-hover:#f85149;
+    --surface:#21262d; --surface-hover:#1c2128; --deep:#010409;
+    --scrollbar-thumb:#57606a; --scrollbar-thumb-hover:#6e7681;
+    --shadow:rgba(0,0,0,.55); --scrim:rgba(1,4,9,.72); --row-stripe:rgba(255,255,255,.02);
+    --accent-tint:#1b2430;
+  }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#f6f8fa; --line:#d0d7de; --fg:#1f2328;
+    --muted:#57606a; --accent:#0969da; --accent2:#1a7f37; --warn:#9a6700;
+    --danger:#cf222e; --danger-hover:#a40e26;
+    --surface:#eaeef2; --surface-hover:#dde3ea; --deep:#eaeef2;
+    --scrollbar-thumb:#afb8c1; --scrollbar-thumb-hover:#8c959f;
+    --shadow:rgba(140,149,159,.30); --scrim:rgba(140,149,159,.50); --row-stripe:rgba(0,0,0,.035);
+    --accent-tint:rgba(9,105,218,.12);
+  }
+  /* High-contrast: pure black/white extremes (WCAG-AAA-oriented), thicker
+     effective borders (--line is full white, not a grey), a brighter
+     accent set — for low-vision use or a hard-to-read bright-lab screen,
+     not just "a third colour scheme". */
+  [data-theme="contrast"]{
+    --bg:#000000; --panel:#000000; --line:#ffffff; --fg:#ffffff;
+    --muted:#e0e0e0; --accent:#3399ff; --accent2:#33ff33; --warn:#ffcc00;
+    --danger:#ff3333; --danger-hover:#ff6666;
+    --surface:#1a1a1a; --surface-hover:#333333; --deep:#000000;
+    --scrollbar-thumb:#ffffff; --scrollbar-thumb-hover:#cccccc;
+    --shadow:rgba(255,255,255,.30); --scrim:rgba(0,0,0,.85); --row-stripe:rgba(255,255,255,.08);
+    --accent-tint:rgba(51,153,255,.25);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);min-height:100vh;
@@ -1240,10 +1274,20 @@ X.B(E,Y);return E}return J}())
     display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
   h1{font-size:18px;margin:0 0 2px}
   header p{margin:0;color:var(--muted);font-size:13px}
-  /* right side of the header: layoutToggleBtn today, room for more (e.g. a
-     future theme switcher) beside it later — a plain flex row, not styled as
-     part of the title block on the left. */
+  /* right side of the header: the theme switch and layoutToggleBtn — a plain
+     flex row, not styled as part of the title block on the left. */
   .header-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  /* Three icon-only buttons (dark/light/contrast), same sizing/skin as
+     .linetool — the app's existing small-icon-button pattern (raw/sr panel
+     crop/measure tools) — rather than a full-width .logbtn, since these are
+     glyphs, not text labels. .active marks the CURRENT theme, same visual
+     language as .linetool.on (border+text in --accent, --accent-tint fill). */
+  .theme-switch{display:flex;gap:4px}
+  .theme-btn{width:26px;height:26px;padding:0;margin:0;display:flex;align-items:center;
+    justify-content:center;background:var(--surface);border:1px solid var(--line);
+    border-radius:5px;color:var(--muted);cursor:pointer;font-size:13px;line-height:1}
+  .theme-btn:hover{border-color:var(--accent);color:var(--fg)}
+  .theme-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
   /* minmax(0,1fr): a plain 1fr track has an implicit min of its CONTENT width, so
      the canvases refuse to shrink and overflow horizontally / overlap; minmax(0,…)
      lets the tracks shrink and the panels scale to the available width. */
@@ -1254,18 +1298,18 @@ X.B(E,Y);return E}return J}())
      Mobile (see @media): the sidebar becomes an overlay drawer so the images are
      visible first and re-opening slides over them without moving them. */
   #sideToggle{position:fixed;top:14px;left:14px;z-index:45;width:28px;height:28px;display:flex;
-    align-items:center;justify-content:center;background:#0d1117;border:1px solid var(--line);
+    align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
     border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
-  #sideToggle:hover{background:#1c2128;border-color:var(--accent)}
+  #sideToggle:hover{background:var(--surface-hover);border-color:var(--accent)}
   #scrim{display:none}   /* mobile-only / desktop-floating tap-catcher behind the open drawer */
   header{padding-left:50px}                          /* room for the fixed toggle at top-left */
   /* pin button — re-docks a floating desktop drawer back into the grid layout. Stacked
      BELOW the toggle (not beside it) so it never overlaps the header title text, which
      starts right after the toggle's own column. */
   #sidePin{position:fixed;top:48px;left:14px;z-index:46;width:28px;height:28px;display:none;
-    align-items:center;justify-content:center;background:#0d1117;border:1px solid var(--line);
+    align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
     border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
-  #sidePin:hover{background:#1c2128;border-color:var(--accent)}
+  #sidePin:hover{background:var(--surface-hover);border-color:var(--accent)}
   /* single column when collapsed: .sidebar is display:none (removed from the grid),
      so a 2-track template would auto-place .main into the first (0-width) track and
      hide the canvases — one 1fr track puts .main full-width. */
@@ -1282,7 +1326,7 @@ X.B(E,Y);return E}return J}())
        metrics and end up too high (or overlap the toggle/pin buttons if too low). */
     body.side-float .sidebar{display:block;position:fixed;top:var(--header-h,56px);left:0;height:calc(100dvh - var(--header-h,56px));width:min(320px,86vw);
       z-index:40;overflow:auto;background:var(--bg);border-right:1px solid var(--line);
-      box-shadow:2px 0 22px rgba(0,0,0,.55)}
+      box-shadow:2px 0 22px var(--shadow)}
     body.side-float #scrim{display:block;position:fixed;inset:0;background:transparent;z-index:35}
     body.side-float #sidePin{display:flex}
   }
@@ -1294,17 +1338,17 @@ X.B(E,Y);return E}return J}())
   input[type=range]{width:100%}
   input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent);cursor:pointer}
   button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--line);
-    background:#21262d;color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
+    background:var(--surface);color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
   button:hover{border-color:var(--accent)}
-  button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+  button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
   button.danger{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
-  button.danger:hover:not(:disabled){background:#f85149;border-color:#f85149}
+  button.danger:hover:not(:disabled){background:var(--danger-hover);border-color:var(--danger-hover)}
   button:disabled{opacity:.45;cursor:not-allowed}
   button:disabled:hover{border-color:var(--line)}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
   /* Native spinners are dropped entirely: on Chrome they render black-on-black
      until hovered, and on Firefox they crowd the digits. Type the value instead. */
-  input.num{width:80px;background:#0d1117;color:var(--fg);border:1px solid var(--line);
+  input.num{width:80px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
     border-radius:6px;padding:4px 9px;font-size:12px;text-align:right;
     -moz-appearance:textfield;appearance:textfield}
   input.num::-webkit-inner-spin-button,
@@ -1325,7 +1369,7 @@ X.B(E,Y);return E}return J}())
   details.sim>summary::-webkit-details-marker{display:none}
   details.sim>summary:hover{border-color:var(--accent)}
   details.sim[open]>summary{border-color:var(--accent)}
-  details.sim>summary::before{content:'▸';font-size:22px;line-height:.8;color:#fff;transition:transform .15s}
+  details.sim>summary::before{content:'▸';font-size:22px;line-height:.8;color:var(--fg);transition:transform .15s}
   details.sim[open]>summary::before{transform:rotate(90deg)}
   details.sim>summary:hover::before{color:var(--accent)}
   /* a module's controls sit indented under its header bar, so they read as
@@ -1349,10 +1393,10 @@ X.B(E,Y);return E}return J}())
   #infoModalBody ul{margin:8px 0;padding-left:22px}
   #infoModalBody li{margin:4px 0}
   #infoModalBody b{color:var(--fg)}
-  #infoModalBody code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+  #infoModalBody code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
   /* flex:1 (not width:100%) so the select shares one line with its label */
   /* fixed 60% of the row so all selects line up right-aligned (label takes the rest) */
-  select.sel{flex:0 0 60%;min-width:0;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
+  select.sel{flex:0 0 60%;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   .canvases{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
   /* very wide/short frames (h/w < 0.5): side by side would squeeze each panel to
@@ -1400,52 +1444,52 @@ X.B(E,Y);return E}return J}())
      action buttons — every long-running op (Localize, calibration, drift
      correction, NeNA, FRC, file loading) feeds it via setProg(), rather than
      each module owning its own bar that only exists while running. */
-  .bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin:10px 0}
+  .bar{height:6px;background:var(--surface);border-radius:3px;overflow:hidden;margin:10px 0}
   .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
-    background:#010409;border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
-  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:#21262d;border:1px solid var(--line);color:var(--muted)}
+    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
-  .helpbtn{background:#21262d;border:1px solid var(--accent);color:var(--accent)}
-  .linetool{width:auto;padding:2px 6px;margin:0;background:#21262d;border:1px solid var(--line);border-radius:5px;color:var(--muted);line-height:0;cursor:pointer}
-  .logbtn{width:auto;padding:2px 8px;margin:0;font-size:11px;font-weight:400;background:#21262d;border:1px solid var(--line);border-radius:5px;color:var(--muted);cursor:pointer}
-  .linetool.on{border-color:var(--accent);color:var(--accent);background:#1b2430}
-  .modal-bg{position:fixed;inset:0;background:rgba(1,4,9,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
+  .linetool{width:auto;padding:2px 6px;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:5px;color:var(--muted);line-height:0;cursor:pointer}
+  .logbtn{width:auto;padding:2px 8px;margin:0;font-size:11px;font-weight:400;background:var(--surface);border:1px solid var(--line);border-radius:5px;color:var(--muted);cursor:pointer}
+  .linetool.on{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
+  .modal-bg{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
   .modal-bg.open{display:flex}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:780px;max-height:86vh;overflow:auto;padding:22px 26px}
   .modal h2{margin:0 0 6px;font-size:19px}
   .modal h3{color:var(--accent);font-size:14px;margin:20px 0 4px}
   .modal p{margin:5px 0;font-size:13px;line-height:1.6;color:var(--fg)}
   .modal small{color:var(--muted)}
-  .modal code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
+  .modal code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
   .modal ol{margin:6px 0 6px 18px;padding:0;font-size:13px;line-height:1.6}
   .modal .close{float:right;cursor:pointer;color:var(--muted);font-size:24px;line-height:1;border:none;background:none;width:auto;padding:0;margin:-4px -6px 0 0}
   .modal .close:hover{color:var(--fg)}
   /* localizations table */
   #locTable{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
   #locTable th,#locTable td{padding:3px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
-  #locTable th{position:sticky;top:0;background:#161b22;cursor:pointer;user-select:none;color:var(--fg);z-index:1}
+  #locTable th{position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none;color:var(--fg);z-index:1}
   #locTable th:hover{color:var(--accent)}
-  #locTable tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
-  #locTable tbody tr:hover{background:#161b22}
+  #locTable tbody tr:nth-child(even){background:var(--row-stripe)}
+  #locTable tbody tr:hover{background:var(--panel)}
   #tableFilter.bad{border-color:var(--danger)}
   #tableFilterAC{position:absolute;top:100%;left:0;right:0;z-index:20;margin-top:2px;
     background:var(--panel);border:1px solid var(--line);border-radius:7px;
     max-height:180px;overflow:auto;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4)}
   #tableFilterAC .ac-item{padding:5px 10px;cursor:pointer;font-size:13px;color:var(--fg)}
   #tableFilterAC .ac-item.sel{background:var(--accent);color:#fff}
-  .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:#21262d;border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
+  .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
   .fchip b{cursor:pointer;color:var(--muted);font-weight:700}
   .fchip b:hover{color:var(--danger)}
-  #tableHistBtn{width:auto;margin:0;padding:7px 16px;font-size:13px;font-weight:600;color:#fff;background:#2d333b;border:1px solid var(--accent);border-radius:7px;cursor:pointer}
-  #tableHistBtn:hover{background:#3a424c}
+  #tableHistBtn{width:auto;margin:0;padding:7px 16px;font-size:13px;font-weight:600;color:#fff;background:var(--surface);border:1px solid var(--accent);border-radius:7px;cursor:pointer}
+  #tableHistBtn:hover{background:var(--surface-hover)}
   #tableResetBtn{font-size:12px}   /* keep the table's controls ≥12 (logbtn base is 11) */
   /* visible scrollbar on the dark table scroller (default dark handle is nearly invisible) */
-  #tableWrap{scrollbar-color:#6e7681 transparent;scrollbar-width:thin}
+  #tableWrap{scrollbar-color:var(--scrollbar-thumb-hover) transparent;scrollbar-width:thin}
   #tableWrap::-webkit-scrollbar{width:14px;height:14px}
   #tableWrap::-webkit-scrollbar-track{background:transparent}
-  #tableWrap::-webkit-scrollbar-thumb{background:#57606a;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.75)}
-  #tableWrap::-webkit-scrollbar-thumb:hover{background:#6e7681}
+  #tableWrap::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.75)}
+  #tableWrap::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover)}
 
   /* ---- small screens / mobile ---------------------------------------- */
   @media (max-width:860px){
@@ -1457,7 +1501,7 @@ X.B(E,Y);return E}return J}())
     .sidebar{position:fixed;top:var(--header-h,56px);left:0;height:calc(100dvh - var(--header-h,56px));width:min(86vw,320px);z-index:40;overflow:auto;
       background:var(--bg);   /* opaque drawer — nothing behind it bleeds through, so no screen dimming needed */
       border-right:1px solid var(--line);border-bottom:none;transform:translateX(0);
-      transition:transform .22s ease;box-shadow:2px 0 22px rgba(0,0,0,.55)}
+      transition:transform .22s ease;box-shadow:2px 0 22px var(--shadow)}
     body.side-hidden .sidebar{display:block;transform:translateX(-100%)}   /* slid off-screen (still animatable) */
     /* invisible full-screen catcher: a tap outside the open drawer closes it,
        but it does NOT dim the page (the drawer is already opaque). */
@@ -1476,6 +1520,17 @@ X.B(E,Y);return E}return J}())
     .modal{padding:18px 16px}
   }
 </style>
+<!-- Sets [data-theme] on <html> before <body> ever paints, so a stored
+     light/contrast preference doesn't flash dark-then-correct on load — the
+     main script's own applyTheme() (params module) re-derives and re-applies
+     the same value once it runs, wiring up the header buttons/persistence;
+     this tiny snippet exists purely to beat first paint, nothing else reads
+     or depends on it. Same try/catch fail-safe as applyTheme() itself: if
+     localStorage is blocked, this just no-ops and the page paints dark
+     (:root's own default), matching today's only-ever-dark behaviour. -->
+<script>
+try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='contrast') document.documentElement.dataset.theme=_t0; }catch(_){}
+</script>
 </head>
 <body>
 <!-- JavaScript is required. A JS check cannot report its own absence, so this
@@ -1492,10 +1547,15 @@ X.B(E,Y);return E}return J}())
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20d</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
+    <div class="theme-switch" role="group" aria-label="Colour theme">
+      <button id="themeLightBtn" class="theme-btn" title="Light theme" aria-label="Light theme">☀</button>
+      <button id="themeDarkBtn" class="theme-btn" title="Dark theme" aria-label="Dark theme">☾</button>
+      <button id="themeContrastBtn" class="theme-btn" title="High-contrast theme" aria-label="High-contrast theme">◐</button>
+    </div>
     <button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button>
   </div>
 </header>
@@ -1895,7 +1955,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20c · crop/uncrop also resets stored NeNA precision; Stack panels button moved to the header
+</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20d · new dark/light/high-contrast theme switcher (header, top-right), remembered across visits
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4327,21 +4387,24 @@ function axisScale(maxAbs){
   return {scale:Math.pow(10,exp), decimals:1, label:'×10'+String(exp).split('').map(d=>sup[+d]).join('')};
 }
 // Every plot draw function reads its palette from here (never a hardcoded
-// hex) so the whole plot suite can switch look with one flag flip. On
-// screen this always reads 'dark', matching the app's own permanently-dark
-// chrome (there's no app-wide light/dark switch to hook into — webSMLM has
-// only ever had one theme); exportPanel()'s "plot" branch temporarily flips
-// it to 'light' — white background, dark text — for exactly one redraw
-// before snapshotting, then flips back, since a light background reads
-// better once a plot is pasted into a paper/report. The dark palette reuses
-// the app's own :root custom properties (--panel/--line/--muted/--fg/
-// --accent) so plots visually match the surrounding UI, not a separately
-// invented colour scheme.
+// hex) so the whole plot suite can switch look with one flag flip.
+// exportPanel()'s "plot" branch temporarily flips _plotExportMode to true —
+// a FIXED light background/dark text palette, for exactly one redraw
+// before snapshotting, then flips back — since a light background reads
+// better once a plot is pasted into a paper/report, regardless of which UI
+// theme is currently active on screen. That export palette is completely
+// independent of applyTheme() below and never changes.
+// On screen (_plotExportMode=false), the palette is read LIVE from the
+// current theme's own CSS custom properties (--panel/--line/--muted/--fg/
+// --accent, set by applyTheme() via [data-theme] — see the params module)
+// rather than a second hardcoded copy: plots then automatically track
+// whichever of dark/light/contrast is active with nothing here to keep in
+// sync by hand.
 let _plotExportMode=false;
 function plotColors(){
-  return _plotExportMode
-    ? {bg:'#f6f8fa', grid:'#c9d1d9', text:'#57606a', axis:'#24292f', bar:'#9fb4d8'}
-    : {bg:'#161b22', grid:'#30363d', text:'#8b949e', axis:'#e6edf3', bar:'#58a6ff'};
+  if(_plotExportMode) return {bg:'#f6f8fa', grid:'#c9d1d9', text:'#57606a', axis:'#24292f', bar:'#9fb4d8'};
+  const cs=getComputedStyle(document.documentElement), v=n=>cs.getPropertyValue(n).trim();
+  return {bg:v('--panel'), grid:v('--line'), text:v('--muted'), axis:v('--fg'), bar:v('--accent')};
 }
 // Re-run the plot currently shown in each panel (used on window resize so the
 // backing store — and thus text crispness — tracks the new size). Set by each
@@ -8609,6 +8672,47 @@ for(const _id of ['raw','sr']){ const _cv=$(_id);
   _cv.addEventListener('mousemove',e=>{ if(_plotHover[_id]) drawPlotHover(_id,e.clientX,e.clientY); });
   _cv.addEventListener('mouseleave',()=>{ if(_plotHover[_id]) drawPlotHover(_id,null,null); });
 }
+// UI colour theme — dark/light/contrast, purely display/layout (CSS), so
+// deliberately NOT a PARAMS entry (params module explicitly excludes those,
+// same reason sidebar collapsed/floating state isn't one either) and not
+// part of Save/Load Settings. Persisted via localStorage — a genuinely new
+// mechanism for this project (Save/Load Settings is explicit JSON file
+// export/import, not localStorage) but still 100% client-side, so it
+// doesn't conflict with the single-file/no-upload design. Every access is
+// wrapped in try/catch: some browsers/extensions block storage access
+// entirely (strict privacy modes, some private/incognito configurations,
+// storage-blocking extensions), which can make localStorage throw — a
+// failed READ falls back to 'dark' (this app's only theme before this
+// existed, so behaviour for anyone with storage blocked is unchanged from
+// today); a failed WRITE is silently ignored, the theme still applies and
+// works for the rest of the session, it just won't be remembered next
+// visit. No error ever surfaces to the user either way. A tiny separate
+// inline <script> right after </style> (before <body>) pre-sets
+// [data-theme] from the same localStorage key before first paint, purely
+// to avoid a flash of the wrong theme — applyTheme() below re-derives and
+// re-applies the same value regardless, wiring up the buttons/redraw, so
+// that early snippet is belt-and-suspenders, nothing here depends on it.
+function applyTheme(name){
+  if(!['dark','light','contrast'].includes(name)) name='dark';
+  document.documentElement.dataset.theme=name;
+  try{ localStorage.setItem('webSMLM_theme', name); }catch(_){}
+  $('themeLightBtn').classList.toggle('active', name==='light');
+  $('themeDarkBtn').classList.toggle('active', name==='dark');
+  $('themeContrastBtn').classList.toggle('active', name==='contrast');
+  // A currently-shown plot's pixels were drawn with the OLD theme's colours
+  // (plotColors() reads live CSS vars, but a canvas is a bitmap, not living
+  // DOM — changing the vars alone doesn't repaint it) — redraw once so it
+  // actually reflects the new theme, same hook exportPanel()'s own one-shot
+  // colour flip already uses.
+  if(rawIsPlot && _replotRaw) _replotRaw();
+  if(srIsPlot && _replotSr) _replotSr();
+}
+$('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
+$('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
+$('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
+{ let _initialTheme='dark';
+  try{ const s=localStorage.getItem('webSMLM_theme'); if(['dark','light','contrast'].includes(s)) _initialTheme=s; }catch(_){}
+  applyTheme(_initialTheme); }
 // Side-by-side vs stacked panel layout: null = auto (initScrub()'s own
 // h/w<0.5 heuristic decides on every new stack load); true/false = the user
 // has manually overridden it via layoutToggleBtn, which then sticks across
