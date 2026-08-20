@@ -18,7 +18,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-20a; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-20b; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter bump
   when a change has moved things by more than a few lines.
   ============================================================================
@@ -33,11 +33,11 @@
     3D calibration  5040   astigmatic sigma_x/sigma_y vs z bead curves
     drift           5428   AIM drift correction (2D+z)
     locprecision    5666   NeNA + FRC
-    sSMLM           6290   spectrally resolved SMLM pair-finding
-    spt             6729   single particle tracking, trackpy-inspired
-    pipeline        7159   top-level orchestration, *Core()/wrapper split
-    table           8633   localizations table, filtering, histograms
-    headless API    9061   window.webSMLM.analyze()/analyzeBatch()
+    sSMLM           6297   spectrally resolved SMLM pair-finding
+    spt             6736   single particle tracking, trackpy-inspired
+    pipeline        7166   top-level orchestration, *Core()/wrapper split
+    table           8640   localizations table, filtering, histograms
+    headless API    9068   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1486,7 +1486,7 @@ X.B(E,Y);return E}return J}())
 <button id="sidePin" title="Dock the controls panel" aria-label="Dock the controls panel back into the layout">📌</button>
 <div id="scrim"></div>
 <header>
-  <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20a</span></h1>
+  <h1>webSMLM <span class="pill">v0.11.3-dev · build 2026-08-20b</span></h1>
   <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
 </header>
 
@@ -1885,7 +1885,7 @@ X.B(E,Y);return E}return J}())
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span><button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20a · start of the 0.11.3 dev cycle
+</span></noscript>webSMLM v0.11.3-dev · build 2026-08-20b · reset stored NeNA precision on every fresh Load movie/Simulate movie/Load data, so it can't leak stale into SPT's "from NeNA"
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5806,7 +5806,14 @@ function drawNenaPlot(res){
 // can transfer the last computed precision into sptLocError, computing it
 // on demand first if NeNA hasn't been run yet — same compute-once/
 // transfer-separately split PCFO's own pcfoLastGain/pcfoLastOffset already
-// use for gain/offset.
+// use for gain/offset. Reset to null (alongside pcfoLastGain/pcfoLastOffset)
+// by every fresh Load movie/Simulate movie/Load data — a precision figure
+// from a previously loaded dataset must never silently leak into a new
+// dataset's Single particle tracking via "from NeNA" (a real reported risk:
+// nothing else about SPT's own state distinguishes "still the same
+// dataset" from "just loaded something else"). FRC has no equivalent stash
+// to reset — its own result is used once (log line + plot) and discarded,
+// never kept around for another module to read later.
 let lastNena=null;
 async function computeNeNA(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
@@ -7839,7 +7846,7 @@ $('loadBtn').addEventListener('click',()=>$('file').click());
 
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
@@ -7865,7 +7872,7 @@ $('genBtn').addEventListener('click',async()=>{
 $('file').addEventListener('change',async e=>{
   const fs=e.target.files; if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -8169,7 +8176,7 @@ $('csvFile').addEventListener('change', async e=>{
     if(!locs.length) throw new Error('no data rows');
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
     rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null;
-    lastDrift=null; $('driftShowBtn').disabled=true;
+    lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
     renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
     rerender();
