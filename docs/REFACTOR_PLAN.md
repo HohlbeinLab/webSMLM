@@ -6,6 +6,86 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **Rotated-elliptical 2D MLE fitter** — a new localization method alongside
+  Phasor 2D/3D, LS 2D, and Gaussian MLE 2D/3D. Raised investigating whether
+  sSMLM's 1st-order (spectrally smeared by the diffraction grating) could be
+  fit more faithfully: today EVERY 2D method here fits one symmetric σ
+  (`gaussianFit`/`gaussianMLE`, **fit** module) — confirmed by reading the
+  actual fit functions, not assumed — so `sigma1st` (the exported/CSV column
+  for the paired 1st order, **sSMLM** module) is explicitly documented as
+  "NOT a directional/long-axis width... the closest available proxy," not a
+  real measurement of the smear's own axis/magnitude. `gaussianMLEastig`
+  (MLE 3D) DOES fit independent σx/σy already, but it's axis-aligned
+  (assumes the elongation is along x or y) and calibrated against an
+  astigmatic z-curve — reusing it for spectral dispersion (an arbitrary,
+  data-set-specific bearing, not a defocus-driven one) isn't a drop-in fit,
+  it would need its own calibration/interpretation.
+
+  Checked Picasso 0.11.0's actual current fitting code
+  ([`picasso/fitting/gaussfit.py`](https://github.com/jungmannlab/picasso/tree/master/picasso/fitting))
+  for how a real, maintained SMLM tool handles this: it now fits THREE 2D
+  Gaussian models — `SPHERICAL` `[amp,x,y,s,bg]` (5 params, matches
+  webSMLM's `gaussianMLE`), `ELLIPTIC` `[amp,x,y,sx,sy,bg]` (6 params,
+  axis-aligned, matches `gaussianMLEastig`'s parameterisation though not its
+  z-calibration use), and — the one webSMLM doesn't have —
+  `ROTATED` `[amp,x,y,sx,sy,bg,angle]` (7 params): the pixel offset is
+  rotated into the ellipse's own frame before the exponent
+  (`arga=dx·cosθ−dy·sinθ`, `argb=dx·sinθ+dy·cosθ`,
+  `value=amp·exp(−½(arga²/sx²+argb²/sy²))+bg`), which is exactly the "long
+  axis at an arbitrary bearing" model sSMLM's 1st order would need. A real
+  documented gotcha worth carrying over if this gets built: "the angle
+  derivative vanishes identically when sx==sy, which makes the Hessian
+  singular" — Picasso's own seed step deliberately breaks sx=sy symmetry in
+  the initial guess so the angle parameter has a well-defined gradient from
+  the first iteration; a webSMLM port would need the same deliberate seed
+  asymmetry, not just "start both at sigma0."
+
+  Also notable in that same read, connecting to an ALREADY-OPEN item further
+  down this file ("Photon calibration beyond a single scalar gain/offset"):
+  Picasso's shared per-pixel estimator (`_estimator_terms(mle, value, data,
+  var)`, one function reused by every model/method combination via a
+  chi-square/weight/factor triple) takes a per-pixel `var` — sCMOS readout
+  variance — shifting both the model and the data by it before the Poisson
+  term, i.e. its MLE is ALREADY per-pixel-noise-aware, not just scalar
+  gain/offset. If webSMLM ever tackles per-pixel calibration maps, a
+  rotated-elliptical fitter and per-pixel variance are the same underlying
+  architectural change (the per-pixel accumulator gains one more input),
+  worth designing together rather than sequentially.
+
+  Architecture note for whoever picks this up: Picasso unifies LSQ and MLE
+  into ONE Levenberg-Marquardt driver per model, via that single
+  `_estimator_terms` dispatch (`mle=True`→shifted Poisson deviance,
+  `mle=False`→plain squared residual) — cleaner than webSMLM's own current
+  design, where `gaussianFit`/`gaussianMLE`/`gaussianMLEastig` are three
+  independently-coded, near-duplicate implementations (own Jacobian, own
+  Gauss-Newton loop each). Adding a 4th near-duplicate (rotated MLE) would
+  make that worse; if this gets built, worth first factoring the *existing*
+  three around one shared per-pixel accumulator + a model dispatcher (mirror
+  Picasso's `_accumulate_spherical`/`_accumulate_elliptic`/
+  `_accumulate_rotated`, called from one driver), THEN adding rotated as a
+  fourth case that falls out of the same shape — not a fourth copy-pasted
+  fit function. Not a port of Picasso's own code either way (Numba/Python,
+  MIT-licensed via its Gpufit ancestry — Przybylski et al., *Sci. Rep.* 7,
+  15722 (2017) — vs. webSMLM's vanilla JS with no Numba equivalent); this is
+  about matching the MODEL and the seed-symmetry gotcha, not the
+  implementation.
+
+  **Separately, longer-horizon**: Picasso 0.11.0 also ships cubic-spline PSF
+  fitting (`picasso/fitting/splinefit.py`) for PSFs that deviate from a
+  Gaussian shape — the user's own follow-up note. Meaningfully bigger scope
+  than the rotated-elliptical case: it needs its own calibration pipeline
+  (a full 3D spline volume built from bead z-stacks, `picasso.spline`, not
+  just two quadratic width-vs-z curves the way webSMLM's astigmatic
+  calibration works today) and its own PSF-model representation, not just a
+  7th/8th free parameter on the existing Gaussian model. Four calibration
+  variants exist there (`spline-2d`/`spline-3d`/multichannel/multichannel-
+  link-xyz) — worth reading again in detail if/when this is actually picked
+  up, not scoped further here. Key references, both already independent of
+  webSMLM's own citation list: Babcock & Zhuang, "Analyzing Single Molecule
+  Localization Microscopy Data Using Cubic Splines," *Sci. Rep.* 7, 552
+  (2017); Li et al., "Real-time 3D single-molecule localization using
+  experimental point spread functions," *Nat. Methods* 15, 367–369 (2018).
+
 - **Headless plot export (`config.exportPlots`) — extend to column
   histograms.** Shipped v0.11.3-dev (build 2026-08-20g) covering drift/NeNA/
   FRC/PCFO/calibration — one flag renders whichever of those were actually
