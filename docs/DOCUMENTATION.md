@@ -1301,10 +1301,10 @@ calibration…** for a 3D fit method.
     { "id": "phasor_magnitude", "label": "...", "used_by": ["phasor3d"], "model": "phasor_z_from_ratio" },
     { "id": "gaussian_width", "label": "...", "used_by": ["ls3d","mle3d"], "model": "sigma_x_nm/sigma_y_nm" }
   ],
-  "sigma_x_nm": { "a": ..., "c": ..., "b": ..., "A": ..., "B": ..., "C": ... },
-  "sigma_y_nm": { "a": ..., "c": ..., "b": ..., "A": ..., "B": ..., "C": ... },
-  "phasor_ratio": { "a": ..., "c": ..., "b": ..., "A": ..., "B": ..., "C": ... },
-  "phasor_z_from_ratio": { "coef": [...], "basis": "ratio", "rmin": ..., "rmax": ..., "rms_nm": ... },
+  "sigma_x_nm": { "a": "...", "c": "...", "b": "...", "A": "...", "B": "...", "C": "..."},
+  "sigma_y_nm": { "a": "...", "c": "...", "b": "...", "A": "...", "B": "...", "C": "..."},
+  "phasor_ratio": { "a": "...", "c": "...", "b": "...", "A": "...", "B": "...", "C": "..."},
+  "phasor_z_from_ratio": { "coef": "[...]", "basis": "ratio", "rmin": "...", "rmax": "...", "rms_nm": "..."},
   "note": "..."
 }
 ```
