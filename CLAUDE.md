@@ -424,6 +424,13 @@ relevant one before editing rather than scrolling:
   native rendering left it visually inconsistent with the new Contrast slider directly below it
   (different track/thumb colour and thickness); `#scrub` keeps native click-anywhere-to-jump
   behaviour though (no `pointer-events` split — only one handle, nothing to protect the drag from).
+  `rawContrastAutoBtn` ("Auto", `.logbtn` styling — same small-inline-button pattern as
+  `clearLogBtn`/`exportLogBtn`) re-runs `estimateRawContrastRange(stack)` (the exact call a fresh
+  load already makes) then `redrawRawContrast()`, since the estimate function itself only updates
+  state/slider UI, not the on-screen frame — a manual reset back to the auto default after dragging
+  either handle away from it. The slider itself is narrower than a full-width row control
+  (`flex:0 1 55%` on `.dualrange`) to leave room for this button without crowding the "Black: X ·
+  White: Y" readout.
   Deliberately excluded from `PARAMS`/Save-Load Settings/the
   headless `analyze()` config — same "pure display/layout" carve-out as UI theme choice and sidebar
   collapsed/floating state (see **params** above) — a display convenience local to one interactive

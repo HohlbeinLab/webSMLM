@@ -16,29 +16,29 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-21d; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-21e; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2016   PARAMS registry, single source of truth for params
-    in/out          2430   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2743   synthetic stack generator ("Simulate movie")
-    detect          3570   per-frame band-pass + local-maxima detection
-    fit             3826   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4183   accumulate to offscreen buffer; view/colour/blur;
+    params          2017   PARAMS registry, single source of truth for params
+    in/out          2431   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2744   synthetic stack generator ("Simulate movie")
+    detect          3571   per-frame band-pass + local-maxima detection
+    fit             3827   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4184   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5038   frame-parallel detect/fit worker pool
-    export          5194   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5431   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5831   AIM drift correction (2D+z)
-    locprecision    6079   NeNA + FRC
-    sSMLM           6722   spectrally resolved SMLM pair-finding
-    spt             7161   single particle tracking, trackpy-inspired
-    pipeline        7591   top-level orchestration, *Core()/wrapper split
-    table           9116   localizations table, filtering, histograms
-    headless API    9524   window.webSMLM.analyze()/analyzeBatch()
+    workers         5039   frame-parallel detect/fit worker pool
+    export          5195   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5432   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5832   AIM drift correction (2D+z)
+    locprecision    6080   NeNA + FRC
+    sSMLM           6723   spectrally resolved SMLM pair-finding
+    spt             7162   single particle tracking, trackpy-inspired
+    pipeline        7592   top-level orchestration, *Core()/wrapper split
+    table           9122   localizations table, filtering, histograms
+    headless API    9550   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1581,7 +1581,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21d</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21e</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1972,12 +1972,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           </div>
           <div id="rawContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
             <span style="color:var(--muted);font-size:12px">Contrast</span>
-            <div class="dualrange">
+            <div class="dualrange" style="flex:0 1 55%">
               <div id="rawContrastFill" class="dualrange-fill"></div>
               <input type="range" id="rawBlack" min="0" max="255" step="1" value="0">
               <input type="range" id="rawWhite" min="0" max="255" step="1" value="255">
             </div>
             <span class="val" id="rawContrastV" style="min-width:150px;text-align:right;font-size:12px">Black: 0 · White: 255</span>
+            <button id="rawContrastAutoBtn" class="logbtn" title="Reset Black/White to the auto-estimated default range">Auto</button>
           </div>
         </div>
       </div>
@@ -1998,7 +1999,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21d · fixed Contrast slider's initial White level (was defaulting far too low for sparse SMLM frames) and matched the Frame scrubber's styling to it
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21e · Contrast slider gains an "Auto" button (resets Black/White to the estimated default) and is a bit narrower to make room for it
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -8429,6 +8430,11 @@ function initScrub(){
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('rawBlack').addEventListener('input',e=>{ rawBlack=Math.min(+e.target.value,rawWhite-1); syncRawContrastUI(); redrawRawContrast(); });
 $('rawWhite').addEventListener('input',e=>{ rawWhite=Math.max(+e.target.value,rawBlack+1); syncRawContrastUI(); redrawRawContrast(); });
+$('rawContrastAutoBtn').addEventListener('click',async()=>{
+  if(!stack) return;
+  await estimateRawContrastRange(stack);   // re-samples + resets to frame 0's own min/max, same as a fresh load
+  redrawRawContrast();                     // estimateRawContrastRange() only updates state/slider UI, not the on-screen frame
+});
 $('calBtn').addEventListener('click',runCalibration);
 $('calFixedXY').addEventListener('change',()=>{
   if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('Load a bead z-stack first.'); }
