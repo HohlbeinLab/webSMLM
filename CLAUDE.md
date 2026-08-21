@@ -401,19 +401,30 @@ relevant one before editing rather than scrolling:
   loader's whole streamed/sliced design for large files, so it samples a bounded number (50) of
   seeded-random frames instead — the same `pickSeededFrames()` PCFO's own gain/offset estimate
   already uses — accepting a small chance of missing the single hottest pixel in an unsampled frame
-  as a reasonable trade-off for a display convenience, not a measurement. The initial handle
-  positions come from a coarse histogram (1024 bins) over the pooled sampled pixels' 0.5th/99.5th
-  percentile, not the literal observed min/max, so one outlier pixel can't push the DEFAULT handles
-  to the extreme ends either — same reasoning as the reconstruction panel's own `lutpct` ("Display
-  max percentile") control, just applied to raw ADU values instead of localization density. There's
-  no native two-thumb `<input type=range>`, so the slider itself (`.dualrange` CSS, `#rawBlack`/
+  as a reasonable trade-off for a display convenience, not a measurement. The initial HANDLE
+  positions are a separate question from that bound, deliberately NOT derived from the sampled
+  frames: an earlier version defaulted them to a 0.5th/99.5th percentile over all the sampled
+  frames' pixels pooled together (mirroring the reconstruction panel's own `lutpct` "Display max
+  percentile" control) — measured wrong for sparse SMLM data specifically, since background pixels
+  vastly outnumber the bright emitter pixels that actually matter, so a percentile-of-everything
+  sits well below real signal peaks (white defaulted to ~32% of the true observed max on a real
+  stack — every frame looked far dimmer than the old per-frame auto-stretch ever did). Fixed by
+  defaulting to frame 0's own actual min/max instead, exactly reproducing what the old per-frame
+  behaviour showed for the very first view — the new part is only that it then stays fixed across
+  every other frame instead of recomputing per frame. There's no native two-thumb
+  `<input type=range>`, so the slider itself (`.dualrange` CSS, `#rawBlack`/
   `#rawWhite`) is two ordinary range inputs stacked on the same track, each fully transparent except
   its own thumb (`pointer-events` split via `::-webkit-slider-thumb`/`::-moz-range-thumb`) so either
   handle can be grabbed independently without the other, or the track itself, intercepting the drag;
   each input's own handler clamps against the other's current value so they can't cross. Dragging a
   handle re-renders from `rawPixelData` (the exact ADU array `drawRaw()` last received) via
   `redrawRawContrast()` rather than re-fetching the frame from the stack, so dragging stays
-  responsive regardless of stack size. Deliberately excluded from `PARAMS`/Save-Load Settings/the
+  responsive regardless of stack size. The Frame scrubber (`#scrub`) got its own matching CSS
+  restyle alongside this (same 4px `--line` track, same 14px `--accent` circular thumb) — plain
+  native rendering left it visually inconsistent with the new Contrast slider directly below it
+  (different track/thumb colour and thickness); `#scrub` keeps native click-anywhere-to-jump
+  behaviour though (no `pointer-events` split — only one handle, nothing to protect the drag from).
+  Deliberately excluded from `PARAMS`/Save-Load Settings/the
   headless `analyze()` config — same "pure display/layout" carve-out as UI theme choice and sidebar
   collapsed/floating state (see **params** above) — a display convenience local to one interactive
   session, not an analysis parameter.

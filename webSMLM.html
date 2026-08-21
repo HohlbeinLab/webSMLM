@@ -16,28 +16,28 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-21c; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-21d; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2004   PARAMS registry, single source of truth for params
-    in/out          2418   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2731   synthetic stack generator ("Simulate movie")
-    detect          3558   per-frame band-pass + local-maxima detection
-    fit             3814   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4171   accumulate to offscreen buffer; view/colour/blur;
+    params          2016   PARAMS registry, single source of truth for params
+    in/out          2430   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2743   synthetic stack generator ("Simulate movie")
+    detect          3570   per-frame band-pass + local-maxima detection
+    fit             3826   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4183   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5018   frame-parallel detect/fit worker pool
-    export          5174   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5411   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5811   AIM drift correction (2D+z)
-    locprecision    6059   NeNA + FRC
-    sSMLM           6702   spectrally resolved SMLM pair-finding
-    spt             7141   single particle tracking, trackpy-inspired
-    pipeline        7571   top-level orchestration, *Core()/wrapper split
-    table           9096   localizations table, filtering, histograms
+    workers         5038   frame-parallel detect/fit worker pool
+    export          5194   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5431   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5831   AIM drift correction (2D+z)
+    locprecision    6079   NeNA + FRC
+    sSMLM           6722   spectrally resolved SMLM pair-finding
+    spt             7161   single particle tracking, trackpy-inspired
+    pipeline        7591   top-level orchestration, *Core()/wrapper split
+    table           9116   localizations table, filtering, histograms
     headless API    9524   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
@@ -1337,6 +1337,17 @@ X.B(E,Y);return E}return J}())
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
   label.row span.val{color:var(--accent);font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
   input[type=range]{width:100%}
+  /* Frame scrubber: styled to match the Contrast slider below it (same
+     track colour/thickness, same thumb) — plain native rendering left the
+     two visually inconsistent (different track and thumb colour/style).
+     Unlike .dualrange below, click-anywhere-on-the-track-to-jump stays
+     native browser behaviour here (no pointer-events split needed — only
+     one handle, no second thumb to protect the drag from). */
+  #scrub{-webkit-appearance:none;appearance:none;background:transparent;height:20px}
+  #scrub::-webkit-slider-runnable-track{background:var(--line);height:4px;border-radius:2px}
+  #scrub::-moz-range-track{background:var(--line);height:4px;border-radius:2px}
+  #scrub::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:-5px}
+  #scrub::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
   /* Dual-handle range (raw-frame Contrast, Picasso-style Black/White slider):
      no native two-thumb <input>, so two ordinary range inputs are stacked on
      the same track — each fully transparent except its own thumb (pointer-
@@ -1570,7 +1581,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21d</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1987,7 +1998,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21c · new Contrast (Black/White) slider below the Frame scrubber — a fixed display range across all frames, replacing the old per-frame auto-stretch
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21d · fixed Contrast slider's initial White level (was defaulting far too low for sparse SMLM frames) and matched the Frame scrubber's styling to it
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4887,27 +4898,35 @@ let rawBlack=0, rawWhite=255, rawContrastMax=255;
 // Establishes rawContrastMax/rawBlack/rawWhite for a newly loaded stack.
 // A true global max would need reading every pixel of every frame — the
 // opposite of this loader's whole streamed/sliced design for large files —
-// so this samples a bounded number of seeded-random frames (same
-// pickSeededFrames() PCFO's own gain/offset estimate already uses) instead:
-// fast even on huge stacks, at the cost of possibly missing the single
-// hottest pixel in an unsampled frame (an acceptable trade-off for a display
-// convenience, not a measurement). The initial [black,white] default comes
-// from a coarse histogram over the pooled sampled pixels (0.5th/99.5th
-// percentile) rather than the literal observed min/max, so a single outlier
-// pixel can't push the DEFAULT handle positions to the extreme ends either
-// — same reasoning as the reconstruction panel's own "Display max
-// percentile" control, just applied to raw ADU values instead of density.
+// so the OUTER BOUND (rawContrastMax) comes from a bounded number of
+// seeded-random frames (same pickSeededFrames() PCFO's own gain/offset
+// estimate already uses) instead: fast even on huge stacks, at the cost of
+// possibly missing the single hottest pixel in an unsampled frame (an
+// acceptable trade-off for a display convenience, not a measurement).
+//
+// The initial [black,white] HANDLE positions are a separate question from
+// that bound: an earlier version derived them from a percentile over all
+// sampled frames' pixels POOLED together (mirroring the reconstruction
+// panel's own "Display max percentile" control) — wrong for sparse SMLM
+// data specifically, since background pixels vastly outnumber the bright
+// emitter pixels that actually matter, so a 99.5th-percentile-of-everything
+// sits well below real signal peaks (measured: white defaulted to ~32% of
+// the true observed max on a real stack) — every frame looked far dimmer
+// than the OLD per-frame auto-stretch ever did. Defaulting instead to frame
+// 0's own actual min/max reproduces exactly what that old behaviour showed
+// for the very first view; the new part is only that it then STAYS put
+// across every other frame instead of recomputing per frame.
 async function estimateRawContrastRange(stack){
   const SAMPLE_N=Math.min(50,stack.n);
   const idx=pickSeededFrames(stack.n,SAMPLE_N,0xC0FFEE);
-  const frames=[]; let mx=0;
-  for(const i of idx){ const img=(await stack.getFrames(i,i+1))[0]; frames.push(img);
-    for(const v of img) if(v>mx) mx=v; }
+  let mx=0;
+  for(const i of idx){ const img=(await stack.getFrames(i,i+1))[0]; for(const v of img) if(v>mx) mx=v; }
+  const f0=(await stack.getFrames(0,1))[0];
+  let f0min=Infinity, f0max=0;
+  for(const v of f0){ if(v<f0min) f0min=v; if(v>f0max) f0max=v; }
+  if(f0max>mx) mx=f0max;   // frame 0 itself always fits inside the slider's own bound
   if(mx<=0) mx=1;
-  const NB=1024, bw=mx/NB, hist=new Float64Array(NB); let total=0;
-  for(const img of frames) for(const v of img){ let b=(v/bw)|0; if(b>=NB)b=NB-1; if(b<0)b=0; hist[b]++; total++; }
-  const pct=p=>{ const target=p*total; let c=0; for(let b=0;b<NB;b++){ c+=hist[b]; if(c>=target) return b*bw; } return mx; };
-  rawContrastMax=mx; rawBlack=pct(0.005); rawWhite=Math.max(rawBlack+1,pct(0.995));
+  rawContrastMax=mx; rawBlack=(f0min===Infinity?0:f0min); rawWhite=Math.max(rawBlack+1,f0max);
   syncRawContrastUI();
 }
 // Reflects rawContrastMax/rawBlack/rawWhite onto the slider row (bounds,
