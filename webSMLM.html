@@ -16,28 +16,29 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-21b; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-21c; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          1979   PARAMS registry, single source of truth for params
-    in/out          2393   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2706   synthetic stack generator ("Simulate movie")
-    detect          3533   per-frame band-pass + local-maxima detection
-    fit             3789   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4146   accumulate to offscreen buffer; view/colour/blur;
+    params          2004   PARAMS registry, single source of truth for params
+    in/out          2418   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2731   synthetic stack generator ("Simulate movie")
+    detect          3558   per-frame band-pass + local-maxima detection
+    fit             3814   phasor / LS / Poisson-MLE 2D+3D localization
+    render          4171   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
-                           (headless + interactive plot export)
-    workers         4933   frame-parallel detect/fit worker pool
-    export          5089   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5326   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5726   AIM drift correction (2D+z)
-    locprecision    5974   NeNA + FRC
-    sSMLM           6617   spectrally resolved SMLM pair-finding
-    spt             7056   single particle tracking, trackpy-inspired
-    pipeline        7486   top-level orchestration, *Core()/wrapper split
-    table           9006   localizations table, filtering, histograms
-    headless API    9434   window.webSMLM.analyze()/analyzeBatch()
+                           (headless + interactive plot export), raw-frame
+                           Contrast (Black/White) slider
+    workers         5018   frame-parallel detect/fit worker pool
+    export          5174   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5411   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5811   AIM drift correction (2D+z)
+    locprecision    6059   NeNA + FRC
+    sSMLM           6702   spectrally resolved SMLM pair-finding
+    spt             7141   single particle tracking, trackpy-inspired
+    pipeline        7571   top-level orchestration, *Core()/wrapper split
+    table           9096   localizations table, filtering, histograms
+    headless API    9524   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1336,6 +1337,22 @@ X.B(E,Y);return E}return J}())
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
   label.row span.val{color:var(--accent);font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
   input[type=range]{width:100%}
+  /* Dual-handle range (raw-frame Contrast, Picasso-style Black/White slider):
+     no native two-thumb <input>, so two ordinary range inputs are stacked on
+     the same track — each fully transparent except its own thumb (pointer-
+     events split via ::-webkit/-moz-slider-thumb) so either can be grabbed
+     independently without the other, or the track itself, intercepting the
+     drag. .dualrange::before draws the static neutral baseline; .dualrange-
+     fill (positioned/sized in JS, syncRawContrastUI()) is the accent-coloured
+     segment between the two current handle positions. */
+  .dualrange{position:relative;flex:1;height:20px}
+  .dualrange::before{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:4px;background:var(--line);border-radius:2px}
+  .dualrange-fill{position:absolute;top:50%;transform:translateY(-50%);height:4px;background:var(--accent);border-radius:2px;pointer-events:none}
+  .dualrange input[type=range]{position:absolute;left:0;top:0;width:100%;height:20px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none}
+  .dualrange input[type=range]::-webkit-slider-runnable-track{background:transparent;height:20px}
+  .dualrange input[type=range]::-moz-range-track{background:transparent;height:20px}
+  .dualrange input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:3px}
+  .dualrange input[type=range]::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
   input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent);cursor:pointer}
   button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--line);
     background:var(--surface);color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
@@ -1553,7 +1570,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21c</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1942,6 +1959,15 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <input type="range" id="scrub" min="0" max="0" step="1" value="0" style="flex:1">
             <span class="val" id="scrubV" style="min-width:70px;text-align:right;font-size:12px">1</span>
           </div>
+          <div id="rawContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
+            <span style="color:var(--muted);font-size:12px">Contrast</span>
+            <div class="dualrange">
+              <div id="rawContrastFill" class="dualrange-fill"></div>
+              <input type="range" id="rawBlack" min="0" max="255" step="1" value="0">
+              <input type="range" id="rawWhite" min="0" max="255" step="1" value="255">
+            </div>
+            <span class="val" id="rawContrastV" style="min-width:150px;text-align:right;font-size:12px">Black: 0 · White: 255</span>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -1961,7 +1987,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21b · fixed: disabled Localize/Stop buttons now actually look greyed out (their own vivid colour survived the plain opacity dip before)
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21c · new Contrast (Black/White) slider below the Frame scrubber — a fixed display range across all frames, replacing the old per-frame auto-stretch
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -4847,6 +4873,61 @@ let rawFull=null;
 // Whatever drawRaw() was actually given (raw camera data, or the FTM-corrected
 // version when rawFtmView is on) — the readout just reflects whatever's on screen.
 let rawPixelData=null;
+// Raw-frame display contrast (Picasso-style Black/White slider, below the
+// Frame scrubber): drawRaw() used to auto-stretch EVERY frame's own actual
+// min/max to [0,255] on every redraw — convenient, but the apparent
+// brightness/contrast then visibly shifts as you scrub (each frame gets its
+// own independent stretch), and one dead/hot pixel can dominate a frame's
+// min or max and wash out its real dynamic range. rawBlack/rawWhite are a
+// FIXED range instead, applied identically to every frame until manually
+// changed — same "set once, stays put while scrubbing" behaviour as
+// Picasso's own contrast slider. rawContrastMax is the slider's fixed upper
+// bound (its lower bound is always 0, per the intended [0, stack max] range).
+let rawBlack=0, rawWhite=255, rawContrastMax=255;
+// Establishes rawContrastMax/rawBlack/rawWhite for a newly loaded stack.
+// A true global max would need reading every pixel of every frame — the
+// opposite of this loader's whole streamed/sliced design for large files —
+// so this samples a bounded number of seeded-random frames (same
+// pickSeededFrames() PCFO's own gain/offset estimate already uses) instead:
+// fast even on huge stacks, at the cost of possibly missing the single
+// hottest pixel in an unsampled frame (an acceptable trade-off for a display
+// convenience, not a measurement). The initial [black,white] default comes
+// from a coarse histogram over the pooled sampled pixels (0.5th/99.5th
+// percentile) rather than the literal observed min/max, so a single outlier
+// pixel can't push the DEFAULT handle positions to the extreme ends either
+// — same reasoning as the reconstruction panel's own "Display max
+// percentile" control, just applied to raw ADU values instead of density.
+async function estimateRawContrastRange(stack){
+  const SAMPLE_N=Math.min(50,stack.n);
+  const idx=pickSeededFrames(stack.n,SAMPLE_N,0xC0FFEE);
+  const frames=[]; let mx=0;
+  for(const i of idx){ const img=(await stack.getFrames(i,i+1))[0]; frames.push(img);
+    for(const v of img) if(v>mx) mx=v; }
+  if(mx<=0) mx=1;
+  const NB=1024, bw=mx/NB, hist=new Float64Array(NB); let total=0;
+  for(const img of frames) for(const v of img){ let b=(v/bw)|0; if(b>=NB)b=NB-1; if(b<0)b=0; hist[b]++; total++; }
+  const pct=p=>{ const target=p*total; let c=0; for(let b=0;b<NB;b++){ c+=hist[b]; if(c>=target) return b*bw; } return mx; };
+  rawContrastMax=mx; rawBlack=pct(0.005); rawWhite=Math.max(rawBlack+1,pct(0.995));
+  syncRawContrastUI();
+}
+// Reflects rawContrastMax/rawBlack/rawWhite onto the slider row (bounds,
+// handle positions, fill bar, readout) without touching the frame itself —
+// called after estimateRawContrastRange() and after either handle moves.
+function syncRawContrastUI(){
+  const bEl=$('rawBlack'), wEl=$('rawWhite'); if(!bEl||!wEl) return;
+  bEl.max=wEl.max=rawContrastMax; bEl.value=rawBlack; wEl.value=rawWhite;
+  const pct=v=>rawContrastMax>0?100*v/rawContrastMax:0;
+  $('rawContrastFill').style.left=pct(rawBlack)+'%';
+  $('rawContrastFill').style.width=Math.max(0,pct(rawWhite)-pct(rawBlack))+'%';
+  $('rawContrastV').textContent=`Black: ${rawBlack.toFixed(0)} · White: ${rawWhite.toFixed(0)}`;
+}
+// Re-renders the currently-cached raw frame at the new contrast without
+// re-fetching it from the stack (would lag while dragging a handle) —
+// rawPixelData already holds the exact ADU array drawRaw() last received.
+function redrawRawContrast(){
+  if(!rawPixelData) return;
+  drawRaw(rawPixelData.arr, rawPixelData.w, rawPixelData.h, rawSpots, rawLocs);
+}
 // Each window can also show a direct-drawn vector plot with no *Full source:
 // the LEFT (raw) panel shows the drift curve, the RIGHT (sr) panel the
 // calibration plot. These flags say a plot is up, so "Save image" can snapshot
@@ -4919,7 +5000,12 @@ function drawRaw(frame,w,h,spots,locs){
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
   if(sizeChanged){ rawFull.width=w; rawFull.height=h; }
   const ctx=rawFull.getContext('2d'), im=ctx.createImageData(w,h);
-  let mn=Infinity,mx=-Infinity; for(const v of frame){if(v<mn)mn=v;if(v>mx)mx=v;}
+  // Fixed [rawBlack,rawWhite] range (the Contrast slider below the Frame
+  // scrubber), NOT this frame's own min/max — see rawBlack's own comment for
+  // why. A pixel outside the range legitimately maps outside [0,255]; the
+  // Uint8ClampedArray backing ImageData.data clamps that on assignment, so
+  // no explicit clamp is needed here.
+  const mn=rawBlack, mx=rawWhite;
   for(let i=0;i<frame.length;i++){ const t=mx>mn?(frame[i]-mn)/(mx-mn):0, g=t*255;
     im.data[i*4]=g;im.data[i*4+1]=g;im.data[i*4+2]=g;im.data[i*4+3]=255; }
   ctx.putImageData(im,0,0);                      // frame buffer holds ONLY the grayscale image
@@ -8179,6 +8265,7 @@ $('genBtn').addEventListener('click',async()=>{
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     syncSaveImg();   // the old stack's content is gone; disable Save image until showFrame(0) below draws something new
     initScrub();
+    await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false;
@@ -8205,6 +8292,7 @@ $('file').addEventListener('change',async e=>{
     stack = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     initScrub();
+    await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
@@ -8309,6 +8397,7 @@ function initScrub(){
   const row=$('scrubRow'), s=$('scrub');
   if(stack && stack.n>1){ row.style.display='flex'; s.max=stack.n-1; s.value=0; $('scrubV').textContent=`1/${stack.n}`; }
   else row.style.display='none';
+  $('rawContrastRow').style.display = stack ? 'flex' : 'none';   // useful even for a single-frame stack, unlike the Frame slider above
   if(stack){ $('calLast').value=stack.n; $('calFirst').value=1;   // default calibration range = whole stack
     $('fitLastFrame').value=stack.n; $('fitFirstFrame').value=1;  // default Localize range = whole stack too
     // both panels take the stack's aspect ratio (raw frame + reconstruction share it → equal, no letterbox)
@@ -8319,6 +8408,8 @@ function initScrub(){
     const st=$('calLocateStatus'); if(st) st.style.display='none'; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
+$('rawBlack').addEventListener('input',e=>{ rawBlack=Math.min(+e.target.value,rawWhite-1); syncRawContrastUI(); redrawRawContrast(); });
+$('rawWhite').addEventListener('input',e=>{ rawWhite=Math.max(+e.target.value,rawBlack+1); syncRawContrastUI(); redrawRawContrast(); });
 $('calBtn').addEventListener('click',runCalibration);
 $('calFixedXY').addEventListener('change',()=>{
   if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('Load a bead z-stack first.'); }

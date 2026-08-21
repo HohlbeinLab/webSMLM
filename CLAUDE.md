@@ -390,6 +390,33 @@ relevant one before editing rather than scrolling:
   panel boxes just changed shape. `layoutToggleBtn` lives on the right of the **Log** card's own
   title bar (`clearLogBtn`/`exportLogBtn` grouped on the left), not a dedicated row above the
   canvases — that read as wasted vertical space for one small button.
+
+  **Raw-frame display contrast** (`rawBlack`/`rawWhite`, the Contrast slider below the Frame
+  scrubber, Picasso-inspired) is a FIXED [black,white] ADU range applied identically to every frame
+  by `drawRaw()`, replacing an earlier per-frame auto-stretch (`t=(v-frameMin)/(frameMax-frameMin)`)
+  that made brightness/contrast visibly shift as you scrubbed and let a single dead/hot pixel
+  dominate a frame's own min or max. `estimateRawContrastRange(stack)` (called once right after a
+  stack loads, before the first frame paints) establishes the slider's own bounds and initial handle
+  positions: a TRUE global max would mean reading every pixel of every frame, the opposite of this
+  loader's whole streamed/sliced design for large files, so it samples a bounded number (50) of
+  seeded-random frames instead — the same `pickSeededFrames()` PCFO's own gain/offset estimate
+  already uses — accepting a small chance of missing the single hottest pixel in an unsampled frame
+  as a reasonable trade-off for a display convenience, not a measurement. The initial handle
+  positions come from a coarse histogram (1024 bins) over the pooled sampled pixels' 0.5th/99.5th
+  percentile, not the literal observed min/max, so one outlier pixel can't push the DEFAULT handles
+  to the extreme ends either — same reasoning as the reconstruction panel's own `lutpct` ("Display
+  max percentile") control, just applied to raw ADU values instead of localization density. There's
+  no native two-thumb `<input type=range>`, so the slider itself (`.dualrange` CSS, `#rawBlack`/
+  `#rawWhite`) is two ordinary range inputs stacked on the same track, each fully transparent except
+  its own thumb (`pointer-events` split via `::-webkit-slider-thumb`/`::-moz-range-thumb`) so either
+  handle can be grabbed independently without the other, or the track itself, intercepting the drag;
+  each input's own handler clamps against the other's current value so they can't cross. Dragging a
+  handle re-renders from `rawPixelData` (the exact ADU array `drawRaw()` last received) via
+  `redrawRawContrast()` rather than re-fetching the frame from the stack, so dragging stays
+  responsive regardless of stack size. Deliberately excluded from `PARAMS`/Save-Load Settings/the
+  headless `analyze()` config — same "pure display/layout" carve-out as UI theme choice and sidebar
+  collapsed/floating state (see **params** above) — a display convenience local to one interactive
+  session, not an analysis parameter.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
