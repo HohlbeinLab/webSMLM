@@ -296,7 +296,7 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`) |
+| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll`) |
 | `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
 | `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
 | `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
@@ -839,7 +839,19 @@ is what to know before touching that module, not a restatement of its code.
   returns `lpsx`/`lpsy` (fit precision of the σx/σy widths), consumed by
   `zFromWidths()` to estimate `lpz` — an approximate z-precision via error
   propagation through the calibration curve's local slope (not a true joint
-  CRLB, since z isn't a parameter of the pixel-level fit). `pcfoCore()` is a
+  CRLB, since z isn't a parameter of the pixel-level fit). A fifth method,
+  **Gaussian MLE Elliptical (sSMLM)** (`gaussmleEll`, `gaussianMLERotated()`),
+  fits an independent σx/σy at a FIXED rotation angle taken from the sSMLM
+  pairing step's own calibrated dispersion bearing (`sSmlmAngleCenter`,
+  [§2/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding))
+  — for a spectrally-elongated
+  1st-order PSF, unlike `mle3d`'s own σx/σy split, which is axis-aligned and
+  tied to an astigmatic z-calibration instead. 2D-only (no z); use it and
+  then **Pair** to get real per-axis widths for both the 0th and 1st order,
+  not just the plain symmetric-σ proxy every other method reports.
+  `gaussianMLE`/`gaussianMLEastig`/`gaussianMLERotated` all share one
+  Fisher-scoring Newton driver (`mleNewtonFit()`) rather than three
+  independently-coded copies. `pcfoCore()` is a
   separate, one-off tool living in this module: Rieger–Heintzman PCFO
   gain/offset estimation from a loaded/simulated stack directly (no
   calibration acquisition needed) — see
@@ -1236,16 +1248,17 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
-- `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `track_id`, `D_coeff
-  [um^2/s]` (each when available) and `n_merged [frames]` (when temporal
-  clustering is active) are webSMLM-specific additions appended after the
-  standard columns — safe for a strict ThunderSTORM reader to ignore.
+- `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `sx0th [nm]`/`sy0th [nm]`/
+  `sx1st [nm]`/`sy1st [nm]`, `track_id`, `D_coeff [um^2/s]` (each when
+  available) and `n_merged [frames]` (when temporal clustering is active)
+  are webSMLM-specific additions appended after the standard columns — safe
+  for a strict ThunderSTORM reader to ignore.
 - `dist [nm]` is sSMLM-**Pair**-specific: the inter-order distance
   (see §3 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
   for it; `pairCore()` never sets `z`, so a paired-only export has `dist`
@@ -1253,10 +1266,16 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 - `sigma1st [nm]` is sSMLM-**Pair**-specific: the 1st order's own `sigma`
   (see §3 sSMLM), carried through from `pairCore()` rather than the pair's
   reported `sigma [nm]`, which is still the 0th order's. Not a directional/
-  long-axis width — every 2D fit method fits one symmetric `sigma`; this is
-  the closest available proxy for how much wider the spectrally-smeared 1st
-  order looks. Round-trips through **Load data** (`parseCsvLocs()`) like
-  `sigma_z`/`dist`/`n_merged` do.
+  long-axis width for most methods — every method except `gaussmleEll` fits
+  one symmetric `sigma`; this is the closest available proxy for how much
+  wider the spectrally-smeared 1st order looks in that case. Round-trips
+  through **Load data** (`parseCsvLocs()`) like `sigma_z`/`dist`/`n_merged` do.
+- `sx0th [nm]`/`sy0th [nm]`/`sx1st [nm]`/`sy1st [nm]` are also sSMLM-
+  **Pair**-specific, but only present when the Run used the **Gaussian MLE
+  Elliptical (sSMLM)** fit method (`gaussmleEll`) — a real per-axis width
+  for BOTH orders (not just a proxy for the 1st the way `sigma1st` is),
+  since that method fits an independent σx/σy for every localization, not
+  just a symmetric `sigma`. Round-trips through **Load data** the same way.
 - `track_id` and `D_coeff [um^2/s]` are spt-**Track**-specific (see §3 spt)
   — independent optional columns, present whenever any localization has
   them; `track_id` is on every tracked localization, `D_coeff` only on

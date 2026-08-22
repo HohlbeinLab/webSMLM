@@ -218,13 +218,73 @@ relevant one before editing rather than scrolling:
   `detection_<method>_<setting>` (e.g. `detection_DoG_thr`, `detection_box_thr`) shown/hidden by
   the sync IIFE keyed off `#detFilter` — don't reintroduce a single shared field across methods,
   their thresholds mean different things (k·σ multiplier vs. raw intensity).
-- **fit** — phasor (fast, non-iterative), least-squares 2D-Gaussian, and Poisson-MLE 2D/3D
-  (`gaussianMLE`/`gaussianMLEastig`, the default) localization. All four fitters take
-  `gain,camoff` and convert every pixel to true photon units — `(raw-camoff)*gain` — before
-  fitting, matching Picasso's architecture; position/width/ratio outputs are provably invariant
-  to this affine transform (LS/phasor), while MLE's Poisson likelihood and CRLB (`lpx`/`lpy`)
-  are only statistically correct when fit in photon units, so this is the one place gain/offset
-  actually change a result rather than just rescaling it.
+- **fit** — phasor (fast, non-iterative), least-squares 2D-Gaussian, and Poisson-MLE 2D/3D/
+  Elliptical (`gaussianMLE`/`gaussianMLEastig`/`gaussianMLERotated`; `gaussianMLE` is the
+  default) localization. All fitters take `gain,camoff` and convert every pixel to true photon
+  units — `(raw-camoff)*gain` — before fitting, matching Picasso's architecture; position/width/
+  ratio outputs are provably invariant to this affine transform (LS/phasor), while MLE's Poisson
+  likelihood and CRLB (`lpx`/`lpy`) are only statistically correct when fit in photon units, so
+  this is the one place gain/offset actually change a result rather than just rescaling it.
+
+  **Shared MLE accumulator**: `gaussianMLE`/`gaussianMLEastig`/`gaussianMLERotated` all run on
+  ONE Fisher-scoring Newton driver, `mleNewtonFit(n, th, mstep, clampFn, ..., modelFn)` — before
+  this existed, `gaussianMLE` and `gaussianMLEastig` were two independently hand-written copies
+  of the exact same loop, only their per-pixel MODEL (one shared σ vs independent σx/σy)
+  differing. Checked directly against Picasso 0.11.0's own `picasso/fitting/gaussfit.py` (not
+  assumed) before doing this: its `_estimator_terms(mle, value, data, var)` dispatch, reused
+  across its SPHERICAL/ELLIPTIC/ROTATED models, is the SAME Fisher-scoring shell webSMLM's own
+  `inv=1/model; cf=data*inv-1; hess+=du·du·inv` already implemented — confirmed algebraically
+  equivalent, not just "similar" — so this refactor only had to extract that existing math once,
+  not invent a new formulation. `modelFn(px,py,th,duOut)` returns the per-pixel model value and
+  writes its Jacobian into a REUSED scratch array (the original code allocated a fresh `du` array
+  per pixel; this is strictly cheaper, not just deduplicated) — `mleModelSpherical`/
+  `mleModelElliptical` are erf-pixel-integrated (unchanged math, just extracted); the driver
+  itself never needs to know what a parameter MEANS, only how the model responds to it, so a
+  third/fourth model plugs in without touching the driver. `gaussianFit` (LSQ, Gauss-Newton +
+  backtracking line search) is deliberately NOT part of this unification — different per-pixel
+  weighting (plain squared residual, no `1/model` term) and a different outer solver, so folding
+  it in isn't the same small, low-risk change the MLE-side refactor is.
+
+  **`gaussianMLERotated`** (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)") adds a genuinely
+  new model: `[x,y,N,bg,σx,σy]` plus a rotation angle, either FIXED (6 free params, reusing
+  `mleModelElliptical` with pixel offsets pre-rotated by the constant once, before the loop — same
+  size/stability class as `gaussianMLEastig`, no angle Hessian row at all) or FREE (7 free params,
+  angle is θ[6]). Motivated by sSMLM: every OTHER 2D method fits one symmetric σ, so `sigma1st`
+  (see **sSMLM** below) was never a real directional measurement of the spectrally-smeared 1st
+  order, just the closest available proxy. POINT-SAMPLED (`value=amp·exp(-½(arga²/σx²+argb²/σy²))
+  +bg` at the pixel CENTER), not pixel-integrated like the other two models — a rotated Gaussian
+  doesn't factor into closed-form per-axis erf integrals the way an axis-aligned one does; matches
+  Picasso's own `_accumulate_rotated` formula exactly (read directly from its source), which uses
+  the same point-sampled simplification for the same reason, not a shortcut invented here. `photons`
+  is the amplitude converted to a true integrated photon count (`amp*2π·σx·σy`, same relation
+  `gaussianFitElliptical` already uses for its own peak-amplitude elliptical model) — NOT the raw
+  θ[2] amplitude the point-sampled model actually optimizes internally (`amp` is reported
+  separately); an earlier version of this returned the raw amplitude as `photons` directly, caught
+  by a synthetic test with a known integrated photon count before shipping — would have silently
+  under-reported photon counts by the `2π·σx·σy` factor for every downstream consumer (CSV, table,
+  any photon-weighted statistic). Free-angle mode has a real, documented gotcha carried over from
+  Picasso's own model: the angle derivative vanishes identically when σx==σy, singularising the
+  Hessian — the seed deliberately breaks that symmetry (`σx0=1.05·σ0, σy0=0.95·σ0`) whenever angle
+  is free; a fixed angle never enters the optimisation, so this doesn't apply there. An
+  unconstrained (σx,σy,angle) fit also has a real, expected 4-way degeneracy (swapping σx↔σy and
+  adding ±90°/±180° to the angle describes the identical physical ellipse) — not a bug, confirmed
+  by comparing a synthetic recovered fit against all 4 equivalent parameterisations, not just the
+  raw angle value.
+
+  The fixed angle for `'gaussmleEll'` is sourced directly from `paramValue('sSmlmAngleCenter')`
+  (degrees → radians) — the pairing step's own already-calibrated dispersion bearing (see
+  **sSMLM**'s `fitSSmlmAngle()`) — computed once in `runCore()` (`sSmlmAngleRad`, passed through
+  to the worker payload alongside `zcal`/`wcal`) and once in `showFrame()`'s own live-preview copy
+  of the same dispatch. Deliberately coupled to `sSmlmAngleCenter` directly rather than a new
+  `PARAMS` entry, since that's the concrete motivating use case — a non-sSMLM elongated-PSF use of
+  this method would need a separate angle source, not attempted here. MLE 3D's own fitted output
+  (`gaussianMLEastig`) is unchanged by any of this — it's still axis-aligned (angle implicitly 0),
+  just rebuilt on the same shared driver; letting it recover a genuine free rotation angle too
+  (testing whether real astigmatic calibration data is actually axis-aligned, worth checking since
+  cylindrical-lens misalignment is a real possibility, and every emitter should share the same
+  angle if field-position-dependent aberrations are ignored) is a deliberate follow-up, not done
+  this round — `gaussianMLERotated`'s free-angle mode already supports it, no new code needed,
+  just a diagnostic pass over real calibration bead data.
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
   without refitting. `LUT_CPS` control-point maps: `fire`/`inferno`/`viridis`/`turbo` are smooth
@@ -496,9 +556,15 @@ relevant one before editing rather than scrolling:
   order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
   offset varies per emitter with wavelength, so averaging would blur position. Each paired row also
   carries `sigma1st` — the 1st order's own `sigma` — exported as a `"sigma1st [nm]"` CSV/table
-  column whenever present. NOT a directional/long-axis width (every 2D fit method fits one
-  symmetric `sigma`, no `sx`/`sy` split); the closest available proxy for "how much wider the
-  spectrally-smeared 1st order looks."
+  column whenever present. NOT a directional/long-axis width for most methods (every method except
+  `'gaussmleEll'` fits one symmetric `sigma`, no `sx`/`sy` split); the closest available proxy for
+  "how much wider the spectrally-smeared 1st order looks" in that case. When the Run used
+  `'gaussmleEll'` (MODULE: fit, `gaussianMLERotated`) instead, `pairCore()` also carries the real
+  thing — `sx0th`/`sy0th`/`sx1st`/`sy1st` (from `L.sx`/`.sy` and `locs[q.down].sx`/`.sy`), exported
+  as their own optional CSV/table columns the same way — a genuine per-axis width for BOTH orders,
+  not just a proxy for the 1st. The 0th order's own `sx`≈`sy` is itself a useful fit-quality/role
+  signal, not just bonus data — the whole point of using `'gaussmleEll'` for sSMLM rather than only
+  applying an elliptical fit after the fact to whichever point got classified as 1st order.
 
   Stores the inter-order distance in its own `dist` field — **deliberately never `z`**: an earlier
   design that aliased `z` was reverted, both to fix a real bug (drift correction's "Correct z too

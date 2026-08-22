@@ -16,29 +16,30 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-21e; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-21f; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2017   PARAMS registry, single source of truth for params
-    in/out          2431   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2744   synthetic stack generator ("Simulate movie")
-    detect          3571   per-frame band-pass + local-maxima detection
-    fit             3827   phasor / LS / Poisson-MLE 2D+3D localization
-    render          4184   accumulate to offscreen buffer; view/colour/blur;
+    params          2018   PARAMS registry, single source of truth for params
+    in/out          2432   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2745   synthetic stack generator ("Simulate movie")
+    detect          3572   per-frame band-pass + local-maxima detection
+    fit             3828   phasor / LS / Poisson-MLE 2D+3D/Elliptical (sSMLM)
+                           localization; shared mleNewtonFit() driver
+    render          4303   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5039   frame-parallel detect/fit worker pool
-    export          5195   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5432   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5832   AIM drift correction (2D+z)
-    locprecision    6080   NeNA + FRC
-    sSMLM           6723   spectrally resolved SMLM pair-finding
-    spt             7162   single particle tracking, trackpy-inspired
-    pipeline        7592   top-level orchestration, *Core()/wrapper split
-    table           9122   localizations table, filtering, histograms
-    headless API    9550   window.webSMLM.analyze()/analyzeBatch()
+    workers         5158   frame-parallel detect/fit worker pool
+    export          5322   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5567   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5967   AIM drift correction (2D+z)
+    locprecision    6215   NeNA + FRC
+    sSMLM           6858   spectrally resolved SMLM pair-finding
+    spt             7306   single particle tracking, trackpy-inspired
+    pipeline        7736   top-level orchestration, *Core()/wrapper split
+    table           9277   localizations table, filtering, histograms
+    headless API    9711   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1581,7 +1582,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21f</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1764,6 +1765,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="gaussls">Gaussian LS 2D</option>
             <option value="gaussmle" selected>Gaussian MLE 2D</option>
             <option value="mle3d">Gaussian MLE 3D</option>
+            <option value="gaussmleEll">Gaussian MLE Elliptical (sSMLM)</option>
           </select></label>
         <label class="row" id="ftmEnabledRow" style="margin-top:8px">Temporal median filtering <input type="checkbox" id="ftmEnabled"></label>
         <label class="row" id="ftmWindowRow" style="display:none;padding-left:20px">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
@@ -1999,7 +2001,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21e · Contrast slider gains an "Auto" button (resets Black/White to the estimated default) and is a bit narrower to make room for it
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21f · new "Gaussian MLE Elliptical (sSMLM)" fit method — real per-axis sx/sy for both pair orders, fixed to the pairing step's own calibrated bearing
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2049,7 +2051,7 @@ const PARAMS = {
 
   // ---- fit ----
   // method = which localization fitter runs: phasor 2D/3D, Gaussian least-squares, or Gaussian MLE 2D/3D
-  method: { type:'enum', id:'method', label:'Fit method', options:['phasor','phasor3d','gaussls','gaussmle','mle3d'], default:'gaussmle' },
+  method: { type:'enum', id:'method', label:'Fit method', options:['phasor','phasor3d','gaussls','gaussmle','mle3d','gaussmleEll'], default:'gaussmle' },
   // fitFirstFrame/fitLastFrame = 1-based inclusive frame range Localize actually
   // processes (the rest of the loaded stack is skipped entirely, not just hidden
   // from the result afterward). Per-dataset in spirit (fitLastFrame's *meaningful*
@@ -3873,53 +3875,116 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0){
   return {x:p[1],y:p[2],photons:A*2*Math.PI*s2,
           bg:b, bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:s};
 }
-// -- integrated-Gaussian Poisson MLE (Smith, Joseph, Rieger & Lidke, Nat. Methods
-// 7, 373 (2010); cf. Picasso gaussmle). Fits [x,y,N,bg,σ] by full Fisher-scoring
-// Newton on the ROI (~5 iters) and returns the CRLB position precision lpx,lpy —
-// a proper per-localization uncertainty, unlike the LS fit. Self-contained (incl.
-// erf) so it ports cleanly into the stringified worker. Validated: unbiased, CRLB
-// matches empirical scatter within a few percent across bright/dim regimes.
+// -- integrated-Gaussian Poisson MLE, shared driver (Smith, Joseph, Rieger &
+// Lidke, Nat. Methods 7, 373 (2010); cf. Picasso gaussmle). gaussianMLE and
+// gaussianMLEastig below were, before this refactor, two independently
+// hand-written copies of the exact same Fisher-scoring Newton loop — the
+// per-pixel MODEL (one shared σ vs independent σx/σy) was the only real
+// difference between them. mleNewtonFit() is that loop, factored out ONCE;
+// mleModelSpherical/mleModelElliptical are the two per-pixel models it's
+// fed (also shared by gaussianMLERotated's fixed-angle mode below, which
+// reduces to the SAME elliptical model evaluated in pre-rotated pixel
+// coordinates — see its own comment). This mirrors how Picasso 0.11.0's own
+// gaussfit.py unifies its SPHERICAL/ELLIPTIC/ROTATED models through one
+// shared per-pixel estimator (`_estimator_terms`) rather than per-model
+// duplicated drivers — checked directly against its real source, not
+// assumed (see CLAUDE.md's fit module for the full note, including why
+// gaussianFit/LS stays a separate, untouched driver: different per-pixel
+// weighting — plain squared residual, no `1/model` term — and a different
+// outer solver, so unifying it isn't the same small, low-risk change this is).
+// erf/gInt were previously redeclared as a fresh closure inside each of
+// gaussianMLE/gaussianMLEastig on every single call; hoisting them to module
+// scope is a straightforward extra win from the same refactor, not just dedup.
+function mleErf(x){ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; }
+// _SQ2PI: module-level state a stringified fit function reads — MUST be
+// mirrored in WORKER_PRELUDE (search the workers module below), or a worker
+// throws ReferenceError and silently falls back to single-threaded; the
+// underscore prefix matches WORKER_PRELUDE's own naming convention so the
+// worker-source build's automatic missing-dependency scan actually catches
+// a forgotten one (it only scans for `_[A-Za-z]\w*` identifiers).
+const _SQ2PI=Math.sqrt(2*Math.PI);
+function mleGInt(pix,mu,sig){ const sn=0.7071067811865476/sig, d=pix-mu; return 0.5*(mleErf((d+0.5)*sn)-mleErf((d-0.5)*sn)); }
+// Per-pixel model + Jacobian for the SHARED σ (spherical) case — th=[x,y,N,bg,σ],
+// n=5. Writes into the caller-supplied duOut (reused across pixels/iterations
+// by mleNewtonFit, not reallocated per pixel — the original inline code
+// allocated a fresh `du` array literal every pixel; this is strictly cheaper,
+// not just refactored) and returns the model value at (px,py).
+function mleModelSpherical(px,py,th,duOut){
+  const PX=mleGInt(px,th[0],th[4]), PY=mleGInt(py,th[1],th[4]);
+  const model=th[2]*PX*PY+th[3];
+  const d0=px-th[0], d1=py-th[1], s2=th[4]*th[4];
+  const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*s2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*s2));
+  const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*s2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*s2));
+  const dPXmu=-(ea0-eb0)/(_SQ2PI*th[4]), dPYmu=-(ea1-eb1)/(_SQ2PI*th[4]);
+  const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(_SQ2PI*s2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(_SQ2PI*s2);
+  duOut[0]=th[2]*PY*dPXmu; duOut[1]=th[2]*PX*dPYmu; duOut[2]=PX*PY; duOut[3]=1; duOut[4]=th[2]*(dPXs*PY+PX*dPYs);
+  return model;
+}
+// Same, for INDEPENDENT σx/σy (axis-aligned elliptical) — th=[x,y,N,bg,σx,σy],
+// n=6. Used directly by gaussianMLEastig (MLE 3D, angle implicitly 0), and by
+// gaussianMLERotated's fixed-angle mode against pre-rotated (px,py) — see
+// mleModelRotated below for why that's the same model, not a third copy.
+function mleModelElliptical(px,py,th,duOut){
+  const PX=mleGInt(px,th[0],th[4]), PY=mleGInt(py,th[1],th[5]);
+  const model=th[2]*PX*PY+th[3];
+  const d0=px-th[0], d1=py-th[1], sx2=th[4]*th[4], sy2=th[5]*th[5];
+  const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*sx2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*sx2));
+  const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*sy2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*sy2));
+  const dPXmu=-(ea0-eb0)/(_SQ2PI*th[4]), dPYmu=-(ea1-eb1)/(_SQ2PI*th[5]);
+  const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(_SQ2PI*sx2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(_SQ2PI*sy2);
+  duOut[0]=th[2]*PY*dPXmu; duOut[1]=th[2]*PX*dPYmu; duOut[2]=PX*PY; duOut[3]=1; duOut[4]=th[2]*PY*dPXs; duOut[5]=th[2]*PX*dPYs;
+  return model;
+}
+function mleClampSpherical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<0.5)th[4]=0.5; }
+function mleClampElliptical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<0.5)th[4]=0.5; if(th[5]<0.5)th[5]=0.5; }
+// The Newton-with-per-parameter-step-clamp driver itself: identical to what
+// gaussianMLE/gaussianMLEastig each hand-rolled before this refactor,
+// generalised over `n` (parameter count) and `modelFn` (which model —
+// spherical/elliptical/rotated — supplies the per-pixel value+Jacobian).
+// clampFn enforces floors/validity in place after every step (which indices
+// are "sigma-like" differs per model, so this stays the caller's job, not
+// baked into the driver). Returns the converged theta (mutated in place)
+// and the final Fisher information matrix; solveLin(fisher, unit-vector-i)
+// gives parameter i's own CRLB, same convention every existing MLE fitter
+// already used, just no longer duplicated. Same rejection criteria (not
+// converged / amplitude pinned at its floor / out-of-window / non-finite)
+// are the CALLER's responsibility, unchanged from before this refactor —
+// this function only fits, it never rejects.
+function mleNewtonFit(n, th, mstep, clampFn, r, cx, cy, img, w, gain, camoffset, eps, maxIter, modelFn){
+  const g=new Float64Array(n), du=new Array(n);
+  const buildFisher=withGrad=>{ const M=[]; for(let a=0;a<n;a++)M.push(new Array(n).fill(0)); if(withGrad)g.fill(0);
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy;
+      const model=modelFn(px,py,th,du); if(model<1e-6) continue;
+      const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
+      if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
+      for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
+    return M; };
+  let converged=false;
+  for(let it=0;it<maxIter;it++){ const M=buildFisher(true), d=solveLin(M,Array.from(g)); if(!d) break; const ox=th[0],oy=th[1];
+    for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
+    clampFn(th);
+    if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps){ converged=true; break; } }
+  return { converged, fisher: buildFisher(false) };
+}
 // gain,camoffset convert ADU -> photons before the Poisson likelihood ever sees a
 // pixel — Poisson variance = mean only holds in true photon units, matching
 // Picasso's get_spots()/_to_photons() (applied upstream of its own gaussmle).
 // Without this, the Fisher/CRLB math implicitly assumes gain=1; photons/bg/
 // bgstd come out already gain-corrected, so no further scaling is needed
 // downstream. x,y,σ,lpx,lpy are unaffected — see gaussianFit's comment above.
-// eps: x,y convergence tolerance (px) — see PARAMS.mleEps.
+// eps: x,y convergence tolerance (px) — see PARAMS.mleEps. Self-contained
+// (incl. its dependencies above) so it ports cleanly into the stringified
+// worker. Validated: unbiased, CRLB matches empirical scatter within a few
+// percent across bright/dim regimes — re-verified numerically unchanged
+// after this function was rebuilt on the shared driver above.
 function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   const r=(win-1)/2, n=5;
-  const erf=x=>{ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
-    const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
-  const SQ=Math.sqrt(2*Math.PI);
-  const gInt=(pix,mu,sig)=>{ const sn=0.7071067811865476/sig, d=pix-mu; return 0.5*(erf((d+0.5)*sn)-erf((d-0.5)*sn)); };
-  const solve=(Min,b)=>{ const M=Min.map(row=>row.slice()), y=b.slice();       // Gaussian elimination, n×n
-    for(let c=0;c<n;c++){ let p=c; for(let rr=c+1;rr<n;rr++) if(Math.abs(M[rr][c])>Math.abs(M[p][c]))p=rr;
-      if(Math.abs(M[p][c])<1e-12) return null; [M[c],M[p]]=[M[p],M[c]]; [y[c],y[p]]=[y[p],y[c]];
-      const d=M[c][c]; for(let k=0;k<n;k++)M[c][k]/=d; y[c]/=d;
-      for(let rr=0;rr<n;rr++) if(rr!==c){ const f=M[rr][c]; for(let k=0;k<n;k++)M[rr][k]-=f*M[c][k]; y[rr]-=f*y[c]; } }
-    return y; };
   let sum=0,mx=0,my=0,mn=Infinity;                                             // centre-of-mass init
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
   const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0 ];
-  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4], g=new Float64Array(n);
-  const buildMg=withGrad=>{ const M=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]; if(withGrad)g.fill(0);
-    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy, PX=gInt(px,th[0],th[4]), PY=gInt(py,th[1],th[4]);
-      const model=th[2]*PX*PY+th[3]; if(model<1e-6) continue;
-      const d0=px-th[0], d1=py-th[1], s2=th[4]*th[4];
-      const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*s2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*s2));
-      const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*s2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*s2));
-      const dPXmu=-(ea0-eb0)/(SQ*th[4]), dPYmu=-(ea1-eb1)/(SQ*th[4]);
-      const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(SQ*s2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(SQ*s2);
-      const du=[ th[2]*PY*dPXmu, th[2]*PX*dPYmu, PX*PY, 1, th[2]*(dPXs*PY+PX*dPYs) ];
-      const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
-      if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
-      for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
-    return M; };
-  let converged=false;
-  for(let it=0;it<20;it++){ const M=buildMg(true), d=solve(M,g); if(!d) break; const ox=th[0],oy=th[1];
-    for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
-    if(th[4]<0.5)th[4]=0.5; if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0;
-    if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps){ converged=true; break; } }
+  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4];
+  const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampSpherical,r,cx,cy,img,w,gain,camoffset,eps,20,mleModelSpherical);
   // Reject rather than silently keep degenerate results: (1) not converged —
   // position never settled within `eps`, an unreliable result, not just a
   // slow-but-fine one; (2) amplitude pinned at the `Math.max(1,...)` floor
@@ -3927,70 +3992,125 @@ function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   // real signal (the "zero intensity" pathology, with correspondingly
   // meaningless bg/uncertainty); (3) out-of-window position.
   if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
-  const M=buildMg(false); let lpx=NaN,lpy=NaN;                                 // CRLB = diagonal of Fisher⁻¹
-  const ex=solve(M,[1,0,0,0,0]), ey=solve(M,[0,1,0,0,0]);
+  let lpx=NaN,lpy=NaN;                                                         // CRLB = diagonal of Fisher⁻¹
+  const ex=solveLin(fisher,[1,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
   if(!isFinite(lpx) || !isFinite(lpy)) return null;   // singular Fisher matrix — can't be trusted
   let e2=0,cnt=0;                                                              // residual RMS → bgstd (as for LS)
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
-    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[4])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
+    const res=th[2]*mleGInt(px,th[0],th[4])*mleGInt(py,th[1],th[4])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
   return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:th[4], lpx, lpy };
 }
-// -- astigmatic Poisson MLE: 6 params [x,y,N,bg,σx,σy] (PSFx uses σx, PSFy uses σy).
-// Same Fisher-scoring Newton as gaussianMLE; returns σx/σy for z-from-widths (MLE 3D)
-// and the CRLB lateral precision. Self-contained for the worker. Validated: σx/σy
-// and position recovered unbiased, CRLB matches empirical.
+// -- astigmatic Poisson MLE: 6 params [x,y,N,bg,σx,σy] (PSFx uses σx, PSFy uses σy),
+// on the SAME shared driver as gaussianMLE above (mleModelElliptical instead of
+// mleModelSpherical — that's the only real difference now). Returns σx/σy for
+// z-from-widths (MLE 3D) and the CRLB lateral precision. Validated: σx/σy and
+// position recovered unbiased, CRLB matches empirical — re-verified numerically
+// unchanged after this function was rebuilt on the shared driver.
 // gain,camoffset: see gaussianMLE — same ADU->photon conversion, same reasoning.
 // eps: x,y convergence tolerance (px) — see PARAMS.mleEps.
 function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   const r=(win-1)/2, n=6;
-  const erf=x=>{ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
-    const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
-  const SQ=Math.sqrt(2*Math.PI);
-  const gInt=(pix,mu,sig)=>{ const sn=0.7071067811865476/sig, d=pix-mu; return 0.5*(erf((d+0.5)*sn)-erf((d-0.5)*sn)); };
-  const solve=(Min,b)=>{ const M=Min.map(row=>row.slice()), y=b.slice();
-    for(let c=0;c<n;c++){ let p=c; for(let rr=c+1;rr<n;rr++) if(Math.abs(M[rr][c])>Math.abs(M[p][c]))p=rr;
-      if(Math.abs(M[p][c])<1e-12) return null; [M[c],M[p]]=[M[p],M[c]]; [y[c],y[p]]=[y[p],y[c]];
-      const d=M[c][c]; for(let k=0;k<n;k++)M[c][k]/=d; y[c]/=d;
-      for(let rr=0;rr<n;rr++) if(rr!==c){ const f=M[rr][c]; for(let k=0;k<n;k++)M[rr][k]-=f*M[c][k]; y[rr]-=f*y[c]; } }
-    return y; };
   let sum=0,mx=0,my=0,mn=Infinity;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
   const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0, sigma0 ];
-  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4], g=new Float64Array(n);
-  const buildMg=withGrad=>{ const M=[]; for(let a=0;a<n;a++)M.push(new Float64Array(n)); if(withGrad)g.fill(0);
-    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy, PX=gInt(px,th[0],th[4]), PY=gInt(py,th[1],th[5]);
-      const model=th[2]*PX*PY+th[3]; if(model<1e-6) continue;
-      const d0=px-th[0], d1=py-th[1], sx2=th[4]*th[4], sy2=th[5]*th[5];
-      const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*sx2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*sx2));
-      const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*sy2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*sy2));
-      const dPXmu=-(ea0-eb0)/(SQ*th[4]), dPYmu=-(ea1-eb1)/(SQ*th[5]);
-      const dPXs=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(SQ*sx2), dPYs=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(SQ*sy2);
-      const du=[ th[2]*PY*dPXmu, th[2]*PX*dPYmu, PX*PY, 1, th[2]*PY*dPXs, th[2]*PX*dPYs ];
-      const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
-      if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
-      for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } }
-    return M; };
-  let converged=false;
-  for(let it=0;it<25;it++){ const M=buildMg(true), d=solve(M,g); if(!d) break; const ox=th[0],oy=th[1];
-    for(let l=0;l<n;l++){ let st=d[l]; if(st>mstep[l])st=mstep[l]; else if(st<-mstep[l])st=-mstep[l]; th[l]+=st; }
-    if(th[4]<0.5)th[4]=0.5; if(th[5]<0.5)th[5]=0.5; if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0;
-    if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps){ converged=true; break; } }
+  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4];
+  const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,mleModelElliptical);
   // See gaussianMLE's comment above — same three rejection criteria.
   if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
-  const M=buildMg(false); let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN;
-  const ex=solve(M,[1,0,0,0,0,0]), ey=solve(M,[0,1,0,0,0,0]);
+  let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN;
+  const ex=solveLin(fisher,[1,0,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
   if(!isFinite(lpx) || !isFinite(lpy)) return null;   // singular Fisher matrix — can't be trusted
   // lpsx/lpsy: fit precision of the sx/sy widths themselves (same Fisher⁻¹
   // diagonal, rows 4/5) — feeds zFromWidths' z-precision estimate below.
-  const esx=solve(M,[0,0,0,0,1,0]), esy=solve(M,[0,0,0,0,0,1]);
+  const esx=solveLin(fisher,[0,0,0,0,1,0]), esy=solveLin(fisher,[0,0,0,0,0,1]);
   if(esx) lpsx=Math.sqrt(Math.max(0,esx[4])); if(esy) lpsy=Math.sqrt(Math.max(0,esy[5]));
   let e2=0,cnt=0;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
-    const res=th[2]*gInt(px,th[0],th[4])*gInt(py,th[1],th[5])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
+    const res=th[2]*mleGInt(px,th[0],th[4])*mleGInt(py,th[1],th[5])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
   return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
            sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, lpx, lpy, lpsx, lpsy };
+}
+// -- rotated-elliptical Poisson MLE: [x,y,N,bg,σx,σy] plus a rotation angle
+// (radians, CCW from +x) — either FIXED (fixedAngle a number: 6 free params,
+// same size/stability class as gaussianMLEastig above, no angle Hessian row
+// at all) or FREE (fixedAngle omitted/null: 7 free params, angle is θ[6]).
+// The motivating case is sSMLM's spectrally-smeared 1st order (webSMLM's
+// existing 2D methods only ever fit one symmetric σ; gaussianMLEastig's own
+// σx/σy split is axis-aligned and calibrated for astigmatic z, not a
+// drop-in for an arbitrary dispersion bearing) — see CLAUDE.md's sSMLM
+// module for how the fixed angle is sourced (paramValue('sSmlmAngleCenter'),
+// the pairing step's own already-calibrated bearing — far more reliable
+// than re-deriving an angle from one noisy single-molecule PSF, and it
+// sidesteps the free-angle mode's singularity below entirely, since a fixed
+// angle never enters the optimisation).
+//
+// POINT-SAMPLED, not pixel-integrated like mleModel{Spherical,Elliptical}
+// above: a rotated Gaussian doesn't factor into closed-form per-axis erf
+// integrals the way an axis-aligned one does (the erf trick relies on X and
+// Y separating). Matches Picasso 0.11.0's own ROTATED model formula exactly
+// (`_accumulate_rotated` in picasso/fitting/gaussfit.py, read directly, not
+// assumed) — point-sampling is Picasso's own precedented simplification for
+// this case, not a shortcut invented here; the accuracy cost is small for
+// PSFs several pixels wide, which is the typical regime here.
+//
+// Free-angle mode has a real, documented gotcha carried over from Picasso's
+// own model: the angle derivative vanishes identically when σx==σy, which
+// singularises the Hessian at that point — Picasso's own seed deliberately
+// breaks that symmetry, and this does the same (sx0=1.05·σ0, sy0=0.95·σ0)
+// whenever angle is free; fixed-angle mode has no such concern (seeded
+// symmetrically) since angle never becomes a fit parameter there.
+function mleModelRotated(px,py,th,duOut,angleFixed){
+  const angle = angleFixed==null ? th[6] : angleFixed;
+  const cosA=Math.cos(angle), sinA=Math.sin(angle);
+  const dx=px-th[0], dy=py-th[1];
+  const arga=dx*cosA-dy*sinA, argb=dx*sinA+dy*cosA;
+  const sx2=th[4]*th[4], sy2=th[5]*th[5];
+  const ex=Math.exp(-0.5*(arga*arga/sx2+argb*argb/sy2));
+  const model=th[2]*ex+th[3];
+  duOut[0]=(th[2]*cosA*arga/sx2+th[2]*sinA*argb/sy2)*ex;
+  duOut[1]=(-th[2]*sinA*arga/sx2+th[2]*cosA*argb/sy2)*ex;
+  duOut[2]=ex; duOut[3]=1;
+  duOut[4]=th[2]*arga*arga/(sx2*th[4])*ex;
+  duOut[5]=th[2]*argb*argb/(sy2*th[5])*ex;
+  if(angleFixed==null) duOut[6]=th[2]*arga*argb*(1/sx2-1/sy2)*ex;
+  return model;
+}
+function gaussianMLERotated(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,fixedAngle=null){
+  const r=(win-1)/2, n=fixedAngle==null?7:6;
+  let sum=0,mx=0,my=0,mn=Infinity;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
+  const npix=win*win;
+  const th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn),
+             fixedAngle==null?sigma0*1.05:sigma0, fixedAngle==null?sigma0*0.95:sigma0 ];
+  const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4];
+  if(fixedAngle==null){ th.push(0.01); mstep.push(0.2); }
+  const modelFn=(px,py,thh,duOut)=>mleModelRotated(px,py,thh,duOut,fixedAngle);
+  const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,modelFn);
+  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
+  const unit=i=>{ const v=new Array(n).fill(0); v[i]=1; return v; };
+  let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN,lpangle=NaN;
+  const ex=solveLin(fisher,unit(0)), ey=solveLin(fisher,unit(1));
+  if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
+  if(!isFinite(lpx) || !isFinite(lpy)) return null;   // singular Fisher matrix — can't be trusted
+  const esx=solveLin(fisher,unit(4)), esy=solveLin(fisher,unit(5));
+  if(esx) lpsx=Math.sqrt(Math.max(0,esx[4])); if(esy) lpsy=Math.sqrt(Math.max(0,esy[5]));
+  if(fixedAngle==null){ const ea=solveLin(fisher,unit(6)); if(ea) lpangle=Math.sqrt(Math.max(0,ea[6])); }
+  const angleUsed = fixedAngle==null ? th[6] : fixedAngle;
+  let e2=0,cnt=0; const cosA=Math.cos(angleUsed), sinA=Math.sin(angleUsed), sx2=th[4]*th[4], sy2=th[5]*th[5];
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
+    const ux=px-th[0], uy=py-th[1], arga=ux*cosA-uy*sinA, argb=ux*sinA+uy*cosA;
+    const res=th[2]*Math.exp(-0.5*(arga*arga/sx2+argb*argb/sy2))+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
+  // th[2] is the model's PEAK amplitude (point-sampled, unlike gaussianMLE/
+  // gaussianMLEastig's pixel-integrated th[2], which already IS the total
+  // photon count) — convert once here, same amplitude*2*pi*sx*sy relation
+  // gaussianFitElliptical already uses for its own peak-amplitude elliptical
+  // model, so `photons` means the same thing across every fit method's
+  // output regardless of which one produced it. `amp` keeps the raw peak
+  // height too, same as gaussianFitElliptical's own return shape.
+  return { x:th[0], y:th[1], photons:th[2]*2*Math.PI*th[4]*th[5], amp:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
+           sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, angle:angleUsed, lpx, lpy, lpsx, lpsy, lpangle };
 }
 // z from astigmatic widths sx,sy (px): least-squares match to the Gaussian-width
 // calibration σx(z),σy(z) (nm) over a z grid + parabolic refine. wcal={qx,qy(a,c,b
@@ -5055,6 +5175,7 @@ const WORKER_PRELUDE=[
   "let _ufW=0,_ufH=0,_ufDil=null,_ufTmp=null;",
   "let _mdCap=0,_mdPos=null,_mdVal=null;",
   "let _pcol=null,_prow=null,_pN=0;",
+  "const _SQ2PI=Math.sqrt(2*Math.PI);",   // mleModelSpherical/mleModelElliptical (MODULE: fit) read this
 ].join('\n');
 
 function workerSource(){
@@ -5064,7 +5185,11 @@ function workerSource(){
     boxH.toString(), boxV.toString(), boxInto.toString(),
     bandpass.toString(), atrous.toString(), waveletBP.toString(), detectFilter.toString(), findMaxima.toString(),
     roundOdd.toString(), uniformFilterInto.toString(), uniformBP.toString(), maxH.toString(), maxV.toString(), maxFilterInto.toString(), findMaximaUniform.toString(), detectSpots.toString(),
-    solveLin.toString(), sseWin.toString(), gaussianFit.toString(), gaussianMLE.toString(), gaussianMLEastig.toString(), zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
+    solveLin.toString(), sseWin.toString(), gaussianFit.toString(),
+    mleErf.toString(), mleGInt.toString(), mleModelSpherical.toString(), mleModelElliptical.toString(),
+    mleClampSpherical.toString(), mleClampElliptical.toString(), mleNewtonFit.toString(),
+    gaussianMLE.toString(), gaussianMLEastig.toString(), mleModelRotated.toString(), gaussianMLERotated.toString(),
+    zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
     ftmSeriesGlobal.toString(),
     `onmessage=function(e){
       const d=e.data;
@@ -5082,6 +5207,8 @@ function workerSource(){
           gaussianFit(img,w,h,8,8,7,1.3);
           gaussianMLE(img,w,h,8,8,7,1.3);
           gaussianMLEastig(img,w,h,8,8,7,1.3);
+          gaussianMLERotated(img,w,h,8,8,7,1.3,1,0,0.001,0.3);   // fixed-angle mode (the sSMLM production path)
+          gaussianMLERotated(img,w,h,8,8,7,1.3);                 // free-angle mode
           zFromWidths(1.3,1.5,{qx:{a:1e-6,c:0,b:130},qy:{a:1e-6,c:0,b:130},zmin:-400,zmax:400,px:100});
           ftmSeriesGlobal(new Float64Array(6).fill(5), new Float64Array(6), 6, 4, 0, 6, 0);
           postMessage({pong:1});
@@ -5128,7 +5255,7 @@ function workerSource(){
         postMessage({out:outF},[outF.buffer]);
         return;
       }
-      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps}=d;
+      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad}=d;
       const out=[]; let tD=0,tF=0,nC=0;
       for(let i=0;i<frames.length;i++){
         const img=frames[i], t0=performance.now();
@@ -5138,6 +5265,7 @@ function workerSource(){
         for(const mm of maxima){
           const L = method==='gaussmle' ? gaussianMLE(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
                          : method==='mle3d' ? gaussianMLEastig(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
+                         : method==='gaussmleEll' ? gaussianMLERotated(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,sSmlmAngleRad)
                          : isPh ? phasorFit(img,w,h,mm[0],mm[1],win,gain,camoffset)
                          : gaussianFit(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset);
           if(L){
@@ -5274,6 +5402,11 @@ function buildCsvText(locs, px, sigPSF){
   const hasDist=locs.some(L=>isFinite(L.dist));
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output only — see pairCore
+  // sx0th/sy0th/sx1st/sy1st: only set when the Run used 'gaussmleEll' (MODULE:
+  // fit, gaussianMLERotated) for an sSMLM-paired result — a real per-axis
+  // width for BOTH orders, unlike sigma1st's single-method-agnostic proxy
+  // above. One flag covers all four: pairCore() only ever sets them together.
+  const hasEllSSmlm=locs.some(L=>L.sx0th!==undefined);
   // spt: track_id on every localization once Track has run; D_coeff only on
   // locs whose track passed the length filter — see trackDiffusionCoeffs().
   const hasTrackId=locs.some(L=>L.track_id!==undefined);
@@ -5285,10 +5418,11 @@ function buildCsvText(locs, px, sigPSF){
   const zsigcol=hasZUnc?',"sigma_z [nm]"':'';
   const distcol=hasDist?',"dist [nm]"':'';
   const s1col=hasSigma1st?',"sigma1st [nm]"':'';
+  const ellcol=hasEllSSmlm?',"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"':'';
   const mcol=isClustered?',"n_merged [frames]"':'';
   const tidcol=hasTrackId?',"track_id"':'';
   const dcoeffcol=hasDCoeff?',"D_coeff [um^2/s]"':'';   // ASCII "um^2" — CSV compatibility, matches ThunderSTORM's own ASCII-only header convention
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${mcol}${tidcol}${dcoeffcol}\n`];
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -5306,11 +5440,13 @@ function buildCsvText(locs, px, sigPSF){
     const zsc=hasZUnc?`,${isFinite(L.lpz)?L.lpz.toFixed(1):''}`:'';   // already nm — see zFromWidths
     const dc=hasDist?`,${isFinite(L.dist)?L.dist.toFixed(1):''}`:'';   // already nm — see pairCore (sSmlmCandidates converts px->nm itself)
     const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
+    const fnm=v=>isFinite(v)&&v>0?(v*px).toFixed(1):'';
+    const ellc=hasEllSSmlm?`,${fnm(L.sx0th)},${fnm(L.sy0th)},${fnm(L.sx1st)},${fnm(L.sy1st)}`:'';
     const mc=isClustered?`,${L.nMerged||1}`:'';
     const tidc=hasTrackId?`,${L.track_id!==undefined?L.track_id:''}`:'';
     const dcoeffc=hasDCoeff?`,${isFinite(L.D_coeff)?L.D_coeff.toFixed(4):''}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${mc}${tidc}${dcoeffc}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${ellc}${mc}${tidc}${dcoeffc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -6887,12 +7023,20 @@ async function pairCore(locs, px, config, hooks={}){
     // instead of reporting it precisely.
     // sigma1st = the 1st order's OWN sigma (locs[q.down], already read once
     // above for sSmlmRequireNarrower — carried through here instead of
-    // discarded). NOT a directional/long-axis width: every 2D fit method
-    // (gaussianMLE/gaussianFit/phasorFit — sSMLM pairing requires 2D, see
-    // the guard above) fits a single symmetric sigma, with no sx/sy split
-    // the way the 3D astigmatic fit has; this is the closest available
-    // proxy for "how much wider the spectrally-smeared 1st order looks,"
-    // not a true per-axis decomposition of an elongated PSF.
+    // discarded). NOT a directional/long-axis width for most methods: every
+    // OTHER 2D fit method (gaussianMLE/gaussianFit/phasorFit) fits a single
+    // symmetric sigma, with no sx/sy split the way the 3D astigmatic fit
+    // has — sigma1st is the closest available proxy for "how much wider the
+    // spectrally-smeared 1st order looks" in that case, not a true per-axis
+    // decomposition. sx0th/sy0th/sx1st/sy1st are the real thing, when
+    // available: L.sx/L.sy (and the 1st order's own) are only ever set by
+    // 'gaussmleEll' (MODULE: fit, gaussianMLERotated) — every other method's
+    // locs simply don't have an .sx/.sy field, so these come through as
+    // undefined and the table/CSV already handle a missing optional column
+    // generically (same pattern track_id/D_coeff/dist already use). A real
+    // sx/sy pair for BOTH orders (not just the 1st) is the point of using
+    // 'gaussmleEll' for sSMLM at all — the 0th order's own sx≈sy is itself a
+    // useful fit-quality/role-confirmation signal, not just bonus data.
     // dist (NOT z) carries the inter-order distance — deliberately its own
     // field, never overwriting z, so a future 3D-fit + sSMLM combination
     // could carry real depth AND spectral distance on the same loc without
@@ -6901,7 +7045,8 @@ async function pairCore(locs, px, config, hooks={}){
     // so simply never setting z is equivalent to "leave it untouched."
     paired.push({ frame:L.frame, x:L.x, y:L.y, dist:q.dist,
       photons:L.photons, bg:L.bg, bgstd:L.bgstd, lpx:L.lpx, lpy:L.lpy, sigma:L.sigma,
-      sigma1st:locs[q.down].sigma });
+      sigma1st:locs[q.down].sigma,
+      sx0th:L.sx, sy0th:L.sy, sx1st:locs[q.down].sx, sy1st:locs[q.down].sy });
     sumDist+=q.dist; sumDistSq+=q.dist*q.dist;
     if((k&8191)===0){ onProgress(50+50*k/qualifying.length); await tick(); }
   }
@@ -7648,7 +7793,12 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
   const exactBP=config.detection_DoG_exactbp, mode=config.detFilter;
   const gain=config.gain, camoffset=config.camoffset, eps=config.mleEps;
-  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':'Gaussian LS 2D';
+  // Fixed rotation angle for 'gaussmleEll' (sSMLM elongated-PSF fit) — sourced
+  // directly from the pairing step's own already-calibrated dispersion bearing
+  // (config.sSmlmAngleCenter, degrees) rather than a new PARAMS entry; see
+  // gaussianMLERotated's own comment (MODULE: fit) for why fixed, not free.
+  const sSmlmAngleRad = (config.sSmlmAngleCenter||0)*Math.PI/180;
+  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':method==='gaussmleEll'?'Gaussian MLE Elliptical':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
   const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
@@ -7849,7 +7999,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
             const frames=corrected.slice(s-coreStart, e-coreStart);
             if(frames.length) shown={img:frames[0],fi:s};
             wk._pendImg=frames[0]; wk._pendStart=s;
-            wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
+            wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad});
           };
           pool.forEach(wk=>{
             wk.onmessage=ev=>{
@@ -7908,7 +8058,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         // hits on a real multi-worker run, only by luck on a tiny one.
         wk._pendImg=frames[0]; wk._pendStart=s;
         // no transfer list: frames are cloned, so any RAM cache survives
-        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps});
+        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad});
       };
       pool.forEach(wk=>{
         wk.onmessage=ev=>{
@@ -7971,7 +8121,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         const frameLocs=[];                         // this frame's accepted fits, for the raw-panel overlay below
         for(const [cx,cy] of maxima){
-          const L = method==='gaussmle' ? gaussianMLE(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset);
+          const L = method==='gaussmle' ? gaussianMLE(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLERotated(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset);
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -8373,6 +8523,7 @@ async function showFrame(i){
       const gain=paramValue('gain'), camoffset=paramValue('camoffset'), eps=paramValue('mleEps');
       const zcal = method==='phasor3d' ? cal3d : null;
       const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
+      const sSmlmAngleRad = paramValue('sSmlmAngleCenter')*Math.PI/180;   // see runCore()'s own copy of this same line (MODULE: fit, gaussianMLERotated)
       spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border).maxima;
       locsF=[];
       // ROIs (green boxes) show for any frame — they're just "what would be
@@ -8383,7 +8534,7 @@ async function showFrame(i){
       const {firstIdx,lastIdx}=fitFrameRange(paramValue('fitFirstFrame'), paramValue('fitLastFrame'), stack.n);
       const inRange = i>=firstIdx && i<lastIdx;
       if(inRange) for(const [cx,cy] of spots){
-        const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset);
+        const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLERotated(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset);
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                  L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -8579,7 +8730,8 @@ function parseCsvLocs(text){
   const iFrame=idx('frame'), iX=idx('x'), iY=idx('y'), iZ=idx('z'), iSigma=idx('sigma'),
         iN=idx('intensity'), iBg=idx('offset'), iBs=idx('bkgstd'), iUnc=idx('uncertainty'),
         iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st'), iDist=idx('dist'),
-        iTrackId=idx('track_id'), iDCoeff=idx('D_coeff');
+        iTrackId=idx('track_id'), iDCoeff=idx('D_coeff'),
+        iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
   let maxXpx=0, maxYpx=0;
@@ -8597,6 +8749,10 @@ function parseCsvLocs(text){
     if(iSigZ>=0 && p[iSigZ]!=='') L.lpz=+p[iSigZ];
     if(iDist>=0 && p[iDist]!=='') L.dist=+p[iDist];   // already nm, no px conversion — see pairCore
     if(iSig1>=0 && p[iSig1]!=='') L.sigma1st=(+p[iSig1])/px;
+    if(iSx0>=0 && p[iSx0]!=='') L.sx0th=(+p[iSx0])/px;
+    if(iSy0>=0 && p[iSy0]!=='') L.sy0th=(+p[iSy0])/px;
+    if(iSx1>=0 && p[iSx1]!=='') L.sx1st=(+p[iSx1])/px;
+    if(iSy1>=0 && p[iSy1]!=='') L.sy1st=(+p[iSy1])/px;
     if(iTrackId>=0 && p[iTrackId]!=='') L.track_id=+p[iTrackId];
     if(iDCoeff>=0 && p[iDCoeff]!=='') L.D_coeff=+p[iDCoeff];   // already µm²/s
     if(iMerged>=0) L.nMerged=+p[iMerged];
@@ -9265,13 +9421,17 @@ function locTableData(baseLocs, isClustered){
   // can appear as their own columns rather than one aliasing the other.
   const hasDist=locs.some(L=>isFinite(L.dist));
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output (or a paired CSV reload) — see pairCore
+  // sx0th/sy0th/sx1st/sy1st: real per-axis widths for BOTH orders, only set
+  // when the Run used 'gaussmleEll' (MODULE: fit, gaussianMLERotated) — see
+  // buildCsvText's own matching comment for the full reasoning.
+  const hasEllSSmlm=locs.some(L=>L.sx0th!==undefined);
   // spt: track_id on every localization once Track has run; D_coeff only on
   // locs whose track passed the length filter (see trackDiffusionCoeffs()).
   const hasTrackId=locs.some(L=>L.track_id!==undefined);
   const hasDCoeff=locs.some(L=>isFinite(L.D_coeff));
-  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]);
-  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_z:1,sigma1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4};
-  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_z:'nm',sigma1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s'};
+  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4};
+  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -9283,6 +9443,8 @@ function locTableData(baseLocs, isClustered){
     if(hasDist) r.dist=isFinite(L.dist)?L.dist:NaN;
     if(hasZUnc) r.sigma_z=isFinite(L.lpz)?L.lpz:NaN;   // already nm — see zFromWidths
     if(hasSigma1st) r.sigma1st=(isFinite(L.sigma1st)&&L.sigma1st>0)?L.sigma1st*px:NaN;
+    if(hasEllSSmlm){ const fnm=v=>isFinite(v)&&v>0?v*px:NaN;
+      r.sx0th=fnm(L.sx0th); r.sy0th=fnm(L.sy0th); r.sx1st=fnm(L.sx1st); r.sy1st=fnm(L.sy1st); }
     if(isClustered) r.nmerged=L.nMerged||1;
     if(hasTrackId) r.track_id=L.track_id!==undefined?L.track_id:NaN;
     if(hasDCoeff) r.D_coeff=isFinite(L.D_coeff)?L.D_coeff:NaN;
