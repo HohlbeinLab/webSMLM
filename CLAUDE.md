@@ -959,3 +959,26 @@ slower than V8), so keep validation inputs small.
   `webSMLM-cli.mjs` (Node + Playwright, true headless, the recommended one), `browser_sweep.py`/
   `browser-sweep.sh` (stdlib-only Python / bash, drive a real visible browser for a parameter
   sweep). See each script's header comment and `docs/DOCUMENTATION.md` §8.
+
+## Documentation build
+- `docs/DOCUMENTATION.md` is the only authored source for the detailed Read the Docs
+  manual. The Read the Docs build is Markdown-native (Sphinx + MyST).
+- `docs/readthedocs/build_docs.py` splits `DOCUMENTATION.md` at each level-2 (`##`)
+  heading into separate temporary Markdown pages so the published manual has one
+  Read the Docs page per major section. It also generates the documentation
+  `index.md`/toctree, preserves cross-section references, and adjusts relative
+  documentation-image paths.
+- Generated files are disposable and **must not be edited or committed**:
+  `docs/readthedocs/content/`
+  `docs/readthedocs/index.md`
+  `docs/readthedocs/_build/`
+  Documentation-content changes belong in `docs/DOCUMENTATION.md`; if the generated
+  structure, links, or paths are wrong, fix `docs/readthedocs/build_docs.py` instead.
+- Documentation images live once in `docs/images/` and are referenced from
+  `DOCUMENTATION.md` as `images/...`.
+- Read the Docs runs the splitter before Sphinx via `.readthedocs.yaml`. For a
+  local strict build from the repository root:
+      python docs/readthedocs/build_docs.py
+      python -m sphinx -W --keep-going -b html docs/readthedocs docs/readthedocs/_build/html
+- If generated documentation is wrong, fix `docs/DOCUMENTATION.md` or, when the
+  generation logic itself is responsible, `docs/readthedocs/build_docs.py`.
