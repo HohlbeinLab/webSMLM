@@ -16,30 +16,30 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-21f; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-22a; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2018   PARAMS registry, single source of truth for params
-    in/out          2432   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2745   synthetic stack generator ("Simulate movie")
-    detect          3572   per-frame band-pass + local-maxima detection
-    fit             3828   phasor / LS / Poisson-MLE 2D+3D/Elliptical (sSMLM)
+    params          2019   PARAMS registry, single source of truth for params
+    in/out          2433   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2746   synthetic stack generator ("Simulate movie")
+    detect          3573   per-frame band-pass + local-maxima detection
+    fit             3829   phasor / LS / Poisson-MLE 2D+3D/Elliptical (sSMLM)
                            localization; shared mleNewtonFit() driver
-    render          4303   accumulate to offscreen buffer; view/colour/blur;
+    render          4304   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5158   frame-parallel detect/fit worker pool
-    export          5322   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5567   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5967   AIM drift correction (2D+z)
-    locprecision    6215   NeNA + FRC
-    sSMLM           6858   spectrally resolved SMLM pair-finding
-    spt             7306   single particle tracking, trackpy-inspired
-    pipeline        7736   top-level orchestration, *Core()/wrapper split
-    table           9277   localizations table, filtering, histograms
-    headless API    9711   window.webSMLM.analyze()/analyzeBatch()
+    workers         5159   frame-parallel detect/fit worker pool
+    export          5323   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5568   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5968   AIM drift correction (2D+z)
+    locprecision    6216   NeNA + FRC
+    sSMLM           6859   spectrally resolved SMLM pair-finding
+    spt             7307   single particle tracking, trackpy-inspired
+    pipeline        7737   top-level orchestration, *Core()/wrapper split
+    table           9289   localizations table, filtering, histograms
+    headless API    9723   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,7 +1582,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-21f</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22a</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -2001,7 +2001,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-21f · new "Gaussian MLE Elliptical (sSMLM)" fit method — real per-axis sx/sy for both pair orders, fixed to the pairing step's own calibrated bearing
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22a · warns if "Gaussian MLE Elliptical" is run with sSmlmAngleCenter still at its 0° default (likely never fit for this dataset)
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -7803,6 +7803,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
   const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
   onLog(`\nRun: ${n} frames${rangeNote} · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
+  // 'gaussmleEll' needs sSmlmAngleCenter fit for THIS dataset (Preview pairs
+  // -> Fit angle & tol., on a symmetric-method Run first — position-only
+  // bearing, doesn't need this method at all) BEFORE it's meaningful — unlike
+  // mle3d, there's no calibration file to hard-gate on, so a genuinely unset
+  // angle can't be told apart from a real 0°. Warn on the one case that IS
+  // distinguishable: still sitting at its literal default, most likely never
+  // fit at all this session — same "flag a likely-forgotten setting, don't
+  // block" spirit as the gain-1/offset-0 warning elsewhere.
+  if(method==='gaussmleEll' && !config.sSmlmAngleCenter){
+    onLog(`  ⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs → Fit angle & tol., on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
+  }
   // FTM (temporal median filtering): if enabled, every frame fetch below goes
   // through makeFtmStack() instead of `stack` directly, so detect/fit see
   // FTM-corrected data with no other change to the dispatch logic that

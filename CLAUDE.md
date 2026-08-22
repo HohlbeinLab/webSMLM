@@ -277,7 +277,15 @@ relevant one before editing rather than scrolling:
   to the worker payload alongside `zcal`/`wcal`) and once in `showFrame()`'s own live-preview copy
   of the same dispatch. Deliberately coupled to `sSmlmAngleCenter` directly rather than a new
   `PARAMS` entry, since that's the concrete motivating use case — a non-sSMLM elongated-PSF use of
-  this method would need a separate angle source, not attempted here. MLE 3D's own fitted output
+  this method would need a separate angle source, not attempted here. A genuine chicken-and-egg
+  gap in this design (caught in review, not initially built): the angle can only be FIT from an
+  already-localized dataset's own pair geometry (position-only, needs no width info — any method
+  works for that first pass), so `'gaussmleEll'` is only ever meaningful as a SECOND Localize, after
+  a first pass with a symmetric method feeds **Preview pairs**/**Fit angle & tol.** `sSmlmAngleCenter`
+  defaults to 0°, and unlike `mle3d` there's no calibration file to hard-gate on — a genuinely unset
+  angle is indistinguishable from a real 0° bearing, so `runCore()` can only warn (`onLog`, once per
+  Run, same "flag a likely-forgotten setting, don't block" spirit as the gain-1/offset-0 warning
+  elsewhere), not refuse, when `config.sSmlmAngleCenter` is still exactly its default. MLE 3D's own fitted output
   (`gaussianMLEastig`) is unchanged by any of this — it's still axis-aligned (angle implicitly 0),
   just rebuilt on the same shared driver; letting it recover a genuine free rotation angle too
   (testing whether real astigmatic calibration data is actually axis-aligned, worth checking since
