@@ -6,13 +6,26 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
-- **Rotated-elliptical 2D MLE fitter — SHIPPED (build 2026-08-21f).**
-  `gaussianMLEellipticangled()` (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)")
-  fits independent σx/σy at a FIXED rotation angle sourced from the sSMLM
-  pairing step's own calibrated dispersion bearing (`sSmlmAngleCenter`) — see
-  **fit** and **sSMLM** in `CLAUDE.md` for the full design, including why
-  fixed (not free) for the production sSMLM path, and the point-sampled
-  (not pixel-integrated) model matching Picasso 0.11.0's own `gaussfit.py`
+- **Rotated-elliptical 2D/3D MLE fitter — SHIPPED (build 2026-08-21f; the
+  `localize3D` checkbox + rename below shipped 2026-08-22c).**
+  `gaussianMLEellipticangled()` (`'gaussmleEll'`, UI label "Gauss MLE 3D
+  rotated elliptical" — renamed from "Gaussian MLE Elliptical (sSMLM)"
+  alongside `gaussianMLE`→`gaussianMLEspheric`/`gaussianMLEastig`→
+  `gaussianMLEelliptic`, matching Picasso's own SPHERICAL/ELLIPTIC/ROTATED
+  naming, `mle3d`'s label now "Gauss MLE 3D elliptical") fits independent
+  σx/σy at either a FREE or FIXED rotation angle, chosen by the **3D
+  localisation?** checkbox (`PARAMS.localize3D`, shown for `mle3d`/
+  `gaussmleEll` only, default checked): checked = FREE angle (an
+  astigmatism-axis-alignment diagnostic — every emitter should share the
+  same angle if field-position-dependent aberrations are ignored — against
+  real 3D calibration bead data, no longer just a stated follow-up)
+  plus z from a loaded `gaussian_width` calibration; unchecked = angle FIXED
+  at the sSMLM pairing step's own calibrated dispersion bearing
+  (`sSmlmAngleCenter`), no z — the original sSMLM-only path. `mle3d` also
+  respects the checkbox now: unchecked runs the same axis-aligned elliptical
+  fit with no calibration requirement and no z. See **fit** and **sSMLM** in
+  `CLAUDE.md` for the full design, including the point-sampled (not
+  pixel-integrated) model matching Picasso 0.11.0's own `gaussfit.py`
   `_accumulate_rotated` formula (checked directly against its real source
   before building this, not assumed). Landed alongside the refactor it was
   designed to build on: `gaussianMLEspheric`/`gaussianMLEelliptic` now share one
@@ -22,7 +35,12 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   from the unification, different per-pixel weighting and outer solver).
   `pairCore()` gained optional `sx0th`/`sy0th`/`sx1st`/`sy1st` CSV/table
   columns (real per-axis widths for BOTH orders) alongside the existing
-  `sigma1st` proxy.
+  `sigma1st` proxy; separately, every elliptical-method loc (paired or not)
+  now also gets plain `sigma_x`/`sigma_y [nm]` CSV/table columns — which
+  surfaced and fixed a real bug in the process: the worker pool's packed
+  result array never carried `sx`/`sy` at all (only the merged `sigma`), so
+  a worker-pool sSMLM Run was silently losing `sx0th`/`sy0th`/`sx1st`/`sy1st`
+  even before this — see **export** in `CLAUDE.md`.
 
   Deliberately deferred, not forgotten:
   - **Per-pixel gain/offset/variance calibration maps** — Picasso's own
@@ -32,13 +50,6 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     the accumulator refactor above makes it a smaller lift when it is
     (the per-pixel model callback gains one more input), but genuinely not
     done this round.
-  - **Testing whether MLE 3D's real astigmatism is actually axis-aligned.**
-    `gaussianMLEelliptic`'s own fitted output is unchanged this round (angle
-    implicitly 0), but `gaussianMLEellipticangled`'s FREE-angle mode already
-    supports fitting a genuine rotation angle per bead — worth running
-    against real 3D calibration bead data as a diagnostic (every emitter
-    should share the same angle if field-position-dependent aberrations are
-    ignored), no new code needed, just a validation pass.
   - **Cubic-spline PSF fitting** (`picasso/fitting/splinefit.py`) for PSFs
     that deviate from Gaussian — meaningfully bigger scope than the rotated-
     elliptical case (its own 3D calibration volume, its own PSF-model

@@ -16,30 +16,30 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-22b; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-22c; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2019   PARAMS registry, single source of truth for params
-    in/out          2433   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2746   synthetic stack generator ("Simulate movie")
-    detect          3573   per-frame band-pass + local-maxima detection
-    fit             3829   phasor / LS / Poisson-MLE 2D+3D/Elliptical (sSMLM)
+    params          2020   PARAMS registry, single source of truth for params
+    in/out          2448   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2761   synthetic stack generator ("Simulate movie")
+    detect          3588   per-frame band-pass + local-maxima detection
+    fit             3844   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4304   accumulate to offscreen buffer; view/colour/blur;
+    render          4319   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5159   frame-parallel detect/fit worker pool
-    export          5323   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5568   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5968   AIM drift correction (2D+z)
-    locprecision    6216   NeNA + FRC
-    sSMLM           6859   spectrally resolved SMLM pair-finding
-    spt             7307   single particle tracking, trackpy-inspired
-    pipeline        7737   top-level orchestration, *Core()/wrapper split
-    table           9289   localizations table, filtering, histograms
-    headless API    9723   window.webSMLM.analyze()/analyzeBatch()
+    workers         5174   frame-parallel detect/fit worker pool
+    export          5339   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5590   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5990   AIM drift correction (2D+z)
+    locprecision    6238   NeNA + FRC
+    sSMLM           6881   spectrally resolved SMLM pair-finding
+    spt             7331   single particle tracking, trackpy-inspired
+    pipeline        7761   top-level orchestration, *Core()/wrapper split
+    table           9344   localizations table, filtering, histograms
+    headless API    9783   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,7 +1582,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22c</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1763,19 +1763,20 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="phasor">Phasor 2D</option>
             <option value="phasor3d">Phasor 3D</option>
             <option value="gaussls">Gaussian LS 2D</option>
-            <option value="gaussmle" selected>Gaussian MLE 2D</option>
-            <option value="mle3d">Gaussian MLE 3D</option>
-            <option value="gaussmleEll">Gaussian MLE Elliptical (sSMLM)</option>
+            <option value="gaussmle" selected>Gauss MLE 2D spherical</option>
+            <option value="mle3d">Gauss MLE 3D elliptical</option>
+            <option value="gaussmleEll">Gauss MLE 3D rotated elliptical</option>
           </select></label>
-        <label class="row" id="ftmEnabledRow" style="margin-top:8px">Temporal median filtering <input type="checkbox" id="ftmEnabled"></label>
-        <label class="row" id="ftmWindowRow" style="display:none;padding-left:20px">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
-        <label class="row" style="margin-top:8px">First frame <input type="number" id="fitFirstFrame" min="1" step="1" value="1" class="num" title="First frame (1-based, inclusive) Localize processes"></label>
-        <label class="row">Last frame <input type="number" id="fitLastFrame" min="1" step="1" class="num" title="Last frame (1-based, inclusive) Localize processes — blank/reset to the whole loaded stack on every new load"></label>
+        <label class="row" id="localize3DRow" style="margin-top:8px;display:none">3D localisation? <input type="checkbox" id="localize3D" checked></label>
         <div id="cal3dRow" style="display:none;margin:6px 0 2px">
           <button id="loadCalBtn" style="margin:0">Load calibration…</button>
           <input type="file" id="calFile" accept=".json" hidden>
           <div id="cal3dStatus" class="hint" style="margin-top:4px">No calibration loaded.</div>
         </div>
+        <label class="row" id="ftmEnabledRow" style="margin-top:8px">Temporal median filtering <input type="checkbox" id="ftmEnabled"></label>
+        <label class="row" id="ftmWindowRow" style="display:none;padding-left:20px">Window size <input type="number" id="ftmWindow" value="50" min="3" step="1" class="num"></label>
+        <label class="row" style="margin-top:8px">First frame <input type="number" id="fitFirstFrame" min="1" step="1" value="1" class="num" title="First frame (1-based, inclusive) Localize processes"></label>
+        <label class="row">Last frame <input type="number" id="fitLastFrame" min="1" step="1" class="num" title="Last frame (1-based, inclusive) Localize processes — blank/reset to the whole loaded stack on every new load"></label>
         <label class="row" style="margin-top:10px">Detection filter
           <select id="detFilter" class="sel">
             <option value="wave" selected>Wavelet (B-spline)</option>
@@ -2001,7 +2002,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22b · renamed gaussianMLE/gaussianMLEastig/gaussianMLERotated to gaussianMLEspheric/gaussianMLEelliptic/gaussianMLEellipticangled, matching Picasso's own SPHERICAL/ELLIPTIC/ROTATED terminology — no behavior change
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22c · UI labels renamed to "Gauss MLE 2D spherical"/"3D elliptical"/"3D rotated elliptical"; new "3D localisation?" checkbox toggles free-vs-fixed angle (gaussmleEll) and z-from-calibration (mle3d + gaussmleEll); CSV/table gain sigma_x/sigma_y columns; fixed a worker-pool bug that was silently dropping sx/sy
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2068,6 +2069,20 @@ const PARAMS = {
   // like 1 would be.
   fitFirstFrame: { type:'number', id:'fitFirstFrame', label:'First frame', min:1, max:null, step:1, default:1, int:true },
   fitLastFrame: { type:'number', id:'fitLastFrame', label:'Last frame', min:1, max:null, step:1, default:Infinity, int:true },
+  // localize3D = only meaningful for the two elliptical methods ("Gauss MLE
+  // 3D elliptical"/mle3d, "Gauss MLE 3D rotated elliptical"/gaussmleEll —
+  // updateMethodUI() only shows the control for those); default true. For
+  // mle3d it gates whether z is looked up from the loaded calibration at
+  // all (unchecked = an axis-aligned elliptical 2D fit, sx/sy reported, no
+  // calibration required, no z). For gaussmleEll it ALSO switches the
+  // rotation-angle mode: checked = free angle (7 free params, recovers a
+  // per-emitter angle — the astigmatism-axis-alignment diagnostic noted in
+  // MODULE: fit) + z from calibration if loaded; unchecked = angle FIXED at
+  // sSmlmAngleCenter (today's sSMLM pairing path), no z — see
+  // gaussianMLEellipticangled's own comment for why a fixed angle needs no
+  // calibration at all. See MODULE: fit / MODULE: pipeline for the full
+  // wiring (run()'s needCal/wcal, runCore()'s fixedAngle selection).
+  localize3D: { type:'bool', id:'localize3D', label:'3D localisation?', default:true },
   // mleEps = MLE Newton-iteration convergence tolerance (px); matches Picasso's gaussmle default
   // (0.001, vs webSMLM's earlier 1e-4 — 10x tighter than needed relative to CRLB precision, which
   // only cost extra iterations: swapping to 0.001 measured 19% faster AND a higher convergence
@@ -5273,9 +5288,10 @@ function workerSource(){
             if(method==='phasor3d'&&zcal){ const raw=L.pratio; cl=(raw<zcal.rmin||raw>zcal.rmax)?1:0;
               const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
               z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
-            else if(method==='mle3d'&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal,L.lpsx,L.lpsy); z=zr.z; cl=zr.clamped?1:0; lpz=zr.lpz; }
+            else if((method==='mle3d'||method==='gaussmleEll')&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal,L.lpsx,L.lpsy); z=zr.z; cl=zr.clamped?1:0; lpz=zr.lpz; }
             out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,cl,start+i,      // cl: z clamped out-of-range
-                     L.lpx==null?NaN:L.lpx, L.lpy==null?NaN:L.lpy, lpz);       // CRLB precision (MLE only; NaN otherwise)
+                     L.lpx==null?NaN:L.lpx, L.lpy==null?NaN:L.lpy, lpz,        // CRLB precision (MLE only; NaN otherwise)
+                     L.sx==null?NaN:L.sx, L.sy==null?NaN:L.sy);                // per-axis width (mle3d/gaussmleEll only; NaN otherwise)
           }
         }
         tF+=performance.now()-t1;
@@ -5401,6 +5417,10 @@ function buildCsvText(locs, px, sigPSF){
   // MODULE: sSMLM / pairCore) — its own optional column, not a z alias.
   const hasDist=locs.some(L=>isFinite(L.dist));
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
+  // per-axis width — set by the two elliptical fitters (mle3d/gaussmleEll,
+  // MODULE: fit) on every loc, not just an sSMLM-paired subset; independent
+  // of hasEllSSmlm below (that one's specifically the paired 0th/1st columns).
+  const hasSxSy=locs.some(L=>isFinite(L.sx)&&isFinite(L.sy));
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output only — see pairCore
   // sx0th/sy0th/sx1st/sy1st: only set when the Run used 'gaussmleEll' (MODULE:
   // fit, gaussianMLEellipticangled) for an sSMLM-paired result — a real per-axis
@@ -5416,13 +5436,14 @@ function buildCsvText(locs, px, sigPSF){
   // sigma_z/dist/sigma1st/track_id/D_coeff are webSMLM-specific additions,
   // same as n_merged below.
   const zsigcol=hasZUnc?',"sigma_z [nm]"':'';
+  const sxsycol=hasSxSy?',"sigma_x [nm]","sigma_y [nm]"':'';
   const distcol=hasDist?',"dist [nm]"':'';
   const s1col=hasSigma1st?',"sigma1st [nm]"':'';
   const ellcol=hasEllSSmlm?',"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"':'';
   const mcol=isClustered?',"n_merged [frames]"':'';
   const tidcol=hasTrackId?',"track_id"':'';
   const dcoeffcol=hasDCoeff?',"D_coeff [um^2/s]"':'';   // ASCII "um^2" — CSV compatibility, matches ThunderSTORM's own ASCII-only header convention
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}\n`];
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -5441,11 +5462,12 @@ function buildCsvText(locs, px, sigPSF){
     const dc=hasDist?`,${isFinite(L.dist)?L.dist.toFixed(1):''}`:'';   // already nm — see pairCore (sSmlmCandidates converts px->nm itself)
     const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
     const fnm=v=>isFinite(v)&&v>0?(v*px).toFixed(1):'';
+    const sxsyc=hasSxSy?`,${fnm(L.sx)},${fnm(L.sy)}`:'';
     const ellc=hasEllSSmlm?`,${fnm(L.sx0th)},${fnm(L.sy0th)},${fnm(L.sx1st)},${fnm(L.sy1st)}`:'';
     const mc=isClustered?`,${L.nMerged||1}`:'';
     const tidc=hasTrackId?`,${L.track_id!==undefined?L.track_id:''}`:'';
     const dcoeffc=hasDCoeff?`,${isFinite(L.D_coeff)?L.D_coeff.toFixed(4):''}`:'';
-    buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)},`+
+    buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)}${sxsyc},`+
              `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${ellc}${mc}${tidc}${dcoeffc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
@@ -5581,7 +5603,7 @@ let cal3dW=null;                             // active z(σx,σy) width model us
 // kept for the (future) LS / MLE 3D fitters. Each algorithm must be matched to
 // the calibration model it needs, so both are tagged in the exported file.
 const CALIB_METHODS={ phasor_magnitude:'Phasor magnitude based', gaussian_width:'Gaussian width based' };
-const ALGO_CALIB_METHOD={ phasor3d:'phasor_magnitude', mle3d:'gaussian_width' /*, ls3d:'gaussian_width' */ };
+const ALGO_CALIB_METHOD={ phasor3d:'phasor_magnitude', mle3d:'gaussian_width', gaussmleEll:'gaussian_width' /*, ls3d:'gaussian_width' */ };
 let calMethods={ phasor_magnitude:false, gaussian_width:false };   // which models the active calibration provides
 let calView='sigma';                         // which calibration graph the right panel shows: 'sigma' (Gaussian width) or 'mag' (phasor magnitude)
 
@@ -5944,7 +5966,7 @@ function buildCalibJson(calib){
   // magnitude ratio; LS/MLE 3D → Gaussian widths).
   const methods=[];
   if(c.zcal) methods.push({ id:'phasor_magnitude', label:CALIB_METHODS.phasor_magnitude, used_by:['phasor3d'], model:'phasor_z_from_ratio' });
-  if(c.qx&&c.qy) methods.push({ id:'gaussian_width', label:CALIB_METHODS.gaussian_width, used_by:['ls3d','mle3d'], model:'sigma_x_nm/sigma_y_nm' });
+  if(c.qx&&c.qy) methods.push({ id:'gaussian_width', label:CALIB_METHODS.gaussian_width, used_by:['ls3d','mle3d','gaussmleEll'], model:'sigma_x_nm/sigma_y_nm' });
   return { format:'webSMLM-astig-calibration', version:2, created:new Date().toISOString(),
     source_file:c.sourceFile||stackName, fixed_xy:!!c.fixedXY,
     pixel_size_nm:c.px, z_step_nm:c.step, frames:{first:c.first,last:c.last}, z_ref_nm:c.zref,
@@ -7030,13 +7052,15 @@ async function pairCore(locs, px, config, hooks={}){
     // spectrally-smeared 1st order looks" in that case, not a true per-axis
     // decomposition. sx0th/sy0th/sx1st/sy1st are the real thing, when
     // available: L.sx/L.sy (and the 1st order's own) are only ever set by
-    // 'gaussmleEll' (MODULE: fit, gaussianMLEellipticangled) — every other method's
-    // locs simply don't have an .sx/.sy field, so these come through as
-    // undefined and the table/CSV already handle a missing optional column
-    // generically (same pattern track_id/D_coeff/dist already use). A real
-    // sx/sy pair for BOTH orders (not just the 1st) is the point of using
-    // 'gaussmleEll' for sSMLM at all — the 0th order's own sx≈sy is itself a
-    // useful fit-quality/role-confirmation signal, not just bonus data.
+    // the two elliptical fitters — 'mle3d' (gaussianMLEelliptic) and
+    // 'gaussmleEll' (gaussianMLEellipticangled), MODULE: fit — every other
+    // method's locs simply don't have an .sx/.sy field, so these come
+    // through as undefined and the table/CSV already handle a missing
+    // optional column generically (same pattern track_id/D_coeff/dist
+    // already use). A real sx/sy pair for BOTH orders (not just the 1st) is
+    // the point of using an elliptical method for sSMLM at all — the 0th
+    // order's own sx≈sy is itself a useful fit-quality/role-confirmation
+    // signal, not just bonus data.
     // dist (NOT z) carries the inter-order distance — deliberately its own
     // field, never overwriting z, so a future 3D-fit + sSMLM combination
     // could carry real depth AND spectral distance on the same loc without
@@ -7793,25 +7817,29 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
   const exactBP=config.detection_DoG_exactbp, mode=config.detFilter;
   const gain=config.gain, camoffset=config.camoffset, eps=config.mleEps;
-  // Fixed rotation angle for 'gaussmleEll' (sSMLM elongated-PSF fit) — sourced
-  // directly from the pairing step's own already-calibrated dispersion bearing
-  // (config.sSmlmAngleCenter, degrees) rather than a new PARAMS entry; see
-  // gaussianMLEellipticangled's own comment (MODULE: fit) for why fixed, not free.
-  const sSmlmAngleRad = (config.sSmlmAngleCenter||0)*Math.PI/180;
-  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':method==='gaussmleEll'?'Gaussian MLE Elliptical':'Gaussian LS 2D';
+  // 'gaussmleEll' rotation angle — see PARAMS.localize3D: checked (default)
+  // means FREE angle (null here — gaussianMLEellipticangled fits its own
+  // 7th param per emitter), unchecked means FIXED at the sSMLM pairing
+  // step's own already-calibrated dispersion bearing (config.sSmlmAngleCenter,
+  // degrees). Only meaningful for gaussmleEll; unused (still computed, no
+  // extra branch needed) when method is anything else.
+  const sSmlmAngleRad = config.localize3D ? null : (config.sSmlmAngleCenter||0)*Math.PI/180;
+  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gauss MLE 2D spherical':method==='mle3d'?'Gauss MLE 3D elliptical':method==='gaussmleEll'?'Gauss MLE 3D rotated elliptical':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
   const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
   onLog(`\nRun: ${n} frames${rangeNote} · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
-  // 'gaussmleEll' needs sSmlmAngleCenter fit for THIS dataset (Preview pairs
-  // -> Fit angle & tol., on a symmetric-method Run first — position-only
-  // bearing, doesn't need this method at all) BEFORE it's meaningful — unlike
-  // mle3d, there's no calibration file to hard-gate on, so a genuinely unset
-  // angle can't be told apart from a real 0°. Warn on the one case that IS
-  // distinguishable: still sitting at its literal default, most likely never
-  // fit at all this session — same "flag a likely-forgotten setting, don't
-  // block" spirit as the gain-1/offset-0 warning elsewhere.
-  if(method==='gaussmleEll' && !config.sSmlmAngleCenter){
+  // The FIXED-angle path (localize3D unchecked) needs sSmlmAngleCenter fit
+  // for THIS dataset (Preview pairs -> Fit angle & tol., on a symmetric-
+  // method Run first — position-only bearing, doesn't need this method at
+  // all) BEFORE it's meaningful — there's no calibration file to hard-gate
+  // on, so a genuinely unset angle can't be told apart from a real 0°. Warn
+  // on the one case that IS distinguishable: still sitting at its literal
+  // default, most likely never fit at all this session — same "flag a
+  // likely-forgotten setting, don't block" spirit as the gain-1/offset-0
+  // warning elsewhere. Free-angle mode (localize3D checked) fits its own
+  // angle per emitter, so sSmlmAngleCenter is irrelevant there — no warning.
+  if(method==='gaussmleEll' && !config.localize3D && !config.sSmlmAngleCenter){
     onLog(`  ⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs → Fit angle & tol., on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
   }
   // FTM (temporal median filtering): if enabled, every frame fetch below goes
@@ -8017,8 +8045,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
               const d=ev.data, a=d.arr;
               const batchImg=wk._pendImg, batchStart=wk._pendStart;
               let batchLocs=null;
-              for(let i=0;i<a.length;i+=12){ const L={x:a[i],y:a[i+1],photons:a[i+2],
-                  bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]};
+              for(let i=0;i<a.length;i+=14){ const L={x:a[i],y:a[i+1],photons:a[i+2],
+                  bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11],sx:a[i+12],sy:a[i+13]};
                 locs.push(L);
                 if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
               tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
@@ -8076,8 +8104,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           const d=ev.data, a=d.arr;
           const batchImg=wk._pendImg, batchStart=wk._pendStart;   // this worker's own just-completed batch
           let batchLocs=null;
-          for(let i=0;i<a.length;i+=12){ const L={x:a[i],y:a[i+1],photons:a[i+2],
-              bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11]};
+          for(let i=0;i<a.length;i+=14){ const L={x:a[i],y:a[i+1],photons:a[i+2],
+              bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11],sx:a[i+12],sy:a[i+13]};
             locs.push(L);
             if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
@@ -8136,7 +8164,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
-                 else if(method==='mle3d'&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal,L.lpsx,L.lpsy); L.z=zr.z; L.zClamped=zr.clamped; L.lpz=zr.lpz; }
+                 else if((method==='mle3d'||method==='gaussmleEll')&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal,L.lpsx,L.lpsy); L.z=zr.z; L.zClamped=zr.clamped; L.lpz=zr.lpz; }
                  L.frame=fi; locs.push(L); frameLocs.push({x:L.x,y:L.y}); }
         }
         tFit+=performance.now()-tc;
@@ -8168,7 +8196,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render)
 
   onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames (${(locs.length/per).toFixed(1)} loc/frame) in ${Math.round(runMs)} ms total (${Math.round(dt)} ms compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
-  if((method==='gaussmle'||method==='mle3d')&&locs.length){                     // at-a-glance MLE confirmation + quality stat
+  if((method==='gaussmle'||method==='mle3d'||method==='gaussmleEll')&&locs.length){   // at-a-glance MLE confirmation + quality stat
     const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
     if(ps.length) onLog(`  ${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
   // a timing breakdown, so you can see where the time actually goes.
@@ -8249,13 +8277,23 @@ async function run(){
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   try{
     const method=paramValue('method');
-    const needCal = ALGO_CALIB_METHOD[method];          // calibration model this 3D algorithm requires (if any)
+    const localize3D=paramValue('localize3D');
+    // mle3d/gaussmleEll only need a calibration when "3D localisation?" is
+    // checked (see PARAMS.localize3D) — unchecked, both just run their own
+    // elliptical fit with no z lookup, same as any other 2D method.
+    const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
     if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
     const config=buildConfigFromParams();
     const px=config.pxnm;   // read live, not the load-time snapshot stack.px was captured with
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
-    // z(σx,σy) width model for MLE 3D — use the current run's pixel size for the px→nm conversion
-    const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
+    // z(σx,σy) width model for MLE 3D / (checked) MLE 3D rotated elliptical —
+    // use the current run's pixel size for the px→nm conversion. wcal's mere
+    // presence is what runCore()/the worker use to decide whether to compute
+    // z at all (see zFromWidths call sites, MODULE: fit/pipeline), so gating
+    // it here on localize3D is the only place that needs to know about the
+    // checkbox for THAT half of its effect — the angle-mode half (fixed vs
+    // free, gaussmleEll only) is separate, driven by config.localize3D itself.
+    const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
     const r = await runCore(config, stack, {zcal,wcal}, {
       onLog: log,
       onProgress: setProg,
@@ -8532,9 +8570,10 @@ async function showFrame(i){
       const border=(win-1)/2+1, method=paramValue('method');
       const exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter');
       const gain=paramValue('gain'), camoffset=paramValue('camoffset'), eps=paramValue('mleEps');
+      const localize3D=paramValue('localize3D');
       const zcal = method==='phasor3d' ? cal3d : null;
-      const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
-      const sSmlmAngleRad = paramValue('sSmlmAngleCenter')*Math.PI/180;   // see runCore()'s own copy of this same line (MODULE: fit, gaussianMLEellipticangled)
+      const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
+      const sSmlmAngleRad = localize3D ? null : paramValue('sSmlmAngleCenter')*Math.PI/180;   // see runCore()'s own copy of this same line (MODULE: fit, gaussianMLEellipticangled)
       spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border).maxima;
       locsF=[];
       // ROIs (green boxes) show for any frame — they're just "what would be
@@ -8549,7 +8588,7 @@ async function showFrame(i){
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                  L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
-               else if(method==='mle3d'&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal,L.lpsx,L.lpsy); L.z=zr.z; L.zClamped=zr.clamped; L.lpz=zr.lpz; }
+               else if((method==='mle3d'||method==='gaussmleEll')&&wcal){ const zr=zFromWidths(L.sx,L.sy,wcal,L.lpsx,L.lpsy); L.z=zr.z; L.zClamped=zr.clamped; L.lpz=zr.lpz; }
                locsF.push(L); }
       }
       drawRaw(img,stack.w,stack.h,spots,locsF);
@@ -8623,10 +8662,20 @@ $('frcBtn').addEventListener('click',computeFRC);
 $('pcfoBtn').addEventListener('click',estimateGainOffset);
 $('pcfoTransferBtn').addEventListener('click',transferPcfoEstimate);
 
-// Phasor 3D: reveal the Load-calibration control only for that method
+// Phasor 3D / (checked) mle3d / (checked) gaussmleEll: reveal the
+// Load-calibration control only for those. localize3DRow itself only shows
+// for the two methods the checkbox actually affects (mle3d/gaussmleEll —
+// see PARAMS.localize3D); cal3dRow additionally collapses once a
+// calibration is already active, per the "loading box only while there's
+// nothing loaded yet" design — there's no in-page "replace calibration"
+// affordance yet, a new page load (or Load settings) is the reset path.
 function updateMethodUI(){
-  const m=paramValue('method'), is3d = m==='phasor3d'||m==='mle3d';
-  $('cal3dRow').style.display = is3d ? 'block' : 'none';
+  const m=paramValue('method'), is3dMethod = m==='mle3d'||m==='gaussmleEll';
+  $('localize3DRow').style.display = is3dMethod ? 'flex' : 'none';
+  const localize3D = paramValue('localize3D');
+  const is3d = m==='phasor3d' || (is3dMethod && localize3D);
+  const calibrationPresent = !!(cal3d||cal3dW);
+  $('cal3dRow').style.display = (is3d && !calibrationPresent) ? 'block' : 'none';
   // Reveal the depth-colour toggle (ticked) the moment a 3D method is chosen —
   // not only after a run. For a 2D method, keep it shown if the current
   // results still carry real z (an existing 3D reconstruction) OR an sSMLM
@@ -8649,7 +8698,9 @@ function updateMethodUI(){
          // wrong on an intensity-only 2D reconstruction).
          if(m==='phasor'||m==='gaussmle'){ $('lut').value='fire'; if(srFull) rerender(true); } }
 }
-$('method').addEventListener('change',updateMethodUI); updateMethodUI();
+$('method').addEventListener('change',updateMethodUI);
+$('localize3D').addEventListener('change',updateMethodUI);
+updateMethodUI();
 
 // Keep the in-column line short and fixed-height so the sidebar never reflows;
 // the detail (RMS, ratio range) goes to the log instead.
@@ -8657,6 +8708,7 @@ function updateCalStatus(){
   const el=$('cal3dStatus'); if(!el) return;
   const present=Object.keys(CALIB_METHODS).filter(k=>calMethods[k]).map(k=>CALIB_METHODS[k]);
   el.textContent = present.length ? `Calibration active ✓ — ${present.join(', ')}` : 'No calibration loaded.';
+  updateMethodUI();   // a calibration just loaded (or was cleared) — re-check whether cal3dRow should still show
 }
 // Echoes one line per {id: value} pair to the log, using each id's PARAMS
 // label — shared by Load/Save settings so both print the JSON's full
@@ -8742,6 +8794,7 @@ function parseCsvLocs(text){
         iN=idx('intensity'), iBg=idx('offset'), iBs=idx('bkgstd'), iUnc=idx('uncertainty'),
         iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st'), iDist=idx('dist'),
         iTrackId=idx('track_id'), iDCoeff=idx('D_coeff'),
+        iSx=idx('sigma_x'), iSy=idx('sigma_y'),
         iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
@@ -8760,6 +8813,8 @@ function parseCsvLocs(text){
     if(iSigZ>=0 && p[iSigZ]!=='') L.lpz=+p[iSigZ];
     if(iDist>=0 && p[iDist]!=='') L.dist=+p[iDist];   // already nm, no px conversion — see pairCore
     if(iSig1>=0 && p[iSig1]!=='') L.sigma1st=(+p[iSig1])/px;
+    if(iSx>=0 && p[iSx]!=='') L.sx=(+p[iSx])/px;
+    if(iSy>=0 && p[iSy]!=='') L.sy=(+p[iSy])/px;
     if(iSx0>=0 && p[iSx0]!=='') L.sx0th=(+p[iSx0])/px;
     if(iSy0>=0 && p[iSy0]!=='') L.sy0th=(+p[iSy0])/px;
     if(iSx1>=0 && p[iSx1]!=='') L.sx1st=(+p[iSx1])/px;
@@ -8835,7 +8890,7 @@ $('pxnm').addEventListener('change',()=>{
 });
 // live preview: re-detect/re-fit the current raw frame (not the whole stack) when
 // detection/fit settings change, if "Real-time update" is checked.
-['method','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
+['method','localize3D','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
   $(id).addEventListener('change',()=>{ if(stack && paramValue('liveUpdate')) showFrame(+$('scrub').value); });
 });
 // toggling "Real-time update" itself must refresh the overlay right away, not
@@ -9431,18 +9486,22 @@ function locTableData(baseLocs, isClustered){
   // deliberately independent of z (see MODULE: sSMLM / pairCore), so both
   // can appear as their own columns rather than one aliasing the other.
   const hasDist=locs.some(L=>isFinite(L.dist));
+  // per-axis width — set by the two elliptical fitters (mle3d/gaussmleEll,
+  // MODULE: fit) on every loc, not just an sSMLM-paired subset; independent
+  // of hasEllSSmlm below (that one's specifically the paired 0th/1st columns).
+  const hasSxSy=locs.some(L=>isFinite(L.sx)&&isFinite(L.sy));
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output (or a paired CSV reload) — see pairCore
   // sx0th/sy0th/sx1st/sy1st: real per-axis widths for BOTH orders, only set
-  // when the Run used 'gaussmleEll' (MODULE: fit, gaussianMLEellipticangled) — see
-  // buildCsvText's own matching comment for the full reasoning.
+  // for an sSMLM-paired result from an elliptical method (mle3d/gaussmleEll,
+  // MODULE: fit) — see buildCsvText's own matching comment for the full reasoning.
   const hasEllSSmlm=locs.some(L=>L.sx0th!==undefined);
   // spt: track_id on every localization once Track has run; D_coeff only on
   // locs whose track passed the length filter (see trackDiffusionCoeffs()).
   const hasTrackId=locs.some(L=>L.track_id!==undefined);
   const hasDCoeff=locs.some(L=>isFinite(L.D_coeff));
-  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]);
-  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4};
-  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s'};
+  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_x:1,sigma_y:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4};
+  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -9452,6 +9511,7 @@ function locTableData(baseLocs, isClustered){
     const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma_xy:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
     if(hasZ) r.z=isFinite(L.z)?L.z:NaN;
     if(hasDist) r.dist=isFinite(L.dist)?L.dist:NaN;
+    if(hasSxSy){ r.sigma_x=isFinite(L.sx)?L.sx*px:NaN; r.sigma_y=isFinite(L.sy)?L.sy*px:NaN; }
     if(hasZUnc) r.sigma_z=isFinite(L.lpz)?L.lpz:NaN;   // already nm — see zFromWidths
     if(hasSigma1st) r.sigma1st=(isFinite(L.sigma1st)&&L.sigma1st>0)?L.sigma1st*px:NaN;
     if(hasEllSSmlm){ const fnm=v=>isFinite(v)&&v>0?v*px:NaN;
@@ -9889,10 +9949,14 @@ async function analyze(config){
   // global reflecting an interactive session's loaded calibration headlessly
   // — without this, a 3D method silently falls back to z=NaN for every loc
   // rather than a clear error when the calibration doesn't match the method.
-  const needCal = ALGO_CALIB_METHOD[cfg.method];
+  // mle3d/gaussmleEll only need it when cfg.localize3D is set (default true
+  // — see PARAMS.localize3D); unchecked, both just run their own elliptical
+  // fit with no z lookup.
+  const needCal = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') ? (cfg.localize3D?ALGO_CALIB_METHOD[cfg.method]:null) : ALGO_CALIB_METHOD[cfg.method];
   if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
   if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
-  const r = await runCore(cfg, stack, {zcal:cal3d, wcal:cal3dW}, {onLog, onProgress});
+  const wcalForRun = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') && cfg.localize3D ? cal3dW : null;
+  const r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun}, {onLog, onProgress});
   let locs=r.locs;
   // config.sSmlmPair — the headless equivalent of clicking Pair (MODULE:
   // sSMLM): pairCore() itself throws (real z present, or the input is

@@ -296,12 +296,13 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll`) |
-| `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
-| `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
+| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE 2D spherical", "Gauss MLE 3D elliptical", "Gauss MLE 3D rotated elliptical") |
+| `localize3D` | 3D localisation? | bool | — | — | — | true (only shown/meaningful for `mle3d`/`gaussmleEll` — see §3/fit) |
 | `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
 | `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
 | `mleEps` | MLE convergence tolerance (px) | number | 1e-6 | 0.1 | 0.0001 | 0.001 |
+| `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
+| `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
 
 `fitLastFrame` defaults to `Infinity`, not a finite placeholder: an
 `<input type=number>` sanitizes a non-finite value to a blank field, and a
@@ -840,15 +841,30 @@ is what to know before touching that module, not a restatement of its code.
   `zFromWidths()` to estimate `lpz` — an approximate z-precision via error
   propagation through the calibration curve's local slope (not a true joint
   CRLB, since z isn't a parameter of the pixel-level fit). A fifth method,
-  **Gaussian MLE Elliptical (sSMLM)** (`gaussmleEll`, `gaussianMLEellipticangled()`),
-  fits an independent σx/σy at a FIXED rotation angle taken from the sSMLM
-  pairing step's own calibrated dispersion bearing (`sSmlmAngleCenter`,
-  [§2/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding))
-  — for a spectrally-elongated
-  1st-order PSF, unlike `mle3d`'s own σx/σy split, which is axis-aligned and
-  tied to an astigmatic z-calibration instead. 2D-only (no z); use it and
-  then **Pair** to get real per-axis widths for both the 0th and 1st order,
-  not just the plain symmetric-σ proxy every other method reports.
+  **Gauss MLE 3D rotated elliptical** (`gaussmleEll`, `gaussianMLEellipticangled()`),
+  fits an independent σx/σy at either a FREE or a FIXED rotation angle,
+  chosen by the **3D localisation?** checkbox (`localize3D`, shown for this
+  method and `mle3d`, default checked — see
+  [§2](#2-parameters-params-registry)): checked = FREE angle (a genuine
+  per-emitter rotation, recovered by the fit itself — useful as an
+  astigmatism-axis-alignment diagnostic against real 3D calibration bead
+  data) plus z from a loaded `gaussian_width` calibration, exactly like
+  `mle3d`; unchecked = angle FIXED at the sSMLM pairing step's own
+  calibrated dispersion bearing (`sSmlmAngleCenter`,
+  [§2/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)),
+  no z — the original sSMLM-only path, for a spectrally-elongated 1st-order
+  PSF. Renamed from "Gaussian MLE Elliptical (sSMLM)"; `mle3d`'s own UI
+  label is now **Gauss MLE 3D elliptical** (`gaussianMLEelliptic()`, axis-
+  aligned) and `gaussmle`'s is **Gauss MLE 2D spherical**
+  (`gaussianMLEspheric()`) — matching Picasso's own SPHERICAL/ELLIPTIC/
+  ROTATED naming, no change to the underlying fit math from the rename
+  itself. `mle3d` also respects `localize3D`: unchecked, it runs the same
+  axis-aligned elliptical fit with no calibration requirement and no z —
+  just a 2D elliptical fit reporting σx/σy directly (see the CSV
+  `sigma_x`/`sigma_y [nm]` columns, [§6](#6-csv-export-format)). Either
+  way, use **Pair** afterward to get real per-axis widths for both the 0th
+  and 1st order of an sSMLM pair, not just the plain symmetric-σ proxy
+  every other method reports.
   `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all share one
   Fisher-scoring Newton driver (`mleNewtonFit()`) rather than three
   independently-coded copies. `pcfoCore()` is a
@@ -1248,12 +1264,17 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
+- `sigma_x [nm]`/`sigma_y [nm]` are present on EVERY localization (not just
+  an sSMLM-paired subset) whenever the Run used an elliptical fit method
+  (`mle3d`/`gaussmleEll`, see §3/fit) — the fitted per-axis width directly,
+  independent of `sigma1st [nm]`/`sx0th [nm]` etc. below (those are
+  sSMLM-**Pair**-specific). Round-trips through **Load data**.
 - `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `sx0th [nm]`/`sy0th [nm]`/
   `sx1st [nm]`/`sy1st [nm]`, `track_id`, `D_coeff [um^2/s]` (each when
   available) and `n_merged [frames]` (when temporal clustering is active)
@@ -1266,15 +1287,16 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 - `sigma1st [nm]` is sSMLM-**Pair**-specific: the 1st order's own `sigma`
   (see §3 sSMLM), carried through from `pairCore()` rather than the pair's
   reported `sigma [nm]`, which is still the 0th order's. Not a directional/
-  long-axis width for most methods — every method except `gaussmleEll` fits
-  one symmetric `sigma`; this is the closest available proxy for how much
-  wider the spectrally-smeared 1st order looks in that case. Round-trips
+  long-axis width for most methods — every method except `mle3d`/`gaussmleEll`
+  fits one symmetric `sigma`; this is the closest available proxy for how
+  much wider the spectrally-smeared 1st order looks in that case. Round-trips
   through **Load data** (`parseCsvLocs()`) like `sigma_z`/`dist`/`n_merged` do.
 - `sx0th [nm]`/`sy0th [nm]`/`sx1st [nm]`/`sy1st [nm]` are also sSMLM-
-  **Pair**-specific, but only present when the Run used the **Gaussian MLE
-  Elliptical (sSMLM)** fit method (`gaussmleEll`) — a real per-axis width
+  **Pair**-specific, but only present when the Run used an elliptical fit
+  method (`mle3d`/**Gauss MLE 3D rotated elliptical** — `gaussmleEll`,
+  renamed from "Gaussian MLE Elliptical (sSMLM)") — a real per-axis width
   for BOTH orders (not just a proxy for the 1st the way `sigma1st` is),
-  since that method fits an independent σx/σy for every localization, not
+  since those methods fit an independent σx/σy for every localization, not
   just a symmetric `sigma`. Round-trips through **Load data** the same way.
 - `track_id` and `D_coeff [um^2/s]` are spt-**Track**-specific (see §3 spt)
   — independent optional columns, present whenever any localization has

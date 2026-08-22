@@ -245,8 +245,10 @@ relevant one before editing rather than scrolling:
   weighting (plain squared residual, no `1/model` term) and a different outer solver, so folding
   it in isn't the same small, low-risk change the MLE-side refactor is.
 
-  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)") adds a genuinely
-  new model: `[x,y,N,bg,σx,σy]` plus a rotation angle, either FIXED (6 free params, reusing
+  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gauss MLE 3D rotated elliptical" in the UI —
+  renamed alongside `gaussianMLE`→`gaussianMLEspheric`/`gaussianMLEastig`→`gaussianMLEelliptic` to
+  match Picasso's own SPHERICAL/ELLIPTIC/ROTATED naming, no behavior change from the rename itself)
+  adds a genuinely new model: `[x,y,N,bg,σx,σy]` plus a rotation angle, either FIXED (6 free params, reusing
   `mleModelElliptical` with pixel offsets pre-rotated by the constant once, before the loop — same
   size/stability class as `gaussianMLEelliptic`, no angle Hessian row at all) or FREE (7 free params,
   angle is θ[6]). Motivated by sSMLM: every OTHER 2D method fits one symmetric σ, so `sigma1st`
@@ -271,28 +273,49 @@ relevant one before editing rather than scrolling:
   by comparing a synthetic recovered fit against all 4 equivalent parameterisations, not just the
   raw angle value.
 
-  The fixed angle for `'gaussmleEll'` is sourced directly from `paramValue('sSmlmAngleCenter')`
-  (degrees → radians) — the pairing step's own already-calibrated dispersion bearing (see
-  **sSMLM**'s `fitSSmlmAngle()`) — computed once in `runCore()` (`sSmlmAngleRad`, passed through
-  to the worker payload alongside `zcal`/`wcal`) and once in `showFrame()`'s own live-preview copy
-  of the same dispatch. Deliberately coupled to `sSmlmAngleCenter` directly rather than a new
-  `PARAMS` entry, since that's the concrete motivating use case — a non-sSMLM elongated-PSF use of
-  this method would need a separate angle source, not attempted here. A genuine chicken-and-egg
-  gap in this design (caught in review, not initially built): the angle can only be FIT from an
-  already-localized dataset's own pair geometry (position-only, needs no width info — any method
-  works for that first pass), so `'gaussmleEll'` is only ever meaningful as a SECOND Localize, after
-  a first pass with a symmetric method feeds **Preview pairs**/**Fit angle & tol.** `sSmlmAngleCenter`
-  defaults to 0°, and unlike `mle3d` there's no calibration file to hard-gate on — a genuinely unset
+  **`PARAMS.localize3D`** ("3D localisation?", default checked) is the switch between the two angle
+  modes, and is the ONLY thing that decides FIXED vs. FREE for `'gaussmleEll'` — there is no
+  separate per-method setting. `updateMethodUI()` only shows the checkbox's row
+  (`localize3DRow`) for `mle3d`/`gaussmleEll` (the two methods it actually affects); unchecked:
+  angle FIXED at `paramValue('sSmlmAngleCenter')` (degrees → radians) — the sSMLM pairing step's
+  own already-calibrated dispersion bearing (see **sSMLM**'s `fitSSmlmAngle()`) — and no z is
+  computed (today's original sSMLM-only path, `wcal` stays `null` regardless of whether a
+  calibration is loaded). Checked (the default): angle FREE (7 free params, recovers a genuine
+  per-emitter rotation angle) AND — if a `gaussian_width` calibration is loaded — z is computed
+  from the fitted `(σx,σy)` via `zFromWidths()`, the exact same call `mle3d` itself makes; this is
+  the astigmatism-axis-alignment diagnostic noted below, now wired up rather than a stated
+  follow-up: run `'gaussmleEll'` (checked) against real 3D calibration bead data and read back a
+  genuine per-emitter angle instead of assuming axis alignment. `runCore()`
+  computes `sSmlmAngleRad` as `config.localize3D ? null : (config.sSmlmAngleCenter||0)*Math.PI/180`
+  — `null` selects free mode inside `gaussianMLEellipticangled` (its own default parameter),
+  passed through to the worker payload alongside `zcal`/`wcal` unchanged; `showFrame()` keeps its
+  own matching copy for live preview. The FIXED-angle chicken-and-egg gap (caught in review): the
+  angle can only be FIT from an already-localized dataset's own pair geometry (position-only, needs
+  no width info — any method works for that first pass), so unchecking `localize3D` for
+  `'gaussmleEll'` is only meaningful as a SECOND Localize, after a first pass with a symmetric
+  method feeds **Preview pairs**/**Fit angle & tol.** `sSmlmAngleCenter` defaults to 0°, and unlike
+  `mle3d` there's no calibration file to hard-gate on for the fixed-angle path — a genuinely unset
   angle is indistinguishable from a real 0° bearing, so `runCore()` can only warn (`onLog`, once per
-  Run, same "flag a likely-forgotten setting, don't block" spirit as the gain-1/offset-0 warning
-  elsewhere), not refuse, when `config.sSmlmAngleCenter` is still exactly its default. MLE 3D's own fitted output
-  (`gaussianMLEelliptic`) is unchanged by any of this — it's still axis-aligned (angle implicitly 0),
-  just rebuilt on the same shared driver; letting it recover a genuine free rotation angle too
-  (testing whether real astigmatic calibration data is actually axis-aligned, worth checking since
-  cylindrical-lens misalignment is a real possibility, and every emitter should share the same
-  angle if field-position-dependent aberrations are ignored) is a deliberate follow-up, not done
-  this round — `gaussianMLEellipticangled`'s free-angle mode already supports it, no new code needed,
-  just a diagnostic pass over real calibration bead data.
+  Run, gated on `!config.localize3D`, same "flag a likely-forgotten setting, don't block" spirit as
+  the gain-1/offset-0 warning elsewhere), not refuse, when `config.sSmlmAngleCenter` is still
+  exactly its default. Free mode fits its own angle per emitter, so the warning doesn't apply there.
+
+  `mle3d` itself also respects `localize3D`: unchecked, it's an axis-aligned elliptical 2D fit
+  (`gaussianMLEelliptic`, angle implicitly 0) with no calibration requirement and no z — genuinely
+  useful on its own now that **export**'s `sigma_x`/`sigma_y [nm]` CSV/table columns (see below)
+  expose the per-axis widths directly, not just through sSMLM pairing. Checked (default), behavior
+  is unchanged from before this control existed: calibration required (`run()`'s `needCal` guard,
+  mirrored in `analyze()`), z computed via `zFromWidths()`. `run()`'s own `wcal` — and `analyze()`'s
+  `wcalForRun` — are only ever built when `localize3D` is checked AND a `gaussian_width` calibration
+  is present; `wcal`'s mere presence (not a second explicit flag) is what `runCore()`/the worker/
+  `showFrame()` use to decide whether to call `zFromWidths()` at all, for both methods alike.
+
+  The `cal3dRow` "Load calibration…" control moved (from below the frame-range fields) to directly
+  under `localize3DRow`, and only shows while BOTH `localize3D` is checked (or the method is
+  `phasor3d`, which has no such checkbox) AND no calibration is active yet (`cal3d||cal3dW`) —
+  `updateMethodUI()` re-runs after every calibration load/compute (`updateCalStatus()` calls it) so
+  the box disappears the moment one lands. There's deliberately no in-page "replace calibration"
+  affordance yet; a fresh page load or Load-settings round-trip is the reset path.
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
   without refitting. `LUT_CPS` control-point maps: `fire`/`inferno`/`viridis`/`turbo` are smooth
@@ -507,7 +530,26 @@ relevant one before editing rather than scrolling:
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset are applied inside the fit, see **fit** above), so
   export/the table histogram do no further conversion — they still read `gain`/`camoff` only to
-  log a "gain 1 / offset 0" warning when a user hasn't set real camera values.
+  log a "gain 1 / offset 0" warning when a user hasn't set real camera values. `"sigma_x [nm]"`/
+  `"sigma_y [nm]"` (CSV) and `sigma_x`/`sigma_y` (table) are optional columns, present whenever
+  ANY loc carries a real per-axis width (`isFinite(L.sx)&&isFinite(L.sy)`) — i.e. the Run used
+  `mle3d` or `gaussmleEll` (see **fit**) — independent of, and in addition to, `sigma1st`/
+  `sx0th`/`sy0th`/`sx1st`/`sy1st` below (those are sSMLM-pair-specific; these are per-loc, on
+  every localization, paired or not). `parseCsvLocs()` reads them back into `L.sx`/`L.sy` for a
+  round trip. Reaching this required a real fix, not just the column-building itself: the worker
+  pool's own message protocol only ever packed `x,y,photons,bg,bgstd,sigma,z,zClamped,frame,
+  lpx,lpy,lpz` (12 floats) per loc into the `Float64Array` it returns — `sigma` (the `mle3d`/
+  `gaussmleEll` fitters' own `(sx+sy)/2`) but never `sx`/`sy` themselves — so a worker-pool Run
+  (the common case for any real dataset) silently lost per-axis width entirely, even though the
+  single-threaded fallback path (`locs.push(L)` directly) always kept it. Widened to 14 floats
+  (`sx`,`sy` appended, `NaN` for methods that don't fit them) at all three sites that must move
+  together — the worker's own `out.push(...)`, and both `wk.onmessage` unpack loops (the plain
+  pool-dispatch loop and the FTM barrier-phased loop, which duplicate this on purpose, see
+  **in/out**'s FTM entry) — a stride mismatch between any of the three is a silent data-corruption
+  bug, not a crash. This also fixes a latent gap in **sSMLM**'s own pairing: `pairCore()` reads
+  `L.sx`/`L.sy` straight off the input locs, so a worker-pool `'gaussmleEll'` Run's paired output
+  was silently missing `sx0th`/`sy0th`/`sx1st`/`sy1st` before this — only ever populated when the
+  single-threaded path happened to run.
 - **3D calibration** — astigmatic: σ_x/σ_y vs z bead curves, JSON save/load. Astigmatism is the
   only method implemented; other 3D approaches (Double Helix, Biplane) would live here too.
   `calibrationCore()` takes the same `shouldStop` hook `runCore()` (Localize) does, checked at the
@@ -565,14 +607,15 @@ relevant one before editing rather than scrolling:
   offset varies per emitter with wavelength, so averaging would blur position. Each paired row also
   carries `sigma1st` — the 1st order's own `sigma` — exported as a `"sigma1st [nm]"` CSV/table
   column whenever present. NOT a directional/long-axis width for most methods (every method except
-  `'gaussmleEll'` fits one symmetric `sigma`, no `sx`/`sy` split); the closest available proxy for
-  "how much wider the spectrally-smeared 1st order looks" in that case. When the Run used
-  `'gaussmleEll'` (MODULE: fit, `gaussianMLEellipticangled`) instead, `pairCore()` also carries the real
-  thing — `sx0th`/`sy0th`/`sx1st`/`sy1st` (from `L.sx`/`.sy` and `locs[q.down].sx`/`.sy`), exported
-  as their own optional CSV/table columns the same way — a genuine per-axis width for BOTH orders,
-  not just a proxy for the 1st. The 0th order's own `sx`≈`sy` is itself a useful fit-quality/role
-  signal, not just bonus data — the whole point of using `'gaussmleEll'` for sSMLM rather than only
-  applying an elliptical fit after the fact to whichever point got classified as 1st order.
+  the two elliptical fitters, `mle3d`/`gaussmleEll`, fits one symmetric `sigma`, no `sx`/`sy` split);
+  the closest available proxy for "how much wider the spectrally-smeared 1st order looks" in that
+  case. When the Run used `mle3d` or `gaussmleEll` (MODULE: fit) instead, `pairCore()` also carries
+  the real thing — `sx0th`/`sy0th`/`sx1st`/`sy1st` (from `L.sx`/`.sy` and `locs[q.down].sx`/`.sy`),
+  exported as their own optional CSV/table columns the same way — a genuine per-axis width for BOTH
+  orders, not just a proxy for the 1st. The 0th order's own `sx`≈`sy` is itself a useful
+  fit-quality/role signal, not just bonus data — the whole point of using an elliptical method for
+  sSMLM rather than only applying an elliptical fit after the fact to whichever point got classified
+  as 1st order.
 
   Stores the inter-order distance in its own `dist` field — **deliberately never `z`**: an earlier
   design that aliased `z` was reverted, both to fix a real bug (drift correction's "Correct z too
