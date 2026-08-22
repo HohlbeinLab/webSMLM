@@ -131,7 +131,11 @@ says.
   range).
 - **Drift correction (AIM)** (`driftBox`) — `driftSeg`, `driftRoi`,
   `driftZ`, and **Correct drift**/**Show drift** (`driftBtn`/`driftShowBtn`).
-  See **drift** module.
+  The drift plot itself (raw panel) has a small toggle in its title bar —
+  "Show x/y path" / "Show vs frame" — switching between the default x/y/(z)
+  vs. frame-index curves and a single x-vs-y trajectory coloured by frame
+  (time), using the current **Colour map** (`lut`) setting. See **drift**
+  module.
 - **Localization precision (NeNA / FRC)** (`precBox`) — `frc3d` (UI
   placeholder, FSC not implemented), and **NeNA**/**FRC**
   (`nenaBtn`/`frcBtn`). See **locprecision** module.

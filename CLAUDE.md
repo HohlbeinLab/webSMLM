@@ -589,6 +589,33 @@ relevant one before editing rather than scrolling:
   project's reference colour pairing — other plots' own green/magenta curves (NeNA, **spt**'s
   track-length fit) were retroactively matched to it rather than picking independent colours, so a
   colour means the same thing across plots as much as it reasonably can.
+
+  `drawDriftCurve()` is a thin dispatcher over two actual plot functions, chosen by module-level
+  `driftPlotMode` (`'frame'` default, or `'xy'`): `drawDriftCurveVsFrame()` is the original view
+  above (x/y/(z) vs frame index); `drawDriftCurveXY()` is a single trajectory — drift y vs drift x
+  — with each segment coloured by frame (time) through `getLUT(paramValue('lut'))`, the SAME LUT
+  the reconstruction panel's own z-colouring reads, reusing "time in frames" as the colour-coded
+  quantity rather than adding a second colour-map control. Both axes of the xy view share ONE nm
+  range (computed across x AND y together, like the vs-frame view's own shared value axis) so the
+  path's shape is geometrically accurate — independently autoscaled axes would visually distort it.
+  A small colour-bar legend (frame 0 → frame n−1) is drawn directly in the plot, since the gradient
+  alone can't be read as a time axis without one. Deliberately x vs y only, even when 3D drift
+  (`driftZ`) produced a real `fdz` — a genuine 3D trajectory (or x/z, y/z alternatives) is out of
+  scope for now. `driftPlotModeBtn` (inline in the raw-panel title, next to `rawFtmBtn` — same
+  show/hide-while-relevant pattern as `rawFtmBtn`/`sSmlmColorBtn`) toggles the mode and only shows
+  while the drift plot itself is up; `drawRaw()` hides it again the moment the panel is reclaimed
+  by a live frame, the same place that already resets the panel title back to "Raw frame".
+  `correctDrift()` resets `driftPlotMode` to `'frame'` on every fresh correction, so a new result
+  always opens on the default view rather than wherever a previous session's toggle left it; the
+  existing **Show drift** button (`driftShowBtn`) re-shows whichever mode is CURRENTLY selected,
+  not a reset. `drawDriftCurveXY()`'s colour-bar legend uses a manual `moveTo`/`lineTo` path
+  `stroke()` for its border, not `strokeRect()` — the latter isn't part of `SvgRecordingContext`'s
+  duck-typed surface (see **render** above), and the drift plot is one of the 7 SVG-exportable
+  plots, so anything it draws must stay inside that surface or "Save plot / image" → SVG breaks for
+  exactly this one view; caught by actually exercising the SVG export path, not just the on-screen
+  canvas one. `renderDriftPlotHeadless()` (`config.exportPlots`) renders whatever `driftPlotMode`
+  currently is, same as every other headless plot render piggybacking on interactive module state
+  (`calView`, `_plotExportMode`) — there's no separate headless mode selector.
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +

@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-22e; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-22f; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -30,16 +30,17 @@
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5174   frame-parallel detect/fit worker pool
-    export          5339   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5590   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5990   AIM drift correction (2D+z)
-    locprecision    6238   NeNA + FRC
-    sSMLM           6881   spectrally resolved SMLM pair-finding
-    spt             7331   single particle tracking, trackpy-inspired
-    pipeline        7761   top-level orchestration, *Core()/wrapper split
-    table           9383   localizations table, filtering, histograms
-    headless API    9822   window.webSMLM.analyze()/analyzeBatch()
+    workers         5175   frame-parallel detect/fit worker pool
+    export          5340   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5591   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5991   AIM drift correction (2D+z); drift-vs-frame or
+                           x/y-path-coloured-by-time plot (driftPlotMode)
+    locprecision    6306   NeNA + FRC
+    sSMLM           6949   spectrally resolved SMLM pair-finding
+    spt             7399   single particle tracking, trackpy-inspired
+    pipeline        7829   top-level orchestration, *Core()/wrapper split
+    table           9452   localizations table, filtering, histograms
+    headless API    9891   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,7 +1583,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22f</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -1965,7 +1966,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
@@ -2002,7 +2003,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22e · logs a "webSMLM updated" line with a link to the GitHub changelog when the release number differs from what this browser last saw (webSMLM_lastVersion in localStorage, same mechanism as the saved theme)
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22f · drift plot gains a toggle-able x-vs-y trajectory view, coloured by frame (time) using the current colour map, alongside the original drift-vs-frame curves
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -5150,6 +5151,7 @@ function drawRawOverlays(ctx,DW,DH){
 }
 function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
+  { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }   // only relevant while the drift plot itself is showing
   rawIsPlot=false;
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
@@ -6160,6 +6162,16 @@ async function driftCore(locs, px, config, hooks={}){
 }
 
 let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
+// driftPlotMode: 'frame' (default) = x/y/(z) vs frame index, today's
+// original view; 'xy' = a single trajectory plot (drift y vs drift x),
+// coloured by frame (time) using the SAME colour map as the reconstruction's
+// own z-colouring (paramValue('lut')) — reusing "time in frames" as the
+// colour-coded quantity instead of z, rather than adding a second colour-map
+// control. Toggled by driftPlotModeBtn (inline in the raw panel title, same
+// show/hide-while-relevant pattern as rawFtmBtn/sSmlmColorBtn). Deliberately
+// x vs y only, even when 3D drift (driftZ) produced a real fdz — a genuine
+// 3D trajectory view (or x/z, y/z alternatives) is out of scope for now.
+let driftPlotMode='frame';
 async function correctDrift(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   const {locs,px}=lastResult;
@@ -6180,19 +6192,30 @@ async function correctDrift(){
     }
     log(`  corrected coordinates now drive the render and CSV export.`);
     $('driftShowBtn').disabled=false;
+    driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
   finally{ $('driftBtn').disabled=false; setProg(null); }
 }
 // Plot the estimated drift (nm) vs frame on the RAW (left) canvas (measured drift = −correction).
+// Dispatches to one of two views by driftPlotMode — see its own comment above.
 function drawDriftCurve(){
   if(!lastDrift||!lastResult) return;
   const d=lastDrift, px=lastResult.px, n=d.fdx.length;
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
-  rawFull=null; rawIsPlot=true; rawPlotName='drift'; $('rawTitle').textContent='Drift vs frame';
+  rawFull=null; rawIsPlot=true;
+  rawPlotName='drift'; $('rawTitle').textContent = driftPlotMode==='xy' ? 'Drift path (x vs y)' : 'Drift vs frame';
+  const btn=$('driftPlotModeBtn');
+  if(btn){ btn.style.display=''; btn.textContent = driftPlotMode==='xy' ? 'Show vs frame' : 'Show x/y path'; }
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=60,mR=16,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
+  if(driftPlotMode==='xy') drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n);
+  else drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n);
+  _replotRaw=drawDriftCurve;
+  syncSaveImg();
+}
+function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   let lo=0,hi=0; for(let f=0;f<n;f++){ const a=-d.fdx[f]*px,b=-d.fdy[f]*px; lo=Math.min(lo,a,b); hi=Math.max(hi,a,b);
     if(d.fdz){ const c=-d.fdz[f]; lo=Math.min(lo,c); hi=Math.max(hi,c); } }
   const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
@@ -6220,8 +6243,54 @@ function drawDriftCurve(){
   $('rawInfo').textContent=`— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`frame ${vx.toFixed(0)} · ${vy.toFixed(1)} nm`});
-  _replotRaw=drawDriftCurve;
-  syncSaveImg();
+}
+// Trajectory view: drift y vs drift x, one continuous path coloured by frame
+// (time) via the SAME LUT the reconstruction's z-colouring uses — "time in
+// frames" standing in for z, not a second colour-map control. Both axes
+// share one nm range (computed across x AND y together, like the vs-frame
+// view's shared value axis) so the path's shape is geometrically accurate —
+// independently autoscaled axes would visually distort it. x vs y only, even
+// with real 3D drift (fdz) — see driftPlotMode's own comment.
+function drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
+  const dx=f=>-d.fdx[f]*px, dy=f=>-d.fdy[f]*px;
+  let lo=0,hi=0; for(let f=0;f<n;f++){ const a=dx(f),b=dy(f); lo=Math.min(lo,a,b); hi=Math.max(hi,a,b); }
+  const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
+  const X=v=>mL+pw*(v-lo)/Math.max(1e-9,hi-lo), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
+  ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(v.toFixed(0),mL-9,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const v of niceTicks(lo,hi,6)){ const x=X(v);
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();
+    ctx.fillText(v.toFixed(0),x,mT+ph+9); }
+  const lut=getLUT(paramValue('lut'));
+  ctx.lineWidth=1.8;
+  for(let f=0;f<n-1;f++){ const t=n>1?f/(n-1):0, j=(t*255)|0;
+    ctx.strokeStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`;
+    ctx.beginPath(); ctx.moveTo(X(dx(f)),Y(dy(f))); ctx.lineTo(X(dx(f+1)),Y(dy(f+1))); ctx.stroke(); }
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the path
+  ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('drift x (nm)', mL+pw/2, mT+ph+28);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('drift y (nm)',0,0); ctx.restore();
+  // colour-bar legend: which end of the LUT is frame 0 vs the last frame —
+  // without it the colour gradient alone can't be read as a time axis.
+  const bw=12, bh=Math.min(100,ph*0.5), bx=mL+pw-bw-8, by=mT+8;
+  for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
+    ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(bx,by+i,bw,1); }
+  // strokeRect() isn't in SvgRecordingContext's duck-typed surface (see
+  // MODULE: render) — a manual moveTo/lineTo path stroke() IS, so use that
+  // instead, same as every other bordered element these plot functions draw.
+  ctx.strokeStyle=C.text; ctx.beginPath();
+  ctx.moveTo(bx-.5,by-.5); ctx.lineTo(bx+bw+.5,by-.5); ctx.lineTo(bx+bw+.5,by+bh+.5); ctx.lineTo(bx-.5,by+bh+.5); ctx.lineTo(bx-.5,by-.5);
+  ctx.stroke();
+  ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='top';
+  ctx.fillText(`frame ${n-1}`, bx-4, by);
+  ctx.textBaseline='bottom'; ctx.fillText('frame 0', bx-4, by+bh);
+  $('rawInfo').textContent=`— drift path, x vs y · colour = frame (time) · ${d.nSeg} segments · scrub a frame to return to the raw view`;
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:lo,xB:hi,yTop:hi,yBot:lo,
+    fmt:(vx,vy)=>`x ${vx.toFixed(1)} nm, y ${vy.toFixed(1)} nm`});
 }
 // Headless drift-plot render (window.webSMLM.analyze()'s config.exportPlots)
 // — analyze() doesn't shadow lastDrift/lastResult, but stashing/restoring
@@ -8656,6 +8725,7 @@ $('calSaveBtn').addEventListener('click',exportCalibration);
 $('calViewBtn').addEventListener('click',()=>{ calView = calView==='sigma'?'mag':calView==='mag'?'ratio':'sigma'; if(calib&&srIsPlot) drawCalibration(); });
 $('driftBtn').addEventListener('click',correctDrift);
 $('driftShowBtn').addEventListener('click',()=>{ if(lastDrift) drawDriftCurve(); });
+$('driftPlotModeBtn').addEventListener('click',()=>{ driftPlotMode = driftPlotMode==='xy' ? 'frame' : 'xy'; if(lastDrift) drawDriftCurve(); });
 // 0.8.0 (in development): localization-precision estimators. Scaffolded UI only.
 $('nenaBtn').addEventListener('click',computeNeNA);
 $('frcBtn').addEventListener('click',computeFRC);
