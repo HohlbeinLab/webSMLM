@@ -96,7 +96,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   gets the other state, which for a 2-state toggle is equivalent, unless a
   third layout mode gets added later).
 
-- **File-size/modularity strategy for `webSMLM.html`** (now ~10,000 lines;
+- **File-size/modularity strategy for `webSMLM.html`** (now past 10,400 lines;
   SPT alone added roughly a thousand when it shipped in v0.11.2, and a
   possible future single-molecule FRET (smFRET) module would add a few
   thousand more). Splitting the *core* app across multiple files was ruled out —
