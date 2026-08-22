@@ -11,6 +11,7 @@ computation runs client-side.
 [![Launch webSMLM](https://img.shields.io/badge/Launch-webSMLM-brightgreen?logo=googlechrome&logoColor=white)](https://hohlbeinlab.github.io/webSMLM/webSMLM.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21445041.svg)](https://doi.org/10.5281/zenodo.21445041)
+[![Documentation Status](https://readthedocs.org/projects/websmlm/badge/?version=latest)](https://websmlm.readthedocs.io/en/latest/?badge=latest)
 
 ## Quick start
 
