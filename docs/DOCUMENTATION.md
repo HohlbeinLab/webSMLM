@@ -830,17 +830,17 @@ is what to know before touching that module, not a restatement of its code.
   differently (see [§2](#2-parameters-params-registry)/Detect). `detectSpots()`
   is the single dispatch point used by both the main thread and workers.
 - **fit** — phasor (fast, non-iterative), Gaussian least-squares, and
-  Gaussian Poisson-MLE 2D/3D (`gaussianMLE`/`gaussianMLEastig`, the
+  Gaussian Poisson-MLE 2D/3D (`gaussianMLEspheric`/`gaussianMLEelliptic`, the
   default). All convert ADU→photons via `gain`/`camoffset` before fitting.
   MLE fitters reject a candidate outright (return `null`) rather than
   keeping a degenerate result: not converged within the iteration budget,
   amplitude pinned at the enforced floor (background mistaken for a spot),
-  or a non-finite CRLB (singular Fisher matrix). `gaussianMLEastig` also
+  or a non-finite CRLB (singular Fisher matrix). `gaussianMLEelliptic` also
   returns `lpsx`/`lpsy` (fit precision of the σx/σy widths), consumed by
   `zFromWidths()` to estimate `lpz` — an approximate z-precision via error
   propagation through the calibration curve's local slope (not a true joint
   CRLB, since z isn't a parameter of the pixel-level fit). A fifth method,
-  **Gaussian MLE Elliptical (sSMLM)** (`gaussmleEll`, `gaussianMLERotated()`),
+  **Gaussian MLE Elliptical (sSMLM)** (`gaussmleEll`, `gaussianMLEellipticangled()`),
   fits an independent σx/σy at a FIXED rotation angle taken from the sSMLM
   pairing step's own calibrated dispersion bearing (`sSmlmAngleCenter`,
   [§2/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding))
@@ -849,7 +849,7 @@ is what to know before touching that module, not a restatement of its code.
   tied to an astigmatic z-calibration instead. 2D-only (no z); use it and
   then **Pair** to get real per-axis widths for both the 0th and 1st order,
   not just the plain symmetric-σ proxy every other method reports.
-  `gaussianMLE`/`gaussianMLEastig`/`gaussianMLERotated` all share one
+  `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all share one
   Fisher-scoring Newton driver (`mleNewtonFit()`) rather than three
   independently-coded copies. `pcfoCore()` is a
   separate, one-off tool living in this module: Rieger–Heintzman PCFO

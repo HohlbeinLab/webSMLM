@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-22a; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-22b; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1582,7 +1582,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22a</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22b</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -2001,7 +2001,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22a · warns if "Gaussian MLE Elliptical" is run with sSmlmAngleCenter still at its 0° default (likely never fit for this dataset)
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22b · renamed gaussianMLE/gaussianMLEastig/gaussianMLERotated to gaussianMLEspheric/gaussianMLEelliptic/gaussianMLEellipticangled, matching Picasso's own SPHERICAL/ELLIPTIC/ROTATED terminology — no behavior change
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -2112,7 +2112,7 @@ const PARAMS = {
   zcolor: { type:'bool', id:'zcolor', label:'Colour by depth (z)', default:false },
 
   // ---- export: camera ADU→photon conversion, applied inside the fit itself
-  // (gaussianFit/gaussianMLE/gaussianMLEastig/phasorFit all convert every
+  // (gaussianFit/gaussianMLEspheric/gaussianMLEelliptic/phasorFit all convert every
   // pixel via (raw-camoffset)*gain before use) so photons/bg/bgstd are already
   // true photon units everywhere downstream — CSV export, the table
   // histogram, and MLE's CRLB (lpx/lpy) all see correctly-scaled values ----
@@ -2473,7 +2473,7 @@ function makeStack(w,h,n,px,getFrame){
 // context window, never on neighbouring pixels (unlike detection, which
 // needs a border margin around whatever region a worker gets) — so the
 // image splits cleanly into row bands with no overlap needed.
-// camoffset: the fit functions (gaussianMLE etc.) all convert their input
+// camoffset: the fit functions (gaussianMLEspheric etc.) all convert their input
 // pixels as (raw-camoffset)*gain before use — see the fit module. FTM's
 // median subtraction already removes the background baseline, so an
 // FTM-corrected pixel is NOT "raw ADU" anymore; flooring the correction at
@@ -3876,13 +3876,13 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0){
           bg:b, bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:s};
 }
 // -- integrated-Gaussian Poisson MLE, shared driver (Smith, Joseph, Rieger &
-// Lidke, Nat. Methods 7, 373 (2010); cf. Picasso gaussmle). gaussianMLE and
-// gaussianMLEastig below were, before this refactor, two independently
+// Lidke, Nat. Methods 7, 373 (2010); cf. Picasso gaussmle). gaussianMLEspheric and
+// gaussianMLEelliptic below were, before this refactor, two independently
 // hand-written copies of the exact same Fisher-scoring Newton loop — the
 // per-pixel MODEL (one shared σ vs independent σx/σy) was the only real
 // difference between them. mleNewtonFit() is that loop, factored out ONCE;
 // mleModelSpherical/mleModelElliptical are the two per-pixel models it's
-// fed (also shared by gaussianMLERotated's fixed-angle mode below, which
+// fed (also shared by gaussianMLEellipticangled's fixed-angle mode below, which
 // reduces to the SAME elliptical model evaluated in pre-rotated pixel
 // coordinates — see its own comment). This mirrors how Picasso 0.11.0's own
 // gaussfit.py unifies its SPHERICAL/ELLIPTIC/ROTATED models through one
@@ -3893,7 +3893,7 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0){
 // weighting — plain squared residual, no `1/model` term — and a different
 // outer solver, so unifying it isn't the same small, low-risk change this is).
 // erf/gInt were previously redeclared as a fresh closure inside each of
-// gaussianMLE/gaussianMLEastig on every single call; hoisting them to module
+// gaussianMLEspheric/gaussianMLEelliptic on every single call; hoisting them to module
 // scope is a straightforward extra win from the same refactor, not just dedup.
 function mleErf(x){ const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
   const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; }
@@ -3922,8 +3922,8 @@ function mleModelSpherical(px,py,th,duOut){
   return model;
 }
 // Same, for INDEPENDENT σx/σy (axis-aligned elliptical) — th=[x,y,N,bg,σx,σy],
-// n=6. Used directly by gaussianMLEastig (MLE 3D, angle implicitly 0), and by
-// gaussianMLERotated's fixed-angle mode against pre-rotated (px,py) — see
+// n=6. Used directly by gaussianMLEelliptic (MLE 3D, angle implicitly 0), and by
+// gaussianMLEellipticangled's fixed-angle mode against pre-rotated (px,py) — see
 // mleModelRotated below for why that's the same model, not a third copy.
 function mleModelElliptical(px,py,th,duOut){
   const PX=mleGInt(px,th[0],th[4]), PY=mleGInt(py,th[1],th[5]);
@@ -3939,7 +3939,7 @@ function mleModelElliptical(px,py,th,duOut){
 function mleClampSpherical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<0.5)th[4]=0.5; }
 function mleClampElliptical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<0.5)th[4]=0.5; if(th[5]<0.5)th[5]=0.5; }
 // The Newton-with-per-parameter-step-clamp driver itself: identical to what
-// gaussianMLE/gaussianMLEastig each hand-rolled before this refactor,
+// gaussianMLEspheric/gaussianMLEelliptic each hand-rolled before this refactor,
 // generalised over `n` (parameter count) and `modelFn` (which model —
 // spherical/elliptical/rotated — supplies the per-pixel value+Jacobian).
 // clampFn enforces floors/validity in place after every step (which indices
@@ -3978,7 +3978,7 @@ function mleNewtonFit(n, th, mstep, clampFn, r, cx, cy, img, w, gain, camoffset,
 // worker. Validated: unbiased, CRLB matches empirical scatter within a few
 // percent across bright/dim regimes — re-verified numerically unchanged
 // after this function was rebuilt on the shared driver above.
-function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
+function gaussianMLEspheric(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   const r=(win-1)/2, n=5;
   let sum=0,mx=0,my=0,mn=Infinity;                                             // centre-of-mass init
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
@@ -4002,21 +4002,21 @@ function gaussianMLE(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:th[4], lpx, lpy };
 }
 // -- astigmatic Poisson MLE: 6 params [x,y,N,bg,σx,σy] (PSFx uses σx, PSFy uses σy),
-// on the SAME shared driver as gaussianMLE above (mleModelElliptical instead of
+// on the SAME shared driver as gaussianMLEspheric above (mleModelElliptical instead of
 // mleModelSpherical — that's the only real difference now). Returns σx/σy for
 // z-from-widths (MLE 3D) and the CRLB lateral precision. Validated: σx/σy and
 // position recovered unbiased, CRLB matches empirical — re-verified numerically
 // unchanged after this function was rebuilt on the shared driver.
-// gain,camoffset: see gaussianMLE — same ADU->photon conversion, same reasoning.
+// gain,camoffset: see gaussianMLEspheric — same ADU->photon conversion, same reasoning.
 // eps: x,y convergence tolerance (px) — see PARAMS.mleEps.
-function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
+function gaussianMLEelliptic(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
   const r=(win-1)/2, n=6;
   let sum=0,mx=0,my=0,mn=Infinity;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
   const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0, sigma0 ];
   const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4];
   const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,mleModelElliptical);
-  // See gaussianMLE's comment above — same three rejection criteria.
+  // See gaussianMLEspheric's comment above — same three rejection criteria.
   if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
   let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN;
   const ex=solveLin(fisher,[1,0,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0,0]);
@@ -4034,10 +4034,10 @@ function gaussianMLEastig(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001)
 }
 // -- rotated-elliptical Poisson MLE: [x,y,N,bg,σx,σy] plus a rotation angle
 // (radians, CCW from +x) — either FIXED (fixedAngle a number: 6 free params,
-// same size/stability class as gaussianMLEastig above, no angle Hessian row
+// same size/stability class as gaussianMLEelliptic above, no angle Hessian row
 // at all) or FREE (fixedAngle omitted/null: 7 free params, angle is θ[6]).
 // The motivating case is sSMLM's spectrally-smeared 1st order (webSMLM's
-// existing 2D methods only ever fit one symmetric σ; gaussianMLEastig's own
+// existing 2D methods only ever fit one symmetric σ; gaussianMLEelliptic's own
 // σx/σy split is axis-aligned and calibrated for astigmatic z, not a
 // drop-in for an arbitrary dispersion bearing) — see CLAUDE.md's sSMLM
 // module for how the fixed angle is sourced (paramValue('sSmlmAngleCenter'),
@@ -4077,7 +4077,7 @@ function mleModelRotated(px,py,th,duOut,angleFixed){
   if(angleFixed==null) duOut[6]=th[2]*arga*argb*(1/sx2-1/sy2)*ex;
   return model;
 }
-function gaussianMLERotated(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,fixedAngle=null){
+function gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,fixedAngle=null){
   const r=(win-1)/2, n=fixedAngle==null?7:6;
   let sum=0,mx=0,my=0,mn=Infinity;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
@@ -4102,8 +4102,8 @@ function gaussianMLERotated(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.00
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
     const ux=px-th[0], uy=py-th[1], arga=ux*cosA-uy*sinA, argb=ux*sinA+uy*cosA;
     const res=th[2]*Math.exp(-0.5*(arga*arga/sx2+argb*argb/sy2))+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
-  // th[2] is the model's PEAK amplitude (point-sampled, unlike gaussianMLE/
-  // gaussianMLEastig's pixel-integrated th[2], which already IS the total
+  // th[2] is the model's PEAK amplitude (point-sampled, unlike gaussianMLEspheric/
+  // gaussianMLEelliptic's pixel-integrated th[2], which already IS the total
   // photon count) — convert once here, same amplitude*2*pi*sx*sy relation
   // gaussianFitElliptical already uses for its own peak-amplitude elliptical
   // model, so `photons` means the same thing across every fit method's
@@ -4115,7 +4115,7 @@ function gaussianMLERotated(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.00
 // z from astigmatic widths sx,sy (px): least-squares match to the Gaussian-width
 // calibration σx(z),σy(z) (nm) over a z grid + parabolic refine. wcal={qx,qy(a,c,b
 // vertex quads, nm),zmin,zmax,px}. Self-contained for the worker.
-// lpsx,lpsy (px, optional): the fit's own precision on sx/sy (gaussianMLEastig's
+// lpsx,lpsy (px, optional): the fit's own precision on sx/sy (gaussianMLEelliptic's
 // lpsx/lpsy) — if given, also returns lpz (nm), an approximate z-precision from
 // error propagation (delta method): σx(z) and σy(z) are two independent noisy
 // width measurements of the same z, so the calibration curve's local slope at
@@ -4260,7 +4260,7 @@ function fitVertexQuad(zs,ys){
    leakage). Widening the fit window reduces both. The Gaussian fitter does not
    have this bias — it separates signal and background by construction.
 
-   gain,camoffset convert ADU -> photons (same as gaussianFit/gaussianMLE) so
+   gain,camoffset convert ADU -> photons (same as gaussianFit/gaussianMLEspheric) so
    `photons`/`pmagX`/`pmagY` come out in true photon units. x,y (phase angles
    ax,ay) and the ratio pmagY/pmagX are exactly unaffected: a uniform additive
    offset only contributes to the DC (k=0) Fourier term, never the first
@@ -5188,7 +5188,7 @@ function workerSource(){
     solveLin.toString(), sseWin.toString(), gaussianFit.toString(),
     mleErf.toString(), mleGInt.toString(), mleModelSpherical.toString(), mleModelElliptical.toString(),
     mleClampSpherical.toString(), mleClampElliptical.toString(), mleNewtonFit.toString(),
-    gaussianMLE.toString(), gaussianMLEastig.toString(), mleModelRotated.toString(), gaussianMLERotated.toString(),
+    gaussianMLEspheric.toString(), gaussianMLEelliptic.toString(), mleModelRotated.toString(), gaussianMLEellipticangled.toString(),
     zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
     ftmSeriesGlobal.toString(),
     `onmessage=function(e){
@@ -5205,10 +5205,10 @@ function workerSource(){
           detectSpots(img,w,h,1.3,false,'box',25,4);
           phasorFit(img,w,h,8,8,7);
           gaussianFit(img,w,h,8,8,7,1.3);
-          gaussianMLE(img,w,h,8,8,7,1.3);
-          gaussianMLEastig(img,w,h,8,8,7,1.3);
-          gaussianMLERotated(img,w,h,8,8,7,1.3,1,0,0.001,0.3);   // fixed-angle mode (the sSMLM production path)
-          gaussianMLERotated(img,w,h,8,8,7,1.3);                 // free-angle mode
+          gaussianMLEspheric(img,w,h,8,8,7,1.3);
+          gaussianMLEelliptic(img,w,h,8,8,7,1.3);
+          gaussianMLEellipticangled(img,w,h,8,8,7,1.3,1,0,0.001,0.3);   // fixed-angle mode (the sSMLM production path)
+          gaussianMLEellipticangled(img,w,h,8,8,7,1.3);                 // free-angle mode
           zFromWidths(1.3,1.5,{qx:{a:1e-6,c:0,b:130},qy:{a:1e-6,c:0,b:130},zmin:-400,zmax:400,px:100});
           ftmSeriesGlobal(new Float64Array(6).fill(5), new Float64Array(6), 6, 4, 0, 6, 0);
           postMessage({pong:1});
@@ -5263,9 +5263,9 @@ function workerSource(){
         const t1=performance.now(); tD+=t1-t0; nC+=maxima.length;
         const isPh = method==='phasor'||method==='phasor3d';
         for(const mm of maxima){
-          const L = method==='gaussmle' ? gaussianMLE(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
-                         : method==='mle3d' ? gaussianMLEastig(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
-                         : method==='gaussmleEll' ? gaussianMLERotated(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,sSmlmAngleRad)
+          const L = method==='gaussmle' ? gaussianMLEspheric(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
+                         : method==='mle3d' ? gaussianMLEelliptic(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
+                         : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,sSmlmAngleRad)
                          : isPh ? phasorFit(img,w,h,mm[0],mm[1],win,gain,camoffset)
                          : gaussianFit(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset);
           if(L){
@@ -5403,7 +5403,7 @@ function buildCsvText(locs, px, sigPSF){
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output only — see pairCore
   // sx0th/sy0th/sx1st/sy1st: only set when the Run used 'gaussmleEll' (MODULE:
-  // fit, gaussianMLERotated) for an sSMLM-paired result — a real per-axis
+  // fit, gaussianMLEellipticangled) for an sSMLM-paired result — a real per-axis
   // width for BOTH orders, unlike sigma1st's single-method-agnostic proxy
   // above. One flag covers all four: pairCore() only ever sets them together.
   const hasEllSSmlm=locs.some(L=>L.sx0th!==undefined);
@@ -5427,7 +5427,7 @@ function buildCsvText(locs, px, sigPSF){
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
     // gain/offset are applied inside the fit itself now (ADU->photons before
-    // the fit ever sees a pixel — see gaussianMLE/gaussianFit/phasorFit), so
+    // the fit ever sees a pixel — see gaussianMLEspheric/gaussianFit/phasorFit), so
     // photons/bg/bgstd are already true photon units; nothing further to convert.
     const N=Math.max(0,L.photons||0);
     const bg=Math.max(0,L.bg||0);
@@ -7024,13 +7024,13 @@ async function pairCore(locs, px, config, hooks={}){
     // sigma1st = the 1st order's OWN sigma (locs[q.down], already read once
     // above for sSmlmRequireNarrower — carried through here instead of
     // discarded). NOT a directional/long-axis width for most methods: every
-    // OTHER 2D fit method (gaussianMLE/gaussianFit/phasorFit) fits a single
+    // OTHER 2D fit method (gaussianMLEspheric/gaussianFit/phasorFit) fits a single
     // symmetric sigma, with no sx/sy split the way the 3D astigmatic fit
     // has — sigma1st is the closest available proxy for "how much wider the
     // spectrally-smeared 1st order looks" in that case, not a true per-axis
     // decomposition. sx0th/sy0th/sx1st/sy1st are the real thing, when
     // available: L.sx/L.sy (and the 1st order's own) are only ever set by
-    // 'gaussmleEll' (MODULE: fit, gaussianMLERotated) — every other method's
+    // 'gaussmleEll' (MODULE: fit, gaussianMLEellipticangled) — every other method's
     // locs simply don't have an .sx/.sy field, so these come through as
     // undefined and the table/CSV already handle a missing optional column
     // generically (same pattern track_id/D_coeff/dist already use). A real
@@ -7796,7 +7796,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // Fixed rotation angle for 'gaussmleEll' (sSMLM elongated-PSF fit) — sourced
   // directly from the pairing step's own already-calibrated dispersion bearing
   // (config.sSmlmAngleCenter, degrees) rather than a new PARAMS entry; see
-  // gaussianMLERotated's own comment (MODULE: fit) for why fixed, not free.
+  // gaussianMLEellipticangled's own comment (MODULE: fit) for why fixed, not free.
   const sSmlmAngleRad = (config.sSmlmAngleCenter||0)*Math.PI/180;
   const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gaussian MLE 2D':method==='mle3d'?'Gaussian MLE 3D':method==='gaussmleEll'?'Gaussian MLE Elliptical':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
@@ -8132,7 +8132,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         const frameLocs=[];                         // this frame's accepted fits, for the raw-panel overlay below
         for(const [cx,cy] of maxima){
-          const L = method==='gaussmle' ? gaussianMLE(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLERotated(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset);
+          const L = method==='gaussmle' ? gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset);
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -8534,7 +8534,7 @@ async function showFrame(i){
       const gain=paramValue('gain'), camoffset=paramValue('camoffset'), eps=paramValue('mleEps');
       const zcal = method==='phasor3d' ? cal3d : null;
       const wcal = method==='mle3d' && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
-      const sSmlmAngleRad = paramValue('sSmlmAngleCenter')*Math.PI/180;   // see runCore()'s own copy of this same line (MODULE: fit, gaussianMLERotated)
+      const sSmlmAngleRad = paramValue('sSmlmAngleCenter')*Math.PI/180;   // see runCore()'s own copy of this same line (MODULE: fit, gaussianMLEellipticangled)
       spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border).maxima;
       locsF=[];
       // ROIs (green boxes) show for any frame — they're just "what would be
@@ -8545,7 +8545,7 @@ async function showFrame(i){
       const {firstIdx,lastIdx}=fitFrameRange(paramValue('fitFirstFrame'), paramValue('fitLastFrame'), stack.n);
       const inRange = i>=firstIdx && i<lastIdx;
       if(inRange) for(const [cx,cy] of spots){
-        const L = method==='gaussmle' ? gaussianMLE(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEastig(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLERotated(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset);
+        const L = method==='gaussmle' ? gaussianMLEspheric(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset);
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                  L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -9433,7 +9433,7 @@ function locTableData(baseLocs, isClustered){
   const hasDist=locs.some(L=>isFinite(L.dist));
   const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output (or a paired CSV reload) — see pairCore
   // sx0th/sy0th/sx1st/sy1st: real per-axis widths for BOTH orders, only set
-  // when the Run used 'gaussmleEll' (MODULE: fit, gaussianMLERotated) — see
+  // when the Run used 'gaussmleEll' (MODULE: fit, gaussianMLEellipticangled) — see
   // buildCsvText's own matching comment for the full reasoning.
   const hasEllSSmlm=locs.some(L=>L.sx0th!==undefined);
   // spt: track_id on every localization once Track has run; D_coeff only on

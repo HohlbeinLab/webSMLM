@@ -7,7 +7,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 ## Next
 
 - **Rotated-elliptical 2D MLE fitter — SHIPPED (build 2026-08-21f).**
-  `gaussianMLERotated()` (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)")
+  `gaussianMLEellipticangled()` (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)")
   fits independent σx/σy at a FIXED rotation angle sourced from the sSMLM
   pairing step's own calibrated dispersion bearing (`sSmlmAngleCenter`) — see
   **fit** and **sSMLM** in `CLAUDE.md` for the full design, including why
@@ -15,7 +15,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   (not pixel-integrated) model matching Picasso 0.11.0's own `gaussfit.py`
   `_accumulate_rotated` formula (checked directly against its real source
   before building this, not assumed). Landed alongside the refactor it was
-  designed to build on: `gaussianMLE`/`gaussianMLEastig` now share one
+  designed to build on: `gaussianMLEspheric`/`gaussianMLEelliptic` now share one
   `mleNewtonFit()` Fisher-scoring driver instead of two independently hand-
   written copies of the same loop — verified numerically unchanged (a
   synthetic-data regression harness, `gaussianFit`/LS deliberately excluded
@@ -33,8 +33,8 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     (the per-pixel model callback gains one more input), but genuinely not
     done this round.
   - **Testing whether MLE 3D's real astigmatism is actually axis-aligned.**
-    `gaussianMLEastig`'s own fitted output is unchanged this round (angle
-    implicitly 0), but `gaussianMLERotated`'s FREE-angle mode already
+    `gaussianMLEelliptic`'s own fitted output is unchanged this round (angle
+    implicitly 0), but `gaussianMLEellipticangled`'s FREE-angle mode already
     supports fitting a genuine rotation angle per bead — worth running
     against real 3D calibration bead data as a diagnostic (every emitter
     should share the same angle if field-position-dependent aberrations are

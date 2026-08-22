@@ -219,16 +219,16 @@ relevant one before editing rather than scrolling:
   the sync IIFE keyed off `#detFilter` — don't reintroduce a single shared field across methods,
   their thresholds mean different things (k·σ multiplier vs. raw intensity).
 - **fit** — phasor (fast, non-iterative), least-squares 2D-Gaussian, and Poisson-MLE 2D/3D/
-  Elliptical (`gaussianMLE`/`gaussianMLEastig`/`gaussianMLERotated`; `gaussianMLE` is the
+  Elliptical (`gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled`; `gaussianMLEspheric` is the
   default) localization. All fitters take `gain,camoff` and convert every pixel to true photon
   units — `(raw-camoff)*gain` — before fitting, matching Picasso's architecture; position/width/
   ratio outputs are provably invariant to this affine transform (LS/phasor), while MLE's Poisson
   likelihood and CRLB (`lpx`/`lpy`) are only statistically correct when fit in photon units, so
   this is the one place gain/offset actually change a result rather than just rescaling it.
 
-  **Shared MLE accumulator**: `gaussianMLE`/`gaussianMLEastig`/`gaussianMLERotated` all run on
+  **Shared MLE accumulator**: `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all run on
   ONE Fisher-scoring Newton driver, `mleNewtonFit(n, th, mstep, clampFn, ..., modelFn)` — before
-  this existed, `gaussianMLE` and `gaussianMLEastig` were two independently hand-written copies
+  this existed, `gaussianMLEspheric` and `gaussianMLEelliptic` were two independently hand-written copies
   of the exact same loop, only their per-pixel MODEL (one shared σ vs independent σx/σy)
   differing. Checked directly against Picasso 0.11.0's own `picasso/fitting/gaussfit.py` (not
   assumed) before doing this: its `_estimator_terms(mle, value, data, var)` dispatch, reused
@@ -245,10 +245,10 @@ relevant one before editing rather than scrolling:
   weighting (plain squared residual, no `1/model` term) and a different outer solver, so folding
   it in isn't the same small, low-risk change the MLE-side refactor is.
 
-  **`gaussianMLERotated`** (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)") adds a genuinely
+  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gaussian MLE Elliptical (sSMLM)") adds a genuinely
   new model: `[x,y,N,bg,σx,σy]` plus a rotation angle, either FIXED (6 free params, reusing
   `mleModelElliptical` with pixel offsets pre-rotated by the constant once, before the loop — same
-  size/stability class as `gaussianMLEastig`, no angle Hessian row at all) or FREE (7 free params,
+  size/stability class as `gaussianMLEelliptic`, no angle Hessian row at all) or FREE (7 free params,
   angle is θ[6]). Motivated by sSMLM: every OTHER 2D method fits one symmetric σ, so `sigma1st`
   (see **sSMLM** below) was never a real directional measurement of the spectrally-smeared 1st
   order, just the closest available proxy. POINT-SAMPLED (`value=amp·exp(-½(arga²/σx²+argb²/σy²))
@@ -286,12 +286,12 @@ relevant one before editing rather than scrolling:
   angle is indistinguishable from a real 0° bearing, so `runCore()` can only warn (`onLog`, once per
   Run, same "flag a likely-forgotten setting, don't block" spirit as the gain-1/offset-0 warning
   elsewhere), not refuse, when `config.sSmlmAngleCenter` is still exactly its default. MLE 3D's own fitted output
-  (`gaussianMLEastig`) is unchanged by any of this — it's still axis-aligned (angle implicitly 0),
+  (`gaussianMLEelliptic`) is unchanged by any of this — it's still axis-aligned (angle implicitly 0),
   just rebuilt on the same shared driver; letting it recover a genuine free rotation angle too
   (testing whether real astigmatic calibration data is actually axis-aligned, worth checking since
   cylindrical-lens misalignment is a real possibility, and every emitter should share the same
   angle if field-position-dependent aberrations are ignored) is a deliberate follow-up, not done
-  this round — `gaussianMLERotated`'s free-angle mode already supports it, no new code needed,
+  this round — `gaussianMLEellipticangled`'s free-angle mode already supports it, no new code needed,
   just a diagnostic pass over real calibration bead data.
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
@@ -567,7 +567,7 @@ relevant one before editing rather than scrolling:
   column whenever present. NOT a directional/long-axis width for most methods (every method except
   `'gaussmleEll'` fits one symmetric `sigma`, no `sx`/`sy` split); the closest available proxy for
   "how much wider the spectrally-smeared 1st order looks" in that case. When the Run used
-  `'gaussmleEll'` (MODULE: fit, `gaussianMLERotated`) instead, `pairCore()` also carries the real
+  `'gaussmleEll'` (MODULE: fit, `gaussianMLEellipticangled`) instead, `pairCore()` also carries the real
   thing — `sx0th`/`sy0th`/`sx1st`/`sy1st` (from `L.sx`/`.sy` and `locs[q.down].sx`/`.sy`), exported
   as their own optional CSV/table columns the same way — a genuine per-axis width for BOTH orders,
   not just a proxy for the 1st. The 0th order's own `sx`≈`sy` is itself a useful fit-quality/role
