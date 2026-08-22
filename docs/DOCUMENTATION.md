@@ -256,7 +256,25 @@ dark to match the rest of the UI.
   active) rather than removing a table filter — see
   [§3](#3-module-reference)'s **in/out** entry and
   [§8](#8-headless-api-window-websmlm)'s `cropX0`/`cropY0`/`cropX1`/`cropY1`
-  for the headless equivalent.
+  for the headless equivalent. Cropping/uncropping also re-estimates the
+  Contrast slider below (see next) against the newly active stack, so it
+  never keeps showing the range sampled from the frame size that was active
+  before the crop.
+
+  **Contrast** (below the Frame scrubber, Picasso-style) is a fixed
+  [black,white] ADU display range — two overlapping range-slider handles
+  (`#rawBlack`/`#rawWhite`) — applied identically to every frame, rather
+  than the auto-stretch-per-frame most viewers default to (which makes
+  brightness visibly shift as you scrub and lets one dead/hot pixel dominate
+  a single frame's own min/max). It's initialised once per loaded stack from
+  a bounded random sample of frames (for the slider's own outer bound) and
+  frame 0's own actual min/max (for the initial handle positions); dragging
+  either handle redraws instantly from the last-fetched frame's pixel data,
+  no re-fetch. **Auto** (`rawContrastAutoBtn`) resets both handles back to
+  that same estimate on demand. Purely a display convenience, local to the
+  current session — deliberately **not** a `PARAMS` entry, not part of
+  Save/Load Settings, and not exposed to the headless `analyze()` config
+  (same carve-out as UI theme/panel-layout choice, [§2](#2-parameters-params-registry)).
 - **SMLM reconstruction** (`sr` canvas) — the accumulated super-resolution
   render, or (before a Run) a quick averaged data projection, or the 3D
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
@@ -268,7 +286,13 @@ dark to match the rest of the UI.
   bar, rather than its own dedicated row above the canvases. The single
   shared progress bar (`#bar`/`#prog`, below the action buttons) is fed by
   every long-running operation (Localize, Calibrate, drift, NeNA, FRC, file
-  loads).
+  loads). On every load, the page also compares the release number in the
+  `<h1>` pill against whichever version this browser last saw
+  (`localStorage`'s `webSMLM_lastVersion`) and, if different, logs one line
+  — `webSMLM updated: vA.B.C → vX.Y.Z` — linking to the GitHub changelog; a
+  brand-new visitor just has the current version silently recorded, no
+  message. Ignores the `-dev`/build-letter suffix, so this only fires on a
+  genuine release change, not routine local development reloads.
 
 ---
 
