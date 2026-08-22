@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-22c; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-22d; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -38,8 +38,8 @@
     sSMLM           6881   spectrally resolved SMLM pair-finding
     spt             7331   single particle tracking, trackpy-inspired
     pipeline        7761   top-level orchestration, *Core()/wrapper split
-    table           9344   localizations table, filtering, histograms
-    headless API    9783   window.webSMLM.analyze()/analyzeBatch()
+    table           9353   localizations table, filtering, histograms
+    headless API    9792   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,7 +1582,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div>
-    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.4-dev · build 2026-08-22d</span></h1>
     <p style="font-size:12px;margin-top:4px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
@@ -2002,7 +2002,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><noscript><span style="color:#ff9b9b">⚠ JavaScript appears to be disabled — webSMLM cannot run. Please enable it and reload.
 
-</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22c · UI labels renamed to "Gauss MLE 2D spherical"/"3D elliptical"/"3D rotated elliptical"; new "3D localisation?" checkbox toggles free-vs-fixed angle (gaussmleEll) and z-from-calibration (mle3d + gaussmleEll); CSV/table gain sigma_x/sigma_y columns; fixed a worker-pool bug that was silently dropping sx/sy
+</span></noscript>webSMLM v0.11.4-dev · build 2026-08-22d · raw-panel Contrast (Black/White) is now re-estimated against the actual cropped/uncropped stack after using the raw-panel crop tool, instead of keeping the stale range sampled from whatever was loaded before
 Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
     </div>
   </main>
@@ -9105,6 +9105,14 @@ async function applyCropToRaw(x0,y0,x1,y1){
   { const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView(); }
   syncSaveImg();
   initScrub();
+  // Contrast is a fixed range sampled once from the stack that was active at
+  // the time (see estimateRawContrastRange()'s own comment) — a crop swaps
+  // `stack` for a genuinely different pixel population (could be far
+  // brighter/dimmer than the full frame it was sampled from), so the old
+  // [black,white] range is stale the same way it would be after loading a
+  // different file. Re-estimate against the NEW (cropped) stack, same call
+  // the load handlers make on a fresh load.
+  await estimateRawContrastRange(stack);
   showStackProjection();      // background fill of the SR panel — not awaited
   await showFrame(0);
   log(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${ow}×${oh}) — Localize will only see this region. Deselect the crop tool to restore the full frame.`);
@@ -9117,6 +9125,7 @@ async function uncropRaw(){
   { const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView(); }
   syncSaveImg();
   initScrub();
+  await estimateRawContrastRange(stack);   // restore the full frame's own contrast range — see applyCropToRaw()'s matching comment
   showStackProjection();
   await showFrame(0);
   log(`Uncropped — restored the original ${stack.w}×${stack.h} stack (was cropped to ${cw}×${ch}).`);

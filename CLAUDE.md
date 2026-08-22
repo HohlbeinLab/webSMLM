@@ -521,7 +521,13 @@ relevant one before editing rather than scrolling:
   state/slider UI, not the on-screen frame — a manual reset back to the auto default after dragging
   either handle away from it. The slider itself is narrower than a full-width row control
   (`flex:0 1 55%` on `.dualrange`) to leave room for this button without crowding the "Black: X ·
-  White: Y" readout.
+  White: Y" readout. `applyCropToRaw()`/`uncropRaw()` (the raw-panel crop tool, see **in/out**
+  above) each make this same call too, right before `showFrame(0)` — a crop/uncrop swaps `stack`
+  for a genuinely different pixel population (the earlier fix that added `initScrub()` to both
+  already handled the Frame scrubber; the Contrast slider's own range was left stale, still
+  reflecting whatever was sampled before the crop, since it isn't re-derived from `stack` on every
+  frame the way the old per-frame auto-stretch was — a real gap, since the whole point of a fixed
+  range is that it does NOT recompute per frame, so nothing else was going to catch this).
   Deliberately excluded from `PARAMS`/Save-Load Settings/the
   headless `analyze()` config — same "pure display/layout" carve-out as UI theme choice and sidebar
   collapsed/floating state (see **params** above) — a display convenience local to one interactive
