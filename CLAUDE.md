@@ -456,6 +456,22 @@ relevant one before editing rather than scrolling:
   states it "deliberately excludes pure display/layout (CSS)" (see **params** above), and theme
   choice is exactly that, same as sidebar collapsed/floating state.
 
+  **`webSMLM_lastVersion`** (localStorage, right after the theme-init block above, same try/catch
+  fail-safe) is a sibling of `webSMLM_theme` for a different purpose: on load, it parses the
+  release number (`vX.Y.Z`) out of the `<h1>` pill's own text and compares it against whatever was
+  previously saved for this browser, logging one line — `webSMLM updated: vA.B.C → vX.Y.Z — see
+  what's new: <link to CHANGELOG.md on GitHub>` — when they differ, since the single-file/
+  no-auto-update design otherwise gives a returning visitor no signal that anything shipped between
+  visits. Deliberately parses only the leading `vX.Y.Z`, never the full pill text: the pill also
+  carries a `-dev · build YYYY-MM-DDx` suffix while a release is in progress (see the branch/
+  release workflow below) that changes on every build-letter bump — comparing the full string would
+  fire this on nearly every reload during active local development (noise, not signal), while the
+  live GitHub Pages copy never carries that suffix at all (`main` only receives a version stamp
+  with the dev marker cleared, at an actual release), so comparing by the clean version number alone
+  also happens to be exactly the right behaviour there with no extra branching needed. Only logs
+  when a DIFFERENT version was previously recorded — a brand-new visitor (no saved key yet) just
+  gets the current version silently recorded, not a confusing "updated from nothing" message.
+
   `axisScale(maxAbs)` gives an axis whose values commonly run large (PCFO's noise variance can be in
   the hundreds of thousands, ADU²) matplotlib-style "offset notation": ticks show a small (single
   digit + one decimal) scaled number, with a single `×10ⁿ` multiplier drawn once near the axis
