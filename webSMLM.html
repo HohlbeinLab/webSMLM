@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23j; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23k; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1591,7 +1591,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23j</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2015,7 +2015,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23j · raw-panel crop tool now greys out while a plot is shown (re-enables via the scrubber, matching the reconstruction panel's crop tool); Frame field next to the scrubber is now typeable to jump to a specific frame</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23k · fixed the Contrast slider's fill bar drifting off its thumbs when the window is resized (was a plain 0-100% mapping, ignoring the thumb's own fixed-pixel inset — now a resize-aware calc())</div>
   </main>
 </div>
 
@@ -5082,9 +5082,23 @@ async function estimateRawContrastRange(stack){
 function syncRawContrastUI(){
   const bEl=$('rawBlack'), wEl=$('rawWhite'); if(!bEl||!wEl) return;
   bEl.max=wEl.max=rawContrastMax; bEl.value=rawBlack; wEl.value=rawWhite;
-  const pct=v=>rawContrastMax>0?100*v/rawContrastMax:0;
-  $('rawContrastFill').style.left=pct(rawBlack)+'%';
-  $('rawContrastFill').style.width=Math.max(0,pct(rawWhite)-pct(rawBlack))+'%';
+  // A native range thumb's centre travels within [thumbW/2, trackW-thumbW/2],
+  // NOT the full [0,trackW] the fill's own box spans — a plain 0-100% left/
+  // width (as this used to be) is off by a FIXED ~7px (half the 14px thumb —
+  // see .dualrange input[type=range]::-webkit-slider-thumb above) at each
+  // end, so the mismatch is a bigger fraction of the track at a narrow
+  // window and a smaller one at a wide window: the fill visibly drifts off
+  // the thumbs as the window is resized instead of tracking them. calc()
+  // mixing % and px re-evaluates on every resize (unlike a plain JS-computed
+  // %), so matching the browser's own thumb-inset formula here keeps the
+  // fill glued to the thumbs at any width, the same way the native Frame
+  // slider's own single-thumb fill always does.
+  const DUALRANGE_THUMB_PX=14;
+  const frac=v=>rawContrastMax>0?v/rawContrastMax:0;
+  const fillX=f=>`calc(${f}*(100% - ${DUALRANGE_THUMB_PX}px) + ${DUALRANGE_THUMB_PX/2}px)`;
+  const fB=frac(rawBlack), fW=frac(rawWhite);
+  $('rawContrastFill').style.left=fillX(fB);
+  $('rawContrastFill').style.width=`calc(${Math.max(0,fW-fB)}*(100% - ${DUALRANGE_THUMB_PX}px))`;
   $('rawContrastV').textContent=`Black: ${rawBlack.toFixed(0)} · White: ${rawWhite.toFixed(0)}`;
 }
 // Re-renders the currently-cached raw frame at the new contrast without
