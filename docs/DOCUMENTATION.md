@@ -88,35 +88,35 @@ font-size/contrast was hard to read for anything longer than a line or two)
 says.
 
 - **Memory & streaming** (`memBox`) — `memgb`/`chunkmb`. See
-  [§3](#memory--streaming)/**in/out**.
+  [§3](#in-out-params)/[§2](#in-out).
 - **Simulation settings** (`simBox`) — only relevant when using **Simulate
-  movie**. See [§3](#simulation)/**simulation**.
+  movie**. See [§3](#simulation-params)/[§2](#simulation).
 - **Gain & offset estimation** (`pcfoBox`) — **Estimate**/**Transfer
   estimates**. Placed here, before **3D calibration**, since both are
   one-off "derive a number from data, then use it below" steps run before
-  the main Localize. See [§3](#gainoffset-estimation-pcfo)/**fit**.
+  the main Localize. See [§3](#pcfo-params)/[§2](#fit).
 - **3D calibration** (`calibBox`) — **Calibrate**/**Save calib.**. See
-  [§3](#3d-calibration)/[§7](#7-calibration-json-format)/**3D calibration**.
+  [§3](#3d-calibration-params)/[§7](#7-calibration-json-format)/[§2](#3d-calibration).
 - **Localisation settings** (`locBox`) — fit method, detection filter, FTM,
   frame range, and camera/export fields; two separate "more info…" popups
   cover them (one for everything through **Fit radius**, a second for the
   camera/export fields after it). See
-  [§3](#detect)/[§3](#fit)/[§3](#export-camera-aduphoton-conversion).
+  [§3](#detect-params)/[§3](#fit-params)/[§3](#export-params).
 - **Rendering settings** (`renderBox`) — magnification, colour map, and
   (3D/sSMLM-paired results only) depth/distance colouring. See
-  [§3](#render)/**render**.
+  [§3](#render-params)/[§2](#render).
 - **Drift correction (AIM)** (`driftBox`) — **Correct drift**/**Show
-  drift**. See [§3](#drift)/**drift**.
+  drift**. See [§3](#drift-params)/[§2](#drift).
 - **Localization precision (NeNA / FRC)** (`precBox`) — **NeNA**/**FRC**.
-  See [§3](#precision)/**locprecision**.
+  See [§3](#locprecision-params)/[§2](#locprecision).
 - **Spectral SMLM analysis** (`sSmlmBox`) — pairs 0th/1st-order
   localizations from a diffraction grating; enabled as soon as there are
   localizations (Run or **Load data**), not gated on a specific fit method.
-  See [§3](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)/**sSMLM**.
+  See [§3](#ssmlm-params)/[§2](#ssmlm).
 - **Single particle tracking** (`sptBox`) — links localizations into
   trajectories and computes a per-track diffusion coefficient; enabled as
   soon as there are localizations, same gating as Spectral SMLM analysis.
-  See [§3](#spt-single-particle-tracking)/**spt**.
+  See [§3](#spt-params)/[§2](#spt).
 
 ### Main data panels
 
@@ -252,13 +252,13 @@ fires on a genuine release change, not routine local development reloads.
 Mirrors the `MODULE:` banners in `webSMLM.html`, in source order. Each entry
 is what to know before touching that module, not a restatement of its code.
 
-### params
+### PARAMS registry (`params`) {#params}
 
 See [§3](#3-parameters-params-registry). `paramValue(id)` is
 the only correct way to read a parameter (handles the DOM-control vs.
 `paramOverrides` vs. registry-default fallback, plus int rounding).
 
-### in/out
+### Load movie (`in/out`) {#in-out}
 
 TIFF parsing. In-memory vs. streamed loading (`memgb`
 budget); contiguous ImageJ stacks are indexed arithmetically, multi-IFD
@@ -307,7 +307,7 @@ so cropping first then enabling FTM correctly runs the temporal median
 over the smaller frames too) since nothing else in the codebase assumes a
 particular frame size.
 
-### simulation
+### Simulation settings (`simulation`) {#simulation}
 
 The built-in synthetic stack generator ("Simulate
 movie"). Demo/validation/teaching data, not a core analysis path. Emitters
@@ -320,14 +320,14 @@ camera can be matched or intentionally mismatched — see
 drift (`simTrueDrift`) for scoring drift correction and the true emitter
 events (`groundTruthEvents`) for future recovery comparisons.
 
-### detect
+### Localisation settings (`detect`) {#detect}
 
 Per-frame band-pass, one of three filters selectable via
 `detFilter`: wavelet (default), DoG, or uniform box — each thresholded
 differently (see [§3](#3-parameters-params-registry)/Detect). `detectSpots()`
 is the single dispatch point used by both the main thread and workers.
 
-### fit
+### Localisation settings (`fit`) {#fit}
 
 Phasor (fast, non-iterative), Gaussian least-squares, and
 Gaussian Poisson-MLE 2D/3D (`gaussianMLEspheric`/`gaussianMLEelliptic`, the
@@ -350,7 +350,7 @@ astigmatism-axis-alignment diagnostic against real 3D calibration bead
 data) plus z from a loaded `gaussian_width` calibration, exactly like
 `mle3d`; unchecked = angle FIXED at the sSMLM pairing step's own
 calibrated dispersion bearing (`sSmlmAngleCenter`,
-[§3/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)),
+[§3/sSMLM](#ssmlm-params)),
 no z — the original sSMLM-only path, for a spectrally-elongated 1st-order
 PSF. Renamed from "Gaussian MLE Elliptical (sSMLM)"; `mle3d`'s own UI
 label is now **Gauss MLE 3D elliptical** (`gaussianMLEelliptic()`, axis-
@@ -370,7 +370,7 @@ independently-coded copies. `pcfoCore()` is a
 separate, one-off tool living in this module: Rieger–Heintzman PCFO
 gain/offset estimation from a loaded/simulated stack directly (no
 calibration acquisition needed) — see
-[§3/Gain-offset estimation (PCFO)](#gainoffset-estimation-pcfo). Its
+[§3/Gain-offset estimation (PCFO)](#pcfo-params). Its
 interactive wrapper is `estimateGainOffset()` (the **Estimate** button;
 `transferPcfoEstimate()`, the separate **Transfer estimates** button, then
 applies the result to `gain`/`camoffset`); `pcfoCore()` itself is DOM-free,
@@ -378,7 +378,7 @@ same `*Core(config, stack,
 hooks)` split as `runCore`/`driftCore`/`calibrationCore`, reachable
 headlessly via `config.estimateGainOffset` ([§8](#8-headless-api-window-websmlm)).
 
-### render
+### Rendering settings (`render`) {#render}
 
 Accumulates localizations into an offscreen buffer `srFull`;
 a `view` (zoom/pan) transform draws the visible region + scale bar. Colour
@@ -420,14 +420,14 @@ same reconstructed pixel) — the increment is guarded explicitly
 single warning is logged per render if any pixel actually saturates,
 rather than risking that silent corruption.
 
-### export
+### Localisation settings (`export`) {#export}
 
 ThunderSTORM-compatible CSV, see [§6](#6-csv-export-format).
 `photons`/`bg`/`bgstd` are already true photon units by the time they
 reach export (conversion happens inside the fit) — export does no further
 conversion, only warns when gain/offset look like they were never set.
 
-### workers
+### Worker dispatch (`workers`) {#workers}
 
 Frame-parallel detect/fit. Workers are **not** separate
 files: `workerSource()` builds worker code by stringifying the exact
@@ -436,7 +436,7 @@ stringified function reads must also be re-declared in `WORKER_PRELUDE`, or
 the worker throws and silently falls back to single-threaded. Batch sizing
 is controlled by the `workerBatch*`/`workerMin*` params above.
 
-### 3D calibration
+### 3D calibration (`3D calibration`) {#3d-calibration}
 
 Astigmatic σ_x/σ_y-vs-z curves from a bead z-stack;
 astigmatism is the only 3D method implemented (Double Helix/Biplane would
@@ -447,14 +447,14 @@ against the wrong one. **Fix bead x,y** (`calFixedXY`) freezes each bead's
 lateral position from a composite of the calibration range before fitting
 widths per frame — see [§7](#7-calibration-json-format).
 
-### drift
+### Drift correction (AIM) (`drift`) {#drift}
 
 AIM (adaptive intersection maximization), point-based, no
 FFT, 2D+z. Segments localizations in time (`driftSeg`), grid-searches the
 shift that maximizes coincident localizations against the accumulated
 reference (`driftRoi`), then a parabolic sub-pixel peak refine.
 
-### locprecision
+### Localization precision (NeNA / FRC) (`locprecision`) {#locprecision}
 
 NeNA (nearest-neighbour precision, Endesfelder fit)
 and FRC (Fourier ring correlation image resolution, inline radix-2 FFT).
@@ -465,7 +465,7 @@ pixel size), with NeNA rejected if implausibly larger than the mode tier
 (a sign clustering has removed the genuine repeat-detection pairs NeNA
 needs, letting its fit latch onto inter-molecule spacing instead).
 
-### sSMLM
+### Spectral SMLM analysis (`sSMLM`) {#ssmlm}
 
 Spectrally resolved SMLM: a diffraction grating in the
 emission path splits each emitter into a 0th (undispersed) and a 1st-order
@@ -603,7 +603,7 @@ button works on them directly — no separate table for sSMLM. **Headless**
 (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before
 drift/NeNA/FRC — see §8.
 
-### spt
+### Single particle tracking (`spt`) {#spt}
 
 Links per-frame
 localizations into trajectories and computes a per-track diffusion
@@ -681,12 +681,12 @@ length-RESOLVED D histogram (D binned by track length — distinct from
 the plain track-length histogram above), and no colour-by-D/by-track
 rendering yet — see `docs/REFACTOR_PLAN.md`.
 
-### pipeline
+### Pipeline (`pipeline`) {#pipeline}
 
 Top-level orchestration wiring the UI buttons to the
 modules; `run()` is the Localize entry point.
 
-### table
+### View data + filtering (`table`) {#table}
 
 The sortable, cumulatively-filterable localizations table
 ("View data + filtering") and per-column histograms, see
@@ -709,7 +709,7 @@ registry: pure CSS/layout, and per-dataset working state that resets from the
 loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 `zmin`, `zmax`).
 
-### Memory / streaming
+### Memory & streaming (`in/out`) {#in-out-params}
 
 *Module:* **in/out** — see [§2](#in-out).
 
@@ -729,7 +729,7 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 </ul>
 <!-- /HINT:memory -->
 
-### Simulation
+### Simulation settings (`simulation`) {#simulation-params}
 
 *Module:* **simulation** — see [§2](#simulation).
 
@@ -787,7 +787,7 @@ background independently, every frame — not a total budget spread across
 the frame), Poisson like the signal.
 
 The forward **camera model** — decoupled from the fit-side `gain`/
-`camoffset` ([Export](#export-camera-aduphoton-conversion) above), so
+`camoffset` (the [Export](#export-params) fields), so
 simulated ground truth and the fit's assumed camera can be matched (for a
 clean self-test) or intentionally mismatched (to test robustness) — applies,
 per pixel, in this order: Poisson shot noise on (background + PSF signal) →
@@ -806,7 +806,7 @@ localizations. `driftpx` (as before) accumulates linearly over all frames in
 a random direction; the true per-frame drift is stored (`simTrueDrift`) for
 scoring drift correction. See the **simulation** module.
 
-### Detect
+### Localisation settings (`detect`) {#detect-params}
 
 *Module:* **detect** — see [§2](#detect).
 
@@ -824,7 +824,7 @@ The in-app "more info…" popup for these fields (`hint-detectfit`) is shared
 with **Fit** below — one popup covers `liveUpdate` through `winr` as a
 single control group in the sidebar.
 
-### Fit
+### Localisation settings (`fit`) {#fit-params}
 
 *Module:* **fit** — see [§2](#fit).
 
@@ -1017,7 +1017,7 @@ denominator excludes the separately barrier-phased FTM stage, which is
 reported on its own line instead) — folding the two together would make a
 run with substantial FTM time look artificially starved.
 
-### Gain/offset estimation (PCFO)
+### Gain & offset estimation (PCFO) (`fit`) {#pcfo-params}
 
 *Module:* **fit** — see [§2](#fit).
 
@@ -1078,7 +1078,7 @@ the **fit** module (`pcfoCore()`) and
 [§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
 headless equivalent.
 
-### Render
+### Rendering settings (`render`) {#render-params}
 
 *Module:* **render** — see [§2](#render).
 
@@ -1120,7 +1120,9 @@ rescanning every localization on every pan/zoom redraw; falls back to the
 bare top-right corner if there's no cached extent (e.g. a plot, not a real
 reconstruction).
 
-### Export (camera ADU→photon conversion)
+### Localisation settings (`export`) {#export-params}
+
+Camera ADU→photon conversion fields specifically.
 
 *Module:* **export** — see [§2](#export).
 
@@ -1146,7 +1148,9 @@ Applied inside every fit function itself — `(raw−camoffset)×gain` — befor
 the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
 CRLB) are already true photon units. See the **fit** module.
 
-### Worker dispatch (no page control — settings-JSON only)
+### Worker dispatch (`workers`) {#workers-params}
+
+No page control — settings-JSON only.
 
 *Module:* **workers** — see [§2](#workers).
 
@@ -1172,7 +1176,7 @@ preview can refresh during a worker-parallel Run: a batch's fit results only
 become available once the whole batch completes, so batch size is a hard
 floor on preview freshness independent of `rawPreviewMs` below.
 
-### 3D calibration
+### 3D calibration (`3D calibration`) {#3d-calibration-params}
 
 *Module:* **3D calibration** — see [§2](#3d-calibration).
 
@@ -1201,7 +1205,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 </ul>
 <!-- /HINT:calibration -->
 
-### Drift
+### Drift correction (AIM) (`drift`) {#drift-params}
 
 *Module:* **drift** — see [§2](#drift).
 
@@ -1225,7 +1229,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 </ul>
 <!-- /HINT:drift -->
 
-### Precision
+### Localization precision (NeNA / FRC) (`locprecision`) {#locprecision-params}
 
 *Module:* **locprecision** — see [§2](#locprecision).
 
@@ -1246,7 +1250,9 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
 <!-- /HINT:locprecision -->
 
-### sSMLM (spectrally resolved SMLM, diffraction-grating pair finding)
+### Spectral SMLM analysis (`sSMLM`) {#ssmlm-params}
+
+Spectrally resolved SMLM, diffraction-grating pair finding.
 
 *Module:* **sSMLM** — see [§2](#ssmlm).
 
@@ -1320,7 +1326,7 @@ then commit with **Pair**. See
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
 
-### spt (single particle tracking)
+### Single particle tracking (`spt`) {#spt-params}
 
 *Module:* **spt** — see [§2](#spt).
 
@@ -1362,7 +1368,7 @@ filename implies 50 ms/frame, but its own embedded `finterval` tag says
 lactis entry). See [§2](#2-module-reference)'s **spt** entry for the full
 linking/diffusion-coefficient algorithm.
 
-### Pipeline behaviour
+### Pipeline behaviour (`pipeline`) {#pipeline-behaviour-params}
 
 *Module:* **pipeline** — see [§2](#pipeline).
 
@@ -1370,7 +1376,9 @@ linking/diffusion-coefficient algorithm.
 |---|---|---|---|---|---|---|
 | `liveUpdate` | Real-time update | bool | — | — | — | true |
 
-### Pipeline: preview / export tuning (no page control — settings-JSON only)
+### Pipeline: preview / export tuning (`pipeline`) {#pipeline-tuning-params}
+
+No page control — settings-JSON only.
 
 *Module:* **pipeline** — see [§2](#pipeline).
 
@@ -1683,7 +1691,7 @@ const result = await window.webSMLM.analyze({
   them to `lastResult.locs`, row count unchanged.
 - `config.estimateGainOffset` — boolean, not a `PARAMS` entry. Runs
   `pcfoCore()` (PCFO gain/offset estimation, [§3/Gain-offset estimation
-  (PCFO)](#gainoffset-estimation-pcfo)) on the SAME stack `config.file`/
+  (PCFO)](#pcfo-params)) on the SAME stack `config.file`/
   `config.files` just loaded, **before** the main run, then overrides
   `config.gain`/`config.camoffset` with the estimate — the headless
   equivalent of clicking **Estimate**, **Transfer estimates**, then
@@ -1939,3 +1947,13 @@ via `?autorun=1&download=1&...` + polling the Downloads folder for the
 files it writes (see above). Good for "try several settings and compare
 timings" without installing anything; reach for the CLI instead for a
 single run, true headless operation, or CI.
+
+---
+
+## 9 · Changelog
+
+Per-release history — new features, fixes and notable implementation
+detail for every shipped version — lives in
+[`CHANGELOG.md`](https://github.com/HohlbeinLab/webSMLM/blob/main/CHANGELOG.md)
+on GitHub, not duplicated here. This manual describes current behaviour
+only; check the changelog for what changed and when.
