@@ -16,31 +16,31 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23b; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23c; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2027   PARAMS registry, single source of truth for params
-    in/out          2455   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2768   synthetic stack generator ("Simulate movie")
-    detect          3595   per-frame band-pass + local-maxima detection
-    fit             3851   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2025   PARAMS registry, single source of truth for params
+    in/out          2453   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2766   synthetic stack generator ("Simulate movie")
+    detect          3593   per-frame band-pass + local-maxima detection
+    fit             3849   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4326   accumulate to offscreen buffer; view/colour/blur;
+    render          4324   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5182   frame-parallel detect/fit worker pool
-    export          5347   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5598   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           5998   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5180   frame-parallel detect/fit worker pool
+    export          5345   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5596   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           5996   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6313   NeNA + FRC
-    sSMLM           6956   spectrally resolved SMLM pair-finding
-    spt             7406   single particle tracking, trackpy-inspired
-    pipeline        7836   top-level orchestration, *Core()/wrapper split
-    table           9459   localizations table, filtering, histograms
-    headless API    9898   window.webSMLM.analyze()/analyzeBatch()
+    locprecision    6311   NeNA + FRC
+    sSMLM           6954   spectrally resolved SMLM pair-finding
+    spt             7404   single particle tracking, trackpy-inspired
+    pipeline        7834   top-level orchestration, *Core()/wrapper split
+    table           9467   localizations table, filtering, histograms
+    headless API    9906   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1591,7 +1591,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2009,9 +2009,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23b · removed a redundant, buggy noscript warning nested inside the log window itself — log()'s own textContent+= was destroying it and permanently baking its raw text into the log on ordinary loads, even with JS fully working; the real disabled-JS warning (top of page) is untouched
-Ready. Click “Load movie” or “Simulate movie”, then “Localize”.</div>
-    </div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23c · "Ready…" now logged via log() right after the version-update check instead of being static seed text, so it always lands after (not before) any update notice, with a blank line separating the two when one is shown</div>
   </main>
 </div>
 
@@ -9402,15 +9400,25 @@ $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
 // key: a blocked localStorage means this feature quietly does nothing.
 { const pill=document.querySelector('.pill');
   const m=pill && pill.textContent.match(/v(\d+\.\d+\.\d+)/);
+  let updated=false;
   if(m){ const cur=m[1];
     try{
       const prev=localStorage.getItem('webSMLM_lastVersion');
       if(prev && prev!==cur){
         log(`webSMLM updated: v${prev} → v${cur} — see what's new: https://github.com/HohlbeinLab/webSMLM/blob/main/CHANGELOG.md`);
+        updated=true;
       }
       localStorage.setItem('webSMLM_lastVersion', cur);
     }catch(_){}
   }
+  // "Ready…" is appended here (not left as #log's static seed text) so it
+  // always lands AFTER the update-check above rather than before it; a
+  // leading blank line (an extra \n — see log()'s own '\n'+m append,
+  // matching the "\nRun: …" convention runCore() uses to open a new visual
+  // block) only when there's actually an update line above it to separate
+  // from — an ordinary load with nothing new to report stays exactly as
+  // compact as before.
+  log(`${updated?'\n':''}Ready. Click "Load movie" or "Simulate movie", then "Localize".`);
 }
 // Side-by-side vs stacked panel layout: null = auto (initScrub()'s own
 // h/w<0.5 heuristic decides on every new stack load); true/false = the user
