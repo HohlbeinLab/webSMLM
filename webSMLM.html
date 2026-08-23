@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23c; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23d; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -39,8 +39,8 @@
     sSMLM           6954   spectrally resolved SMLM pair-finding
     spt             7404   single particle tracking, trackpy-inspired
     pipeline        7834   top-level orchestration, *Core()/wrapper split
-    table           9467   localizations table, filtering, histograms
-    headless API    9906   window.webSMLM.analyze()/analyzeBatch()
+    table           9465   localizations table, filtering, histograms
+    headless API    9904   window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1591,7 +1591,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2009,7 +2009,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23c · "Ready…" now logged via log() right after the version-update check instead of being static seed text, so it always lands after (not before) any update notice, with a blank line separating the two when one is shown</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23d · the blank line before "Ready…" is now unconditional (previously only appeared when an update notice was actually shown, which was more confusing than useful)</div>
   </main>
 </div>
 
@@ -9400,25 +9400,23 @@ $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
 // key: a blocked localStorage means this feature quietly does nothing.
 { const pill=document.querySelector('.pill');
   const m=pill && pill.textContent.match(/v(\d+\.\d+\.\d+)/);
-  let updated=false;
   if(m){ const cur=m[1];
     try{
       const prev=localStorage.getItem('webSMLM_lastVersion');
       if(prev && prev!==cur){
         log(`webSMLM updated: v${prev} → v${cur} — see what's new: https://github.com/HohlbeinLab/webSMLM/blob/main/CHANGELOG.md`);
-        updated=true;
       }
       localStorage.setItem('webSMLM_lastVersion', cur);
     }catch(_){}
   }
   // "Ready…" is appended here (not left as #log's static seed text) so it
-  // always lands AFTER the update-check above rather than before it; a
-  // leading blank line (an extra \n — see log()'s own '\n'+m append,
-  // matching the "\nRun: …" convention runCore() uses to open a new visual
-  // block) only when there's actually an update line above it to separate
-  // from — an ordinary load with nothing new to report stays exactly as
-  // compact as before.
-  log(`${updated?'\n':''}Ready. Click "Load movie" or "Simulate movie", then "Localize".`);
+  // always lands AFTER the update-check above rather than before it, with an
+  // unconditional leading blank line (an extra \n — see log()'s own
+  // '\n'+m append, matching the "\nRun: …" convention runCore() uses to
+  // open a new visual block) separating the startup info block (version
+  // stamp, plus the update line above when there is one) from the ready
+  // state below it.
+  log(`\nReady. Click "Load movie" or "Simulate movie", then "Localize".`);
 }
 // Side-by-side vs stacked panel layout: null = auto (initScrub()'s own
 // h/w<0.5 heuristic decides on every new stack load); true/false = the user
