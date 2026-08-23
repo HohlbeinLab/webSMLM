@@ -1031,8 +1031,20 @@ slower than V8), so keep validation inputs small.
   for a pre-commit/CI-style verification that the two haven't drifted. The
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is
   NOT part of the synced content (kept as fixed markup in `webSMLM.html`, so a
-  marker doesn't need to know about that UI-only styling detail). As of this
-  writing only `hint-memory` (Memory & streaming) has been migrated, as a pilot —
-  the other 10 `.hint` divs (`simulation`/`fit`/`3D calibration`/`detect/fit`/
-  `export`/`render`/`drift`/`locprecision`/`sSMLM`/`spt` module tags) still need
-  their own `id`+marker pair added the same way before they're covered.
+  marker doesn't need to know about that UI-only styling detail). All 11
+  `.hint` divs are now migrated (`hint-memory`/`hint-simulation`/`hint-pcfo`/
+  `hint-calibration`/`hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/
+  `hint-locprecision`/`hint-sSMLM`/`hint-spt`) — piloted on one first (Memory &
+  streaming) to validate the mechanism, then rolled out to the rest in the same
+  round, which also surfaced and fixed real staleness the independent-authoring
+  drift had already caused: `detect/fit`'s "Fit method" list only named 3 of the
+  6 methods and never mentioned the `localize3D` checkbox at all; `drift` never
+  mentioned the drift-plot x/y-path toggle; `sSMLM` never mentioned that
+  `gaussmleEll` gives both orders a real per-axis σx/σy; `spt` claimed "no
+  headless exposure yet" even though `config.sptTrack` has existed for a
+  while. Each marker is placed as the INTRO to its DOCUMENTATION.md section
+  (right after the PARAMS table, before any further manual-only depth) — where
+  the surrounding prose used to restate the same points the popup already
+  makes (worst case: **Gain/offset estimation (PCFO)**, whose old opening
+  paragraph duplicated nearly the whole popup), that prose was trimmed to pick
+  up only where the popup leaves off, rather than deleted or left redundant.

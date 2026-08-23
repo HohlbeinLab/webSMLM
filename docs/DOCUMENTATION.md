@@ -329,6 +329,10 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 | `psf` | σ_PSF — PSF width (px) | number | 0.8 | 5 | 0.1 | 1.3 |
 | `winr` | Fit radius (px) — window size = 2·winr+1 | number (int) | 2 | 10 | 1 | 4 |
 
+The in-app "more info…" popup for these fields (`hint-detectfit`) is shared
+with **Fit** below — one popup covers `liveUpdate` through `winr` as a
+single control group in the sidebar.
+
 ### Fit
 
 | id | Label | Type | Min | Max | Step | Default |
@@ -341,6 +345,39 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 | `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
 | `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
 
+**In-app "more info…" popup** (`hint-detectfit` in `webSMLM.html`, shared
+with **Detect** above; synced by `tools/sync_hints.mjs` — edit here, then
+run the script, never edit the `.hint` div directly):
+
+<!-- HINT:detectfit -->
+<p><b>Fit method</b> — σ_noise below is the spread of the filtered image, not the PSF width.</p>
+<ul>
+  <li><b>Phasor 2D/3D</b> — ~100–250× faster per candidate (265× on the GATTA-PAINT test stack). No per-localization uncertainty; 3D needs a phasor-magnitude calibration.</li>
+  <li><b>Gaussian LS 2D</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
+  <li><b>Gauss MLE 2D spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
+  <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
+</ul>
+<p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
+<p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
+<ul>
+  <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
+  <li><b>DoG band-pass</b> — a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38% of detections).</li>
+  <li><b>Uniform box filter</b> — a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.</li>
+</ul>
+<p><b>Temporal median filtering</b> (FTM) is a per-pixel background correction — for a given frame, each pixel's value across a <b>window</b> of nearby frames (centred on that frame; clamped, not shrunk, at the very first/last few frames, so every frame still gets a full-width window) has its <b>median</b> subtracted — a robust estimate of that pixel's slowly-varying background at this point in time. Since a blinking emitter occupies far less than half the window at any one pixel, the median tracks the background, not the signal, so what's left after subtraction is mostly signal above background. Checking this box:</p>
+<ul>
+  <li>Adds a <b>raw / FTM-corrected</b> toggle next to the raw panel title, computing the correction live for whichever frame you're scrubbed to.</li>
+  <li>Makes <b>Localize itself run on FTM-corrected frames</b> — processed in worker-parallel chunks when a worker pool is available, main-thread otherwise; either way the whole stack is never held twice (raw + corrected) in memory at once.</li>
+</ul>
+<p><b>Values that would go negative after subtraction are floored at the camera offset instead</b> (a background estimate briefly above the true noise floor is expected, not an error) — this keeps the corrected pixel in the same units the fit's own gain/offset conversion expects, so photon counts aren't double-corrected. It's still <i>not</i> quite the same noise distribution the fit functions otherwise assume (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a hard floor truncates that slightly, which can bias fitted background/photon counts and reported uncertainty low in very dim regions). Choose the <b>window size</b> so the "signal occupies less than half the window" assumption above actually holds for your data (too small and the median starts tracking — and cancelling — real signal); the loaded stack must have at least that many frames.</p>
+<p><small>The technique originates with
+<a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
+<i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
+implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
+(<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
+<i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
+<!-- /HINT:detectfit -->
+
 `fitLastFrame` defaults to `Infinity`, not a finite placeholder: an
 `<input type=number>` sanitizes a non-finite value to a blank field, and a
 blank field reads back (via `paramValue()`'s `isFinite` fallback) as "the
@@ -351,12 +388,10 @@ loaded stack's frame count on every new load. Restricting the range means
 the skipped frames are never even fetched/decoded, not just excluded from
 the result afterward — see the **pipeline** module / `runCore()`.
 
-**`ftmEnabled`/`ftmWindow` — temporal median filtering (FTM).** Checking
-`ftmEnabled` does two things: it adds a **raw / FTM-corrected toggle**
-(`rawFtmBtn`, inline in the raw panel's title, its own label reading "Show
-FTM corrected" / "Show raw") for scrubbing preview, **and** it makes
-**Localize itself run on FTM-corrected frames** instead of the original raw
-ones. Both share the same underlying correction: for a given frame, each
+**`ftmEnabled`/`ftmWindow` — temporal median filtering (FTM)** — see the
+popup above for what checking it does (the raw/FTM-corrected toggle,
+`rawFtmBtn`, and Localize itself running on corrected frames). Both share
+the same underlying correction: for a given frame, each
 pixel's value across a `ftmWindow`-frame window of context (centred on that
 frame; clamped, not shrunk, at the two ends of the stack, so every frame
 still gets a full-width window) has its **median** subtracted, then
@@ -500,6 +535,19 @@ run with substantial FTM time look artificially starved.
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
 | `zcolor` | Colour by depth (z) | bool | — | — | — | false |
 
+**In-app "more info…" popup** (`hint-render` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:render -->
+<ul>
+  <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
+  <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
+  <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume. After an sSMLM <b>Pair</b>, this same toggle reads "Colour by distance (sSMLM)" and colours by inter-order spectral distance instead of real z.</li>
+</ul>
+<p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
+<!-- /HINT:render -->
+
 `hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
 matching a colour scheme used in the sSMLM paper's own figures — the only
@@ -523,6 +571,19 @@ reconstruction).
 | `gain` | Camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 1 |
 | `camoffset` | Camera offset (ADU) | number | 0 | 65535 | 1 | 0 |
 
+**In-app "more info…" popup** (`hint-export` in `webSMLM.html`, shown
+alongside `pxnm` — see **Render** above — since all three sit together in
+the sidebar's Localisation settings; synced by `tools/sync_hints.mjs` —
+edit here, then run the script, never edit the `.hint` div directly):
+
+<!-- HINT:export -->
+<ul>
+  <li><b>Pixel size (nm)</b> sets the physical scale used by the scale bar, z, and the exported CSV coordinates.</li>
+  <li>With gain 1 the exported “intensity [photon]” is really <b>ADU</b> (analog-to-digital unit — the camera's raw pixel count, before any photon conversion), and the uncertainty column (∝ 1/√N) is not physically meaningful.</li>
+  <li>A single scalar gain suits <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</li>
+</ul>
+<!-- /HINT:export -->
+
 Applied inside every fit function itself — `(raw−camoffset)×gain` — before
 the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
 CRLB) are already true photon units. See the **fit** module.
@@ -537,49 +598,52 @@ Sidebar section label: **Gain & offset estimation**.
 | `pcfoK` | k_thresh (spatial freq.) | number | 0.1 | 1 | 0.05 | 0.9 |
 | `pcfoRnstd` | Readout noise σ (e⁻) | number | 0 | 200 | 0.01 | 2.89 |
 
-Two buttons, side by side. **Estimate** (`pcfoBtn`) runs the
-Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich,
-Nieuwenhuizen, Lidke & Rieger,
-[arXiv:1611.05654](https://arxiv.org/abs/1611.05654)) on the loaded/simulated
-stack — no separate calibration acquisition needed. It only *computes* — it
-does **not** touch `gain`/`camoffset` itself. **Transfer estimates**
-(`pcfoTransferBtn`, disabled until a successful Estimate) is the separate,
-explicit step that copies the last result into the `gain`/`camoffset` fields
-in **Localisation settings** — keeps a stale/unwanted estimate from silently
-overwriting values set by hand in between; both buttons reset to disabled on
-a new **Load movie**/**Simulate movie**. `pcfoFrames` seeded-random frames
-are sampled; each is tiled at a size auto-derived from the field of view
-(aiming for a ~4×4 grid, rounded to a power of two — the noise-variance
-estimate needs an FFT — floored at 64px, never below 2×2; **not** a page
-control, since there's nothing to re-tune per stack). Per tile, mean signal
-(`imsig`) vs. high-spatial-frequency, noise-only variance (`noisevar`,
-`pcfoK` sets the Nyquist-fraction cutoff above which content is assumed
-noise) is measured, pooled across every sampled frame's tiles, robustly
+**In-app "more info…" popup** (`hint-pcfo` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:pcfo -->
+<p>Estimates camera gain (photons/ADU) and offset (ADU) directly from the loaded stack via the
+Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen, Lidke &amp;
+Rieger, <a href="https://arxiv.org/abs/1611.05654" target="_blank" rel="noopener">arXiv:1611.05654</a>) —
+no separate calibration acquisition needed. Tiles a sample of frames, measures mean signal vs.
+high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
+draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
+linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
+it doesn't touch the Gain / Camera offset fields in Localisation settings itself; <b>Transfer estimates</b>
+(disabled until a successful Estimate) copies the last result into them.</p>
+<ul>
+  <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
+  <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
+  noise-only; 0.9 follows the Rieger–Heintzman default.</li>
+  <li><b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible. Must
+  include ANY spatially-white, frame-invariant noise, not just true per-frame read noise — a static
+  per-pixel offset pattern (fixed-pattern noise) looks identical to read noise in a single frame's
+  Fourier content, so it biases the fitted offset the same way if left out. If both are present, combine
+  them in quadrature (√(read_noise²+offset_std²), in photon-equivalent units); the default (2.89) matches
+  the Simulation panel's own default read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this
+  way, for a clean self-test.</li>
+</ul>
+<p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
+rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
+2×2) so there's nothing to re-tune per stack.</p>
+<!-- /HINT:pcfo -->
+
+Implementation detail beyond the popup above: tiles are pooled and robustly
 outlier-clipped (Tukey fences on `noisevar`, `pcfoClipPoints()` — a single
 dead/saturated/masked tile can otherwise dominate an ordinary least-squares
-fit), then fit by plain OLS linear regression (`pcfoRegress()`): the slope
-gives gain, the intercept (combined with `pcfoRnstd`) gives offset. A
-leave-one-out jackknife over the pooled points gives a rough ± uncertainty
-on both. `pcfoRnstd` — camera dark-frame std, in electrons — must include
-ANY spatially-white, frame-invariant noise, not just true per-frame read
-noise: a static per-pixel fixed-pattern offset looks identical to read noise
-in a single frame's Fourier content, so it biases the fitted offset the same
-way if left out; if both are present, combine them in quadrature
-(√(read_noise²+offset_std²), photon-equivalent units) — the default (2.89)
-matches the **Simulation settings** panel's own defaults
-(`simulation_readnoise` 2.7 e⁻ + `simulation_offset_std` 3 ADU) combined this
-way, for a clean Simulate movie → Estimate → Transfer estimates self-test out
-of the box. A diagnostic scatter (signal vs. noise-variance, fitted line, R²) is
-drawn on the raw panel after each run (`drawPcfoPlot()`, the same
-left-panel-plot pattern as calibration/FRC/NeNA curves) so the underlying
-linearity (shot-noise-dominated) assumption can be checked visually — R² <
-0.3 logs a low-linearity warning (too low a photon count is the most common
-cause; saturation, non-uniform illumination or non-Poissonian noise are
-less common ones). Noise variance (ADU²) commonly runs into the hundreds of
-thousands, where full tick labels used to visually collide with the axis's
-own rotated name; both axes scale into small (1 digit + 1 decimal) numbers
-plus a single `×10ⁿ` multiplier instead (`axisScale()`, render module — see
-**render** in `CLAUDE.md`). See the **fit** module (`pcfoCore()`) and
+fit) before a plain OLS linear regression (`pcfoRegress()`): the slope gives
+gain, the intercept (combined with `pcfoRnstd`) gives offset. A leave-one-out
+jackknife over the pooled points gives a rough ± uncertainty on both. The
+diagnostic scatter (`drawPcfoPlot()`, the same left-panel-plot pattern as
+calibration/FRC/NeNA curves) logs a low-linearity warning when R² < 0.3 (too
+low a photon count is the most common cause; saturation, non-uniform
+illumination or non-Poissonian noise are less common ones). Noise variance
+(ADU²) commonly runs into the hundreds of thousands, where full tick labels
+used to visually collide with the axis's own rotated name; both axes scale
+into small (1 digit + 1 decimal) numbers plus a single `×10ⁿ` multiplier
+instead (`axisScale()`, render module — see **render** in `CLAUDE.md`). See
+the **fit** module (`pcfoCore()`) and
 [§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
 headless equivalent.
 
@@ -591,6 +655,25 @@ headless equivalent.
 | `calRef` | Calibration z=0 reference frame (0=auto) | number (int) | 0 | — | 1 | 0 |
 | `calFixedXY` | Fix bead x,y | bool | — | — | — | false |
 
+**In-app "more info…" popup** (`hint-calibration` in `webSMLM.html`; synced
+by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:calibration -->
+<p>Load a bead z-stack (stage scanned through focus). Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</p>
+<ul>
+  <li>Detects every spot per frame.</li>
+  <li>Fits an elliptical Gaussian → σ_x / σ_y vs z.</li>
+  <li>Fits σ = a(z−c)² + b to each axis.</li>
+</ul>
+<p><b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width curve. Ticking this:</p>
+<ul>
+  <li>Averages every frame in the range into one composite (shown in the raw panel).</li>
+  <li>Runs detection once on that stable image, fixing each bead's x,y from it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter changes.</li>
+  <li>Calibrate then only fits amplitude/σx/σy/background per frame at those fixed positions, so x,y — the two most failure-prone degrees of freedom — never move.</li>
+</ul>
+<!-- /HINT:calibration -->
+
 ### Drift
 
 | id | Label | Type | Min | Max | Step | Default |
@@ -599,11 +682,38 @@ headless equivalent.
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
 
+**In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:drift -->
+<p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see Help &amp; guide → References). <b>Localize first, then Correct drift.</b></p>
+<ul>
+  <li>The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for faster drift.</li>
+  <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
+  <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
+  <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
+</ul>
+<!-- /HINT:drift -->
+
 ### Precision
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
+
+**In-app "more info…" popup** (`hint-locprecision` in `webSMLM.html`; synced
+by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:locprecision -->
+<ul>
+  <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
+  <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
+</ul>
+<p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
+<p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
+<!-- /HINT:locprecision -->
 
 ### sSMLM (spectrally resolved SMLM, diffraction-grating pair finding)
 
@@ -614,6 +724,19 @@ headless equivalent.
 | `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
 | `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
 | `sSmlmRequireNarrower` | Require narrower 0th order (σ) | bool | — | — | — | false |
+
+**In-app "more info…" popup** (`hint-sSMLM` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:sSMLM -->
+<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
+<p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
+<p><b>Preview pairs</b> only computes — <b>Show dist. hist.</b> draws a distance histogram (every candidate pair in range, any angle); <b>Show angle hist.</b> draws an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+<p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
+<p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
+<p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
+<!-- /HINT:sSMLM -->
 
 `sSmlmAngleCenter` ("Primary angle" in the UI) is a genuine SIGNED bearing
 (the 1st order's fixed direction from its 0th order), not an undirected
@@ -676,6 +799,18 @@ for the first implementation.
 | `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
 | `sptDPlotMax` | SPT D plot max (µm²/s) | number | 0.0001 | 1000 | 0.1 | 10 |
 
+**In-app "more info…" popup** (`hint-spt` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:spt -->
+<p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
+<p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
+<p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
+<p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
+<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see References &amp; further reading in Help &amp; guide. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+<!-- /HINT:spt -->
+
 Defaults are ported from the user's own `sptPALM-Python` pipeline's
 `set_parameters_sptPALM.py` (L. lactis sptPALM), converted from that
 pipeline's µm convention to webSMLM's own nm convention for spatial params
@@ -725,6 +860,31 @@ linking/diffusion-coefficient algorithm.
 | `simulation_readnoise` | Simulation read noise σ (e⁻) | number | 0 | 200 | 0.1 | 2.7 |
 | `simbg` | Simulation background (photons/px) | number | 0 | 500 | 1 | 0 |
 | `driftpx` | Simulated total drift (px) | number | 0 | 30 | 0.5 | 0 |
+
+**In-app "more info…" popup** (`hint-simulation` in `webSMLM.html`; synced
+by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:simulation -->
+<p><b>Emitter density</b> is a physical areal density — the average number of ON emitters per µm² in any
+given frame — independent of how densely the ground-truth structure is sampled. Emitters arrive as a
+Poisson process at randomly chosen structure sites; each turns on exactly once: a fractional start time
+(drawn from up to 5×lifetime before frame 0, so the exponential's tail can already be mid-event at frame 0)
+and an exponentially-distributed ON duration (mean = <b>ON lifetime</b>). <b>Photons/emitter/frame</b> is
+scaled by the fraction of a frame the emitter was actually on, so e.g. a half-frame overlap emits half the
+photons.</p>
+<p><b>Background</b> (photons/px, Poisson like the signal) is added at every pixel independently, every
+frame. <b>Camera gain/offset/offset std/read noise</b>
+forward-model a real sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
+gain conversion, then a per-pixel offset map (Gaussian around the mean offset, fixed for the whole stack)
+is added — independent of the fit-side camera gain/offset used for localization. For a clean
+self-consistency test with the <b>Gain/offset estimation</b> section's own readout-noise field, combine
+read noise and offset std in quadrature (√(read_noise²+offset_std²), offset std converted to photons via
+this panel's gain) — a static per-pixel offset pattern looks identical to read noise in a single frame's
+Fourier content, so leaving it out biases the fitted offset the same way.</p>
+<p><b>Drift (px, total)</b> — total sample drift over all frames, in a random direction (linear from
+frame 0). 0 = none. Used to test drift correction — the true drift is stored for scoring.</p>
+<!-- /HINT:simulation -->
 
 `dens` is a **physical areal density** (ON emitters/µm²/frame), not tied to
 how densely the internal ground-truth structure (`buildStructure()`) happens
