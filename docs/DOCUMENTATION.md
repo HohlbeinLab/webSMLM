@@ -14,6 +14,15 @@ a comment should only explain a non-obvious *why*, not *what* (see
 `PARAMS` registry, `PARAMS` is authoritative — this file describes it, not
 the other way round.
 
+**This file is also the source for the app's own in-app "more info…"
+popups** (the `.hint` divs next to each sidebar control group — a third,
+separate layer from both this manual and the sparse Help & guide modal).
+Each popup's content lives inside a `<!-- HINT:<name> --> ... <!-- /HINT:<name>
+-->` marker below, kept in sync with `webSMLM.html` by `tools/sync_hints.mjs`
+— edit the marker, then run the script; never hand-edit a `.hint` div
+directly (see `CLAUDE.md`'s **Documentation build** section for the full
+mechanism).
+
 Line/anchor references below point at `webSMLM.html` as of **v0.10.3**;
 exact line numbers will drift as the file grows, but the `id=`/function names
 they're built from won't.
@@ -689,6 +698,17 @@ linking/diffusion-coefficient algorithm.
 |---|---|---|---|---|---|---|
 | `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
+
+**In-app "more info…" popup** (`hint-memory` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:memory -->
+<ul>
+  <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
+  <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
+</ul>
+<!-- /HINT:memory -->
 
 ### Simulation
 

@@ -1008,3 +1008,31 @@ slower than V8), so keep validation inputs small.
       python -m sphinx -W --keep-going -b html docs/readthedocs docs/readthedocs/_build/html
 - If generated documentation is wrong, fix `docs/DOCUMENTATION.md` or, when the
   generation logic itself is responsible, `docs/readthedocs/build_docs.py`.
+- **In-app "more info…" popups** (`.hint` divs, the sidebar's own contextual help,
+  distinct from both the deliberately-sparse Help & guide modal and this RTD manual)
+  used to be hand-authored independently of `DOCUMENTATION.md` — a real, confirmed
+  drift risk (both describe the same control groups, sometimes citing the same
+  papers, with no mechanism keeping the wording in sync). `tools/sync_hints.mjs`
+  (plain Node, zero dependencies — doesn't need `tools/`'s own `npm install`) fixes
+  this by making `DOCUMENTATION.md` the single source: each `.hint` div carries a
+  stable `id="hint-<name>"`; the matching content lives inside a
+  `<!-- HINT:<name> --> ... <!-- /HINT:<name> -->` marker in `DOCUMENTATION.md`
+  (placed right after that control group's PARAMS table in §2), as **raw HTML**
+  deliberately, not Markdown — byte-identical in both places, no
+  Markdown→HTML conversion step to itself go stale or introduce bugs. Verified
+  the raw HTML passes through Sphinx/MyST's strict (`fail_on_warning: true`) build
+  untouched (real `<ul>`/`<li>`/`<b>` in the rendered page, HTML comments
+  invisible as expected). Edit a hint's content ONLY inside its
+  `DOCUMENTATION.md` marker, then run `node tools/sync_hints.mjs` (rewrites
+  `webSMLM.html`'s `.hint` divs to match, reindented to a flat style — cosmetically
+  different from any hand-written nested indentation, not a content change) —
+  never hand-edit a `.hint` div's content directly, it'll just be overwritten on
+  the next sync. `--check` exits 1 without writing if `webSMLM.html` would change,
+  for a pre-commit/CI-style verification that the two haven't drifted. The
+  `<span class="pill">module: X</span>` label at the top of each `.hint` div is
+  NOT part of the synced content (kept as fixed markup in `webSMLM.html`, so a
+  marker doesn't need to know about that UI-only styling detail). As of this
+  writing only `hint-memory` (Memory & streaming) has been migrated, as a pilot —
+  the other 10 `.hint` divs (`simulation`/`fit`/`3D calibration`/`detect/fit`/
+  `export`/`render`/`drift`/`locprecision`/`sSMLM`/`spt` module tags) still need
+  their own `id`+marker pair added the same way before they're covered.
