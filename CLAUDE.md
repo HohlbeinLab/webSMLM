@@ -899,6 +899,32 @@ could be misread.
 Leading-unary `**` is a SyntaxError in both JavaScriptCore and V8: write `-((x-d)**2)`, never
 `-(x-d)**2`.
 
+### Mobile input font-size vs. label font-size
+
+Below the 860px breakpoint, `input.num`/`select.sel` jump to 16px (iOS auto-zooms on focusing a
+smaller input; 16px is the threshold that stops it) while `label.row` text stays at the base 12px
+— a real, known, deliberate size mismatch, not a bug to "fix" by shrinking the input back down.
+
+### `<noscript>` + `.textContent +=` gotcha
+
+Never put a `<noscript>` inside an element that JS later reads via `.textContent` (especially
+`+=`, which reads-then-overwrites). With scripting enabled, a browser parses `<noscript>...
+</noscript>` content as RAWTEXT — a single opaque text node, not real child markup — so
+`.textContent` on an ancestor includes that raw text (literal `<span>` tags and all) even though
+the `<noscript>` itself renders as nothing (default UA `display:none` when scripting is on).
+Reading `.textContent` is harmless; but the moment something WRITES `.textContent` (as `log()`'s
+own `l.textContent += '\n'+m` does, MODULE: params, `$('log')`), the noscript element gets
+destroyed and replaced by one flat text node — permanently baking that raw warning text into the
+log's own visible content on the very first `log()` call, every load, regardless of whether
+scripting is actually enabled. This was a real, shipped bug: `#log`'s seed HTML had its own
+`<noscript>⚠ JavaScript appears to be disabled…</noscript>` (meant as a redundant, log-window-
+local echo of the real disabled-JS warning), and it showed up as literal visible text in the log
+on ordinary loads with JS fully working. Fixed by removing it — the top-of-`<body>` `<noscript>`
+banner (a big red full-page warning, never touched by any JS) already covers the genuinely-
+disabled-JS case on its own; `#log`'s own seed content is now just the plain build-stamp text,
+with nothing noscript-wrapped inside it. The general rule: `<noscript>` is only safe near code
+that reads/writes `.textContent`/`.innerHTML` if nothing ever WRITES through an ancestor of it.
+
 ## Validating changes (no test framework)
 
 There is no automated test suite. To sanity-check JS changes without a browser, use the local
