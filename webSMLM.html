@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23i; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23j; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1591,7 +1591,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23i</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1984,7 +1984,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span style="color:var(--muted);font-size:12px">Frame</span>
             <input type="range" id="scrub" min="0" max="0" step="1" value="0" style="flex:1">
-            <span class="val" id="scrubV" style="min-width:70px;text-align:right;font-size:12px">1</span>
+            <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
+              <input type="number" id="scrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a frame number and press Enter to jump to it"><span id="scrubTotal">/1</span>
+            </span>
           </div>
           <div id="rawContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
             <span style="color:var(--muted);font-size:12px">Contrast</span>
@@ -2013,7 +2015,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23i · fixed Acknowledgements list rendering 1px larger than the rest of Help &amp; guide (missing .modal ul font-size rule)</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23j · raw-panel crop tool now greys out while a plot is shown (re-enables via the scrubber, matching the reconstruction panel's crop tool); Frame field next to the scrubber is now typeable to jump to a specific frame</div>
   </main>
 </div>
 
@@ -4821,7 +4823,7 @@ function renderProfile(){
   if(!profileData) return;
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   const {dist,prof,totalNm,ymax}=profileData, {x0,x1}=profileView, xr=Math.max(1e-9,x1-x0);
-  rawFull=null; rawIsPlot=true; rawPlotName='profile'; $('rawTitle').textContent='Line profile';
+  rawFull=null; setRawPlot(true); rawPlotName='profile'; $('rawTitle').textContent='Line profile';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=PROF_ML,mR=PROF_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, yb=mT+ph;
@@ -5097,6 +5099,11 @@ function redrawRawContrast(){
 // calibration plot. These flags say a plot is up, so "Save image" can snapshot
 // the on-screen canvas for it (and know the window has exportable content).
 let rawIsPlot=false, srIsPlot=false, rawPlotName='plot';   // which plot the left panel shows (drift / nena)
+// Sole owner of rawIsPlot + rawCropBtn's enabled state, mirroring setSrRecon()'s
+// ownership of cropBtn/measureBtn on the sr side: the crop tool only makes sense
+// while a real movie frame is showing, not a plot, and not before any stack is
+// loaded (rawCropBtn starts `disabled` in the HTML for exactly that reason).
+function setRawPlot(v){ rawIsPlot=v; const b=$('rawCropBtn'); if(b) b.disabled = v || !stack; }
 const rawView={zoom:1,cx:0,cy:0,atFit:true};
 function fitRawZoom(){ const d=$('raw'); return rawFull?Math.min((d.clientWidth||d.width)/rawFull.width,(d.clientHeight||d.height)/rawFull.height):1; }
 function fitRawView(){ if(!rawFull) return; rawView.zoom=fitRawZoom(); rawView.cx=rawFull.width/2; rawView.cy=rawFull.height/2; rawView.atFit=true; }
@@ -5160,7 +5167,7 @@ function drawRawOverlays(ctx,DW,DH){
 function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
   { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }   // only relevant while the drift plot itself is showing
-  rawIsPlot=false;
+  setRawPlot(false);
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
   if(sizeChanged){ rawFull.width=w; rawFull.height=h; }
@@ -6211,7 +6218,7 @@ function drawDriftCurve(){
   if(!lastDrift||!lastResult) return;
   const d=lastDrift, px=lastResult.px, n=d.fdx.length;
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
-  rawFull=null; rawIsPlot=true;
+  rawFull=null; setRawPlot(true);
   rawPlotName='drift'; $('rawTitle').textContent = driftPlotMode==='xy' ? 'Drift path (x vs y)' : 'Drift vs frame';
   const btn=$('driftPlotModeBtn');
   if(btn){ btn.style.display=''; btn.textContent = driftPlotMode==='xy' ? 'Show vs frame' : 'Show x/y path'; }
@@ -6412,7 +6419,7 @@ async function nenaPrecision(locs, px, onProgress){
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
-  rawFull=null; rawIsPlot=true; rawPlotName='nena'; $('rawTitle').textContent='NeNA: NN distances';
+  rawFull=null; setRawPlot(true); rawPlotName='nena'; $('rawTitle').textContent='NeNA: NN distances';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=56,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
@@ -6637,7 +6644,7 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
 // Plot the FRC curve + 1/7 threshold + resolution marker on the LEFT panel.
 function drawFrcPlot(r){
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
-  rawFull=null; rawIsPlot=true; rawPlotName='frc'; $('rawTitle').textContent='FRC';
+  rawFull=null; setRawPlot(true); rawPlotName='frc'; $('rawTitle').textContent='FRC';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=52,mR=14,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
@@ -6832,7 +6839,7 @@ function drawPcfoPlot(){
   if(!pcfoLastPts||!pcfoLastFit) return;
   const pts=pcfoLastPts, fit=pcfoLastFit;
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
-  rawFull=null; rawIsPlot=true; rawPlotName='pcfo'; $('rawTitle').textContent='PCFO: signal vs. noise variance';
+  rawFull=null; setRawPlot(true); rawPlotName='pcfo'; $('rawTitle').textContent='PCFO: signal vs. noise variance';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   // zoom to the point cloud + fitted line's own extent, not the origin — the
@@ -8350,7 +8357,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptDHistBtn').disabled=true; $('sptTrackLenHistBtn').disabled=true; $('sptSaveBtn').disabled=true; lastSpt=null;
   try{
     const method=paramValue('method');
@@ -8593,7 +8600,7 @@ $('file').addEventListener('change',async e=>{
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false;
-    log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider (or scroll over the image) to browse the stack.':''}`);
+    log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
   }catch(err){ log('TIFF load failed: '+err.message); }
 });
 
@@ -8614,7 +8621,7 @@ function locsForFrame(fi){
 async function showFrame(i){
   if(!stack) return;
   i=Math.max(0,Math.min(stack.n-1,i|0));
-  $('scrubV').textContent=`${i+1}/${stack.n}`;
+  $('scrub').value=i; $('scrubNum').value=i+1; $('scrubTotal').textContent=`/${stack.n}`;
   if(scrubBusy){ scrubPending=i; return; }
   scrubBusy=true;
   try{
@@ -8693,7 +8700,8 @@ async function showFrame(i){
 }
 function initScrub(){
   const row=$('scrubRow'), s=$('scrub');
-  if(stack && stack.n>1){ row.style.display='flex'; s.max=stack.n-1; s.value=0; $('scrubV').textContent=`1/${stack.n}`; }
+  if(stack && stack.n>1){ row.style.display='flex'; s.max=stack.n-1; s.value=0;
+    $('scrubNum').max=stack.n; $('scrubNum').value=1; $('scrubTotal').textContent=`/${stack.n}`; }
   else row.style.display='none';
   $('rawContrastRow').style.display = stack ? 'flex' : 'none';   // useful even for a single-frame stack, unlike the Frame slider above
   if(stack){ $('calLast').value=stack.n; $('calFirst').value=1;   // default calibration range = whole stack
@@ -8706,6 +8714,7 @@ function initScrub(){
     const st=$('calLocateStatus'); if(st) st.style.display='none'; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
+$('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
 $('rawBlack').addEventListener('input',e=>{ rawBlack=Math.min(+e.target.value,rawWhite-1); syncRawContrastUI(); redrawRawContrast(); });
 $('rawWhite').addEventListener('input',e=>{ rawWhite=Math.max(+e.target.value,rawBlack+1); syncRawContrastUI(); redrawRawContrast(); });
 $('rawContrastAutoBtn').addEventListener('click',async()=>{
@@ -8912,7 +8921,7 @@ $('csvFile').addEventListener('change', async e=>{
     const {locs,w,h,px}=parseCsvLocs(await f.text());
     if(!locs.length) throw new Error('no data rows');
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
-    rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null;
+    setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null;
     lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
     renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
@@ -9166,7 +9175,7 @@ function rawClickToNative(e){
 // the load handlers already guard against.
 function resetAfterCropChange(){
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
-  rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; lastNena=null;
+  setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; lastNena=null;
   $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   // lastResult=null above orphans any sSMLM pairing state too (unpairSSmlm()
   // would otherwise try to write lastResult.locs on a null lastResult) — same
@@ -9756,7 +9765,7 @@ function drawHistogram(){
   if(!histData||!histView) return;
   const {col,unit,lo,hi,nb,bw,hist,ymax,n,markers,logY,curve}=histData, {x0,x1}=histView;
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
-  rawFull=null; rawIsPlot=true; rawPlotName='histogram'; $('rawTitle').textContent=`Histogram: ${col}`;
+  rawFull=null; setRawPlot(true); rawPlotName='histogram'; $('rawTitle').textContent=`Histogram: ${col}`;
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=HIST_ML,mR=HIST_MR,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB, xr=Math.max(1e-9,x1-x0), decX=(x1-x0)<10?2:0;
