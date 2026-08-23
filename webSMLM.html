@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23n; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23o; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1238,7 +1238,13 @@ X.B(E,Y);return E}return J}())
      dark match the app's own long-standing (pre-theme-switcher) palette
      exactly, so a dark-theme user sees zero visual change from before this
      existed. */
+  /* color-scheme (one line per theme below) tells the BROWSER's own native
+     form-control rendering — number-input spin buttons, checkboxes, the
+     date/color pickers, scrollbars on some platforms — which palette to
+     draw itself in, so a re-enabled spin button (see input.num below) comes
+     out dark/light-appropriate for free, no custom drawing needed. */
   :root, [data-theme="dark"]{
+    color-scheme:dark;
     --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3;
     --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950; --warn:#d29922;
     --danger:#da3633; --danger-hover:#f85149;
@@ -1248,6 +1254,7 @@ X.B(E,Y);return E}return J}())
     --accent-tint:#1b2430;
   }
   [data-theme="light"]{
+    color-scheme:light;
     --bg:#ffffff; --panel:#f6f8fa; --line:#d0d7de; --fg:#1f2328;
     --muted:#57606a; --accent:#0969da; --accent2:#1a7f37; --warn:#9a6700;
     --danger:#cf222e; --danger-hover:#a40e26;
@@ -1259,8 +1266,11 @@ X.B(E,Y);return E}return J}())
   /* High-contrast: pure black/white extremes (WCAG-AAA-oriented), thicker
      effective borders (--line is full white, not a grey), a brighter
      accent set — for low-vision use or a hard-to-read bright-lab screen,
-     not just "a third colour scheme". */
+     not just "a third colour scheme". color-scheme:dark (not a 4th value —
+     dark/light is all the CSS spec offers) since it's a black background,
+     the closer of the two native-control palettes to this theme. */
   [data-theme="contrast"]{
+    color-scheme:dark;
     --bg:#000000; --panel:#000000; --line:#ffffff; --fg:#ffffff;
     --muted:#e0e0e0; --accent:#3399ff; --accent2:#33ff33; --warn:#ffcc00;
     --danger:#ff3333; --danger-hover:#ff6666;
@@ -1418,13 +1428,23 @@ X.B(E,Y);return E}return J}())
   button:disabled{opacity:.45;cursor:not-allowed}
   button:disabled:hover{border-color:var(--line)}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
-  /* Native spinners are dropped entirely: on Chrome they render black-on-black
-     until hovered, and on Firefox they crowd the digits. Type the value instead. */
-  input.num{width:80px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:4px 9px;font-size:12px;text-align:right;
-    -moz-appearance:textfield;appearance:textfield}
-  input.num::-webkit-inner-spin-button,
-  input.num::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+  /* Native spinners were dropped entirely in an earlier round: on Chrome they
+     rendered black-on-black until hovered, and on Firefox they crowded the
+     digits. The dark-on-dark half of that is now fixed at the source —
+     color-scheme (set per theme above) tells the browser which palette to
+     draw its OWN native controls in, so the spinner it re-adds below now
+     renders theme-appropriate automatically, no custom drawing needed. The
+     width bump (80px→92px) answers the other half (Firefox's spinner sits
+     INSIDE the border-box, same as Chrome's, so it was genuinely squeezing
+     an 80px field's digits) — same fix serves both engines' spinner, not
+     just Chrome's. Every PARAMS entry already carries its own `step` (see
+     the PARAMS registry) and syncParamControls() already applies it to
+     every .num input's own `step` attribute, so the browser's native
+     increment/decrement immediately uses the right value with no extra
+     wiring. Toggling this app-wide is exactly this one rule — no per-input
+     changes needed either direction. */
+  input.num{width:92px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 9px;font-size:12px;text-align:right}
   /* two equal buttons side by side (Load / Simulate) */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
   .btnrow button{margin:0;padding:5px 6px;font-size:12px}
@@ -1623,7 +1643,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23n</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23o</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2047,7 +2067,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23n · header title/subtitle now line-height:1 — bottom-aligned BOXES matched exactly already, but inherited line-height:1.5 left a different amount of invisible padding below each (different font sizes), so the visible text still looked offset</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23o · re-enabled native up/down spinners on all numeric fields (dark/light/contrast-themed via color-scheme, widened 80px→92px for room) — every field already had its own step wired, so this needed no per-input changes</div>
   </main>
 </div>
 
