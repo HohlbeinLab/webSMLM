@@ -88,35 +88,35 @@ font-size/contrast was hard to read for anything longer than a line or two)
 says.
 
 - **Memory & streaming** (`memBox`) — `memgb`/`chunkmb`. See
-  [§2](#memory--streaming)/**in/out**.
+  [§3](#memory--streaming)/**in/out**.
 - **Simulation settings** (`simBox`) — only relevant when using **Simulate
-  movie**. See [§2](#simulation)/**simulation**.
+  movie**. See [§3](#simulation)/**simulation**.
 - **Gain & offset estimation** (`pcfoBox`) — **Estimate**/**Transfer
   estimates**. Placed here, before **3D calibration**, since both are
   one-off "derive a number from data, then use it below" steps run before
-  the main Localize. See [§2](#gainoffset-estimation-pcfo)/**fit**.
+  the main Localize. See [§3](#gainoffset-estimation-pcfo)/**fit**.
 - **3D calibration** (`calibBox`) — **Calibrate**/**Save calib.**. See
-  [§2](#3d-calibration)/[§7](#7-calibration-json-format)/**3D calibration**.
+  [§3](#3d-calibration)/[§7](#7-calibration-json-format)/**3D calibration**.
 - **Localisation settings** (`locBox`) — fit method, detection filter, FTM,
   frame range, and camera/export fields; two separate "more info…" popups
   cover them (one for everything through **Fit radius**, a second for the
   camera/export fields after it). See
-  [§2](#detect)/[§2](#fit)/[§2](#export-camera-aduphoton-conversion).
+  [§3](#detect)/[§3](#fit)/[§3](#export-camera-aduphoton-conversion).
 - **Rendering settings** (`renderBox`) — magnification, colour map, and
   (3D/sSMLM-paired results only) depth/distance colouring. See
-  [§2](#render)/**render**.
+  [§3](#render)/**render**.
 - **Drift correction (AIM)** (`driftBox`) — **Correct drift**/**Show
-  drift**. See [§2](#drift)/**drift**.
+  drift**. See [§3](#drift)/**drift**.
 - **Localization precision (NeNA / FRC)** (`precBox`) — **NeNA**/**FRC**.
-  See [§2](#precision)/**locprecision**.
+  See [§3](#precision)/**locprecision**.
 - **Spectral SMLM analysis** (`sSmlmBox`) — pairs 0th/1st-order
   localizations from a diffraction grating; enabled as soon as there are
   localizations (Run or **Load data**), not gated on a specific fit method.
-  See [§2](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)/**sSMLM**.
+  See [§3](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)/**sSMLM**.
 - **Single particle tracking** (`sptBox`) — links localizations into
   trajectories and computes a per-track diffusion coefficient; enabled as
   soon as there are localizations, same gating as Spectral SMLM analysis.
-  See [§2](#spt-single-particle-tracking)/**spt**.
+  See [§3](#spt-single-particle-tracking)/**spt**.
 
 ### Main data panels
 
@@ -179,7 +179,7 @@ dark to match the rest of the UI.
   `ftmEnabled` is checked, its own label reading "Show FTM corrected" /
   "Show raw"), toggles the panel between the raw frame and its live
   FTM-corrected preview — the title itself stays fixed at "Raw frame" — see
-  [§2](#2-parameters-params-registry)'s FTM section. Hovering shows a
+  [§3](#3-parameters-params-registry)'s FTM section. Hovering shows a
   crosshair + readout of the pixel under the cursor — `x=`/`y=` (native pixel
   index, 0-based) and its value in ADU, plus the photon-converted equivalent
   once `gain`/`camoffset` are set away from the uncalibrated 1/0 default
@@ -199,7 +199,7 @@ dark to match the rest of the UI.
   click-two-corners/toggle-to-undo interaction as `cropBtn`, but deselecting
   restores the *original* stack (kept in `originalStack` while a crop is
   active) rather than removing a table filter — see
-  [§3](#3-module-reference)'s **in/out** entry and
+  [§2](#2-module-reference)'s **in/out** entry and
   [§8](#8-headless-api-window-websmlm)'s `cropX0`/`cropY0`/`cropX1`/`cropY1`
   for the headless equivalent. Cropping/uncropping also re-estimates the
   Contrast slider below (see next) against the newly active stack, so it
@@ -219,7 +219,7 @@ dark to match the rest of the UI.
   that same estimate on demand. Purely a display convenience, local to the
   current session — deliberately **not** a `PARAMS` entry, not part of
   Save/Load Settings, and not exposed to the headless `analyze()` config
-  (same carve-out as UI theme/panel-layout choice, [§2](#2-parameters-params-registry)).
+  (same carve-out as UI theme/panel-layout choice, [§3](#3-parameters-params-registry)).
 - **SMLM reconstruction** (`sr` canvas) — the accumulated super-resolution
   render, or (before a Run) a quick averaged data projection, or the 3D
   calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
@@ -247,679 +247,14 @@ fires on a genuine release change, not routine local development reloads.
 
 ---
 
-## 2 · Parameters (`PARAMS` registry)
-
-Single source of truth for every analysis/render/export tunable —
-`webSMLM.html`'s `params` module (`const PARAMS = {...}`, search for it
-directly; this table mirrors it). `id: null` means no page control yet — only
-settable via a loaded settings JSON (`paramOverrides`), the same mechanism
-the headless config (`window.webSMLM.analyze(config)`, see
-[§8](#8-headless-api-window-websmlm)) also uses. Deliberately excluded from this
-registry: pure CSS/layout, and per-dataset working state that resets from the
-loaded stack rather than being a reusable default (`calFirst`, `calLast`,
-`zmin`, `zmax`).
-
-### Detect
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `detFilter` | Detection filter | enum | — | — | — | `wave` (options: `wave`, `dog`, `box`) |
-| `detection_wavelet_thr` | Wavelet threshold (k·σ_noise) | number | 1 | 8 | 0.5 | 4 |
-| `detection_DoG_thr` | DoG threshold (k·σ_noise) | number | 1 | 8 | 0.5 | 4 |
-| `detection_box_thr` | Uniform box filter threshold (intensity) | number | 0 | 65535 | 1 | 25 |
-| `detection_DoG_exactbp` | Exact band-pass (DoG only) | bool | — | — | — | false |
-| `psf` | σ_PSF — PSF width (px) | number | 0.8 | 5 | 0.1 | 1.3 |
-| `winr` | Fit radius (px) — window size = 2·winr+1 | number (int) | 2 | 10 | 1 | 4 |
-
-The in-app "more info…" popup for these fields (`hint-detectfit`) is shared
-with **Fit** below — one popup covers `liveUpdate` through `winr` as a
-single control group in the sidebar.
-
-### Fit
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE 2D spherical", "Gauss MLE 3D elliptical", "Gauss MLE 3D rotated elliptical") |
-| `localize3D` | 3D localisation? | bool | — | — | — | true (only shown/meaningful for `mle3d`/`gaussmleEll` — see §3/fit) |
-| `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
-| `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
-| `mleEps` | MLE convergence tolerance (px) | number | 1e-6 | 0.1 | 0.0001 | 0.001 |
-| `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
-| `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
-
-**In-app "more info…" popup** (`hint-detectfit` in `webSMLM.html`, shared
-with **Detect** above; synced by `tools/sync_hints.mjs` — edit here, then
-run the script, never edit the `.hint` div directly):
-
-<!-- HINT:detectfit -->
-<p><b>Fit method</b> — σ_noise below is the spread of the filtered image, not the PSF width.</p>
-<ul>
-  <li><b>Phasor 2D/3D</b> — ~100–250× faster per candidate (265× on the GATTA-PAINT test stack). No per-localization uncertainty; 3D needs a phasor-magnitude calibration.</li>
-  <li><b>Gaussian LS 2D</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
-  <li><b>Gauss MLE 2D spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
-  <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
-</ul>
-<p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
-<p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
-<ul>
-  <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
-  <li><b>DoG band-pass</b> — a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38% of detections).</li>
-  <li><b>Uniform box filter</b> — a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.</li>
-</ul>
-<p><b>Temporal median filtering</b> (FTM) is a per-pixel background correction — for a given frame, each pixel's value across a <b>window</b> of nearby frames (centred on that frame; clamped, not shrunk, at the very first/last few frames, so every frame still gets a full-width window) has its <b>median</b> subtracted — a robust estimate of that pixel's slowly-varying background at this point in time. Since a blinking emitter occupies far less than half the window at any one pixel, the median tracks the background, not the signal, so what's left after subtraction is mostly signal above background. Checking this box:</p>
-<ul>
-  <li>Adds a <b>raw / FTM-corrected</b> toggle next to the raw panel title, computing the correction live for whichever frame you're scrubbed to.</li>
-  <li>Makes <b>Localize itself run on FTM-corrected frames</b> — processed in worker-parallel chunks when a worker pool is available, main-thread otherwise; either way the whole stack is never held twice (raw + corrected) in memory at once.</li>
-</ul>
-<p><b>Values that would go negative after subtraction are floored at the camera offset instead</b> (a background estimate briefly above the true noise floor is expected, not an error) — this keeps the corrected pixel in the same units the fit's own gain/offset conversion expects, so photon counts aren't double-corrected. It's still <i>not</i> quite the same noise distribution the fit functions otherwise assume (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a hard floor truncates that slightly, which can bias fitted background/photon counts and reported uncertainty low in very dim regions). Choose the <b>window size</b> so the "signal occupies less than half the window" assumption above actually holds for your data (too small and the median starts tracking — and cancelling — real signal); the loaded stack must have at least that many frames.</p>
-<p><small>The technique originates with
-<a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
-<i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
-implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
-(<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
-<i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
-<!-- /HINT:detectfit -->
-
-`fitLastFrame` defaults to `Infinity`, not a finite placeholder: an
-`<input type=number>` sanitizes a non-finite value to a blank field, and a
-blank field reads back (via `paramValue()`'s `isFinite` fallback) as "the
-whole stack" — so if `initScrub()`'s per-load reset were ever skipped, or a
-user manually clears the field, the safe fallback is no restriction, never a
-silent restriction down to (near-)nothing. Both fields reset to `1`/the
-loaded stack's frame count on every new load. Restricting the range means
-the skipped frames are never even fetched/decoded, not just excluded from
-the result afterward — see the **pipeline** module / `runCore()`.
-
-**`ftmEnabled`/`ftmWindow` — temporal median filtering (FTM)** — see the
-popup above for what checking it does (the raw/FTM-corrected toggle,
-`rawFtmBtn`, and Localize itself running on corrected frames). Both share
-the same underlying correction: for a given frame, each
-pixel's value across a `ftmWindow`-frame window of context (centred on that
-frame; clamped, not shrunk, at the two ends of the stack, so every frame
-still gets a full-width window) has its **median** subtracted, then
-**floored at `camoffset`** (not 0) and has `camoffset` added back — see
-"gain/camoffset interaction" below for why. Requires the loaded stack to
-have at least `ftmWindow` frames — falls back to raw data, with a logged
-warning, otherwise. Can be checked at any time — before, during, or after
-loading a stack — with no load-time coupling.
-
-An earlier design ran this once over the *whole* stack right after loading
-and replaced `stack` itself; it was reverted because it needed the raw and
-corrected copies fully materialized in memory at the same time, which
-doesn't work for a stack too big to hold both — see
-`docs/REFACTOR_PLAN.md`. Both current paths avoid that by never holding
-more than a bounded amount of raw/corrected data at once:
-
-- **Scrubbing preview** (`ftmFrame()`/`ftmFrameParallel()`) computes exactly
-  one frame at a time, fetching only that frame's own `ftmWindow`-wide
-  context. Parallelizes **spatially** across the worker pool (row bands, no
-  overlap/border margin needed, since each pixel's computation depends only
-  on its own value across the context window, never on neighbouring
-  pixels). Measured (500-frame synthetic stacks, window 50, 8 workers): ~23
-  ms at 128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at
-  1024×1024 — fine for occasional scrubbing at smaller frame sizes, but
-  noticeably laggy for rapid dragging on large frames. `showFrame()`
-  substitutes the corrected frame in place of the raw one (via
-  `rawFtmView`, the toggle's on/off state) before running the same
-  detect/live-preview logic every other branch already uses — ROI boxes
-  and live-fit crosshairs on the corrected preview reflect it too. The raw
-  panel **title stays fixed at "Raw frame"** regardless of the toggle
-  state — only the button's own label changes; unchecking `ftmEnabled`
-  hides the button and resets the toggle back to raw.
-- **Localize** processes the stack in **chunks**, sized from the
-  `chunkmb` "Stream heap chunk" budget (half of it, since a chunk's raw
-  context and corrected output are both resident at once) rather than a
-  fixed constant, so chunking scales with frame size and the user's own
-  memory tuning. Two implementations share the same per-pixel sliding-
-  window median algorithm (`ftmSeriesGlobal` — O(window) per step, not a
-  full resort), chosen by whether `runCore()` is using the worker pool at
-  all for this Run:
-  - **No worker pool** (`makeFtmStack()`): wraps the stack so its existing
-    serial frame-fetch calls transparently receive FTM-corrected data,
-    chunked and cached so a run of nearby requests is served from one
-    chunk computation instead of redundantly re-fetching/re-sorting
-    nearly the same context each time. Runs on the main thread — nothing
-    else is contending for it in this path.
-  - **Worker pool in use**: a dedicated **barrier-phased loop** inside
-    `runCore()`, alternating a full-pool-parallel **FTM-correction phase**
-    (`ftmChunkParallel()`, row-band split, same reasoning as the scrubbing
-    preview) with a full-pool-parallel **detect/fit phase** (the same
-    frame-batch dispatch the non-FTM path uses) for each chunk in turn,
-    with a hard barrier between the two phases on every chunk — the pool
-    is never asked to do both jobs at once. This matters because each
-    worker has exactly **one** `onmessage` slot, not a job queue: without
-    the barrier, an FTM-correction reply and a detect/fit reply could
-    clobber each other's handler mid-flight. An earlier version ran chunk
-    correction unconditionally on the main thread (to sidestep that
-    conflict without a barrier) — measured as the dominant cost on a fast
-    fitter with large frames (~7.5 s FTM vs. ~5.4 s total detect/fit CPU
-    on a 256×256×1200 case, 8% worker utilisation). The barrier-phased
-    design gets full parallelism for both phases instead, at the cost of
-    losing the small pipelining overlap ("fetch/correct the next chunk"
-    while "fitting the previous one") the non-FTM continuous-dispatch
-    loop gets for free — benchmark-confirmed small next to what
-    parallelizing the FTM phase itself buys back.
-
-  Both implementations need to fetch a *little* more context than
-  `±ftmWindow/2` around a chunk's core frames whenever that chunk's core
-  range comes close enough to either end of the **whole stack** (not the
-  Run's own `fitFirstFrame`/`fitLastFrame` range) that a frame's own
-  window would otherwise be clamped further than the chunk's own edge
-  padding accounts for — the same per-frame clamp `ftmSeriesGlobal`
-  applies internally, just computed once for the chunk's own worst-case
-  frame instead of the chunk's own start/end. Getting this wrong doesn't
-  crash or obviously misbehave — it silently starves the last few frames
-  of a stack of part of their correct background window, biasing their
-  photon counts by a few percent — so a barrier-phased-worker-vs-serial
-  A/B correctness check (not eyeballing loc counts, which stayed close)
-  is what caught it.
-
-  **Memory**: `chunkmb`'s `/2` split assumes only a chunk's raw context and
-  corrected output need to coexist — true for the FTM-correction phase
-  itself, but the barrier-phased worker loop used to keep the (by then dead)
-  context array reachable through the *following* detect/fit dispatch phase
-  too (same `while`-loop iteration/closure), which has its own separate
-  memory cost (structured-clone `postMessage` per batch) — so real peak
-  memory could run over the intended `chunkmb` budget for the back half of
-  every chunk. Root cause of a real mobile OOM at `chunkmb=1000` (§2's
-  default moved back to 500 after this was found); fixed by dropping the
-  context reference the moment the corrected output is in hand, before the
-  detect/fit phase's own allocations start. `runCore()` also logs an
-  estimated peak-memory figure right after the chunk-size line (`~chunkmb`
-  MB for FTM's own working set, plus the already-decoded stack's size if
-  `memgb` let the whole thing cache in RAM — a **separate** budget that
-  adds on top of `chunkmb`, not a shared ceiling with it) with an advisory
-  above ~800 MB combined — gated on `memgb` staying at/below 8 GB (its old
-  ceiling before [§2](#2-parameters-params-registry) raised the max to 64 GB
-  for workstation-scale caching), so a desktop user who's deliberately raised
-  it isn't nagged every Run once they've already said they have headroom.
-  This is visibility only, not prevention: a mobile tab killed for memory
-  pressure gets **no** JS-visible error at all (no exception, no `onerror`,
-  the page just reloads blank) — there is no reliable way to detect or head
-  off an OOM kill from inside the page, only to avoid approaching the
-  ceiling in the first place and explain what happened when a Run
-  mysteriously stops with no further log line.
-
-Runs on raw ADU data in both paths, before gain/camoffset conversion
-inside the fit functions. Those functions convert every pixel via
-`(raw−camoffset)×gain`; since FTM-corrected pixels are *already*
-background-subtracted, floor-at-0 would let that conversion subtract
-`camoffset` a **second** time, systematically undercounting photons by
-`camoffset×gain`. Flooring/re-adding `camoffset` instead (see above)
-makes the fit's own `−camoffset` cancel back out, leaving just `×gain` on
-the true signal-above-background — floored at 0 in photon space, same as
-intended. The floor is still not quite the same noise distribution the
-Poisson-MLE fitters otherwise assume (which models a Poisson-distributed
-background around some *positive* mean), which can bias fitted
-background/photon counts and reported uncertainty low in very dim
-regions.
-
-**Log output**: when FTM is active, a Run's log gains a
-`Temporal median filtering ON (window=N) — Localize runs on FTM-corrected
-frames.` line up front, and the timing breakdown gains an `FTM filter` line
-— wall time spent computing chunks, not time spent waiting on another
-already-in-flight chunk (serial path) or on the barrier-phased pool
-(worker path) — alongside `frame access`/`detect`/`fit`, also returned as
-`timings.ftmMs` from `runCore()`. In the worker path, the `↑ N workers ·
-X% utilisation` line covers the detect/fit phase only (its wall-clock
-denominator excludes the separately barrier-phased FTM stage, which is
-reported on its own line instead) — folding the two together would make a
-run with substantial FTM time look artificially starved.
-
-### Render
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
-| `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
-| `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
-| `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `hsvBlue`, `grey`) |
-| `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
-| `zcolor` | Colour by depth (z) | bool | — | — | — | false |
-
-**In-app "more info…" popup** (`hint-render` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:render -->
-<ul>
-  <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
-  <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
-  <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume. After an sSMLM <b>Pair</b>, this same toggle reads "Colour by distance (sSMLM)" and colours by inter-order spectral distance instead of real z.</li>
-</ul>
-<p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
-<!-- /HINT:render -->
-
-`hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
-yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
-matching a colour scheme used in the sSMLM paper's own figures — the only
-cyclic map here, so the two ends of the mapped range deliberately land on
-the same hue rather than two different ones; **Pair** (see **sSMLM**)
-auto-selects it. The on-canvas colour-scale strip (`drawDepthBar()`) anchors
-to the actual DATA's own right edge and vertical centre rather than a fixed
-canvas corner — sSMLM's paired result usually only plots a sparse subset of
-the full field of view, so a fixed corner could leave the bar floating in
-empty space, disconnected from the content it's meant to label. The extent
-is cached once per render (`srFull._locMaxXpx`/`_locMidYpx`, in native px)
-and converted through the current zoom/pan on each draw, rather than
-rescanning every localization on every pan/zoom redraw; falls back to the
-bare top-right corner if there's no cached extent (e.g. a plot, not a real
-reconstruction).
-
-### Export (camera ADU→photon conversion)
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `gain` | Camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 1 |
-| `camoffset` | Camera offset (ADU) | number | 0 | 65535 | 1 | 0 |
-
-**In-app "more info…" popup** (`hint-export` in `webSMLM.html`, shown
-alongside `pxnm` — see **Render** above — since all three sit together in
-the sidebar's Localisation settings; synced by `tools/sync_hints.mjs` —
-edit here, then run the script, never edit the `.hint` div directly):
-
-<!-- HINT:export -->
-<ul>
-  <li><b>Pixel size (nm)</b> sets the physical scale used by the scale bar, z, and the exported CSV coordinates.</li>
-  <li>With gain 1 the exported “intensity [photon]” is really <b>ADU</b> (analog-to-digital unit — the camera's raw pixel count, before any photon conversion), and the uncertainty column (∝ 1/√N) is not physically meaningful.</li>
-  <li>A single scalar gain suits <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</li>
-</ul>
-<!-- /HINT:export -->
-
-Applied inside every fit function itself — `(raw−camoffset)×gain` — before
-the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
-CRLB) are already true photon units. See the **fit** module.
-
-### Gain/offset estimation (PCFO)
-
-Sidebar section label: **Gain & offset estimation**.
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `pcfoFrames` | Frames sampled | number (int) | 1 | 5000 | 10 | 200 |
-| `pcfoK` | k_thresh (spatial freq.) | number | 0.1 | 1 | 0.05 | 0.9 |
-| `pcfoRnstd` | Readout noise σ (e⁻) | number | 0 | 200 | 0.01 | 2.89 |
-
-**In-app "more info…" popup** (`hint-pcfo` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:pcfo -->
-<p>Estimates camera gain (photons/ADU) and offset (ADU) directly from the loaded stack via the
-Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen, Lidke &amp;
-Rieger, <a href="https://arxiv.org/abs/1611.05654" target="_blank" rel="noopener">arXiv:1611.05654</a>) —
-no separate calibration acquisition needed. Tiles a sample of frames, measures mean signal vs.
-high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
-draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
-linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
-it doesn't touch the Gain / Camera offset fields in Localisation settings itself; <b>Transfer estimates</b>
-(disabled until a successful Estimate) copies the last result into them.</p>
-<ul>
-  <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
-  <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
-  noise-only; 0.9 follows the Rieger–Heintzman default.</li>
-  <li><b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible. Must
-  include ANY spatially-white, frame-invariant noise, not just true per-frame read noise — a static
-  per-pixel offset pattern (fixed-pattern noise) looks identical to read noise in a single frame's
-  Fourier content, so it biases the fitted offset the same way if left out. If both are present, combine
-  them in quadrature (√(read_noise²+offset_std²), in photon-equivalent units); the default (2.89) matches
-  the Simulation panel's own default read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this
-  way, for a clean self-test.</li>
-</ul>
-<p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
-rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
-2×2) so there's nothing to re-tune per stack.</p>
-<!-- /HINT:pcfo -->
-
-Implementation detail beyond the popup above: tiles are pooled and robustly
-outlier-clipped (Tukey fences on `noisevar`, `pcfoClipPoints()` — a single
-dead/saturated/masked tile can otherwise dominate an ordinary least-squares
-fit) before a plain OLS linear regression (`pcfoRegress()`): the slope gives
-gain, the intercept (combined with `pcfoRnstd`) gives offset. A leave-one-out
-jackknife over the pooled points gives a rough ± uncertainty on both. The
-diagnostic scatter (`drawPcfoPlot()`, the same left-panel-plot pattern as
-calibration/FRC/NeNA curves) logs a low-linearity warning when R² < 0.3 (too
-low a photon count is the most common cause; saturation, non-uniform
-illumination or non-Poissonian noise are less common ones). Noise variance
-(ADU²) commonly runs into the hundreds of thousands, where full tick labels
-used to visually collide with the axis's own rotated name; both axes scale
-into small (1 digit + 1 decimal) numbers plus a single `×10ⁿ` multiplier
-instead (`axisScale()`, render module — see **render** in `CLAUDE.md`). See
-the **fit** module (`pcfoCore()`) and
-[§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
-headless equivalent.
-
-### 3D calibration
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `calStep` | Calibration z-step (nm) | number | 0.1 | — | 1 | 10 |
-| `calRef` | Calibration z=0 reference frame (0=auto) | number (int) | 0 | — | 1 | 0 |
-| `calFixedXY` | Fix bead x,y | bool | — | — | — | false |
-
-**In-app "more info…" popup** (`hint-calibration` in `webSMLM.html`; synced
-by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:calibration -->
-<p>Load a bead z-stack (stage scanned through focus). Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</p>
-<ul>
-  <li>Detects every spot per frame.</li>
-  <li>Fits an elliptical Gaussian → σ_x / σ_y vs z.</li>
-  <li>Fits σ = a(z−c)² + b to each axis.</li>
-</ul>
-<p><b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width curve. Ticking this:</p>
-<ul>
-  <li>Averages every frame in the range into one composite (shown in the raw panel).</li>
-  <li>Runs detection once on that stable image, fixing each bead's x,y from it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter changes.</li>
-  <li>Calibrate then only fits amplitude/σx/σy/background per frame at those fixed positions, so x,y — the two most failure-prone degrees of freedom — never move.</li>
-</ul>
-<!-- /HINT:calibration -->
-
-### Drift
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `driftSeg` | Drift segment size (frames) | number (int) | 5 | 2000 | 5 | 100 |
-| `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
-| `driftZ` | Correct z too (3D) | bool | — | — | — | true |
-
-**In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:drift -->
-<p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see Help &amp; guide → References). <b>Localize first, then Correct drift.</b></p>
-<ul>
-  <li>The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for faster drift.</li>
-  <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
-  <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
-  <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
-</ul>
-<!-- /HINT:drift -->
-
-### Precision
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
-
-**In-app "more info…" popup** (`hint-locprecision` in `webSMLM.html`; synced
-by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:locprecision -->
-<ul>
-  <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
-  <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
-</ul>
-<p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
-<p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
-<!-- /HINT:locprecision -->
-
-### sSMLM (spectrally resolved SMLM, diffraction-grating pair finding)
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 2200 |
-| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 2800 |
-| `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
-| `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
-| `sSmlmRequireNarrower` | Require narrower 0th order (σ) | bool | — | — | — | false |
-
-**In-app "more info…" popup** (`hint-sSMLM` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:sSMLM -->
-<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
-<p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-<p><b>Preview pairs</b> only computes — <b>Show dist. hist.</b> draws a distance histogram (every candidate pair in range, any angle); <b>Show angle hist.</b> draws an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
-<p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
-<p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
-<p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
-<!-- /HINT:sSMLM -->
-
-`sSmlmAngleCenter` ("Primary angle" in the UI) is a genuine SIGNED bearing
-(the 1st order's fixed direction from its 0th order), not an undirected
-line — see §3's **sSMLM** entry for why. The distance/angle defaults match
-the deposited reference dataset's own grating dispersion
-(`experimental_data/sSMLM_Fig2_locs.csv`) — a different setup's dispersion
-sits elsewhere, so don't trust these blind. **Preview pairs** fetches
-candidates over a WIDE, fixed scan — distance 0–6000 nm (wider still if
-Distance max is already past that) at any angle — ignoring the
-Distance/Angle fields entirely, reusing the table module's own
-`computeHist()`/`drawHistogram()` (fed candidate values instead of a table
-column). **Show dist. hist.** plots that full wide scan with the
-*currently configured* Distance min/max overlaid as vertical reference
-lines (read live, so editing the fields and re-clicking moves the lines
-without a fresh Preview) — showing the whole distance picture, not just
-whatever's inside the window, makes it visible whether the window is
-actually sitting on the real peak. **Show angle hist.**, by contrast,
-*does* restrict to the currently configured distance window (also read
-live) — the angle signal is only sharp within the real peak, so pooling
-in the wide scan's off-peak distances would just dilute it with
-background — and plots each candidate's bearing AND its exact reverse
-(`rawAngle`/`rawAngle+180`, both wrapped into a 360°-window centred 90°
-away from `sSmlmAngleCenter` so neither the forward nor the backward peak
-sits at the plot's own seam): a candidate's *raw* single bearing depends
-on which of its two points happens to have the smaller array index, an
-accident of row order that (verified against the real reference CSV) is
-not evenly split and would otherwise make the two peaks look wildly,
-misleadingly unequal; plotting both directions makes them come out equal,
-as an undirected diagnostic should. Both histograms accumulate same-frame
-candidates across every frame in the stack (never cross-frame pairs) —
-one pooled plot, not one frame's worth. **Fit angle & tol.** estimates
-Primary angle/Angle tolerance directly from that same distance-windowed,
-doubled-bearing data: peak-bin detection (2° bins) + half-max-width walk,
-DOUBLED as a safety margin (the raw half-max width alone measured ~1° on
-the real reference dataset, vs. the ~5° that actually worked well by
-hand), then fills both fields in — a simple, defensible estimate (not a
-full Gaussian fit, matching the bar this app's other auxiliary estimates
-like PCFO/NeNA set), still usually conservative, meant as a starting point
-you can widen further by hand rather than a final answer. Both histograms
-also overlay the currently configured window as vertical marker lines —
-distance min/max on the distance histogram, primary angle ± tolerance
-(mirrored onto both plotted peaks) on the angle one — and refresh live as
-you edit any of the four fields while that histogram is on screen (or
-immediately after clicking **Fit angle & tol.**), no manual re-click
-needed. Narrow these fields (by hand or via the fit) to the real peak,
-then commit with **Pair**. See
-[§3](#3-module-reference)'s **sSMLM** entry for the full pairing algorithm
-and why this workflow — rather than automatic angle detection — was chosen
-for the first implementation.
-
-### spt (single particle tracking)
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `sptSearchRange` | SPT search range (nm) | number | 10 | 5000 | 10 | 800 |
-| `sptMemory` | SPT memory (frames) | number (int) | 0 | 20 | 1 | 0 |
-| `sptFrameTime` | SPT frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
-| `sptLocError` | SPT localization error (nm) | number | 0 | 500 | 1 | 35 |
-| `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
-| `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
-| `sptDPlotMax` | SPT D plot max (µm²/s) | number | 0.0001 | 1000 | 0.1 | 10 |
-
-**In-app "more info…" popup** (`hint-spt` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:spt -->
-<p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
-<p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
-<p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
-<p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
-<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see References &amp; further reading in Help &amp; guide. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
-<!-- /HINT:spt -->
-
-Defaults are ported from the user's own `sptPALM-Python` pipeline's
-`set_parameters_sptPALM.py` (L. lactis sptPALM), converted from that
-pipeline's µm convention to webSMLM's own nm convention for spatial params
-(0.8 µm → 800 nm, 0.035 µm → 35 nm) — a different setup's own step sizes and
-localization precision will sit elsewhere, so treat these as a starting
-point, not a universal default. `sptFrameTime` is not auto-applied from the
-loaded stack — set it to match your own movie's real acquisition interval.
-A TIFF/ND2 file's own embedded frame interval, when present, is logged on
-load (never auto-applied — see **in/out** in `CLAUDE.md`), which can help;
-but treat it as one input, not the final word — the bundled
-`experimental_data/` L. lactis test file is a real example of why: its
-filename implies 50 ms/frame, but its own embedded `finterval` tag says
-5 ms, an unresolved 10× discrepancy (see `experimental_data/README.md`'s
-lactis entry). See [§3](#3-module-reference)'s **spt** entry for the full
-linking/diffusion-coefficient algorithm.
-
-### Memory / streaming
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 |
-| `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
-
-**In-app "more info…" popup** (`hint-memory` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:memory -->
-<ul>
-  <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
-  <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
-</ul>
-<!-- /HINT:memory -->
-
-### Simulation
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `frames` | Simulated frame count | number (int) | 50 | 800 | 50 | 300 |
-| `simulation_pxnm` | Simulation pixel size (nm) | number | 10 | 500 | 1 | 100 |
-| `dens` | Emitter density (emitters/µm²/frame) | number | 0 | 5 | 0.01 | 0.05 |
-| `phot` | Simulated photons/emitter/frame | number (int) | 0 | 50000 | 50 | 900 |
-| `simlifetime` | Simulated ON lifetime (frames, mean) | number | 0.1 | 20 | 0.1 | 1 |
-| `simulation_gain` | Simulation camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 0.34 |
-| `simulation_offset` | Simulation camera offset (ADU) | number | 0 | 65535 | 1 | 100 |
-| `simulation_offset_std` | Simulation offset std (ADU, per-pixel) | number | 0 | 200 | 0.5 | 3 |
-| `simulation_readnoise` | Simulation read noise σ (e⁻) | number | 0 | 200 | 0.1 | 2.7 |
-| `simbg` | Simulation background (photons/px) | number | 0 | 500 | 1 | 0 |
-| `driftpx` | Simulated total drift (px) | number | 0 | 30 | 0.5 | 0 |
-
-**In-app "more info…" popup** (`hint-simulation` in `webSMLM.html`; synced
-by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:simulation -->
-<p><b>Emitter density</b> is a physical areal density — the average number of ON emitters per µm² in any
-given frame — independent of how densely the ground-truth structure is sampled. Emitters arrive as a
-Poisson process at randomly chosen structure sites; each turns on exactly once: a fractional start time
-(drawn from up to 5×lifetime before frame 0, so the exponential's tail can already be mid-event at frame 0)
-and an exponentially-distributed ON duration (mean = <b>ON lifetime</b>). <b>Photons/emitter/frame</b> is
-scaled by the fraction of a frame the emitter was actually on, so e.g. a half-frame overlap emits half the
-photons.</p>
-<p><b>Background</b> (photons/px, Poisson like the signal) is added at every pixel independently, every
-frame. <b>Camera gain/offset/offset std/read noise</b>
-forward-model a real sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
-gain conversion, then a per-pixel offset map (Gaussian around the mean offset, fixed for the whole stack)
-is added — independent of the fit-side camera gain/offset used for localization. For a clean
-self-consistency test with the <b>Gain/offset estimation</b> section's own readout-noise field, combine
-read noise and offset std in quadrature (√(read_noise²+offset_std²), offset std converted to photons via
-this panel's gain) — a static per-pixel offset pattern looks identical to read noise in a single frame's
-Fourier content, so leaving it out biases the fitted offset the same way.</p>
-<p><b>Drift (px, total)</b> — total sample drift over all frames, in a random direction (linear from
-frame 0). 0 = none. Used to test drift correction — the true drift is stored for scoring.</p>
-<!-- /HINT:simulation -->
-
-`dens` is a **physical areal density** (ON emitters/µm²/frame), not tied to
-how densely the internal ground-truth structure (`buildStructure()`) happens
-to sample candidate points. Emitters arrive as a Poisson process over the
-whole field of view at randomly chosen structure sites; each turns on
-**exactly once** (no repeated blinking) — a fractional start time (drawn
-from up to 5×`simlifetime` before frame 0, so the exponential's early tail
-can already be mid-event at frame 0) and an exponentially-distributed ON
-duration (mean = `simlifetime`). `phot` is per-emitter, per (fully-occupied)
-frame — an emitter's actual output in a given frame scales by its overlap
-fraction with that frame, so e.g. a half-frame overlap emits half `phot`.
-`simbg` is a **per-pixel** rate (every pixel gets `simbg` photons of
-background independently, every frame — not a total budget spread across
-the frame), Poisson like the signal.
-
-The forward **camera model** — decoupled from the fit-side `gain`/
-`camoffset` ([Export](#export-camera-aduphoton-conversion) above), so
-simulated ground truth and the fit's assumed camera can be matched (for a
-clean self-test) or intentionally mismatched (to test robustness) — applies,
-per pixel, in this order: Poisson shot noise on (background + PSF signal) →
-Gaussian read noise (`simulation_readnoise`, electrons) added before the
-gain conversion → `simulation_gain` converts photons+read-noise to ADU → a
-**fixed per-pixel offset map** (`simulation_offset` mean, `simulation_offset_std`
-Gaussian spread, generated once per stack and reused every frame — modelling
-real sensor fixed-pattern offset noise) is added → clamped ≥ 0.
-`simulation_pxnm` is this panel's own pixel size (kept separate from the
-shared `pxnm` render/load control so **Simulation settings** is
-self-contained); the shared `pxnm` control is synced to it automatically
-after a stack is generated, so the scale bar / a re-run config stay
-consistent. Ground-truth emitter events (`x,y,tStart,tEnd,photonsTotal`) are
-stored in `groundTruthEvents` for comparison against recovered
-localizations. `driftpx` (as before) accumulates linearly over all frames in
-a random direction; the true per-frame drift is stored (`simTrueDrift`) for
-scoring drift correction. See the **simulation** module.
-
-### Pipeline behaviour
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `liveUpdate` | Real-time update | bool | — | — | — | true |
-
-### Worker dispatch (no page control — settings-JSON only)
-
-| id | Label | Min | Max | Step | Default |
-|---|---|---|---|---|---|
-| `workerMinFrames` | Minimum frame count before parallelizing | 1 | — | 1 | 64 |
-| `workerMinPxFrame` | Minimum pixels/frame before parallelizing | 1 | — | 1000 | 20000 |
-| `workerMinTotalPx` | Minimum total volume (px) before parallelizing | 1 | — | 1,000,000 | 30,000,000 |
-| `workerBatchTarget` | Target batches per worker | 1 | 64 | 1 | 24 |
-| `workerBatchMin` | Minimum batch size (frames) | 1 | 256 | 1 | 8 |
-| `workerBatchMax` | Maximum batch size (frames) | 1 | 1024 | 1 | 32 |
-
-Dispatch condition: `frames ≥ workerMinFrames AND (pixels/frame ≥
-workerMinPxFrame OR total pixels ≥ workerMinTotalPx)` — `workerMinFrames` is
-a hard floor (short stacks always stay single-threaded, not worth the
-overhead), while the per-frame-size and total-volume checks are an *or*, so
-a many-small-frame stack (e.g. thousands of 64×64 frames) still parallelizes
-via the volume threshold even though no single frame crosses the per-frame
-one. See the **workers** module.
-
-`workerBatchTarget`/`workerBatchMax` also bound how often the raw-panel live
-preview can refresh during a worker-parallel Run: a batch's fit results only
-become available once the whole batch completes, so batch size is a hard
-floor on preview freshness independent of `rawPreviewMs` below.
-
-### Pipeline: preview / export tuning (no page control — settings-JSON only)
-
-| id | Label | Min | Max | Step | Default |
-|---|---|---|---|---|---|
-| `rawPreviewMs` | Raw-panel live-preview interval (ms) | 16 | 2000 | 10 | 200 |
-| `srPreviewMs` | Reconstruction live-preview interval (ms) | 50 | 5000 | 50 | 800 |
-| `srPreviewMaxMs` | Reconstruction live-preview interval ceiling (ms) | 800 | 60000 | 1000 | 15000 |
-| `stackProjCap` | Data-projection frame sample cap | 10 | 5000 | 10 | 300 |
-| `exportMinLong` | PNG export minimum long edge (px) | 500 | 8000 | 100 | 2000 |
-
-`rawPreviewMs` gates the raw (left) panel's live redraw during a Run —
-time-based rather than a frame count, so updates land at a steady cadence
-regardless of per-frame detect/fit cost. `srPreviewMs` is the *starting*
-reconstruction preview interval; it adaptively grows (up to `srPreviewMaxMs`)
-as each preview's own render cost grows through a long Run, so preview
-overhead stays a roughly bounded fraction of wall time instead of growing
-unboundedly. See the **pipeline** module / `run()`.
-
----
-
-## 3 · Module reference
+## 2 · Module reference
 
 Mirrors the `MODULE:` banners in `webSMLM.html`, in source order. Each entry
 is what to know before touching that module, not a restatement of its code.
 
 ### params
 
-See [§2](#2-parameters-params-registry). `paramValue(id)` is
+See [§3](#3-parameters-params-registry). `paramValue(id)` is
 the only correct way to read a parameter (handles the DOM-control vs.
 `paramOverrides` vs. registry-default fallback, plus int rounding).
 
@@ -956,7 +291,7 @@ throw a clear unsupported-format error. See **in/out** in `CLAUDE.md` for
 the file-format details. `runFTM()` (optional, `ftmEnabled`)
 runs right after either loader finishes, replacing `stack` with a fresh
 `makeStack()`-backed one holding the temporal-median-corrected frames —
-see [§2](#2-parameters-params-registry)'s FTM table for the full behaviour.
+see [§3](#3-parameters-params-registry)'s FTM table for the full behaviour.
 `makeCroppedStack(rawStack,x0,y0,x1,y1)` is the raw-panel crop tool's
 (`rawCropBtn`) own wrapper, same idea: every fetched frame is sliced to
 the `[x0,x1)×[y0,y1)` sub-rectangle, with that corner becoming the new
@@ -981,7 +316,7 @@ physical areal density (`dens`), run through a forward camera model
 (shot noise → read noise → gain → fixed-pattern offset), decoupled from
 the fit-side `gain`/`camoffset` so ground truth and the fit's assumed
 camera can be matched or intentionally mismatched — see
-[§2](#2-parameters-params-registry)/Simulation. Stores the true per-frame
+[§3](#3-parameters-params-registry)/Simulation. Stores the true per-frame
 drift (`simTrueDrift`) for scoring drift correction and the true emitter
 events (`groundTruthEvents`) for future recovery comparisons.
 
@@ -989,7 +324,7 @@ events (`groundTruthEvents`) for future recovery comparisons.
 
 Per-frame band-pass, one of three filters selectable via
 `detFilter`: wavelet (default), DoG, or uniform box — each thresholded
-differently (see [§2](#2-parameters-params-registry)/Detect). `detectSpots()`
+differently (see [§3](#3-parameters-params-registry)/Detect). `detectSpots()`
 is the single dispatch point used by both the main thread and workers.
 
 ### fit
@@ -1009,13 +344,13 @@ CRLB, since z isn't a parameter of the pixel-level fit). A fifth method,
 fits an independent σx/σy at either a FREE or a FIXED rotation angle,
 chosen by the **3D localisation?** checkbox (`localize3D`, shown for this
 method and `mle3d`, default checked — see
-[§2](#2-parameters-params-registry)): checked = FREE angle (a genuine
+[§3](#3-parameters-params-registry)): checked = FREE angle (a genuine
 per-emitter rotation, recovered by the fit itself — useful as an
 astigmatism-axis-alignment diagnostic against real 3D calibration bead
 data) plus z from a loaded `gaussian_width` calibration, exactly like
 `mle3d`; unchecked = angle FIXED at the sSMLM pairing step's own
 calibrated dispersion bearing (`sSmlmAngleCenter`,
-[§2/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)),
+[§3/sSMLM](#ssmlm-spectrally-resolved-smlm-diffraction-grating-pair-finding)),
 no z — the original sSMLM-only path, for a spectrally-elongated 1st-order
 PSF. Renamed from "Gaussian MLE Elliptical (sSMLM)"; `mle3d`'s own UI
 label is now **Gauss MLE 3D elliptical** (`gaussianMLEelliptic()`, axis-
@@ -1035,7 +370,7 @@ independently-coded copies. `pcfoCore()` is a
 separate, one-off tool living in this module: Rieger–Heintzman PCFO
 gain/offset estimation from a loaded/simulated stack directly (no
 calibration acquisition needed) — see
-[§2/Gain-offset estimation (PCFO)](#gainoffset-estimation-pcfo). Its
+[§3/Gain-offset estimation (PCFO)](#gainoffset-estimation-pcfo). Its
 interactive wrapper is `estimateGainOffset()` (the **Estimate** button;
 `transferPcfoEstimate()`, the separate **Transfer estimates** button, then
 applies the result to `gain`/`camoffset`); `pcfoCore()` itself is DOM-free,
@@ -1064,7 +399,7 @@ or if the estimated peak concurrent footprint (the count accumulator +
 an optional z-accumulator with `zcolor` + `blur()`'s own transient
 dst/tmp scratch with `rblur>0` + the final `ImageData` output + the
 canvas's own backing store) exceeds `memgb` — the *same* Memory budget
-control stack loading already uses (§2, Memory & streaming), not a
+control stack loading already uses (§3, Memory & streaming), not a
 second, separate setting. `rerender()` (interactive) catches the throw,
 logs what to change (lower Magnification, crop the region, or raise the
 budget), and leaves whatever reconstruction was already on screen in
@@ -1360,6 +695,703 @@ decides whether the table's base row set is raw `lastResult.locs` or
 `clusterEvents()`-derived merged events; everything downstream (render,
 export, NeNA, FRC) is unaware of the distinction.
 
+---
+
+## 3 · Parameters (`PARAMS` registry)
+
+Single source of truth for every analysis/render/export tunable —
+`webSMLM.html`'s `params` module (`const PARAMS = {...}`, search for it
+directly; this table mirrors it). `id: null` means no page control yet — only
+settable via a loaded settings JSON (`paramOverrides`), the same mechanism
+the headless config (`window.webSMLM.analyze(config)`, see
+[§8](#8-headless-api-window-websmlm)) also uses. Deliberately excluded from this
+registry: pure CSS/layout, and per-dataset working state that resets from the
+loaded stack rather than being a reusable default (`calFirst`, `calLast`,
+`zmin`, `zmax`).
+
+### Memory / streaming
+
+*Module:* **in/out** — see [§2](#in-out).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 |
+| `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
+
+**In-app "more info…" popup** (`hint-memory` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:memory -->
+<ul>
+  <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
+  <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
+</ul>
+<!-- /HINT:memory -->
+
+### Simulation
+
+*Module:* **simulation** — see [§2](#simulation).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `frames` | Simulated frame count | number (int) | 50 | 800 | 50 | 300 |
+| `simulation_pxnm` | Simulation pixel size (nm) | number | 10 | 500 | 1 | 100 |
+| `dens` | Emitter density (emitters/µm²/frame) | number | 0 | 5 | 0.01 | 0.05 |
+| `phot` | Simulated photons/emitter/frame | number (int) | 0 | 50000 | 50 | 900 |
+| `simlifetime` | Simulated ON lifetime (frames, mean) | number | 0.1 | 20 | 0.1 | 1 |
+| `simulation_gain` | Simulation camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 0.34 |
+| `simulation_offset` | Simulation camera offset (ADU) | number | 0 | 65535 | 1 | 100 |
+| `simulation_offset_std` | Simulation offset std (ADU, per-pixel) | number | 0 | 200 | 0.5 | 3 |
+| `simulation_readnoise` | Simulation read noise σ (e⁻) | number | 0 | 200 | 0.1 | 2.7 |
+| `simbg` | Simulation background (photons/px) | number | 0 | 500 | 1 | 0 |
+| `driftpx` | Simulated total drift (px) | number | 0 | 30 | 0.5 | 0 |
+
+**In-app "more info…" popup** (`hint-simulation` in `webSMLM.html`; synced
+by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:simulation -->
+<p><b>Emitter density</b> is a physical areal density — the average number of ON emitters per µm² in any
+given frame — independent of how densely the ground-truth structure is sampled. Emitters arrive as a
+Poisson process at randomly chosen structure sites; each turns on exactly once: a fractional start time
+(drawn from up to 5×lifetime before frame 0, so the exponential's tail can already be mid-event at frame 0)
+and an exponentially-distributed ON duration (mean = <b>ON lifetime</b>). <b>Photons/emitter/frame</b> is
+scaled by the fraction of a frame the emitter was actually on, so e.g. a half-frame overlap emits half the
+photons.</p>
+<p><b>Background</b> (photons/px, Poisson like the signal) is added at every pixel independently, every
+frame. <b>Camera gain/offset/offset std/read noise</b>
+forward-model a real sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
+gain conversion, then a per-pixel offset map (Gaussian around the mean offset, fixed for the whole stack)
+is added — independent of the fit-side camera gain/offset used for localization. For a clean
+self-consistency test with the <b>Gain/offset estimation</b> section's own readout-noise field, combine
+read noise and offset std in quadrature (√(read_noise²+offset_std²), offset std converted to photons via
+this panel's gain) — a static per-pixel offset pattern looks identical to read noise in a single frame's
+Fourier content, so leaving it out biases the fitted offset the same way.</p>
+<p><b>Drift (px, total)</b> — total sample drift over all frames, in a random direction (linear from
+frame 0). 0 = none. Used to test drift correction — the true drift is stored for scoring.</p>
+<!-- /HINT:simulation -->
+
+`dens` is a **physical areal density** (ON emitters/µm²/frame), not tied to
+how densely the internal ground-truth structure (`buildStructure()`) happens
+to sample candidate points. Emitters arrive as a Poisson process over the
+whole field of view at randomly chosen structure sites; each turns on
+**exactly once** (no repeated blinking) — a fractional start time (drawn
+from up to 5×`simlifetime` before frame 0, so the exponential's early tail
+can already be mid-event at frame 0) and an exponentially-distributed ON
+duration (mean = `simlifetime`). `phot` is per-emitter, per (fully-occupied)
+frame — an emitter's actual output in a given frame scales by its overlap
+fraction with that frame, so e.g. a half-frame overlap emits half `phot`.
+`simbg` is a **per-pixel** rate (every pixel gets `simbg` photons of
+background independently, every frame — not a total budget spread across
+the frame), Poisson like the signal.
+
+The forward **camera model** — decoupled from the fit-side `gain`/
+`camoffset` ([Export](#export-camera-aduphoton-conversion) above), so
+simulated ground truth and the fit's assumed camera can be matched (for a
+clean self-test) or intentionally mismatched (to test robustness) — applies,
+per pixel, in this order: Poisson shot noise on (background + PSF signal) →
+Gaussian read noise (`simulation_readnoise`, electrons) added before the
+gain conversion → `simulation_gain` converts photons+read-noise to ADU → a
+**fixed per-pixel offset map** (`simulation_offset` mean, `simulation_offset_std`
+Gaussian spread, generated once per stack and reused every frame — modelling
+real sensor fixed-pattern offset noise) is added → clamped ≥ 0.
+`simulation_pxnm` is this panel's own pixel size (kept separate from the
+shared `pxnm` render/load control so **Simulation settings** is
+self-contained); the shared `pxnm` control is synced to it automatically
+after a stack is generated, so the scale bar / a re-run config stay
+consistent. Ground-truth emitter events (`x,y,tStart,tEnd,photonsTotal`) are
+stored in `groundTruthEvents` for comparison against recovered
+localizations. `driftpx` (as before) accumulates linearly over all frames in
+a random direction; the true per-frame drift is stored (`simTrueDrift`) for
+scoring drift correction. See the **simulation** module.
+
+### Detect
+
+*Module:* **detect** — see [§2](#detect).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `detFilter` | Detection filter | enum | — | — | — | `wave` (options: `wave`, `dog`, `box`) |
+| `detection_wavelet_thr` | Wavelet threshold (k·σ_noise) | number | 1 | 8 | 0.5 | 4 |
+| `detection_DoG_thr` | DoG threshold (k·σ_noise) | number | 1 | 8 | 0.5 | 4 |
+| `detection_box_thr` | Uniform box filter threshold (intensity) | number | 0 | 65535 | 1 | 25 |
+| `detection_DoG_exactbp` | Exact band-pass (DoG only) | bool | — | — | — | false |
+| `psf` | σ_PSF — PSF width (px) | number | 0.8 | 5 | 0.1 | 1.3 |
+| `winr` | Fit radius (px) — window size = 2·winr+1 | number (int) | 2 | 10 | 1 | 4 |
+
+The in-app "more info…" popup for these fields (`hint-detectfit`) is shared
+with **Fit** below — one popup covers `liveUpdate` through `winr` as a
+single control group in the sidebar.
+
+### Fit
+
+*Module:* **fit** — see [§2](#fit).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE 2D spherical", "Gauss MLE 3D elliptical", "Gauss MLE 3D rotated elliptical") |
+| `localize3D` | 3D localisation? | bool | — | — | — | true (only shown/meaningful for `mle3d`/`gaussmleEll` — see §2/fit) |
+| `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
+| `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
+| `mleEps` | MLE convergence tolerance (px) | number | 1e-6 | 0.1 | 0.0001 | 0.001 |
+| `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
+| `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
+
+**In-app "more info…" popup** (`hint-detectfit` in `webSMLM.html`, shared
+with **Detect** above; synced by `tools/sync_hints.mjs` — edit here, then
+run the script, never edit the `.hint` div directly):
+
+<!-- HINT:detectfit -->
+<p><b>Fit method</b> — σ_noise below is the spread of the filtered image, not the PSF width.</p>
+<ul>
+  <li><b>Phasor 2D/3D</b> — ~100–250× faster per candidate (265× on the GATTA-PAINT test stack). No per-localization uncertainty; 3D needs a phasor-magnitude calibration.</li>
+  <li><b>Gaussian LS 2D</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
+  <li><b>Gauss MLE 2D spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
+  <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
+</ul>
+<p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
+<p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
+<ul>
+  <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
+  <li><b>DoG band-pass</b> — a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38% of detections).</li>
+  <li><b>Uniform box filter</b> — a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.</li>
+</ul>
+<p><b>Temporal median filtering</b> (FTM) is a per-pixel background correction — for a given frame, each pixel's value across a <b>window</b> of nearby frames (centred on that frame; clamped, not shrunk, at the very first/last few frames, so every frame still gets a full-width window) has its <b>median</b> subtracted — a robust estimate of that pixel's slowly-varying background at this point in time. Since a blinking emitter occupies far less than half the window at any one pixel, the median tracks the background, not the signal, so what's left after subtraction is mostly signal above background. Checking this box:</p>
+<ul>
+  <li>Adds a <b>raw / FTM-corrected</b> toggle next to the raw panel title, computing the correction live for whichever frame you're scrubbed to.</li>
+  <li>Makes <b>Localize itself run on FTM-corrected frames</b> — processed in worker-parallel chunks when a worker pool is available, main-thread otherwise; either way the whole stack is never held twice (raw + corrected) in memory at once.</li>
+</ul>
+<p><b>Values that would go negative after subtraction are floored at the camera offset instead</b> (a background estimate briefly above the true noise floor is expected, not an error) — this keeps the corrected pixel in the same units the fit's own gain/offset conversion expects, so photon counts aren't double-corrected. It's still <i>not</i> quite the same noise distribution the fit functions otherwise assume (Poisson-MLE in particular models a Poisson-distributed background around some positive mean; a hard floor truncates that slightly, which can bias fitted background/photon counts and reported uncertainty low in very dim regions). Choose the <b>window size</b> so the "signal occupies less than half the window" assumption above actually holds for your data (too small and the median starts tracking — and cancelling — real signal); the loaded stack must have at least that many frames.</p>
+<p><small>The technique originates with
+<a href="https://doi.org/10.1038/nmeth.2448" target="_blank" rel="noopener">Nieuwenhuizen et al.,
+<i>Nat. Methods</i> 10, 557–562 (2013)</a>; ported here from the Hohlbein Lab's own newer
+implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" rel="noopener">FTM2</a>
+(<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
+<i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
+<!-- /HINT:detectfit -->
+
+`fitLastFrame` defaults to `Infinity`, not a finite placeholder: an
+`<input type=number>` sanitizes a non-finite value to a blank field, and a
+blank field reads back (via `paramValue()`'s `isFinite` fallback) as "the
+whole stack" — so if `initScrub()`'s per-load reset were ever skipped, or a
+user manually clears the field, the safe fallback is no restriction, never a
+silent restriction down to (near-)nothing. Both fields reset to `1`/the
+loaded stack's frame count on every new load. Restricting the range means
+the skipped frames are never even fetched/decoded, not just excluded from
+the result afterward — see the **pipeline** module / `runCore()`.
+
+**`ftmEnabled`/`ftmWindow` — temporal median filtering (FTM)** — see the
+popup above for what checking it does (the raw/FTM-corrected toggle,
+`rawFtmBtn`, and Localize itself running on corrected frames). Both share
+the same underlying correction: for a given frame, each
+pixel's value across a `ftmWindow`-frame window of context (centred on that
+frame; clamped, not shrunk, at the two ends of the stack, so every frame
+still gets a full-width window) has its **median** subtracted, then
+**floored at `camoffset`** (not 0) and has `camoffset` added back — see
+"gain/camoffset interaction" below for why. Requires the loaded stack to
+have at least `ftmWindow` frames — falls back to raw data, with a logged
+warning, otherwise. Can be checked at any time — before, during, or after
+loading a stack — with no load-time coupling.
+
+An earlier design ran this once over the *whole* stack right after loading
+and replaced `stack` itself; it was reverted because it needed the raw and
+corrected copies fully materialized in memory at the same time, which
+doesn't work for a stack too big to hold both — see
+`docs/REFACTOR_PLAN.md`. Both current paths avoid that by never holding
+more than a bounded amount of raw/corrected data at once:
+
+- **Scrubbing preview** (`ftmFrame()`/`ftmFrameParallel()`) computes exactly
+  one frame at a time, fetching only that frame's own `ftmWindow`-wide
+  context. Parallelizes **spatially** across the worker pool (row bands, no
+  overlap/border margin needed, since each pixel's computation depends only
+  on its own value across the context window, never on neighbouring
+  pixels). Measured (500-frame synthetic stacks, window 50, 8 workers): ~23
+  ms at 128×128, ~35 ms at 256×256, ~130 ms at 512×512, ~510 ms at
+  1024×1024 — fine for occasional scrubbing at smaller frame sizes, but
+  noticeably laggy for rapid dragging on large frames. `showFrame()`
+  substitutes the corrected frame in place of the raw one (via
+  `rawFtmView`, the toggle's on/off state) before running the same
+  detect/live-preview logic every other branch already uses — ROI boxes
+  and live-fit crosshairs on the corrected preview reflect it too. The raw
+  panel **title stays fixed at "Raw frame"** regardless of the toggle
+  state — only the button's own label changes; unchecking `ftmEnabled`
+  hides the button and resets the toggle back to raw.
+- **Localize** processes the stack in **chunks**, sized from the
+  `chunkmb` "Stream heap chunk" budget (half of it, since a chunk's raw
+  context and corrected output are both resident at once) rather than a
+  fixed constant, so chunking scales with frame size and the user's own
+  memory tuning. Two implementations share the same per-pixel sliding-
+  window median algorithm (`ftmSeriesGlobal` — O(window) per step, not a
+  full resort), chosen by whether `runCore()` is using the worker pool at
+  all for this Run:
+  - **No worker pool** (`makeFtmStack()`): wraps the stack so its existing
+    serial frame-fetch calls transparently receive FTM-corrected data,
+    chunked and cached so a run of nearby requests is served from one
+    chunk computation instead of redundantly re-fetching/re-sorting
+    nearly the same context each time. Runs on the main thread — nothing
+    else is contending for it in this path.
+  - **Worker pool in use**: a dedicated **barrier-phased loop** inside
+    `runCore()`, alternating a full-pool-parallel **FTM-correction phase**
+    (`ftmChunkParallel()`, row-band split, same reasoning as the scrubbing
+    preview) with a full-pool-parallel **detect/fit phase** (the same
+    frame-batch dispatch the non-FTM path uses) for each chunk in turn,
+    with a hard barrier between the two phases on every chunk — the pool
+    is never asked to do both jobs at once. This matters because each
+    worker has exactly **one** `onmessage` slot, not a job queue: without
+    the barrier, an FTM-correction reply and a detect/fit reply could
+    clobber each other's handler mid-flight. An earlier version ran chunk
+    correction unconditionally on the main thread (to sidestep that
+    conflict without a barrier) — measured as the dominant cost on a fast
+    fitter with large frames (~7.5 s FTM vs. ~5.4 s total detect/fit CPU
+    on a 256×256×1200 case, 8% worker utilisation). The barrier-phased
+    design gets full parallelism for both phases instead, at the cost of
+    losing the small pipelining overlap ("fetch/correct the next chunk"
+    while "fitting the previous one") the non-FTM continuous-dispatch
+    loop gets for free — benchmark-confirmed small next to what
+    parallelizing the FTM phase itself buys back.
+
+  Both implementations need to fetch a *little* more context than
+  `±ftmWindow/2` around a chunk's core frames whenever that chunk's core
+  range comes close enough to either end of the **whole stack** (not the
+  Run's own `fitFirstFrame`/`fitLastFrame` range) that a frame's own
+  window would otherwise be clamped further than the chunk's own edge
+  padding accounts for — the same per-frame clamp `ftmSeriesGlobal`
+  applies internally, just computed once for the chunk's own worst-case
+  frame instead of the chunk's own start/end. Getting this wrong doesn't
+  crash or obviously misbehave — it silently starves the last few frames
+  of a stack of part of their correct background window, biasing their
+  photon counts by a few percent — so a barrier-phased-worker-vs-serial
+  A/B correctness check (not eyeballing loc counts, which stayed close)
+  is what caught it.
+
+  **Memory**: `chunkmb`'s `/2` split assumes only a chunk's raw context and
+  corrected output need to coexist — true for the FTM-correction phase
+  itself, but the barrier-phased worker loop used to keep the (by then dead)
+  context array reachable through the *following* detect/fit dispatch phase
+  too (same `while`-loop iteration/closure), which has its own separate
+  memory cost (structured-clone `postMessage` per batch) — so real peak
+  memory could run over the intended `chunkmb` budget for the back half of
+  every chunk. Root cause of a real mobile OOM at `chunkmb=1000` (§3's
+  default moved back to 500 after this was found); fixed by dropping the
+  context reference the moment the corrected output is in hand, before the
+  detect/fit phase's own allocations start. `runCore()` also logs an
+  estimated peak-memory figure right after the chunk-size line (`~chunkmb`
+  MB for FTM's own working set, plus the already-decoded stack's size if
+  `memgb` let the whole thing cache in RAM — a **separate** budget that
+  adds on top of `chunkmb`, not a shared ceiling with it) with an advisory
+  above ~800 MB combined — gated on `memgb` staying at/below 8 GB (its old
+  ceiling before [§3](#3-parameters-params-registry) raised the max to 64 GB
+  for workstation-scale caching), so a desktop user who's deliberately raised
+  it isn't nagged every Run once they've already said they have headroom.
+  This is visibility only, not prevention: a mobile tab killed for memory
+  pressure gets **no** JS-visible error at all (no exception, no `onerror`,
+  the page just reloads blank) — there is no reliable way to detect or head
+  off an OOM kill from inside the page, only to avoid approaching the
+  ceiling in the first place and explain what happened when a Run
+  mysteriously stops with no further log line.
+
+Runs on raw ADU data in both paths, before gain/camoffset conversion
+inside the fit functions. Those functions convert every pixel via
+`(raw−camoffset)×gain`; since FTM-corrected pixels are *already*
+background-subtracted, floor-at-0 would let that conversion subtract
+`camoffset` a **second** time, systematically undercounting photons by
+`camoffset×gain`. Flooring/re-adding `camoffset` instead (see above)
+makes the fit's own `−camoffset` cancel back out, leaving just `×gain` on
+the true signal-above-background — floored at 0 in photon space, same as
+intended. The floor is still not quite the same noise distribution the
+Poisson-MLE fitters otherwise assume (which models a Poisson-distributed
+background around some *positive* mean), which can bias fitted
+background/photon counts and reported uncertainty low in very dim
+regions.
+
+**Log output**: when FTM is active, a Run's log gains a
+`Temporal median filtering ON (window=N) — Localize runs on FTM-corrected
+frames.` line up front, and the timing breakdown gains an `FTM filter` line
+— wall time spent computing chunks, not time spent waiting on another
+already-in-flight chunk (serial path) or on the barrier-phased pool
+(worker path) — alongside `frame access`/`detect`/`fit`, also returned as
+`timings.ftmMs` from `runCore()`. In the worker path, the `↑ N workers ·
+X% utilisation` line covers the detect/fit phase only (its wall-clock
+denominator excludes the separately barrier-phased FTM stage, which is
+reported on its own line instead) — folding the two together would make a
+run with substantial FTM time look artificially starved.
+
+### Gain/offset estimation (PCFO)
+
+*Module:* **fit** — see [§2](#fit).
+
+Sidebar section label: **Gain & offset estimation**.
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `pcfoFrames` | Frames sampled | number (int) | 1 | 5000 | 10 | 200 |
+| `pcfoK` | k_thresh (spatial freq.) | number | 0.1 | 1 | 0.05 | 0.9 |
+| `pcfoRnstd` | Readout noise σ (e⁻) | number | 0 | 200 | 0.01 | 2.89 |
+
+**In-app "more info…" popup** (`hint-pcfo` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:pcfo -->
+<p>Estimates camera gain (photons/ADU) and offset (ADU) directly from the loaded stack via the
+Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen, Lidke &amp;
+Rieger, <a href="https://arxiv.org/abs/1611.05654" target="_blank" rel="noopener">arXiv:1611.05654</a>) —
+no separate calibration acquisition needed. Tiles a sample of frames, measures mean signal vs.
+high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
+draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
+linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
+it doesn't touch the Gain / Camera offset fields in Localisation settings itself; <b>Transfer estimates</b>
+(disabled until a successful Estimate) copies the last result into them.</p>
+<ul>
+  <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
+  <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
+  noise-only; 0.9 follows the Rieger–Heintzman default.</li>
+  <li><b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible. Must
+  include ANY spatially-white, frame-invariant noise, not just true per-frame read noise — a static
+  per-pixel offset pattern (fixed-pattern noise) looks identical to read noise in a single frame's
+  Fourier content, so it biases the fitted offset the same way if left out. If both are present, combine
+  them in quadrature (√(read_noise²+offset_std²), in photon-equivalent units); the default (2.89) matches
+  the Simulation panel's own default read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this
+  way, for a clean self-test.</li>
+</ul>
+<p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
+rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
+2×2) so there's nothing to re-tune per stack.</p>
+<!-- /HINT:pcfo -->
+
+Implementation detail beyond the popup above: tiles are pooled and robustly
+outlier-clipped (Tukey fences on `noisevar`, `pcfoClipPoints()` — a single
+dead/saturated/masked tile can otherwise dominate an ordinary least-squares
+fit) before a plain OLS linear regression (`pcfoRegress()`): the slope gives
+gain, the intercept (combined with `pcfoRnstd`) gives offset. A leave-one-out
+jackknife over the pooled points gives a rough ± uncertainty on both. The
+diagnostic scatter (`drawPcfoPlot()`, the same left-panel-plot pattern as
+calibration/FRC/NeNA curves) logs a low-linearity warning when R² < 0.3 (too
+low a photon count is the most common cause; saturation, non-uniform
+illumination or non-Poissonian noise are less common ones). Noise variance
+(ADU²) commonly runs into the hundreds of thousands, where full tick labels
+used to visually collide with the axis's own rotated name; both axes scale
+into small (1 digit + 1 decimal) numbers plus a single `×10ⁿ` multiplier
+instead (`axisScale()`, render module — see **render** in `CLAUDE.md`). See
+the **fit** module (`pcfoCore()`) and
+[§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
+headless equivalent.
+
+### Render
+
+*Module:* **render** — see [§2](#render).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
+| `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
+| `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
+| `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `hsvBlue`, `grey`) |
+| `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
+| `zcolor` | Colour by depth (z) | bool | — | — | — | false |
+
+**In-app "more info…" popup** (`hint-render` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:render -->
+<ul>
+  <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
+  <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
+  <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume. After an sSMLM <b>Pair</b>, this same toggle reads "Colour by distance (sSMLM)" and colours by inter-order spectral distance instead of real z.</li>
+</ul>
+<p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
+<!-- /HINT:render -->
+
+`hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
+yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
+matching a colour scheme used in the sSMLM paper's own figures — the only
+cyclic map here, so the two ends of the mapped range deliberately land on
+the same hue rather than two different ones; **Pair** (see **sSMLM**)
+auto-selects it. The on-canvas colour-scale strip (`drawDepthBar()`) anchors
+to the actual DATA's own right edge and vertical centre rather than a fixed
+canvas corner — sSMLM's paired result usually only plots a sparse subset of
+the full field of view, so a fixed corner could leave the bar floating in
+empty space, disconnected from the content it's meant to label. The extent
+is cached once per render (`srFull._locMaxXpx`/`_locMidYpx`, in native px)
+and converted through the current zoom/pan on each draw, rather than
+rescanning every localization on every pan/zoom redraw; falls back to the
+bare top-right corner if there's no cached extent (e.g. a plot, not a real
+reconstruction).
+
+### Export (camera ADU→photon conversion)
+
+*Module:* **export** — see [§2](#export).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `gain` | Camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 1 |
+| `camoffset` | Camera offset (ADU) | number | 0 | 65535 | 1 | 0 |
+
+**In-app "more info…" popup** (`hint-export` in `webSMLM.html`, shown
+alongside `pxnm` — see **Render** above — since all three sit together in
+the sidebar's Localisation settings; synced by `tools/sync_hints.mjs` —
+edit here, then run the script, never edit the `.hint` div directly):
+
+<!-- HINT:export -->
+<ul>
+  <li><b>Pixel size (nm)</b> sets the physical scale used by the scale bar, z, and the exported CSV coordinates.</li>
+  <li>With gain 1 the exported “intensity [photon]” is really <b>ADU</b> (analog-to-digital unit — the camera's raw pixel count, before any photon conversion), and the uncertainty column (∝ 1/√N) is not physically meaningful.</li>
+  <li>A single scalar gain suits <b>EMCCD</b>; on <b>sCMOS</b> gain, offset and read noise vary per pixel, so a scalar is only an approximation — see <code>docs/REFACTOR_PLAN.md</code>.</li>
+</ul>
+<!-- /HINT:export -->
+
+Applied inside every fit function itself — `(raw−camoffset)×gain` — before
+the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
+CRLB) are already true photon units. See the **fit** module.
+
+### Worker dispatch (no page control — settings-JSON only)
+
+*Module:* **workers** — see [§2](#workers).
+
+| id | Label | Min | Max | Step | Default |
+|---|---|---|---|---|---|
+| `workerMinFrames` | Minimum frame count before parallelizing | 1 | — | 1 | 64 |
+| `workerMinPxFrame` | Minimum pixels/frame before parallelizing | 1 | — | 1000 | 20000 |
+| `workerMinTotalPx` | Minimum total volume (px) before parallelizing | 1 | — | 1,000,000 | 30,000,000 |
+| `workerBatchTarget` | Target batches per worker | 1 | 64 | 1 | 24 |
+| `workerBatchMin` | Minimum batch size (frames) | 1 | 256 | 1 | 8 |
+| `workerBatchMax` | Maximum batch size (frames) | 1 | 1024 | 1 | 32 |
+
+Dispatch condition: `frames ≥ workerMinFrames AND (pixels/frame ≥
+workerMinPxFrame OR total pixels ≥ workerMinTotalPx)` — `workerMinFrames` is
+a hard floor (short stacks always stay single-threaded, not worth the
+overhead), while the per-frame-size and total-volume checks are an *or*, so
+a many-small-frame stack (e.g. thousands of 64×64 frames) still parallelizes
+via the volume threshold even though no single frame crosses the per-frame
+one. See the **workers** module.
+
+`workerBatchTarget`/`workerBatchMax` also bound how often the raw-panel live
+preview can refresh during a worker-parallel Run: a batch's fit results only
+become available once the whole batch completes, so batch size is a hard
+floor on preview freshness independent of `rawPreviewMs` below.
+
+### 3D calibration
+
+*Module:* **3D calibration** — see [§2](#3d-calibration).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `calStep` | Calibration z-step (nm) | number | 0.1 | — | 1 | 10 |
+| `calRef` | Calibration z=0 reference frame (0=auto) | number (int) | 0 | — | 1 | 0 |
+| `calFixedXY` | Fix bead x,y | bool | — | — | — | false |
+
+**In-app "more info…" popup** (`hint-calibration` in `webSMLM.html`; synced
+by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:calibration -->
+<p>Load a bead z-stack (stage scanned through focus). Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</p>
+<ul>
+  <li>Detects every spot per frame.</li>
+  <li>Fits an elliptical Gaussian → σ_x / σ_y vs z.</li>
+  <li>Fits σ = a(z−c)² + b to each axis.</li>
+</ul>
+<p><b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width curve. Ticking this:</p>
+<ul>
+  <li>Averages every frame in the range into one composite (shown in the raw panel).</li>
+  <li>Runs detection once on that stable image, fixing each bead's x,y from it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter changes.</li>
+  <li>Calibrate then only fits amplitude/σx/σy/background per frame at those fixed positions, so x,y — the two most failure-prone degrees of freedom — never move.</li>
+</ul>
+<!-- /HINT:calibration -->
+
+### Drift
+
+*Module:* **drift** — see [§2](#drift).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `driftSeg` | Drift segment size (frames) | number (int) | 5 | 2000 | 5 | 100 |
+| `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
+| `driftZ` | Correct z too (3D) | bool | — | — | — | true |
+
+**In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:drift -->
+<p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see Help &amp; guide → References). <b>Localize first, then Correct drift.</b></p>
+<ul>
+  <li>The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for faster drift.</li>
+  <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
+  <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
+  <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
+</ul>
+<!-- /HINT:drift -->
+
+### Precision
+
+*Module:* **locprecision** — see [§2](#locprecision).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
+
+**In-app "more info…" popup** (`hint-locprecision` in `webSMLM.html`; synced
+by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:locprecision -->
+<ul>
+  <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
+  <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
+</ul>
+<p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
+<p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
+<!-- /HINT:locprecision -->
+
+### sSMLM (spectrally resolved SMLM, diffraction-grating pair finding)
+
+*Module:* **sSMLM** — see [§2](#ssmlm).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 2200 |
+| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 2800 |
+| `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
+| `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
+| `sSmlmRequireNarrower` | Require narrower 0th order (σ) | bool | — | — | — | false |
+
+**In-app "more info…" popup** (`hint-sSMLM` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:sSMLM -->
+<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
+<p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
+<p><b>Preview pairs</b> only computes — <b>Show dist. hist.</b> draws a distance histogram (every candidate pair in range, any angle); <b>Show angle hist.</b> draws an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+<p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
+<p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
+<p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
+<!-- /HINT:sSMLM -->
+
+`sSmlmAngleCenter` ("Primary angle" in the UI) is a genuine SIGNED bearing
+(the 1st order's fixed direction from its 0th order), not an undirected
+line — see §2's **sSMLM** entry for why. The distance/angle defaults match
+the deposited reference dataset's own grating dispersion
+(`experimental_data/sSMLM_Fig2_locs.csv`) — a different setup's dispersion
+sits elsewhere, so don't trust these blind. **Preview pairs** fetches
+candidates over a WIDE, fixed scan — distance 0–6000 nm (wider still if
+Distance max is already past that) at any angle — ignoring the
+Distance/Angle fields entirely, reusing the table module's own
+`computeHist()`/`drawHistogram()` (fed candidate values instead of a table
+column). **Show dist. hist.** plots that full wide scan with the
+*currently configured* Distance min/max overlaid as vertical reference
+lines (read live, so editing the fields and re-clicking moves the lines
+without a fresh Preview) — showing the whole distance picture, not just
+whatever's inside the window, makes it visible whether the window is
+actually sitting on the real peak. **Show angle hist.**, by contrast,
+*does* restrict to the currently configured distance window (also read
+live) — the angle signal is only sharp within the real peak, so pooling
+in the wide scan's off-peak distances would just dilute it with
+background — and plots each candidate's bearing AND its exact reverse
+(`rawAngle`/`rawAngle+180`, both wrapped into a 360°-window centred 90°
+away from `sSmlmAngleCenter` so neither the forward nor the backward peak
+sits at the plot's own seam): a candidate's *raw* single bearing depends
+on which of its two points happens to have the smaller array index, an
+accident of row order that (verified against the real reference CSV) is
+not evenly split and would otherwise make the two peaks look wildly,
+misleadingly unequal; plotting both directions makes them come out equal,
+as an undirected diagnostic should. Both histograms accumulate same-frame
+candidates across every frame in the stack (never cross-frame pairs) —
+one pooled plot, not one frame's worth. **Fit angle & tol.** estimates
+Primary angle/Angle tolerance directly from that same distance-windowed,
+doubled-bearing data: peak-bin detection (2° bins) + half-max-width walk,
+DOUBLED as a safety margin (the raw half-max width alone measured ~1° on
+the real reference dataset, vs. the ~5° that actually worked well by
+hand), then fills both fields in — a simple, defensible estimate (not a
+full Gaussian fit, matching the bar this app's other auxiliary estimates
+like PCFO/NeNA set), still usually conservative, meant as a starting point
+you can widen further by hand rather than a final answer. Both histograms
+also overlay the currently configured window as vertical marker lines —
+distance min/max on the distance histogram, primary angle ± tolerance
+(mirrored onto both plotted peaks) on the angle one — and refresh live as
+you edit any of the four fields while that histogram is on screen (or
+immediately after clicking **Fit angle & tol.**), no manual re-click
+needed. Narrow these fields (by hand or via the fit) to the real peak,
+then commit with **Pair**. See
+[§2](#2-module-reference)'s **sSMLM** entry for the full pairing algorithm
+and why this workflow — rather than automatic angle detection — was chosen
+for the first implementation.
+
+### spt (single particle tracking)
+
+*Module:* **spt** — see [§2](#spt).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `sptSearchRange` | SPT search range (nm) | number | 10 | 5000 | 10 | 800 |
+| `sptMemory` | SPT memory (frames) | number (int) | 0 | 20 | 1 | 0 |
+| `sptFrameTime` | SPT frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
+| `sptLocError` | SPT localization error (nm) | number | 0 | 500 | 1 | 35 |
+| `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
+| `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
+| `sptDPlotMax` | SPT D plot max (µm²/s) | number | 0.0001 | 1000 | 0.1 | 10 |
+
+**In-app "more info…" popup** (`hint-spt` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:spt -->
+<p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
+<p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
+<p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
+<p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
+<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see References &amp; further reading in Help &amp; guide. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+<!-- /HINT:spt -->
+
+Defaults are ported from the user's own `sptPALM-Python` pipeline's
+`set_parameters_sptPALM.py` (L. lactis sptPALM), converted from that
+pipeline's µm convention to webSMLM's own nm convention for spatial params
+(0.8 µm → 800 nm, 0.035 µm → 35 nm) — a different setup's own step sizes and
+localization precision will sit elsewhere, so treat these as a starting
+point, not a universal default. `sptFrameTime` is not auto-applied from the
+loaded stack — set it to match your own movie's real acquisition interval.
+A TIFF/ND2 file's own embedded frame interval, when present, is logged on
+load (never auto-applied — see **in/out** in `CLAUDE.md`), which can help;
+but treat it as one input, not the final word — the bundled
+`experimental_data/` L. lactis test file is a real example of why: its
+filename implies 50 ms/frame, but its own embedded `finterval` tag says
+5 ms, an unresolved 10× discrepancy (see `experimental_data/README.md`'s
+lactis entry). See [§2](#2-module-reference)'s **spt** entry for the full
+linking/diffusion-coefficient algorithm.
+
+### Pipeline behaviour
+
+*Module:* **pipeline** — see [§2](#pipeline).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `liveUpdate` | Real-time update | bool | — | — | — | true |
+
+### Pipeline: preview / export tuning (no page control — settings-JSON only)
+
+*Module:* **pipeline** — see [§2](#pipeline).
+
+| id | Label | Min | Max | Step | Default |
+|---|---|---|---|---|---|
+| `rawPreviewMs` | Raw-panel live-preview interval (ms) | 16 | 2000 | 10 | 200 |
+| `srPreviewMs` | Reconstruction live-preview interval (ms) | 50 | 5000 | 50 | 800 |
+| `srPreviewMaxMs` | Reconstruction live-preview interval ceiling (ms) | 800 | 60000 | 1000 | 15000 |
+| `stackProjCap` | Data-projection frame sample cap | 10 | 5000 | 10 | 300 |
+| `exportMinLong` | PNG export minimum long edge (px) | 500 | 8000 | 100 | 2000 |
+
+`rawPreviewMs` gates the raw (left) panel's live redraw during a Run —
+time-based rather than a frame count, so updates land at a steady cadence
+regardless of per-frame detect/fit cost. `srPreviewMs` is the *starting*
+reconstruction preview interval; it adaptively grows (up to `srPreviewMaxMs`)
+as each preview's own render cost grows through a long Run, so preview
+overhead stays a roughly bounded fraction of wall time instead of growing
+unboundedly. See the **pipeline** module / `run()`.
+
+---
+
 ## 4 · Settings JSON format
 
 Written by **Save settings**, read by **Load settings**.
@@ -1406,12 +1438,12 @@ temporal-clustering clause first.
 
 **Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`
 (a real 3D fit only), `dist` (sSMLM paired results only — the inter-order
-distance; an INDEPENDENT column from `z`, not an alias of it — see §3
+distance; an INDEPENDENT column from `z`, not an alias of it — see §2
 sSMLM), `sigma_xy`, `sigma_z` (MLE 3D only, an approximate z-precision —
 not available for Phasor 3D), `sigma1st` (sSMLM paired results only — the
-1st order's own sigma, see §3 sSMLM/§6), `intensity`, `offset`, `bkgstd`,
+1st order's own sigma, see §2 sSMLM/§6), `intensity`, `offset`, `bkgstd`,
 `uncertainty`, `nmerged` (only once clustering is active), `track_id` (once
-**Track** has run — every localization gets one, see §3 spt), `D_coeff`
+**Track** has run — every localization gets one, see §2 spt), `D_coeff`
 (µm²/s, only on localizations whose track met **SPT min track length**).
 
 **Filter syntax:** `field op value`, chained with `and`/`or`
@@ -1464,7 +1496,7 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   in-app table uses) specifically for ThunderSTORM compatibility.
 - `sigma_x [nm]`/`sigma_y [nm]` are present on EVERY localization (not just
   an sSMLM-paired subset) whenever the Run used an elliptical fit method
-  (`mle3d`/`gaussmleEll`, see §3/fit) — the fitted per-axis width directly,
+  (`mle3d`/`gaussmleEll`, see §2/fit) — the fitted per-axis width directly,
   independent of `sigma1st [nm]`/`sx0th [nm]` etc. below (those are
   sSMLM-**Pair**-specific). Round-trips through **Load data**.
 - `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `sx0th [nm]`/`sy0th [nm]`/
@@ -1473,11 +1505,11 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   are webSMLM-specific additions appended after the standard columns — safe
   for a strict ThunderSTORM reader to ignore.
 - `dist [nm]` is sSMLM-**Pair**-specific: the inter-order distance
-  (see §3 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
+  (see §2 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
   for it; `pairCore()` never sets `z`, so a paired-only export has `dist`
   but not `z`. Round-trips through **Load data** (`parseCsvLocs()`).
 - `sigma1st [nm]` is sSMLM-**Pair**-specific: the 1st order's own `sigma`
-  (see §3 sSMLM), carried through from `pairCore()` rather than the pair's
+  (see §2 sSMLM), carried through from `pairCore()` rather than the pair's
   reported `sigma [nm]`, which is still the 0th order's. Not a directional/
   long-axis width for most methods — every method except `mle3d`/`gaussmleEll`
   fits one symmetric `sigma`; this is the closest available proxy for how
@@ -1490,7 +1522,7 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   for BOTH orders (not just a proxy for the 1st the way `sigma1st` is),
   since those methods fit an independent σx/σy for every localization, not
   just a symmetric `sigma`. Round-trips through **Load data** the same way.
-- `track_id` and `D_coeff [um^2/s]` are spt-**Track**-specific (see §3 spt)
+- `track_id` and `D_coeff [um^2/s]` are spt-**Track**-specific (see §2 spt)
   — independent optional columns, present whenever any localization has
   them; `track_id` is on every tracked localization, `D_coeff` only on
   those whose track met **SPT min track length**. `um^2` (not `µm²`) is
@@ -1591,7 +1623,7 @@ const result = await window.webSMLM.analyze({
   `PARAMS` entries (per-dataset pixel geometry, same treatment as `calFirst`/
   `calLast`). If any is given, `config.file`/`config.files` is immediately
   replaced with just that native-pixel `[x0,x1)×[y0,y1)` sub-rectangle
-  (`makeCroppedStack()`, [§3](#3-module-reference)'s **in/out** entry) before
+  (`makeCroppedStack()`, [§2](#2-module-reference)'s **in/out** entry) before
   anything else — `estimateGainOffset`, `runCore` — touches it, the headless
   equivalent of the raw-panel crop tool. An omitted bound defaults to that
   edge of the full frame (`0`/`0`/width/height). Throws if the resulting
@@ -1650,7 +1682,7 @@ const result = await window.webSMLM.analyze({
   gain `track_id`/`D_coeff` columns the same way an interactive Track adds
   them to `lastResult.locs`, row count unchanged.
 - `config.estimateGainOffset` — boolean, not a `PARAMS` entry. Runs
-  `pcfoCore()` (PCFO gain/offset estimation, [§2/Gain-offset estimation
+  `pcfoCore()` (PCFO gain/offset estimation, [§3/Gain-offset estimation
   (PCFO)](#gainoffset-estimation-pcfo)) on the SAME stack `config.file`/
   `config.files` just loaded, **before** the main run, then overrides
   `config.gain`/`config.camoffset` with the estimate — the headless
@@ -1828,7 +1860,7 @@ PCFO/calibration that was actually requested this run (see
 `config.exportPlots` above) — e.g. `--correctDrift --computeNeNA
 --exportPlots` writes `drift_plot.png`/`.svg` and `nena_plot.png`/`.svg`. Any
 `--key=value` not listed in the script's header comment is passed straight
-through as a `PARAMS` override (§2) — e.g. `--winr=6 --gain=0.1248
+through as a `PARAMS` override (§3) — e.g. `--winr=6 --gain=0.1248
 --camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/
 `--estimateGainOffset`/`--sSmlmPair`/`--sptTrack`/`--exportPlots` are bare
 boolean flags — the last-but-three runs PCFO gain/offset estimation on `--file` itself before
