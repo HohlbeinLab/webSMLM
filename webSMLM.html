@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23p; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23q; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1658,7 +1658,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23p</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23q</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2082,7 +2082,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23p · replaced native number-input spinners with an always-visible −/+ button pair (Inkscape-style), left-aligned/narrower fields — one global mechanism, no per-input wiring</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23q · −/+ stepper buttons now drawn as small SVG lines instead of text glyphs — "−"/"+" had different optical centres per font/engine and looked subtly off-centre</div>
   </main>
 </div>
 
@@ -2505,9 +2505,18 @@ function addNumberSteppers(){
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
     };
-    for(const [glyph,dir] of [['−',-1],['+',1]]){
+    // Drawn as SVG lines (same idiom as the raw/sr panel's .linetool crop/
+    // measure icons), not text glyphs — "−"/"+" have different optical
+    // centres per font/engine (the minus sign in particular rarely sits
+    // where align-items:center puts its own line box), so text glyphs
+    // looked subtly off-centre and inconsistent with each other; geometry
+    // in a fixed viewBox centres identically everywhere, every time.
+    const HBAR='<line x1="2" y1="5" x2="8" y2="5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    const VBAR='<line x1="5" y1="2" x2="5" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    for(const [svgInner,dir] of [[HBAR,-1],[HBAR+VBAR,1]]){
       const b=document.createElement('button');
-      b.type='button'; b.textContent=glyph; b.tabIndex=-1;
+      b.type='button'; b.tabIndex=-1;
+      b.innerHTML=`<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">${svgInner}</svg>`;
       b.title=(dir<0?'Decrease':'Increase')+' by '+step();
       b.addEventListener('click',()=>bump(dir));
       btns.appendChild(b);
