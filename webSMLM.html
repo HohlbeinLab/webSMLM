@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23l; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23m; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1274,26 +1274,30 @@ X.B(E,Y);return E}return J}())
     display:flex;flex-direction:column;            /* no hard-coded header height */
     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   header{padding:16px 20px;border-bottom:1px solid var(--line);
-    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
   /* title + subtitle share one row (subtitle right behind the title) instead
      of stacking on two lines — saves vertical header space; still wraps to
-     two lines by itself if the viewport's too narrow for both. align-items:
-     center (not baseline) so the pill/subtitle's own smaller-font box sits on
-     the same vertical centre as "webSMLM" itself, matching .header-actions on
-     the right — baseline alignment left them ~2-3px lower, since a smaller
-     line-height's box centres lower than a taller sibling's when aligned by
-     text baseline rather than box centre. */
-  .title-row{display:flex;align-items:center;flex-wrap:wrap;column-gap:10px;row-gap:0}
+     two lines by itself if the viewport's too narrow for both. Bottom-aligned
+     (header, .title-row and .header-actions all align-items:flex-end) rather
+     than centred: centring left every element's OWN vertical centre matching,
+     but the visually different heights/paddings of h1 text, the pill badge,
+     .logbtn and the icon buttons still read as "not quite lined up" — a
+     shared bottom edge is the one alignment all of them can hit exactly,
+     the same way most real-world toolbar/header designs anchor to a common
+     baseline-ish edge rather than a per-element midpoint. */
+  .title-row{display:flex;align-items:flex-end;flex-wrap:wrap;column-gap:10px;row-gap:0}
   h1{font-size:18px;margin:0}
   header p{margin:0;color:var(--muted);font-size:13px}
   /* right side of the header: the theme switch and layoutToggleBtn — a plain
      flex row, not styled as part of the title block on the left. */
-  .header-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .header-actions{display:flex;align-items:flex-end;gap:8px;flex:0 0 auto}
   /* Three icon-only buttons (dark/light/contrast), same sizing/skin as
      .linetool — the app's existing small-icon-button pattern (raw/sr panel
      crop/measure tools) — rather than a full-width .logbtn, since these are
      glyphs, not text labels. .active marks the CURRENT theme, same visual
-     language as .linetool.on (border+text in --accent, --accent-tint fill). */
+     language as .linetool.on (border+text in --accent, --accent-tint fill).
+     26px — see #sideToggle's own comment for why it now matches this exactly
+     rather than being 2px larger. */
   .theme-switch{display:flex;gap:4px}
   .theme-btn{width:26px;height:26px;padding:0;margin:0;display:flex;align-items:center;
     justify-content:center;background:var(--surface);border:1px solid var(--line);
@@ -1309,15 +1313,18 @@ X.B(E,Y);return E}return J}())
   /* collapsible sidebar. Desktop: collapsing gives the canvases the full width.
      Mobile (see @media): the sidebar becomes an overlay drawer so the images are
      visible first and re-opening slides over them without moving them. */
-  /* Vertically centred against the header's own REAL height (--header-h, kept
-     live by measureHeader() below — see the desktop-floating/mobile-drawer
-     rules further down for the other consumer of the same variable) rather
-     than a guessed fixed top: a plain top:14px only happened to look close
-     because the generic button{margin:4px 0} rule (meant for in-flow sidebar
-     buttons) was silently adding another 4px on top of it — margin:0 here
-     removes that accidental, breakpoint-fragile offset instead of tuning
-     around it. 56px is measureHeader()'s own pre-JS fallback. */
-  #sideToggle{position:fixed;top:calc((var(--header-h,56px) - 28px)/2);left:14px;z-index:45;width:28px;height:28px;margin:0;display:flex;
+  /* Bottom-aligned against the header ROW's own real content-bottom edge
+     (--header-content-bottom, kept live by measureHeader() below, alongside
+     --header-h which the desktop-floating/mobile-drawer rules further down
+     also consume) — same reasoning as header/.title-row/.header-actions all
+     switching to align-items:flex-end above: this is a position:fixed
+     element, outside the normal flex flow, so it needs its own explicit
+     match to that same bottom edge rather than inheriting it for free.
+     26px (was 28px) — now the exact same size as .theme-btn, not 2px larger.
+     margin:0 because the generic button{margin:4px 0} rule (meant for
+     in-flow sidebar buttons) would otherwise silently add another 4px here.
+     44px is measureHeader()'s own pre-JS fallback. */
+  #sideToggle{position:fixed;top:calc(var(--header-content-bottom,44px) - 26px);left:14px;z-index:45;width:26px;height:26px;margin:0;display:flex;
     align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
     border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
   #sideToggle:hover{background:var(--surface-hover);border-color:var(--accent)}
@@ -1325,14 +1332,12 @@ X.B(E,Y);return E}return J}())
   header{padding-left:50px}                          /* room for the fixed toggle at top-left */
   /* pin button — re-docks a floating desktop drawer back into the grid layout. Stacked
      BELOW the toggle (not beside it) so it never overlaps the header title text, which
-     starts right after the toggle's own column. Same vertically-centred-on-#sideToggle
-     top formula plus its 28px height and the original design's 6px gap (28+6=34px), so
+     starts right after the toggle's own column. Same --header-content-bottom anchor as
+     #sideToggle, offset by its own 26px height plus the original design's 6px gap, so
      the two stay visually locked together at any header height — see #sideToggle's own
-     comment for why this is calc()-based rather than a flat px value. margin:0 for the
-     same reason as #sideToggle (button{margin:4px 0} would otherwise bleed in here too;
-     harmless for the GAP between the two since both inherited it equally before, but
-     wrong on its own terms for a fixed-position element). */
-  #sidePin{position:fixed;top:calc((var(--header-h,56px) - 28px)/2 + 34px);left:14px;z-index:46;width:28px;height:28px;margin:0;display:none;
+     comment for why this is calc()-based rather than a flat px value, and why margin:0
+     is needed (button{margin:4px 0} would otherwise bleed in here too). */
+  #sidePin{position:fixed;top:calc(var(--header-content-bottom,44px) + 6px);left:14px;z-index:46;width:26px;height:26px;margin:0;display:none;
     align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
     border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
   #sidePin:hover{background:var(--surface-hover);border-color:var(--accent)}
@@ -1610,7 +1615,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23l</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2034,7 +2039,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23l · header vertical alignment: title row now centres instead of baseline-aligns, sidebar toggle/pin buttons now track the header's real height instead of a stray hardcoded top</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23m · header now bottom-aligned instead of centred (title, subtitle, theme buttons, Stack panels, sidebar toggle/pin all share one edge); sidebar toggle resized to match the theme buttons exactly</div>
   </main>
 </div>
 
@@ -8528,8 +8533,16 @@ $('rawFtmBtn').addEventListener('click',()=>{
   // real rendered height (font metrics vary by OS/zoom — a guessed px value
   // drifts) to start exactly where the docked sidebar would, instead of
   // guessing a fixed offset that can end up too high or too low.
-  const header=document.querySelector('header');
-  const measureHeader=()=>{ if(header) document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height+'px'); };
+  const header=document.querySelector('header'), headerActions=document.querySelector('.header-actions');
+  // --header-content-bottom: the header ROW's own bottom edge (header and
+  // .title-row/.header-actions are all align-items:flex-end — see their own
+  // CSS comment) — #sideToggle/#sidePin are position:fixed, outside that flex
+  // flow, so they need this measured explicitly to bottom-align with the row
+  // rather than inheriting it for free the way an in-flow child would.
+  // .header-actions is a convenient, always-present stand-in for "the row's
+  // shared bottom edge" — it's one of the two flex-end-aligned rows itself.
+  const measureHeader=()=>{ if(header) document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height+'px');
+    if(headerActions) document.documentElement.style.setProperty('--header-content-bottom', headerActions.getBoundingClientRect().bottom+'px'); };
   const sync=()=>{ measureHeader(); const hidden=body.classList.contains('side-hidden'),
       float=body.classList.contains('side-float');
     // collapsed → next action is "show"; docked or floating → next action is "hide"
