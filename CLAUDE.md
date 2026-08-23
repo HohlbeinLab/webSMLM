@@ -34,6 +34,22 @@ relevant one before editing rather than scrolling:
   `window.webSMLM.analyze(config)`'s headless config takes (see **pipeline** below) — a new
   `PARAMS` entry is automatically available to both without extra wiring. Deliberately excludes
   pure display/layout (CSS) and per-dataset working state (`calFirst`/`calLast`/`zmin`/`zmax`).
+
+  `addNumberSteppers()` (runs once, right after `syncParamControls()`) wraps every `input.num`
+  in a `.numstep` span with an appended `.numstep-btns` −/+ pair — Inkscape-style, always visible,
+  not the browser's own native number-input spinner. Native was tried first (a genuine one-line
+  global toggle, `color-scheme:dark`/`light` set per UI theme so the browser draws its own control
+  theme-appropriate — that CSS stayed, it's harmless/useful for other native controls too) and
+  reverted: look varies across engines, and it's hover-reveal only, effectively unreachable on a
+  touchscreen with no hover state. `addNumberSteppers()` reads each input's already-present
+  `min`/`max`/`step` — set by `syncParamControls()` for `PARAMS`-mapped fields, or plain static
+  HTML attributes for the ones `PARAMS` deliberately excludes (`calFirst`/`calLast`/etc., see
+  above) — so it needs no per-input wiring either: any current or future `.num` field gets
+  steppers for free. Clicking dispatches real `input`/`change` events, so every existing listener
+  (live preview, Save/Load Settings, …) reacts exactly as it would to typing. `input.num` itself
+  is left-aligned (not right) and narrower (64px, was 80px) to match — value first, then the
+  control that changes it, reading left to right, with no wasted width now that nothing overlays
+  the digits.
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)

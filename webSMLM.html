@@ -16,31 +16,31 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-23o; may drift with edits,
+  MODULE INDEX — line numbers as of build 2026-08-23p; may drift with edits,
   re-grep 'MODULE:' if this looks stale. Refresh alongside a build-letter
   bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2029   PARAMS registry, single source of truth for params
-    in/out          2457   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2770   synthetic stack generator ("Simulate movie")
-    detect          3597   per-frame band-pass + local-maxima detection
-    fit             3853   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2098   PARAMS registry, single source of truth for params
+    in/out          2572   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2885   synthetic stack generator ("Simulate movie")
+    detect          3712   per-frame band-pass + local-maxima detection
+    fit             3968   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4328   accumulate to offscreen buffer; view/colour/blur;
+    render          4443   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5184   frame-parallel detect/fit worker pool
-    export          5349   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5600   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6000   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5318   frame-parallel detect/fit worker pool
+    export          5483   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5734   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6134   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6315   NeNA + FRC
-    sSMLM           6958   spectrally resolved SMLM pair-finding
-    spt             7408   single particle tracking, trackpy-inspired
-    pipeline        7838   top-level orchestration, *Core()/wrapper split
-    table           9469   localizations table, filtering, histograms
-    headless API    9908   window.webSMLM.analyze()/analyzeBatch()
+    locprecision    6449   NeNA + FRC
+    sSMLM           7092   spectrally resolved SMLM pair-finding
+    spt             7542   single particle tracking, trackpy-inspired
+    pipeline        7972   top-level orchestration, *Core()/wrapper split
+    table           9613   localizations table, filtering, histograms
+    headless API    10052  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1428,23 +1428,38 @@ X.B(E,Y);return E}return J}())
   button:disabled{opacity:.45;cursor:not-allowed}
   button:disabled:hover{border-color:var(--line)}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
-  /* Native spinners were dropped entirely in an earlier round: on Chrome they
-     rendered black-on-black until hovered, and on Firefox they crowded the
-     digits. The dark-on-dark half of that is now fixed at the source —
-     color-scheme (set per theme above) tells the browser which palette to
-     draw its OWN native controls in, so the spinner it re-adds below now
-     renders theme-appropriate automatically, no custom drawing needed. The
-     width bump (80px→92px) answers the other half (Firefox's spinner sits
-     INSIDE the border-box, same as Chrome's, so it was genuinely squeezing
-     an 80px field's digits) — same fix serves both engines' spinner, not
-     just Chrome's. Every PARAMS entry already carries its own `step` (see
-     the PARAMS registry) and syncParamControls() already applies it to
-     every .num input's own `step` attribute, so the browser's native
-     increment/decrement immediately uses the right value with no extra
-     wiring. Toggling this app-wide is exactly this one rule — no per-input
-     changes needed either direction. */
-  input.num{width:92px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:4px 9px;font-size:12px;text-align:right}
+  /* Native spinners were tried (re-enabled via color-scheme, one round back)
+     and reverted: look varies a lot across browser engines/themes, and —
+     more importantly — they're hover-reveal only, so on a touchscreen (no
+     hover state at all) they're effectively unreachable. addNumberSteppers()
+     (MODULE: params, right after syncParamControls()) wraps every .num
+     field in a .numstep/.numstep-btns −/+ pair instead — Inkscape-style,
+     always visible, real click targets, still driven by each field's own
+     already-wired min/max/step, no per-input work either. Suppress the
+     native spinner so it doesn't ALSO show up alongside the custom one.
+     Left-aligned (not right) to match the −/+ pair's own reading order —
+     value, then the control that changes it, left to right. */
+  input.num{width:64px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 9px;font-size:12px;text-align:left;
+    -moz-appearance:textfield;appearance:textfield}
+  input.num::-webkit-inner-spin-button,
+  input.num::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+  /* addNumberSteppers() wraps the input in .numstep and appends
+     .numstep-btns right after it — together they read as ONE control: the
+     input keeps its left/top/bottom rounding and loses its right border,
+     the button pair picks up the right rounding and shares that border, so
+     there's no visible seam between "the value" and "the control". Sized
+     off .linetool's own small-icon-button footprint (same family as the
+     raw/sr panel's crop/measure tools) rather than inventing a new one. */
+  .numstep{display:inline-flex;align-items:stretch;vertical-align:middle}
+  .numstep input.num{border-radius:6px 0 0 6px;border-right:none}
+  .numstep-btns{display:flex;border:1px solid var(--line);border-radius:0 6px 6px 0;overflow:hidden}
+  .numstep-btns button{all:unset;box-sizing:border-box;width:18px;display:flex;
+    align-items:center;justify-content:center;cursor:pointer;color:var(--muted);
+    background:var(--surface);font-size:11px;line-height:1;user-select:none}
+  .numstep-btns button:not(:last-child){border-right:1px solid var(--line)}
+  .numstep-btns button:hover{background:var(--surface-hover);color:var(--fg)}
+  .numstep-btns button:active{background:var(--accent-tint);color:var(--accent)}
   /* two equal buttons side by side (Load / Simulate) */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
   .btnrow button{margin:0;padding:5px 6px;font-size:12px}
@@ -1643,7 +1658,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23o</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.5-dev · build 2026-08-23p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2067,7 +2082,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23o · re-enabled native up/down spinners on all numeric fields (dark/light/contrast-themed via color-scheme, widened 80px→92px for room) — every field already had its own step wired, so this needed no per-input changes</div>
+      <div class="log" id="log">webSMLM v0.11.5-dev · build 2026-08-23p · replaced native number-input spinners with an always-visible −/+ button pair (Inkscape-style), left-aligned/narrower fields — one global mechanism, no per-input wiring</div>
   </main>
 </div>
 
@@ -2455,6 +2470,52 @@ function syncParamControls(){
 
 const $  = id => document.getElementById(id);
 syncParamControls();   // registry → DOM, now that $ exists — before anything else reads a control
+// Wraps every numeric field (PARAMS-driven or not — calFirst/calLast/etc. carry
+// their own static min/max/step in the HTML, see PARAMS' own "excludes
+// per-dataset working state" note) with a −/+ button pair, Inkscape-style,
+// rather than the browser's own native spinner (tried first — re-enabling it
+// was a genuine one-line global toggle too, but its look varies wildly across
+// engines/themes and is invisible until hover, a real problem on touch
+// devices with no hover state at all). Runs once, after syncParamControls()
+// has set every PARAMS-mapped input's min/max/step, so every field — however
+// it got its attributes — already has the right values to read here. Same
+// "one mechanism, no per-input wiring" property the native-spinner attempt
+// had: add a PARAMS entry (or a plain HTML min/max/step input) and it gets
+// steppers for free, nothing else to touch.
+function addNumberSteppers(){
+  document.querySelectorAll('input.num[type="number"]').forEach(inp=>{
+    if(inp.dataset.stepped) return;   // idempotent — safe if ever called twice
+    inp.dataset.stepped='1';
+    const wrap=document.createElement('span'); wrap.className='numstep';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btns=document.createElement('span'); btns.className='numstep-btns';
+    const step=()=> parseFloat(inp.step)||1;
+    const bump=dir=>{
+      const min = inp.min!=='' ? parseFloat(inp.min) : -Infinity;
+      const max = inp.max!=='' ? parseFloat(inp.max) :  Infinity;
+      const cur = parseFloat(inp.value);
+      let v = (isFinite(cur)?cur:0) + dir*step();
+      v = Math.min(max, Math.max(min, v));
+      // avoid float garbage (0.1+0.2-style) by rounding to the step's own decimal precision
+      const dec = (String(step()).split('.')[1]||'').length;
+      inp.value = dec ? v.toFixed(dec) : String(v);
+      // real input+change events — every existing listener (live preview,
+      // Save/Load settings, etc.) reacts exactly as it would to typing.
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+    };
+    for(const [glyph,dir] of [['−',-1],['+',1]]){
+      const b=document.createElement('button');
+      b.type='button'; b.textContent=glyph; b.tabIndex=-1;
+      b.title=(dir<0?'Decrease':'Increase')+' by '+step();
+      b.addEventListener('click',()=>bump(dir));
+      btns.appendChild(b);
+    }
+    wrap.appendChild(btns);
+  });
+}
+addNumberSteppers();
 const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false; };
 /* Yield to the event loop. setTimeout(0) is clamped to ~4 ms by browsers, which
    cost ~9% of runtime on a 2000-frame stack; a MessageChannel round-trip is a
