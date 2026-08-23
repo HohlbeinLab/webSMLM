@@ -1048,3 +1048,23 @@ slower than V8), so keep validation inputs small.
   makes (worst case: **Gain/offset estimation (PCFO)**, whose old opening
   paragraph duplicated nearly the whole popup), that prose was trimmed to pick
   up only where the popup leaves off, rather than deleted or left redundant.
+- **Help & guide** (the in-app modal) is now deliberately thin: just the intro
+  blurb, the 4-step **Guided workflow** (step 2 briefly names the fit-method
+  families and points at the docs for depth), **Acknowledgements**, and
+  **License & author**. The old "1 · Loading & memory" / "2 · Detection" /
+  "3 · Fitting" / "4 · Rendering" walkthrough sections and the whole
+  "References & further reading" citation list were removed from the modal —
+  checked first against `DOCUMENTATION.md` and the `.hint` popups for content
+  that would otherwise be lost; the handful of genuinely unique facts found
+  (the DoG formula, synthetic-model precision benchmarks, TIFF bit-depth/
+  endianness handling, the >4 GB/32-bit-offset ImageJ-stack reasoning, the
+  TIFF-header size-estimation formula) were folded into §2's `detect`/`fit`/
+  `in-out` sections first, and the References list itself became
+  `DOCUMENTATION.md`'s own new `## 9 · References & further reading` section
+  (Changelog renumbered `## 9`→`## 10` to make room). The three `.hint` popups
+  that used to say "see References & further reading in Help & guide"
+  (`hint-drift`, `hint-sSMLM`, `hint-spt`) now link straight to that RTD page
+  instead. `DOCUMENTATION.md` is the single source for all of this now — the
+  modal's own remaining text is hand-authored UI copy, not synced by
+  `sync_hints.mjs` (Help & guide was never part of that mechanism, only the
+  `.hint` divs are).

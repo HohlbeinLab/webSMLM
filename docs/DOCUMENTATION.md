@@ -260,10 +260,17 @@ the only correct way to read a parameter (handles the DOM-control vs.
 
 ### Load movie (`in/out`) {#in-out}
 
-TIFF parsing. In-memory vs. streamed loading (`memgb`
-budget); contiguous ImageJ stacks are indexed arithmetically, multi-IFD
-(Micro-Manager MMStack) stacks by walking the IFD chain — never fully
-loaded, read via `File.slice()`. `loadTiffFilesAuto()` handles a multi-file
+TIFF parsing. Bit depth (8/16/32-bit) and endianness are handled
+automatically; 16-bit is preserved, never flattened to 8-bit. TIFF
+headers are parsed first to get frame count/dimensions, then the decoded
+working-set size is estimated (`frames × width × height × 4 bytes`)
+against `memgb` to decide in-memory vs. streamed loading (`memgb`
+budget); large (above ~4 GB) ImageJ stacks — where 32-bit TIFF offsets
+can no longer address further, so the whole stack is written as a single
+directory entry with every frame laid out contiguously after it — are
+indexed arithmetically from that entry, unlike ordinary/multi-IFD
+(Micro-Manager MMStack) stacks, which walk the IFD chain frame by frame —
+never fully loaded, read via `File.slice()`. `loadTiffFilesAuto()` handles a multi-file
 selection, auto-detecting which of two cases it is from the first
 (naturally-sorted) file's own frame count: exactly 1 frame → every file is
 one frame (`loadTiffSequence()`, natural-sorted and concatenated — e.g. a
@@ -326,6 +333,12 @@ Per-frame band-pass, one of three filters selectable via
 `detFilter`: wavelet (default), DoG, or uniform box — each thresholded
 differently (see [§3](#3-parameters-params-registry)/Detect). `detectSpots()`
 is the single dispatch point used by both the main thread and workers.
+DoG blurs each frame at a small scale (0.8×σ_PSF) and a large scale
+(3×σ_PSF), subtracting the large-scale blur from the small-scale one —
+`DoG = G(0.8σ) − G(3σ)` — removing flat background/slow gradients while
+keeping PSF-sized spots; candidates are then strict 8-neighbour local
+maxima above `mean + k·σ_noise` of the filtered image (σ_noise is the
+filtered image's own spread, not σ_PSF).
 
 ### Localisation settings (`fit`) {#fit}
 
@@ -366,7 +379,12 @@ and 1st order of an sSMLM pair, not just the plain symmetric-σ proxy
 every other method reports.
 `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all share one
 Fisher-scoring Newton driver (`mleNewtonFit()`) rather than three
-independently-coded copies. `pcfoCore()` is a
+independently-coded copies. On the built-in synthetic model at 900
+photons/emitter, Phasor reaches ~19 nm precision and Gaussian LS ~16 nm
+(figures for that synthetic model specifically — real data depends on
+your own photon count, background and PSF; Phasor's speed advantage over
+either Gaussian method is covered in the **Fit method** popup above).
+`pcfoCore()` is a
 separate, one-off tool living in this module: Rieger–Heintzman PCFO
 gain/offset estimation from a loaded/simulated stack directly (no
 calibration acquisition needed) — see
@@ -1220,7 +1238,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 `.hint` div directly):
 
 <!-- HINT:drift -->
-<p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see Help &amp; guide → References). <b>Localize first, then Correct drift.</b></p>
+<p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>). <b>Localize first, then Correct drift.</b></p>
 <ul>
   <li>The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for faster drift.</li>
   <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
@@ -1274,7 +1292,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 <p><b>Preview pairs</b> only computes — <b>Show dist. hist.</b> draws a distance histogram (every candidate pair in range, any angle); <b>Show angle hist.</b> draws an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
 <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
 <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
-<p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see References &amp; further reading in Help &amp; guide.</p>
+<p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
 <!-- /HINT:sSMLM -->
 
 `sSmlmAngleCenter` ("Primary angle" in the UI) is a genuine SIGNED bearing
@@ -1349,7 +1367,7 @@ for the first implementation.
 <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
 <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
-<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see References &amp; further reading in Help &amp; guide. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
 <!-- /HINT:spt -->
 
 Defaults are ported from the user's own `sptPALM-Python` pipeline's
@@ -1950,7 +1968,50 @@ single run, true headless operation, or CI.
 
 ---
 
-## 9 · Changelog
+## 9 · References & further reading
+
+What this tool borrows from, and where to read more.
+
+**Phasor localization**
+- "Phasor based single-molecule localization microscopy in 3D (pSMLM-3D): an algorithm for MHz localization rates using standard CPUs," K. J. A. Martens, A. N. Bader, S. Baas, B. Rieger, J. Hohlbein, *J. Chem. Phys.* **148**, 123311 (2018). [doi:10.1063/1.5005899](https://doi.org/10.1063/1.5005899)
+- "Integrating engineered point spread functions into the phasor-based SMLM framework," K. J. A. Martens et al., *Methods* (2020).
+
+**Spot detection & thresholding**
+- "ThunderSTORM: a comprehensive ImageJ plug-in for PALM and STORM data analysis and super-resolution imaging," M. Ovesný, P. Křížek, J. Borkovec, Z. Švindrych, G. M. Hagen, *Bioinformatics* **30**(16), 2389–2390 (2014). [doi:10.1093/bioinformatics/btu202](https://doi.org/10.1093/bioinformatics/btu202)
+- "Wavelet analysis for single molecule localization microscopy," I. Izeddin et al., *Opt. Express* **20**(3), 2081–2095 (2012). [doi:10.1364/OE.20.002081](https://doi.org/10.1364/OE.20.002081)
+- "Simultaneous multiple-emitter fitting for single molecule super-resolution imaging," F. Huang, S. L. Schwartz, J. M. Byars, K. A. Lidke, *Biomed. Opt. Express* **2**(5), 1377–1393 (2011). [doi:10.1364/BOE.2.001377](https://doi.org/10.1364/BOE.2.001377)
+
+**Fitting & precision (why LS ≠ MLE)**
+- "Precise nanometer localization analysis for individual fluorescent probes," R. E. Thompson, D. R. Larson, W. W. Webb, *Biophys. J.* **82**(5), 2775–2783 (2002). [doi:10.1016/S0006-3495(02)75618-X](https://doi.org/10.1016/S0006-3495(02)75618-X)
+- "Optimized localization analysis for single-molecule tracking and super-resolution microscopy," K. I. Mortensen, L. S. Churchman, J. A. Spudich, H. Flyvbjerg, *Nat. Methods* **7**, 377–381 (2010). [doi:10.1038/nmeth.1447](https://doi.org/10.1038/nmeth.1447)
+- "Fast, single-molecule localization that achieves theoretically minimum uncertainty," C. S. Smith, N. Joseph, B. Rieger, K. A. Lidke, *Nat. Methods* **7**, 373–375 (2010). [doi:10.1038/nmeth.1449](https://doi.org/10.1038/nmeth.1449)
+- MLE implementation ported from **Picasso**'s `picasso/gaussmle.py` — see Picasso reference below.
+
+**Gain/offset estimation (PCFO)**
+- "Calibrating photon counts from a single image," R. Heintzmann, P. K. Relich, R. P. J. Nieuwenhuizen, K. A. Lidke, B. Rieger, *arXiv:1611.05654*. [arxiv.org/abs/1611.05654](https://arxiv.org/abs/1611.05654)
+
+**Localization precision (NeNA)**
+- "A simple method to estimate the average localization precision of a single-molecule localization microscopy experiment," U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, *Histochem. Cell Biol.* **141**, 629–638 (2014). [doi:10.1007/s00418-014-1192-3](https://doi.org/10.1007/s00418-014-1192-3)
+
+**Image resolution (FRC)**
+- "Measuring image resolution in optical nanoscopy," R. P. J. Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga, B. Rieger, *Nat. Methods* **10**, 557–562 (2013). [doi:10.1038/nmeth.2448](https://doi.org/10.1038/nmeth.2448)
+
+**Temporal median filtering (FTM)**
+- Originates with the Nieuwenhuizen et al. paper above; ported from the Hohlbein Lab's own newer implementation, [FTM2](https://github.com/HohlbeinLab/FTM2), used in "Enabling single-molecule localization microscopy in turbid food emulsions," A. Jabermoradi, S. Yang, M. I. Gobes, J. P. M. van Duynhoven, J. Hohlbein, *Phil. Trans. R. Soc. A* **380**(2220), 20200164 (2022). [doi:10.1098/rsta.2020.0164](https://doi.org/10.1098/rsta.2020.0164)
+
+**Drift correction (AIM)**
+- "Toward drift-free high-throughput nanoscopy through adaptive intersection maximization," H. Ma, M. Chen, P. Nguyen, Y. Liu, *Sci. Adv.* **10**(21), eadm7765 (2024). [doi:10.1126/sciadv.adm7765](https://doi.org/10.1126/sciadv.adm7765)
+- Adapted from **Picasso**'s `picasso/aim.py` (parabolic sub-pixel peak fit replaces the FFT phase refinement; linear interpolation replaces the spline) — see Picasso reference below.
+
+**Picasso** (reference implementation for the ported MLE and AIM drift code above, [github.com/jungmannlab/picasso](https://github.com/jungmannlab/picasso))
+- "Super-resolution microscopy with DNA-PAINT," J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, *Nat. Protoc.* **12**, 1198–1228 (2017). [doi:10.1038/nprot.2017.024](https://doi.org/10.1038/nprot.2017.024)
+
+**Overview**
+- "Single-molecule localization microscopy," M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021). [doi:10.1038/s43586-021-00038-x](https://doi.org/10.1038/s43586-021-00038-x)
+
+---
+
+## 10 · Changelog
 
 Per-release history — new features, fixes and notable implementation
 detail for every shipped version — lives in
