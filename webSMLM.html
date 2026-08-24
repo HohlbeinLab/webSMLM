@@ -16,31 +16,31 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.5; may drift with edits, re-grep
-  'MODULE:' if this looks stale. Refresh alongside a build-letter bump when
-  a change has moved things by more than a few lines.
+  MODULE INDEX — line numbers as of build 2026-08-24a; may drift with
+  edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
+  build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2098   PARAMS registry, single source of truth for params
-    in/out          2572   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2885   synthetic stack generator ("Simulate movie")
-    detect          3712   per-frame band-pass + local-maxima detection
-    fit             3968   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2114   PARAMS registry, single source of truth for params
+    in/out          2597   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2910   synthetic stack generator ("Simulate movie")
+    detect          3737   per-frame band-pass + local-maxima detection
+    fit             3993   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4443   accumulate to offscreen buffer; view/colour/blur;
+    render          4468   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5318   frame-parallel detect/fit worker pool
-    export          5483   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5734   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6134   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5343   frame-parallel detect/fit worker pool
+    export          5508   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5759   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6159   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6449   NeNA + FRC
-    sSMLM           7092   spectrally resolved SMLM pair-finding
-    spt             7542   single particle tracking, trackpy-inspired
-    pipeline        7972   top-level orchestration, *Core()/wrapper split
-    table           9613   localizations table, filtering, histograms
-    headless API    10052  window.webSMLM.analyze()/analyzeBatch()
+    locprecision    6474   NeNA + FRC
+    sSMLM           7117   spectrally resolved SMLM pair-finding
+    spt             7567   single particle tracking, trackpy-inspired
+    pipeline        7997   top-level orchestration, *Core()/wrapper split
+    table           9638   localizations table, filtering, histograms
+    headless API    10077  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1295,7 +1295,7 @@ X.B(E,Y);return E}return J}())
      shared bottom edge is the one alignment all of them can hit exactly,
      the same way most real-world toolbar/header designs anchor to a common
      baseline-ish edge rather than a per-element midpoint. */
-  .title-row{display:flex;align-items:flex-end;flex-wrap:wrap;column-gap:10px;row-gap:0}
+  .title-row{display:flex;align-items:flex-end;flex-wrap:wrap;column-gap:10px;row-gap:4px}
   /* line-height:1 on both (neither set one before, so both inherited body's
      1.5) — align-items:flex-end above aligns LINE BOXES, not glyph ink, and
      1.5 at two different font-sizes (18px vs 13px) adds a different amount
@@ -1309,19 +1309,30 @@ X.B(E,Y);return E}return J}())
   /* right side of the header: the theme switch and layoutToggleBtn — a plain
      flex row, not styled as part of the title block on the left. */
   .header-actions{display:flex;align-items:flex-end;gap:8px;flex:0 0 auto}
-  /* Three icon-only buttons (dark/light/contrast), same sizing/skin as
-     .linetool — the app's existing small-icon-button pattern (raw/sr panel
-     crop/measure tools) — rather than a full-width .logbtn, since these are
-     glyphs, not text labels. .active marks the CURRENT theme, same visual
-     language as .linetool.on (border+text in --accent, --accent-tint fill).
-     26px — see #sideToggle's own comment for why it now matches this exactly
-     rather than being 2px larger. */
+  /* Shared icon-button shape/size system — every icon-ONLY button in the
+     app (theme switch, sidebar toggle/pin, raw/sr panel crop/measure tools)
+     draws from the same --icon-radius and one of exactly two fixed sizes,
+     rather than each control family having independently picked its own
+     radius/background/colour (sideToggle/sidePin used to be 8px-rounded on
+     --bg/--fg — 2px rounder and a different colour pair than the theme
+     buttons sitting right next to them on the same row — a real, reported
+     inconsistency). --icon-size (26px): header-level controls (theme
+     switch, sidebar toggle/pin). --icon-size-sm (20px): in-panel tool
+     buttons (.linetool, defined near the raw/sr panel styling below). A new
+     icon button anywhere in the app should reuse one of these two, not
+     invent a third. .active/.on (two different class names, kept as-is —
+     each control family's own JS already toggles its own) both draw the
+     same "currently engaged" look: accent border/text on an accent-tint
+     fill. */
+  :root{ --icon-radius:5px; --icon-size:26px; --icon-size-sm:20px; }
+  .theme-btn,#sideToggle,#sidePin,.linetool{display:flex;align-items:center;
+    justify-content:center;padding:0;margin:0;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--icon-radius);
+    color:var(--muted);cursor:pointer;line-height:1;
+    width:var(--icon-size);height:var(--icon-size);font-size:13px}
+  .theme-btn:hover,#sideToggle:hover,#sidePin:hover,.linetool:hover{border-color:var(--accent);color:var(--fg)}
+  .theme-btn.active,.linetool.on{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
   .theme-switch{display:flex;gap:4px}
-  .theme-btn{width:26px;height:26px;padding:0;margin:0;display:flex;align-items:center;
-    justify-content:center;background:var(--surface);border:1px solid var(--line);
-    border-radius:5px;color:var(--muted);cursor:pointer;font-size:13px;line-height:1}
-  .theme-btn:hover{border-color:var(--accent);color:var(--fg)}
-  .theme-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
   /* minmax(0,1fr): a plain 1fr track has an implicit min of its CONTENT width, so
      the canvases refuse to shrink and overflow horizontally / overlap; minmax(0,…)
      lets the tracks shrink and the panels scale to the available width. */
@@ -1338,27 +1349,26 @@ X.B(E,Y);return E}return J}())
      switching to align-items:flex-end above: this is a position:fixed
      element, outside the normal flex flow, so it needs its own explicit
      match to that same bottom edge rather than inheriting it for free.
-     26px (was 28px) — now the exact same size as .theme-btn, not 2px larger.
-     margin:0 because the generic button{margin:4px 0} rule (meant for
-     in-flow sidebar buttons) would otherwise silently add another 4px here.
-     44px is measureHeader()'s own pre-JS fallback. */
-  #sideToggle{position:fixed;top:calc(var(--header-content-bottom,44px) - 26px);left:14px;z-index:45;width:26px;height:26px;margin:0;display:flex;
-    align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
-    border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
-  #sideToggle:hover{background:var(--surface-hover);border-color:var(--accent)}
+     Shape/size/colour come from the shared icon-button rule above (see its
+     own comment — this used to duplicate those properties with different
+     values, the actual inconsistency reported). margin:0 because the
+     generic button{margin:4px 0} rule (meant for in-flow sidebar buttons)
+     would otherwise silently add another 4px here. 44px is
+     measureHeader()'s own pre-JS fallback. */
+  #sideToggle{position:fixed;top:calc(var(--header-content-bottom,44px) - var(--icon-size));left:14px;z-index:45;margin:0}
   #scrim{display:none}   /* mobile-only / desktop-floating tap-catcher behind the open drawer */
   header{padding-left:50px}                          /* room for the fixed toggle at top-left */
   /* pin button — re-docks a floating desktop drawer back into the grid layout. Stacked
      BELOW the toggle (not beside it) so it never overlaps the header title text, which
      starts right after the toggle's own column. Same --header-content-bottom anchor as
-     #sideToggle, offset by its own 26px height plus the original design's 6px gap, so
-     the two stay visually locked together at any header height — see #sideToggle's own
-     comment for why this is calc()-based rather than a flat px value, and why margin:0
-     is needed (button{margin:4px 0} would otherwise bleed in here too). */
-  #sidePin{position:fixed;top:calc(var(--header-content-bottom,44px) + 6px);left:14px;z-index:46;width:26px;height:26px;margin:0;display:none;
-    align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
-    border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
-  #sidePin:hover{background:var(--surface-hover);border-color:var(--accent)}
+     #sideToggle, offset by its own --icon-size height plus the original design's 6px
+     gap, so the two stay visually locked together at any header height — see
+     #sideToggle's own comment for why this is calc()-based rather than a flat px value,
+     and why margin:0 is needed (button{margin:4px 0} would otherwise bleed in here too).
+     display:none here (not the shared rule's display:flex) is deliberate — this ID rule
+     comes later in the stylesheet, so it correctly wins the default-hidden state; the
+     body.side-float rule further down flips it back to flex. */
+  #sidePin{position:fixed;top:calc(var(--header-content-bottom,44px) + 6px);left:14px;z-index:46;margin:0;display:none}
   /* single column when collapsed: .sidebar is display:none (removed from the grid),
      so a 2-track template would auto-place .main into the first (0-width) track and
      hide the canvases — one 1fr track puts .main full-width. */
@@ -1558,9 +1568,15 @@ X.B(E,Y);return E}return J}())
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
-  .linetool{width:auto;padding:2px 6px;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:5px;color:var(--muted);line-height:0;cursor:pointer}
+  /* Small icon-button size (--icon-size-sm) — shape/colour/hover/.on all
+     come from the shared icon-button rule up near .theme-btn; this only
+     sets the size, same split as #sideToggle/#sidePin above. Used to be
+     width:auto;padding:2px 6px (content-driven, so the crop icon's 12px-
+     wide SVG and the measure icon's 15px-wide one rendered as visibly
+     different-width buttons) — a fixed square is the "one shape, one of
+     two sizes" the icon-button system now guarantees everywhere. */
+  .linetool{width:var(--icon-size-sm);height:var(--icon-size-sm)}
   .logbtn{width:auto;padding:2px 8px;margin:0;font-size:11px;font-weight:400;background:var(--surface);border:1px solid var(--line);border-radius:5px;color:var(--muted);cursor:pointer}
-  .linetool.on{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
   .modal-bg{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
   .modal-bg.open{display:flex}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:780px;max-height:86vh;overflow:auto;padding:22px 26px}
@@ -1658,7 +1674,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.5 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2082,7 +2098,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.5 · proof-of-concept</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24a · one shared icon-button shape/size system (theme switch, sidebar toggle/pin, raw/sr panel crop/measure tools); mobile header subtitle no longer sits flush against the title</div>
   </main>
 </div>
 
