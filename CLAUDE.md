@@ -497,12 +497,14 @@ relevant one before editing rather than scrolling:
   moved **View data + filtering** up into the row that freed) — reverted on request one build
   later: it now sits in the sidebar instead, sharing `#tableBtn`'s own row, right of **View data +
   filtering**. Its own bespoke `.helpbtn` look (a surface+accent-border+accent-text combo) was
-  already removed as dead CSS during the header detour and NOT restored — it's now a plain default
-  button, same as `tableBtn` beside it, rather than reintroducing a class for one button. The
-  header-specific `#layoutToggleBtn,#helpBtn{height:var(--icon-size)}` rule reverted back to
-  `#layoutToggleBtn` alone (`helpBtn` no longer shares that row, so no longer needs matching that
-  row's own icon-button height). `wireHelp()` itself needed zero changes throughout either move —
-  still finds the button by the same `id="helpBtn"`, position-independent.
+  dropped as dead CSS during the header detour (a plain `.logbtn` fit the header's own family
+  better there), then explicitly restored once the button moved back — `.helpbtn` is real CSS
+  again, `helpBtn` carries the class again, and it reads with its original blue outline/text rather
+  than blending in as a plain default button like `tableBtn` beside it. The header-specific
+  `#layoutToggleBtn,#helpBtn{height:var(--icon-size)}` rule reverted back to `#layoutToggleBtn`
+  alone (`helpBtn` no longer shares that row, so no longer needs matching that row's own icon-
+  button height). `wireHelp()` itself needed zero changes throughout any of this — still finds the
+  button by the same `id="helpBtn"`, position- and class-independent.
 
   **`webSMLM_lastVersion`** (localStorage, right after the theme-init block above, same try/catch
   fail-safe) is a sibling of `webSMLM_theme` for a different purpose: on load, it parses the
@@ -724,7 +726,7 @@ relevant one before editing rather than scrolling:
   `docs/REFACTOR_PLAN.md` follow-ups; the interactive **Preview pairs** distance/angle histograms
   (`computeHist()`/`drawHistogram()` from **table**) cover "find my window" instead — always
   fetched over a WIDE fixed scan (0–6000 nm, any angle), ignoring the current field values, so
-  narrowing either one first can't hide the true peak. **Show angle hist.**, unlike the distance
+  narrowing either one first can't hide the true peak. The **angle** histogram, unlike the distance
   one, DOES restrict to the current distance window (angle signal is only sharp within the real
   peak) and plots each candidate's `rawAngle` AND its exact reverse (`+180°`) — which of a
   candidate's two points gets the smaller array index (and therefore which direction `rawAngle`
@@ -735,6 +737,21 @@ relevant one before editing rather than scrolling:
   against real data, vs. the ~5° that actually worked by hand). Both histograms draw the currently
   configured window as markers (`computeHist()`'s optional 4th `markers` param), refreshed live on
   field edits and after a fit via `refreshSSmlmHistIfShown()`.
+
+  **`sSmlmHistBtn`** ("Show histograms") merges what used to be two separate sidebar buttons (Show
+  dist. hist. / Show angle hist.) into one, mirroring **spt**'s own `sptHistBtn`/`sptHistModeBtn`
+  merge (same session, same pattern) — `sSmlmHistModeBtn`, inline in the raw-panel title, toggles
+  which mode `drawSSmlmHist()` (already a single mode-aware function, `sSmlmHistMode` `'dist'`/
+  `'angle'`, predating this merge — the two buttons previously just called it with the mode
+  pre-set) draws, labelled `"Distances"`/`"Angles"` (the OTHER mode's name, `driftPlotModeBtn`'s own
+  convention). **Deliberately different from spt's own merge in one way**: `drawSSmlmHist()`
+  overrides `$('rawTitle')` to a single FIXED `"sSMLM histograms"` for both modes, right after
+  `drawHistogram()` sets its own per-mode auto-title (`"Histogram: sSMLM pair distance"`/`"...
+  angle"`) — spt's merge deliberately kept `drawHistogram()`'s own per-mode title instead; this one
+  doesn't, by explicit request. `previewSSmlmPairs()` resets `sSmlmHistMode='dist'` before its own
+  first draw — a fresh Preview always opens on Distances, same "fresh result opens on the default
+  view" precedent `driftPlotMode`/`sptHistMode` already follow. `refreshSSmlmHistIfShown()` is
+  unaffected by the merge — already keyed off `histData.col`, not which button opened it.
 
   An unpaired localization is dropped from the result. A pair's reported position is the 0th
   order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
@@ -847,8 +864,11 @@ relevant one before editing rather than scrolling:
   time** or **Localization error** after **Track** rescales every track's D (table/CSV, `lastSpt`,
   the D histogram) directly from `trackMSD`, no re-linking — unlike **Search range**/**Memory**/
   **Min track length**, which change which tracks/steps exist and still need a fresh **Track**.
-  The **from NeNA** button's programmatic `sptLocError.value` write doesn't fire `change`, so its
-  handler calls `recomputeSptD()` explicitly.
+  The **Get from NeNA** button (`sptLocErrorFromNenaBtn`, renamed from "from NeNA" and moved to the
+  right side of its own row via `style="grid-column:2"` — a lone `.btnrow` child sits in the LEFT
+  grid cell by default, so an explicit `grid-column` is needed to right-align one instead) has a
+  programmatic `sptLocError.value` write that doesn't fire `change`, so its handler calls
+  `recomputeSptD()` explicitly.
 
   `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ),
   a photobleaching-limited survival model) via WEIGHTED least-squares on ln(count) vs bin centre,
@@ -873,8 +893,10 @@ relevant one before editing rather than scrolling:
 
   `track_id`/`D_coeff` are independent, optional table/CSV columns (same pattern as sSMLM's
   `dist`/`sigma1st`), so the filter grammar works on tracking data for free — the general **Save
-  data** CSV gains these automatically once Track has run. **Save spt data**
-  (`sptSaveBtn`/`exportSptSummary()`) is a genuinely DIFFERENT export: `sptTrackSummary()`
+  data** CSV gains these automatically once Track has run. **Save tracking data**
+  (`sptSaveBtn`/`exportSptSummary()`, renamed from "Save spt data" — measured to still fit on one
+  line at the sidebar's normal width, matching sibling `sptTrackBtn`'s own rendered height) is a
+  genuinely DIFFERENT export: `sptTrackSummary()`
   aggregates into one row per TRACK (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`) rather than
   per localization — built from the tracked locs directly, not `lastSpt`'s own arrays (those only
   cover qualifying tracks); every linked track gets a row here. **Headless**: `config.sptTrack`
@@ -1228,8 +1250,8 @@ so scrubbing to a frame a Run would never touch can't show a misleading live-fit
 
 Sidebar/panel-title buttons must fit on one line at the sidebar's normal width — a label that
 wraps reads as broken layout, not a design choice. Abbreviate rather than let a label wrap:
-"Show dist. hist." not "Show distance hist." (see the sSMLM section's histogram-toggle button).
-Favour standard, unambiguous abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that
+"Show area hist." not "Show area histogram" (see **spt**'s segmentation-image section). Favour
+standard, unambiguous abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that
 could be misread.
 
 ### `label.row` nesting-depth gotcha (indented sidebar sub-rows)

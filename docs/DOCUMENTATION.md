@@ -1368,7 +1368,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 <!-- HINT:sSMLM -->
 <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
 <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-<p><b>Preview pairs</b> only computes — <b>Show dist. hist.</b> draws a distance histogram (every candidate pair in range, any angle); <b>Show angle hist.</b> draws an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+<p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or an angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
 <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
 <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
 <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -1384,13 +1384,16 @@ candidates over a WIDE, fixed scan — distance 0–6000 nm (wider still if
 Distance max is already past that) at any angle — ignoring the
 Distance/Angle fields entirely, reusing the table module's own
 `computeHist()`/`drawHistogram()` (fed candidate values instead of a table
-column). **Show dist. hist.** plots that full wide scan with the
-*currently configured* Distance min/max overlaid as vertical reference
-lines (read live, so editing the fields and re-clicking moves the lines
-without a fresh Preview) — showing the whole distance picture, not just
-whatever's inside the window, makes it visible whether the window is
-actually sitting on the real peak. **Show angle hist.**, by contrast,
-*does* restrict to the currently configured distance window (also read
+column). **Show histograms** (one button, merging what used to be two —
+a toggle next to the raw panel's own title, labelled **Distances** or
+**Angles**, switches between the two views; **Distances** shown first)
+plots the full wide scan with the *currently configured* Distance min/max
+overlaid as vertical reference lines (read live, so editing the fields
+and re-clicking moves the lines without a fresh Preview) — showing the
+whole distance picture, not just whatever's inside the window, makes it
+visible whether the window is actually sitting on the real peak. The
+**Angles** view, by contrast, *does* restrict to the currently configured
+distance window (also read
 live) — the angle signal is only sharp within the real peak, so pooling
 in the wide scan's off-peak distances would just dilute it with
 background — and plots each candidate's bearing AND its exact reverse

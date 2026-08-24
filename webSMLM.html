@@ -16,36 +16,37 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24t; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24u; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2176   PARAMS registry, single source of truth for params
-    in/out          2670   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2983   synthetic stack generator ("Simulate movie")
-    detect          3832   per-frame band-pass + local-maxima detection
-    fit             4088   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2177   PARAMS registry, single source of truth for params
+    in/out          2671   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2984   synthetic stack generator ("Simulate movie")
+    detect          3833   per-frame band-pass + local-maxima detection
+    fit             4089   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4563   accumulate to offscreen buffer; view/colour/blur;
+    render          4564   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5508   frame-parallel detect/fit worker pool
-    export          5673   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5933   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6333   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5510   frame-parallel detect/fit worker pool
+    export          5675   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5935   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6335   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6648   NeNA + FRC
-    sSMLM           7291   spectrally resolved SMLM pair-finding
-    spt             7741   single particle tracking, trackpy-inspired;
+    locprecision    6650   NeNA + FRC
+    sSMLM           7293   spectrally resolved SMLM pair-finding; merged
+                           Show histograms (sSmlmHistBtn/sSmlmHistModeBtn)
+    spt             7757   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap; merged Show histograms
                            (sptHistBtn/sptHistModeBtn)
-    pipeline        8575   top-level orchestration, *Core()/wrapper split;
+    pipeline        8592   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn)
-    table           10301  localizations table, filtering, histograms
-    headless API    10745  window.webSMLM.analyze()/analyzeBatch()
+    table           10318  localizations table, filtering, histograms
+    headless API    10762  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1593,6 +1594,7 @@ X.B(E,Y);return E}return J}())
     background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap;max-width:100ch}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
+  .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
   /* Small icon-button size (--icon-size-sm) — shape/colour/hover/.on all
      come from the shared icon-button rule up near .theme-btn; this only
      sets the size, same split as #sideToggle/#sidePin above. Used to be
@@ -1703,7 +1705,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24t</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24u</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1738,7 +1740,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </div>
       <div class="btnrow" style="margin-top:6px">
         <button id="tableBtn" disabled title="Show the localizations in a sortable, filterable table">View data + filtering</button>
-        <button id="helpBtn" title="Open the quick-reference guide (guided workflow, acknowledgements, licence)">Quick guide</button>
+        <button id="helpBtn" class="helpbtn" title="Open the quick-reference guide (guided workflow, acknowledgements, licence)">Quick guide</button>
       </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="file" accept=".tif,.tiff,.nd2,.csv" multiple hidden>
@@ -2045,10 +2047,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row">Require narrower 0th order (σ) <input type="checkbox" id="sSmlmRequireNarrower"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sSmlmPreviewBtn" disabled title="Preview candidate pairs as distance/angle histograms, without committing">Preview pairs</button>
-          <button id="sSmlmDistHistBtn" disabled title="Show the candidate distance histogram">Show dist. hist.</button>
+          <button id="sSmlmHistBtn" disabled title="Show the candidate distance/angle histograms (Distances shown first; toggle next to the raw panel title switches between the two)">Show histograms</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
-          <button id="sSmlmAngleHistBtn" disabled title="Show the candidate angle histogram">Show angle hist.</button>
           <button id="sSmlmFitAngleBtn" disabled title="Estimate Primary angle and Angle tolerance from the current angle histogram's peak (half-max width) and fill them in below">Fit angle &amp; tol.</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
@@ -2059,7 +2060,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-sSMLM"><span class="pill">module: sSMLM</span>
           <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
           <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-          <p><b>Preview pairs</b> only computes — <b>Show dist. hist.</b> draws a distance histogram (every candidate pair in range, any angle); <b>Show angle hist.</b> draws an angle histogram restricted to the current distance window, so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+          <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or an angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
           <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -2095,7 +2096,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row">Frame time (s) <input type="number" id="sptFrameTime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
         <label class="row">Localization error (nm) <input type="number" id="sptLocError" value="35" min="0" max="500" step="1" class="num"></label>
         <div class="btnrow" style="margin-top:2px">
-          <button id="sptLocErrorFromNenaBtn" disabled title="Fill Localization error in from the NeNA precision (runs NeNA first if it hasn't been computed yet)">from NeNA</button>
+          <button id="sptLocErrorFromNenaBtn" disabled style="grid-column:2" title="Fill Localization error in from the NeNA precision (runs NeNA first if it hasn't been computed yet)">Get from NeNA</button>
         </div>
         <label class="row">Min track length (locs) <input type="number" id="sptTrackLenMin" value="5" min="2" max="1000" step="1" class="num"></label>
         <label class="row">D plot min (µm²/s) <input type="number" id="sptDPlotMin" value="0.004" min="0.0001" max="1000" step="0.001" class="num"></label>
@@ -2103,7 +2104,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="btnrow" style="margin-top:6px">
           <button id="sptTrackBtn" disabled title="Link localizations into trajectories and compute a diffusion coefficient per track">Track</button>
           <button id="sptHistBtn" disabled title="Show the diffusion-coefficient / track-length histograms (Diffusion shown first; toggle next to the raw panel title switches between the two)">Show histograms</button>
-          <button id="sptSaveBtn" disabled title="Save a per-track summary CSV (track_id, n_locs, D_coeff, mean x/y, first/last frame) — one row per track, not per localization">Save spt data</button>
+          <button id="sptSaveBtn" disabled title="Save a per-track summary CSV (track_id, n_locs, D_coeff, mean x/y, first/last frame) — one row per track, not per localization">Save tracking data</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-spt"><span class="pill">module: spt</span>
@@ -2123,7 +2124,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Toggle between the diffusion-coefficient histogram and the track-length histogram">Track length</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Toggle between the diffusion-coefficient histogram and the track-length histogram">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
@@ -2160,7 +2161,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24t · Quick guide moved back to the sidebar (shares its row with View data + filtering, not the header); README trimmed to launch/guided-workflow/privacy/scripting/roadmap/citation, with the feature list, performance table, references and known-limitations sections removed in favour of docs/DOCUMENTATION.md and docs/REFACTOR_PLAN.md</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24u · Quick guide restyled back to its blue-outline look; Get from NeNA moved to the right of its row; Save spt data renamed Save tracking data; sSMLM's Show dist./angle hist. merged into one Show histograms button with a Distances/Angles toggle next to the raw panel title</div>
   </main>
 </div>
 
@@ -5483,6 +5484,7 @@ function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
   { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }   // only relevant while the drift plot itself is showing
   { const b=$('sptHistModeBtn'); if(b) b.style.display='none'; }   // only relevant while an spt histogram itself is showing
+  { const b=$('sSmlmHistModeBtn'); if(b) b.style.display='none'; }   // only relevant while an sSMLM histogram itself is showing
   rawSegView=false;   // reclaim the panel from a shown segmentation image too, same "any real frame redraw reclaims the panel" convention as the plot/FTM cases above
   setRawPlot(false);
   if(!rawFull) rawFull=document.createElement('canvas');
@@ -7571,9 +7573,18 @@ function drawSSmlmHist(){
   }
   computeHist(sSmlmHistMode==='dist' ? 'sSMLM pair distance' : 'sSMLM pair angle', vals, sSmlmHistMode==='dist' ? 'nm' : 'deg', markers);
   drawHistogram();
+  // drawHistogram() already set $('rawTitle') to its own auto title
+  // ("Histogram: sSMLM pair distance"/"...angle") — overridden here to one
+  // fixed title for BOTH modes, so the panel reads "sSMLM histograms"
+  // regardless of which is showing (unlike spt's D/track-length merge,
+  // which keeps drawHistogram()'s own per-mode title — a deliberate
+  // difference, by request). sSmlmHistModeBtn (inline in the raw-panel
+  // title, same place/pattern as driftPlotModeBtn/sptHistModeBtn) names the
+  // OTHER mode (what clicking it switches TO), matching that convention.
+  $('rawTitle').textContent='sSMLM histograms';
+  const btn=$('sSmlmHistModeBtn');
+  if(btn){ btn.style.display=''; btn.textContent = sSmlmHistMode==='dist' ? 'Angles' : 'Distances'; }
 }
-function showSSmlmDistHist(){ if(!sSmlmLastCands) return; sSmlmHistMode='dist'; drawSSmlmHist(); }
-function showSSmlmAngleHist(){ if(!sSmlmLastCands) return; sSmlmHistMode='angle'; drawSSmlmHist(); }
 // Estimate Primary angle/Angle tolerance from the SAME doubled-bearing data
 // the angle histogram plots (not whatever histogram happens to be currently
 // on screen) — peak-bin detection + half-max walk, not a full Gaussian fit;
@@ -7632,7 +7643,8 @@ async function previewSSmlmPairs(){
   try{
     sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, 0, scanMax, 0, 90, setProg);
     log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
-    $('sSmlmDistHistBtn').disabled=false; $('sSmlmAngleHistBtn').disabled=false; $('sSmlmFitAngleBtn').disabled=false;
+    $('sSmlmHistBtn').disabled=false; $('sSmlmFitAngleBtn').disabled=false;
+    sSmlmHistMode='dist';   // a fresh Preview always opens on Distances, not wherever a previous session's toggle left it — same precedent driftPlotMode/sptHistMode follow
     drawSSmlmHist();
   } finally { $('sSmlmPreviewBtn').disabled=false; setProg(null); }
 }
@@ -7704,8 +7716,12 @@ $('sSmlmColorBtn').addEventListener('click',()=>{
   rerender(true);
 });
 $('sSmlmPreviewBtn').addEventListener('click',previewSSmlmPairs);
-$('sSmlmDistHistBtn').addEventListener('click',showSSmlmDistHist);
-$('sSmlmAngleHistBtn').addEventListener('click',showSSmlmAngleHist);
+// "Show histograms" reopens whichever mode sSmlmHistMode currently is (last
+// viewed, or 'dist' after a fresh Preview) — the toggle button next to the
+// raw panel's own title flips it. Same plain text-swap convention as
+// driftPlotModeBtn/sptHistModeBtn, not an .active/.on styled state.
+$('sSmlmHistBtn').addEventListener('click',()=>{ if(sSmlmLastCands) drawSSmlmHist(); });
+$('sSmlmHistModeBtn').addEventListener('click',()=>{ sSmlmHistMode = sSmlmHistMode==='dist' ? 'angle' : 'dist'; drawSSmlmHist(); });
 $('sSmlmFitAngleBtn').addEventListener('click',fitSSmlmAngle);
 $('sSmlmPairBtn').addEventListener('click',runSSmlmPair);
 $('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
@@ -8377,6 +8393,7 @@ function drawSegmentedImage(labelArr,w,h){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Segmented image'; }
   { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }
   { const b=$('sptHistModeBtn'); if(b) b.style.display='none'; }
+  { const b=$('sSmlmHistModeBtn'); if(b) b.style.display='none'; }
   if(!rawFull) rawFull=document.createElement('canvas');
   rawFull.width=w; rawFull.height=h;
   const ctx=rawFull.getContext('2d'), im=ctx.createImageData(w,h);
@@ -9088,7 +9105,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
   try{
     const method=paramValue('method');
     const localize3D=paramValue('localize3D');
@@ -9295,7 +9312,7 @@ $('genBtn').addEventListener('click',async()=>{
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -9324,7 +9341,7 @@ async function loadMovieFiles(fs){
   if(!fs.length) return;
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -9708,7 +9725,7 @@ async function loadCsvFile(f){
     $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
-    $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
     $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the histograms themselves need a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
@@ -9990,7 +10007,7 @@ function resetAfterCropChange(){
   // would otherwise try to write lastResult.locs on a null lastResult) — same
   // reset every fresh Run/Load/Simulate already does, needed here for the
   // same reason: a crop/uncrop is just as much "new data" for this state.
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmDistHistBtn').disabled=true; $('sSmlmAngleHistBtn').disabled=true; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
 }
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
