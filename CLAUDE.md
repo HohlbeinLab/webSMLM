@@ -969,11 +969,11 @@ slower than V8), so keep validation inputs small.
   on `webSMLM_local` → push → `git checkout main && git merge --ff-only webSMLM_local` → push main.
 - Cadence: **minor bumps (`0.x.0`) → cut a GitHub release + new Zenodo version DOI. Patch releases
   (`0.x.y`) → version bump + push to `main` only, no DOI.**
-- Version lives in two spots in `webSMLM.html` (the `.pill` in the `<h1>`, and the `<noscript>`
-  log-stamp line) plus `CITATION.cff`. Dev builds are marked `vX.Y.Z-dev · build YYYY-MM-DDx`;
+- Version lives in two spots in `webSMLM.html` (the `.pill` in the `<h1>`, and the `#log` div's
+  own seed text) plus `CITATION.cff`. Dev builds are marked `vX.Y.Z-dev · build YYYY-MM-DDx`;
   clear the dev marker to `vX.Y.Z · proof-of-concept` on release. **Bump the build letter suffix
   (`a`→`b`→`c`…) on every round of changes the user is about to test** — it's the only visible
-  signal (pill + noscript stamp) that a hard-refreshed page is actually running the latest edits,
+  signal (pill + log stamp) that a hard-refreshed page is actually running the latest edits,
   not a cached prior build. **Every build-letter bump also gets its own commit on
   `webSMLM_local`** (no need to ask first — this one's a standing instruction), so each testable
   round has real git history, not just an accumulating uncommitted diff. This is independent of
@@ -985,6 +985,16 @@ slower than V8), so keep validation inputs small.
 - Every release also updates `CHANGELOG.md` (newest first; DOI column) and, where the release
   closes out or changes a roadmap item, `docs/REFACTOR_PLAN.md`. Pages typically redeploys ~1-2 min
   after a push; check with `gh api repos/HohlbeinLab/webSMLM/pages/builds/latest`.
+- **Read the Docs also rebuilds on every push to `main`** as of 2026-08-24 — a GitHub webhook
+  (repo Settings → Webhooks, id `669780136`, events: `push`) targets RTD's own incoming-webhook URL
+  for this project (`https://app.readthedocs.org/api/v2/webhook/websmlm/331808/`, HMAC-signed with a
+  secret held only on the GitHub and RTD sides, never in this repo). Before this, RTD had no
+  webhook at all (confirmed via `gh api repos/HohlbeinLab/webSMLM/hooks` — only a Zenodo one existed,
+  `events:["release"]`), so <https://websmlm.readthedocs.io/en/latest/> had been silently stale
+  (still v0.10.3-era content) despite several rounds of `docs/DOCUMENTATION.md` work already having
+  shipped to `main`. No API-based check exists for this the way Pages has one (`gh api .../pages/
+  builds/latest`) — after a release, either check the RTD project's own Builds page, or just confirm
+  the live site reflects the change a few minutes later.
 
 ## Reference material
 
