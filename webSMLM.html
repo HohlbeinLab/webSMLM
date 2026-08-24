@@ -17,43 +17,44 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24ab; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24ac; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2186   PARAMS registry, single source of truth for params;
+    params          2193   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split
-    in/out          2680   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2993   synthetic stack generator ("Simulate movie")
-    detect          3842   per-frame band-pass + local-maxima detection
-    fit             4098   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    in/out          2687   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      3000   synthetic stack generator ("Simulate movie")
+    detect          3849   per-frame band-pass + local-maxima detection
+    fit             4105   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4573   accumulate to offscreen buffer; view/colour/blur;
+    render          4580   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually exclusive
-    workers         5535   frame-parallel detect/fit worker pool
-    export          5700   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5960   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6360   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5542   frame-parallel detect/fit worker pool
+    export          5707   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5967   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6367   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6676   NeNA + FRC
-    sSMLM           7319   spectrally resolved SMLM pair-finding; merged
+    locprecision    6683   NeNA + FRC
+    sSMLM           7326   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7784   single particle tracking, trackpy-inspired;
+    spt             7791   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
-                           cell-by-cell tracking + "Show segm."/"Show
-                           recon." SR-panel swap; merged Show histograms
-                           (sptHistBtn/sptHistModeBtn) and Show image
-                           (segShowBtn/segShowModeBtn)
-    pipeline        8654   top-level orchestration, *Core()/wrapper split;
+                           cell-by-cell tracking (now wired headlessly too,
+                           config.segmentationFile/--segmentation) + "Show
+                           segm."/"Show recon." SR-panel swap; merged Show
+                           histograms (sptHistBtn/sptHistModeBtn) and Show
+                           image (segShowBtn/segShowModeBtn)
+    pipeline        8671   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked
-    table           10386  localizations table, filtering, histograms
-    headless API    10830  window.webSMLM.analyze()/analyzeBatch()
+    table           10404  localizations table, filtering, histograms
+    headless API    10848  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1717,7 +1718,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24ab</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24ac</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1770,6 +1771,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            calibration headlessly instead of loading a *.calib.json) — see
            analyze()'s config.calibrationFile/calibrationFiles below. -->
       <input type="file" id="calibrationFileInput" multiple hidden>
+      <!-- Same conduit again, for a --segmentationFile <mask>.tif upload — separate
+           from #segFile so driving analyze() never also triggers #segFile's own
+           change handler (loadSegmentedImage(), which would load the same image a
+           second time into the unrelated segmentedImageLabels/segmentedImageData
+           globals and draw it into the raw panel — analyze() stays DOM-free). See
+           analyze()'s config.segmentationFile below. -->
+      <input type="file" id="segmentationFileInput" hidden>
       <!-- Pinned outside any collapsible <details> — first-pass fix for a real complaint:
            this was buried inside "Localisation settings" (collapsed by default), easy to
            forget/never notice was there. It feeds the scale bar, z, and exported CSV
@@ -2170,7 +2178,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.6-dev · build 2026-08-24ab · Segmentation: "Show segmentation" renamed to "Show image" so it fits on one line next to "Load segm. image"</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.6-dev · build 2026-08-24ac · Cell-by-cell SPT tracking is now wired headlessly (config.segmentationFile / tools/webSMLM-cli.mjs's --segmentation), verified end to end via the CLI</div></div>
   </main>
 </div>
 
@@ -7961,8 +7969,18 @@ function cellIdForLoc(L, segLabels){
 // cell, or a cell outside the area range) come back with track_id -1,
 // never linked — trackDiffusionCoeffs() already skips track_id<0 locs
 // unmodified, so nothing downstream needs to change for that.
+//
+// Per-cell area is recomputed from segLabels itself (computeSegmentedImageData(),
+// pure/DOM-free) rather than read off the module-level segmentedImageData global —
+// an earlier version read that global directly, which happened to work
+// interactively (drawSegmentedImage() always populates it right before this can be
+// called) but silently broke headless use: analyze() has no reason to touch that
+// global at all (staying DOM-free like every other *Core() consumer), so the area
+// lookup would come back empty and every loc would fall through as "not in a
+// qualifying cell". Recomputing here is exactly as cheap and can never drift out of
+// sync with the segLabels actually being tracked.
 async function linkTracksPerCell(locs, px, config, segLabels, areaMin, areaMax, onProgress=()=>{}){
-  const areaOf=new Map((segmentedImageData||[]).map(c=>[c.id,c.areaPx]));
+  const areaOf=new Map(computeSegmentedImageData(segLabels.arr,segLabels.w,segLabels.h).map(c=>[c.id,c.areaPx]));
   const byCell=new Map(), excluded=[];
   for(const L of locs){
     const rawId=cellIdForLoc(L, segLabels), area=areaOf.get(rawId);
@@ -11037,9 +11055,28 @@ async function analyze(config){
   // uncorrected systematic drift over the acquisition would inflate D), so
   // this runs after correctDrift specifically, matching the sidebar's own
   // Drift correction -> Single particle tracking ordering.
+  //
+  // config.segmentationFile — the headless equivalent of checking "Apply
+  // segmentation?" + Load segm. image, switching sptCore() to cell-by-cell
+  // tracking (segCtx, MODULE: spt) instead of one whole-FOV pass. Loaded
+  // the same way config.file/config.calibrationFile are (loadTiffFile(),
+  // frame 0 only — a segmentation mask is a single image, same as the
+  // interactive path); segAreaMin/segAreaMax are ordinary PARAMS entries
+  // already defaulted by defaultConfig() above, no extra wiring needed for
+  // those two. Deliberately does NOT touch the interactive
+  // segmentedImageLabels/segmentedImageData globals or draw anything —
+  // analyze() stays DOM-free like every other *Core() consumer here.
   let spt=null;
   if(cfg.sptTrack && locs.length){
-    const sr = await sptCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
+    let segCtx=null;
+    if(cfg.segmentationFile){
+      const segStack = await loadTiffFile(cfg.segmentationFile, onLog);
+      if(segStack.n>1) onLog(`⚠ Segmentation image has ${segStack.n} frames — using frame 1 only.`);
+      const segImg = (await segStack.getFrames(0,1))[0];
+      if(segStack.w!==r.w || segStack.h!==r.h) onLog(`⚠ Segmentation image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${r.w}×${r.h}) — pixel correspondence will be off.`);
+      segCtx = { labels:{arr:segImg,w:segStack.w,h:segStack.h}, areaMin:cfg.segAreaMin, areaMax:cfg.segAreaMax };
+    }
+    const sr = await sptCore(locs, cfg.pxnm, cfg, {onLog, onProgress}, segCtx);
     locs = sr.locs;
     spt = {nTracks:sr.nTracks, nQualify:sr.diffCoeffs.length, meanD:sr.meanD, medianD:sr.medianD};
   }

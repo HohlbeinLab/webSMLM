@@ -26,6 +26,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --sSmlmDistMin 2200 --sSmlmDistMax 2800
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --sptTrack --sptFrameTime 0.05
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeNeNA --computeFRC --exportPlots
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --segmentation mask.tif --segAreaMin 50 --segAreaMax 5000
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -65,6 +66,15 @@
 // --sptTrackLenMin (ordinary PARAMS overrides) configure it; result.csv
 // gains track_id/D_coeff columns (summary.json's "spt" field records
 // nTracks/nQualify/meanD/medianD).
+// --segmentation <mask.tif/.tiff/.nd2> switches --sptTrack to cell-by-cell
+// tracking (MODULE: spt's "Apply segmentation?" + Load segm. image,
+// docs/DOCUMENTATION.md §8) — a track can never cross a cell boundary.
+// Frame 0 only (a segmentation mask is a single image); a size mismatch
+// against --file logs a warning but still proceeds. --segAreaMin/
+// --segAreaMax (ordinary PARAMS overrides, default 50/no limit) gate which
+// cells' localizations actually get tracked; result.csv gains cell_id/
+// cell_area columns for every localization once this is set. Ignored
+// without --sptTrack (nothing to switch the tracking mode of).
 // --estimateGainOffset runs PCFO gain/offset estimation (docs/DOCUMENTATION.md
 // §2 Fit / §8) on --file itself before localizing, overriding --gain/--camoffset
 // with the estimate (summary.json's "pcfo" field records what was found; falls
@@ -95,7 +105,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 
 // ---- argv parsing: --key value / --key=value / bare --flag => true ----
-const SPECIAL = new Set(['file', 'calibration', 'out', 'headed']);
+const SPECIAL = new Set(['file', 'calibration', 'segmentation', 'out', 'headed']);
 const argv = process.argv.slice(2);
 const opts = { headed: false };   // opts.out is resolved below, once filePath is known
 const configOverrides = {};
@@ -123,6 +133,7 @@ const calibPath = opts.calibration ? resolve(opts.calibration) : null;
 const calibIsJson = calibPath ? /\.json$/i.test(calibPath) : false;
 const calibIsTiff = calibPath ? /\.tiff?$/i.test(calibPath) : false;
 const calibrationJson = calibIsJson ? JSON.parse(readFileSync(calibPath, 'utf8')) : null;
+const segPath = opts.segmentation ? resolve(opts.segmentation) : null;
 
 if (calibrationOnly && !calibIsTiff) {
   console.error('error: --calibrationOnly needs --calibration <bead-stack.tif> (a .tif/.tiff to build a calibration from, not a .json)');
@@ -215,9 +226,13 @@ try {
     console.log(`Uploading calibration stack ${calibPath}...`);
     await page.setInputFiles('#calibrationFileInput', calibPath);
   }
+  if (segPath) {
+    console.log(`Uploading segmentation image ${segPath}...`);
+    await page.setInputFiles('#segmentationFileInput', segPath);
+  }
 
   console.log('Running analyze()...');
-  const result = await page.evaluate(async ({ rawConfig, calibrationJson, calibIsTiff, fileInputId, calFileInputId, progressTag, logTag }) => {
+  const result = await page.evaluate(async ({ rawConfig, calibrationJson, calibIsTiff, hasSeg, fileInputId, calFileInputId, segFileInputId, progressTag, logTag }) => {
     const config = {};
     for (const key in rawConfig) {
       const spec = PARAMS[key];
@@ -235,6 +250,7 @@ try {
     if (fileEl.files.length) config.file = fileEl.files[0];
     if (calibrationJson) config.calibrationJson = calibrationJson;
     if (calibIsTiff) config.calibrationFile = document.getElementById(calFileInputId).files[0];
+    if (hasSeg) config.segmentationFile = document.getElementById(segFileInputId).files[0];
     // Forward both live via console.log — page.on('console') on the Node
     // side (real-time) sees these as the run progresses, unlike the
     // eventual return value below, which only arrives once fully done.
@@ -265,7 +281,7 @@ try {
       spt: r.spt,
       plots: r.plots,
     };
-  }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG });
+  }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, hasSeg: !!segPath, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', segFileInputId: 'segmentationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG });
 
   const calibOutName = (calibPath ? basename(calibPath).replace(/\.(ome\.)?tiff?$/i, '') : 'webSMLM') + '_calib.json';
 

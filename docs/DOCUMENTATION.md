@@ -735,7 +735,10 @@ localizations actually get tracked — a fresh **Load segm. image** sets
 **Max. cell area** to the largest cell actually found in that image (a
 sensible starting upper bound instead of an abstract "no limit"); re-showing
 an already-loaded image does not touch it, so it won't silently overwrite a
-value you've since adjusted by hand.
+value you've since adjusted by hand. Headless exposure ([§8](#8-headless-api-window-websmlm)'s
+`config.segmentationFile`, v0.11.6) mirrors this: its mere presence switches
+`config.sptTrack` to cell-by-cell tracking, same `segAreaMin`/`segAreaMax`
+gating either way.
 
 Once a segmentation image is loaded, **SMLM reconstruction**'s own panel
 title gains a **Show segm.** button — swaps the panel from the usual density
@@ -1814,6 +1817,17 @@ const result = await window.webSMLM.analyze({
   `JSON.stringify()` if returned as-is); `result.locs`/`result.csvText`
   gain `track_id`/`D_coeff` columns the same way an interactive Track adds
   them to `lastResult.locs`, row count unchanged.
+- `config.segmentationFile` (v0.11.6) — a `File`, not a `PARAMS` entry. Its
+  mere presence switches `sptTrack` (above) from one whole-field-of-view
+  tracking pass to cell-by-cell tracking, the headless equivalent of
+  checking **Apply segmentation?** + **Load segm. image** — a track can
+  never cross a cell boundary. Loaded the same way `config.file`/
+  `config.calibrationFile` are; only frame 0 is read (a segmentation mask is
+  a single image). A size mismatch against the loaded movie logs a warning
+  but still proceeds. `config.segAreaMin`/`segAreaMax` (ordinary `PARAMS`
+  fields, default 50/no limit) gate which cells' localizations actually get
+  tracked; `result.locs`/`result.csvText` gain `cell_id`/`cell_area`
+  columns once this is set. Ignored if `sptTrack` itself wasn't requested.
 - `config.estimateGainOffset` — boolean, not a `PARAMS` entry. Runs
   `pcfoCore()` (PCFO gain/offset estimation, [§3/Gain-offset estimation
   (PCFO)](#pcfo-params)) on the SAME stack `config.file`/
@@ -2017,6 +2031,14 @@ corrected coordinates) — `--sptSearchRange`/`--sptMemory`/
 overrides) configure it; `result.csv` gains `track_id`/`D_coeff` columns,
 and `summary.json`'s `spt` field records `nTracks`/`nQualify`/`meanD`/
 `medianD` — see [§8](#8-headless-api-window-websmlm)'s `config.sptTrack`.
+`--segmentation <mask.tif/.tiff/.nd2>` switches `--sptTrack` to cell-by-cell
+tracking — a track can never cross a cell boundary. Only frame 0 is read (a
+segmentation mask is a single image); a size mismatch against `--file` logs
+a warning but still proceeds. `--segAreaMin`/`--segAreaMax` (ordinary
+`PARAMS` overrides, default 50/no limit) gate which cells' localizations
+actually get tracked; `result.csv` gains `cell_id`/`cell_area` columns.
+Ignored without `--sptTrack` — see
+[§8](#8-headless-api-window-websmlm)'s `config.segmentationFile`.
 `--cropX0`/`--cropY0`/`--cropX1`/`--cropY1` (any subset — an omitted bound
 defaults to that edge of the full frame) replace `--file` with just that
 native-pixel sub-rectangle before anything else touches it, the headless

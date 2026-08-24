@@ -945,6 +945,28 @@ relevant one before editing rather than scrolling:
   forward to it. No length-RESOLVED D histogram, no colour-by-D/by-track rendering — tracked as
   `docs/REFACTOR_PLAN.md` follow-ups.
 
+  **Cell-by-cell tracking is also wired headlessly**, `config.segmentationFile` — a File, loaded
+  the same way `config.file`/`config.calibrationFile` are (`loadTiffFile()`, frame 0 only), through
+  its own dedicated hidden `#segmentationFileInput` (separate from the interactive `#segFile`, same
+  "don't also trigger the interactive change handler" reasoning as `#analyzeFileInput`/
+  `#calibrationFileInput`). Its mere presence switches `sptCore()` to `segCtx`-based cell-by-cell
+  tracking, same as checking **Apply segmentation?** interactively; `segAreaMin`/`segAreaMax` are
+  ordinary `PARAMS` entries, no extra wiring needed for those two. A movie/mask size mismatch logs
+  the same warning the interactive `loadSegmentedImage()` does but still proceeds. This surfaced (and
+  fixed) a real, previously-latent bug: `linkTracksPerCell()` read per-cell area off the
+  module-level `segmentedImageData` global directly instead of taking it as a parameter — harmless
+  interactively (`drawSegmentedImage()` always populates that global right before this can run) but
+  silently broken headlessly, since `analyze()` deliberately never touches that global (staying
+  DOM-free like every other `*Core()` consumer) — every loc would have come back excluded with no
+  error. Fixed by recomputing the area map from the passed-in `segLabels` via
+  `computeSegmentedImageData()` (pure, already DOM-free) instead. `tools/webSMLM-cli.mjs`'s
+  `--segmentation <mask.tif>` forwards to it (verified against the real bundled
+  `Sample2_L.lactis_..._MMStack_Pos0.ome.tif` + `bf_analysed_JH_procBrightfield_segm.tif`, end to
+  end through the actual CLI subprocess — correct `cell_id`/`cell_area [px]` CSV columns, tracks
+  confined to their own cell); `?autorun=` has no file-upload mechanism at all (even
+  `calibrationFile` isn't reachable from it, a pre-existing gap, not something this touched) so it
+  doesn't gain an equivalent.
+
   **Segmentation image** (`applySegmentation` checkbox, default unchecked; v1, "as a start" toward
   cell-segmentation-aware tracking — see `docs/REFACTOR_PLAN.md`). Checking it reveals **Load
   segmented image** (`segLoadBtn`/hidden `segFile` input, same `.tif`/`.tiff`/`.nd2` accept list as
