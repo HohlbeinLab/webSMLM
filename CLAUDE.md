@@ -51,6 +51,16 @@ relevant one before editing rather than scrolling:
   control that changes it, reading left to right, with no wasted width now that nothing overlays
   the digits.
 
+  **Trailing "/N" text next to a numstep-wrapped field needs its own `vertical-align:middle`.**
+  `.numstep` itself is `display:inline-flex;align-items:stretch;vertical-align:middle` (see the
+  `<style>` block), so it renders TALLER than a plain text baseline — a plain `<span>` sitting
+  right after it (e.g. the Frame scrubber's `#scrubTotal`, showing "/ total frames" next to
+  `#scrubNum`) inherits ordinary baseline alignment by default and renders visibly LOWER than the
+  numstep group's own vertical centre, a real, reported bug. Fix: give that trailing span its own
+  `vertical-align:middle` too, matching `.numstep`'s. The same trailing span also gained a space on
+  each side of the `/` (` / 20000`, not `/20000`) in the same round, by request — plain spaces are
+  safe here since the parent already carries `white-space:nowrap`.
+
   **`pxnm` ("Pixel size (nm)") is pinned outside any collapsible `<details>`** — v1/first-pass
   fix for a real complaint: it used to sit inside the collapsed-by-default "Localisation settings"
   section (alongside Gain/Camera offset), easy to never notice was there despite feeding the scale
@@ -1410,12 +1420,15 @@ slower than V8), so keep validation inputs small.
   on `webSMLM_local` → push → `git checkout main && git merge --ff-only webSMLM_local` → push main.
 - Cadence: **minor bumps (`0.x.0`) → cut a GitHub release + new Zenodo version DOI. Patch releases
   (`0.x.y`) → version bump + push to `main` only, no DOI.**
-- Version lives in two spots in `webSMLM.html` (the `.pill` in the `<h1>`, and the `#log` div's
-  own seed text) plus `CITATION.cff`. Dev builds are marked `vX.Y.Z-dev · build YYYY-MM-DDx`;
+- Version lives in two spots in `webSMLM.html` (the `.pill` in the `<h1>`, and `#logText`'s own
+  seed text — a child of `#log` itself since the box/logged-text width split, see the `<noscript>`
+  gotcha section) plus `CITATION.cff`. Dev builds are marked `vX.Y.Z-dev · build YYYY-MM-DDx`;
   clear the dev marker to `vX.Y.Z · proof-of-concept` on release. **Bump the build letter suffix
   (`a`→`b`→`c`…) on every round of changes the user is about to test** — it's the only visible
-  signal (pill + log stamp) that a hard-refreshed page is actually running the latest edits,
-  not a cached prior build. **Every build-letter bump also gets its own commit on
+  signal (pill + log stamp) that a hard-refreshed page is actually running the latest edits, not a
+  cached prior build. Past `z` in a single day, roll over spreadsheet-column-style (`z`→`aa`→`ab`…)
+  rather than moving to a new date — first needed 2026-08-24, which shipped enough same-day rounds
+  to exhaust the single-letter alphabet. **Every build-letter bump also gets its own commit on
   `webSMLM_local`** (no need to ask first — this one's a standing instruction), so each testable
   round has real git history, not just an accumulating uncommitted diff. This is independent of
   releasing: `webSMLM_local` accumulates fine-grained commits continuously; `main` only receives
