@@ -506,13 +506,25 @@ relevant one before editing rather than scrolling:
 
   The side-by-side/stacked panel layout (`.canvases.stacked`, single column) is resolved by
   `applyLayout()`: `layoutOverride` (module-level, `null`/`true`/`false`) takes precedence over the
-  `stack.h/stack.w<0.5` auto-heuristic once the user clicks **Stack panels**/**Side by side**
-  (`layoutToggleBtn`), and sticks across further loads this session rather than the next movie's own
-  aspect ratio silently resetting the user's choice. `initScrub()` calls `applyLayout()` instead of
-  setting the class directly; the click handler also calls `refitCanvases()` immediately, since the
-  panel boxes just changed shape. `layoutToggleBtn` lives on the right of the **Log** card's own
-  title bar (`clearLogBtn`/`exportLogBtn` grouped on the left), not a dedicated row above the
-  canvases — that read as wasted vertical space for one small button.
+  `frameAspectWH.h/frameAspectWH.w<0.5` auto-heuristic once the user clicks **Stack panels**/**Side
+  by side** (`layoutToggleBtn`), and sticks across further loads this session rather than the next
+  load's own aspect ratio silently resetting the user's choice. `setFrameAspect(w,h)` is the single
+  place that sets `frameAspectWH`, the CSS `--frame-ar` custom property (both panels track it, see
+  above), AND calls `applyLayout()` — `initScrub()` calls it with the loaded stack's own `w`/`h`;
+  loading a CSV directly (`csvFile`'s own change handler, MODULE: table) calls it with
+  `parseCsvLocs()`'s own bounding-box `w`/`h` instead, since there's no stack at all in that path
+  and `initScrub()` never runs. Before this, a CSV-only load left `--frame-ar` at whatever a
+  previous stack happened to set it to (or the CSS default of square, 1:1, if none ever had) — a
+  real, reported bug: a wide/narrow result stayed letterboxed in a wrong-shaped panel, with the fit
+  view (and therefore the scale bar) sitting far from the actual plotted data instead of snug
+  against it, and never auto-triggering the stacked-panels heuristic a similarly-shaped movie
+  would. The reconstruction's own bounding box is always somewhat smaller than the original camera
+  FOV (border-adjacent localizations are dropped during fitting) — expected, not something to
+  correct for; it's still the right shape to fit the panel to. The click handler also calls
+  `refitCanvases()` immediately, since the panel boxes just changed shape. `layoutToggleBtn` lives
+  on the right of the **Log** card's own title bar (`clearLogBtn`/`exportLogBtn` grouped on the
+  left), not a dedicated row above the canvases — that read as wasted vertical space for one small
+  button.
 
   **Raw-frame display contrast** (`rawBlack`/`rawWhite`, the Contrast slider below the Frame
   scrubber, Picasso-inspired) is a FIXED [black,white] ADU range applied identically to every frame

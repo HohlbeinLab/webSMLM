@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24f; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24g; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1697,7 +1697,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24f</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2056,7 +2056,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <summary>Single particle tracking</summary>
         <label class="row">Apply segmentation? <input type="checkbox" id="applySegmentation"></label>
         <div class="btnrow" id="segLoadRow" style="display:none;margin-top:2px">
-          <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load movie">Load segmented image</button>
+          <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load movie">Load segm. image</button>
         </div>
         <label class="row">Search range (nm) <input type="number" id="sptSearchRange" value="800" min="10" max="5000" step="10" class="num"></label>
         <label class="row">Memory (frames) <input type="number" id="sptMemory" value="0" min="0" max="20" step="1" class="num"></label>
@@ -2127,7 +2127,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24f · SPT: "Apply segmentation?" — load a cell-labelled mask image, shown recoloured (adjacent cells visually distinct) in the raw panel, builds a per-cell id/centroid/area table (v1, doesn't filter tracking yet)</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24g · "Load segm. image" label no longer wraps; loading a CSV directly now sets the panels' aspect ratio from the loc data itself, auto-triggering stacked layout for wide/narrow results</div>
   </main>
 </div>
 
@@ -9044,9 +9044,9 @@ function initScrub(){
   $('rawContrastRow').style.display = stack ? 'flex' : 'none';   // useful even for a single-frame stack, unlike the Frame slider above
   if(stack){ $('calLast').value=stack.n; $('calFirst').value=1;   // default calibration range = whole stack
     $('fitLastFrame').value=stack.n; $('fitFirstFrame').value=1;  // default Localize range = whole stack too
-    // both panels take the stack's aspect ratio (raw frame + reconstruction share it → equal, no letterbox)
-    document.documentElement.style.setProperty('--frame-ar', stack.w+' / '+stack.h);
-    applyLayout();   // very wide/short frames auto-suggest stacked, unless the user has manually overridden it (layoutToggleBtn)
+    // both panels take the stack's aspect ratio (raw frame + reconstruction share it → equal, no letterbox);
+    // very wide/short frames auto-suggest stacked, unless the user has manually overridden it (layoutToggleBtn)
+    setFrameAspect(stack.w, stack.h);
     calFixedPts=null; _projCache=null;      // a new stack invalidates any previously fixed positions/projection
     $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
     const st=$('calLocateStatus'); if(st) st.style.display='none'; }
@@ -9263,6 +9263,16 @@ $('csvFile').addEventListener('change', async e=>{
     lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
     renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
+    // No stack for a CSV-only load, so initScrub() never runs to set this —
+    // w/h here is the reconstruction's own bounding box (always somewhat
+    // smaller than the original camera FOV: border-adjacent localizations
+    // are dropped during fitting), which IS the right shape to fit the panel
+    // to. Without this, a wide/narrow result stayed letterboxed in whatever
+    // --frame-ar a previous stack load left behind (or the CSS default of
+    // square), so the fit view — and therefore the scale bar — sat far from
+    // the actual plotted data instead of snug against it; also drives the
+    // same wide/narrow auto-stacked-panels heuristic a loaded movie gets.
+    setFrameAspect(w, h);
     rerender();
     $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
@@ -9769,15 +9779,29 @@ $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
   // state below it.
   log(`\nReady. Click "Load movie" or "Simulate movie", then "Localize".`);
 }
-// Side-by-side vs stacked panel layout: null = auto (initScrub()'s own
-// h/w<0.5 heuristic decides on every new stack load); true/false = the user
-// has manually overridden it via layoutToggleBtn, which then sticks across
-// further loads this session (not silently reset by the next movie's own
-// aspect ratio) — replacing the old "code always decides" behaviour with the
-// user's own explicit choice once they've expressed one.
+// Side-by-side vs stacked panel layout: null = auto (setFrameAspect()'s own
+// h/w<0.5 heuristic decides on every new stack/CSV load); true/false = the
+// user has manually overridden it via layoutToggleBtn, which then sticks
+// across further loads this session (not silently reset by the next load's
+// own aspect ratio) — replacing the old "code always decides" behaviour with
+// the user's own explicit choice once they've expressed one.
 let layoutOverride=null;
+// The w/h currently driving --frame-ar/applyLayout()'s auto-heuristic —
+// EITHER the loaded stack's own frame size, or (loading a CSV directly, no
+// stack at all) the reconstruction's own bounding-box size from
+// parseCsvLocs(). Whichever was loaded MOST RECENTLY wins, same as the panel
+// content itself; a stale square/1:1 default (falling back to nothing set at
+// all) previously left a wide/narrow CSV-only result letterboxed in a
+// wrong-shaped panel, with the fit view (and therefore the scale bar) sitting
+// far from the actual plotted data instead of snug against it.
+let frameAspectWH=null;
+function setFrameAspect(w,h){
+  frameAspectWH={w,h};
+  document.documentElement.style.setProperty('--frame-ar', w+' / '+h);
+  applyLayout();
+}
 function applyLayout(){
-  const stacked = layoutOverride!==null ? layoutOverride : !!(stack && stack.h/stack.w<0.5);
+  const stacked = layoutOverride!==null ? layoutOverride : !!(frameAspectWH && frameAspectWH.h/frameAspectWH.w<0.5);
   $('canvases').classList.toggle('stacked', stacked);
   const btn=$('layoutToggleBtn');
   if(btn){ btn.textContent = stacked ? 'Side by side' : 'Stack panels';
