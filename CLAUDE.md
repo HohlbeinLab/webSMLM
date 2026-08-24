@@ -893,23 +893,27 @@ relevant one before editing rather than scrolling:
   converts the same visible sub-rect (`sx,sy,sw,sh`, already in srFull/mag-scaled px) back down to
   camera-pixel space by dividing by `lastResult.mag` before sampling the overlay canvas, so panning/
   zooming the reconstruction pans/zooms the overlay in lockstep with no separate transform to keep in
-  sync. Only drawn when `segmentedImageLabels.w/h` exactly match `lastResult.w/h` — a genuine
-  Localize-from-loaded-movie Run keeps these equal by construction (`lastResult.w/h` ARE the movie's
-  own camera dimensions), but a CSV-round-trip-loaded result generally won't (`parseCsvLocs()`'s own
-  centering margin shifts its bounding box away from the original raw dimensions by a few px, see
-  **table**'s CSV-centering entry above) — silently skipping the overlay in that mismatched case
-  avoids painting cell outlines at the wrong physical position rather than guessing at an alignment;
-  the load-time size-mismatch warning (`loadSegmentedImage()`, checked against `stack.w/h`) already
-  covers the more common cause of a real mismatch. The cached overlay canvas
+  sync. Deliberately NOT gated on `segmentedImageLabels.w/h` exactly matching `lastResult.w/h` — the
+  shipped first version required exact equality and silently drew nothing otherwise, a real, reported
+  bug (toggling **Add overlay** on a real dataset did nothing, no explanation): real segmentation
+  pipelines routinely produce a mask a few px off from the movie's own dimensions (padding/cropping
+  in whatever tool made it), so exact equality left the button doing nothing for the common case, not
+  just a genuine mismatch. Fixed by dropping the check entirely and matching this app's own existing
+  "warn, don't block" convention for exactly this situation — the load-time size-mismatch warning
+  (`loadSegmentedImage()`, checked against `stack.w/h`) already tells the user once when the sizes
+  differ; drawing the overlay anyway top-left aligned just loses a thin strip at the far edge on a
+  genuine mismatch (`ctx.drawImage()`'s own source rect naturally clips against the actual canvas
+  bounds — no exception, no corruption), not the whole feature. The cached overlay canvas
   (`_segOverlayCanvas`/`_segOverlayForLabels`) is keyed by object identity against
   `segmentedImageLabels`, rebuilt only when a genuinely new segmentation image loads — not on every
   `drawView()` call, which pan/zoom/theme-change fire far more often than that. Verified end-to-end
   against the real bundled dataset (`bf_analysed_JH_procBrightfield_segm.tif` +
-  `webSMLM_fluo_part0_03ac93aa_locs.csv`, with `lastResult.w/h` matched to the segmentation's own
-  512×135 to exercise the dimension-match guard): a known cell-centroid pixel's on-canvas colour
-  shifted toward that cell's own overlay colour by exactly the expected `α=0.28` alpha blend, while a
-  known background pixel stayed byte-identical — confirming both the position mapping and the
-  transparency math, not just that "something changed".
+  `webSMLM_fluo_part0_03ac93aa_locs.csv`, dimensions deliberately left MISMATCHED — 517×142 vs
+  512×135, the CSV round-trip's real, unpatched numbers — to confirm the relaxed check actually draws
+  in exactly the case the strict version silently failed on): a known cell-centroid pixel's on-canvas
+  colour shifted toward that cell's own overlay colour by the expected alpha blend, while a known
+  background pixel stayed unchanged — confirming both the position mapping and the transparency math,
+  not just that "something changed".
 
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML

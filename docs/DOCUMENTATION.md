@@ -721,12 +721,11 @@ Once a segmentation image is loaded, **SMLM reconstruction**'s own panel
 title gains an **Add overlay** button — draws the segmented cells, highly
 transparent, on top of the reconstruction, so you can visually confirm
 localizations line up with the cells before running **Track** on them. Cell
-colours match the "Segmented image" raw-panel view exactly. Only drawn when
-the segmentation image's own pixel dimensions exactly match the loaded
-movie's — a CSV-round-trip-loaded result generally won't match (its
-bounding box is shifted by a small centering margin, see §6), so the
-overlay silently stays off in that case rather than risk painting cell
-outlines at the wrong position.
+colours match the "Segmented image" raw-panel view exactly. Drawn top-left
+aligned against the reconstruction regardless of whether the segmentation
+image's own pixel dimensions exactly match the loaded movie's — same "warn,
+don't block" convention as the load-time size-mismatch warning (a genuine
+mismatch just loses a thin strip at the far edge, not the whole overlay).
 
 With segmentation applied, **Track** (`sptCore()`'s `segCtx` path,
 `linkTracksPerCell()`) links each qualifying cell's own localizations
@@ -1413,7 +1412,7 @@ for the first implementation.
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data.</p>
 <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
 <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains an <b>Add overlay</b> button — draws the segmented cells, highly transparent, on top of the reconstruction (same colours as the raw-panel view), so you can check localizations line up with their cells before tracking. Only drawn when the segmentation image's own dimensions exactly match the loaded movie's.</p>
+<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains an <b>Add overlay</b> button — draws the segmented cells, highly transparent, on top of the reconstruction (same colours as the raw-panel view), so you can check localizations line up with their cells before tracking. Drawn top-left aligned even if the segmentation image's own dimensions don't exactly match the loaded movie's, same "warn, don't block" spirit as the load-time size-mismatch warning.</p>
 <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
 <!-- /HINT:spt -->
 
