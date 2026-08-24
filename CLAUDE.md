@@ -539,19 +539,31 @@ relevant one before editing rather than scrolling:
   against it, and never auto-triggering the stacked-panels heuristic a similarly-shaped movie
   would. The reconstruction's own bounding box is always somewhat smaller than the original camera
   FOV (border-adjacent localizations are dropped during fitting) — expected, not something to
-  correct for; it's still the right shape to fit the panel to. `parseCsvLocs()` itself was also
-  fixed alongside this (same round, second user report against the real bundled multi-file-loaded
-  dataset): it used to size `w`/`h` off `maxX`/`maxY` ALONE (a leftover `+10` "never round a
-  boundary loc outside the canvas" margin, applied only on the high side), so the bounding box's
-  own low corner — essentially never exactly (0,0) — got a near-zero margin while the high corner
-  got the full +10, i.e. an uncentred crop; the render itself (`fitView()`) correctly centres
-  the WHOLE buffer, so it faithfully reproduced that asymmetry on screen. Now tracks `minX`/`minY`
-  too and shifts every loc by the same constant so the bounding box sits with an EQUAL margin on
-  all four sides — verified via a pixel-scan of the raw render buffer before/after (top/bottom/
-  left/right margins went from wildly unequal to matching to within `Math.ceil()` rounding). No
-  raw frame data exists for a CSV-only load to stay pixel-aligned with, so the shift doesn't lose
-  or misalign anything — see `docs/DOCUMENTATION.md`'s CSV round-trip section for the user-facing
-  note that a re-export's `x`/`y` will be offset from the original file by that same constant.
+  correct for; it's still the right shape to fit the panel to.
+
+  **`parseCsvLocs()` NEVER shifts loc coordinates** — `(0,0)` always means the same physical
+  camera pixel it meant in the original file/session, full stop. This went through two rounds: an
+  early version sized `w`/`h` off `maxX`/`maxY` ALONE (a leftover `+10` "never round a boundary loc
+  outside the canvas" margin, applied only on the high side), so the bounding box's own low corner
+  — essentially never exactly `(0,0)` — got a near-zero margin while the high corner got the full
+  `+10`, i.e. an uncentred crop; a SECOND round (looked like the right fix at the time) "corrected"
+  this by tracking `minX`/`minY` too and SHIFTING every loc by that amount so the bounding box sat
+  with an equal margin on all sides — reasoned as safe because "there's no raw frame data for a
+  CSV-only load to stay pixel-aligned with, so the shift doesn't lose or misalign anything." That
+  reasoning broke down for a genuinely different, LATER feature: the segmentation overlay (MODULE:
+  spt) uploads an image from a SEPARATE source (a different camera/session, e.g. brightfield vs.
+  fluorescence) whose own pixel grid IS expressed in that same original coordinate frame — shifting
+  the locs by an arbitrary, data-dependent amount (`minX`/`minY`, easily tens of px on real data)
+  silently broke that alignment, a real, reported bug (segmented cells and their own localizations
+  visibly not lining up — confirmed directly: reloading the SAME real dataset with the shift
+  removed showed bacterial shapes tightly covered by matching segmentation colour, where the
+  shifted version left a large uncovered band along one edge). Reverted the shift entirely — `w`/`h`
+  are sized off `maxX`/`maxY` alone again (a `+10` margin on the high side only, same as the
+  original pre-centring version), but the ASYMMETRIC-CROP concern that motivated the shift in the
+  first place is now understood to be the WRONG problem to solve here: a CSV-only reconstruction
+  being visually off-centre in its own panel is cosmetic and harmless; silently moving every loc's
+  absolute position is not, the moment ANY external reference (a segmentation image today,
+  conceivably something else later) depends on that position staying true to the original file.
   The click handler also calls
   `refitCanvases()` immediately, since the panel boxes just changed shape. `layoutToggleBtn` lives
   on the right of the **Log** card's own title bar (`clearLogBtn`/`exportLogBtn` grouped on the

@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24p; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24q; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -42,8 +42,8 @@
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap (srSegOverlayBtn)
     pipeline        8511   top-level orchestration, *Core()/wrapper split
-    table           10195  localizations table, filtering, histograms
-    headless API    10639  window.webSMLM.analyze()/analyzeBatch()
+    table           10202  localizations table, filtering, histograms
+    headless API    10646  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1699,7 +1699,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24p</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24q</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2150,7 +2150,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24p · fixed two issues on the segmentation overlay: correcting Pixel size (nm) after loading now GROWS the segmentation as it's increased (was backwards); sparse localizations now get a minimum visible brightness so they don't disappear against bright cell colours</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24q · fix: Load data (CSV) no longer shifts localization coordinates — this was silently breaking alignment with any separately-loaded segmentation image; (0,0) now always means the same physical camera pixel as the original file/session</div>
   </main>
 </div>
 
@@ -9560,7 +9560,7 @@ function parseCsvLocs(text){
         iCellId=idx('cell_id'), iCellArea=idx('cell_area');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
-  let minXpx=Infinity, minYpx=Infinity, maxXpx=0, maxYpx=0;
+  let maxXpx=0, maxYpx=0;
   for(let i=1;i<lines.length;i++){
     const p=lines[i].split(',');
     const L={ frame:(+p[iFrame]|0)-1, x:(+p[iX])/px, y:(+p[iY])/px, photons:+p[iN],
@@ -9586,25 +9586,32 @@ function parseCsvLocs(text){
     if(iCellId>=0 && p[iCellId]!=='') L.cell_id=+p[iCellId];
     if(iCellArea>=0 && p[iCellArea]!=='') L.cell_area=+p[iCellArea];   // already px, no conversion
     if(iMerged>=0) L.nMerged=+p[iMerged];
-    if(L.x<minXpx) minXpx=L.x; if(L.x>maxXpx) maxXpx=L.x;
-    if(L.y<minYpx) minYpx=L.y; if(L.y>maxYpx) maxYpx=L.y;
+    if(L.x>maxXpx) maxXpx=L.x; if(L.y>maxYpx) maxYpx=L.y;
     locs[i-1]=L;
   }
-  // The bounding box's own min corner is essentially never (0,0) — a
-  // reconstruction from a CSV is already smaller than whatever camera FOV it
-  // came from (border-adjacent localizations get dropped during fitting), so
-  // minXpx/minYpx land wherever the surviving data happens to start. Sizing
-  // the canvas off max ALONE (as this used to) implicitly treated that
-  // arbitrary min as "the edge", giving a near-zero margin on the low side
-  // and the full +10 margin on the high side — same visual effect as an
-  // uncentered crop. Shift every loc so the bounding box sits with an EQUAL
-  // 5px margin on all four sides instead of an arbitrary one; there's no
-  // "original image" coordinate frame a CSV-only load needs to stay aligned
-  // with (no raw frame data accompanies it — see the "no raw frame data"
-  // log line below), so re-centering here doesn't lose or misalign anything.
-  const MARGIN=10, ox=minXpx-MARGIN/2, oy=minYpx-MARGIN/2;
-  for(const L of locs){ L.x-=ox; L.y-=oy; }
-  const w=Math.ceil(maxXpx-minXpx)+MARGIN, h=Math.ceil(maxYpx-minYpx)+MARGIN;
+  // Locs are NEVER shifted — (0,0) always means the same physical camera
+  // pixel it meant in the ORIGINAL file/session, full stop. An earlier
+  // version re-centred the bounding box (subtracting minX/minY, a
+  // deliberate "equal margin on all sides" cosmetic fix) on the stated
+  // reasoning that a CSV-only load has no raw frame data to stay
+  // pixel-aligned with — true in isolation, but WRONG once a genuinely
+  // external reference exists: a segmentation image (MODULE: spt),
+  // uploaded separately from a DIFFERENT camera/session, whose own pixel
+  // grid is expressed in that same original coordinate frame. Shifting the
+  // locs by an arbitrary, data-dependent amount (minX/minY, easily tens of
+  // px on real data) silently broke that alignment — a real, reported bug
+  // (segmented cells and their own localizations visibly not lining up)
+  // that a purely cosmetic centering fix should never have been able to
+  // cause. `w`/`h` still only bound the LOC data's own extent (there's no
+  // camera-frame-size metadata in a CSV to size against instead) — but
+  // anchored at the TRUE origin (0,0), not a re-centred one, so a
+  // reconstruction built from CSV-loaded locs lines up with a segmentation
+  // image exactly the way a fresh Localize's own reconstruction already
+  // does (lastResult.w/h there are the real stack.w/h, likewise unshifted).
+  // MARGIN only pads the HIGH side (never round a boundary loc outside the
+  // canvas) — the low side needs none now that it's the true, fixed origin.
+  const MARGIN=10;
+  const w=Math.ceil(maxXpx)+MARGIN, h=Math.ceil(maxYpx)+MARGIN;
   return {locs, w, h, px};
 }
 $('loadCsvBtn').addEventListener('click',()=>$('csvFile').click());

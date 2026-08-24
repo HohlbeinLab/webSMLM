@@ -1658,14 +1658,18 @@ the round trip losslessly:
   real CRLB or the LS/phasor formula estimate) is gone.
 - There's no camera frame size in a CSV, so the internal `w`/`h` (used only
   to size the reconstruction canvas) are derived from the loaded data's own
-  bounding box (+10 px total margin, split evenly), not the original stack's
-  actual dimensions. Every loc's `x`/`y` is shifted by the SAME constant so
-  that bounding box sits centred (equal margin on all four sides) rather
-  than flush against the low edge — a re-export after loading a CSV back in
-  therefore reports `x`/`y` offset from the original file by that constant
-  (relative distances/geometry between locs are exactly unaffected). There's
-  no raw frame data for a CSV-only load to stay pixel-aligned with, so this
-  doesn't lose or misalign anything — only the coordinate origin moves.
+  bounding box (a +10 px margin on the high side only). Loc `x`/`y` are
+  **never shifted** — `(0,0)` always means the same physical camera pixel it
+  meant in the original file/session, so a re-export after loading a CSV
+  back in reports exactly the same `x`/`y` values as the original. This
+  matters beyond cosmetics: a segmentation image (§2 spt) loaded separately
+  is expressed in that same original coordinate frame, and needs the
+  localizations to stay there too for the two to overlay correctly. An
+  earlier version DID re-centre the bounding box (shifting every loc so the
+  low/high margins matched) purely for a tidier look on a CSV-only load with
+  no raw frame to compare against — reverted once the segmentation overlay
+  made that assumption wrong: the shifted coordinates no longer lined up
+  with an externally-supplied segmentation image.
 
 ---
 
