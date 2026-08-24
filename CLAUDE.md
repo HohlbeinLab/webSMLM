@@ -69,6 +69,16 @@ relevant one before editing rather than scrolling:
   switch/`layoutToggleBtn` — that area is deliberately pure display/layout chrome (nothing there
   affects analysis results), and mixing in a real calibration parameter would blur that distinction
   and cost mobile-drawer header space that's already tight.
+
+  **Right-edge alignment gotcha, same root cause as the `label.row` nesting-depth gotcha below but
+  the opposite direction**: `details.sim>label.row{padding-right:4px}` is a direct-child selector —
+  it only matches a `label.row` sitting immediately inside a `details.sim`. This pinned row sits
+  OUTSIDE any `details.sim` (that's the whole point of pinning it), so it never matched either, and
+  its numstep +/- buttons sat 4px further right than every other row's own right edge — a real,
+  reported bug, visible once compared side-by-side against "Memory budget (GB)" directly below it.
+  Fixed the same way the nesting-depth cases are fixed: an explicit inline `style="padding-right:4px"`
+  on this one `label.row`, since there's no shared `details.sim` ancestor to add the padding to
+  generically.
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)
@@ -1251,6 +1261,22 @@ The left panel (`raw` canvas) doubles as a plot surface. To show a plot instead 
 `syncSaveImg()`. Calibration plots render on the right (`sr`) canvas via `srIsPlot`. Switching a
 panel back to a frame/reconstruction (`drawRawView`/`drawView`) must clear any plot-only overlay
 state so a stale plot can't paint over live pixels.
+
+**The four raw-panel mode-toggle buttons must call `hideOtherRawToggleBtns(exceptId)` (MODULE:
+render, next to `drawRaw()`).** `driftPlotModeBtn`/`sptHistModeBtn`/`sSmlmHistModeBtn`/
+`segShowModeBtn` are mutually exclusive by construction — only one plot/image can occupy the panel
+at a time — but for a while each dispatcher (`drawDriftCurve()`/`drawSptHist()`/`drawSSmlmHist()`/
+`drawSegShow()`'s `syncSegShowModeBtn()`) only knew how to show/label its OWN button, never to hide
+the other three. That was invisible as long as switching between two plot-type views always passed
+through one of the two "reclaim points" (`drawRaw()`/`drawSegmentedImage()`) that DO hide every
+button but the relevant one — but a DIRECT switch between two plot dispatchers, with no reclaim
+point in between (e.g. **Correct drift**/**Show drift**, leaving `driftPlotModeBtn` up, immediately
+followed by **Preview pairs**) left the PREVIOUS toggle stranded on screen alongside the new one,
+both visible and clickable at once — a real, reported bug. Fixed by having all four dispatchers
+(plus `drawRaw()`/`drawSegmentedImage()` themselves, now routed through the same helper instead of
+each hand-rolling its own 3-4-line hide block) call `hideOtherRawToggleBtns()` first. Any FUTURE
+raw-panel toggle button must do the same — add its id to the helper's own list, and call it from
+wherever that toggle's dispatcher shows/labels the button.
 
 ### Live preview (real-time detect/fit on the scrubbed frame)
 
