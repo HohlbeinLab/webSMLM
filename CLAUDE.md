@@ -1354,17 +1354,31 @@ Never put a `<noscript>` inside an element that JS later reads via `.textContent
 `.textContent` on an ancestor includes that raw text (literal `<span>` tags and all) even though
 the `<noscript>` itself renders as nothing (default UA `display:none` when scripting is on).
 Reading `.textContent` is harmless; but the moment something WRITES `.textContent` (as `log()`'s
-own `l.textContent += '\n'+m` does, MODULE: params, `$('log')`), the noscript element gets
-destroyed and replaced by one flat text node — permanently baking that raw warning text into the
-log's own visible content on the very first `log()` call, every load, regardless of whether
-scripting is actually enabled. This was a real, shipped bug: `#log`'s seed HTML had its own
-`<noscript>⚠ JavaScript appears to be disabled…</noscript>` (meant as a redundant, log-window-
-local echo of the real disabled-JS warning), and it showed up as literal visible text in the log
-on ordinary loads with JS fully working. Fixed by removing it — the top-of-`<body>` `<noscript>`
-banner (a big red full-page warning, never touched by any JS) already covers the genuinely-
-disabled-JS case on its own; `#log`'s own seed content is now just the plain build-stamp text,
-with nothing noscript-wrapped inside it. The general rule: `<noscript>` is only safe near code
-that reads/writes `.textContent`/`.innerHTML` if nothing ever WRITES through an ancestor of it.
+own `.textContent += '\n'+m` does, MODULE: params — writing to `$('logText')` today, previously
+`$('log')` itself before the box/text-width split below moved the seed content one level deeper),
+the noscript element gets destroyed and replaced by one flat text node — permanently baking that
+raw warning text into the log's own visible content on the very first `log()` call, every load,
+regardless of whether scripting is actually enabled. This was a real, shipped bug: `#log`'s seed
+HTML had its own `<noscript>⚠ JavaScript appears to be disabled…</noscript>` (meant as a redundant,
+log-window-local echo of the real disabled-JS warning), and it showed up as literal visible text in
+the log on ordinary loads with JS fully working. Fixed by removing it — the top-of-`<body>`
+`<noscript>` banner (a big red full-page warning, never touched by any JS) already covers the
+genuinely-disabled-JS case on its own; the log's own seed content is now just the plain build-stamp
+text, with nothing noscript-wrapped inside it. The general rule: `<noscript>` is only safe near
+code that reads/writes `.textContent`/`.innerHTML` if nothing ever WRITES through an ancestor of
+it.
+
+**Log box / logged-text width split** (`#log`/`#logText`) — a real, reported request: the log
+card's own border/background used to be capped at `max-width:100ch` directly on `#log`, which left
+its right edge short of the reconstruction panel's own right edge on a wide desktop window (the cap
+existed to keep a long WRAPPED LINE readable, not to shrink the box itself — see the CSS comment
+right above `.log` in the `<style>` block). Split into two elements: `#log` (the outer, still the
+`class="log"` box — border/background/`overflow:auto`/scroll height, no width cap, so it fills the
+card exactly like any other panel) wraps a plain child `#logText` (`max-width:100ch`, no border/
+background of its own) that holds the actual text. `log()`/`clearLogBtn`/`exportLogBtn` all read/
+write `#logText`'s `.textContent` now; `#log.scrollTop` (the outer box) is still what `log()` sets
+to autoscroll, since `#logText` itself has no scrollbar of its own — it's just a width-capped column
+inside the real scroll container.
 
 ## Validating changes (no test framework)
 

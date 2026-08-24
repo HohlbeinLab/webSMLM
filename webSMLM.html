@@ -17,42 +17,43 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24x; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24y; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2178   PARAMS registry, single source of truth for params
-    in/out          2672   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2985   synthetic stack generator ("Simulate movie")
-    detect          3834   per-frame band-pass + local-maxima detection
-    fit             4090   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2183   PARAMS registry, single source of truth for params;
+                           #log/#logText box/logged-text width split
+    in/out          2677   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2990   synthetic stack generator ("Simulate movie")
+    detect          3839   per-frame band-pass + local-maxima detection
+    fit             4095   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4565   accumulate to offscreen buffer; view/colour/blur;
+    render          4570   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually exclusive
-    workers         5527   frame-parallel detect/fit worker pool
-    export          5692   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5952   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6352   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5532   frame-parallel detect/fit worker pool
+    export          5697   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5957   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6357   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6668   NeNA + FRC
-    sSMLM           7311   spectrally resolved SMLM pair-finding; merged
+    locprecision    6673   NeNA + FRC
+    sSMLM           7316   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7776   single particle tracking, trackpy-inspired;
+    spt             7781   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap; merged Show histograms
                            (sptHistBtn/sptHistModeBtn) and Show segmentation
                            (segShowBtn/segShowModeBtn)
-    pipeline        8645   top-level orchestration, *Core()/wrapper split;
+    pipeline        8650   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked
-    table           10378  localizations table, filtering, histograms
-    headless API    10822  window.webSMLM.analyze()/analyzeBatch()
+    table           10383  localizations table, filtering, histograms
+    headless API    10827  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1589,15 +1590,18 @@ X.B(E,Y);return E}return J}())
      each module owning its own bar that only exists while running. */
   .bar{height:6px;background:var(--surface);border-radius:3px;overflow:hidden;margin:10px 0}
   .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
-  /* max-width:100ch caps how wide a single wrapped line gets — without it,
-     white-space:pre-wrap only wraps at the CARD's own width, which on a wide
-     desktop window stretches a long log sentence across the whole main panel,
-     hurting readability exactly the way a very wide text column always does.
-     ch is exact here since the font is monospace. Doesn't shrink the log
-     BOX below the card's width on a narrow/mobile layout — max-width only
-     ever makes it narrower than 100ch, never forces it wider. */
+  /* The BOX (border/background/scroll) spans the full card width, flush with the
+     reconstruction panel's own right edge — a real, reported request: an earlier
+     version put max-width:100ch on this outer box itself, which also capped the
+     BORDER short of the card's own width, an odd-looking gap on a wide desktop
+     window. The 100ch cap now lives on #logText (below) instead, a plain
+     full-width child inside this box — wrapping the actual TEXT at a readable
+     column width (ch is exact here since the font is monospace; without a cap,
+     white-space:pre-wrap only wraps at the box's own width, stretching a long log
+     sentence across the whole panel) without shrinking the box drawn around it. */
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
-    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap;max-width:100ch}
+    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
+  .log #logText{max-width:100ch}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
@@ -1711,7 +1715,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24x</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24y</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2164,7 +2168,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24x · Fixed: colour map now reverts to Fire (hot) for Gauss MLE 3D / rotated elliptical when "3D localisation?" is unchecked, matching Phasor 2D/Gauss MLE 2D's existing behaviour</div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.6-dev · build 2026-08-24y · Log window: the box border/background now spans the full card width; only the logged text itself still wraps at a readable ~100-character column</div></div>
   </main>
 </div>
 
@@ -2618,7 +2622,7 @@ function addNumberSteppers(){
   });
 }
 addNumberSteppers();
-const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false; };
+const log = m => { $('logText').textContent += '\n'+m; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false; };
 /* Yield to the event loop. setTimeout(0) is clamped to ~4 ms by browsers, which
    cost ~9% of runtime on a 2000-frame stack; a MessageChannel round-trip is a
    macrotask too (so paint/input still run) but is not clamped. */
@@ -9832,9 +9836,9 @@ $('file').addEventListener('change', async e=>{
 });
 $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
-$('clearLogBtn').addEventListener('click',()=>{ $('log').textContent=''; $('exportLogBtn').disabled=true; });
+$('clearLogBtn').addEventListener('click',()=>{ $('logText').textContent=''; $('exportLogBtn').disabled=true; });
 $('exportLogBtn').addEventListener('click',async()=>{
-  const txt=$('log').textContent.replace(/^\n+/,'');
+  const txt=$('logText').textContent.replace(/^\n+/,'');
   if(!txt){ log('Log is empty.'); return; }
   const name=(stackName||'webSMLM').replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_log.txt';
   const saved=await saveBlob(new Blob([txt+'\n'],{type:'text/plain;charset=utf-8'}), name, 'Log (text)', 'text/plain', '.txt');
