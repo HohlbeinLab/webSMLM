@@ -879,6 +879,38 @@ relevant one before editing rather than scrolling:
   version needs the shuffled values themselves to be dense for that). Verified visually against the
   real bacteria dataset above — no two adjacent cells share a similar colour.
 
+  **SR-panel overlay** (`srSegOverlayBtn`, "Add overlay"/"Remove overlay" — next to "SMLM
+  reconstruction", same inline-in-title-bar placement as `sSmlmColorBtn`'s "Show spectral") draws the
+  segmented cells, highly transparent, on top of the reconstruction in `drawView()` (MODULE: render) —
+  so a user can visually confirm localizations line up with the cells they're about to be tracked
+  per-cell against, before running **Track**. `buildSegOverlayCanvas()` builds a small offscreen
+  canvas at `segmentedImageLabels`' own CAMERA-pixel resolution (not `srFull`'s, which is camera px ×
+  `mag`) — label 0 (background) fully transparent, every other pixel opaque at its cell's colour via
+  the SAME `shuffledLabelColors(seed=0)` call `drawSegmentedImage()` uses, so a cell's overlay colour
+  on the reconstruction always matches its colour in the "Segmented image" raw-panel view. The
+  "highly transparent" look is applied once at DRAW time (`ctx.globalAlpha=0.28`), not baked into the
+  cached canvas's own alpha — keeps a future "overlay strength" control a one-line change. `drawView()`
+  converts the same visible sub-rect (`sx,sy,sw,sh`, already in srFull/mag-scaled px) back down to
+  camera-pixel space by dividing by `lastResult.mag` before sampling the overlay canvas, so panning/
+  zooming the reconstruction pans/zooms the overlay in lockstep with no separate transform to keep in
+  sync. Only drawn when `segmentedImageLabels.w/h` exactly match `lastResult.w/h` — a genuine
+  Localize-from-loaded-movie Run keeps these equal by construction (`lastResult.w/h` ARE the movie's
+  own camera dimensions), but a CSV-round-trip-loaded result generally won't (`parseCsvLocs()`'s own
+  centering margin shifts its bounding box away from the original raw dimensions by a few px, see
+  **table**'s CSV-centering entry above) — silently skipping the overlay in that mismatched case
+  avoids painting cell outlines at the wrong physical position rather than guessing at an alignment;
+  the load-time size-mismatch warning (`loadSegmentedImage()`, checked against `stack.w/h`) already
+  covers the more common cause of a real mismatch. The cached overlay canvas
+  (`_segOverlayCanvas`/`_segOverlayForLabels`) is keyed by object identity against
+  `segmentedImageLabels`, rebuilt only when a genuinely new segmentation image loads — not on every
+  `drawView()` call, which pan/zoom/theme-change fire far more often than that. Verified end-to-end
+  against the real bundled dataset (`bf_analysed_JH_procBrightfield_segm.tif` +
+  `webSMLM_fluo_part0_03ac93aa_locs.csv`, with `lastResult.w/h` matched to the segmentation's own
+  512×135 to exercise the dimension-match guard): a known cell-centroid pixel's on-canvas colour
+  shifted toward that cell's own overlay colour by exactly the expected `α=0.28` alpha blend, while a
+  known background pixel stayed byte-identical — confirming both the position mapping and the
+  transparency math, not just that "something changed".
+
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
   field, `paramValue()` falls back to it since `isFinite(parseFloat(''))` is false). A fresh **Load
