@@ -980,12 +980,15 @@ relevant one before editing rather than scrolling:
   "exit" mechanism was needed, just extending the one that already existed. Unchecking **Apply
   segmentation?** while the image is shown reverts to the live frame (or, with no movie loaded,
   clears the panel back to its own empty default) and drops `segmentedImageData`/
-  `segmentedImageLabels`, disabling **Show segmentation** again (and hiding its own raw-panel-title
+  `segmentedImageLabels`, disabling **Show image** again (and hiding its own raw-panel-title
   toggle, `segShowModeBtn` — see below).
 
   **"Show segm. image"/"Show area hist." merge**: the two used to be separate sidebar buttons, each
-  redrawing its own content unconditionally. Now one button, `segShowBtn` ("Show segmentation"),
-  plus a raw-panel-title toggle (`segShowModeBtn`, `.logbtn`, same show/hide-while-relevant pattern
+  redrawing its own content unconditionally. Now one button, `segShowBtn` ("Show segmentation" at
+  first, renamed to **Show image** one round later — it shares a two-column `.btnrow` with **Load
+  segm. image**, and "Show segmentation" wrapped to two lines there while "Show image" fits on
+  one), plus a raw-panel-title toggle (`segShowModeBtn`, `.logbtn`, same show/hide-while-relevant
+  pattern
   as `driftPlotModeBtn`/`sSmlmHistModeBtn`) that flips a module-level `segShowMode`
   (`'image'`/`'hist'`, default `'image'`) and calls `drawSegShow()` again. Unlike the spt-histogram
   and sSMLM-histogram merges (both toggling between two PLOTS sharing one `computeHist()`/
@@ -1024,7 +1027,7 @@ relevant one before editing rather than scrolling:
   `segmentedImageLabels` (`{arr,w,h}`, the loaded label array — distinct from `segmentedImageData`,
   the per-cell stats table both are built from) persists independently of whatever the raw panel
   currently shows, unlike `rawPixelData` (overwritten the moment a live frame reclaims the panel) —
-  this is what **Show segmentation**'s image mode re-displays (`drawSegmentedImage()` again,
+  this is what **Show image**'s (`segShowBtn`) image mode re-displays (`drawSegmentedImage()` again,
   deterministic seed-0 recolouring so it's pixel-identical to the original load) without re-reading
   the file, and what the actual tracking integration below reads from. Its histogram mode plots
   `segmentedImageData.map(c=>c.areaPx)` via the shared `computeHist()`/`drawHistogram()` (linear count
@@ -1142,7 +1145,7 @@ relevant one before editing rather than scrolling:
   rather than nested inside `#segLoadRow` with its buttons — see the top-level `label.row`
   nesting-depth gotcha above for why nesting them there silently broke their own right-edge
   alignment (a real, reported bug) despite still LOOKING indented. A fresh **Load
-  segm. image** (not **Show segmentation**'s image mode, which re-displays the SAME already-loaded
+  segm. image** (not **Show image**'s image mode, which re-displays the SAME already-loaded
   image and shouldn't silently overwrite a value the user has since adjusted) sets `segAreaMax` to
   `Math.max(...segmentedImageData.map(c=>c.areaPx))` — a real upper bound for that specific image
   instead of the generic ∞ default, verified against the real bundled segmentation (271, matching
