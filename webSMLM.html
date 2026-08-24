@@ -16,32 +16,33 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24h; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24i; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2142   PARAMS registry, single source of truth for params
-    in/out          2625   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2938   synthetic stack generator ("Simulate movie")
-    detect          3787   per-frame band-pass + local-maxima detection
-    fit             4043   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2152   PARAMS registry, single source of truth for params
+    in/out          2646   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2959   synthetic stack generator ("Simulate movie")
+    detect          3808   per-frame band-pass + local-maxima detection
+    fit             4064   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4518   accumulate to offscreen buffer; view/colour/blur;
+    render          4539   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5405   frame-parallel detect/fit worker pool
-    export          5570   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5821   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6221   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5426   frame-parallel detect/fit worker pool
+    export          5591   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5851   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6251   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6536   NeNA + FRC
-    sSMLM           7179   spectrally resolved SMLM pair-finding
-    spt             7629   single particle tracking, trackpy-inspired;
-                           segmentation-image loading/visualization
-    pipeline        8174   top-level orchestration, *Core()/wrapper split
-    table           9815   localizations table, filtering, histograms
-    headless API    10254  window.webSMLM.analyze()/analyzeBatch()
+    locprecision    6566   NeNA + FRC
+    sSMLM           7209   spectrally resolved SMLM pair-finding
+    spt             7659   single particle tracking, trackpy-inspired;
+                           segmentation-image loading/visualization +
+                           cell-by-cell tracking
+    pipeline        8308   top-level orchestration, *Core()/wrapper split
+    table           9992   localizations table, filtering, histograms
+    headless API    10436  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1697,7 +1698,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24h</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2055,8 +2056,16 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="sptBox">
         <summary>Single particle tracking</summary>
         <label class="row">Apply segmentation? <input type="checkbox" id="applySegmentation"></label>
-        <div class="btnrow" id="segLoadRow" style="display:none;margin-top:2px">
-          <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load movie">Load segm. image</button>
+        <div id="segLoadRow" style="display:none">
+          <div class="btnrow" style="margin-top:2px">
+            <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load movie">Load segm. image</button>
+            <button id="segShowBtn" disabled title="Re-show the already-loaded segmentation image without reloading the file">Show segm. image</button>
+          </div>
+          <div class="btnrow" style="margin-top:6px">
+            <button id="segAreaHistBtn" disabled title="Plot a histogram of cell areas (pixels) from the loaded segmentation image">Show area hist.</button>
+          </div>
+          <label class="row">Min. cell area (px) <input type="number" id="segAreaMin" value="50" min="0" step="1" class="num"></label>
+          <label class="row">Max. cell area (px) <input type="number" id="segAreaMax" min="0" step="1" class="num" title="Blank = no upper limit"></label>
         </div>
         <label class="row">Search range (nm) <input type="number" id="sptSearchRange" value="800" min="10" max="5000" step="10" class="num"></label>
         <label class="row">Memory (frames) <input type="number" id="sptMemory" value="0" min="0" max="20" step="1" class="num"></label>
@@ -2081,7 +2090,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
-          <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segmented image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). This is v1: the mask isn't used to filter/split tracking by cell yet, just loaded and visualized.</p>
+          <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
+          <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
         </div>
       </details>
     </div>
@@ -2127,7 +2137,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24h · Load data (CSV) now centres the reconstruction — the bounding box used to get a near-zero margin on its low edge and the full margin on the high edge, an uncentred crop</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24i · SPT: cell-by-cell tracking — Show segm. image, Show area hist., Min./Max. cell area filter tracks per segmented cell (never crosses a cell boundary), new cell_id/cell_area columns</div>
   </main>
 </div>
 
@@ -2355,6 +2365,17 @@ const PARAMS = {
   // track. Defaults match set_parameters_sptPALM.py's own histogram range.
   sptDPlotMin: { type:'number', id:'sptDPlotMin', label:'SPT D plot min (µm²/s)', min:0.0001, max:1000, step:0.001, default:0.004, int:false },
   sptDPlotMax: { type:'number', id:'sptDPlotMax', label:'SPT D plot max (µm²/s)', min:0.0001, max:1000, step:0.1, default:10, int:false },
+  // Segmentation-aware tracking's own area gate, in the segmentation image's
+  // own pixels (same nm/px as everywhere else — Pixel size (nm), Rendering
+  // settings — no separate calibration needed for the mask). Matches
+  // sptPALM-Python's apply_cell_segmentation_sptPALM.py own
+  // cellarea_pixels_min/max naming and role exactly. segAreaMax follows
+  // fitLastFrame's own default:Infinity convention (see its own comment
+  // above) — blank input -> paramValue() falls back to Infinity via
+  // isFinite(parseFloat('')) === false, i.e. no upper limit, not a large
+  // finite placeholder.
+  segAreaMin: { type:'number', id:'segAreaMin', label:'Min. cell area (px)', min:0, max:null, step:1, default:50, int:true },
+  segAreaMax: { type:'number', id:'segAreaMax', label:'Max. cell area (px)', min:0, max:null, step:1, default:Infinity, int:true },
 
   // ---- memory / streaming ----
   // memgb = RAM budget for caching decoded frames before falling back to streaming
@@ -5663,6 +5684,13 @@ function buildCsvText(locs, px, sigPSF){
   // locs whose track passed the length filter — see trackDiffusionCoeffs().
   const hasTrackId=locs.some(L=>L.track_id!==undefined);
   const hasDCoeff=locs.some(L=>isFinite(L.D_coeff));
+  // cell_id/cell_area: only set by segmentation-aware Track (sptCore()'s
+  // segCtx path, linkTracksPerCell()) — -1 means "not in a qualifying cell"
+  // (background, or a cell outside the area filter), matching sptPALM-
+  // Python's own apply_cell_segmentation_sptPALM.py column convention.
+  // Plain (non-segmented) Track never sets cell_id, so this column is
+  // absent then, same optional-column pattern track_id/D_coeff already use.
+  const hasCellId=locs.some(L=>L.cell_id!==undefined);
   const zcol=has3d?'"z [nm]",':'';
   // "sigma [nm]" kept as-is (not "sigma_xy") for ThunderSTORM CSV compatibility;
   // sigma_z/dist/sigma1st/track_id/D_coeff are webSMLM-specific additions,
@@ -5675,7 +5703,8 @@ function buildCsvText(locs, px, sigPSF){
   const mcol=isClustered?',"n_merged [frames]"':'';
   const tidcol=hasTrackId?',"track_id"':'';
   const dcoeffcol=hasDCoeff?',"D_coeff [um^2/s]"':'';   // ASCII "um^2" — CSV compatibility, matches ThunderSTORM's own ASCII-only header convention
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}\n`];
+  const cellcol=hasCellId?',"cell_id","cell_area [px]"':'';
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}${cellcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -5699,8 +5728,9 @@ function buildCsvText(locs, px, sigPSF){
     const mc=isClustered?`,${L.nMerged||1}`:'';
     const tidc=hasTrackId?`,${L.track_id!==undefined?L.track_id:''}`:'';
     const dcoeffc=hasDCoeff?`,${isFinite(L.D_coeff)?L.D_coeff.toFixed(4):''}`:'';
+    const cellc=hasCellId?`,${L.cell_id!==undefined?L.cell_id:''},${L.cell_area!==undefined?L.cell_area:''}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)}${sxsyc},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${ellc}${mc}${tidc}${dcoeffc}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${ellc}${mc}${tidc}${dcoeffc}${cellc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -7775,6 +7805,60 @@ async function linkTracks(locs, px, config, onProgress=()=>{}){
   return locs.map((L,i)=>({...L, track_id:trackId[i]}));
 }
 
+// Cell-segmentation-aware tracking (MODULE: spt's Segmentation image
+// section, further down, is where segmentedImageLabels/segmentedImageData
+// get built). Ports apply_cell_segmentation_sptPALM.py +
+// tracking_sptPALM.py's own use_segmentations branch from the user's
+// sptPALM-Python pipeline: -1 (not 0) is "not assigned to a valid cell" in
+// cell_id, matching that pipeline's own column convention exactly, and
+// matching webSMLM's own track_id sentinel (linkTracks() already fills -1
+// for the same meaning) rather than 0, which some OTHER dataset's raw
+// segmentation image might have legitimately used as a real label.
+//
+// cell_id here is the FILTERED membership (area within [areaMin,areaMax]),
+// not raw geometric membership — a loc inside a real but too-small/too-large
+// cell gets -1, same as true background, matching the reference pipeline's
+// own apply_cell_segmentation_sptPALM.py (its area filter happens BEFORE
+// cell_id is ever assigned, so by the time tracking reads cell_id, -1
+// already uniformly means "excluded, for whatever reason").
+function cellIdForLoc(L, segLabels){
+  const {arr,w,h}=segLabels;
+  const px_=Math.round(L.x), py_=Math.round(L.y);
+  if(px_<0||py_<0||px_>=w||py_>=h) return -1;
+  const v=Math.round(arr[py_*w+px_]);
+  return v>0 ? v : -1;
+}
+// Groups locs by (filtered) cell_id and runs linkTracks() SEPARATELY per
+// qualifying cell, so a track can never cross a cell boundary — same
+// per-cell loop tracking_sptPALM.py's use_segmentations branch does. Each
+// cell's own local track_id range is offset (that pipeline's own
+// track_id_shift = max(tracks['track_id'])+1) so the merged result's
+// track_id stays globally unique across cells. Locs with cell_id -1 (no
+// cell, or a cell outside the area range) come back with track_id -1,
+// never linked — trackDiffusionCoeffs() already skips track_id<0 locs
+// unmodified, so nothing downstream needs to change for that.
+async function linkTracksPerCell(locs, px, config, segLabels, areaMin, areaMax, onProgress=()=>{}){
+  const areaOf=new Map((segmentedImageData||[]).map(c=>[c.id,c.areaPx]));
+  const byCell=new Map(), excluded=[];
+  for(const L of locs){
+    const rawId=cellIdForLoc(L, segLabels), area=areaOf.get(rawId);
+    const qualifies = rawId>0 && area!==undefined && area>=areaMin && area<=areaMax;
+    if(qualifies){ let a=byCell.get(rawId); if(!a){a=[]; byCell.set(rawId,a);} a.push({...L, cell_id:rawId, cell_area:area}); }
+    else excluded.push({...L, cell_id:-1, cell_area:-1, track_id:-1});
+  }
+  const cellIds=[...byCell.keys()].sort((a,b)=>a-b);
+  let idOffset=0, out=[];
+  for(let k=0;k<cellIds.length;k++){
+    const linked=await linkTracks(byCell.get(cellIds[k]), px, config, ()=>{});
+    let maxLocalId=-1;
+    for(const L of linked){ out.push({...L, track_id:L.track_id+idOffset}); if(L.track_id>maxLocalId) maxLocalId=L.track_id; }
+    idOffset += maxLocalId+1;
+    if((k&63)===0){ onProgress(70*(k+1)/cellIds.length); await tick(); }
+  }
+  onProgress(70);
+  return out.concat(excluded);
+}
+
 // Pure. Ports diff_coeffs_per_track() from the reference sptPALM-Python
 // pipeline: one D (µm²/s) per track meeting config.sptTrackLenMin
 // localizations, from the gap-corrected mean of the track's OWN squared
@@ -7839,13 +7923,31 @@ async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
 // it only sets/overwrites track_id (every loc) and D_coeff (locs on a
 // qualifying track) — so re-running it on already-tracked locs just
 // recomputes cleanly, no original-vs-tracked state duplication needed.
-async function sptCore(locs, px, config, hooks={}){
+//
+// segCtx (optional, {labels,areaMin,areaMax}) switches to cell-by-cell
+// tracking (linkTracksPerCell()) instead of one whole-FOV linkTracks() call
+// — see that function's own comment. nTracks now excludes track_id<0
+// (never possible before segCtx existed — linkTracks() alone always
+// assigns a real id — so this is a no-op for the plain path, only actually
+// filters anything once excluded/background locs can appear).
+async function sptCore(locs, px, config, hooks={}, segCtx=null){
   const { onLog=log, onProgress=setProg } = hooks;
-  onLog(`\nSPT tracking: search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), frame time ${config.sptFrameTime} s…`);
-  const tracked=await linkTracks(locs, px, config, onProgress);
+  let tracked;
+  if(segCtx){
+    const areaLabel = isFinite(segCtx.areaMax) ? segCtx.areaMax : '∞';
+    onLog(`\nSPT tracking (per cell): search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), `+
+          `frame time ${config.sptFrameTime} s, cell area ${segCtx.areaMin}–${areaLabel} px…`);
+    tracked=await linkTracksPerCell(locs, px, config, segCtx.labels, segCtx.areaMin, segCtx.areaMax, onProgress);
+    const nIn=tracked.reduce((a,L)=>a+(L.cell_id>0?1:0),0);
+    onLog(`  ${nIn.toLocaleString()}/${tracked.length.toLocaleString()} localization(s) fell inside a qualifying cell; `+
+          `the rest are background or in a cell outside the area range and were not tracked.`);
+  }else{
+    onLog(`\nSPT tracking: search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), frame time ${config.sptFrameTime} s…`);
+    tracked=await linkTracks(locs, px, config, onProgress);
+  }
   const {trackIds, diffCoeffs, trackLengths, dOfTrack, trackMSD}=await trackDiffusionCoeffs(tracked, px, config, onProgress);
   const withD=tracked.map(L=>{ const D=dOfTrack.get(L.track_id); return D===undefined ? L : {...L, D_coeff:D}; });
-  const nTracks=new Set(tracked.map(L=>L.track_id)).size, n=diffCoeffs.length;
+  const nTracks=new Set(tracked.filter(L=>L.track_id>=0).map(L=>L.track_id)).size, n=diffCoeffs.length;
   let meanD=NaN, medianD=NaN;
   if(n){ meanD=diffCoeffs.reduce((a,b)=>a+b,0)/n; const sorted=[...diffCoeffs].sort((a,b)=>a-b); medianD=sorted[Math.floor(n/2)]; }
   onLog(`  ${nTracks.toLocaleString()} track(s) found from ${locs.length.toLocaleString()} localizations; `+
@@ -7863,7 +7965,15 @@ async function runSptTrack(){
     const cfg={ sptSearchRange:paramValue('sptSearchRange'), sptMemory:paramValue('sptMemory'),
       sptFrameTime:paramValue('sptFrameTime'), sptLocError:paramValue('sptLocError'),
       sptTrackLenMin:paramValue('sptTrackLenMin') };
-    const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
+    // Segmentation-aware tracking only kicks in when the checkbox is ticked
+    // AND a segmentation image is actually loaded — unchecked (the default)
+    // or checked-but-nothing-loaded both fall through to plain whole-FOV
+    // tracking, same as before this feature existed.
+    const segCtx = ($('applySegmentation').checked&&segmentedImageLabels)
+      ? { labels:segmentedImageLabels, areaMin:paramValue('segAreaMin'), areaMax:paramValue('segAreaMax') }
+      : null;
+    if($('applySegmentation').checked && !segmentedImageLabels) log('  ⚠ Apply segmentation? is checked but no segmentation image is loaded — tracking the whole field of view instead.');
+    const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
     $('sptTrackLenHistBtn').disabled=!r.trackLengths.length;
@@ -8064,7 +8174,7 @@ $('sptLocErrorFromNenaBtn').addEventListener('click', async ()=>{
 // visually distinct, and builds segmentedImageData (one row per cell: id,
 // centre of mass in px, area in px) for a later round to actually filter/
 // split SPT tracking by. Doesn't yet touch tracking itself.
-let segmentedImageData=null;
+let segmentedImageData=null, segmentedImageLabels=null;
 
 // Deterministic seeded PRNG (mulberry32) — plays the same role numpy's own
 // seeded Generator does in sptPALM-Python/helper_functions.py's
@@ -8122,6 +8232,7 @@ function computeSegmentedImageData(labelArr,w,h){
 // image content with no meaningful vector form, same reasoning the raw movie
 // frame itself is never one of the SVG-exportable plots.
 function drawSegmentedImage(labelArr,w,h){
+  segmentedImageLabels={arr:labelArr,w,h};   // persists independently of what the raw panel currently shows — rawPixelData gets overwritten the moment a live frame reclaims the panel, this doesn't, so Show segm. image / per-cell tracking still work afterward
   segmentedImageData=computeSegmentedImageData(labelArr,w,h);
   const colorOf=shuffledLabelColors(segmentedImageData.map(c=>c.id));
   { const rt=$('rawTitle'); if(rt) rt.textContent='Segmented image'; }
@@ -8150,13 +8261,25 @@ async function loadSegmentedImage(file){
     if(stack && (segStack.w!==stack.w || segStack.h!==stack.h))
       log(`⚠ Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
     drawSegmentedImage(img, segStack.w, segStack.h);
+    $('segShowBtn').disabled=false; $('segAreaHistBtn').disabled=false;
   }catch(err){ log(`⚠ Segmented image load failed: ${err.message}`); }
+}
+// Cell-area histogram (pixels) — reuses computeHist()/drawHistogram() the
+// same way drawSptTrackLenHist()/table-column histograms do, no bespoke
+// plot. Linear count axis (unlike the log-scaled track-length one): cell
+// areas from a real segmentation aren't expected to fall off exponentially
+// the way track survival does, so a plain axis is the right default here.
+function drawSegAreaHist(){
+  if(!segmentedImageData || !segmentedImageData.length){ log('No segmentation image loaded — use Load segm. image first.'); return; }
+  computeHist('Cell area', segmentedImageData.map(c=>c.areaPx), 'px');
+  drawHistogram();
 }
 $('applySegmentation').addEventListener('change', ()=>{
   const on=$('applySegmentation').checked;
   $('segLoadRow').style.display = on ? '' : 'none';
   if(!on && rawSegView){
-    segmentedImageData=null; rawSegView=false;
+    segmentedImageData=null; segmentedImageLabels=null; rawSegView=false;
+    $('segShowBtn').disabled=true; $('segAreaHistBtn').disabled=true;
     if(stack) showFrame(+$('scrub').value||0);
     else{ rawFull=null; rawPixelData=null;
       const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame';
@@ -8170,6 +8293,17 @@ $('segFile').addEventListener('change', async e=>{
   await loadSegmentedImage(f);
   e.target.value='';   // allow re-selecting the same filename later
 });
+// Re-shows the ALREADY-loaded segmentation image (segmentedImageLabels,
+// kept independently of whatever the raw panel currently displays) without
+// re-reading the file — same result as a fresh Load segm. image run, since
+// drawSegmentedImage() recomputes everything (segmentedImageData, the
+// shuffled colouring — deterministic, seed 0, so the recolour is identical
+// too) from the stored label array each time it's called.
+$('segShowBtn').addEventListener('click', ()=>{
+  if(!segmentedImageLabels){ log('No segmentation image loaded yet — use Load segm. image first.'); return; }
+  drawSegmentedImage(segmentedImageLabels.arr, segmentedImageLabels.w, segmentedImageLabels.h);
+});
+$('segAreaHistBtn').addEventListener('click', drawSegAreaHist);
 
 /* ===========================================================================
    MODULE: pipeline
@@ -9220,7 +9354,8 @@ function parseCsvLocs(text){
         iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st'), iDist=idx('dist'),
         iTrackId=idx('track_id'), iDCoeff=idx('D_coeff'),
         iSx=idx('sigma_x'), iSy=idx('sigma_y'),
-        iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st');
+        iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st'),
+        iCellId=idx('cell_id'), iCellArea=idx('cell_area');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
   let minXpx=Infinity, minYpx=Infinity, maxXpx=0, maxYpx=0;
@@ -9246,6 +9381,8 @@ function parseCsvLocs(text){
     if(iSy1>=0 && p[iSy1]!=='') L.sy1st=(+p[iSy1])/px;
     if(iTrackId>=0 && p[iTrackId]!=='') L.track_id=+p[iTrackId];
     if(iDCoeff>=0 && p[iDCoeff]!=='') L.D_coeff=+p[iDCoeff];   // already µm²/s
+    if(iCellId>=0 && p[iCellId]!=='') L.cell_id=+p[iCellId];
+    if(iCellArea>=0 && p[iCellArea]!=='') L.cell_area=+p[iCellArea];   // already px, no conversion
     if(iMerged>=0) L.nMerged=+p[iMerged];
     if(L.x<minXpx) minXpx=L.x; if(L.x>maxXpx) maxXpx=L.x;
     if(L.y<minYpx) minYpx=L.y; if(L.y>maxYpx) maxYpx=L.y;
@@ -10011,9 +10148,13 @@ function locTableData(baseLocs, isClustered){
   // locs whose track passed the length filter (see trackDiffusionCoeffs()).
   const hasTrackId=locs.some(L=>L.track_id!==undefined);
   const hasDCoeff=locs.some(L=>isFinite(L.D_coeff));
-  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]);
-  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_x:1,sigma_y:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4};
-  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s'};
+  // Only set by segmentation-aware Track (sptCore()'s segCtx path) — see
+  // buildCsvText's own matching comment for the -1 = "not in a qualifying
+  // cell" convention.
+  const hasCellId=locs.some(L=>L.cell_id!==undefined);
+  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]).concat(hasCellId?['cell_id','cell_area']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_x:1,sigma_y:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4,cell_id:0,cell_area:0};
+  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s',cell_area:'px'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -10031,6 +10172,7 @@ function locTableData(baseLocs, isClustered){
     if(isClustered) r.nmerged=L.nMerged||1;
     if(hasTrackId) r.track_id=L.track_id!==undefined?L.track_id:NaN;
     if(hasDCoeff) r.D_coeff=isFinite(L.D_coeff)?L.D_coeff:NaN;
+    if(hasCellId){ r.cell_id=L.cell_id!==undefined?L.cell_id:NaN; r.cell_area=L.cell_area!==undefined?L.cell_area:NaN; }
     rows[i]=r; }
   return {cols,dec,unit,rows};
 }

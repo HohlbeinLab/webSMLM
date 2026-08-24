@@ -845,7 +845,18 @@ relevant one before editing rather than scrolling:
   and calls `setRawPlot(false)` exactly like it already does when reclaiming from a plot; no new
   "exit" mechanism was needed, just extending the one that already existed. Unchecking **Apply
   segmentation?** while the image is shown reverts to the live frame (or, with no movie loaded,
-  clears the panel back to its own empty default) and drops `segmentedImageData`.
+  clears the panel back to its own empty default) and drops `segmentedImageData`/
+  `segmentedImageLabels`, disabling **Show segm. image**/**Show area hist.** again.
+
+  `segmentedImageLabels` (`{arr,w,h}`, the loaded label array — distinct from `segmentedImageData`,
+  the per-cell stats table both are built from) persists independently of whatever the raw panel
+  currently shows, unlike `rawPixelData` (overwritten the moment a live frame reclaims the panel) —
+  this is what **Show segm. image** re-displays (`drawSegmentedImage()` again, deterministic seed-0
+  recolouring so it's pixel-identical to the original load) without re-reading the file, and what the
+  actual tracking integration below reads from. **Show area hist.** plots
+  `segmentedImageData.map(c=>c.areaPx)` via the shared `computeHist()`/`drawHistogram()` (linear count
+  axis — cell areas aren't expected to fall off exponentially the way SPT track survival does, so no
+  log axis or fit curve here, unlike `drawSptTrackLenHist()`).
 
   Cell colouring (`shuffledLabelColors()`) ports the *idea* behind the user's own
   `sptPALM-Python/helper_functions.py`'s `randomize_label_image()`: raster-order segmentation tools
@@ -859,9 +870,31 @@ relevant one before editing rather than scrolling:
   version needs the shuffled values themselves to be dense for that). Verified visually against the
   real bacteria dataset above — no two adjacent cells share a similar colour.
 
-  **Not yet done** (this round is loading + visualization + the data structure only): actually
-  filtering/splitting `linkTracks()` by which cell each localization falls inside is the natural
-  next step, not built here.
+  **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
+  `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
+  field, `paramValue()` falls back to it since `isFinite(parseFloat(''))` is false) ports
+  `apply_cell_segmentation_sptPALM.py`/`tracking_sptPALM.py`'s own `use_segmentations` branch from
+  the user's `sptPALM-Python` pipeline. `cellIdForLoc(L,segLabels)` looks up a loc's raw label the
+  same way `fmtRawPixel()`'s hover readout does; `linkTracksPerCell()` then groups locs by that
+  label FILTERED through `segmentedImageData`'s own `areaPx` (`-1` — matching the reference
+  pipeline's own sentinel, deliberately not `0`, which some other dataset's raw mask might
+  legitimately use as a real label — for background OR a cell outside the area range, not just
+  true background) and runs the existing `linkTracks()` SEPARATELY per qualifying cell, so a track
+  can never cross a cell boundary. Each cell's own local `track_id` range is offset by a running
+  counter (mirroring the reference pipeline's own `track_id_shift = max(tracks['track_id'])+1`) so
+  the merged result stays globally unique. `sptCore()` takes an optional 5th `segCtx`
+  (`{labels,areaMin,areaMax}`) parameter selecting `linkTracksPerCell()` over the plain
+  `linkTracks()` call; `trackDiffusionCoeffs()` itself needed NO changes — it already skips any
+  `track_id<0` loc, exactly what an excluded/background loc now carries. `runSptTrack()` only
+  builds `segCtx` when **Apply segmentation?** is checked AND a segmentation image is actually
+  loaded (checked-but-nothing-loaded logs a warning and falls back to plain whole-FOV tracking, not
+  an error). `cell_id`/`cell_area [px]` become optional CSV/table columns exactly like
+  `track_id`/`D_coeff` (present only once segmentation tracking has actually run; `parseCsvLocs()`
+  reads them back for a full round trip). Verified against the real bundled
+  `bf_analysed_JH_procBrightfield_segm.tif` + `webSMLM_fluo_part0_03ac93aa_locs.csv`: no track ever
+  spans two `cell_id`s, `Min./Max. cell area` both exact at their boundary (a loc's own `cell_area`
+  never fell below a raised min, and never exceeded a lowered max), and a full CSV
+  export→`parseCsvLocs()` round trip reproduced every field exactly on 569,648 real localizations.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

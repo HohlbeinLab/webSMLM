@@ -260,7 +260,19 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   — see **spt** in `CLAUDE.md` for the full design and the 0.11.2 entry in
   `CHANGELOG.md` for the round-by-round refinement history (verified
   against synthetic straight-line/crossing/gap-bridging cases and the real
-  bundled L. lactis dataset).
+  bundled L. lactis dataset). **Cell-segmentation-aware tracking SHIPPED
+  build 2026-08-24**: `Apply segmentation?` loads a separate integer-
+  labelled mask (`Load segm. image`/`Show segm. image`, recoloured display,
+  `segmentedImageData`), `Min./Max. cell area (px)` gates which cells
+  qualify (`Show area hist.` to help pick them), and `Track` then links
+  each qualifying cell's own localizations SEPARATELY
+  (`linkTracksPerCell()`) — a track can never cross a cell boundary —
+  ported from `sptPALM-Python`'s own `apply_cell_segmentation_sptPALM.py`/
+  `tracking_sptPALM.py` `use_segmentations` branch. `cell_id`/
+  `cell_area [px]` become optional CSV/table columns, same pattern as
+  `track_id`/`D_coeff`. Verified against the real bundled brightfield
+  segmentation + localization CSV: no track ever spans two cells, area
+  filtering exact at both bounds, CSV round-trip exact.
 
   Deliberately deferred, not forgotten:
   - **Length-resolved D histogram** (the reference pipeline's
@@ -273,19 +285,6 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     x-axis — v1 ships literal log10 numbers (a deliberate, documented v1
     shortcut, reusing `computeHist()`/`drawHistogram()` completely
     unchanged) rather than a genuinely log-scale-aware axis.
-  - **Cell-segmentation-aware tracking** (the reference pipeline's
-    `use_segmentations` branch, tracking per-bacterium rather than across
-    the whole field of view) — v1 SHIPPED (build 2026-08-24): **Apply
-    segmentation?** loads a separate integer-labelled mask image (0 =
-    background, 1/2/3/… = cell number), shows it in the raw panel recoloured
-    (`drawSegmentedImage()`, shuffled-label hue colouring ported from
-    `sptPALM-Python/helper_functions.py`'s `randomize_label_image()` so
-    adjacent cells — often consecutively numbered by raster-order
-    segmentation tools — get visually distinct colours), and builds
-    `segmentedImageData` (`{id,cx,cy,areaPx}` per cell). **Not yet done**:
-    actually filtering/splitting `linkTracks()` by which cell each
-    localization falls inside — this round is loading + visualization +
-    the data structure only, per-cell linking is the natural next step.
   - **Large-subnetwork exact assignment.** `linkTracks()`'s connected
     components above `HUNGARIAN_MAX` (120 points) fall back to greedy
     nearest-neighbor rather than trackpy's own recursive exact-subnetwork

@@ -698,15 +698,29 @@ sSMLM's pairing does. No length-RESOLVED D histogram (D binned by track
 length — distinct from the plain track-length histogram above), and no
 colour-by-D/by-track rendering yet — see `docs/REFACTOR_PLAN.md`.
 
-**Segmentation image** (`applySegmentation`, default unchecked) is v1 of
-cell-segmentation-aware tracking: checking it reveals **Load segmented
-image**, which loads a separate integer-labelled mask (0 = background,
-1/2/3/… = cell number) through the same file types **Load movie** accepts,
-shows it in the raw panel recoloured so adjacent cells are visually
-distinct, and builds `segmentedImageData` (one row per cell: id, centre of
-mass in px, area in px). Actually filtering/splitting tracking by which
-cell each localization falls inside isn't built yet — this round is
-loading + visualization + the data structure only.
+**Segmentation image** (`applySegmentation`, default unchecked) is
+cell-segmentation-aware tracking: checking it reveals **Load segm. image**
+(loads a separate integer-labelled mask — 0 = background, 1/2/3/… = cell
+number — through the same file types **Load movie** accepts, shown in the
+raw panel recoloured so adjacent cells are visually distinct) and **Show
+segm. image** (re-shows the already-loaded mask without reloading the
+file). `segmentedImageData` (one row per cell: id, centre of mass in px,
+area in px) drives **Show area hist.** (a histogram of cell areas, px) and
+**Min./Max. cell area (px)** (default 50/∞), which gate which cells'
+localizations actually get tracked.
+
+With segmentation applied, **Track** (`sptCore()`'s `segCtx` path,
+`linkTracksPerCell()`) links each qualifying cell's own localizations
+SEPARATELY — a track can never cross a cell boundary — rather than one
+whole-field-of-view `linkTracks()` pass, matching the user's own
+`sptPALM-Python` pipeline's `apply_cell_segmentation_sptPALM.py`/
+`tracking_sptPALM.py` (`use_segmentations` branch): a loc's `cell_id` is
+its FILTERED cell membership (`-1` — matching that pipeline's own
+sentinel, not `0` — for background or a cell outside the area range, never
+tracked), and, only once segmentation is applied, `cell_area [px]` sits
+alongside it as an optional CSV/table column, the same pattern
+`track_id`/`D_coeff` already use. Each cell's own local track numbering is
+offset so `track_id` stays globally unique across the whole result.
 
 ### Pipeline (`pipeline`) {#pipeline}
 
@@ -1366,6 +1380,8 @@ for the first implementation.
 | `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
 | `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
 | `sptDPlotMax` | SPT D plot max (µm²/s) | number | 0.0001 | 1000 | 0.1 | 10 |
+| `segAreaMin` | Min. cell area (px) | number (int) | 0 | — | 1 | 50 |
+| `segAreaMax` | Max. cell area (px) | number (int) | 0 | — | 1 | ∞ (blank field) |
 
 **In-app "more info…" popup** (`hint-spt` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
@@ -1377,7 +1393,8 @@ for the first implementation.
 <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
 <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
-<p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segmented image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). This is v1: the mask isn't used to filter/split tracking by cell yet, just loaded and visualized.</p>
+<p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
+<p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
 <!-- /HINT:spt -->
 
 Defaults are ported from the user's own `sptPALM-Python` pipeline's
@@ -1524,7 +1541,7 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
@@ -1536,10 +1553,17 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   independent of `sigma1st [nm]`/`sx0th [nm]` etc. below (those are
   sSMLM-**Pair**-specific). Round-trips through **Load data**.
 - `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `sx0th [nm]`/`sy0th [nm]`/
-  `sx1st [nm]`/`sy1st [nm]`, `track_id`, `D_coeff [um^2/s]` (each when
-  available) and `n_merged [frames]` (when temporal clustering is active)
-  are webSMLM-specific additions appended after the standard columns — safe
-  for a strict ThunderSTORM reader to ignore.
+  `sx1st [nm]`/`sy1st [nm]`, `track_id`, `D_coeff [um^2/s]`, `cell_id`/
+  `cell_area [px]` (each when available) and `n_merged [frames]` (when
+  temporal clustering is active) are webSMLM-specific additions appended
+  after the standard columns — safe for a strict ThunderSTORM reader to
+  ignore.
+- `cell_id`/`cell_area [px]` are present only after **Track** ran with
+  **Apply segmentation?** checked (see §2 spt) — `cell_id` is `-1` for a
+  localization that's background or inside a cell outside **Min./Max. cell
+  area**, never a real cell number for those (matching `sptPALM-Python`'s
+  own `apply_cell_segmentation_sptPALM.py` sentinel convention). Round-trips
+  through **Load data**.
 - `dist [nm]` is sSMLM-**Pair**-specific: the inter-order distance
   (see §2 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
   for it; `pairCore()` never sets `z`, so a paired-only export has `dist`
