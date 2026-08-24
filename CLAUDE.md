@@ -888,6 +888,24 @@ relevant one before editing rather than scrolling:
   clears the panel back to its own empty default) and drops `segmentedImageData`/
   `segmentedImageLabels`, disabling **Show segm. image**/**Show area hist.** again.
 
+  `drawSegmentedImage()` also calls `setFrameAspect(w,h)` with the segmentation image's OWN
+  dimensions, taking over `--frame-ar` (the CSS custom property BOTH panels' canvases track, see
+  **render** above) regardless of what set it before. A real, reported bug otherwise: for a
+  CSV-loaded result (no `stack`, so `initScrub()` never runs), `--frame-ar` was left at
+  `parseCsvLocs()`'s own loc-bounding-box `w`/`h` — an APPROXIMATION, padded and never exactly the
+  segmentation image's true dimensions — so the "Segmented image" panel got letterboxed inside a
+  box shaped for the OTHER canvas, showing an empty gap along one edge that looked exactly like a
+  data misalignment but wasn't one: checking the actual pixel data directly (a synthetic
+  known-position test, then the real bundled segmentation image) confirmed both layers agree
+  exactly — `segmentedImageLabels.arr`'s own first non-zero row and the closest real localization's
+  own `y` both landed at row/coordinate ≈0, with no genuine gap in the DATA. The segmentation
+  image's dimensions are treated as the more authoritative source for `--frame-ar` once one is
+  loaded — a real, known camera FOV shape, unlike a loc-bounding-box guess that's only ever an
+  approximation of the true dimensions to begin with (border-adjacent localizations are dropped
+  during fitting, so it's always somewhat smaller than the real FOV regardless). The reconstruction
+  panel may pick up a small letterbox gap of its own from this instead — the right trade, not a new
+  problem, given which of the two shapes is actually known vs. approximated.
+
   `segmentedImageLabels` (`{arr,w,h}`, the loaded label array — distinct from `segmentedImageData`,
   the per-cell stats table both are built from) persists independently of whatever the raw panel
   currently shows, unlike `rawPixelData` (overwritten the moment a live frame reclaims the panel) —

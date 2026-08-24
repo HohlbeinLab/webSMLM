@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24q; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24r; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -41,9 +41,9 @@
                            segmentation-image loading/visualization +
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap (srSegOverlayBtn)
-    pipeline        8511   top-level orchestration, *Core()/wrapper split
-    table           10202  localizations table, filtering, histograms
-    headless API    10646  window.webSMLM.analyze()/analyzeBatch()
+    pipeline        8527   top-level orchestration, *Core()/wrapper split
+    table           10218  localizations table, filtering, histograms
+    headless API    10662  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1699,7 +1699,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24q</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24r</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2150,7 +2150,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24q · fix: Load data (CSV) no longer shifts localization coordinates — this was silently breaking alignment with any separately-loaded segmentation image; (0,0) now always means the same physical camera pixel as the original file/session</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24r · fix: loading a segmentation image now sets the shared panel aspect ratio from its own true dimensions, removing a letterbox gap that looked like a data misalignment but wasn't one</div>
   </main>
 </div>
 
@@ -8342,6 +8342,22 @@ function drawSegmentedImage(labelArr,w,h){
   rawPixelData={arr:labelArr,w,h}; rawSpots=null; rawLocs=null;
   rawSegView=true; setRawPlot(false); $('rawCropBtn').disabled=true;
   rawCropMode=false; $('rawCropBtn').classList.remove('on'); rawCropPt0=null;
+  // Both panels share ONE CSS aspect ratio (--frame-ar, see setFrameAspect()'s
+  // own MODULE: render comment) — normally set from whatever's loaded first
+  // (initScrub() for a real movie, the CSV load handler for a CSV-only
+  // result's own loc-bounding-box guess). A segmentation image is its own,
+  // independently authoritative source for the TRUE FOV shape, so it takes
+  // over here regardless of what set it before — a real, reported bug
+  // otherwise: a CSV-loaded result's own approximate bounding box (padded,
+  // never exactly the segmentation's true dimensions) left this panel
+  // letterboxed inside a box shaped for the OTHER canvas, showing an empty
+  // gap that looked like a data misalignment but wasn't one (confirmed by
+  // checking actual pixel data — both layers agreed exactly; only the CSS
+  // box shape was wrong). The reconstruction panel may pick up a small
+  // letterbox gap of its own from this instead, which is the right trade
+  // rather than the wrong one: its own w/h were only ever an approximation,
+  // while the segmentation image's dimensions are the real, known FOV shape.
+  setFrameAspect(w,h);
   fitRawView(); clampRawView(); drawRawView();
   $('rawInfo').textContent=`— ${segmentedImageData.length} cell(s) segmented`;
   syncSaveImg();
