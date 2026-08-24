@@ -1583,7 +1583,14 @@ the round trip losslessly:
   real CRLB or the LS/phasor formula estimate) is gone.
 - There's no camera frame size in a CSV, so the internal `w`/`h` (used only
   to size the reconstruction canvas) are derived from the loaded data's own
-  bounding box (+10 px margin), not the original stack's actual dimensions.
+  bounding box (+10 px total margin, split evenly), not the original stack's
+  actual dimensions. Every loc's `x`/`y` is shifted by the SAME constant so
+  that bounding box sits centred (equal margin on all four sides) rather
+  than flush against the low edge — a re-export after loading a CSV back in
+  therefore reports `x`/`y` offset from the original file by that constant
+  (relative distances/geometry between locs are exactly unaffected). There's
+  no raw frame data for a CSV-only load to stay pixel-aligned with, so this
+  doesn't lose or misalign anything — only the coordinate origin moves.
 
 ---
 

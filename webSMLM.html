@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24g; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24h; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1697,7 +1697,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24g</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2127,7 +2127,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24g · "Load segm. image" label no longer wraps; loading a CSV directly now sets the panels' aspect ratio from the loc data itself, auto-triggering stacked layout for wide/narrow results</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24h · Load data (CSV) now centres the reconstruction — the bounding box used to get a near-zero margin on its low edge and the full margin on the high edge, an uncentred crop</div>
   </main>
 </div>
 
@@ -9223,7 +9223,7 @@ function parseCsvLocs(text){
         iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
-  let maxXpx=0, maxYpx=0;
+  let minXpx=Infinity, minYpx=Infinity, maxXpx=0, maxYpx=0;
   for(let i=1;i<lines.length;i++){
     const p=lines[i].split(',');
     const L={ frame:(+p[iFrame]|0)-1, x:(+p[iX])/px, y:(+p[iY])/px, photons:+p[iN],
@@ -9247,10 +9247,26 @@ function parseCsvLocs(text){
     if(iTrackId>=0 && p[iTrackId]!=='') L.track_id=+p[iTrackId];
     if(iDCoeff>=0 && p[iDCoeff]!=='') L.D_coeff=+p[iDCoeff];   // already µm²/s
     if(iMerged>=0) L.nMerged=+p[iMerged];
-    if(L.x>maxXpx) maxXpx=L.x; if(L.y>maxYpx) maxYpx=L.y;
+    if(L.x<minXpx) minXpx=L.x; if(L.x>maxXpx) maxXpx=L.x;
+    if(L.y<minYpx) minYpx=L.y; if(L.y>maxYpx) maxYpx=L.y;
     locs[i-1]=L;
   }
-  return {locs, w:Math.ceil(maxXpx)+10, h:Math.ceil(maxYpx)+10, px};   // +10px margin so a boundary loc never rounds outside the canvas
+  // The bounding box's own min corner is essentially never (0,0) — a
+  // reconstruction from a CSV is already smaller than whatever camera FOV it
+  // came from (border-adjacent localizations get dropped during fitting), so
+  // minXpx/minYpx land wherever the surviving data happens to start. Sizing
+  // the canvas off max ALONE (as this used to) implicitly treated that
+  // arbitrary min as "the edge", giving a near-zero margin on the low side
+  // and the full +10 margin on the high side — same visual effect as an
+  // uncentered crop. Shift every loc so the bounding box sits with an EQUAL
+  // 5px margin on all four sides instead of an arbitrary one; there's no
+  // "original image" coordinate frame a CSV-only load needs to stay aligned
+  // with (no raw frame data accompanies it — see the "no raw frame data"
+  // log line below), so re-centering here doesn't lose or misalign anything.
+  const MARGIN=10, ox=minXpx-MARGIN/2, oy=minYpx-MARGIN/2;
+  for(const L of locs){ L.x-=ox; L.y-=oy; }
+  const w=Math.ceil(maxXpx-minXpx)+MARGIN, h=Math.ceil(maxYpx-minYpx)+MARGIN;
+  return {locs, w, h, px};
 }
 $('loadCsvBtn').addEventListener('click',()=>$('csvFile').click());
 $('csvFile').addEventListener('change', async e=>{

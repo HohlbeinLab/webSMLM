@@ -520,7 +520,20 @@ relevant one before editing rather than scrolling:
   against it, and never auto-triggering the stacked-panels heuristic a similarly-shaped movie
   would. The reconstruction's own bounding box is always somewhat smaller than the original camera
   FOV (border-adjacent localizations are dropped during fitting) — expected, not something to
-  correct for; it's still the right shape to fit the panel to. The click handler also calls
+  correct for; it's still the right shape to fit the panel to. `parseCsvLocs()` itself was also
+  fixed alongside this (same round, second user report against the real bundled multi-file-loaded
+  dataset): it used to size `w`/`h` off `maxX`/`maxY` ALONE (a leftover `+10` "never round a
+  boundary loc outside the canvas" margin, applied only on the high side), so the bounding box's
+  own low corner — essentially never exactly (0,0) — got a near-zero margin while the high corner
+  got the full +10, i.e. an uncentred crop; the render itself (`fitView()`) correctly centres
+  the WHOLE buffer, so it faithfully reproduced that asymmetry on screen. Now tracks `minX`/`minY`
+  too and shifts every loc by the same constant so the bounding box sits with an EQUAL margin on
+  all four sides — verified via a pixel-scan of the raw render buffer before/after (top/bottom/
+  left/right margins went from wildly unequal to matching to within `Math.ceil()` rounding). No
+  raw frame data exists for a CSV-only load to stay pixel-aligned with, so the shift doesn't lose
+  or misalign anything — see `docs/DOCUMENTATION.md`'s CSV round-trip section for the user-facing
+  note that a re-export's `x`/`y` will be offset from the original file by that same constant.
+  The click handler also calls
   `refitCanvases()` immediately, since the panel boxes just changed shape. `layoutToggleBtn` lives
   on the right of the **Log** card's own title bar (`clearLogBtn`/`exportLogBtn` grouped on the
   left), not a dedicated row above the canvases — that read as wasted vertical space for one small
