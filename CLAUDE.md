@@ -61,34 +61,17 @@ relevant one before editing rather than scrolling:
   each side of the `/` (` / 20000`, not `/20000`) in the same round, by request — plain spaces are
   safe here since the parent already carries `white-space:nowrap`.
 
-  **`pxnm` ("Pixel size (nm)") is pinned outside any collapsible `<details>`** — v1/first-pass
-  fix for a real complaint: it used to sit inside the collapsed-by-default "Localisation settings"
-  section (alongside Gain/Camera offset), easy to never notice was there despite feeding the scale
-  bar, z, and every exported CSV coordinate. Now a plain always-visible row in the sidebar's top
-  `.group`, right after the primary action buttons/progress bar and before "Memory & streaming" —
-  a pure DOM relocation (same `id="pxnm"`, same `PARAMS` entry), so `syncParamControls()`/
-  `paramValue()`/`addNumberSteppers()`/the existing `change` listener (`lastResult.px=...;
-  rerender(true);` — see **spt**'s "Pixel size (nm) already updates live" note) all keep finding it
-  by id with zero other code changes. Explicitly a first iteration, expected to
-  be refined: Gain/Camera offset deliberately stayed inside Localisation settings for now (an open
-  question whether those two — arguably just as easy to forget, and part of the same "physical
-  calibration" trio — should move too, or whether splitting the trio across two locations reads as
-  inconsistent); no special visual treatment yet beyond a plain `label.row` (a highlighted/boxed
-  treatment to make it read as "pinned" rather than just "the first field in the list" is a
-  candidate follow-up). Considered and rejected: moving it into the header next to the theme
-  switch/`layoutToggleBtn` — that area is deliberately pure display/layout chrome (nothing there
-  affects analysis results), and mixing in a real calibration parameter would blur that distinction
-  and cost mobile-drawer header space that's already tight.
-
-  **Right-edge alignment gotcha, same root cause as the `label.row` nesting-depth gotcha below but
-  the opposite direction**: `details.sim>label.row{padding-right:4px}` is a direct-child selector —
-  it only matches a `label.row` sitting immediately inside a `details.sim`. This pinned row sits
-  OUTSIDE any `details.sim` (that's the whole point of pinning it), so it never matched either, and
-  its numstep +/- buttons sat 4px further right than every other row's own right edge — a real,
-  reported bug, visible once compared side-by-side against "Memory budget (GB)" directly below it.
-  Fixed the same way the nesting-depth cases are fixed: an explicit inline `style="padding-right:4px"`
-  on this one `label.row`, since there's no shared `details.sim` ancestor to add the padding to
-  generically.
+  **`pxnm` ("Pixel size (nm)") is pinned outside any collapsible `<details>`** — it used to sit
+  inside the collapsed-by-default "Localisation settings" section, easy to never notice despite
+  feeding the scale bar, z, and every exported CSV coordinate. Now a plain always-visible row in
+  the sidebar's top `.group`, before "Memory & streaming" — a pure DOM relocation (same `id="pxnm"`,
+  same `PARAMS` entry), so `syncParamControls()`/`paramValue()`/`addNumberSteppers()`/the existing
+  `change` listener (`lastResult.px=...; rerender(true);`) all keep finding it by id with zero other
+  code changes. Gain/Camera offset deliberately stay inside Localisation settings for now. Because
+  this row sits OUTSIDE any `details.sim`, it doesn't match the `details.sim>label.row{padding-
+  right:4px}` direct-child selector every other row relies on for numstep alignment — fixed with an
+  explicit inline `style="padding-right:4px"` (same root cause as the `label.row` nesting-depth
+  gotcha below, opposite direction: that one is nested too DEEP, this one sits OUTSIDE entirely).
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)
@@ -523,20 +506,11 @@ relevant one before editing rather than scrolling:
   states it "deliberately excludes pure display/layout (CSS)" (see **params** above), and theme
   choice is exactly that, same as sidebar collapsed/floating state.
 
-  **Quick guide** (`helpBtn`, renamed from "Help & guide") briefly moved from its own solo row at
-  the bottom of the sidebar's action-button block into `.header-actions`, right of
-  `layoutToggleBtn` (part of the same round that merged Load movie/Load data, MODULE: pipeline, and
-  moved **View data + filtering** up into the row that freed) — reverted on request one build
-  later: it now sits in the sidebar instead, sharing `#tableBtn`'s own row, right of **View data +
-  filtering**. Its own bespoke `.helpbtn` look (a surface+accent-border+accent-text combo) was
-  dropped as dead CSS during the header detour (a plain `.logbtn` fit the header's own family
-  better there), then explicitly restored once the button moved back — `.helpbtn` is real CSS
-  again, `helpBtn` carries the class again, and it reads with its original blue outline/text rather
-  than blending in as a plain default button like `tableBtn` beside it. The header-specific
-  `#layoutToggleBtn,#helpBtn{height:var(--icon-size)}` rule reverted back to `#layoutToggleBtn`
-  alone (`helpBtn` no longer shares that row, so no longer needs matching that row's own icon-
-  button height). `wireHelp()` itself needed zero changes throughout any of this — still finds the
-  button by the same `id="helpBtn"`, position- and class-independent.
+  **Quick guide** (`helpBtn`, renamed from "Help & guide") sits in the sidebar sharing `#tableBtn`'s
+  own row, right of **View data + filtering**, styled with its own bespoke `.helpbtn` look (a
+  surface+accent-border+accent-text combo, distinct from a plain default button) — see
+  `CHANGELOG.md`'s v0.11.6 entry for the header-relocation detour this went through before landing
+  here. `wireHelp()` finds it by `id="helpBtn"`, position- and class-independent.
 
   **`webSMLM_lastVersion`** (localStorage, right after the theme-init block above, same try/catch
   fail-safe) is a sibling of `webSMLM_theme` for a different purpose: on load, it parses the
@@ -770,25 +744,19 @@ relevant one before editing rather than scrolling:
   configured window as markers (`computeHist()`'s optional 4th `markers` param), refreshed live on
   field edits and after a fit via `refreshSSmlmHistIfShown()`.
 
-  **`sSmlmHistBtn`** ("Show histograms") merges what used to be two separate sidebar buttons (Show
-  dist. hist. / Show angle hist.) into one, mirroring **spt**'s own `sptHistBtn`/`sptHistModeBtn`
-  merge (same session, same pattern) — `sSmlmHistModeBtn`, inline in the raw-panel title, toggles
-  which mode `drawSSmlmHist()` (already a single mode-aware function, `sSmlmHistMode` `'dist'`/
-  `'angle'`, predating this merge — the two buttons previously just called it with the mode
-  pre-set) draws, labelled `"Distances"`/`"Angles"` (the OTHER mode's name, `driftPlotModeBtn`'s own
-  convention). **Deliberately different from spt's own merge in one way**: `drawSSmlmHist()`
+  **`sSmlmHistBtn`** ("Show histograms") is one button covering both the distance and angle
+  histograms, with `sSmlmHistModeBtn` (inline in the raw-panel title) toggling which mode
+  `drawSSmlmHist()` draws — a single mode-aware function, `sSmlmHistMode` `'dist'`/`'angle'` —
+  labelled `"Distances"`/`"Angles"` (the OTHER mode's name, `driftPlotModeBtn`'s own convention).
+  **Deliberately different from spt's own D/track-length histogram merge**: `drawSSmlmHist()`
   overrides `$('rawTitle')` to a single FIXED `"sSMLM histograms"` for both modes, right after
-  `drawHistogram()` sets its own per-mode auto-title (`"Histogram: sSMLM pair distance"`/`"...
-  angle"`) — spt's merge deliberately kept `drawHistogram()`'s own per-mode title instead; this one
-  doesn't, by explicit request. `previewSSmlmPairs()` resets `sSmlmHistMode='dist'` before its own
-  first draw — a fresh Preview always opens on Distances, same "fresh result opens on the default
-  view" precedent `driftPlotMode`/`sptHistMode` already follow. `refreshSSmlmHistIfShown()` is
-  unaffected by the merge — already keyed off `histData.col`, not which button opened it.
+  `drawHistogram()` sets its own per-mode auto-title — spt's own merge keeps `drawHistogram()`'s
+  per-mode title instead, by explicit request. `previewSSmlmPairs()` resets `sSmlmHistMode='dist'`
+  before its own first draw — a fresh Preview always opens on Distances, same "fresh result opens
+  on the default view" precedent `driftPlotMode`/`sptHistMode` follow. `refreshSSmlmHistIfShown()`
+  is unaffected — already keyed off `histData.col`, not which button opened it.
 
-  Button-row layout: **Fit angle & tol.** and **Pair** share one row (`Pair` moved up from its
-  former row with `Unpair`); **Unpair** now sits alone in the next row. Purely a visual reflow — no
-  wiring change, `sSmlmFitAngleBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn` keep their existing enable/
-  disable logic untouched.
+  **Fit angle & tol.** and **Pair** share one button row; **Unpair** sits alone in the row below.
 
   An unpaired localization is dropped from the result. A pair's reported position is the 0th
   order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
@@ -873,27 +841,23 @@ relevant one before editing rather than scrolling:
   shortcut, `docs/REFACTOR_PLAN.md`). `sptDPlotMin`/`Max` are a DISPLAY-only axis window —
   `meanD`/`medianD` always reflect every qualifying track, never just the plotted window.
 
-  **`sptHistBtn`** ("Show histograms") merges what used to be two separate sidebar buttons (Show D
-  histogram / Show length hist.) into one, with `sptHistModeBtn` — inline in the raw-panel title,
-  same `.logbtn`/`display:none`-until-relevant placement and show/hide wiring as `driftPlotModeBtn`
-  (MODULE: drift) — toggling which of `drawSptDHist()`/`drawSptTrackLenHist()` is on screen. Labelled
-  `"Diffusion"`/`"Track length"` (the OTHER mode's name, matching `driftPlotModeBtn`'s own "shows
-  what clicking gets you" convention) rather than an action verb — the one place these two toggle
-  buttons word themselves differently, by explicit request. `sptHistMode` (module-level, `'D'`
-  default) resets to `'D'` only at the top of a fresh `runSptTrack()` — same "a fresh result always
-  opens on the default view" precedent `driftPlotMode`'s own reset point already follows —
-  `sptHistBtn`'s own click just reopens whichever mode was last active, it does NOT force `'D'`
-  every time. `drawSptHist()` is the dispatcher (owns `sptHistModeBtn`'s visibility/label, same
-  "dispatcher owns the toggle button, not the underlying draw primitive" split `drawDriftCurve()`
-  already uses — neither `drawHistogram()` nor `drawSptDHist()`/`drawSptTrackLenHist()` touch the
-  button directly). `sptHistBtn` is enabled off `trackLengths.length` (the old `sptTrackLenHistBtn`'s
-  own, more permissive condition — every linked track counts, regardless of D qualification); if a
-  fresh Track run has zero qualifying D estimates, `runSptTrack()` sets `sptHistMode='length'` before
-  calling `drawSptHist()` instead of leaving a disabled button — preserves the exact fallback
-  behaviour the two separate buttons used to give (a dataset with tracks but no D estimate still
-  gets *a* useful histogram shown automatically). `refreshSptDHistIfShown()`/
-  `refreshSptTrackLenHistIfShown()` (live-refresh on `sptFrameTime`/`sptTrackLenMin` edits) are
-  unaffected by the merge — each already keyed off `histData.col`, not the button that opened it.
+  **`sptHistBtn`** ("Show histograms") shows either the D or track-length histogram; `sptHistModeBtn`
+  — inline in the raw-panel title, same `.logbtn`/`display:none`-until-relevant placement as
+  `driftPlotModeBtn` (MODULE: drift) — toggles which of `drawSptDHist()`/`drawSptTrackLenHist()` is
+  on screen. Labelled `"Diffusion"`/`"Track length"` (the OTHER mode's name, matching
+  `driftPlotModeBtn`'s "shows what clicking gets you" convention) rather than an action verb — the
+  one place this toggle words itself differently from its siblings, by explicit request.
+  `sptHistMode` (module-level, `'D'` default) resets to `'D'` only at the top of a fresh
+  `runSptTrack()` — same "fresh result opens on the default view" precedent `driftPlotMode` follows
+  — `sptHistBtn`'s own click just reopens whichever mode was last active. `drawSptHist()` is the
+  dispatcher (owns `sptHistModeBtn`'s visibility/label — neither `drawHistogram()` nor
+  `drawSptDHist()`/`drawSptTrackLenHist()` touch the button directly). `sptHistBtn` is enabled off
+  `trackLengths.length` — every linked track counts, regardless of D qualification; if a fresh Track
+  run has zero qualifying D estimates, `runSptTrack()` sets `sptHistMode='length'` before calling
+  `drawSptHist()` instead of leaving a disabled button, so a dataset with tracks but no D estimate
+  still gets *a* useful histogram shown automatically. `refreshSptDHistIfShown()`/
+  `refreshSptTrackLenHistIfShown()` (live-refresh on `sptFrameTime`/`sptTrackLenMin` edits) are each
+  already keyed off `histData.col`, not the button that opened it.
 
   D = (MSD/4 − locErrorUm²)/frametime is exactly linear in 1/frametime, and MSD itself (cached per
   track in `trackDiffusionCoeffs()`'s `trackMSD` Map, plumbed through to `lastSpt.trackMSD`)
@@ -901,11 +865,10 @@ relevant one before editing rather than scrolling:
   time** or **Localization error** after **Track** rescales every track's D (table/CSV, `lastSpt`,
   the D histogram) directly from `trackMSD`, no re-linking — unlike **Search range**/**Memory**/
   **Min track length**, which change which tracks/steps exist and still need a fresh **Track**.
-  The **Get from NeNA** button (`sptLocErrorFromNenaBtn`, renamed from "from NeNA" and moved to the
-  right side of its own row via `style="grid-column:2"` — a lone `.btnrow` child sits in the LEFT
-  grid cell by default, so an explicit `grid-column` is needed to right-align one instead) has a
-  programmatic `sptLocError.value` write that doesn't fire `change`, so its handler calls
-  `recomputeSptD()` explicitly.
+  The **Get from NeNA** button (`sptLocErrorFromNenaBtn`, right-aligned via `style="grid-column:2"`
+  — a lone `.btnrow` child sits in the LEFT grid cell by default) has a programmatic
+  `sptLocError.value` write that doesn't fire `change`, so its handler calls `recomputeSptD()`
+  explicitly.
 
   `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ),
   a photobleaching-limited survival model) via WEIGHTED least-squares on ln(count) vs bin centre,
@@ -931,9 +894,7 @@ relevant one before editing rather than scrolling:
   `track_id`/`D_coeff` are independent, optional table/CSV columns (same pattern as sSMLM's
   `dist`/`sigma1st`), so the filter grammar works on tracking data for free — the general **Save
   data** CSV gains these automatically once Track has run. **Save tracking data**
-  (`sptSaveBtn`/`exportSptSummary()`, renamed from "Save spt data" — measured to still fit on one
-  line at the sidebar's normal width, matching sibling `sptTrackBtn`'s own rendered height) is a
-  genuinely DIFFERENT export: `sptTrackSummary()`
+  (`sptSaveBtn`/`exportSptSummary()`) is a genuinely DIFFERENT export: `sptTrackSummary()`
   aggregates into one row per TRACK (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`) rather than
   per localization — built from the tracked locs directly, not `lastSpt`'s own arrays (those only
   cover qualifying tracks); every linked track gets a row here. **Headless**: `config.sptTrack`
@@ -959,13 +920,12 @@ relevant one before editing rather than scrolling:
   silently broken headlessly, since `analyze()` deliberately never touches that global (staying
   DOM-free like every other `*Core()` consumer) — every loc would have come back excluded with no
   error. Fixed by recomputing the area map from the passed-in `segLabels` via
-  `computeSegmentedImageData()` (pure, already DOM-free) instead. `tools/webSMLM-cli.mjs`'s
-  `--segmentation <mask.tif>` forwards to it (verified against the real bundled
-  `Sample2_L.lactis_..._MMStack_Pos0.ome.tif` + `bf_analysed_JH_procBrightfield_segm.tif`, end to
-  end through the actual CLI subprocess — correct `cell_id`/`cell_area [px]` CSV columns, tracks
-  confined to their own cell); `?autorun=` has no file-upload mechanism at all (even
-  `calibrationFile` isn't reachable from it, a pre-existing gap, not something this touched) so it
-  doesn't gain an equivalent.
+  `computeSegmentedImageData()` (pure, already DOM-free) instead — a general lesson for any future
+  `*Core()`-reachable function: a module-level global that happens to be populated before every
+  interactive call site is invisible until something calls the same function headlessly.
+  `tools/webSMLM-cli.mjs`'s `--segmentation <mask.tif>` forwards to it; `?autorun=` has no
+  file-upload mechanism at all (even `calibrationFile` isn't reachable from it, a pre-existing gap)
+  so it doesn't gain an equivalent.
 
   **Segmentation image** (`applySegmentation` checkbox, default unchecked; v1, "as a start" toward
   cell-segmentation-aware tracking — see `docs/REFACTOR_PLAN.md`). Checking it reveals **Load
@@ -1005,28 +965,23 @@ relevant one before editing rather than scrolling:
   `segmentedImageLabels`, disabling **Show image** again (and hiding its own raw-panel-title
   toggle, `segShowModeBtn` — see below).
 
-  **"Show segm. image"/"Show area hist." merge**: the two used to be separate sidebar buttons, each
-  redrawing its own content unconditionally. Now one button, `segShowBtn` ("Show segmentation" at
-  first, renamed to **Show image** one round later — it shares a two-column `.btnrow` with **Load
-  segm. image**, and "Show segmentation" wrapped to two lines there while "Show image" fits on
-  one), plus a raw-panel-title toggle (`segShowModeBtn`, `.logbtn`, same show/hide-while-relevant
-  pattern
-  as `driftPlotModeBtn`/`sSmlmHistModeBtn`) that flips a module-level `segShowMode`
-  (`'image'`/`'hist'`, default `'image'`) and calls `drawSegShow()` again. Unlike the spt-histogram
-  and sSMLM-histogram merges (both toggling between two PLOTS sharing one `computeHist()`/
-  `drawHistogram()` draw call, so a single dispatcher can own both the draw and the panel title),
-  this merge toggles between a RASTER IMAGE (`drawSegmentedImage()`, the `rawFull`/`rawView`
-  pipeline) and a PLOT (`drawSegAreaHist()`, the `rawIsPlot`/`computeHist()` pipeline) — two
-  structurally different rendering paths with no shared draw primitive to factor out, so
-  `drawSegShow()` is a thin dispatcher that just calls whichever existing function applies; each
-  mode keeps setting its OWN panel title (`"Segmented image"` / `"Histogram: Cell area"`) rather
-  than the fixed-title override the sSMLM merge uses. `segShowModeBtn`'s own label is the OTHER
-  mode's name (clicking it while showing the image reads "Area histogram", and vice versa), synced
-  by `syncSegShowModeBtn()` — split out from `drawSegShow()` so `loadSegmentedImage()` can reset
-  `segShowMode='image'` and sync the toggle button's visibility/label on a fresh load WITHOUT a
-  redundant redraw of what `drawSegmentedImage()` already just drew inline. Hidden at the same two
-  reclaim points every other raw-panel toggle already uses: `drawRaw()` (scrubbing to a live frame)
-  and the `applySegmentation` uncheck handler.
+  **Show image** (`segShowBtn` — shares a two-column `.btnrow` with **Load segm. image**) shows
+  either the segmentation image or its cell-area histogram; a raw-panel-title toggle
+  (`segShowModeBtn`, `.logbtn`, same show/hide-while-relevant pattern as `driftPlotModeBtn`/
+  `sSmlmHistModeBtn`) flips a module-level `segShowMode` (`'image'`/`'hist'`, default `'image'`) and
+  calls `drawSegShow()` again. Unlike the spt/sSMLM histogram toggles (both switching between two
+  PLOTS sharing one `computeHist()`/`drawHistogram()` draw call, so a single dispatcher can own both
+  the draw and the panel title), this one switches between a RASTER IMAGE (`drawSegmentedImage()`,
+  the `rawFull`/`rawView` pipeline) and a PLOT (`drawSegAreaHist()`, the `rawIsPlot`/`computeHist()`
+  pipeline) — two structurally different rendering paths with no shared draw primitive to factor
+  out, so `drawSegShow()` is a thin dispatcher that just calls whichever existing function applies;
+  each mode keeps setting its OWN panel title (`"Segmented image"` / `"Histogram: Cell area"`)
+  rather than the fixed-title override the sSMLM merge uses. `segShowModeBtn`'s own label is the
+  OTHER mode's name, synced by `syncSegShowModeBtn()` — split out from `drawSegShow()` so
+  `loadSegmentedImage()` can reset `segShowMode='image'` and sync the toggle on a fresh load WITHOUT
+  a redundant redraw of what `drawSegmentedImage()` already just drew inline. Hidden at the same two
+  reclaim points every other raw-panel toggle uses: `drawRaw()` (scrubbing to a live frame) and the
+  `applySegmentation` uncheck handler.
 
   `drawSegmentedImage()` also calls `setFrameAspect(w,h)` with the segmentation image's OWN
   dimensions, taking over `--frame-ar` (the CSS custom property BOTH panels' canvases track, see
@@ -1130,8 +1085,8 @@ relevant one before editing rather than scrolling:
   had no visible effect on the overlay at all, since nothing in `drawView()` read `pxnm`. Fixed by
   treating the `pxnm` value at LOAD time as the segmentation image's own effective calibration
   reference: `loadSegmentedImage()` stashes `segmentedImageLabels.refPxNm=paramValue('pxnm')` (ONLY
-  on a genuine fresh load, not on **Show segm. image** re-displaying the same already-loaded image —
-  same "don't clobber on redisplay" reasoning as the **Max. cell area** auto-fill below). `drawView()`
+  on a genuine fresh load, not on **Show image** re-displaying the same already-loaded image — same
+  "don't clobber on redisplay" reasoning as the **Max. cell area** auto-fill below). `drawView()`
   computes `segScale=(current pxnm)/refPxNm` and divides the segmentation canvas's `/mag` source-rect
   by it — `=1` (no visible change) whenever `pxnm` hasn't moved since load; as the user corrects
   `pxnm` UPWARD, `segScale>1` GROWS the segmentation's on-screen footprint relative to the (unmoving)
@@ -1140,24 +1095,14 @@ relevant one before editing rather than scrolling:
   camera pixels than it did at load time — and shrinks it symmetrically as `pxnm` is corrected
   downward. **The direction was wrong in the first shipped version** (`segScale=refPxNm/current`,
   shrinking as `pxnm` rose) — caught only by a real user checking it against actual data, not by the
-  derivation on paper, which is why it's called out explicitly here rather than silently fixed:
-  double-check the direction empirically again if this formula is ever touched, don't trust
-  re-derivation alone. Verified directly against the real bundled dataset: `segScale` read exactly
-  `1.0` / `1.2` / `0.8` at `pxnm` 100 (the load-time reference) / 120 / 80 respectively, and a
-  screenshot comparison at `pxnm` 100 vs. 150 showed the density reconstruction's own bacterial shapes
-  staying pixel-identical in place while the segmentation colour's visible coverage of them measurably
-  grew — confirming the two layers actually decouple in the intended direction.
+  derivation on paper: double-check the direction empirically again if this formula is ever touched,
+  don't trust re-derivation alone.
 
-  **Pixel size (nm) already updates live** (independent of `segScale` above — this is the SCALE BAR/
-  readout, not the segmentation overlay) — no new wiring was needed. `$('pxnm')`'s existing `change`
-  listener already does `lastResult.px=paramValue('pxnm'); rerender(true);` whenever a reconstruction
-  exists (mirroring `lastResult.mag=mag` inside `rerender()` itself — `mag` was already live this
-  way, `px` had its own separate, pre-existing live-update path at the input listener instead), and
-  `rerender()` unconditionally ends in `drawView()`, which now includes this whole overlay block — so
-  editing Pixel size (nm) while "Show recon." is active already redraws the scale bar/`srInfo` nm/px
-  readout with no extra code. Verified directly (not assumed): toggled the overlay on, edited Pixel
-  size (nm) from 100→250, confirmed `srInfo` read "10.0 nm/px" → "25.0 nm/px" and the overlay stayed
-  correctly on screen throughout.
+  Editing Pixel size (nm) while "Show recon." is active needed no new wiring: `$('pxnm')`'s existing
+  `change` listener already does `lastResult.px=paramValue('pxnm'); rerender(true);` whenever a
+  reconstruction exists, and `rerender()` unconditionally ends in `drawView()`, which includes this
+  whole overlay block — so the scale bar/`srInfo` nm/px readout (independent of `segScale` above —
+  localization positions themselves never depend on `pxnm`) redraws correctly with no extra code.
 
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
@@ -1170,8 +1115,7 @@ relevant one before editing rather than scrolling:
   segm. image** (not **Show image**'s image mode, which re-displays the SAME already-loaded
   image and shouldn't silently overwrite a value the user has since adjusted) sets `segAreaMax` to
   `Math.max(...segmentedImageData.map(c=>c.areaPx))` — a real upper bound for that specific image
-  instead of the generic ∞ default, verified against the real bundled segmentation (271, matching
-  an independent `(img==label).sum()` max over all labels). Ports
+  instead of the generic ∞ default. Ports
   `apply_cell_segmentation_sptPALM.py`/`tracking_sptPALM.py`'s own `use_segmentations` branch from
   the user's `sptPALM-Python` pipeline. `cellIdForLoc(L,segLabels)` looks up a loc's raw label the
   same way `fmtRawPixel()`'s hover readout does; `linkTracksPerCell()` then groups locs by that
@@ -1189,11 +1133,7 @@ relevant one before editing rather than scrolling:
   loaded (checked-but-nothing-loaded logs a warning and falls back to plain whole-FOV tracking, not
   an error). `cell_id`/`cell_area [px]` become optional CSV/table columns exactly like
   `track_id`/`D_coeff` (present only once segmentation tracking has actually run; `parseCsvLocs()`
-  reads them back for a full round trip). Verified against the real bundled
-  `bf_analysed_JH_procBrightfield_segm.tif` + `webSMLM_fluo_part0_03ac93aa_locs.csv`: no track ever
-  spans two `cell_id`s, `Min./Max. cell area` both exact at their boundary (a loc's own `cell_area`
-  never fell below a raised min, and never exceeded a lowered max), and a full CSV
-  export→`parseCsvLocs()` round trip reproduced every field exactly on 569,648 real localizations.
+  reads them back for a full round trip).
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper
@@ -1206,23 +1146,18 @@ relevant one before editing rather than scrolling:
   `docs/DOCUMENTATION.md` §8 for the full headless API and `docs/REFACTOR_PLAN.md` for the design
   rationale (three-layer split: in-page API, CLI driver, URL-param autorun).
 
-  **Load movie/data** (`loadBtn`) merges what used to be two separate sidebar buttons (Load movie /
-  Load data) into one, opening ONE hidden `#file` input whose `accept` now lists `.tif,.tiff,.nd2,.csv`
-  together. Dispatch is by file EXTENSION alone (`/\.csv$/i`, case-insensitive) — real content
-  sniffing for the movie side (`isTiffFile()`/`isNd2File()` magic-byte checks, MODULE: in/out) still
-  happens further downstream, inside `loadMovieFiles()`'s own `loadTiffFilesAuto()`/`loadTiffFile()`
-  call chain, unaffected by this. `loadMovieFiles(fileList)` and `loadCsvFile(file)` are the two
-  former `change`-handler bodies, extracted verbatim into named functions (no logic changed) so the
-  new combined handler can call either without duplicating ~30 lines of state-reset code per path.
-  The one requested error check: a selection mixing a CSV with movie file(s) is genuinely ambiguous
-  (which one did the user actually want loaded?) — refused outright with a logged error, NEITHER
-  loader runs, rather than guessing via file count or order. An all-CSV selection with more than one
-  file warns (doesn't block) and loads only `files[0]` — **Load data** never supported more than one
-  file even before this merge. `loadBtn`'s own existing disable-guard (Simulate/Localize in
-  progress) now also correctly blocks a CSV load mid-run — previously only the movie side was
-  guarded, a real latent gap (nothing stopped `lastResult` being silently replaced by a CSV load
-  while `runCore()` was still writing to it), closed as a natural side effect of sharing one button/
-  guard rather than as a separate deliberate feature.
+  **Load movie/data** (`loadBtn`) is one button over ONE hidden `#file` input whose `accept` lists
+  `.tif,.tiff,.nd2,.csv` together. Dispatch is by file EXTENSION alone (`/\.csv$/i`,
+  case-insensitive) — real content sniffing for the movie side (`isTiffFile()`/`isNd2File()`
+  magic-byte checks, MODULE: in/out) still happens further downstream, inside `loadMovieFiles()`'s
+  own `loadTiffFilesAuto()`/`loadTiffFile()` call chain. `loadMovieFiles(fileList)` and
+  `loadCsvFile(file)` are named functions the combined handler dispatches to. A selection mixing a
+  CSV with movie file(s) is genuinely ambiguous (which did the user mean?) — refused outright with a
+  logged error, NEITHER loader runs, rather than guessing via file count or order. An all-CSV
+  selection with more than one file warns (doesn't block) and loads only `files[0]` — **Load data**
+  never supported more than one file. `loadBtn`'s own disable-guard (Simulate/Localize in progress)
+  correctly blocks a CSV load mid-run too — nothing stops `lastResult` being silently replaced by a
+  CSV load while `runCore()` is still writing to it otherwise.
 
   `config.exportPlots` (also `--exportPlots`/`exportPlots=1` on the CLI/autorun) renders whichever
   of drift/NeNA/FRC/PCFO/calibration were actually computed this call into `result.plots`, each a
@@ -1543,41 +1478,18 @@ slower than V8), so keep validation inputs small.
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is
   NOT part of the synced content (kept as fixed markup in `webSMLM.html`, so a
   marker doesn't need to know about that UI-only styling detail). All 11
-  `.hint` divs are now migrated (`hint-memory`/`hint-simulation`/`hint-pcfo`/
-  `hint-calibration`/`hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/
-  `hint-locprecision`/`hint-sSMLM`/`hint-spt`) — piloted on one first (Memory &
-  streaming) to validate the mechanism, then rolled out to the rest in the same
-  round, which also surfaced and fixed real staleness the independent-authoring
-  drift had already caused: `detect/fit`'s "Fit method" list only named 3 of the
-  6 methods and never mentioned the `localize3D` checkbox at all; `drift` never
-  mentioned the drift-plot x/y-path toggle; `sSMLM` never mentioned that
-  `gaussmleEll` gives both orders a real per-axis σx/σy; `spt` claimed "no
-  headless exposure yet" even though `config.sptTrack` has existed for a
-  while. Each marker is placed as the INTRO to its DOCUMENTATION.md section
-  (right after the PARAMS table, before any further manual-only depth) — where
-  the surrounding prose used to restate the same points the popup already
-  makes (worst case: **Gain/offset estimation (PCFO)**, whose old opening
-  paragraph duplicated nearly the whole popup), that prose was trimmed to pick
-  up only where the popup leaves off, rather than deleted or left redundant.
-- **Quick guide** (the in-app modal, `helpBtn` — renamed from "Help & guide" during a brief detour
-  through the header, see **render** module above; back in the sidebar now) is deliberately thin: just the intro
-  blurb, the 5-step **Guided workflow** (step 2 briefly names the fit-method families and points
-  at the docs for depth), **Acknowledgements**, and **License & author**. The old "1 · Loading &
-  memory" / "2 · Detection" / "3 · Fitting" / "4 · Rendering" walkthrough sections and the whole
-  "References & further reading" citation list were removed from the modal —
-  checked first against `DOCUMENTATION.md` and the `.hint` popups for content
-  that would otherwise be lost; the handful of genuinely unique facts found
-  (the DoG formula, synthetic-model precision benchmarks, TIFF bit-depth/
-  endianness handling, the >4 GB/32-bit-offset ImageJ-stack reasoning, the
-  TIFF-header size-estimation formula) were folded into §2's `detect`/`fit`/
-  `in-out` sections first, and the References list itself became
-  `DOCUMENTATION.md`'s own new `## 9 · References & further reading` section
-  (Changelog renumbered `## 9`→`## 10` to make room). The three `.hint` popups
-  that used to say "see References & further reading in Help & guide"
-  (`hint-drift`, `hint-sSMLM`, `hint-spt`) now link straight to that RTD page
-  instead. `DOCUMENTATION.md` is the single source for all of this now — the
-  modal's own remaining text is hand-authored UI copy, not synced by
-  `sync_hints.mjs` (the modal was never part of that mechanism, only the
-  `.hint` divs are). `README.md`'s own "Guided workflow" section is kept as a
-  copy of this same 5-step list (update both together) — see **Reference
+  `.hint` divs (`hint-memory`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
+  `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-locprecision`/
+  `hint-sSMLM`/`hint-spt`) are migrated to this mechanism. Each marker is
+  placed as the INTRO to its DOCUMENTATION.md section (right after the PARAMS
+  table, before any further manual-only depth) — the surrounding prose picks
+  up only where the popup leaves off, not restating it.
+- **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the
+  5-step **Guided workflow** (step 2 briefly names the fit-method families and points at the docs
+  for depth), **Acknowledgements**, and **License & author** — no per-module walkthrough, no
+  citation list; `docs/DOCUMENTATION.md` (§9 "References & further reading" for citations) is the
+  maintained source for that depth now, and `DOCUMENTATION.md` is what the `.hint` popups link to
+  when they need to point somewhere. The modal's own text is hand-authored UI copy, not synced by
+  `sync_hints.mjs` (that mechanism only covers `.hint` divs). `README.md`'s own "Guided workflow"
+  section is kept as a copy of this same 5-step list — update both together — see **Reference
   material** below.
