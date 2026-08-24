@@ -491,18 +491,18 @@ relevant one before editing rather than scrolling:
   states it "deliberately excludes pure display/layout (CSS)" (see **params** above), and theme
   choice is exactly that, same as sidebar collapsed/floating state.
 
-  **Quick guide** (`helpBtn`, renamed from "Help & guide") moved from its own solo row at the
-  bottom of the sidebar's action-button block into `.header-actions`, right of `layoutToggleBtn` —
-  freeing a sidebar row (part of the same round that merged Load movie/Load data, MODULE: pipeline,
-  and moved **View data + filtering** up into the row that freed) for "more real estate" below.
-  Restyled from its own bespoke `.helpbtn` look (a surface+accent-border+accent-text combo, now
-  removed as dead CSS — nothing else used it) to a plain `.logbtn`, matching `layoutToggleBtn`'s own
-  family now that it sits in the same row; `#layoutToggleBtn,#helpBtn{height:var(--icon-size)}`
-  keeps both text-label buttons' TOPS aligned with the icon-sized theme-switch buttons beside them
-  (a plain content-driven height left the top sitting visibly below the icon buttons' own tops, even
-  with bottoms already lined up via `align-items:flex-end`) — see that rule's own comment for the
-  full reasoning, first written for `layoutToggleBtn` alone and now shared. `wireHelp()` itself
-  needed zero changes — still finds the button by the same `id="helpBtn"`, position-independent.
+  **Quick guide** (`helpBtn`, renamed from "Help & guide") briefly moved from its own solo row at
+  the bottom of the sidebar's action-button block into `.header-actions`, right of
+  `layoutToggleBtn` (part of the same round that merged Load movie/Load data, MODULE: pipeline, and
+  moved **View data + filtering** up into the row that freed) — reverted on request one build
+  later: it now sits in the sidebar instead, sharing `#tableBtn`'s own row, right of **View data +
+  filtering**. Its own bespoke `.helpbtn` look (a surface+accent-border+accent-text combo) was
+  already removed as dead CSS during the header detour and NOT restored — it's now a plain default
+  button, same as `tableBtn` beside it, rather than reintroducing a class for one button. The
+  header-specific `#layoutToggleBtn,#helpBtn{height:var(--icon-size)}` rule reverted back to
+  `#layoutToggleBtn` alone (`helpBtn` no longer shares that row, so no longer needs matching that
+  row's own icon-button height). `wireHelp()` itself needed zero changes throughout either move —
+  still finds the button by the same `id="helpBtn"`, position-independent.
 
   **`webSMLM_lastVersion`** (localStorage, right after the theme-init block above, same try/catch
   fail-safe) is a sibling of `webSMLM_theme` for a different purpose: on load, it parses the
@@ -1338,11 +1338,17 @@ slower than V8), so keep validation inputs small.
 
 ## Reference material
 
-- `README.md` — user-facing feature list, performance figures, algorithm references.
+- `README.md` — deliberately short: launch instructions, the guided workflow (kept in sync with the
+  in-app **Quick guide** modal's own "Guided workflow" — update both together if either changes),
+  data/privacy, scripting/headless, roadmap, distribution/citation, licence. Trimmed of its own
+  former "What it does" feature list, performance table, algorithm reference list and "Known
+  limitations" section (v0.11.6) — those are fully covered by `docs/DOCUMENTATION.md` (features,
+  §9 references) and `docs/REFACTOR_PLAN.md` (limitations/roadmap) respectively now, so keeping a
+  third, drifting copy in the README stopped being worth it.
 - `docs/DOCUMENTATION.md` — detailed reference for every button/control/`PARAMS` entry, the
-  on-disk file formats (settings/calibration/CSV JSON), and the headless API/CLI (§8) — the place
-  to check or update for exact defaults, ranges and behaviour, complementary to the deliberately
-  sparse in-app Help & guide.
+  on-disk file formats (settings/calibration/CSV JSON), the headless API/CLI (§8), and every
+  algorithm reference (§9) — the place to check or update for exact defaults, ranges and
+  behaviour, complementary to the deliberately sparse in-app **Quick guide**.
 - `docs/REFACTOR_PLAN.md` — forward-looking roadmap only; shipped-feature history lives in
   `CHANGELOG.md` instead. Think in version numbers, not "phases".
 - `experimental_data/` — sample stacks (gitignored large files) with a README of public sources
@@ -1375,7 +1381,7 @@ slower than V8), so keep validation inputs small.
 - If generated documentation is wrong, fix `docs/DOCUMENTATION.md` or, when the
   generation logic itself is responsible, `docs/readthedocs/build_docs.py`.
 - **In-app "more info…" popups** (`.hint` divs, the sidebar's own contextual help,
-  distinct from both the deliberately-sparse Help & guide modal and this RTD manual)
+  distinct from both the deliberately-sparse Quick guide modal and this RTD manual)
   used to be hand-authored independently of `DOCUMENTATION.md` — a real, confirmed
   drift risk (both describe the same control groups, sometimes citing the same
   papers, with no mechanism keeping the wording in sync). `tools/sync_hints.mjs`
@@ -1414,11 +1420,11 @@ slower than V8), so keep validation inputs small.
   makes (worst case: **Gain/offset estimation (PCFO)**, whose old opening
   paragraph duplicated nearly the whole popup), that prose was trimmed to pick
   up only where the popup leaves off, rather than deleted or left redundant.
-- **Help & guide** (the in-app modal) is now deliberately thin: just the intro
-  blurb, the 4-step **Guided workflow** (step 2 briefly names the fit-method
-  families and points at the docs for depth), **Acknowledgements**, and
-  **License & author**. The old "1 · Loading & memory" / "2 · Detection" /
-  "3 · Fitting" / "4 · Rendering" walkthrough sections and the whole
+- **Quick guide** (the in-app modal, `helpBtn` — renamed from "Help & guide" during a brief detour
+  through the header, see **render** module above; back in the sidebar now) is deliberately thin: just the intro
+  blurb, the 5-step **Guided workflow** (step 2 briefly names the fit-method families and points
+  at the docs for depth), **Acknowledgements**, and **License & author**. The old "1 · Loading &
+  memory" / "2 · Detection" / "3 · Fitting" / "4 · Rendering" walkthrough sections and the whole
   "References & further reading" citation list were removed from the modal —
   checked first against `DOCUMENTATION.md` and the `.hint` popups for content
   that would otherwise be lost; the handful of genuinely unique facts found
@@ -1432,5 +1438,7 @@ slower than V8), so keep validation inputs small.
   (`hint-drift`, `hint-sSMLM`, `hint-spt`) now link straight to that RTD page
   instead. `DOCUMENTATION.md` is the single source for all of this now — the
   modal's own remaining text is hand-authored UI copy, not synced by
-  `sync_hints.mjs` (Help & guide was never part of that mechanism, only the
-  `.hint` divs are).
+  `sync_hints.mjs` (the modal was never part of that mechanism, only the
+  `.hint` divs are). `README.md`'s own "Guided workflow" section is kept as a
+  copy of this same 5-step list (update both together) — see **Reference
+  material** below.

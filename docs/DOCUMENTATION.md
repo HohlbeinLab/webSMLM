@@ -56,11 +56,6 @@ layout, not analysis parameters:
   from the loaded stack's own aspect ratio. Hidden below the ~860px mobile
   breakpoint, where the panels are already forced to one column
   unconditionally — the toggle would have nothing left to switch there.
-- `helpBtn` ("Quick guide", formerly "Help & guide") opens the in-app
-  quick-reference modal (guided workflow, acknowledgements, licence). Moved
-  here from its own solo row at the bottom of the sidebar's action-button
-  block, freeing that row — part of the same round that merged **Load
-  movie**/**Load data** below into one button.
 
 A second, unrelated `localStorage` key (`webSMLM_lastVersion`) tracks which
 release this browser last saw, independent of theme — see **Log window**
@@ -79,6 +74,7 @@ below for what it does.
 | **Save data** | `saveBtn` | Exports the current (filtered) localizations as a ThunderSTORM-compatible CSV — see [§6](#6-csv-export-format). Disabled until there are localizations. |
 | **Save plot / image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
 | **View data + filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
+| **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data + filtering**. |
 
 ### Sidebar — Pixel size (nm)
 
