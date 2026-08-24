@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24l; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24m; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -30,20 +30,20 @@
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5450   frame-parallel detect/fit worker pool
-    export          5615   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5875   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6275   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5464   frame-parallel detect/fit worker pool
+    export          5629   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5889   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6289   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6590   NeNA + FRC
-    sSMLM           7233   spectrally resolved SMLM pair-finding
-    spt             7683   single particle tracking, trackpy-inspired;
+    locprecision    6604   NeNA + FRC
+    sSMLM           7247   spectrally resolved SMLM pair-finding
+    spt             7697   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
-                           cell-by-cell tracking + transparent segmented-cell
-                           overlay on the SR reconstruction (srSegOverlayBtn)
-    pipeline        8407   top-level orchestration, *Core()/wrapper split
-    table           10091  localizations table, filtering, histograms
-    headless API    10535  window.webSMLM.analyze()/analyzeBatch()
+                           cell-by-cell tracking + "Show segm."/"Show
+                           recon." SR-panel swap (srSegOverlayBtn)
+    pipeline        8458   top-level orchestration, *Core()/wrapper split
+    table           10142  localizations table, filtering, histograms
+    headless API    10586  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1699,7 +1699,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24l</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2092,7 +2092,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
           <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-          <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains an <b>Add overlay</b> button — draws the segmented cells, highly transparent, on top of the reconstruction (same colours as the raw-panel view), so you can check localizations line up with their cells before tracking. Drawn top-left aligned even if the segmentation image's own dimensions don't exactly match the loaded movie's, same "warn, don't block" spirit as the load-time size-mismatch warning.</p>
+          <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with each localization drawn as a plain point on top, so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). Drawn top-left aligned even if the segmentation image's own dimensions don't exactly match the loaded movie's, same "warn, don't block" spirit as the load-time size-mismatch warning.</p>
           <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
         </div>
       </details>
@@ -2125,7 +2125,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </div>
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance)">Show spectral</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Overlay the segmented cells (highly transparent, same colours as Show segm. image) on top of the reconstruction">Add overlay</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance)">Show spectral</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Replace the density reconstruction with the segmented cells (opaque, same colours as Show segm. image) and each localization as a plain point on top">Show segm.</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
         <div class="panel-body">
           <canvas id="sr"></canvas>
           <div id="srFilterNote" style="display:none;margin-top:8px;color:var(--accent2);font-size:12px"></div>
@@ -2139,7 +2139,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24l · fix: "Add overlay" on SMLM reconstruction was silently doing nothing whenever the segmentation image's dimensions didn't exactly match the movie's — now draws top-left aligned regardless, same "warn, don't block" spirit as the load-time size-mismatch warning</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24m · "Add overlay" reworked into "Show segm."/"Show recon." — swaps SMLM reconstruction to the opaque segmented cells with each localization as a plain point on top, instead of a transparent overlay on the density image</div>
   </main>
 </div>
 
@@ -4978,31 +4978,45 @@ function drawView(){
   if(!srFull) return;
   ctx.imageSmoothingEnabled=false;
   const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
-  ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
-  // Segmented-cell overlay (MODULE: spt, srSegOverlayBtn) — buildSegOverlayCanvas()
-  // is at CAMERA-pixel resolution (segmentedImageLabels.w/h), one mag smaller than
-  // srFull (camera px × mag), so the same visible sub-rect sx/sy/sw/sh is divided by
-  // mag before sampling from it, top-left aligned against the reconstruction. NOT
-  // gated on segmentedImageLabels.w/h exactly matching lastResult.w/h — an earlier
-  // version required exact equality and silently drew nothing otherwise, a real,
-  // reported bug: real segmentation pipelines routinely produce a mask a few px off
-  // from the movie's own dimensions (padding/cropping in whatever tool made it), so
-  // requiring exact equality left the button doing nothing with no explanation for
-  // the common case, not just a genuine mismatch. Matches this app's own existing
-  // "warn, don't block" convention for exactly this situation — the load-time size
-  // check (loadSegmentedImage()) already logs a warning once when the sizes differ;
-  // this just draws what it has (canvas drawImage clips a source rect that extends
-  // past the actual image bounds, so a few-px mismatch just loses that thin strip,
-  // it doesn't throw or corrupt anything).
+  // Segmentation overlay (MODULE: spt, srSegOverlayBtn) REPLACES the density
+  // reconstruction entirely rather than blending on top of it: the segmented
+  // cells are drawn OPAQUE (buildSegOverlayCanvas(), no alpha — a transparent
+  // first version was hard to read against the fire colormap underneath, a
+  // reported issue) as the base image, then each localization is drawn as a
+  // small plain point on top (buildLocPointsCanvas()) — clearer for checking
+  // loc-to-cell correspondence than trying to read cell borders through a
+  // blurred/blended density image. buildSegOverlayCanvas() is at CAMERA-pixel
+  // resolution (segmentedImageLabels.w/h), one mag smaller than srFull (camera
+  // px × mag), so the same visible sub-rect sx/sy/sw/sh is divided by mag
+  // before sampling from it; buildLocPointsCanvas() is built directly at
+  // srFull's own resolution, so it samples with the SAME sx/sy/sw/sh, no /mag
+  // needed. Both are top-left aligned against the reconstruction, NOT gated on
+  // segmentedImageLabels.w/h exactly matching lastResult.w/h — an earlier
+  // version required exact equality and silently drew nothing otherwise, a
+  // real, reported bug: real segmentation pipelines routinely produce a mask a
+  // few px off from the movie's own dimensions (padding/cropping in whatever
+  // tool made it), so requiring exact equality left the button doing nothing
+  // with no explanation for the common case, not just a genuine mismatch.
+  // Matches this app's own existing "warn, don't block" convention — the
+  // load-time size check (loadSegmentedImage()) already logs a warning once
+  // when the sizes differ; this just draws what it has (canvas drawImage
+  // clips a source rect that extends past the actual image bounds, so a
+  // few-px mismatch just loses that thin strip, it doesn't throw or corrupt
+  // anything).
   if(srSegOverlayOn && srIsRecon && segmentedImageLabels && lastResult){
-    const overlay=buildSegOverlayCanvas(), mag=lastResult.mag||1;
-    ctx.save(); ctx.globalAlpha=0.28; ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(overlay, sx/mag,sy/mag,sw/mag,sh/mag, 0,0,DW,DH);
-    ctx.restore();
+    const segOverlay=buildSegOverlayCanvas(), mag=lastResult.mag||1;
+    ctx.drawImage(segOverlay, sx/mag,sy/mag,sw/mag,sh/mag, 0,0,DW,DH);
+    ctx.drawImage(buildLocPointsCanvas(), sx,sy,sw,sh, 0,0,DW,DH);
+  } else {
+    ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
   }
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH);   // bead-composite view only
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
-  if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
+  // The depth-colour bar is a legend for srFull's own z-colouring — meaningless
+  // while the panel shows plain white points on segmented cells instead, so
+  // it's suppressed in that mode rather than showing a legend for colours
+  // that aren't actually on screen right now.
+  if(srFull._zColor && !srSegOverlayOn) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
   if(measureLine||measurePt0||cropPt0) drawMeasureOverlay(ctx,DW,DH);
 }
 // The line-profile line (3-srFull-px band + endpoints) and the crop tool's
@@ -8209,13 +8223,17 @@ $('sptLocErrorFromNenaBtn').addEventListener('click', async ()=>{
 // centre of mass in px, area in px) for a later round to actually filter/
 // split SPT tracking by. Doesn't yet touch tracking itself.
 let segmentedImageData=null, segmentedImageLabels=null;
-// Segmented-cell overlay on the SR reconstruction (srSegOverlayBtn, "Add
-// overlay" — next to "SMLM reconstruction"). srSegOverlayOn is the toggle
-// state; _segOverlayCanvas/_segOverlayForLabels cache the per-pixel colour
-// canvas built by buildSegOverlayCanvas() below, keyed by object identity
-// against segmentedImageLabels so it's rebuilt only when a genuinely new
-// segmentation image is loaded, not on every reconstruction redraw (pan/
-// zoom/theme change all call drawView() far more often than that).
+// "Show on segmentation" / "Show reconstruction" (srSegOverlayBtn, next to
+// "SMLM reconstruction") swaps the SR panel between the normal density
+// reconstruction and the segmented cells (opaque) with each localization
+// drawn as a plain point on top — see drawView() (MODULE: render).
+// srSegOverlayOn is the toggle state; _segOverlayCanvas/_segOverlayForLabels
+// cache the per-pixel colour canvas built by buildSegOverlayCanvas() below,
+// keyed by object identity against segmentedImageLabels so it's rebuilt only
+// when a genuinely new segmentation image is loaded, not on every
+// reconstruction redraw (pan/zoom/theme change all call drawView() far more
+// often than that) — buildLocPointsCanvas()'s own cache lives next to it,
+// keyed against srFull instead (see its own comment).
 let srSegOverlayOn=false, _segOverlayCanvas=null, _segOverlayForLabels=null;
 
 // Deterministic seeded PRNG (mulberry32) — plays the same role numpy's own
@@ -8296,16 +8314,16 @@ function drawSegmentedImage(labelArr,w,h){
   log(`Segmented image: ${segmentedImageData.length} cell(s), ${w}×${h}.`);
 }
 // Per-pixel colour canvas for the SR-panel overlay (drawView(), MODULE:
-// render) — background (label 0) is fully transparent (alpha 0) so it never
-// tints the reconstruction underneath; every other pixel is drawn OPAQUE at
-// its cell's colour, with the "highly transparent" look applied once at
-// DRAW time via ctx.globalAlpha (drawView()) rather than baked into this
-// canvas's own alpha channel — keeps the maths simple (one alpha knob, not
-// per-pixel alpha compounding with the draw-time one) and means a future
-// "overlay strength" control would only need to change that one drawImage
-// call, not rebuild this canvas. Same shuffledLabelColors(seed=0) call
-// drawSegmentedImage() uses, so a cell's overlay colour on the reconstruction
-// always matches its colour in the "Segmented image" raw-panel view.
+// render) — background (label 0) is fully transparent (alpha 0, so panning
+// past the segmentation's own edge shows black, not a coloured fringe);
+// every other pixel is drawn fully OPAQUE at its cell's colour. Drawn with
+// NO extra transparency at draw time either (an earlier version blended it
+// at ~28% alpha over the density reconstruction — hard to actually read the
+// cell borders through it, a reported issue — the current design replaces
+// the reconstruction with this opaque image entirely instead, see
+// drawView()). Same shuffledLabelColors(seed=0) call drawSegmentedImage()
+// uses, so a cell's colour here always matches its colour in the "Segmented
+// image" raw-panel view.
 function buildSegOverlayCanvas(){
   if(_segOverlayForLabels===segmentedImageLabels && _segOverlayCanvas) return _segOverlayCanvas;
   const {arr,w,h}=segmentedImageLabels;
@@ -8322,6 +8340,37 @@ function buildSegOverlayCanvas(){
   _segOverlayCanvas=cv; _segOverlayForLabels=segmentedImageLabels;
   return cv;
 }
+// Plain white point per localization, drawn at srFull's OWN resolution (not
+// segmentedImageLabels') so drawView() samples it with the same sx/sy/sw/sh
+// as srFull itself, no extra /mag conversion. Cached by object identity
+// against srFull — a NEW srFull object only exists after rerender() actually
+// rebuilds the reconstruction (a fresh Run, a table-filter change, Mag/blur/
+// LUT edits, …), so this rebuilds exactly when the density buffer itself
+// would have, and reads whichever loc subset (renderLocs, if a table filter
+// is active) that same rebuild used — never stale relative to what's
+// otherwise on screen. fillRect (not arc+fill) per point: cheaper at real
+// localization counts (this ran against 167k real locs during development
+// with no visible stutter) since it skips the path/curve machinery a filled
+// circle needs for one flat square. Point size scales with Magnification
+// (larger mag → larger point in srFull-px terms, matching how loc markers
+// implicitly scale with reconstruction Zoom everywhere else in the app) but
+// is floored at 1px so an unusually small Mag never draws 0-area rects.
+let _locPointsCanvas=null, _locPointsForSrFull=null;
+function buildLocPointsCanvas(){
+  if(_locPointsForSrFull===srFull && _locPointsCanvas) return _locPointsCanvas;
+  const W=srFull.width, H=srFull.height, mag=lastResult.mag||1;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#ffffff';
+  const r=Math.max(1,Math.round(mag*0.3)), rlocs=renderLocs||lastResult.locs;
+  for(const L of rlocs){
+    const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
+    if(ix<0||iy<0||ix>=W||iy>=H) continue;
+    ctx.fillRect(ix-r, iy-r, 2*r+1, 2*r+1);
+  }
+  _locPointsCanvas=cv; _locPointsForSrFull=srFull;
+  return cv;
+}
 async function loadSegmentedImage(file){
   try{
     const segStack=await loadTiffFile(file, log);
@@ -8331,7 +8380,7 @@ async function loadSegmentedImage(file){
       log(`⚠ Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
     drawSegmentedImage(img, segStack.w, segStack.h);
     $('segShowBtn').disabled=false; $('segAreaHistBtn').disabled=false;
-    $('srSegOverlayBtn').style.display='';   // "Add overlay" now has something to overlay
+    $('srSegOverlayBtn').style.display='';   // "Show on segmentation" now has something to show
     if(srSegOverlayOn && srFull) drawView();   // already toggled on from a prior segmentation image — refresh with the new one
     // Default Max. cell area to the largest cell actually found, rather than
     // leaving it at the generic blank/∞ default — a sensible starting upper
@@ -8365,7 +8414,7 @@ $('applySegmentation').addEventListener('change', ()=>{
     // overlay was actually showing so it doesn't linger stale on screen.
     const wasOn=srSegOverlayOn;
     srSegOverlayOn=false; _segOverlayCanvas=null; _segOverlayForLabels=null;
-    $('srSegOverlayBtn').style.display='none'; $('srSegOverlayBtn').textContent='Add overlay';
+    $('srSegOverlayBtn').style.display='none'; $('srSegOverlayBtn').textContent='Show segm.';
     if(wasOn && srFull) drawView();
     if(stack) showFrame(+$('scrub').value||0);
     else{ rawFull=null; rawPixelData=null;
@@ -8391,15 +8440,17 @@ $('segShowBtn').addEventListener('click', ()=>{
   drawSegmentedImage(segmentedImageLabels.arr, segmentedImageLabels.w, segmentedImageLabels.h);
 });
 $('segAreaHistBtn').addEventListener('click', drawSegAreaHist);
-// "Add overlay" / "Remove overlay" — draws segmented cells (highly
-// transparent) on top of the SR reconstruction, see buildSegOverlayCanvas()
-// and drawView() (MODULE: render) for the actual paint. A plain text-swap
-// toggle, matching sSmlmColorBtn's own "Show spectral"/"Show standard"
-// convention right next to it, rather than an .active/.on styled state.
+// "Show on segmentation" / "Show reconstruction" — swaps the SR panel
+// between the normal density reconstruction and the segmented cells
+// (opaque) + localizations as plain points, see buildSegOverlayCanvas()/
+// buildLocPointsCanvas() and drawView() (MODULE: render) for the actual
+// paint. A plain text-swap toggle, matching sSmlmColorBtn's own "Show
+// spectral"/"Show standard" convention right next to it, rather than an
+// .active/.on styled state.
 $('srSegOverlayBtn').addEventListener('click', ()=>{
   if(!segmentedImageLabels){ log('No segmentation image loaded yet — use Load segm. image first.'); return; }
   srSegOverlayOn=!srSegOverlayOn;
-  $('srSegOverlayBtn').textContent = srSegOverlayOn ? 'Remove overlay' : 'Add overlay';
+  $('srSegOverlayBtn').textContent = srSegOverlayOn ? 'Show recon.' : 'Show segm.';
   drawView();
 });
 

@@ -879,41 +879,59 @@ relevant one before editing rather than scrolling:
   version needs the shuffled values themselves to be dense for that). Verified visually against the
   real bacteria dataset above — no two adjacent cells share a similar colour.
 
-  **SR-panel overlay** (`srSegOverlayBtn`, "Add overlay"/"Remove overlay" — next to "SMLM
-  reconstruction", same inline-in-title-bar placement as `sSmlmColorBtn`'s "Show spectral") draws the
-  segmented cells, highly transparent, on top of the reconstruction in `drawView()` (MODULE: render) —
-  so a user can visually confirm localizations line up with the cells they're about to be tracked
-  per-cell against, before running **Track**. `buildSegOverlayCanvas()` builds a small offscreen
-  canvas at `segmentedImageLabels`' own CAMERA-pixel resolution (not `srFull`'s, which is camera px ×
-  `mag`) — label 0 (background) fully transparent, every other pixel opaque at its cell's colour via
-  the SAME `shuffledLabelColors(seed=0)` call `drawSegmentedImage()` uses, so a cell's overlay colour
-  on the reconstruction always matches its colour in the "Segmented image" raw-panel view. The
-  "highly transparent" look is applied once at DRAW time (`ctx.globalAlpha=0.28`), not baked into the
-  cached canvas's own alpha — keeps a future "overlay strength" control a one-line change. `drawView()`
-  converts the same visible sub-rect (`sx,sy,sw,sh`, already in srFull/mag-scaled px) back down to
-  camera-pixel space by dividing by `lastResult.mag` before sampling the overlay canvas, so panning/
-  zooming the reconstruction pans/zooms the overlay in lockstep with no separate transform to keep in
-  sync. Deliberately NOT gated on `segmentedImageLabels.w/h` exactly matching `lastResult.w/h` — the
-  shipped first version required exact equality and silently drew nothing otherwise, a real, reported
-  bug (toggling **Add overlay** on a real dataset did nothing, no explanation): real segmentation
+  **SR-panel "Show segm."/"Show recon."** (`srSegOverlayBtn`, next to "SMLM reconstruction", same
+  inline-in-title-bar placement as `sSmlmColorBtn`'s "Show spectral") swaps the panel between the
+  normal density reconstruction and the segmented cells (OPAQUE) with each localization drawn as a
+  plain white point on top — so a user can visually confirm localizations line up with the cells
+  they're about to be tracked per-cell against, before running **Track**. The first shipped version
+  blended the cells semi-transparent (`ctx.globalAlpha=0.28`) ON TOP of the density reconstruction
+  instead — reported as hard to actually read (cell borders lost under the fire colormap); this
+  REPLACES the reconstruction with the two opaque layers instead of blending, fixing that. Two
+  offscreen canvases, both built in `drawView()` (MODULE: render):
+  - `buildSegOverlayCanvas()` — at `segmentedImageLabels`' own CAMERA-pixel resolution (not
+    `srFull`'s, which is camera px × `mag`), label 0 (background) fully transparent so panning past
+    the segmentation's own edge shows black rather than a coloured fringe, every other pixel fully
+    OPAQUE (alpha 255, no draw-time `globalAlpha` any more) at its cell's colour via the SAME
+    `shuffledLabelColors(seed=0)` call `drawSegmentedImage()` uses, so a cell's colour here always
+    matches its colour in the "Segmented image" raw-panel view. Cached
+    (`_segOverlayCanvas`/`_segOverlayForLabels`, keyed by object identity against
+    `segmentedImageLabels`) — rebuilt only when a genuinely new segmentation image loads.
+  - `buildLocPointsCanvas()` — built directly at `srFull`'s OWN resolution (not camera-pixel, unlike
+    the cell canvas above) so `drawView()` samples it with the exact same visible sub-rect
+    (`sx,sy,sw,sh`) as `srFull` itself, no extra `/mag` conversion needed for this one. One
+    `ctx.fillRect()` per localization (cheaper than `arc()`+`fill()` at real localization counts — a
+    167k-loc real dataset built and drew in well under half a second with no stutter), point size
+    `Math.max(1,Math.round(mag*0.3))` so it scales with Magnification but never goes 0-area. Reads
+    `renderLocs||lastResult.locs` — the SAME loc subset `rerender()` itself used to build the CURRENT
+    `srFull` — so a table filter is respected automatically. Cached by object identity against
+    `srFull` itself (`_locPointsCanvas`/`_locPointsForSrFull`): a NEW `srFull` object only exists
+    after `rerender()` actually rebuilds the reconstruction (fresh Run, table-filter change, Mag/
+    blur/LUT edit, …), so this rebuilds exactly when the density buffer itself would have — no
+    separate invalidation bookkeeping needed.
+
+  Neither canvas is gated on `segmentedImageLabels.w/h` exactly matching `lastResult.w/h` — the
+  shipped first version DID require exact equality and silently drew nothing otherwise, a real,
+  reported bug (toggling the button on a real dataset did nothing, no explanation): real segmentation
   pipelines routinely produce a mask a few px off from the movie's own dimensions (padding/cropping
   in whatever tool made it), so exact equality left the button doing nothing for the common case, not
-  just a genuine mismatch. Fixed by dropping the check entirely and matching this app's own existing
-  "warn, don't block" convention for exactly this situation — the load-time size-mismatch warning
-  (`loadSegmentedImage()`, checked against `stack.w/h`) already tells the user once when the sizes
-  differ; drawing the overlay anyway top-left aligned just loses a thin strip at the far edge on a
-  genuine mismatch (`ctx.drawImage()`'s own source rect naturally clips against the actual canvas
-  bounds — no exception, no corruption), not the whole feature. The cached overlay canvas
-  (`_segOverlayCanvas`/`_segOverlayForLabels`) is keyed by object identity against
-  `segmentedImageLabels`, rebuilt only when a genuinely new segmentation image loads — not on every
-  `drawView()` call, which pan/zoom/theme-change fire far more often than that. Verified end-to-end
-  against the real bundled dataset (`bf_analysed_JH_procBrightfield_segm.tif` +
-  `webSMLM_fluo_part0_03ac93aa_locs.csv`, dimensions deliberately left MISMATCHED — 517×142 vs
-  512×135, the CSV round-trip's real, unpatched numbers — to confirm the relaxed check actually draws
-  in exactly the case the strict version silently failed on): a known cell-centroid pixel's on-canvas
-  colour shifted toward that cell's own overlay colour by the expected alpha blend, while a known
-  background pixel stayed unchanged — confirming both the position mapping and the transparency math,
-  not just that "something changed".
+  just a genuine mismatch. Fixed by dropping the check and matching this app's own existing "warn,
+  don't block" convention — the load-time size-mismatch warning (`loadSegmentedImage()`, checked
+  against `stack.w/h`) already tells the user once when the sizes differ; drawing top-left aligned
+  anyway just loses a thin strip at the far edge on a genuine mismatch (`ctx.drawImage()`'s own
+  source rect naturally clips against the actual canvas bounds — no exception, no corruption).
+  `srFull._zColor`'s depth-colour-bar legend is suppressed while this mode is active (`!srSegOverlayOn`
+  guard right next to its existing `drawDepthBar()` call) — it's a legend for colours that aren't
+  actually on screen once the panel shows plain white points instead of a z-coloured density image.
+
+  **Pixel size (nm) already updates live** — no new wiring was needed. `$('pxnm')`'s existing
+  `change` listener already does `lastResult.px=paramValue('pxnm'); rerender(true);` whenever a
+  reconstruction exists (mirroring `lastResult.mag=mag` inside `rerender()` itself — `mag` was
+  already live this way, `px` had its own separate, pre-existing live-update path at the input
+  listener instead), and `rerender()` unconditionally ends in `drawView()`, which now includes this
+  whole overlay block — so editing Pixel size (nm) while "Show recon." is active already redraws the
+  scale bar/`srInfo` nm/px readout with no extra code. Verified directly (not assumed): toggled the
+  overlay on, edited Pixel size (nm) from 100→250, confirmed `srInfo` read "10.0 nm/px" →
+  "25.0 nm/px" and the overlay stayed correctly on screen throughout.
 
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
