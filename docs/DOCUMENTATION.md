@@ -748,10 +748,16 @@ segmentation image — e.g. dialling it in until the segmented cell outlines
 visually match the reconstruction's own shapes — the segmentation's on-screen
 size rescales accordingly relative to the (unmoving) localizations, using the
 Pixel size (nm) value at the moment the segmentation image was loaded as its
-own reference: correcting it upward shrinks the segmentation's apparent
-coverage, correcting it downward grows it. This reference is captured only on a genuine **Load
-segm. image**, not on **Show segm. image** re-displaying the same
-already-loaded image.
+own reference: correcting it upward grows the segmentation's apparent
+coverage relative to the localizations, correcting it downward shrinks it.
+This reference is captured only on a genuine **Load segm. image**, not on
+**Show segm. image** re-displaying the same already-loaded image.
+
+The reconstruction shown in this mode also floors the alpha of any pixel
+with real signal, however faint — a sparse, isolated localization is only
+barely non-black to begin with (every colour map starts near-black by
+design), so without a floor it could end up both dim-coloured and nearly
+transparent at once and effectively disappear against a bright cell colour.
 
 With segmentation applied, **Track** (`sptCore()`'s `segCtx` path,
 `linkTracksPerCell()`) links each qualifying cell's own localizations
@@ -1438,7 +1444,7 @@ for the first implementation.
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data.</p>
 <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
 <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent, so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it.</p>
+<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
 <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
 <!-- /HINT:spt -->
 

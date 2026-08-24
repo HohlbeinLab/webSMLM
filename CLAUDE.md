@@ -923,9 +923,16 @@ relevant one before editing rather than scrolling:
     "black" and "zero density" are the same condition for every colour map this app has, making
     luminance a safe, LUT-agnostic proxy. `*2.5` gain (first-pass, expected to be tuned) so a pixel
     reaches full opacity well before true peak density — "highly transparent" is meant to describe
-    the near-zero-density background, not a permanently-washed-out reconstruction. Built directly at
-    `srFull`'s OWN resolution so `drawView()` samples it with the exact same `sx,sy,sw,sh` as `srFull`
-    itself, no extra `/mag` needed. Cached by object identity against `srFull`
+    the near-zero-density background, not a permanently-washed-out reconstruction. `MIN_SIGNAL_ALPHA`
+    (90) floors the alpha of any pixel with genuinely nonzero luminance — a real, reported problem
+    with luminance-only alpha: every `LUT_CPS` ramp starts near-black by design, so a SPARSE/isolated
+    localization (not part of a bright cluster) was already barely non-black to begin with, and
+    `luminance*2.5` alone left it dim-coloured AND nearly transparent at once — compounding into
+    genuinely invisible against a bright cell colour underneath, not just faint. The floor guarantees
+    a visible grey speck for any real signal while true zero-density pixels stay fully `alpha=0`
+    exactly as before (`lum>0` gates the floor, not a blanket minimum). Built directly at `srFull`'s
+    OWN resolution so `drawView()` samples it with the exact same `sx,sy,sw,sh` as `srFull` itself, no
+    extra `/mag` needed. Cached by object identity against `srFull`
     (`_transReconCanvas`/`_transReconForSrFull`) — a NEW `srFull` object only exists after
     `rerender()` actually rebuilds the reconstruction, so this rebuilds exactly when the density
     buffer itself would have.
@@ -955,17 +962,21 @@ relevant one before editing rather than scrolling:
   reference: `loadSegmentedImage()` stashes `segmentedImageLabels.refPxNm=paramValue('pxnm')` (ONLY
   on a genuine fresh load, not on **Show segm. image** re-displaying the same already-loaded image —
   same "don't clobber on redisplay" reasoning as the **Max. cell area** auto-fill below). `drawView()`
-  computes `segScale=refPxNm/(current pxnm)` and divides the segmentation canvas's `/mag` source-rect
+  computes `segScale=(current pxnm)/refPxNm` and divides the segmentation canvas's `/mag` source-rect
   by it — `=1` (no visible change) whenever `pxnm` hasn't moved since load; as the user corrects
-  `pxnm` UPWARD (each camera px now represents MORE real nm), `segScale<1` shrinks the segmentation's
-  on-screen footprint relative to the (unmoving) localizations, since the same real-world cell extent
-  now corresponds to FEWER loc-equivalent pixels — and grows it symmetrically as `pxnm` is corrected
-  downward. Verified directly against the real bundled dataset: `segScale` read exactly `1.0` /
-  `0.833` / `1.25` at `pxnm` 100 (the load-time reference) / 120 / 80 respectively (`100/120` and
-  `100/80` to float precision), and a screenshot comparison at `pxnm` 100 vs. 160 showed the density
-  reconstruction's own bacterial shapes staying pixel-identical in place while the segmentation
-  colour's visible coverage of them measurably shrank — confirming the two layers actually decouple
-  as intended, not just that the number changes.
+  `pxnm` UPWARD, `segScale>1` GROWS the segmentation's on-screen footprint relative to the (unmoving)
+  localizations — each raw camera pixel the localizations sit on now spans more real nm, so a
+  segmentation pixel (still `refPxNm` nm wide, unchanged) now corresponds to more of those larger
+  camera pixels than it did at load time — and shrinks it symmetrically as `pxnm` is corrected
+  downward. **The direction was wrong in the first shipped version** (`segScale=refPxNm/current`,
+  shrinking as `pxnm` rose) — caught only by a real user checking it against actual data, not by the
+  derivation on paper, which is why it's called out explicitly here rather than silently fixed:
+  double-check the direction empirically again if this formula is ever touched, don't trust
+  re-derivation alone. Verified directly against the real bundled dataset: `segScale` read exactly
+  `1.0` / `1.2` / `0.8` at `pxnm` 100 (the load-time reference) / 120 / 80 respectively, and a
+  screenshot comparison at `pxnm` 100 vs. 150 showed the density reconstruction's own bacterial shapes
+  staying pixel-identical in place while the segmentation colour's visible coverage of them measurably
+  grew — confirming the two layers actually decouple in the intended direction.
 
   **Pixel size (nm) already updates live** (independent of `segScale` above — this is the SCALE BAR/
   readout, not the segmentation overlay) — no new wiring was needed. `$('pxnm')`'s existing `change`
