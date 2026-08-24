@@ -694,10 +694,19 @@ Headless exposure ([§8](#8-headless-api-window-websmlm)'s
 `config.sptTrack`, shipped alongside the rest of v0.11.2) runs **Track**
 after drift/NeNA/FRC, not before, since a per-track D benefits from
 drift-corrected coordinates and tracking never drops rows the way
-sSMLM's pairing does. No cell-segmentation-aware tracking, no
-length-RESOLVED D histogram (D binned by track length — distinct from
-the plain track-length histogram above), and no colour-by-D/by-track
-rendering yet — see `docs/REFACTOR_PLAN.md`.
+sSMLM's pairing does. No length-RESOLVED D histogram (D binned by track
+length — distinct from the plain track-length histogram above), and no
+colour-by-D/by-track rendering yet — see `docs/REFACTOR_PLAN.md`.
+
+**Segmentation image** (`applySegmentation`, default unchecked) is v1 of
+cell-segmentation-aware tracking: checking it reveals **Load segmented
+image**, which loads a separate integer-labelled mask (0 = background,
+1/2/3/… = cell number) through the same file types **Load movie** accepts,
+shows it in the raw panel recoloured so adjacent cells are visually
+distinct, and builds `segmentedImageData` (one row per cell: id, centre of
+mass in px, area in px). Actually filtering/splitting tracking by which
+cell each localization falls inside isn't built yet — this round is
+loading + visualization + the data structure only.
 
 ### Pipeline (`pipeline`) {#pipeline}
 
@@ -1367,7 +1376,8 @@ for the first implementation.
 <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
 <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
-<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+<p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+<p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segmented image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). This is v1: the mask isn't used to filter/split tracking by cell yet, just loaded and visualized.</p>
 <!-- /HINT:spt -->
 
 Defaults are ported from the user's own `sptPALM-Python` pipeline's

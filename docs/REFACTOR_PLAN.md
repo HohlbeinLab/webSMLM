@@ -273,11 +273,19 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     x-axis — v1 ships literal log10 numbers (a deliberate, documented v1
     shortcut, reusing `computeHist()`/`drawHistogram()` completely
     unchanged) rather than a genuinely log-scale-aware axis.
-  - **No cell-segmentation-aware tracking** (the reference pipeline's
+  - **Cell-segmentation-aware tracking** (the reference pipeline's
     `use_segmentations` branch, tracking per-bacterium rather than across
-    the whole field of view) — webSMLM has no concept of cell masks;
-    revisit only if a real use case needs per-cell track isolation rather
-    than whole-FOV linking.
+    the whole field of view) — v1 SHIPPED (build 2026-08-24): **Apply
+    segmentation?** loads a separate integer-labelled mask image (0 =
+    background, 1/2/3/… = cell number), shows it in the raw panel recoloured
+    (`drawSegmentedImage()`, shuffled-label hue colouring ported from
+    `sptPALM-Python/helper_functions.py`'s `randomize_label_image()` so
+    adjacent cells — often consecutively numbered by raster-order
+    segmentation tools — get visually distinct colours), and builds
+    `segmentedImageData` (`{id,cx,cy,areaPx}` per cell). **Not yet done**:
+    actually filtering/splitting `linkTracks()` by which cell each
+    localization falls inside — this round is loading + visualization +
+    the data structure only, per-cell linking is the natural next step.
   - **Large-subnetwork exact assignment.** `linkTracks()`'s connected
     components above `HUNGARIAN_MAX` (120 points) fall back to greedy
     nearest-neighbor rather than trackpy's own recursive exact-subnetwork

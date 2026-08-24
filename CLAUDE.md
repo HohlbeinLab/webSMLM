@@ -783,8 +783,60 @@ relevant one before editing rather than scrolling:
   drift-corrected coordinates. The result's `spt` field records `nTracks`/`nQualify`/`meanD`/
   `medianD` only — not the full per-track arrays (`trackMSD` is a `Map`, not JSON-serialisable,
   would silently become `{}`). `tools/webSMLM-cli.mjs`'s `--sptTrack`/`?autorun=`'s `sptTrack=1`
-  forward to it. No cell-segmentation-aware tracking, no length-RESOLVED D histogram, no
-  colour-by-D/by-track rendering — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
+  forward to it. No length-RESOLVED D histogram, no colour-by-D/by-track rendering — tracked as
+  `docs/REFACTOR_PLAN.md` follow-ups.
+
+  **Segmentation image** (`applySegmentation` checkbox, default unchecked; v1, "as a start" toward
+  cell-segmentation-aware tracking — see `docs/REFACTOR_PLAN.md`). Checking it reveals **Load
+  segmented image** (`segLoadBtn`/hidden `segFile` input, same `.tif`/`.tiff`/`.nd2` accept list as
+  **Load movie**), which loads a separate integer-labelled mask image through the exact same
+  `loadTiffFile()` any movie goes through — 0 = background, 1/2/3/… = cell number, adjacent
+  same-valued pixels = one cell's own footprint. Only frame 0 is read (a segmentation mask is a
+  single image; a multi-frame file logs a warning and uses frame 0 anyway, not an error). If a
+  movie is already loaded and the mask's W×H doesn't match it, a warning is logged (pixel
+  correspondence needed for eventual per-cell filtering would be off) but loading still proceeds —
+  "warn, don't block" is standard for genuinely v1 territory.
+
+  `computeSegmentedImageData()` does one pass over the label array, building `segmentedImageData`
+  (module-level, one `{id,cx,cy,areaPx}` row per nonzero label — running cell number, centre of
+  mass in pixels, pixel-count area) — verified numerically EXACT against an independent
+  numpy/`np.unique`+`np.where` computation on the real bundled
+  `experimental_data/bf_analysed_JH_procBrightfield_segm.tif` (111 cells, first three rows'
+  area/centroid matched to full float precision).
+
+  `drawSegmentedImage()` renders it into the raw panel through the SAME `rawFull`/`rawView` raster
+  pipeline `drawRaw()` uses for an ordinary movie frame (fit/pan/zoom, and — since `exportPanel()`'s
+  own PNG-vs-SVG dispatch is keyed off `rawFull` being non-null, not off `rawIsPlot` — a correct
+  raster PNG export for free) rather than the plot mechanism (`rawIsPlot`/`_replotRaw`): this is
+  real pixel-density image content with no meaningful vector form, same reasoning the raw movie
+  frame itself is never one of the SVG-exportable plots. `rawPixelData` is repurposed to hold the
+  integer label array instead of ADU while shown (`rawSegView`, a new module-level flag) —
+  `fmtRawPixel()`'s hover readout branches on it to show "cell N"/"background" instead of an ADU
+  value, and `redrawRawContrast()` no-ops instead of corrupting the label data through the
+  grayscale contrast mapping if the Contrast slider is dragged while it's showing. The raw-panel
+  crop tool is explicitly disabled while shown (cropping would operate on the wrong content) and
+  re-enables automatically the moment the panel is reclaimed by a live frame — `drawRaw()` (called
+  from every `showFrame()`, i.e. dragging/typing into the Frame scrubber) resets `rawSegView=false`
+  and calls `setRawPlot(false)` exactly like it already does when reclaiming from a plot; no new
+  "exit" mechanism was needed, just extending the one that already existed. Unchecking **Apply
+  segmentation?** while the image is shown reverts to the live frame (or, with no movie loaded,
+  clears the panel back to its own empty default) and drops `segmentedImageData`.
+
+  Cell colouring (`shuffledLabelColors()`) ports the *idea* behind the user's own
+  `sptPALM-Python/helper_functions.py`'s `randomize_label_image()`: raster-order segmentation tools
+  (e.g. `skimage.measure.label`) number cells in scan order, so physically ADJACENT cells often get
+  CONSECUTIVE label values — through an ordinary continuous colour ramp, consecutive labels map to
+  near-identical hues, so neighbours become hard to tell apart. The Python version shuffles which
+  label value each cell receives (seeded, deterministic) before an external continuous-colormap
+  call; this shuffles each label's RANK (0..N-1) instead via a seeded PRNG (`mulberry32`) and maps
+  rank/N straight to a hue (`hsvToRgb`, s=0.85/v=0.95) — an equivalent decorrelation, and one that
+  spaces hues evenly regardless of gaps in the original label values (the shuffle-then-relabel
+  version needs the shuffled values themselves to be dense for that). Verified visually against the
+  real bacteria dataset above — no two adjacent cells share a similar colour.
+
+  **Not yet done** (this round is loading + visualization + the data structure only): actually
+  filtering/splitting `linkTracks()` by which cell each localization falls inside is the natural
+  next step, not built here.
 - **pipeline** — top-level orchestration wiring the UI buttons to the modules. Localize, drift
   correction and 3D calibration are each split into a DOM-free `*Core(config, stack, hooks)`
   function (`runCore`/`driftCore`/`calibrationCore`) plus a thin interactive wrapper

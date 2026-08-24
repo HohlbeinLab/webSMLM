@@ -16,31 +16,32 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24e; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24f; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2114   PARAMS registry, single source of truth for params
-    in/out          2597   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2910   synthetic stack generator ("Simulate movie")
-    detect          3737   per-frame band-pass + local-maxima detection
-    fit             3993   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2142   PARAMS registry, single source of truth for params
+    in/out          2625   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2938   synthetic stack generator ("Simulate movie")
+    detect          3787   per-frame band-pass + local-maxima detection
+    fit             4043   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4468   accumulate to offscreen buffer; view/colour/blur;
+    render          4518   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5343   frame-parallel detect/fit worker pool
-    export          5508   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5759   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6159   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5405   frame-parallel detect/fit worker pool
+    export          5570   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5821   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6221   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6474   NeNA + FRC
-    sSMLM           7117   spectrally resolved SMLM pair-finding
-    spt             7567   single particle tracking, trackpy-inspired
-    pipeline        7997   top-level orchestration, *Core()/wrapper split
-    table           9638   localizations table, filtering, histograms
-    headless API    10077  window.webSMLM.analyze()/analyzeBatch()
+    locprecision    6536   NeNA + FRC
+    sSMLM           7179   spectrally resolved SMLM pair-finding
+    spt             7629   single particle tracking, trackpy-inspired;
+                           segmentation-image loading/visualization
+    pipeline        8174   top-level orchestration, *Core()/wrapper split
+    table           9815   localizations table, filtering, histograms
+    headless API    10254  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1696,7 +1697,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1739,6 +1740,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="csvFile" accept=".csv" hidden>
       <input type="file" id="file" accept=".tif,.tiff,.nd2" multiple hidden>
+      <input type="file" id="segFile" accept=".tif,.tiff,.nd2" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
       <!-- No listener attached on purpose: a conduit for tools/webSMLM-cli.mjs
            (Layer 2, docs/DOCUMENTATION.md §8) to stash a File via
@@ -2052,6 +2054,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="sptBox">
         <summary>Single particle tracking</summary>
+        <label class="row">Apply segmentation? <input type="checkbox" id="applySegmentation"></label>
+        <div class="btnrow" id="segLoadRow" style="display:none;margin-top:2px">
+          <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load movie">Load segmented image</button>
+        </div>
         <label class="row">Search range (nm) <input type="number" id="sptSearchRange" value="800" min="10" max="5000" step="10" class="num"></label>
         <label class="row">Memory (frames) <input type="number" id="sptMemory" value="0" min="0" max="20" step="1" class="num"></label>
         <label class="row">Frame time (s) <input type="number" id="sptFrameTime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
@@ -2074,7 +2080,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
           <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
-          <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No cell-segmentation-aware tracking and no length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+          <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
+          <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segmented image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). This is v1: the mask isn't used to filter/split tracking by cell yet, just loaded and visualized.</p>
         </div>
       </details>
     </div>
@@ -2120,7 +2127,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24e · multi-file load log: filename now appears once per file as a header, further detail lines for that file just indent instead of repeating it</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24f · SPT: "Apply segmentation?" — load a cell-labelled mask image, shown recoloured (adjacent cells visually distinct) in the raw panel, builds a per-cell id/centroid/area table (v1, doesn't filter tracking yet)</div>
   </main>
 </div>
 
@@ -5287,7 +5294,7 @@ function syncRawContrastUI(){
 // re-fetching it from the stack (would lag while dragging a handle) —
 // rawPixelData already holds the exact ADU array drawRaw() last received.
 function redrawRawContrast(){
-  if(!rawPixelData) return;
+  if(!rawPixelData || rawSegView) return;   // segmentation view repurposes rawPixelData for label lookups, not ADU — dragging Contrast while it's shown must no-op, not corrupt it through the grayscale mapping
   drawRaw(rawPixelData.arr, rawPixelData.w, rawPixelData.h, rawSpots, rawLocs);
 }
 // Each window can also show a direct-drawn vector plot with no *Full source:
@@ -5308,6 +5315,14 @@ function clampRawView(){ if(!rawFull) return;
   rawView.cx = 2*hw>=rawFull.width  ? rawFull.width/2  : Math.max(hw, Math.min(rawFull.width-hw, rawView.cx));
   rawView.cy = 2*hh>=rawFull.height ? rawFull.height/2 : Math.max(hh, Math.min(rawFull.height-hh, rawView.cy)); }
 let rawSpots=null, rawLocs=null;                 // overlays for the current frame (native coords)
+// True while the raw panel shows a loaded segmentation image (MODULE: spt,
+// drawSegmentedImage()) rather than a movie frame — same "takeover, reclaimed
+// by the next real drawRaw()" idea as a plot, but rendered through the normal
+// rawFull/rawView raster pipeline (zoom/pan, PNG export) since it's real
+// pixel-density image content, not a chart. redrawRawContrast()/fmtRawPixel()
+// both branch on it — rawPixelData holds integer cell labels while this is
+// true, not ADU.
+let rawSegView=false;
 // Raw-value hover readout: x,y (native pixel index) + the actual ADU value
 // behind that pixel (rawPixelData — rawFull itself is a lossy, min/max-
 // normalized 8-bit render, no good for exact values), plus its photon
@@ -5317,6 +5332,9 @@ function fmtRawPixel(vx,vy){
   if(!rawPixelData) return '';
   const px=Math.floor(vx), py=Math.floor(vy), {arr,w,h}=rawPixelData;
   if(px<0||py<0||px>=w||py>=h) return '';   // letterboxed border while zoomed out past fit
+  // Segmentation view repurposes rawPixelData to hold integer cell labels,
+  // not ADU — read it back as "which cell is under the cursor" instead.
+  if(rawSegView){ const id=Math.round(arr[py*w+px]); return `x=${px}, y=${py}: `+(id===0?'background':`cell ${id}`); }
   const raw=arr[py*w+px], gain=paramValue('gain'), camoffset=paramValue('camoffset');
   const calibrated = gain!==1 || camoffset!==0;
   return `x=${px}, y=${py}: ${raw.toFixed(1)} ADU`+(calibrated?` (${((raw-camoffset)*gain).toFixed(1)} photon)`:'');
@@ -5363,6 +5381,7 @@ function drawRawOverlays(ctx,DW,DH){
 function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
   { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }   // only relevant while the drift plot itself is showing
+  rawSegView=false;   // reclaim the panel from a shown segmentation image too, same "any real frame redraw reclaims the panel" convention as the plot/FTM cases above
   setRawPlot(false);
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
@@ -8035,6 +8054,121 @@ $('sptLocErrorFromNenaBtn').addEventListener('click', async ()=>{
   if(!lastNena) return;   // computeNeNA() already logged why (no result / fit failed)
   $('sptLocError').value=lastNena.sigma.toFixed(1);
   recomputeSptD();
+});
+
+// ---------------------------------------------------------------------------
+// Segmentation image (cell-by-cell SPT, v1 "as a start" — see docs/
+// REFACTOR_PLAN.md): loads a separate integer-labelled image (0 = background,
+// 1/2/3/… = cell number, adjacent same-valued pixels = one cell's own
+// footprint), shows it in the raw panel recoloured so neighbouring cells are
+// visually distinct, and builds segmentedImageData (one row per cell: id,
+// centre of mass in px, area in px) for a later round to actually filter/
+// split SPT tracking by. Doesn't yet touch tracking itself.
+let segmentedImageData=null;
+
+// Deterministic seeded PRNG (mulberry32) — plays the same role numpy's own
+// seeded Generator does in sptPALM-Python/helper_functions.py's
+// randomize_label_image(): reproducible (a cell keeps the same colour every
+// time the same file is reloaded), not cryptographic.
+function mulberry32(seed){
+  let s=seed>>>0;
+  return ()=>{ s=(s+0x6D2B79F5)|0; let t=Math.imul(s^s>>>15,1|s);
+    t=(t+Math.imul(t^t>>>7,61|t))^t; return ((t^t>>>14)>>>0)/4294967296; };
+}
+function hsvToRgb(h,s,v){
+  const c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c;
+  let r=0,g=0,b=0;
+  if(h<60){ r=c; g=x; } else if(h<120){ r=x; g=c; } else if(h<180){ g=c; b=x; }
+  else if(h<240){ g=x; b=c; } else if(h<300){ r=x; b=c; } else { r=c; b=x; }
+  return [Math.round((r+m)*255), Math.round((g+m)*255), Math.round((b+m)*255)];
+}
+// Ports randomize_label_image()'s own trick (sptPALM-Python/helper_functions.py):
+// segmentation tools (e.g. skimage.measure.label) number cells in raster
+// order, so physically ADJACENT cells often land on CONSECUTIVE label
+// values — through an ordinary continuous colour ramp, consecutive labels
+// map to near-identical hues, so neighbours become hard to tell apart. The
+// Python version shuffles which label value each cell receives (seeded,
+// deterministic) before colouring; this shuffles each label's RANK (0..N-1)
+// instead — same decorrelation effect, and rank/N spaces hues evenly
+// regardless of gaps in the original label values (the shuffle-then-relabel
+// version needs the shuffled values themselves to be dense for that; this
+// doesn't need to care).
+function shuffledLabelColors(labels, seed=0){
+  const n=labels.length, ranks=[...Array(n).keys()];
+  const rnd=mulberry32(seed);
+  for(let i=n-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [ranks[i],ranks[j]]=[ranks[j],ranks[i]]; }
+  const colorOf=new Map();
+  labels.forEach((id,i)=>colorOf.set(id, hsvToRgb(360*ranks[i]/n, 0.85, 0.95)));
+  return colorOf;
+}
+// One pass over the label array: per nonzero label, pixel count + summed
+// x/y -> centre of mass. Output sorted by id, not raster/insertion order.
+function computeSegmentedImageData(labelArr,w,h){
+  const stats=new Map();
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const v=Math.round(labelArr[y*w+x]); if(v===0) continue;
+    let s=stats.get(v); if(!s){ s={count:0,sumX:0,sumY:0}; stats.set(v,s); }
+    s.count++; s.sumX+=x; s.sumY+=y;
+  }
+  return [...stats.entries()]
+    .map(([id,s])=>({id, cx:s.sumX/s.count, cy:s.sumY/s.count, areaPx:s.count}))
+    .sort((a,b)=>a.id-b.id);
+}
+// Renders through the SAME rawFull/rawView machinery drawRaw() uses for an
+// ordinary movie frame (fit/pan/zoom, PNG export via exportPanel() — that
+// dispatch is keyed off rawFull being non-null, not off rawIsPlot, so this
+// gets a correct raster PNG export for free, not the SVG-plot path) rather
+// than the plot mechanism (rawIsPlot/_replotRaw): this is real pixel-density
+// image content with no meaningful vector form, same reasoning the raw movie
+// frame itself is never one of the SVG-exportable plots.
+function drawSegmentedImage(labelArr,w,h){
+  segmentedImageData=computeSegmentedImageData(labelArr,w,h);
+  const colorOf=shuffledLabelColors(segmentedImageData.map(c=>c.id));
+  { const rt=$('rawTitle'); if(rt) rt.textContent='Segmented image'; }
+  { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }
+  if(!rawFull) rawFull=document.createElement('canvas');
+  rawFull.width=w; rawFull.height=h;
+  const ctx=rawFull.getContext('2d'), im=ctx.createImageData(w,h);
+  for(let i=0;i<w*h;i++){
+    const v=Math.round(labelArr[i]), c=v===0?null:colorOf.get(v);
+    im.data[i*4]=c?c[0]:0; im.data[i*4+1]=c?c[1]:0; im.data[i*4+2]=c?c[2]:0; im.data[i*4+3]=255;
+  }
+  ctx.putImageData(im,0,0);
+  rawPixelData={arr:labelArr,w,h}; rawSpots=null; rawLocs=null;
+  rawSegView=true; setRawPlot(false); $('rawCropBtn').disabled=true;
+  rawCropMode=false; $('rawCropBtn').classList.remove('on'); rawCropPt0=null;
+  fitRawView(); clampRawView(); drawRawView();
+  $('rawInfo').textContent=`— ${segmentedImageData.length} cell(s) segmented`;
+  syncSaveImg();
+  log(`Segmented image: ${segmentedImageData.length} cell(s), ${w}×${h}.`);
+}
+async function loadSegmentedImage(file){
+  try{
+    const segStack=await loadTiffFile(file, log);
+    if(segStack.n>1) log(`⚠ Segmented image has ${segStack.n} frames — using frame 1 only.`);
+    const img=(await segStack.getFrames(0,1))[0];
+    if(stack && (segStack.w!==stack.w || segStack.h!==stack.h))
+      log(`⚠ Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
+    drawSegmentedImage(img, segStack.w, segStack.h);
+  }catch(err){ log(`⚠ Segmented image load failed: ${err.message}`); }
+}
+$('applySegmentation').addEventListener('change', ()=>{
+  const on=$('applySegmentation').checked;
+  $('segLoadRow').style.display = on ? '' : 'none';
+  if(!on && rawSegView){
+    segmentedImageData=null; rawSegView=false;
+    if(stack) showFrame(+$('scrub').value||0);
+    else{ rawFull=null; rawPixelData=null;
+      const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame';
+      $('rawInfo').textContent='— detected spots overlaid in green';
+      drawRawView(); syncSaveImg(); }
+  }
+});
+$('segLoadBtn').addEventListener('click', ()=>$('segFile').click());
+$('segFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  await loadSegmentedImage(f);
+  e.target.value='';   // allow re-selecting the same filename later
 });
 
 /* ===========================================================================
