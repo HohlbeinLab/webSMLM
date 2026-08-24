@@ -1374,10 +1374,12 @@ its right edge short of the reconstruction panel's own right edge on a wide desk
 existed to keep a long WRAPPED LINE readable, not to shrink the box itself — see the CSS comment
 right above `.log` in the `<style>` block). Split into two elements: `#log` (the outer, still the
 `class="log"` box — border/background/`overflow:auto`/scroll height, no width cap, so it fills the
-card exactly like any other panel) wraps a plain child `#logText` (`max-width:100ch`, no border/
-background of its own) that holds the actual text. `log()`/`clearLogBtn`/`exportLogBtn` all read/
-write `#logText`'s `.textContent` now; `#log.scrollTop` (the outer box) is still what `log()` sets
-to autoscroll, since `#logText` itself has no scrollbar of its own — it's just a width-capped column
+card exactly like any other panel) wraps a plain child `#logText` (`max-width:80ch` — matching a
+standard terminal's own width, by explicit follow-up request; the originally-shipped value was
+100ch — no border/background of its own) that holds the actual text. `log()`/`clearLogBtn`/
+`exportLogBtn` all read/write `#logText`'s `.textContent` now; `#log.scrollTop` (the outer box) is
+still what `log()` sets to autoscroll, since `#logText` itself has no scrollbar of its own — it's
+just a width-capped column
 inside the real scroll container.
 
 ## Validating changes (no test framework)
