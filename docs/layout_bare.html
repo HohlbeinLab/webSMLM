@@ -3,23 +3,45 @@
   layout_bare.html — stripped-down UI shell backed up from webSMLM (webSMLM.html)
   for reuse as a starting point in new single-file browser projects.
 
-  Kept: header (title/attribution/license/repolink, plus a right-aligned
-  .header-actions row — the theme switch and layoutToggleBtn, see below),
-  the collapsible/dockable sidebar (desktop: docked → collapsed →
-  floating-with-pin; mobile: overlay drawer, both measuring the real header
-  height via --header-h rather than a guessed offset), a generic button
-  row, the single shared progress bar (#bar/#prog), one collapsible
-  "module" section, one labeled select, two display windows (canvas
+  Kept: header (title+attribution sharing one bottom-aligned .title-row,
+  plus a right-aligned .header-actions row — the theme switch and
+  layoutToggleBtn, see below; the whole header row and both its sub-rows
+  share one flex-end baseline rather than centring, since elements of very
+  different height/padding — h1 text, the pill badge, icon buttons — only
+  ever line up exactly on a shared edge, not a shared midpoint), the
+  collapsible/dockable sidebar (desktop: docked → collapsed →
+  floating-with-pin; mobile: overlay drawer — #sideToggle/#sidePin are
+  position:fixed and anchor to --header-content-bottom, the header ROW's
+  own measured bottom edge, so they track the title row's real height
+  instead of a guessed offset; the floating/mobile drawer itself still
+  anchors to --header-h, the whole header's height), a shared icon-button
+  sizing system (--icon-radius/--icon-size custom properties, one look for
+  every icon-only control — theme switch, sidebar toggle/pin — so a new one
+  doesn't invent its own radius/size by hand), a generic button row, the
+  single shared progress bar (#bar/#prog), one collapsible "module"
+  section, number-input steppers (addNumberSteppers() wraps every
+  input.num in a always-visible −/+ pair — Inkscape-style, not the
+  browser's own hover-only native spinner, which is unreachable on a
+  touchscreen), one labeled select, two display windows (canvas
   placeholders, each wrapped in a top-aligned .panel-body so a real
   project's own per-panel trailing controls — a scrub slider, a filter
   note, … — never throw the two canvases out of vertical alignment with
   each other), a side-by-side/stacked panel layout toggle (layoutToggleBtn
-  — see applyLayout()), a persistent dark/light/high-contrast THEME
+  — see applyLayout() — auto-hidden below the mobile breakpoint, where
+  .canvases is forced to one column anyway so the toggle would have
+  nothing left to do), a persistent dark/light/high-contrast THEME
   SWITCH (three icon buttons, applyTheme() — localStorage-persisted with a
-  try/catch fail-safe back to dark if storage is blocked), and a working
-  Log panel (clear / export as .txt). All font sizes, colours and CSS
-  custom properties are unchanged from webSMLM. No detect/fit/render/TIFF
-  logic is included — this is chrome only.
+  try/catch fail-safe back to dark if storage is blocked; each theme also
+  sets color-scheme so native form controls — checkboxes, scrollbars, any
+  re-enabled spinner — render theme-appropriate for free), a small
+  version-change notice logged on load (parses "vX.Y.Z" out of the .pill
+  and compares against the last version this browser saw, so a returning
+  visitor gets a signal that something shipped since their last visit —
+  rename the localStorage key if you copy this file into a real project,
+  and point the logged link at your own changelog), and a working Log
+  panel (clear / export as .txt). All font sizes, colours and CSS custom
+  properties are unchanged from webSMLM. No detect/fit/render/TIFF logic
+  is included — this is chrome only.
 -->
 <html lang="en">
 <head>
@@ -38,6 +60,7 @@
      this stripped-down shell doesn't have; add them if your project needs
      them, following the same three-palette pattern. */
   :root, [data-theme="dark"]{
+    color-scheme:dark;
     --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3;
     --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950; --warn:#d29922;
     --danger:#da3633; --surface:#21262d; --surface-hover:#1c2128;
@@ -45,6 +68,7 @@
     --accent-tint:#1b2430;
   }
   [data-theme="light"]{
+    color-scheme:light;
     --bg:#ffffff; --panel:#f6f8fa; --line:#d0d7de; --fg:#1f2328;
     --muted:#57606a; --accent:#0969da; --accent2:#1a7f37; --warn:#9a6700;
     --danger:#cf222e; --surface:#eaeef2; --surface-hover:#dde3ea;
@@ -54,8 +78,11 @@
   /* High-contrast: pure black/white extremes (WCAG-AAA-oriented), thicker
      effective borders (--line is full white, not a grey), a brighter
      accent set — for low-vision use or a hard-to-read bright-lab screen,
-     not just "a third colour scheme". */
+     not just "a third colour scheme". color-scheme:dark (not a 4th value —
+     dark/light is all the CSS spec offers) since it's a black background,
+     the closer of the two native-control palettes to this theme. */
   [data-theme="contrast"]{
+    color-scheme:dark;
     --bg:#000000; --panel:#000000; --line:#ffffff; --fg:#ffffff;
     --muted:#e0e0e0; --accent:#3399ff; --accent2:#33ff33; --warn:#ffcc00;
     --danger:#ff3333; --surface:#1a1a1a; --surface-hover:#333333;
@@ -67,21 +94,51 @@
     display:flex;flex-direction:column;            /* no hard-coded header height */
     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   header{padding:16px 20px;border-bottom:1px solid var(--line);
-    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  h1{font-size:18px;margin:0 0 2px}
-  header p{margin:0;color:var(--muted);font-size:13px}
+    display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  /* title + subtitle share one row (subtitle right behind the title) instead
+     of stacking on two lines — saves vertical header space; still wraps to
+     two lines by itself if the viewport's too narrow for both. Bottom-aligned
+     (header, .title-row and .header-actions all align-items:flex-end) rather
+     than centred: centring left every element's OWN vertical centre matching,
+     but the visually different heights/paddings of h1 text, the pill badge
+     and the icon buttons still read as "not quite lined up" — a shared
+     bottom edge is the one alignment all of them can hit exactly. */
+  .title-row{display:flex;align-items:flex-end;flex-wrap:wrap;column-gap:10px;row-gap:4px}
+  /* line-height:1 on both (rather than inheriting body's 1.5) — flex-end
+     aligns LINE BOXES, not glyph ink, and 1.5 at two different font sizes
+     (18px vs 13px) adds a different amount of invisible leading below each
+     line's own text; line-height:1 shrinks each box close to its own glyph
+     extents, so box-bottom alignment ≈ visual text alignment for both. */
+  h1{font-size:18px;margin:0;line-height:1}
+  header p{margin:0;color:var(--muted);font-size:13px;line-height:1}
   /* right side of the header: the theme switch and layoutToggleBtn — a
      plain flex row, not styled as part of the title block on the left. */
-  .header-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
-  /* Three icon-only theme buttons — small, square, same skin family as
-     button/.logbtn but sized for a glyph, not a text label. .active marks
-     the CURRENT theme (border+text in --accent, --accent-tint fill). */
-  .theme-switch{display:flex;gap:4px}
-  .theme-btn{width:26px;height:26px;padding:0;margin:0;display:flex;align-items:center;
-    justify-content:center;background:var(--surface);border:1px solid var(--line);
-    border-radius:5px;color:var(--muted);cursor:pointer;font-size:13px;line-height:1}
-  .theme-btn:hover{border-color:var(--accent);color:var(--fg)}
+  .header-actions{display:flex;align-items:flex-end;gap:8px;flex:0 0 auto}
+  /* Shared icon-button shape/size system — every icon-ONLY button (theme
+     switch, sidebar toggle/pin, and any future in-panel tool icon a real
+     project adds) draws from one --icon-radius/--icon-size pair rather than
+     each control family picking its own radius/background/colour by hand —
+     a real, reported inconsistency in webSMLM before this existed
+     (sideToggle/sidePin used a different radius/colour pair than the theme
+     buttons sitting right next to them on the same row). --icon-size-sm is
+     a second, smaller size for later in-panel tool buttons this bare shell
+     doesn't have yet; reuse it rather than inventing a third size. */
+  :root{ --icon-radius:5px; --icon-size:26px; --icon-size-sm:20px; }
+  .theme-btn,#sideToggle,#sidePin{display:flex;align-items:center;
+    justify-content:center;padding:0;margin:0;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--icon-radius);
+    color:var(--muted);cursor:pointer;line-height:1;
+    width:var(--icon-size);height:var(--icon-size);font-size:13px}
+  .theme-btn:hover,#sideToggle:hover,#sidePin:hover{border-color:var(--accent);color:var(--fg)}
   .theme-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
+  .theme-switch{display:flex;gap:4px}
+  /* layoutToggleBtn is a text-label button (.logbtn), not an icon, so its
+     own height stays content-driven everywhere else it's reused — but here
+     its only row-neighbours are --icon-size (26px) icon buttons, and both
+     rows share align-items:flex-end, so a mismatched height left its TOP
+     sitting visibly below theirs even though the bottoms lined up. Matched
+     here specifically (not on .logbtn itself, which other buttons share). */
+  #layoutToggleBtn{height:var(--icon-size);display:flex;align-items:center;justify-content:center}
   /* minmax(0,1fr): a plain 1fr track has an implicit min of its CONTENT width, so
      the canvases refuse to shrink and overflow horizontally / overlap; minmax(0,…)
      lets the tracks shrink and the panels scale to the available width. */
@@ -91,19 +148,25 @@
   /* collapsible sidebar. Desktop: collapsing gives the canvases the full width.
      Mobile (see @media): the sidebar becomes an overlay drawer so the images are
      visible first and re-opening slides over them without moving them. */
-  #sideToggle{position:fixed;top:14px;left:14px;z-index:45;width:28px;height:28px;display:flex;
-    align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
-    border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
-  #sideToggle:hover{background:var(--surface-hover);border-color:var(--accent)}
+  /* position:fixed, so it's outside the header's own flex flow and needs
+     --header-content-bottom (the header ROW's real measured bottom edge,
+     kept live by measureHeader() below) to bottom-align with the title
+     row rather than a guessed flat px value that drifts with font metrics/
+     zoom. 44px is measureHeader()'s own pre-JS fallback. margin:0 because
+     the generic button{margin:4px 0} rule (meant for in-flow sidebar
+     buttons) would otherwise silently add another 4px here. */
+  #sideToggle{position:fixed;top:calc(var(--header-content-bottom,44px) - var(--icon-size));left:14px;z-index:45;margin:0}
   #scrim{display:none}   /* mobile-only / desktop-floating tap-catcher behind the open drawer */
   header{padding-left:50px}                          /* room for the fixed toggle at top-left */
   /* pin button — re-docks a floating desktop drawer back into the grid layout. Stacked
      BELOW the toggle (not beside it) so it never overlaps the header title text, which
-     starts right after the toggle's own column. */
-  #sidePin{position:fixed;top:48px;left:14px;z-index:46;width:28px;height:28px;display:none;
-    align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);
-    border-radius:8px;color:var(--fg);cursor:pointer;font-size:13px;line-height:1}
-  #sidePin:hover{background:var(--surface-hover);border-color:var(--accent)}
+     starts right after the toggle's own column. Same --header-content-bottom anchor as
+     #sideToggle, offset by its own --icon-size height plus a 6px gap, so the two stay
+     visually locked together at any header height. display:none here (not the shared
+     rule's display:flex) is deliberate — this ID rule comes later in the stylesheet, so
+     it correctly wins the default-hidden state; the body.side-float rule further down
+     flips it back to flex. */
+  #sidePin{position:fixed;top:calc(var(--header-content-bottom,44px) + 6px);left:14px;z-index:46;margin:0;display:none}
   /* single column when collapsed: .sidebar is display:none (removed from the grid),
      so a 2-track template would auto-place .main into the first (0-width) track and
      hide the canvases — one 1fr track puts .main full-width. */
@@ -140,13 +203,38 @@
      so it doesn't shift layout when an operation starts. */
   .bar{height:6px;background:var(--surface);border-radius:3px;overflow:hidden;margin:10px 0}
   .bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
-  /* Native spinners are dropped entirely: on Chrome they render black-on-black
-     until hovered, and on Firefox they crowd the digits. Type the value instead. */
-  input.num{width:80px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
-    border-radius:6px;padding:4px 9px;font-size:12px;text-align:right;
+  /* Native spinners were tried (via color-scheme above, which alone makes a
+     re-enabled spinner render theme-appropriate) and dropped again: look
+     still varies across browser engines, and — more importantly — they're
+     hover-reveal only, so on a touchscreen (no hover state at all) they're
+     effectively unreachable. addNumberSteppers() below wraps every .num
+     field in a .numstep/.numstep-btns −/+ pair instead — Inkscape-style,
+     always visible, real click targets, driven by each field's own
+     already-set min/max/step, no per-input wiring needed. Suppress the
+     native spinner so it doesn't ALSO show up alongside the custom one.
+     Left-aligned (not right) to match the −/+ pair's own reading order —
+     value, then the control that changes it, left to right. */
+  input.num{width:64px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 9px;font-size:12px;text-align:left;
     -moz-appearance:textfield;appearance:textfield}
   input.num::-webkit-inner-spin-button,
   input.num::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+  /* addNumberSteppers() wraps the input in .numstep and appends
+     .numstep-btns right after it — together they read as ONE control: the
+     input keeps its left/top/bottom rounding and loses its right border,
+     the button pair picks up the right rounding and shares that border, so
+     there's no visible seam between "the value" and "the control". Sized
+     off --icon-size-sm's own small-icon-button footprint (see the header's
+     icon-button system above) rather than inventing a new size. */
+  .numstep{display:inline-flex;align-items:stretch;vertical-align:middle}
+  .numstep input.num{border-radius:6px 0 0 6px;border-right:none}
+  .numstep-btns{display:flex;border:1px solid var(--line);border-radius:0 6px 6px 0;overflow:hidden}
+  .numstep-btns button{all:unset;box-sizing:border-box;width:18px;display:flex;
+    align-items:center;justify-content:center;cursor:pointer;color:var(--muted);
+    background:var(--surface);font-size:11px;line-height:1;user-select:none}
+  .numstep-btns button:not(:last-child){border-right:1px solid var(--line)}
+  .numstep-btns button:hover{background:var(--surface-hover);color:var(--fg)}
+  .numstep-btns button:active{background:var(--accent-tint);color:var(--accent)}
   /* two equal buttons side by side */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
   .btnrow button{margin:0;padding:8px 6px;font-size:12px}
@@ -252,6 +340,10 @@
     .canvases{grid-template-columns:1fr}
     .main{padding:14px 14px}
     header{padding:12px 14px 12px 46px}
+    /* .canvases is forced to one column unconditionally right above, so
+       layoutToggleBtn's side-by-side/stacked choice has nothing left to
+       toggle here — hide it rather than show a control with no effect. */
+    #layoutToggleBtn{display:none}
   }
   @media (max-width:420px){
     .sidebar{padding:14px}
@@ -279,9 +371,9 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
 <div id="scrim"></div>
 
 <header>
-  <div>
+  <div class="title-row">
     <h1>title <span class="pill">v0.0.0</span></h1>
-    <p style="font-size:12px;margin-top:4px">© year_name · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="#" class="repolink">repolink</a> · All client-side, no upload.</p>
+    <p style="font-size:12px">© year_name · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="#" class="repolink">repolink</a> · All client-side, no upload.</p>
   </div>
   <div class="header-actions">
     <div class="theme-switch" role="group" aria-label="Colour theme">
@@ -367,6 +459,59 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
 <script>
 const $ = id => document.getElementById(id);
 const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; };
+
+// ---- number-input steppers (+/-) ---------------------------------------
+// Wraps every input.num in a small, always-visible −/+ pair instead of
+// relying on the browser's own native number-input spinner (hover-reveal
+// only — unreachable on a touchscreen with no hover state — and its look
+// varies a lot across engines/themes). Reads each input's own already-set
+// min/max/step, so a new .num field anywhere in the page gets steppers for
+// free with no per-input wiring. Runs once, right after the DOM's static
+// inputs exist (this script tag sits at the end of <body>) — call it again
+// (it's idempotent, guarded by data-stepped) after dynamically adding any
+// new .num input in a real project.
+function addNumberSteppers(){
+  document.querySelectorAll('input.num[type="number"]').forEach(inp=>{
+    if(inp.dataset.stepped) return;   // idempotent — safe if ever called twice
+    inp.dataset.stepped='1';
+    const wrap=document.createElement('span'); wrap.className='numstep';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btns=document.createElement('span'); btns.className='numstep-btns';
+    const step=()=> parseFloat(inp.step)||1;
+    const bump=dir=>{
+      const min = inp.min!=='' ? parseFloat(inp.min) : -Infinity;
+      const max = inp.max!=='' ? parseFloat(inp.max) :  Infinity;
+      const cur = parseFloat(inp.value);
+      let v = (isFinite(cur)?cur:0) + dir*step();
+      v = Math.min(max, Math.max(min, v));
+      // avoid float garbage (0.1+0.2-style) by rounding to the step's own decimal precision
+      const dec = (String(step()).split('.')[1]||'').length;
+      inp.value = dec ? v.toFixed(dec) : String(v);
+      // real input+change events — every existing listener (live preview,
+      // Save/Load settings, etc.) reacts exactly as it would to typing.
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+    };
+    // Drawn as SVG lines, not text glyphs — "−"/"+" have different optical
+    // centres per font/engine (the minus sign in particular rarely sits
+    // where align-items:center puts its own line box), so text glyphs
+    // looked subtly off-centre and inconsistent with each other; geometry
+    // in a fixed viewBox centres identically everywhere, every time.
+    const HBAR='<line x1="2" y1="5" x2="8" y2="5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    const VBAR='<line x1="5" y1="2" x2="5" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    for(const [svgInner,dir] of [[HBAR,-1],[HBAR+VBAR,1]]){
+      const b=document.createElement('button');
+      b.type='button'; b.tabIndex=-1;
+      b.innerHTML=`<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">${svgInner}</svg>`;
+      b.title=(dir<0?'Decrease':'Increase')+' by '+step();
+      b.addEventListener('click',()=>bump(dir));
+      btns.appendChild(b);
+    }
+    wrap.appendChild(btns);
+  });
+}
+addNumberSteppers();
 // The single shared progress bar (below the action buttons): pass a percentage
 // to fill it, null to empty it back to rest. Every long-running operation uses
 // this one bar — see the .bar CSS rule for why.
@@ -399,8 +544,16 @@ async function saveBlob(blob,name,desc,mime,ext){
   // real rendered height (font metrics vary by OS/zoom — a guessed px value
   // drifts) to start exactly where the docked sidebar would, instead of
   // guessing a fixed offset that can end up too high or too low.
-  const header=document.querySelector('header');
-  const measureHeader=()=>{ if(header) document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height+'px'); };
+  const header=document.querySelector('header'), headerActions=document.querySelector('.header-actions');
+  // --header-content-bottom: the header ROW's own bottom edge (header and
+  // .title-row/.header-actions are all align-items:flex-end — see their own
+  // CSS comment) — #sideToggle/#sidePin are position:fixed, outside that flex
+  // flow, so they need this measured explicitly to bottom-align with the row
+  // rather than inheriting it for free the way an in-flow child would.
+  // .header-actions is a convenient, always-present stand-in for "the row's
+  // shared bottom edge" — it's one of the two flex-end-aligned rows itself.
+  const measureHeader=()=>{ if(header) document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height+'px');
+    if(headerActions) document.documentElement.style.setProperty('--header-content-bottom', headerActions.getBoundingClientRect().bottom+'px'); };
   const sync=()=>{ measureHeader(); const hidden=body.classList.contains('side-hidden'),
       float=body.classList.contains('side-float');
     // collapsed → next action is "show"; docked or floating → next action is "hide"
@@ -475,6 +628,38 @@ $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
 { let _initialTheme='dark';
   try{ const s=localStorage.getItem('layout_bare_theme'); if(['dark','light','contrast'].includes(s)) _initialTheme=s; }catch(_){}
   applyTheme(_initialTheme); }
+
+// ---- version-change notice ---------------------------------------------
+// layout_bare_lastVersion: same localStorage pattern as layout_bare_theme
+// above — records the release number (vX.Y.Z, parsed from the <h1> pill)
+// this browser last saw, so a returning visitor gets a log-window pointer
+// to what changed rather than silently running whatever's now on the page
+// with no signal anything shipped (there's no other auto-update
+// notification for a single static file). Deliberately parses only the
+// leading vX.Y.Z, not the full pill text — a real project's pill often
+// carries an extra "-dev · build …" suffix while a release is in progress
+// that changes on nearly every reload during active development; comparing
+// only the clean version number avoids firing on that noise while still
+// firing correctly once a real release reaches production. Only logs when
+// a DIFFERENT version was previously recorded — a brand-new visitor (no
+// saved key yet) just gets the value silently recorded, not a confusing
+// "updated from nothing" message. Same try/catch fail-safe as the theme
+// key: a blocked localStorage means this feature quietly does nothing.
+// Rename the key and the logged link if you copy this file into a real
+// project, so it doesn't collide with any other single-file app a user
+// might have open from the same local file:// origin.
+{ const pill=document.querySelector('.pill');
+  const m=pill && pill.textContent.match(/v(\d+\.\d+\.\d+)/);
+  if(m){ const cur=m[1];
+    try{
+      const prev=localStorage.getItem('layout_bare_lastVersion');
+      if(prev && prev!==cur){
+        log(`Updated: v${prev} → v${cur} — see what's new: <link your own changelog here>`);
+      }
+      localStorage.setItem('layout_bare_lastVersion', cur);
+    }catch(_){}
+  }
+}
 
 // ---- side-by-side vs stacked panel layout ------------------------------
 // null = auto (a real project would decide this from its own loaded data's
