@@ -753,6 +753,11 @@ relevant one before editing rather than scrolling:
   view" precedent `driftPlotMode`/`sptHistMode` already follow. `refreshSSmlmHistIfShown()` is
   unaffected by the merge — already keyed off `histData.col`, not which button opened it.
 
+  Button-row layout: **Fit angle & tol.** and **Pair** share one row (`Pair` moved up from its
+  former row with `Unpair`); **Unpair** now sits alone in the next row. Purely a visual reflow — no
+  wiring change, `sSmlmFitAngleBtn`/`sSmlmPairBtn`/`sSmlmUnpairBtn` keep their existing enable/
+  disable logic untouched.
+
   An unpaired localization is dropped from the result. A pair's reported position is the 0th
   order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
   offset varies per emitter with wavelength, so averaging would blur position. Each paired row also
@@ -943,7 +948,28 @@ relevant one before editing rather than scrolling:
   "exit" mechanism was needed, just extending the one that already existed. Unchecking **Apply
   segmentation?** while the image is shown reverts to the live frame (or, with no movie loaded,
   clears the panel back to its own empty default) and drops `segmentedImageData`/
-  `segmentedImageLabels`, disabling **Show segm. image**/**Show area hist.** again.
+  `segmentedImageLabels`, disabling **Show segmentation** again (and hiding its own raw-panel-title
+  toggle, `segShowModeBtn` — see below).
+
+  **"Show segm. image"/"Show area hist." merge**: the two used to be separate sidebar buttons, each
+  redrawing its own content unconditionally. Now one button, `segShowBtn` ("Show segmentation"),
+  plus a raw-panel-title toggle (`segShowModeBtn`, `.logbtn`, same show/hide-while-relevant pattern
+  as `driftPlotModeBtn`/`sSmlmHistModeBtn`) that flips a module-level `segShowMode`
+  (`'image'`/`'hist'`, default `'image'`) and calls `drawSegShow()` again. Unlike the spt-histogram
+  and sSMLM-histogram merges (both toggling between two PLOTS sharing one `computeHist()`/
+  `drawHistogram()` draw call, so a single dispatcher can own both the draw and the panel title),
+  this merge toggles between a RASTER IMAGE (`drawSegmentedImage()`, the `rawFull`/`rawView`
+  pipeline) and a PLOT (`drawSegAreaHist()`, the `rawIsPlot`/`computeHist()` pipeline) — two
+  structurally different rendering paths with no shared draw primitive to factor out, so
+  `drawSegShow()` is a thin dispatcher that just calls whichever existing function applies; each
+  mode keeps setting its OWN panel title (`"Segmented image"` / `"Histogram: Cell area"`) rather
+  than the fixed-title override the sSMLM merge uses. `segShowModeBtn`'s own label is the OTHER
+  mode's name (clicking it while showing the image reads "Area histogram", and vice versa), synced
+  by `syncSegShowModeBtn()` — split out from `drawSegShow()` so `loadSegmentedImage()` can reset
+  `segShowMode='image'` and sync the toggle button's visibility/label on a fresh load WITHOUT a
+  redundant redraw of what `drawSegmentedImage()` already just drew inline. Hidden at the same two
+  reclaim points every other raw-panel toggle already uses: `drawRaw()` (scrubbing to a live frame)
+  and the `applySegmentation` uncheck handler.
 
   `drawSegmentedImage()` also calls `setFrameAspect(w,h)` with the segmentation image's OWN
   dimensions, taking over `--frame-ar` (the CSS custom property BOTH panels' canvases track, see
@@ -966,9 +992,9 @@ relevant one before editing rather than scrolling:
   `segmentedImageLabels` (`{arr,w,h}`, the loaded label array — distinct from `segmentedImageData`,
   the per-cell stats table both are built from) persists independently of whatever the raw panel
   currently shows, unlike `rawPixelData` (overwritten the moment a live frame reclaims the panel) —
-  this is what **Show segm. image** re-displays (`drawSegmentedImage()` again, deterministic seed-0
-  recolouring so it's pixel-identical to the original load) without re-reading the file, and what the
-  actual tracking integration below reads from. **Show area hist.** plots
+  this is what **Show segmentation**'s image mode re-displays (`drawSegmentedImage()` again,
+  deterministic seed-0 recolouring so it's pixel-identical to the original load) without re-reading
+  the file, and what the actual tracking integration below reads from. Its histogram mode plots
   `segmentedImageData.map(c=>c.areaPx)` via the shared `computeHist()`/`drawHistogram()` (linear count
   axis — cell areas aren't expected to fall off exponentially the way SPT track survival does, so no
   log axis or fit curve here, unlike `drawSptTrackLenHist()`).
@@ -1084,8 +1110,8 @@ relevant one before editing rather than scrolling:
   rather than nested inside `#segLoadRow` with its buttons — see the top-level `label.row`
   nesting-depth gotcha above for why nesting them there silently broke their own right-edge
   alignment (a real, reported bug) despite still LOOKING indented. A fresh **Load
-  segm. image** (not **Show segm. image**, which re-displays the SAME already-loaded image and
-  shouldn't silently overwrite a value the user has since adjusted) sets `segAreaMax` to
+  segm. image** (not **Show segmentation**'s image mode, which re-displays the SAME already-loaded
+  image and shouldn't silently overwrite a value the user has since adjusted) sets `segAreaMax` to
   `Math.max(...segmentedImageData.map(c=>c.areaPx))` — a real upper bound for that specific image
   instead of the generic ∞ default, verified against the real bundled segmentation (271, matching
   an independent `(img==label).sum()` max over all labels). Ports
@@ -1250,9 +1276,8 @@ so scrubbing to a frame a Run would never touch can't show a misleading live-fit
 
 Sidebar/panel-title buttons must fit on one line at the sidebar's normal width — a label that
 wraps reads as broken layout, not a design choice. Abbreviate rather than let a label wrap:
-"Show area hist." not "Show area histogram" (see **spt**'s segmentation-image section). Favour
-standard, unambiguous abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that
-could be misread.
+"Fit angle & tol." not "Fit angle & tolerance" (see **sSMLM**). Favour standard, unambiguous
+abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that could be misread.
 
 ### `label.row` nesting-depth gotcha (indented sidebar sub-rows)
 

@@ -11,42 +11,45 @@
     UTIF  — https://github.com/photopea/UTIF.js
   ============================================================================
   Algorithm references (phasor, drift/AIM, NeNA, FRC, FTM, sSMLM, …) are not
-  repeated here — see README.md "How it works & references" and CITATION.cff.
+  repeated here — see docs/DOCUMENTATION.md §9 "References & further
+  reading" and CITATION.cff.
   ============================================================================
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24u; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24v; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2177   PARAMS registry, single source of truth for params
-    in/out          2671   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2984   synthetic stack generator ("Simulate movie")
-    detect          3833   per-frame band-pass + local-maxima detection
-    fit             4089   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2174   PARAMS registry, single source of truth for params
+    in/out          2668   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2981   synthetic stack generator ("Simulate movie")
+    detect          3830   per-frame band-pass + local-maxima detection
+    fit             4086   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4564   accumulate to offscreen buffer; view/colour/blur;
+    render          4561   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5510   frame-parallel detect/fit worker pool
-    export          5675   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5935   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6335   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5508   frame-parallel detect/fit worker pool
+    export          5673   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5933   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6333   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6650   NeNA + FRC
-    sSMLM           7293   spectrally resolved SMLM pair-finding; merged
-                           Show histograms (sSmlmHistBtn/sSmlmHistModeBtn)
-    spt             7757   single particle tracking, trackpy-inspired;
+    locprecision    6648   NeNA + FRC
+    sSMLM           7291   spectrally resolved SMLM pair-finding; merged
+                           Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
+                           Fit angle & tol./Pair share a row, Unpair alone
+    spt             7755   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap; merged Show histograms
-                           (sptHistBtn/sptHistModeBtn)
-    pipeline        8592   top-level orchestration, *Core()/wrapper split;
+                           (sptHistBtn/sptHistModeBtn) and Show segmentation
+                           (segShowBtn/segShowModeBtn)
+    pipeline        8624   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn)
-    table           10318  localizations table, filtering, histograms
-    headless API    10762  window.webSMLM.analyze()/analyzeBatch()
+    table           10350  localizations table, filtering, histograms
+    headless API    10794  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1705,7 +1708,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24u</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24v</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2051,9 +2054,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="sSmlmFitAngleBtn" disabled title="Estimate Primary angle and Angle tolerance from the current angle histogram's peak (half-max width) and fill them in below">Fit angle &amp; tol.</button>
+          <button id="sSmlmPairBtn" disabled title="Pair 0th/1st-order localizations using the settings above">Pair</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
-          <button id="sSmlmPairBtn" disabled title="Pair 0th/1st-order localizations using the settings above">Pair</button>
           <button id="sSmlmUnpairBtn" disabled title="Restore the original, unpaired localizations">Unpair</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
@@ -2072,10 +2075,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div id="segLoadRow" style="display:none">
           <div class="btnrow" style="margin-top:2px">
             <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load movie">Load segm. image</button>
-            <button id="segShowBtn" disabled title="Re-show the already-loaded segmentation image without reloading the file">Show segm. image</button>
-          </div>
-          <div class="btnrow" style="margin-top:6px">
-            <button id="segAreaHistBtn" disabled title="Plot a histogram of cell areas (pixels) from the loaded segmentation image">Show area hist.</button>
+            <button id="segShowBtn" disabled title="Show the segmentation image or its cell-area histogram (Segmentation image shown first; toggle next to the raw panel title switches between the two)">Show segmentation</button>
           </div>
         </div>
         <!-- Deliberately NOT nested inside #segLoadRow (unlike the buttons above) —
@@ -2113,7 +2113,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
-          <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
+          <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segmentation</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
           <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
           <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
         </div>
@@ -2124,7 +2124,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Toggle between the diffusion-coefficient histogram and the track-length histogram">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Toggle between the diffusion-coefficient histogram and the track-length histogram">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
@@ -2161,7 +2161,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24u · Quick guide restyled back to its blue-outline look; Get from NeNA moved to the right of its row; Save spt data renamed Save tracking data; sSMLM's Show dist./angle hist. merged into one Show histograms button with a Distances/Angles toggle next to the raw panel title</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24v · Segmentation: Show segm. image/Show area hist. merged into one Show segmentation button with an Image/Area histogram toggle next to the raw panel title; sSMLM's Fit angle &amp; tol. and Pair now share a row, Unpair moved to its own row below</div>
   </main>
 </div>
 
@@ -5485,6 +5485,7 @@ function drawRaw(frame,w,h,spots,locs){
   { const b=$('driftPlotModeBtn'); if(b) b.style.display='none'; }   // only relevant while the drift plot itself is showing
   { const b=$('sptHistModeBtn'); if(b) b.style.display='none'; }   // only relevant while an spt histogram itself is showing
   { const b=$('sSmlmHistModeBtn'); if(b) b.style.display='none'; }   // only relevant while an sSMLM histogram itself is showing
+  { const b=$('segShowModeBtn'); if(b) b.style.display='none'; }   // only relevant while the segmentation image or its area histogram is showing
   rawSegView=false;   // reclaim the panel from a shown segmentation image too, same "any real frame redraw reclaims the panel" convention as the plot/FTM cases above
   setRawPlot(false);
   if(!rawFull) rawFull=document.createElement('canvas');
@@ -8508,10 +8509,16 @@ async function loadSegmentedImage(file){
     // The segmentation image's own effective calibration reference for the SR
     // overlay's segScale (drawView(), MODULE: render) — captured ONLY on a
     // genuine fresh load, same "don't clobber on redisplay" reasoning as the
-    // Max. cell area auto-fill below: Show segm. image re-displaying the SAME
+    // Max. cell area auto-fill below: Show segmentation re-displaying the SAME
     // already-loaded image must not reset it.
     segmentedImageLabels.refPxNm=paramValue('pxnm');
-    $('segShowBtn').disabled=false; $('segAreaHistBtn').disabled=false;
+    // A fresh load always opens on the image view, not wherever a previous
+    // session's toggle left it — same "fresh result opens on the default"
+    // precedent driftPlotMode/sptHistMode/sSmlmHistMode already follow.
+    // drawSegmentedImage() above already drew the image itself; this just
+    // resets the mode and syncs the toggle button, no second draw needed.
+    segShowMode='image'; syncSegShowModeBtn();
+    $('segShowBtn').disabled=false;
     $('srSegOverlayBtn').style.display='';   // "Show segm." now has something to show
     if(srSegOverlayOn && srFull) drawView();   // already toggled on from a prior segmentation image — refresh with the new one
     // Default Max. cell area to the largest cell actually found, rather than
@@ -8534,6 +8541,31 @@ function drawSegAreaHist(){
   computeHist('Cell area', segmentedImageData.map(c=>c.areaPx), 'px');
   drawHistogram();
 }
+// "Show segmentation" (segShowBtn) merges what used to be two separate
+// buttons (Show segm. image / Show area hist.) into one, with
+// segShowModeBtn — inline in the raw-panel title, same place/pattern as
+// driftPlotModeBtn/sptHistModeBtn/sSmlmHistModeBtn — toggling which mode
+// draws. Architecturally different from those three: this toggle switches
+// between a RASTER image (drawSegmentedImage(), the rawFull/rawView
+// pipeline) and a PLOT (drawSegAreaHist(), the rawIsPlot/computeHist()
+// pipeline), not between two plots sharing one draw primitive — so there's
+// no single shared draw function to dispatch through the way
+// drawSptHist()/drawSSmlmHist() do; this just calls whichever of the two
+// EXISTING functions applies. Each already sets its own panel title
+// ("Segmented image" / "Histogram: Cell area") — kept as-is, same as spt's
+// own D/track-length merge, unlike sSMLM's merge which overrides to one
+// fixed title.
+let segShowMode='image';
+function syncSegShowModeBtn(){
+  const btn=$('segShowModeBtn');
+  if(btn){ btn.style.display=''; btn.textContent = segShowMode==='hist' ? 'Segmentation image' : 'Area histogram'; }
+}
+function drawSegShow(){
+  if(!segmentedImageLabels) return;
+  if(segShowMode==='hist') drawSegAreaHist();
+  else drawSegmentedImage(segmentedImageLabels.arr, segmentedImageLabels.w, segmentedImageLabels.h);
+  syncSegShowModeBtn();
+}
 $('applySegmentation').addEventListener('change', ()=>{
   const on=$('applySegmentation').checked;
   $('segLoadRow').style.display = on ? '' : 'none';
@@ -8541,7 +8573,7 @@ $('applySegmentation').addEventListener('change', ()=>{
   $('segAreaMaxRow').style.display = on ? '' : 'none';
   if(!on && rawSegView){
     segmentedImageData=null; segmentedImageLabels=null; rawSegView=false;
-    $('segShowBtn').disabled=true; $('segAreaHistBtn').disabled=true;
+    $('segShowBtn').disabled=true; $('segShowModeBtn').style.display='none'; segShowMode='image';
     // Nothing left to overlay — reset the toggle, hide the button, drop the
     // cached overlay canvas (it's keyed by object identity against
     // segmentedImageLabels, now null) and redraw the reconstruction if the
@@ -8563,17 +8595,20 @@ $('segFile').addEventListener('change', async e=>{
   await loadSegmentedImage(f);
   e.target.value='';   // allow re-selecting the same filename later
 });
-// Re-shows the ALREADY-loaded segmentation image (segmentedImageLabels,
-// kept independently of whatever the raw panel currently displays) without
-// re-reading the file — same result as a fresh Load segm. image run, since
-// drawSegmentedImage() recomputes everything (segmentedImageData, the
-// shuffled colouring — deterministic, seed 0, so the recolour is identical
-// too) from the stored label array each time it's called.
+// "Show segmentation" reopens whichever mode segShowMode currently is (last
+// viewed, or 'image' after a fresh load) — segmentedImageLabels is kept
+// independently of whatever the raw panel currently displays, so this works
+// without re-reading the file; drawSegmentedImage() recomputes everything
+// (segmentedImageData, the shuffled colouring — deterministic, seed 0, so
+// the recolour is identical too) from the stored label array each time.
+// The toggle button next to the raw panel's own title flips the mode. Same
+// plain text-swap convention as the other three merged toggles, not an
+// .active/.on styled state.
 $('segShowBtn').addEventListener('click', ()=>{
   if(!segmentedImageLabels){ log('No segmentation image loaded yet — use Load segm. image first.'); return; }
-  drawSegmentedImage(segmentedImageLabels.arr, segmentedImageLabels.w, segmentedImageLabels.h);
+  drawSegShow();
 });
-$('segAreaHistBtn').addEventListener('click', drawSegAreaHist);
+$('segShowModeBtn').addEventListener('click', ()=>{ segShowMode = segShowMode==='hist' ? 'image' : 'hist'; drawSegShow(); });
 // "Show segm." / "Show recon." — swaps the SR panel between the plain
 // density reconstruction and the segmented cells (opaque) with the same
 // reconstruction on top (its own black background made transparent), see
