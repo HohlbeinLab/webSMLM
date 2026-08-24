@@ -16,7 +16,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24i; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24j; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1698,7 +1698,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24i</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2088,7 +2088,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
           <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
-          <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); use the histogram to judge whether <b>Min track length</b> is set sensibly for this data.</p>
+          <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
           <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
           <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
@@ -2137,7 +2137,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24i · SPT: cell-by-cell tracking — Show segm. image, Show area hist., Min./Max. cell area filter tracks per segmented cell (never crosses a cell boundary), new cell_id/cell_area columns</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24j · Max. cell area now auto-fills to the largest cell found on Load segm. image; Min track length now moves a live marker on an already-shown length histogram, no re-Track needed</div>
   </main>
 </div>
 
@@ -8119,7 +8119,13 @@ function fitTrackLifetime(hd){
 }
 function drawSptTrackLenHist(){
   if(!lastSpt || !lastSpt.trackLengths.length) return;
-  computeHist('SPT track length', lastSpt.trackLengths, 'locs', null, true);
+  // Marks the CURRENT Min track length threshold — trackLengths itself
+  // (every linked track, regardless of qualification) never depends on this
+  // field, so the bars themselves don't move when it changes; the marker is
+  // what actually gives "change it while the histogram is shown" something
+  // to redraw, same idea as sSMLM's distance/angle histograms marking their
+  // own configured window.
+  computeHist('SPT track length', lastSpt.trackLengths, 'locs', [{x:paramValue('sptTrackLenMin'), label:'min'}], true);
   const fit=fitTrackLifetime(histData);
   if(fit){
     histData.curve=x=>fit.A*Math.exp(-x/fit.tau);
@@ -8150,6 +8156,11 @@ $('sptSaveBtn').addEventListener('click', exportSptSummary);
 $('sptFrameTime').addEventListener('change', recomputeSptD);
 $('sptFrameTime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
 $('sptLocError').addEventListener('change', recomputeSptD);
+// Min track length doesn't change trackLengths itself (see drawSptTrackLenHist's
+// own comment) — this only moves the threshold MARKER on an already-shown
+// histogram, not a re-Track. Search range/Memory still change which tracks/
+// steps exist and require a fresh Track click, same as before.
+$('sptTrackLenMin').addEventListener('change', refreshSptTrackLenHistIfShown);
 // D plot min/max only change the histogram's own display window, not the
 // underlying D values — re-plot (if shown) without touching lastSpt itself.
 $('sptDPlotMin').addEventListener('change', refreshSptDHistIfShown);
@@ -8262,6 +8273,14 @@ async function loadSegmentedImage(file){
       log(`⚠ Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
     drawSegmentedImage(img, segStack.w, segStack.h);
     $('segShowBtn').disabled=false; $('segAreaHistBtn').disabled=false;
+    // Default Max. cell area to the largest cell actually found, rather than
+    // leaving it at the generic blank/∞ default — a sensible starting upper
+    // bound for THIS image instead of an abstract "no limit". Only on a
+    // genuine fresh load (here), not on Show segm. image (drawSegmentedImage()
+    // itself, which also runs for that button) re-displaying the SAME already-
+    // loaded image — that shouldn't silently overwrite a value the user may
+    // have since adjusted by hand.
+    if(segmentedImageData.length) $('segAreaMax').value=Math.max(...segmentedImageData.map(c=>c.areaPx));
   }catch(err){ log(`⚠ Segmented image load failed: ${err.message}`); }
 }
 // Cell-area histogram (pixels) — reuses computeHist()/drawHistogram() the

@@ -796,6 +796,15 @@ relevant one before editing rather than scrolling:
   one "loc" despite spanning >1 frame, so the seconds figure is an approximation once
   gap-bridging is active, called out explicitly rather than presented as exact.
 
+  `computeHist()`'s own `markers` parameter (already used by sSMLM's distance/angle histograms to
+  mark their configured window) draws a vertical line at the CURRENT `sptTrackLenMin` — `trackLengths`
+  itself never depends on that field (every linked track is collected regardless of qualification,
+  precisely so this histogram can help pick it), so without a marker, editing the field while the
+  histogram was open had nothing to visibly change. `sptTrackLenMin`'s own `change` listener calls
+  the existing `refreshSptTrackLenHistIfShown()` (previously only wired to `sptFrameTime`, for its
+  τ-in-seconds relabel) — redraws the marker at the new position, no re-**Track** triggered (the bars
+  themselves are unaffected), verified via `histData.markers[0].x` tracking the field live.
+
   `track_id`/`D_coeff` are independent, optional table/CSV columns (same pattern as sSMLM's
   `dist`/`sigma1st`), so the filter grammar works on tracking data for free — the general **Save
   data** CSV gains these automatically once Track has run. **Save spt data**
@@ -872,7 +881,12 @@ relevant one before editing rather than scrolling:
 
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
-  field, `paramValue()` falls back to it since `isFinite(parseFloat(''))` is false) ports
+  field, `paramValue()` falls back to it since `isFinite(parseFloat(''))` is false). A fresh **Load
+  segm. image** (not **Show segm. image**, which re-displays the SAME already-loaded image and
+  shouldn't silently overwrite a value the user has since adjusted) sets `segAreaMax` to
+  `Math.max(...segmentedImageData.map(c=>c.areaPx))` — a real upper bound for that specific image
+  instead of the generic ∞ default, verified against the real bundled segmentation (271, matching
+  an independent `(img==label).sum()` max over all labels). Ports
   `apply_cell_segmentation_sptPALM.py`/`tracking_sptPALM.py`'s own `use_segmentations` branch from
   the user's `sptPALM-Python` pipeline. `cellIdForLoc(L,segLabels)` looks up a loc's raw label the
   same way `fmtRawPixel()`'s hover readout does; `linkTracksPerCell()` then groups locs by that
