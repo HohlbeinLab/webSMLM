@@ -77,6 +77,17 @@ below for what it does.
 | **View data + filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. |
 | **Help & guide** | `helpBtn` | Opens the in-app quick-reference modal (references, acknowledgements, license). Right-aligned, alone in its own row. |
 
+### Sidebar — Pixel size (nm)
+
+`pxnm` sits as a plain, always-visible row directly below the action
+buttons/progress bar — deliberately NOT inside any collapsible module. It
+used to live inside **Localisation settings** (collapsed by default)
+alongside Gain/Camera offset; pinned out here instead (v1/first pass,
+expected to be refined further) since it's easy to forget it's there while
+buried in a closed section, despite feeding the scale bar, z, and every
+exported CSV coordinate — see [§3](#export-params) for the full parameter
+entry. Gain/Camera offset stay inside **Localisation settings** for now.
+
 ### Sidebar — collapsible modules
 
 Each is a `<details>` element; opening one doesn't affect the others. All
@@ -98,9 +109,10 @@ says.
 - **3D calibration** (`calibBox`) — **Calibrate**/**Save calib.**. See
   [§3](#3d-calibration-params)/[§7](#7-calibration-json-format)/[§2](#3d-calibration).
 - **Localisation settings** (`locBox`) — fit method, detection filter, FTM,
-  frame range, and camera/export fields; two separate "more info…" popups
-  cover them (one for everything through **Fit radius**, a second for the
-  camera/export fields after it). See
+  frame range, and Gain/Camera offset; two separate "more info…" popups
+  cover them (one for everything through **Fit radius**, a second for
+  Gain/Camera offset after it — `pxnm` itself moved out to its own
+  always-visible sidebar row, see above). See
   [§3](#detect-params)/[§3](#fit-params)/[§3](#export-params).
 - **Rendering settings** (`renderBox`) — magnification, colour map, and
   (3D/sSMLM-paired results only) depth/distance colouring. See

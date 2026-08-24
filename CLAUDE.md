@@ -50,6 +50,25 @@ relevant one before editing rather than scrolling:
   is left-aligned (not right) and narrower (64px, was 80px) to match — value first, then the
   control that changes it, reading left to right, with no wasted width now that nothing overlays
   the digits.
+
+  **`pxnm` ("Pixel size (nm)") is pinned outside any collapsible `<details>`** — v1/first-pass
+  fix for a real complaint: it used to sit inside the collapsed-by-default "Localisation settings"
+  section (alongside Gain/Camera offset), easy to never notice was there despite feeding the scale
+  bar, z, and every exported CSV coordinate. Now a plain always-visible row in the sidebar's top
+  `.group`, right after the primary action buttons/progress bar and before "Memory & streaming" —
+  a pure DOM relocation (same `id="pxnm"`, same `PARAMS` entry), so `syncParamControls()`/
+  `paramValue()`/`addNumberSteppers()`/the existing `change` listener (`lastResult.px=...;
+  rerender(true);` — see **spt**'s "Pixel size (nm) already updates live" note) all keep finding it
+  by id with zero other code changes. Explicitly a first iteration, expected to
+  be refined: Gain/Camera offset deliberately stayed inside Localisation settings for now (an open
+  question whether those two — arguably just as easy to forget, and part of the same "physical
+  calibration" trio — should move too, or whether splitting the trio across two locations reads as
+  inconsistent); no special visual treatment yet beyond a plain `label.row` (a highlighted/boxed
+  treatment to make it read as "pinned" rather than just "the first field in the list" is a
+  candidate follow-up). Considered and rejected: moving it into the header next to the theme
+  switch/`layoutToggleBtn` — that area is deliberately pure display/layout chrome (nothing there
+  affects analysis results), and mixing in a real calibration parameter would blur that distinction
+  and cost mobile-drawer header space that's already tight.
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)

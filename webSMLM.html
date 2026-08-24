@@ -16,34 +16,34 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24m; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24n; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2155   PARAMS registry, single source of truth for params
-    in/out          2649   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2962   synthetic stack generator ("Simulate movie")
-    detect          3811   per-frame band-pass + local-maxima detection
-    fit             4067   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2166   PARAMS registry, single source of truth for params
+    in/out          2660   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2973   synthetic stack generator ("Simulate movie")
+    detect          3822   per-frame band-pass + local-maxima detection
+    fit             4078   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4542   accumulate to offscreen buffer; view/colour/blur;
+    render          4553   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider
-    workers         5464   frame-parallel detect/fit worker pool
-    export          5629   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5889   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6289   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5475   frame-parallel detect/fit worker pool
+    export          5640   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5900   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6300   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6604   NeNA + FRC
-    sSMLM           7247   spectrally resolved SMLM pair-finding
-    spt             7697   single particle tracking, trackpy-inspired;
+    locprecision    6615   NeNA + FRC
+    sSMLM           7258   spectrally resolved SMLM pair-finding
+    spt             7708   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap (srSegOverlayBtn)
-    pipeline        8458   top-level orchestration, *Core()/wrapper split
-    table           10142  localizations table, filtering, histograms
-    headless API    10586  window.webSMLM.analyze()/analyzeBatch()
+    pipeline        8469   top-level orchestration, *Core()/wrapper split
+    table           10153  localizations table, filtering, histograms
+    headless API    10597  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1699,7 +1699,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24m</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24n</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1756,6 +1756,18 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            calibration headlessly instead of loading a *.calib.json) — see
            analyze()'s config.calibrationFile/calibrationFiles below. -->
       <input type="file" id="calibrationFileInput" multiple hidden>
+      <!-- Pinned outside any collapsible <details> — first-pass fix for a real complaint:
+           this was buried inside "Localisation settings" (collapsed by default), easy to
+           forget/never notice was there. It feeds the scale bar, z, and exported CSV
+           coordinates, and is the one physical-calibration field a user is most likely to
+           need to check/set before their very first Localize, so it stays visible
+           regardless of which sections are open. Same id="pxnm"/PARAMS entry as before —
+           a pure relocation, syncParamControls()/paramValue()/every existing listener
+           still finds it by id, nothing else needed to change. Gain/Camera offset
+           deliberately stay inside Localisation settings for this first pass — open
+           question whether they should move too, see CLAUDE.md. -->
+      <hr class="sep" style="margin:10px 0 8px">
+      <label class="row" title="Camera pixel size (nm) — physical scale for the scale bar, z, and exported CSV coordinates">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
         <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="64" step="0.5" class="num"></label>
@@ -1937,7 +1949,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
         </div>
         <hr class="sep" style="margin:10px 0 8px">
-        <label class="row">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
         <label class="row">Gain (photons/ADU) <input type="number" id="gain" value="1" min="0.001" max="1000" step="0.01" class="num"></label>
         <label class="row">Camera offset (ADU) <input type="number" id="camoffset" value="0" min="0" max="65535" step="1" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
@@ -2139,7 +2150,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24m · "Add overlay" reworked into "Show segm."/"Show recon." — swaps SMLM reconstruction to the opaque segmented cells with each localization as a plain point on top, instead of a transparent overlay on the density image</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24n · Pixel size (nm) moved out of the collapsed "Localisation settings" section — now a plain, always-visible row near the top of the sidebar (v1, more to iterate on)</div>
   </main>
 </div>
 
