@@ -17,40 +17,42 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-24w; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-24x; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2177   PARAMS registry, single source of truth for params
-    in/out          2671   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      2984   synthetic stack generator ("Simulate movie")
-    detect          3833   per-frame band-pass + local-maxima detection
-    fit             4089   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2178   PARAMS registry, single source of truth for params
+    in/out          2672   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      2985   synthetic stack generator ("Simulate movie")
+    detect          3834   per-frame band-pass + local-maxima detection
+    fit             4090   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4564   accumulate to offscreen buffer; view/colour/blur;
+    render          4565   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually exclusive
-    workers         5526   frame-parallel detect/fit worker pool
-    export          5691   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5951   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6351   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5527   frame-parallel detect/fit worker pool
+    export          5692   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5952   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6352   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6667   NeNA + FRC
-    sSMLM           7310   spectrally resolved SMLM pair-finding; merged
+    locprecision    6668   NeNA + FRC
+    sSMLM           7311   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7775   single particle tracking, trackpy-inspired;
+    spt             7776   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking + "Show segm."/"Show
                            recon." SR-panel swap; merged Show histograms
                            (sptHistBtn/sptHistModeBtn) and Show segmentation
                            (segShowBtn/segShowModeBtn)
-    pipeline        8644   top-level orchestration, *Core()/wrapper split;
-                           merged Load movie/data (loadBtn)
-    table           10370  localizations table, filtering, histograms
-    headless API    10814  window.webSMLM.analyze()/analyzeBatch()
+    pipeline        8645   top-level orchestration, *Core()/wrapper split;
+                           merged Load movie/data (loadBtn); updateMethodUI()
+                           resets colour map to Fire for mle3d/gaussmleEll too
+                           whenever localize3D is unchecked
+    table           10378  localizations table, filtering, histograms
+    headless API    10822  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1709,7 +1711,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24w</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.6-dev · build 2026-08-24x</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2162,7 +2164,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24w · Fixed: raw-panel toggle buttons (drift/spt/sSMLM histograms, segmentation) could stack instead of replacing each other; Pixel size (nm) input drifted out of alignment with the rows below it</div>
+      <div class="log" id="log">webSMLM v0.11.6-dev · build 2026-08-24x · Fixed: colour map now reverts to Fire (hot) for Gauss MLE 3D / rotated elliptical when "3D localisation?" is unchecked, matching Phasor 2D/Gauss MLE 2D's existing behaviour</div>
   </main>
 </div>
 
@@ -9592,8 +9594,15 @@ function updateMethodUI(){
          // sensible LUT default" pattern as the is3d branch's own turbo default
          // above, just for the two 2D methods most often run back-to-back with
          // a 3D one (whose turbo/hsvBlue choice would otherwise linger and look
-         // wrong on an intensity-only 2D reconstruction).
-         if(m==='phasor'||m==='gaussmle'){ $('lut').value='fire'; if(srFull) rerender(true); } }
+         // wrong on an intensity-only 2D reconstruction). mle3d/gaussmleEll land
+         // here too whenever localize3D is unchecked (is3dMethod&&localize3D
+         // false is the ONLY way to reach this branch with one of those two
+         // selected, so no extra check is needed) — a real, reported bug: an
+         // earlier version only covered phasor/gaussmle, so unchecking "3D
+         // localisation?" on mle3d left whatever turbo/hsvBlue the checked
+         // state had set stuck in place instead of reverting, even though the
+         // resulting reconstruction is a plain 2D fit with no z at all.
+         if(m==='phasor'||m==='gaussmle'||m==='mle3d'||m==='gaussmleEll'){ $('lut').value='fire'; if(srFull) rerender(true); } }
 }
 $('method').addEventListener('change',updateMethodUI);
 $('localize3D').addEventListener('change',updateMethodUI);

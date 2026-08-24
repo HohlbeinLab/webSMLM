@@ -355,6 +355,18 @@ relevant one before editing rather than scrolling:
   is present; `wcal`'s mere presence (not a second explicit flag) is what `runCore()`/the worker/
   `showFrame()` use to decide whether to call `zFromWidths()` at all, for both methods alike.
 
+  **`updateMethodUI()` (MODULE: pipeline) resets the render colour map to Fire for `mle3d`/
+  `gaussmleEll` too when `localize3D` is unchecked** — a real, reported bug: `updateMethodUI()`'s
+  `is3d` branch sets `lut='turbo'` the moment either method is selected WITH `localize3D` checked
+  (a sensible depth-friendly default); its sibling `else` branch already reset `lut` back to
+  `'fire'` for `phasor`/`gaussmle` (see **render**'s LUT-default note), but originally left `mle3d`/
+  `gaussmleEll` out — so unchecking `localize3D` after having had it checked left whatever
+  turbo/hsvBlue choice the 3D state had set stuck in place on a plain 2D reconstruction with no z at
+  all. Fixed by adding both to the `else` branch's reset condition; no extra `localize3D` check
+  needed there — `is3dMethod&&localize3D` being false is the ONLY way either method reaches that
+  branch, so being one of the two there already implies `localize3D` is unchecked. `gaussls` stays
+  deliberately excluded from the auto-reset, unchanged.
+
   The `cal3dRow` "Load calibration…" control moved (from below the frame-range fields) to directly
   under `localize3DRow`, and only shows while BOTH `localize3D` is checked (or the method is
   `phasor3d`, which has no such checkbox) AND no calibration is active yet (`cal3d||cal3dW`) —
