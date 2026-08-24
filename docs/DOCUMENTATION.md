@@ -1,7 +1,7 @@
 # webSMLM — Documentation
 
 A detailed reference for every button, control, parameter and module —
-complementary to the in-app **Help & guide**, which stays deliberately sparse
+complementary to the in-app **Quick guide**, which stays deliberately sparse
 (a quick walkthrough, not a manual). This file is the place for the detail
 that doesn't belong in a UI popover: exact defaults, min/max/step, what each
 control actually does under the hood, and the on-disk file formats.
@@ -16,7 +16,7 @@ the other way round.
 
 **This file is also the source for the app's own in-app "more info…"
 popups** (the `.hint` divs next to each sidebar control group — a third,
-separate layer from both this manual and the sparse Help & guide modal).
+separate layer from both this manual and the sparse Quick guide modal).
 Each popup's content lives inside a `<!-- HINT:<name> --> ... <!-- /HINT:<name>
 -->` marker below, kept in sync with `webSMLM.html` by `tools/sync_hints.mjs`
 — edit the marker, then run the script; never hand-edit a `.hint` div
@@ -56,6 +56,11 @@ layout, not analysis parameters:
   from the loaded stack's own aspect ratio. Hidden below the ~860px mobile
   breakpoint, where the panels are already forced to one column
   unconditionally — the toggle would have nothing left to switch there.
+- `helpBtn` ("Quick guide", formerly "Help & guide") opens the in-app
+  quick-reference modal (guided workflow, acknowledgements, licence). Moved
+  here from its own solo row at the bottom of the sidebar's action-button
+  block, freeing that row — part of the same round that merged **Load
+  movie**/**Load data** below into one button.
 
 A second, unrelated `localStorage` key (`webSMLM_lastVersion`) tracks which
 release this browser last saw, independent of theme — see **Log window**
@@ -65,7 +70,7 @@ below for what it does.
 
 | Button | id | Does |
 |---|---|---|
-| **Load movie** | `loadBtn` | Opens a file picker for one multi-frame TIFF, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs (one file = one frame, e.g. a per-frame camera dump) OR several multi-frame TIFFs from ONE continuous acquisition that got split across files purely by size (each file = a chunk of frames); which one is auto-detected from the first file's own frame count, no separate control needed — see **in/out** below. |
+| **Load movie/data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single CSV previously written by **Save data**, detected by file extension. Selecting a CSV and a movie together is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
 | **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation settings* module — no file needed, useful for a quick smoke-test or teaching demo. |
 | **Load settings** | `loadSetBtn` | Opens a `.json` file (as saved by **Save settings**) and applies every recognised `{id: value}` pair to the `PARAMS` registry — unknown/legacy keys are logged and ignored, not errored on. |
 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
@@ -73,9 +78,7 @@ below for what it does.
 | **Stop** | `stopBtn` | Requests an early stop of a running **Localize** or **3D calibration**. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **3D calibration** again to restart with a narrower/correct frame range. |
 | **Save data** | `saveBtn` | Exports the current (filtered) localizations as a ThunderSTORM-compatible CSV — see [§6](#6-csv-export-format). Disabled until there are localizations. |
 | **Save plot / image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
-| **Load data** | `loadCsvBtn` | Loads a CSV previously written by **Save data** back into a full working result — table, reconstruction, NeNA/FRC/drift/re-export all work on it exactly as after a Run. Uses only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
-| **View data + filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. |
-| **Help & guide** | `helpBtn` | Opens the in-app quick-reference modal (references, acknowledgements, license). Right-aligned, alone in its own row. |
+| **View data + filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
 
 ### Sidebar — Pixel size (nm)
 
@@ -677,8 +680,10 @@ tracks into a fake spike. **Track** immediately plots a histogram of D
 (log<sub>10</sub>-binned — D commonly spans orders of magnitude between
 bound/slow and free/fast populations, matching the reference pipeline's
 own logarithmic default) in the raw panel, reusing the table module's own
-`computeHist()`/`drawHistogram()`; **Show D histogram** redraws it later
-without re-tracking. **D plot min/max** (µm²/s, defaults 0.004–10 from the
+`computeHist()`/`drawHistogram()`; **Show histograms** redraws it later
+without re-tracking (merges what used to be two separate buttons — see the
+paragraph after the next one for the toggle that replaced the second one).
+**D plot min/max** (µm²/s, defaults 0.004–10 from the
 reference pipeline's own histogram range) constrain the D histogram's
 own display window only — tracks outside it are excluded from the plot
 the same way non-positive D is, but the logged mean/median D always cover
@@ -689,15 +694,20 @@ including the D shown in the table/CSV and the D histogram if it's
 currently open — without needing to click **Track** again; only
 **Search range**/**Memory**/**Min track length** actually change which
 tracks or steps exist, so only those still require a fresh **Track**.
-**Show length hist.** plots the distribution of every linked track's
-length (regardless of whether it met **SPT min track length**) with a
-log-scaled count axis — track counts fall off steeply with length, so a
-linear axis would flatten the useful range into a sliver — overlaid with
-an exponential decay fit (a photobleaching-limited survival model,
-count ~ e<sup>−L/τ</sup>) whose lifetime τ is logged and shown on the plot
-in both localizations and seconds (via **Frame time** — an approximation
-once **Memory** &gt; 0, since a bridged gap still counts as one "loc" of
-length despite spanning more than one frame). A vertical marker shows the
+A toggle button next to the raw panel's own title — labelled **Diffusion**
+or **Track length** (whichever the click would switch TO) — swaps between
+the D histogram above and the track-length one: it plots the distribution
+of every linked track's length (regardless of whether it met **SPT min
+track length**) with a log-scaled count axis — track counts fall off
+steeply with length, so a linear axis would flatten the useful range into
+a sliver — overlaid with an exponential decay fit (a photobleaching-limited
+survival model, count ~ e<sup>−L/τ</sup>) whose lifetime τ is logged and
+shown on the plot in both localizations and seconds (via **Frame time** —
+an approximation once **Memory** &gt; 0, since a bridged gap still counts
+as one "loc" of length despite spanning more than one frame). **Show
+histograms** opens on the D view by default; if a fresh **Track** run has
+no track meeting **Min track length** for a D estimate, it opens on the
+track-length view instead. A vertical marker shows the
 CURRENT **Min track length** threshold and moves live as that field is
 edited, without needing a fresh **Track** click — the underlying bars don't
 move (every linked track is plotted regardless of whether it qualifies),
@@ -1441,7 +1451,7 @@ for the first implementation.
 <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
 <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
 <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
-<p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show D histogram</b> redraws it later without re-tracking. <b>Show length hist.</b> shows the underlying track-length distribution (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data.</p>
+<p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
 <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
 <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show segm. image</b> re-shows it later without reloading the file. <b>Show area hist.</b> plots the cell-area distribution (px) — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
 <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>

@@ -491,6 +491,19 @@ relevant one before editing rather than scrolling:
   states it "deliberately excludes pure display/layout (CSS)" (see **params** above), and theme
   choice is exactly that, same as sidebar collapsed/floating state.
 
+  **Quick guide** (`helpBtn`, renamed from "Help & guide") moved from its own solo row at the
+  bottom of the sidebar's action-button block into `.header-actions`, right of `layoutToggleBtn` —
+  freeing a sidebar row (part of the same round that merged Load movie/Load data, MODULE: pipeline,
+  and moved **View data + filtering** up into the row that freed) for "more real estate" below.
+  Restyled from its own bespoke `.helpbtn` look (a surface+accent-border+accent-text combo, now
+  removed as dead CSS — nothing else used it) to a plain `.logbtn`, matching `layoutToggleBtn`'s own
+  family now that it sits in the same row; `#layoutToggleBtn,#helpBtn{height:var(--icon-size)}`
+  keeps both text-label buttons' TOPS aligned with the icon-sized theme-switch buttons beside them
+  (a plain content-driven height left the top sitting visibly below the icon buttons' own tops, even
+  with bottoms already lined up via `align-items:flex-end`) — see that rule's own comment for the
+  full reasoning, first written for `layoutToggleBtn` alone and now shared. `wireHelp()` itself
+  needed zero changes — still finds the button by the same `id="helpBtn"`, position-independent.
+
   **`webSMLM_lastVersion`** (localStorage, right after the theme-init block above, same try/catch
   fail-safe) is a sibling of `webSMLM_theme` for a different purpose: on load, it parses the
   release number (`vX.Y.Z`) out of the `<h1>` pill's own text and compares it against whatever was
@@ -806,6 +819,28 @@ relevant one before editing rather than scrolling:
   shortcut, `docs/REFACTOR_PLAN.md`). `sptDPlotMin`/`Max` are a DISPLAY-only axis window —
   `meanD`/`medianD` always reflect every qualifying track, never just the plotted window.
 
+  **`sptHistBtn`** ("Show histograms") merges what used to be two separate sidebar buttons (Show D
+  histogram / Show length hist.) into one, with `sptHistModeBtn` — inline in the raw-panel title,
+  same `.logbtn`/`display:none`-until-relevant placement and show/hide wiring as `driftPlotModeBtn`
+  (MODULE: drift) — toggling which of `drawSptDHist()`/`drawSptTrackLenHist()` is on screen. Labelled
+  `"Diffusion"`/`"Track length"` (the OTHER mode's name, matching `driftPlotModeBtn`'s own "shows
+  what clicking gets you" convention) rather than an action verb — the one place these two toggle
+  buttons word themselves differently, by explicit request. `sptHistMode` (module-level, `'D'`
+  default) resets to `'D'` only at the top of a fresh `runSptTrack()` — same "a fresh result always
+  opens on the default view" precedent `driftPlotMode`'s own reset point already follows —
+  `sptHistBtn`'s own click just reopens whichever mode was last active, it does NOT force `'D'`
+  every time. `drawSptHist()` is the dispatcher (owns `sptHistModeBtn`'s visibility/label, same
+  "dispatcher owns the toggle button, not the underlying draw primitive" split `drawDriftCurve()`
+  already uses — neither `drawHistogram()` nor `drawSptDHist()`/`drawSptTrackLenHist()` touch the
+  button directly). `sptHistBtn` is enabled off `trackLengths.length` (the old `sptTrackLenHistBtn`'s
+  own, more permissive condition — every linked track counts, regardless of D qualification); if a
+  fresh Track run has zero qualifying D estimates, `runSptTrack()` sets `sptHistMode='length'` before
+  calling `drawSptHist()` instead of leaving a disabled button — preserves the exact fallback
+  behaviour the two separate buttons used to give (a dataset with tracks but no D estimate still
+  gets *a* useful histogram shown automatically). `refreshSptDHistIfShown()`/
+  `refreshSptTrackLenHistIfShown()` (live-refresh on `sptFrameTime`/`sptTrackLenMin` edits) are
+  unaffected by the merge — each already keyed off `histData.col`, not the button that opened it.
+
   D = (MSD/4 − locErrorUm²)/frametime is exactly linear in 1/frametime, and MSD itself (cached per
   track in `trackDiffusionCoeffs()`'s `trackMSD` Map, plumbed through to `lastSpt.trackMSD`)
   depends on neither frametime nor locError. `recomputeSptD()` exploits this: editing **Frame
@@ -1021,7 +1056,12 @@ relevant one before editing rather than scrolling:
 
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
-  field, `paramValue()` falls back to it since `isFinite(parseFloat(''))` is false). A fresh **Load
+  field, `paramValue()` falls back to it since `isFinite(parseFloat(''))` is false). Their two
+  `label.row`s are direct children of `#sptBox` (own `id`s `segAreaMinRow`/`segAreaMaxRow`,
+  `padding-left:40px`, toggled alongside `#segLoadRow` by the same **Apply segmentation?** handler)
+  rather than nested inside `#segLoadRow` with its buttons — see the top-level `label.row`
+  nesting-depth gotcha above for why nesting them there silently broke their own right-edge
+  alignment (a real, reported bug) despite still LOOKING indented. A fresh **Load
   segm. image** (not **Show segm. image**, which re-displays the SAME already-loaded image and
   shouldn't silently overwrite a value the user has since adjusted) sets `segAreaMax` to
   `Math.max(...segmentedImageData.map(c=>c.areaPx))` — a real upper bound for that specific image
@@ -1060,6 +1100,24 @@ relevant one before editing rather than scrolling:
   analysis logic should); only DOM-reading/writing belongs in the wrapper. See
   `docs/DOCUMENTATION.md` §8 for the full headless API and `docs/REFACTOR_PLAN.md` for the design
   rationale (three-layer split: in-page API, CLI driver, URL-param autorun).
+
+  **Load movie/data** (`loadBtn`) merges what used to be two separate sidebar buttons (Load movie /
+  Load data) into one, opening ONE hidden `#file` input whose `accept` now lists `.tif,.tiff,.nd2,.csv`
+  together. Dispatch is by file EXTENSION alone (`/\.csv$/i`, case-insensitive) — real content
+  sniffing for the movie side (`isTiffFile()`/`isNd2File()` magic-byte checks, MODULE: in/out) still
+  happens further downstream, inside `loadMovieFiles()`'s own `loadTiffFilesAuto()`/`loadTiffFile()`
+  call chain, unaffected by this. `loadMovieFiles(fileList)` and `loadCsvFile(file)` are the two
+  former `change`-handler bodies, extracted verbatim into named functions (no logic changed) so the
+  new combined handler can call either without duplicating ~30 lines of state-reset code per path.
+  The one requested error check: a selection mixing a CSV with movie file(s) is genuinely ambiguous
+  (which one did the user actually want loaded?) — refused outright with a logged error, NEITHER
+  loader runs, rather than guessing via file count or order. An all-CSV selection with more than one
+  file warns (doesn't block) and loads only `files[0]` — **Load data** never supported more than one
+  file even before this merge. `loadBtn`'s own existing disable-guard (Simulate/Localize in
+  progress) now also correctly blocks a CSV load mid-run — previously only the movie side was
+  guarded, a real latent gap (nothing stopped `lastResult` being silently replaced by a CSV load
+  while `runCore()` was still writing to it), closed as a natural side effect of sharing one button/
+  guard rather than as a separate deliberate feature.
 
   `config.exportPlots` (also `--exportPlots`/`exportPlots=1` on the CLI/autorun) renders whichever
   of drift/NeNA/FRC/PCFO/calibration were actually computed this call into `result.plots`, each a
@@ -1173,6 +1231,24 @@ wraps reads as broken layout, not a design choice. Abbreviate rather than let a 
 "Show dist. hist." not "Show distance hist." (see the sSMLM section's histogram-toggle button).
 Favour standard, unambiguous abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that
 could be misread.
+
+### `label.row` nesting-depth gotcha (indented sidebar sub-rows)
+
+`details.sim>label.row{padding-right:4px}` (keeps a row's numstep +/- buttons flush with every
+other row's own right edge) is a DIRECT-CHILD selector — it only matches a `label.row` that sits
+immediately inside a `details.sim`, not one nested a level deeper inside a wrapping `<div>` (e.g. a
+conditionally-shown sub-group like `#segLoadRow`). A `label.row` placed inside such a wrapper still
+LOOKS indented (it inherits left padding from the wrapper's own `details.sim>*:not(summary)
+{padding-left:14px}`), so the missing 4px right-padding is easy to miss — it reads as "close enough"
+until compared pixel-for-pixel against a properly-indented row, where the numstep group sits 4px
+further right than everywhere else (a real, reported bug: `segAreaMin`/`segAreaMax`, MODULE: spt,
+originally lived inside `#segLoadRow` this way). An indented sidebar sub-row (the pattern
+`ftmWindowRow` — Temporal median filtering's own "Window size" — established first) should instead
+be a DIRECT child of its `details.sim`, given its own `id` + inline `style="display:none;
+padding-left:40px"` (40px, not 14px — deliberately MORE than the generic per-section indent, so a
+sub-row still reads as visually subordinate to a plain top-level row that also happens to sit inside
+an indented section), and shown/hidden by the SAME handler that toggles its sibling group, not by
+being physically nested inside it.
 
 ### Syntax gotcha
 
