@@ -118,7 +118,7 @@ says.
   [§3](#render-params)/[§2](#render).
 - **Drift correction (AIM)** (`driftBox`) — **Correct drift**/**Show
   drift**. See [§3](#drift-params)/[§2](#drift).
-- **Localization precision (NeNA / FRC)** (`precBox`) — **NeNA**/**FRC**.
+- **Localization precision (NeNA & FRC)** (`precBox`) — **NeNA**/**FRC**.
   See [§3](#locprecision-params)/[§2](#locprecision).
 - **Spectral SMLM analysis** (`sSmlmBox`) — pairs 0th/1st-order
   localizations from a diffraction grating; enabled as soon as there are
@@ -483,7 +483,7 @@ FFT, 2D+z. Segments localizations in time (`driftSeg`), grid-searches the
 shift that maximizes coincident localizations against the accumulated
 reference (`driftRoi`), then a parabolic sub-pixel peak refine.
 
-### Localization precision (NeNA / FRC) (`locprecision`) {#locprecision}
+### Localization precision (NeNA & FRC) (`locprecision`) {#locprecision}
 
 NeNA (nearest-neighbour precision, Endesfelder fit)
 and FRC (Fourier ring correlation image resolution, inline radix-2 FFT).
@@ -1331,7 +1331,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 </ul>
 <!-- /HINT:drift -->
 
-### Localization precision (NeNA / FRC) (`locprecision`) {#locprecision-params}
+### Localization precision (NeNA & FRC) (`locprecision`) {#locprecision-params}
 
 *Module:* **locprecision** — see [§2](#locprecision).
 
