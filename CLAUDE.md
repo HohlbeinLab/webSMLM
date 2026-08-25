@@ -906,8 +906,8 @@ relevant one before editing rather than scrolling:
   forward to it. No length-RESOLVED D histogram — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
 
   **`srTracksOverlayBtn`** ("Show tracks"/"Hide tracks", SR-panel title, same inline-in-title-bar
-  placement/toggle convention as `srSegOverlayBtn`/`sSmlmColorBtn`) plots every track as a thin
-  polyline on top of the reconstruction, checked directly against the user's own `sptPALM-Python`
+  placement/toggle convention as `srSegOverlayBtn`/`sSmlmColorBtn`) plots a subset of tracks as thin
+  polylines on top of the reconstruction, checked directly against the user's own `sptPALM-Python`
   pipeline's `plot_cells_locs_sptPALM.py`/`plot_single_cell_analysis_sptPALM.py` before choosing
   colours — magenta (`#ff3bff`) by default, matching that pipeline's own convention for in-track
   localizations; `sptTracksColorByD` ("Colour tracks by mean D") switches each track's colour to
@@ -937,6 +937,29 @@ relevant one before editing rather than scrolling:
   `sptSaveBtn`/`sptHistBtn` at all five existing disable-on-reset call sites (new stack load, new
   Simulate, CSV load, sSMLM Pair, crop change) plus enabled in `runSptTrack()`'s own success path —
   same convention, no new reset mechanism needed.
+
+  **`getVisibleTracksForOverlay()`** narrows that full list before drawing — a real, reported
+  performance/legibility complaint: plotting EVERY track as a vector polyline+label is heavy on a
+  dense real dataset (thousands of tracks), and unreadable regardless. Two filters, applied in
+  order: (1) `sptTrackLenMin` — the SAME threshold `runSptTrack()` already uses for a D estimate, no
+  second length field — drops the shortest/least-informative tracks outright, which alone accounts
+  for most of the relief on real data (e.g. 1483 linked tracks → 142 meeting a min-length-5 filter
+  on one real test dataset); (2) `sptShowTracksPct` ("Show tracks (%)", default 10) then samples a
+  fixed PERCENTAGE of the remainder — deterministically: `mulberry32(TRACKS_OVERLAY_SEED)` (a fixed
+  constant, NOT derived from the dataset) draws one float per qualifying track IN TRACK-ID ORDER,
+  keeping it iff the draw is `< pct/100`. Because the draw sequence only depends on track_id order
+  and the fixed seed — never on how many tracks exist or what order they were linked in — the same
+  dataset (re-tracked with the same settings, so the same `track_id`s exist) always shows the same
+  track IDENTITIES at a given percentage, matching the "always the same identity of tracks for one
+  dataset" request directly, with no need to derive a seed from the data itself. A useful side
+  effect of per-track (not per-selection) sampling: raising the percentage only ADDS tracks to what
+  was already shown, never reshuffles or removes previously-visible ones — verified directly (every
+  ID visible at 10% was still present at 50% on the same dataset). Cached against (the full track
+  list's own identity, `sptTrackLenMin`, `sptShowTracksPct`) so panning/zooming doesn't re-filter
+  every frame; `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all wire a `change` listener
+  (`refreshTracksOverlayIfShown()`) that redraws the overlay if it's currently showing — none of the
+  three need a fresh **Track** click, matching `sptTrackLenMin`'s already-established live-refresh
+  precedent for the track-length histogram marker.
 
   **Cell-by-cell tracking is also wired headlessly**, `config.segmentationFile` — a File, loaded
   the same way `config.file`/`config.calibrationFile` are (`loadTiffFile()`, frame 0 only), through
