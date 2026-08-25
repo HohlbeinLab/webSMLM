@@ -17,32 +17,34 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-25f; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-25g; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2205   PARAMS registry, single source of truth for params;
+    params          2207   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split
-    in/out          2717   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      3030   synthetic stack generator ("Simulate movie")
-    detect          3879   per-frame band-pass + local-maxima detection
-    fit             4135   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    in/out          2719   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      3032   synthetic stack generator ("Simulate movie")
+    detect          3881   per-frame band-pass + local-maxima detection
+    fit             4137   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4610   accumulate to offscreen buffer; view/colour/blur;
+    render          4612   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
-                           keeps the four raw-panel mode toggles mutually exclusive
-    workers         5573   frame-parallel detect/fit worker pool
-    export          5738   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5998   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6398   AIM drift correction (2D+z); drift-vs-frame or
+                           keeps the four raw-panel mode toggles mutually
+                           exclusive; srBarAnchor() shared by drawDepthBar()/
+                           drawTracksColorBar()
+    workers         5588   frame-parallel detect/fit worker pool
+    export          5753   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6013   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6413   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6714   NeNA + FRC
-    sSMLM           7357   spectrally resolved SMLM pair-finding; merged
+    locprecision    6729   NeNA + FRC
+    sSMLM           7372   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7822   single particle tracking, trackpy-inspired;
+    spt             7837   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -52,16 +54,19 @@
                            overlay (sptShowTracksBtn/srTracksOverlayBtn),
                            filtered by sptTrackLenMin + sampled by
                            sptShowTracksPct (fixed-seed, reproducible per
-                           dataset), optional colour-by-mean-D (sptTracksColorByD)
-    pipeline        8823   top-level orchestration, *Core()/wrapper split;
+                           dataset), colour-by-mean-D default ON
+                           (sptTracksColorByD, drawTracksColorBar() legend),
+                           mag*zoom line thickness, auto-switches recon to
+                           Grey LUT when shown
+    pipeline        8883   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10577  localizations table, filtering, histograms
-    headless API    11021  window.webSMLM.analyze()/analyzeBatch()
+    table           10637  localizations table, filtering, histograms
+    headless API    11081  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1725,7 +1730,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25f</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2141,7 +2146,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
           <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
-          <p><b>Show tracks</b> plots a subset of tracks as thin lines directly on the <b>SMLM reconstruction</b>, its track number in white — legible tracks require zooming in, since real data is usually dense. Only tracks meeting <b>Min track length</b> are eligible (the same threshold Track's own D estimate uses); <b>Show tracks (%)</b> (default 10%) then samples a fixed, reproducible percentage of those, so a dense dataset stays plottable — raising it never reshuffles the tracks already shown, it only reveals more, and the exact same track identities come up every time for a given dataset. Magenta by default; tick <b>Colour tracks by mean D</b> to colour each track by its own mean diffusion coefficient instead (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b> — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead). A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
+          <p><b>Show tracks</b> plots a subset of tracks as lines directly on the <b>SMLM reconstruction</b> (thickness = one camera pixel's own on-screen size at the current zoom), its track number in white — legible tracks require zooming in, since real data is usually dense. Only tracks meeting <b>Min track length</b> are eligible (the same threshold Track's own D estimate uses); <b>Show tracks (%)</b> (default 10%) then samples a fixed, reproducible percentage of those, so a dense dataset stays plottable — raising it never reshuffles the tracks already shown, it only reveals more, and the exact same track identities come up every time for a given dataset. <b>Colour tracks by mean D</b> (checked by default) colours each track by its own mean diffusion coefficient (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b>, with a colour-scale legend shown while it's checked — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead); uncheck it for plain magenta tracks instead. Turning the overlay on also switches the reconstruction to the <b>Grey</b> colour map, so the tracks' own colouring doesn't compete with a coloured density map. A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
           <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
           <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
@@ -2191,7 +2196,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25f · Show tracks overlay now filters by Min track length and samples a fixed % (Show tracks (%), default 10, reproducible per dataset) to stay legible on dense data</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25g · Tracks overlay: mag-dependent line thickness, colour-by-D on by default with a legend, auto-switches reconstruction to Grey when shown</div></div>
   </main>
 </div>
 
@@ -2426,7 +2431,7 @@ const PARAMS = {
   // sptPALM.py's plot_tracks_in_cells() uses for exactly this) normalised
   // against sptDPlotMin/Max — the SAME display-range fields the D histogram
   // already uses, reused rather than adding a second min/max pair.
-  sptTracksColorByD: { type:'bool', id:'sptTracksColorByD', label:'Colour tracks by mean D', default:false },
+  sptTracksColorByD: { type:'bool', id:'sptTracksColorByD', label:'Colour tracks by mean D', default:true },
   // Real-dataset request: plotting every track as an SVG-vector polyline+label
   // is heavy on a dense dataset (tens of thousands of tracks). sptTrackLenMin
   // already blocks the shortest/least-informative tracks from the overlay (the
@@ -5109,7 +5114,8 @@ function drawView(){
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH);   // bead-composite view only
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
   if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
-  if(srTracksOverlayOn && srIsRecon && lastResult) drawTracksOverlay(ctx,DW,DH);
+  if(srTracksOverlayOn && srIsRecon && lastResult){ drawTracksOverlay(ctx,DW,DH);
+    if(paramValue('sptTracksColorByD')) drawTracksColorBar(ctx,DW,DH); }
   if(measureLine||measurePt0||cropPt0) drawMeasureOverlay(ctx,DW,DH);
 }
 // The line-profile line (3-srFull-px band + endpoints) and the crop tool's
@@ -5212,8 +5218,15 @@ function renderProfile(){
 // reconstruction) or the content already reaches the canvas edge. Ticks +
 // labels extend LEFT (into the panel) so they're never clipped by the
 // canvas edge.
-function drawDepthBar(ctx,DW,DH,zlo,zhi){
-  const lut=getLUT(paramValue('lut')), bw=12, bh=140;
+// Shared by drawDepthBar() and drawTracksColorBar() — anchors a vertical
+// colour-scale bar to the actual DATA's own right edge and vertical centre
+// (srFull._locMaxXpx/_locMidYpx, cached once per rerender() in NATIVE px,
+// converted through the current view/zoom here), falling back to the bare
+// top-right canvas corner if there's no cached extent yet. A fixed corner
+// alone reads disconnected when the reconstruction is a sparse subset of a
+// much larger FOV (an sSMLM-paired result, or a small subset of tracks) —
+// see MODULE: render's drawDepthBar() history for why this exists at all.
+function srBarAnchor(bw,bh,DW,DH){
   let x=DW-16-bw, y=16;
   if(srFull && srFull._locMaxXpx!=null && lastResult && lastResult.mag && view.zoom>0){
     const sw=DW/view.zoom, sx=view.cx-sw/2, sy=view.cy-DH/view.zoom/2;
@@ -5224,6 +5237,11 @@ function drawDepthBar(ctx,DW,DH,zlo,zhi){
       y=Math.min(DH-16-bh, Math.max(16, contentMidYDisp-bh/2));
     }
   }
+  return {x,y};
+}
+function drawDepthBar(ctx,DW,DH,zlo,zhi){
+  const lut=getLUT(paramValue('lut')), bw=12, bh=140;
+  const {x,y}=srBarAnchor(bw,bh,DW,DH);
   for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
     ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
   ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
@@ -8370,15 +8388,24 @@ $('sptSaveBtn').addEventListener('click', exportSptSummary);
 // srSegOverlayBtn's own reveal-once-data-exists convention, but as a
 // SEPARATE always-"Show tracks"-labelled action button rather than itself
 // being the toggle (the toggle lives next to the panel title, by request).
+// Switching the reconstruction to Grey the moment tracks go ON (by request)
+// matches sptPALM-Python's own plot_tracks_in_cells() convention of plotting
+// tracks over a plain grayscale background — same "(re-)selecting a mode
+// picks its own sensible LUT default" precedent updateMethodUI() already
+// uses for is3d/turbo and phasor+gaussmle/fire (MODULE: pipeline), just
+// triggered by the tracks overlay turning on instead of a fit-method change.
+function switchLutToGreyForTracks(){ $('lut').value='grey'; if(srFull) rerender(true); }
 $('sptShowTracksBtn').addEventListener('click', ()=>{
   if(!lastSpt || !lastSpt.nTracks){ log('Track first — no tracks to show yet.'); return; }
   srTracksOverlayOn=true;
   const b=$('srTracksOverlayBtn'); if(b){ b.style.display=''; b.textContent='Hide tracks'; }
+  switchLutToGreyForTracks();
   drawView();
 });
 $('srTracksOverlayBtn').addEventListener('click', ()=>{
   srTracksOverlayOn=!srTracksOverlayOn;
   $('srTracksOverlayBtn').textContent = srTracksOverlayOn ? 'Hide tracks' : 'Show tracks';
+  if(srTracksOverlayOn) switchLutToGreyForTracks();
   drawView();
 });
 // Colour-by-D, Min track length and Show tracks (%) can all change which
@@ -8678,7 +8705,15 @@ function drawTracksOverlay(ctx,DW,DH){
   const toD=(fx,fy)=>({x:(fx-view.cx)*view.zoom+DW/2, y:(fy-view.cy)*view.zoom+DH/2});
   const colorByD=paramValue('sptTracksColorByD');
   const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax'), lut=colorByD?getLUT('fire'):null;
-  ctx.lineWidth=1; ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
+  // Line thickness = one camera pixel's own on-screen size at the current
+  // view (mag srFull-px per camera px, times view.zoom CSS-px per srFull-px)
+  // — "the magnification-dependent effective pixel width" by request, rather
+  // than a fixed 1 screen px regardless of zoom: naturally thin zoomed out,
+  // naturally more visible zoomed in, tracking the reconstruction's own
+  // effective resolution instead of an arbitrary constant. Floored at 0.5px
+  // so it can't vanish entirely at extreme zoom-out.
+  ctx.lineWidth=Math.max(0.5, mag*view.zoom);
+  ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
   for(const t of tracks){
     let col='#ff3bff';   // magenta default — see this function's own header comment for why
     if(colorByD){
@@ -8693,6 +8728,34 @@ function drawTracksOverlay(ctx,DW,DH){
     const p0=toD(t.pts[0].x*mag, t.pts[0].y*mag);
     ctx.fillStyle='#fff'; ctx.fillText(String(t.id), p0.x+3, p0.y-3);
   }
+}
+// D colour-scale legend for the tracks overlay when sptTracksColorByD is
+// checked — same bar geometry/positioning as drawDepthBar() (MODULE:
+// render's srBarAnchor(), "centre right" against the data's own extent, by
+// request) but for sptDPlotMin/Max via the 'fire' LUT instead of z via the
+// current reconstruction LUT. LINEAR scale, matching drawTracksOverlay()'s
+// own linear (D-dMin)/(dMax-dMin) colour mapping exactly (not the D
+// histogram's log10 binning — a different view of the same quantity).
+function drawTracksColorBar(ctx,DW,DH){
+  const lut=getLUT('fire'), bw=12, bh=140;
+  let {x,y}=srBarAnchor(bw,bh,DW,DH);
+  // srFull._zColor means drawDepthBar() ALSO draws at this exact same anchor
+  // (real 3D/sSMLM colouring plus tracks-by-D at once) — shift left to sit
+  // beside it instead of on top of it, rather than the two silently
+  // overlapping.
+  if(srFull && srFull._zColor) x-=bw+20;
+  for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
+    ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
+  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
+  const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax');
+  const span=Math.max(1e-9,dMax-dMin), yOf=v=>y+bh*(dMax-v)/span, fmt=v=>v.toFixed(v<1?3:1);
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const v of [dMax,(dMin+dMax)/2,dMin]){
+    const yy=Math.max(y,Math.min(y+bh,yOf(v)));
+    ctx.beginPath(); ctx.moveTo(x-4,yy); ctx.lineTo(x,yy); ctx.stroke();
+    ctx.fillText(fmt(v), x-7, yy);
+  }
+  ctx.textAlign='left'; ctx.fillText('µm²/s', x, y-6);
 }
 async function loadSegmentedImage(file){
   try{

@@ -916,8 +916,12 @@ relevant one before editing rather than scrolling:
   existing display-range fields, reused rather than adding a second min/max pair); a track with no
   qualifying D estimate (too short — see `sptTrackLenMin`) draws a neutral `#666` instead of
   silently reading as a real (near-zero) D. Track number drawn in white at the track's first point.
-  Deliberately thin (`lineWidth=1`, unscaled by `view.zoom`) — legible tracks are expected to need
-  zooming in, not a fixed on-screen thickness, by explicit request.
+  `sptTracksColorByD` defaults to CHECKED (D-colouring is the primary intended use, not an
+  afterthought — magenta is the fallback for when no D range is meaningful yet). Line thickness is
+  `mag*view.zoom` (floored at 0.5px) — "the magnification-dependent effective pixel width" by
+  request: one CAMERA pixel's own on-screen size at the current zoom, so it's naturally thin zoomed
+  out and naturally more visible zoomed in, tracking the reconstruction's own effective resolution
+  instead of a fixed screen-px constant.
 
   A separate SIDEBAR button, `sptShowTracksBtn` ("Show tracks" — disabled until `runSptTrack()`
   finds at least one track, same `!r.trackLengths.length` condition `sptSaveBtn`/`sptHistBtn`
@@ -925,7 +929,25 @@ relevant one before editing rather than scrolling:
   `srTracksOverlayBtn` for quick on/off from then on — it never itself reads "Hide tracks", only
   the SR-panel-title toggle does, by explicit request (two different roles: one "make it visible"
   action button, one on/off toggle). Shares its own `.btnrow` with `sptSaveBtn` (moved to the right
-  of it, per the same request) — `sptTrackBtn`/`sptHistBtn` keep their own row above.
+  of it, per the same request) — `sptTrackBtn`/`sptHistBtn` keep their own row above. Turning the
+  overlay ON (from either button) also calls `switchLutToGreyForTracks()` — sets the reconstruction
+  colour map to `grey` and `rerender()`s, matching `sptPALM-Python`'s own `plot_tracks_in_cells()`
+  convention of plotting tracks over a plain grayscale background (a coloured LUT would otherwise
+  visually compete with the tracks' own magenta/D colouring) — same "(re-)selecting a mode picks its
+  own sensible LUT default" precedent `updateMethodUI()` already uses for `is3d`/`turbo` and
+  `phasor`+`gaussmle`/`fire`, just triggered by the tracks overlay instead of a fit-method change.
+
+  **`drawTracksColorBar()`** (D legend, shown whenever `sptTracksColorByD` is checked while the
+  overlay is on) reuses `drawDepthBar()`'s own positioning exactly — both now call a shared
+  `srBarAnchor(bw,bh,DW,DH)` (factored out of `drawDepthBar()`, behaviourally unchanged) that
+  anchors a vertical bar to the data's own right edge and vertical centre ("centre right", by
+  request — same as the depth/sSMLM-distance bar). LINEAR scale against `sptDPlotMin`/`sptDPlotMax`
+  via the `fire` LUT, matching `drawTracksOverlay()`'s own linear colour mapping exactly (NOT the D
+  histogram's log10 binning — a different view of the same quantity, deliberately not reused here).
+  If `srFull._zColor` is ALSO true (a real 3D/sSMLM-coloured reconstruction plus tracks-by-D at
+  once — a genuine, if rare, combination), `drawDepthBar()` would anchor to the exact same spot;
+  `drawTracksColorBar()` detects this and shifts itself left by one bar-width + gap so the two sit
+  side by side instead of silently overlapping.
 
   `getTracksOverlayData()` groups `lastResult.locs` by `track_id` (excluding `track_id<0` —
   background/untracked, see the `segCtx` path above) sorted by frame, cached by object identity
