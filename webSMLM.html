@@ -17,45 +17,47 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-25c; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-25d; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2195   PARAMS registry, single source of truth for params;
+    params          2200   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split
-    in/out          2689   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      3002   synthetic stack generator ("Simulate movie")
-    detect          3851   per-frame band-pass + local-maxima detection
-    fit             4107   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    in/out          2702   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      3015   synthetic stack generator ("Simulate movie")
+    detect          3864   per-frame band-pass + local-maxima detection
+    fit             4120   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4582   accumulate to offscreen buffer; view/colour/blur;
+    render          4595   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually exclusive
-    workers         5544   frame-parallel detect/fit worker pool
-    export          5709   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5969   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6369   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5558   frame-parallel detect/fit worker pool
+    export          5723   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5983   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6383   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6685   NeNA + FRC
-    sSMLM           7328   spectrally resolved SMLM pair-finding; merged
+    locprecision    6699   NeNA + FRC
+    sSMLM           7342   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7793   single particle tracking, trackpy-inspired;
+    spt             7807   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
                            segm."/"Show recon." SR-panel swap; merged Show
                            histograms (sptHistBtn/sptHistModeBtn) and Show
-                           image (segShowBtn/segShowModeBtn)
-    pipeline        8673   top-level orchestration, *Core()/wrapper split;
+                           image (segShowBtn/segShowModeBtn); Show tracks
+                           overlay (sptShowTracksBtn/srTracksOverlayBtn),
+                           optional colour-by-mean-D (sptTracksColorByD)
+    pipeline        8771   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle offset
-    table           10415  localizations table, filtering, histograms
-    headless API    10859  window.webSMLM.analyze()/analyzeBatch()
+    table           10513  localizations table, filtering, histograms
+    headless API    10957  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1719,7 +1721,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2119,9 +2121,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row">Min track length (locs) <input type="number" id="sptTrackLenMin" value="5" min="2" max="1000" step="1" class="num"></label>
         <label class="row">D plot min (µm²/s) <input type="number" id="sptDPlotMin" value="0.004" min="0.0001" max="1000" step="0.001" class="num"></label>
         <label class="row">D plot max (µm²/s) <input type="number" id="sptDPlotMax" value="10" min="0.0001" max="1000" step="0.1" class="num"></label>
+        <label class="row">Colour tracks by mean D <input type="checkbox" id="sptTracksColorByD"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sptTrackBtn" disabled title="Link localizations into trajectories and compute a diffusion coefficient per track">Track</button>
           <button id="sptHistBtn" disabled title="Show the diffusion-coefficient / track-length histograms (Diffusion shown first; toggle next to the raw panel title switches between the two)">Show histograms</button>
+        </div>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="sptShowTracksBtn" disabled title="Plot every track as a thin line on the SMLM reconstruction, track number in white — zoom in to tell individual tracks apart">Show tracks</button>
           <button id="sptSaveBtn" disabled title="Save a per-track summary CSV (track_id, n_locs, D_coeff, mean x/y, first/last frame) — one row per track, not per localization">Save tracking data</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
@@ -2130,6 +2136,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
           <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
+          <p><b>Show tracks</b> plots every track as a thin line directly on the <b>SMLM reconstruction</b>, its track number in white — legible tracks require zooming in, since real data is usually dense. Magenta by default; tick <b>Colour tracks by mean D</b> to colour each track by its own mean diffusion coefficient instead (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b> — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead). A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
           <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
           <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
@@ -2165,7 +2172,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </div>
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance)">Show spectral</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance)">Show spectral</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
         <div class="panel-body">
           <canvas id="sr"></canvas>
           <div id="srFilterNote" style="display:none;margin-top:8px;color:var(--accent2);font-size:12px"></div>
@@ -2179,7 +2186,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25c · Renamed "Localization precision (NeNA / FRC)" → "Localization precision (NeNA & FRC)"</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25d · New: Show tracks overlay on the SMLM reconstruction (magenta, optional colour-by-mean-D), toggle next to the panel title</div></div>
   </main>
 </div>
 
@@ -2407,6 +2414,14 @@ const PARAMS = {
   // track. Defaults match set_parameters_sptPALM.py's own histogram range.
   sptDPlotMin: { type:'number', id:'sptDPlotMin', label:'SPT D plot min (µm²/s)', min:0.0001, max:1000, step:0.001, default:0.004, int:false },
   sptDPlotMax: { type:'number', id:'sptDPlotMax', label:'SPT D plot max (µm²/s)', min:0.0001, max:1000, step:0.1, default:10, int:false },
+  // Tracks overlay (srTracksOverlayBtn, MODULE: spt/render): magenta by default
+  // (sptPALM-Python's own plot_cells_locs_sptPALM.py convention for in-track
+  // localizations); this switches each track's line colour to the 'fire' LUT
+  // (the same ramp as matplotlib's 'hot', which plot_single_cell_analysis_
+  // sptPALM.py's plot_tracks_in_cells() uses for exactly this) normalised
+  // against sptDPlotMin/Max — the SAME display-range fields the D histogram
+  // already uses, reused rather than adding a second min/max pair.
+  sptTracksColorByD: { type:'bool', id:'sptTracksColorByD', label:'Colour tracks by mean D', default:false },
   // Segmentation-aware tracking's own area gate, in the segmentation image's
   // own pixels (same nm/px as everywhere else — Pixel size (nm), Rendering
   // settings — no separate calibration needed for the mask). Matches
@@ -5079,6 +5094,7 @@ function drawView(){
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH);   // bead-composite view only
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
   if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi);
+  if(srTracksOverlayOn && srIsRecon && lastResult) drawTracksOverlay(ctx,DW,DH);
   if(measureLine||measurePt0||cropPt0) drawMeasureOverlay(ctx,DW,DH);
 }
 // The line-profile line (3-srFull-px band + endpoints) and the crop tool's
@@ -8130,10 +8146,16 @@ async function runSptTrack(){
     sptHistMode='D';
     $('sptHistBtn').disabled=!r.trackLengths.length;
     $('sptSaveBtn').disabled=!r.trackLengths.length;
+    $('sptShowTracksBtn').disabled=!r.trackLengths.length;
     if(r.trackLengths.length){
       if(!r.diffCoeffs.length){ sptHistMode='length'; log('  no tracks met the minimum length for a D estimate — widen Min track length or Search range.'); }
       drawSptHist();
     }
+    // A fresh Track run replaces lastResult.locs with a new array, so
+    // getTracksOverlayData()'s own object-identity cache rebuilds
+    // automatically on the next draw — this just triggers that next draw
+    // if the overlay was already showing from a previous Track run.
+    if(srTracksOverlayOn) drawView();
   }catch(err){ log(`⚠ SPT tracking failed: ${err.name}: ${err.message}`); }
   finally{ $('sptTrackBtn').disabled=false; setProg(null); }
 }
@@ -8328,6 +8350,23 @@ $('sptTrackBtn').addEventListener('click', runSptTrack);
 $('sptHistBtn').addEventListener('click', drawSptHist);
 $('sptHistModeBtn').addEventListener('click', ()=>{ sptHistMode = sptHistMode==='length' ? 'D' : 'length'; drawSptHist(); });
 $('sptSaveBtn').addEventListener('click', exportSptSummary);
+// "Show tracks" (sidebar) turns the overlay ON and reveals srTracksOverlayBtn
+// (raw... rather, the SR-panel title) for quick on/off from then on — mirrors
+// srSegOverlayBtn's own reveal-once-data-exists convention, but as a
+// SEPARATE always-"Show tracks"-labelled action button rather than itself
+// being the toggle (the toggle lives next to the panel title, by request).
+$('sptShowTracksBtn').addEventListener('click', ()=>{
+  if(!lastSpt || !lastSpt.nTracks){ log('Track first — no tracks to show yet.'); return; }
+  srTracksOverlayOn=true;
+  const b=$('srTracksOverlayBtn'); if(b){ b.style.display=''; b.textContent='Hide tracks'; }
+  drawView();
+});
+$('srTracksOverlayBtn').addEventListener('click', ()=>{
+  srTracksOverlayOn=!srTracksOverlayOn;
+  $('srTracksOverlayBtn').textContent = srTracksOverlayOn ? 'Hide tracks' : 'Show tracks';
+  drawView();
+});
+$('sptTracksColorByD').addEventListener('change', ()=>{ if(srTracksOverlayOn) drawView(); });
 // Frame time/localization error only rescale an existing D (see
 // recomputeSptD() above) — Search range/Memory/Min track length change
 // which tracks/steps exist and still require a fresh Track click.
@@ -8541,6 +8580,67 @@ function buildTransparentReconCanvas(){
   ctx.putImageData(out,0,0);
   _transReconCanvas=cv; _transReconForSrFull=srFull;
   return cv;
+}
+// "Show tracks"/"Hide tracks" (srTracksOverlayBtn, next to "SMLM
+// reconstruction", same inline-in-title-bar placement/toggle convention as
+// srSegOverlayBtn/sSmlmColorBtn) plots every SPT track as a thin polyline on
+// top of the reconstruction, its track_id in white at the track's first
+// point — magenta by default, matching sptPALM-Python's own
+// plot_cells_locs_sptPALM.py convention for in-track localizations (checked
+// directly against its source before choosing this, not assumed); optionally
+// colour-coded by each track's own mean D via the 'fire' LUT (the same ramp
+// as matplotlib's 'hot', which plot_single_cell_analysis_sptPALM.py's
+// plot_tracks_in_cells() uses for exactly this), normalised against
+// sptDPlotMin/Max — reusing the D histogram's own existing display-range
+// fields rather than adding a second min/max pair. Deliberately thin
+// (lineWidth 1, unscaled by view.zoom) — legible tracks are expected to
+// require zooming in, not a fixed on-screen thickness.
+let srTracksOverlayOn=false, _tracksOverlayData=null, _tracksOverlayForLocs=null;
+// Groups locs by track_id (excluding track_id<0 — background/untracked, see
+// MODULE: spt's segCtx path) sorted by frame, one entry per track, with its
+// D_coeff if it has one (every loc in a track carries the SAME D_coeff —
+// sptCore()'s own withD map sets it once per track_id — so pts[0]'s value
+// is enough, no need to search). Cached by object identity against
+// lastResult.locs, same pattern _segOverlayForLabels/_transReconForSrFull
+// use, so panning/zooming (which redraws every frame) doesn't rebuild this
+// on every single frame — only a genuinely new Track run (which replaces
+// lastResult.locs with a new array) does.
+function getTracksOverlayData(){
+  if(!lastResult) return null;
+  if(_tracksOverlayForLocs===lastResult.locs) return _tracksOverlayData;
+  const byTrack=new Map();
+  for(const L of lastResult.locs){
+    if(!(L.track_id>=0)) continue;
+    let a=byTrack.get(L.track_id); if(!a){ a=[]; byTrack.set(L.track_id,a); }
+    a.push(L);
+  }
+  const tracks=[];
+  for(const [id,pts] of byTrack){ pts.sort((a,b)=>a.frame-b.frame);
+    tracks.push({id, pts, D: isFinite(pts[0].D_coeff) ? pts[0].D_coeff : NaN}); }
+  _tracksOverlayData=tracks; _tracksOverlayForLocs=lastResult.locs;
+  return tracks;
+}
+function drawTracksOverlay(ctx,DW,DH){
+  const tracks=getTracksOverlayData(); if(!tracks||!tracks.length) return;
+  const mag=lastResult.mag||1;
+  const toD=(fx,fy)=>({x:(fx-view.cx)*view.zoom+DW/2, y:(fy-view.cy)*view.zoom+DH/2});
+  const colorByD=paramValue('sptTracksColorByD');
+  const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax'), lut=colorByD?getLUT('fire'):null;
+  ctx.lineWidth=1; ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
+  for(const t of tracks){
+    let col='#ff3bff';   // magenta default — see this function's own header comment for why
+    if(colorByD){
+      if(isFinite(t.D)){ const tt=Math.max(0,Math.min(1,(t.D-dMin)/Math.max(1e-9,dMax-dMin))), i=Math.round(tt*255)*3;
+        col=`rgb(${lut[i]},${lut[i+1]},${lut[i+2]})`; }
+      else col='#666';   // no qualifying D estimate for this track (too short — see sptTrackLenMin) — visibly distinct from a real D colour, not silently magenta
+    }
+    ctx.strokeStyle=col; ctx.beginPath();
+    for(let i=0;i<t.pts.length;i++){ const p=toD(t.pts[i].x*mag, t.pts[i].y*mag);
+      if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }
+    ctx.stroke();
+    const p0=toD(t.pts[0].x*mag, t.pts[0].y*mag);
+    ctx.fillStyle='#fff'; ctx.fillText(String(t.id), p0.x+3, p0.y-3);
+  }
 }
 async function loadSegmentedImage(file){
   try{
@@ -9186,7 +9286,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; lastSpt=null;
   try{
     const method=paramValue('method');
     const localize3D=paramValue('localize3D');
@@ -9402,7 +9502,7 @@ $('genBtn').addEventListener('click',async()=>{
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -9431,7 +9531,7 @@ async function loadMovieFiles(fs){
   if(!fs.length) return;
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('pcfoTransferBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -9823,7 +9923,7 @@ async function loadCsvFile(f){
     $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
-    $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the histograms themselves need a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
+    $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the histograms themselves need a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
     const has3d=locs.some(L=>isFinite(L.z)), hasDist=locs.some(L=>isFinite(L.dist)), isClustered=locs[0].nMerged!==undefined;
@@ -10104,7 +10204,7 @@ function resetAfterCropChange(){
   // would otherwise try to write lastResult.locs on a null lastResult) — same
   // reset every fresh Run/Load/Simulate already does, needed here for the
   // same reason: a crop/uncrop is just as much "new data" for this state.
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; lastSpt=null;
 }
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }

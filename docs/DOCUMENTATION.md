@@ -716,9 +716,22 @@ Headless exposure ([§8](#8-headless-api-window-websmlm)'s
 `config.sptTrack`, shipped alongside the rest of v0.11.2) runs **Track**
 after drift/NeNA/FRC, not before, since a per-track D benefits from
 drift-corrected coordinates and tracking never drops rows the way
-sSMLM's pairing does. No length-RESOLVED D histogram (D binned by track
-length — distinct from the plain track-length histogram above), and no
-colour-by-D/by-track rendering yet — see `docs/REFACTOR_PLAN.md`.
+sSMLM's pairing does. **Show tracks** (v0.11.7) plots every track directly
+on the **SMLM reconstruction** — a thin polyline per track, its
+`track_id` in white, magenta by default; **Colour tracks by mean D**
+switches each track's colour to the same ramp as the **Fire (hot)**
+render LUT instead, normalised against **D plot min/max** (reusing the
+D-histogram's own display-range fields rather than a second min/max
+pair) — a track with no qualifying D estimate draws a neutral grey. A
+toggle next to the **SMLM reconstruction** title (**Show tracks**/**Hide
+tracks**) switches the overlay on/off without re-plotting; ported from
+the visual design (not the code — this is a from-scratch canvas overlay,
+not a matplotlib port) of the user's own `sptPALM-Python` pipeline's
+`plot_single_cell_analysis_sptPALM.py` (`plot_tracks_in_cells()`, which
+colours tracks by D via matplotlib's `hot` colormap the same way) and
+`plot_cells_locs_sptPALM.py` (magenta for in-track localizations). No
+length-RESOLVED D histogram (D binned by track length — distinct from the
+plain track-length histogram above) yet — see `docs/REFACTOR_PLAN.md`.
 
 **Segmentation image** (`applySegmentation`, default unchecked) is
 cell-segmentation-aware tracking: checking it reveals **Load segm. image**
@@ -1444,6 +1457,7 @@ for the first implementation.
 | `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
 | `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
 | `sptDPlotMax` | SPT D plot max (µm²/s) | number | 0.0001 | 1000 | 0.1 | 10 |
+| `sptTracksColorByD` | Colour tracks by mean D | bool | — | — | — | false |
 | `segAreaMin` | Min. cell area (px) | number (int) | 0 | — | 1 | 50 |
 | `segAreaMax` | Max. cell area (px) | number (int) | 0 | — | 1 | ∞ (blank field) |
 
@@ -1456,6 +1470,7 @@ for the first implementation.
 <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
 <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
+<p><b>Show tracks</b> plots every track as a thin line directly on the <b>SMLM reconstruction</b>, its track number in white — legible tracks require zooming in, since real data is usually dense. Magenta by default; tick <b>Colour tracks by mean D</b> to colour each track by its own mean diffusion coefficient instead (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b> — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead). A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
 <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
 <p><b>Apply segmentation?</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load movie</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
 <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>

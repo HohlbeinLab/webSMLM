@@ -903,8 +903,40 @@ relevant one before editing rather than scrolling:
   drift-corrected coordinates. The result's `spt` field records `nTracks`/`nQualify`/`meanD`/
   `medianD` only — not the full per-track arrays (`trackMSD` is a `Map`, not JSON-serialisable,
   would silently become `{}`). `tools/webSMLM-cli.mjs`'s `--sptTrack`/`?autorun=`'s `sptTrack=1`
-  forward to it. No length-RESOLVED D histogram, no colour-by-D/by-track rendering — tracked as
-  `docs/REFACTOR_PLAN.md` follow-ups.
+  forward to it. No length-RESOLVED D histogram — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
+
+  **`srTracksOverlayBtn`** ("Show tracks"/"Hide tracks", SR-panel title, same inline-in-title-bar
+  placement/toggle convention as `srSegOverlayBtn`/`sSmlmColorBtn`) plots every track as a thin
+  polyline on top of the reconstruction, checked directly against the user's own `sptPALM-Python`
+  pipeline's `plot_cells_locs_sptPALM.py`/`plot_single_cell_analysis_sptPALM.py` before choosing
+  colours — magenta (`#ff3bff`) by default, matching that pipeline's own convention for in-track
+  localizations; `sptTracksColorByD` ("Colour tracks by mean D") switches each track's colour to
+  `getLUT('fire')` instead — the same ramp as matplotlib's `hot`, which `plot_tracks_in_cells()`
+  uses for exactly this — normalised against `sptDPlotMin`/`sptDPlotMax` (the D-histogram's own
+  existing display-range fields, reused rather than adding a second min/max pair); a track with no
+  qualifying D estimate (too short — see `sptTrackLenMin`) draws a neutral `#666` instead of
+  silently reading as a real (near-zero) D. Track number drawn in white at the track's first point.
+  Deliberately thin (`lineWidth=1`, unscaled by `view.zoom`) — legible tracks are expected to need
+  zooming in, not a fixed on-screen thickness, by explicit request.
+
+  A separate SIDEBAR button, `sptShowTracksBtn` ("Show tracks" — disabled until `runSptTrack()`
+  finds at least one track, same `!r.trackLengths.length` condition `sptSaveBtn`/`sptHistBtn`
+  already use), is the entry point: clicking it turns the overlay ON and reveals
+  `srTracksOverlayBtn` for quick on/off from then on — it never itself reads "Hide tracks", only
+  the SR-panel-title toggle does, by explicit request (two different roles: one "make it visible"
+  action button, one on/off toggle). Shares its own `.btnrow` with `sptSaveBtn` (moved to the right
+  of it, per the same request) — `sptTrackBtn`/`sptHistBtn` keep their own row above.
+
+  `getTracksOverlayData()` groups `lastResult.locs` by `track_id` (excluding `track_id<0` —
+  background/untracked, see the `segCtx` path above) sorted by frame, cached by object identity
+  against `lastResult.locs` — same pattern `_segOverlayForLabels`/`_transReconForSrFull` use, so
+  panning/zooming (which redraws every frame via `drawView()`) doesn't rebuild it every frame, only
+  a genuinely fresh `runSptTrack()` (which replaces `lastResult.locs` with a new array) does. Every
+  loc in one track carries the SAME `D_coeff` (`sptCore()`'s own `withD` map sets it once per
+  `track_id`), so `pts[0].D_coeff` is enough — no need to search the whole track. Reset alongside
+  `sptSaveBtn`/`sptHistBtn` at all five existing disable-on-reset call sites (new stack load, new
+  Simulate, CSV load, sSMLM Pair, crop change) plus enabled in `runSptTrack()`'s own success path —
+  same convention, no new reset mechanism needed.
 
   **Cell-by-cell tracking is also wired headlessly**, `config.segmentationFile` — a File, loaded
   the same way `config.file`/`config.calibrationFile` are (`loadTiffFile()`, frame 0 only), through
