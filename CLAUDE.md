@@ -893,8 +893,9 @@ relevant one before editing rather than scrolling:
 
   `track_id`/`D_coeff` are independent, optional table/CSV columns (same pattern as sSMLM's
   `dist`/`sigma1st`), so the filter grammar works on tracking data for free — the general **Save
-  data** CSV gains these automatically once Track has run. **Save tracking data**
-  (`sptSaveBtn`/`exportSptSummary()`) is a genuinely DIFFERENT export: `sptTrackSummary()`
+  data** CSV gains these automatically once Track has run. **Save track data**
+  (`sptSaveBtn`/`exportSptSummary()`, "Save tracking data" until a follow-up shortening — see
+  `sptShowTrackDataBtn` below) is a genuinely DIFFERENT export: `sptTrackSummary()`
   aggregates into one row per TRACK (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`) rather than
   per localization — built from the tracked locs directly, not `lastSpt`'s own arrays (those only
   cover qualifying tracks); every linked track gets a row here. **Headless**: `config.sptTrack`
@@ -905,21 +906,40 @@ relevant one before editing rather than scrolling:
   would silently become `{}`). `tools/webSMLM-cli.mjs`'s `--sptTrack`/`?autorun=`'s `sptTrack=1`
   forward to it. No length-RESOLVED D histogram — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
 
-  **`sptShowTrackDataBtn`** ("Show tracking data", its own row between `sptShowTracksBtn`'s row and
-  `sptSaveBtn`'s — by request; `sptSaveBtn` shares that new row with it, `sptShowTracksBtn` keeps its
-  own row alone above) opens `trackTableModal`, a per-track table view — same underlying rows as
-  **Save tracking data**'s own `sptTrackSummary()` (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`/
-  `first_frame`/`last_frame`), sortable by clicking a column header and filterable with the SAME
-  `parseFilter()` "field op value" grammar (joined by `and`/`or`, cumulative committed clauses,
-  removable chips) the main **View data/filtering** table already uses (MODULE: table) — reused
-  directly rather than reimplemented, since `parseFilter()` is already column-agnostic (takes the
-  active column list as a parameter). Deliberately a SEPARATE, minimal implementation
-  (`_trackTableState`/`_trackTableData`/`_trackTableFiltered`/`_trackTableFilters`, its own
-  `openTrackTable()`/`renderTrackTable()`/`commitTrackTableFilter()`) rather than generalising the
-  main table's own machinery to cover a second data source — that machinery is entangled with the
-  reconstruction (`applyFilterToReconstruction()`), temporal clustering, and the crop tool, none of
-  which a per-track summary has an equivalent of (yet); keeping it separate means this v1 can't
-  regress the well-established per-localization table. Explicitly a v1, by request — no
+  **`sptShowTrackDataBtn`** opens `trackTableModal` ("Track data"), a per-track table view — same
+  underlying rows as **Save track data**'s own `sptTrackSummary()` (`track_id`/`n_locs`/`D_coeff`/
+  `mean_x`/`mean_y`/`first_frame`/`last_frame`), sortable by clicking a column header and filterable
+  with the SAME `parseFilter()` "field op value" grammar (joined by `and`/`or`, cumulative committed
+  clauses, removable chips) the main **View data/filtering** table already uses (MODULE: table) —
+  reused directly rather than reimplemented, since `parseFilter()` is already column-agnostic (takes
+  the active column list as a parameter). Label/layout went through a follow-up round: shipped first
+  as "Show tracking data" sharing a row with "Save tracking data" (right slot); "Show tracking data"
+  wrapped onto two lines at the sidebar's normal width (see **Button label length** below) — fixed by
+  shortening both labels ("Show track data"/"Save track data") AND relayering: `sptShowTrackDataBtn`
+  moved UP into `sptShowTracksBtn`'s row (right slot, next to **Show tracks**), leaving `sptSaveBtn`
+  alone in the row below — which, as the SOLE child of a `.btnrow` 2-column grid with no explicit
+  `grid-column` override, lands in the LEFT slot by default (the same "lone button defaults to grid
+  column 1" mechanics `helpBtn`/a solo `tableBtn` row already rely on elsewhere) — satisfying "moved
+  to the left" with no extra CSS needed. The modal's own `max-width` was also brought in line with
+  the main table's (`960px`, was `760px` — read as a visibly different, narrower "new" modal rather
+  than the same visual format, a real, reported complaint) and its filter-input markup now mirrors
+  the main table's DOM shape exactly (`<input>` wrapped in its own `position:relative` div, even
+  though this modal has no autocomplete dropdown to anchor there) for the same reason — pixel-level
+  consistency with the table it's explicitly meant to look like, not a functional need. The actual
+  TABLE styling (font/size, alternating row stripe, sticky header, header hover colour) is a real,
+  reported gap from the same round: `#locTable`'s own CSS block (`<style>`, right after
+  `--row-stripe`'s theme-var declarations) was scoped by ID alone, so `#trackTable` had none of it
+  and rendered with the browser's own bare default table look. Fixed by widening every one of those
+  selectors to `#locTable,#trackTable` (ONE shared rule set, not a duplicated parallel block) — the
+  two tables literally can't drift apart in appearance now, since there's only one place to edit.
+  Deliberately
+  a SEPARATE, minimal implementation (`_trackTableState`/`_trackTableData`/`_trackTableFiltered`/
+  `_trackTableFilters`, its own `openTrackTable()`/`renderTrackTable()`/`commitTrackTableFilter()`)
+  rather than generalising the main table's own machinery to cover a second data source — that
+  machinery is entangled with the reconstruction (`applyFilterToReconstruction()`), temporal
+  clustering, and the crop tool, none of which a per-track summary has an equivalent of (yet);
+  keeping it separate means this v1 can't regress the well-established per-localization table.
+  Explicitly a v1, by request — no
   histogram-of-column, no autocomplete, no filter-driven reconstruction/tracks-overlay linkage;
   `openTrackTable()`'s own header comment flags it as intended to grow later, same spirit as
   `sptShowTracksBtn`/the segmentation-image work when THEY first shipped as v1s. Rebuilds
