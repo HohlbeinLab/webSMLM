@@ -1026,6 +1026,22 @@ relevant one before editing rather than scrolling:
   matching `drawTracksOverlay()`'s own linear colour mapping exactly (NOT the D histogram's log10
   binning — a different view of the same quantity, deliberately not reused here).
 
+  **The bar's own border must set `ctx.lineWidth` explicitly before `strokeRect()`** — a real,
+  reported bug: `ctx.lineWidth` is canvas STATE, not reset between draw calls, and
+  `drawTracksColorBar()` runs immediately after `drawTracksOverlay()` in the same `drawView()` call
+  (see `drawView()`'s own `if(srTracksOverlayOn...)` block) — `drawTracksOverlay()`'s own line
+  thickness is deliberately zoom-dependent (`Math.max(0.5, Math.min(6, view.zoom))`, see its own
+  comment), and without an explicit reset here the border silently inherited that same value, so a
+  high zoom level made the legend's own border grow thick right along with the track lines even
+  though a legend border has no reason to track reconstruction zoom at all. Fixed with an explicit
+  `ctx.lineWidth=1` right before the `strokeRect()` call. Same root cause as any canvas-state bug:
+  a property one draw call sets and never resets leaks into whatever runs next on the same `ctx`.
+  The unit label (`µm²/s`) also had its own smaller legibility bug in the same round: it reused
+  `textBaseline='middle'` left over from the tick-label loop just above it, so its measured offset
+  (`y-6`) placed the text's own vertical CENTRE only 6px above the bar — reading as cramped/
+  touching. Fixed by setting `textBaseline='bottom'` explicitly right before drawing it, so the
+  offset is measured from the label's own bottom edge instead, giving real clearance.
+
   `getTracksOverlayData()` groups `lastResult.locs` by `track_id` (excluding `track_id<0` —
   background/untracked, see the `segCtx` path above) sorted by frame, cached by object identity
   against `lastResult.locs` — same pattern `_segOverlayForLabels`/`_transReconForSrFull` use, so

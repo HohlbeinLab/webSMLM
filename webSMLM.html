@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-25n; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-25o; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1732,7 +1732,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25n</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25o</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2198,7 +2198,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25n · Tracks overlay: bigger/more-opaque number backing box, number colour back to white</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25o · Fixed: D colour-bar legend's own border was inheriting the tracks-overlay zoom-dependent line width; unit label given clearance above the bar</div></div>
   </main>
 </div>
 
@@ -8865,7 +8865,16 @@ function drawTracksColorBar(ctx,DW,DH){
   if(srFull && srFull._zColor) x-=bw+24;
   for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
     ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
-  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
+  // Fixed 1px border regardless of zoom — ctx.lineWidth is canvas STATE, not
+  // reset between draw calls, so without setting it explicitly here this
+  // border silently inherited whatever drawTracksOverlay() (drawn just
+  // before this, same drawView() call) last left ctx.lineWidth at — that
+  // formula is itself zoom-dependent (clamped to [0.5,6]px, see its own
+  // comment), so at a high zoom this border grew thick right along with the
+  // track lines. A real, reported bug: a legend border has no reason to
+  // scale with reconstruction zoom at all, unlike the track lines it was
+  // accidentally inheriting from.
+  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=1; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
   const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax');
   const span=Math.max(1e-9,dMax-dMin), yOf=v=>y+bh*(dMax-v)/span, fmt=v=>v.toFixed(v<1?3:1);
   ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
@@ -8874,7 +8883,12 @@ function drawTracksColorBar(ctx,DW,DH){
     ctx.beginPath(); ctx.moveTo(x-4,yy); ctx.lineTo(x,yy); ctx.stroke();
     ctx.fillText(fmt(v), x-7, yy);
   }
-  ctx.textAlign='left'; ctx.fillText('µm²/s', x, y-6);
+  // Unit label sits ABOVE the bar with its own clear gap — textBaseline set
+  // explicitly to 'bottom' (was left at 'middle' from the tick-label loop
+  // above, which put the text's own vertical CENTRE only 6px above the bar,
+  // reading as cramped/touching) so the offset below is measured from the
+  // text's own bottom edge, giving real breathing room instead.
+  ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillText('µm²/s', x, y-8);
 }
 async function loadSegmentedImage(file){
   try{
