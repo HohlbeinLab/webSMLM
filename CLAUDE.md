@@ -1310,6 +1310,26 @@ being physically nested inside it.
 Leading-unary `**` is a SyntaxError in both JavaScriptCore and V8: write `-((x-d)**2)`, never
 `-(x-d)**2`.
 
+### `getBoundingClientRect()` + scroll gotcha (position:fixed elements anchored to an in-flow one)
+
+`#sideToggle`/`#sidePin` (the mobile/floating sidebar drawer's toggle/pin buttons) are
+`position:fixed`, but their `top` is `calc(var(--header-content-bottom) - ...)`, where
+`--header-content-bottom` is set by `measureHeader()` from `.header-actions.getBoundingClientRect()
+.bottom` — VIEWPORT-relative, so it shifts as the page scrolls. A `position:fixed` element itself
+doesn't move on scroll, so this must store the header's RESTING position (as if scrolled to the very
+top), not whatever the viewport-relative rect happens to read at the moment `measureHeader()` fires.
+Add `window.scrollY` back to recover that: `rect.bottom + window.scrollY` is scroll-invariant,
+`rect.bottom` alone is not. A real, reported bug without it: `measureHeader()` also runs on every
+`resize` event, and mobile browsers fire a `resize` when their address bar collapses/expands
+DURING an ordinary scroll — no explicit scroll listener needed to trigger it — so a resize firing
+while scrolled away from the top baked in a deeply negative `--header-content-bottom` (viewport-
+relative `.bottom` while scrolled 1200px down measured around −1115px), pushing the toggle
+permanently off-screen above the viewport until the next correct remeasurement (e.g. a reload). The
+general rule: any `getBoundingClientRect()` measurement feeding a `position:fixed` element's offset
+must add `window.scrollY`/`window.pageXOffset` back in, or it silently breaks the moment it's
+re-measured from a scrolled state. `--header-h` (`header.getBoundingClientRect().height`, a size not
+a position) doesn't need this — only `.bottom`/`.top`/`.left`/`.right` reads do.
+
 ### Mobile input font-size vs. label font-size
 
 Below the 860px breakpoint, `input.num`/`select.sel` jump to 16px (iOS auto-zooms on focusing a

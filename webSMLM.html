@@ -17,44 +17,45 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.6; may drift with
+  MODULE INDEX — line numbers as of v0.11.7-dev; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2193   PARAMS registry, single source of truth for params;
+    params          2194   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split
-    in/out          2687   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      3000   synthetic stack generator ("Simulate movie")
-    detect          3849   per-frame band-pass + local-maxima detection
-    fit             4105   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    in/out          2688   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      3001   synthetic stack generator ("Simulate movie")
+    detect          3850   per-frame band-pass + local-maxima detection
+    fit             4106   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4580   accumulate to offscreen buffer; view/colour/blur;
+    render          4581   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually exclusive
-    workers         5542   frame-parallel detect/fit worker pool
-    export          5707   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5967   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6367   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5543   frame-parallel detect/fit worker pool
+    export          5708   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5968   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6368   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6683   NeNA + FRC
-    sSMLM           7326   spectrally resolved SMLM pair-finding; merged
+    locprecision    6684   NeNA + FRC
+    sSMLM           7327   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7791   single particle tracking, trackpy-inspired;
+    spt             7792   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
                            segm."/"Show recon." SR-panel swap; merged Show
                            histograms (sptHistBtn/sptHistModeBtn) and Show
                            image (segShowBtn/segShowModeBtn)
-    pipeline        8671   top-level orchestration, *Core()/wrapper split;
+    pipeline        8672   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
-                           whenever localize3D is unchecked
-    table           10404  localizations table, filtering, histograms
-    headless API    10848  window.webSMLM.analyze()/analyzeBatch()
+                           whenever localize3D is unchecked; measureHeader()
+                           adds scrollY back for scroll-invariant fixed-toggle offset
+    table           10414  localizations table, filtering, histograms
+    headless API    10858  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1718,7 +1719,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.6 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2178,7 +2179,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.6 · proof-of-concept</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25a · Fixed: mobile sidebar toggle could vanish (pushed off-screen) after scrolling down then back up</div></div>
   </main>
 </div>
 
@@ -9331,7 +9332,16 @@ $('rawFtmBtn').addEventListener('click',()=>{
   // .header-actions is a convenient, always-present stand-in for "the row's
   // shared bottom edge" — it's one of the two flex-end-aligned rows itself.
   const measureHeader=()=>{ if(header) document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height+'px');
-    if(headerActions) document.documentElement.style.setProperty('--header-content-bottom', headerActions.getBoundingClientRect().bottom+'px'); };
+    // + window.scrollY: getBoundingClientRect().bottom is VIEWPORT-relative (shifts with
+    // scroll), but #sideToggle/#sidePin need the header's RESTING position (as it sits when
+    // scrolled to the very top), since they're position:fixed and read this custom property
+    // as a plain top offset, not something that re-tracks scroll on its own. Adding scrollY
+    // recovers that resting value regardless of current scroll position. Without this, a
+    // resize event firing while scrolled away from the top (mobile browsers fire one when
+    // the address bar collapses/expands mid-scroll — no explicit scroll listener needed to
+    // trigger it) baked the SCROLLED, off-screen position in permanently — a real, reported
+    // bug (the mobile drawer toggle vanished after scrolling down then back up).
+    if(headerActions) document.documentElement.style.setProperty('--header-content-bottom', (headerActions.getBoundingClientRect().bottom+window.scrollY)+'px'); };
   const sync=()=>{ measureHeader(); const hidden=body.classList.contains('side-hidden'),
       float=body.classList.contains('side-float');
     // collapsed → next action is "show"; docked or floating → next action is "hide"
