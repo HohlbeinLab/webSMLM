@@ -918,10 +918,21 @@ relevant one before editing rather than scrolling:
   silently reading as a real (near-zero) D. Track number drawn in white at the track's first point.
   `sptTracksColorByD` defaults to CHECKED (D-colouring is the primary intended use, not an
   afterthought — magenta is the fallback for when no D range is meaningful yet). Line thickness is
-  `mag*view.zoom` (floored at 0.5px) — "the magnification-dependent effective pixel width" by
-  request: one CAMERA pixel's own on-screen size at the current zoom, so it's naturally thin zoomed
-  out and naturally more visible zoomed in, tracking the reconstruction's own effective resolution
-  instead of a fixed screen-px constant.
+  `view.zoom` alone — one RECONSTRUCTION (`srFull`) pixel's own on-screen size at the current view,
+  since `view.zoom` is already "CSS px per `srFull` px" (see its own declaration comment) and one
+  `srFull` px is physically `srNmPerPx()` nm (`"Pixel size (nm)"` / `"Magnification"` — the standard
+  reconstruction-pixel-size figure), so `mag` cancels out of that relationship entirely.
+  **`mag*view.zoom` (an earlier version of this) is wrong** — that draws one CAMERA pixel's width
+  instead, `mag`× too coarse, and was the direct cause of a real, reported spike bug: unbounded as
+  you zoom in, so zooming in far enough to actually inspect individual tracks on real, dense data
+  (the expected use case, not an edge case) grew the line width into the tens-to-hundreds of px —
+  and the canvas's DEFAULT MITER line join turned every sharp turn in a track's own path into a
+  giant spike, the whole overlay becoming an unreadable field of huge red/yellow thorns. Reproduced
+  directly (confirmed `lineWidth` computed to 80px+ at a realistic "zoom in to inspect one track"
+  level) before fixing. Clamped to `[0.5, 6]` px regardless — `view.zoom` alone is smaller but still
+  literally unbounded as you keep zooming in, so the same class of bug remains possible in
+  principle, just far less severe; `lineJoin='round'`/`lineCap='round'` (not the canvas default
+  miter) additionally keep sharp turns smooth even within the clamped range.
 
   A separate SIDEBAR button, `sptShowTracksBtn` ("Show tracks" — disabled until `runSptTrack()`
   finds at least one track, same `!r.trackLengths.length` condition `sptSaveBtn`/`sptHistBtn`
