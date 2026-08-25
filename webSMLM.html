@@ -17,32 +17,32 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-25d; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-25e; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2200   PARAMS registry, single source of truth for params;
+    params          2202   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split
-    in/out          2702   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      3015   synthetic stack generator ("Simulate movie")
-    detect          3864   per-frame band-pass + local-maxima detection
-    fit             4120   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    in/out          2704   TIFF/ND2 parsing, in-memory/streamed loading, FTM
+    simulation      3017   synthetic stack generator ("Simulate movie")
+    detect          3866   per-frame band-pass + local-maxima detection
+    fit             4122   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4595   accumulate to offscreen buffer; view/colour/blur;
+    render          4597   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually exclusive
-    workers         5558   frame-parallel detect/fit worker pool
-    export          5723   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  5983   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6383   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5560   frame-parallel detect/fit worker pool
+    export          5725   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  5985   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6385   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6699   NeNA + FRC
-    sSMLM           7342   spectrally resolved SMLM pair-finding; merged
+    locprecision    6701   NeNA + FRC
+    sSMLM           7344   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7807   single particle tracking, trackpy-inspired;
+    spt             7809   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -51,13 +51,15 @@
                            image (segShowBtn/segShowModeBtn); Show tracks
                            overlay (sptShowTracksBtn/srTracksOverlayBtn),
                            optional colour-by-mean-D (sptTracksColorByD)
-    pipeline        8771   top-level orchestration, *Core()/wrapper split;
+    pipeline        8773   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
-                           adds scrollY back for scroll-invariant fixed-toggle offset
-    table           10513  localizations table, filtering, histograms
-    headless API    10957  window.webSMLM.analyze()/analyzeBatch()
+                           adds scrollY back for scroll-invariant fixed-toggle
+                           offset; refitCanvases() always re-fits on resize,
+                           not gated on atFit
+    table           10527  localizations table, filtering, histograms
+    headless API    10971  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1721,7 +1723,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25d</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2186,7 +2188,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25d · New: Show tracks overlay on the SMLM reconstruction (magenta, optional colour-by-mean-D), toggle next to the panel title</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25e · Fixed: resizing the window now always re-fits the reconstruction/raw panels, even after a manual zoom/pan</div></div>
   </main>
 </div>
 
@@ -4612,7 +4614,7 @@ function setSrRecon(v){ srIsRecon=v; const b=$('cropBtn'); if(b) b.disabled=!v; 
 // lastResult was null. Used by the scale bar and the line-profile tool.
 function srNmPerPx(){ return srIsRecon ? lastResult.px/lastResult.mag : paramValue('pxnm'); }
 let srSpots=null, srLocs=null;         // ROI boxes / fit crosshairs overlay for srFull (bead-composite view only)
-const view={zoom:1,cx:0,cy:0,atFit:true};   // CSS px per srFull px; center in srFull coords; atFit → refit on window resize
+const view={zoom:1,cx:0,cy:0,atFit:true};   // CSS px per srFull px; center in srFull coords; atFit itself no longer gates anything (a window resize always re-fits, see refitCanvases()) — kept as a plain "has the user manually navigated" bookkeeping flag
 // line-profile / distance tool: coords in srFull pixels
 let measureMode=false, measurePt0=null, measureLine=null;
 let profileData=null, profileView=null;   // line-profile plot data + x-axis view (nm range)
@@ -10499,12 +10501,24 @@ $('layoutToggleBtn').addEventListener('click', ()=>{
 // fires for the actual cause, not a proxy for it, so it catches all of the above
 // natively; window's own resize listener is kept alongside it as a belt-and-braces
 // fallback (harmless overlap — both funnel through the same debounce timer).
+// ALWAYS re-fit on an actual window/panel resize (not gated on atFit) — a real,
+// reported bug/request: atFit turns false the moment a user scrolls to zoom or
+// drags to pan (see those handlers below), so on any REAL dataset (someone
+// reviewing hundreds of thousands of real localizations almost always zooms in
+// at some point) a later window resize stopped re-fitting for the rest of the
+// session, leaving the reconstruction at a fixed on-screen scale that didn't
+// track the panel's new size at all — reading as "resizing the window doesn't
+// resize the reconstruction." A resize is a distinct user action from zoom/pan
+// (the user is reshaping the PANEL, not asking to keep their exact previous
+// framing), so it re-fits unconditionally now; atFit itself is untouched and
+// still gates nothing else (dblclick-to-reset already calls fitView()/
+// fitRawView() unconditionally too, same as this does).
 let _plotResizeT=null;
 const refitCanvases=()=>{ clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
   if(rawIsPlot && _replotRaw) _replotRaw();
-  else if(rawFull){ if(rawView.atFit) fitRawView(); clampRawView(); drawRawView(); }   // refit only if it was fitted; else keep on-screen scale
+  else if(rawFull){ fitRawView(); clampRawView(); drawRawView(); }
   if(srIsPlot && _replotSr) _replotSr();
-  else if(srFull){ if(view.atFit) fitView(); clampView(); drawView(); }
+  else if(srFull){ fitView(); clampView(); drawView(); }
 }, 120); };
 window.addEventListener('resize', refitCanvases);
 if(typeof ResizeObserver!=='undefined') new ResizeObserver(refitCanvases).observe($('canvases'));

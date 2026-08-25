@@ -1368,6 +1368,22 @@ must add `window.scrollY`/`window.pageXOffset` back in, or it silently breaks th
 re-measured from a scrolled state. `--header-h` (`header.getBoundingClientRect().height`, a size not
 a position) doesn't need this — only `.bottom`/`.top`/`.left`/`.right` reads do.
 
+### Window resize must always re-fit the reconstruction/raw panels, not just when `atFit`
+
+`refitCanvases()` (the debounced `window.resize`/`ResizeObserver` handler, MODULE: pipeline) used
+to only call `fitView()`/`fitRawView()` when `view.atFit`/`rawView.atFit` was still `true` —
+reasoned as "don't clobber a user's manual zoom/pan on an unrelated redraw." But `atFit` turns
+`false` the moment the user scrolls to zoom or drags to pan ONE TIME, and on any real dataset
+(reviewing hundreds of thousands of real localizations) a user almost always zooms in at some
+point — so in practice, resizing the browser window stopped re-fitting the reconstruction for the
+rest of the session after the very first zoom/pan, a real, reported bug ("resizing the window
+should resize the SMLM reconstruction" — it wasn't, once you'd ever touched the view). Fixed by
+making a window/panel RESIZE always re-fit unconditionally, regardless of `atFit` — a resize is a
+distinct user action from zoom/pan (reshaping the PANEL, not asking to keep the exact previous
+framing), so the two shouldn't have been gated by the same flag. `atFit` itself is untouched and
+still set correctly by `fitView()`/pan/zoom — it just no longer gates anything (nothing else reads
+it; `dblclick`-to-reset already called `fitView()`/`fitRawView()` unconditionally too).
+
 ### Mobile input font-size vs. label font-size
 
 Below the 860px breakpoint, `input.num`/`select.sel` jump to 16px (iOS auto-zooms on focusing a
