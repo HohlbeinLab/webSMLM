@@ -72,9 +72,9 @@ below for what it does.
 | **Localize** | `runBtn` | Runs detection + fitting over the whole loaded/simulated stack — the main action. Disabled until a stack is loaded. |
 | **Stop** | `stopBtn` | Requests an early stop of a running **Localize** or **3D calibration**. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **3D calibration** again to restart with a narrower/correct frame range. |
 | **Save data** | `saveBtn` | Exports the current (filtered) localizations as a ThunderSTORM-compatible CSV — see [§6](#6-csv-export-format). Disabled until there are localizations. |
-| **Save plot / image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
-| **View data + filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
-| **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data + filtering**. |
+| **Save plot/image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
+| **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
+| **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data/filtering**. |
 
 ### Sidebar — Pixel size (nm)
 
@@ -627,7 +627,7 @@ sSmlmPairedLocs`, plus `zcolor` set to match — not just the colour flag;
 "Show standard" shows the literal unpaired reconstruction (the same data
 Unpair would restore), without discarding the pairing the way Unpair does,
 so toggling back to "Show spectral" is instant. Paired locs are already
-`lastResult.locs` while shown, so the top-level **View data + filtering**
+`lastResult.locs` while shown, so the top-level **View data/filtering**
 button works on them directly — no separate table for sSMLM. **Headless**
 (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before
 drift/NeNA/FRC — see §8.
@@ -788,10 +788,10 @@ offset so `track_id` stays globally unique across the whole result.
 Top-level orchestration wiring the UI buttons to the
 modules; `run()` is the Localize entry point.
 
-### View data + filtering (`table`) {#table}
+### View data/filtering (`table`) {#table}
 
 The sortable, cumulatively-filterable localizations table
-("View data + filtering") and per-column histograms, see
+("View data/filtering") and per-column histograms, see
 [§5](#5-table--filter-grammar). `getBaseLocs()` is the single place that
 decides whether the table's base row set is raw `lastResult.locs` or
 `clusterEvents()`-derived merged events; everything downstream (render,
@@ -1539,7 +1539,7 @@ Written by **Save settings**, read by **Load settings**.
 
 ## 5 · Table & filter grammar
 
-Opened by **View data + filtering**. Base row set is `getBaseLocs()` — raw
+Opened by **View data/filtering**. Base row set is `getBaseLocs()` — raw
 localizations, or (if a `tempClusteringXY`/`tempClusteringZ` clause is
 active) merged events from `clusterEvents()`.
 
@@ -1850,7 +1850,7 @@ const result = await window.webSMLM.analyze({
   rendering `reconstructionPng` already uses, via a detached `<canvas>`/an
   SVG recorder — see **render** in `CLAUDE.md`). The raw frame/reconstruction
   are never included (no vector form at real localization counts, same
-  reasoning as the interactive **Save plot / image** button); the
+  reasoning as the interactive **Save plot/image** button); the
   line-profile/histogram plots are inherently interactive (a user-drawn line
   / a chosen table column) with no headless equivalent to render from. The
   calibration plot needs a FRESH build this call (`calibrationFile`/

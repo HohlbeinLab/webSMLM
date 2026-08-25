@@ -442,7 +442,7 @@ relevant one before editing rather than scrolling:
   content, so it keeps one fixed high-contrast-against-anything box rather than becoming
   theme-aware for the plot case alone.
 
-  **"Save plot / image"** (`saveImgBtn`, one button — export module) offers SVG as well as PNG,
+  **"Save plot/image"** (`saveImgBtn`, one button — export module) offers SVG as well as PNG,
   but ONLY for the 7 genuinely plot-shaped panels (calibration, drift, NeNA, FRC, PCFO,
   line-profile, the shared histogram) — never the raw frame or SR reconstruction, which are real
   pixel-density data with no meaningful vector form at real localization counts. There is no
@@ -507,7 +507,7 @@ relevant one before editing rather than scrolling:
   choice is exactly that, same as sidebar collapsed/floating state.
 
   **Quick guide** (`helpBtn`, renamed from "Help & guide") sits in the sidebar sharing `#tableBtn`'s
-  own row, right of **View data + filtering**, styled with its own bespoke `.helpbtn` look (a
+  own row, right of **View data/filtering**, styled with its own bespoke `.helpbtn` look (a
   surface+accent-border+accent-text combo, distinct from a plain default button) — see
   `CHANGELOG.md`'s v0.11.6 entry for the header-relocation detour this went through before landing
   here. `wireHelp()` finds it by `id="helpBtn"`, position- and class-independent.
@@ -704,7 +704,7 @@ relevant one before editing rather than scrolling:
   not a reset. `drawDriftCurveXY()`'s colour-bar legend uses a manual `moveTo`/`lineTo` path
   `stroke()` for its border, not `strokeRect()` — the latter isn't part of `SvgRecordingContext`'s
   duck-typed surface (see **render** above), and the drift plot is one of the 7 SVG-exportable
-  plots, so anything it draws must stay inside that surface or "Save plot / image" → SVG breaks for
+  plots, so anything it draws must stay inside that surface or "Save plot/image" → SVG breaks for
   exactly this one view; caught by actually exercising the SVG export path, not just the on-screen
   canvas one. `renderDriftPlotHeadless()` (`config.exportPlots`) renders whatever `driftPlotMode`
   currently is, same as every other headless plot render piggybacking on interactive module state
@@ -1162,7 +1162,7 @@ relevant one before editing rather than scrolling:
   `config.exportPlots` (also `--exportPlots`/`exportPlots=1` on the CLI/autorun) renders whichever
   of drift/NeNA/FRC/PCFO/calibration were actually computed this call into `result.plots`, each a
   `{pngDataUrl, svgText}` pair — reuses **render**'s `renderPlotBothFormats()`/`_plotTarget`
-  redirection (the same mechanism "Save plot / image" uses interactively, see **render** below), so
+  redirection (the same mechanism "Save plot/image" uses interactively, see **render** below), so
   no visible browser window is needed, just a page context (which `analyze()` already runs inside).
   `drawNenaPlot(res)`/`drawFrcPlot(r)` already take an explicit result parameter, so those render
   directly; `drawDriftCurve()`/`drawPcfoPlot()`/`drawCalibration()` don't (they read
@@ -1178,7 +1178,7 @@ relevant one before editing rather than scrolling:
   included (no vector form at real localization counts, same reasoning as the interactive button);
   the line-profile/histogram plots are inherently interactive (a user-drawn line / a chosen table
   column) with no headless equivalent to render from, so `exportPlots` doesn't cover them.
-- **table** — the sortable, cumulatively-filterable localizations table ("View data + filtering")
+- **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
   pushes an x/y-range clause into the same `_tableFilters` array a typed filter would, so
@@ -1286,6 +1286,12 @@ Sidebar/panel-title buttons must fit on one line at the sidebar's normal width �
 wraps reads as broken layout, not a design choice. Abbreviate rather than let a label wrap:
 "Fit angle & tol." not "Fit angle & tolerance" (see **sSMLM**). Favour standard, unambiguous
 abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that could be misread.
+
+Two-word-joined-by-punctuation labels read `Word/word` with no surrounding spaces (**Save
+plot/image**, **View data/filtering**, **Load movie/data**) — matches the compact house style
+already used elsewhere (`sigma_x`/`sigma_y`, `min`/`max`). A `+` joining two nouns (as
+"View data + filtering" used to) reads as addition/combination rather than an either/or or
+belongs-together pairing; `/` is the established connector for that here.
 
 ### `label.row` nesting-depth gotcha (indented sidebar sub-rows)
 
