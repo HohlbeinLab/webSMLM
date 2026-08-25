@@ -935,8 +935,10 @@ relevant one before editing rather than scrolling:
   miter) additionally keep sharp turns smooth even within the clamped range.
 
   **Track number colour, size, and click-to-select** (a follow-up fine-tuning round, after the
-  above shipped): track-number text is MAGENTA (`#ff3bff`), not white — better contrast against a
-  grey/white reconstruction, by request. Font size scales with `view.zoom/fitZoom()` (how far past
+  above shipped): track-number text was first changed to MAGENTA (`#ff3bff`), not white — better
+  contrast against a grey/white reconstruction, by request — then, in a LATER round (see the
+  start-marker/label-backing entry below), to `plotColors().bar` (the current UI theme's own
+  histogram-bar blue), a second explicit request. Font size scales with `view.zoom/fitZoom()` (how far past
   the initial fit view the user has zoomed, NOT `view.zoom` on its own — an absolute zoom value
   varies wildly by dataset/`mag`, but "how much MORE zoomed in than the default fit" is a
   consistent, dataset-independent quantity), clamped to `[9,28]`px — numbers grow legible as you
@@ -961,6 +963,30 @@ relevant one before editing rather than scrolling:
   would silently select a track instead of placing the point). The selected track is drawn LAST
   (sorted to the end of the per-frame draw loop) so its highlight visually sits on top of any track
   it happens to physically overlap, not buried under a later stroke.
+
+  **Start-of-track marker, histogram-blue numbers, legibility backing box** (a further follow-up
+  round): each track now gets a filled circle at its own FIRST point, radius = `ctx.lineWidth`
+  (diameter = 2x the line's own on-screen thickness, by request) — so the SAME clamped, zoom-
+  dependent thickness formula the line itself uses also sizes the marker, keeping the two
+  proportional at any zoom rather than a marker that could dwarf or vanish against its own line.
+  Filled in the track's own line colour (`col`, whatever that track is currently drawn in — fire-
+  ramp/grey/selection-highlight), not a fixed colour, so the dot always reads as "this track's own
+  start," not a generic landmark. Track-number text moved from magenta to `plotColors().bar` — the
+  live blue the histogram bars themselves use (`--accent` under the current UI theme, or the fixed
+  export palette's own blue during a PNG/SVG plot export) — by explicit request tying it to "the
+  blue we're using for plotting histograms" specifically, a deliberate one-off exception to this
+  module's usual "raw-panel/reconstruction overlays stay theme-independent" convention (scale bar,
+  ROI boxes, depth bar, etc.) since the request ties the colour to something that IS itself theme-
+  live. The selected track's own number still overrides to `selectCol` (magenta/green, matching its
+  line) — unaffected by this change, selection highlighting takes priority over the new default.
+  Each number also gets a backing box — `rgba(0,0,0,.45)`, the EXACT same semi-transparent grey the
+  scale bar's own backing rect uses (`drawScaleBar()`, MODULE: render) — sized from
+  `ctx.measureText(label)` (`actualBoundingBoxAscent`/`Descent`, falling back to a `fontPx`-derived
+  estimate if a stringified-worker/older-engine context doesn't expose them, though this function is
+  never itself reached via `workerSource()`) plus a small fixed padding, so the box hugs each
+  number tightly regardless of its own zoom-scaled font size or digit count, keeping it legible over
+  a bright/busy reconstruction the same way the scale bar's own label stays legible over the image
+  behind it.
 
   A separate SIDEBAR button, `sptShowTracksBtn` ("Show tracks" — disabled until `runSptTrack()`
   finds at least one track, same `!r.trackLengths.length` condition `sptSaveBtn`/`sptHistBtn`
