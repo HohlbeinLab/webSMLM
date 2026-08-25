@@ -905,6 +905,34 @@ relevant one before editing rather than scrolling:
   would silently become `{}`). `tools/webSMLM-cli.mjs`'s `--sptTrack`/`?autorun=`'s `sptTrack=1`
   forward to it. No length-RESOLVED D histogram — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
 
+  **`sptShowTrackDataBtn`** ("Show tracking data", its own row between `sptShowTracksBtn`'s row and
+  `sptSaveBtn`'s — by request; `sptSaveBtn` shares that new row with it, `sptShowTracksBtn` keeps its
+  own row alone above) opens `trackTableModal`, a per-track table view — same underlying rows as
+  **Save tracking data**'s own `sptTrackSummary()` (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`/
+  `first_frame`/`last_frame`), sortable by clicking a column header and filterable with the SAME
+  `parseFilter()` "field op value" grammar (joined by `and`/`or`, cumulative committed clauses,
+  removable chips) the main **View data/filtering** table already uses (MODULE: table) — reused
+  directly rather than reimplemented, since `parseFilter()` is already column-agnostic (takes the
+  active column list as a parameter). Deliberately a SEPARATE, minimal implementation
+  (`_trackTableState`/`_trackTableData`/`_trackTableFiltered`/`_trackTableFilters`, its own
+  `openTrackTable()`/`renderTrackTable()`/`commitTrackTableFilter()`) rather than generalising the
+  main table's own machinery to cover a second data source — that machinery is entangled with the
+  reconstruction (`applyFilterToReconstruction()`), temporal clustering, and the crop tool, none of
+  which a per-track summary has an equivalent of (yet); keeping it separate means this v1 can't
+  regress the well-established per-localization table. Explicitly a v1, by request — no
+  histogram-of-column, no autocomplete, no filter-driven reconstruction/tracks-overlay linkage;
+  `openTrackTable()`'s own header comment flags it as intended to grow later, same spirit as
+  `sptShowTracksBtn`/the segmentation-image work when THEY first shipped as v1s. Rebuilds
+  `_trackTableData` fresh from `lastResult.locs` every time it's opened (so it can't go stale across
+  a re-**Track**), but committed filters persist across close/open of the SAME session, matching the
+  main table's own "cleared only by Reset filter, not by closing the modal" convention — unlike the
+  main table, nothing here hooks the various new-stack-load/Simulate/crop-change reset call sites
+  yet, since a per-track filter clause (`n_locs`/`D_coeff`/etc.) can't reference a column that
+  wouldn't exist in a fresh `sptTrackSummary()` regardless of what changed upstream. Enabled/disabled
+  by the exact same `!r.trackLengths.length` condition as `sptSaveBtn`/`sptShowTracksBtn`, at all six
+  of their own existing call sites (the one enable site in `runSptTrack()`, plus five disable-on-
+  reset sites — new stack load, new Simulate, CSV load, sSMLM Pair, crop change).
+
   **`srTracksOverlayBtn`** ("Show tracks"/"Hide tracks", SR-panel title, same inline-in-title-bar
   placement/toggle convention as `srSegOverlayBtn`/`sSmlmColorBtn`) plots a subset of tracks as thin
   polylines on top of the reconstruction, checked directly against the user's own `sptPALM-Python`
