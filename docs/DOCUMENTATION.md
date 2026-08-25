@@ -717,15 +717,21 @@ Headless exposure ([§8](#8-headless-api-window-websmlm)'s
 after drift/NeNA/FRC, not before, since a per-track D benefits from
 drift-corrected coordinates and tracking never drops rows the way
 sSMLM's pairing does. **Show tracks** (v0.11.7) plots a subset of tracks
-directly on the **SMLM reconstruction** — a thin polyline per track, its
-`track_id` in white, magenta by default. Only tracks meeting **Min track
-length** are eligible (blocking the shortest tracks relieves most of the
-plotting burden on a dense dataset on its own); **Show tracks (%)**
+directly on the **SMLM reconstruction** — a thin polyline per track, a small
+filled circle marking its own start point (diameter = 2× the line
+thickness, same colour as the line), and its `track_id` in white on a
+semi-transparent backing box for legibility, growing larger the further you
+zoom in. Magenta by default. Click a track (anywhere along its own line) to
+select it — it highlights magenta in colour-by-D mode, or the same green
+the raw panel's own ROI boxes use otherwise. Only tracks meeting **Min
+track length** are eligible (blocking the shortest tracks relieves most of
+the plotting burden on a dense dataset on its own); **Show tracks (%)**
 (default 10%) then samples a further, fixed percentage of the remainder —
 deterministically, via a fixed-seed PRNG draw per `track_id` (not derived
 from the data), so the same dataset always shows the same track
-identities at a given percentage, and raising the percentage only reveals
-MORE tracks rather than reshuffling which ones were already shown. Line
+identities at a given percentage: raising the percentage only reveals
+MORE tracks rather than reshuffling which ones were already shown, and
+raising **Min track length** only ever removes tracks. Line
 thickness tracks the reconstruction's own effective resolution rather
 than a fixed screen size — one reconstruction pixel's on-screen width at
 the current zoom (`"Pixel size (nm)"/"Magnification"` nm, physically),
@@ -737,8 +743,8 @@ switches each track's colour to the same ramp as the **Fire (hot)**
 render LUT instead, normalised against **D plot min/max** (reusing the
 D-histogram's own display-range fields rather than a second min/max
 pair) — a track with no qualifying D estimate draws a neutral grey, and
-a colour-scale legend (same "centre right" placement as the depth/sSMLM
-colour bar) appears while it's checked. Turning the overlay on also
+a colour-scale legend (centred along the panel's right edge) appears while
+it's checked. Turning the overlay on also
 switches the reconstruction's own colour map to **Grey**, so the tracks'
 own colouring isn't visually competing with a coloured density map — the
 same convention the reference pipeline's own track-visualisation figure
@@ -749,7 +755,9 @@ the visual design (not the code — this is a from-scratch canvas overlay,
 not a matplotlib port) of the user's own `sptPALM-Python` pipeline's
 `plot_single_cell_analysis_sptPALM.py` (`plot_tracks_in_cells()`, which
 colours tracks by D via matplotlib's `hot` colormap the same way) and
-`plot_cells_locs_sptPALM.py` (magenta for in-track localizations). No
+`plot_cells_locs_sptPALM.py` (magenta for in-track localizations).
+**Show track data** (v0.11.7) opens a sortable, filterable table of the
+per-track summary — see below for the filter grammar. No
 length-RESOLVED D histogram (D binned by track length — distinct from the
 plain track-length histogram above) yet — see `docs/REFACTOR_PLAN.md`.
 

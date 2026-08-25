@@ -894,8 +894,7 @@ relevant one before editing rather than scrolling:
   `track_id`/`D_coeff` are independent, optional table/CSV columns (same pattern as sSMLM's
   `dist`/`sigma1st`), so the filter grammar works on tracking data for free — the general **Save
   data** CSV gains these automatically once Track has run. **Save track data**
-  (`sptSaveBtn`/`exportSptSummary()`, "Save tracking data" until a follow-up shortening — see
-  `sptShowTrackDataBtn` below) is a genuinely DIFFERENT export: `sptTrackSummary()`
+  (`sptSaveBtn`/`exportSptSummary()`) is a genuinely DIFFERENT export: `sptTrackSummary()`
   aggregates into one row per TRACK (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`) rather than
   per localization — built from the tracked locs directly, not `lastSpt`'s own arrays (those only
   cover qualifying tracks); every linked track gets a row here. **Headless**: `config.sptTrack`
@@ -906,245 +905,86 @@ relevant one before editing rather than scrolling:
   would silently become `{}`). `tools/webSMLM-cli.mjs`'s `--sptTrack`/`?autorun=`'s `sptTrack=1`
   forward to it. No length-RESOLVED D histogram — tracked as `docs/REFACTOR_PLAN.md` follow-ups.
 
-  **`sptShowTrackDataBtn`** opens `trackTableModal` ("Track data"), a per-track table view — same
-  underlying rows as **Save track data**'s own `sptTrackSummary()` (`track_id`/`n_locs`/`D_coeff`/
-  `mean_x`/`mean_y`/`first_frame`/`last_frame`), sortable by clicking a column header and filterable
-  with the SAME `parseFilter()` "field op value" grammar (joined by `and`/`or`, cumulative committed
-  clauses, removable chips) the main **View data/filtering** table already uses (MODULE: table) —
-  reused directly rather than reimplemented, since `parseFilter()` is already column-agnostic (takes
-  the active column list as a parameter). Label/layout went through a follow-up round: shipped first
-  as "Show tracking data" sharing a row with "Save tracking data" (right slot); "Show tracking data"
-  wrapped onto two lines at the sidebar's normal width (see **Button label length** below) — fixed by
-  shortening both labels ("Show track data"/"Save track data") AND relayering: `sptShowTrackDataBtn`
-  moved UP into `sptShowTracksBtn`'s row (right slot, next to **Show tracks**), leaving `sptSaveBtn`
-  alone in the row below — which, as the SOLE child of a `.btnrow` 2-column grid with no explicit
-  `grid-column` override, lands in the LEFT slot by default (the same "lone button defaults to grid
-  column 1" mechanics `helpBtn`/a solo `tableBtn` row already rely on elsewhere) — satisfying "moved
-  to the left" with no extra CSS needed. The modal's own `max-width` was also brought in line with
-  the main table's (`960px`, was `760px` — read as a visibly different, narrower "new" modal rather
-  than the same visual format, a real, reported complaint) and its filter-input markup now mirrors
-  the main table's DOM shape exactly (`<input>` wrapped in its own `position:relative` div, even
-  though this modal has no autocomplete dropdown to anchor there) for the same reason — pixel-level
-  consistency with the table it's explicitly meant to look like, not a functional need. The actual
-  TABLE styling (font/size, alternating row stripe, sticky header, header hover colour) is a real,
-  reported gap from the same round: `#locTable`'s own CSS block (`<style>`, right after
-  `--row-stripe`'s theme-var declarations) was scoped by ID alone, so `#trackTable` had none of it
-  and rendered with the browser's own bare default table look. Fixed by widening every one of those
-  selectors to `#locTable,#trackTable` (ONE shared rule set, not a duplicated parallel block) — the
-  two tables literally can't drift apart in appearance now, since there's only one place to edit.
-  Deliberately
-  a SEPARATE, minimal implementation (`_trackTableState`/`_trackTableData`/`_trackTableFiltered`/
-  `_trackTableFilters`, its own `openTrackTable()`/`renderTrackTable()`/`commitTrackTableFilter()`)
-  rather than generalising the main table's own machinery to cover a second data source — that
-  machinery is entangled with the reconstruction (`applyFilterToReconstruction()`), temporal
-  clustering, and the crop tool, none of which a per-track summary has an equivalent of (yet);
-  keeping it separate means this v1 can't regress the well-established per-localization table.
-  Explicitly a v1, by request — no
-  histogram-of-column, no autocomplete, no filter-driven reconstruction/tracks-overlay linkage;
-  `openTrackTable()`'s own header comment flags it as intended to grow later, same spirit as
-  `sptShowTracksBtn`/the segmentation-image work when THEY first shipped as v1s. Rebuilds
-  `_trackTableData` fresh from `lastResult.locs` every time it's opened (so it can't go stale across
-  a re-**Track**), but committed filters persist across close/open of the SAME session, matching the
-  main table's own "cleared only by Reset filter, not by closing the modal" convention — unlike the
-  main table, nothing here hooks the various new-stack-load/Simulate/crop-change reset call sites
-  yet, since a per-track filter clause (`n_locs`/`D_coeff`/etc.) can't reference a column that
-  wouldn't exist in a fresh `sptTrackSummary()` regardless of what changed upstream. Enabled/disabled
-  by the exact same `!r.trackLengths.length` condition as `sptSaveBtn`/`sptShowTracksBtn`, at all six
-  of their own existing call sites (the one enable site in `runSptTrack()`, plus five disable-on-
-  reset sites — new stack load, new Simulate, CSV load, sSMLM Pair, crop change).
+  **Tracks overlay** (`srTracksOverlayBtn` "Show tracks"/"Hide tracks" toggle next to the SR-panel
+  title; `sptShowTracksBtn` in the sidebar turns it ON and reveals that toggle — same
+  entry-point/toggle split `srSegOverlayBtn` uses) plots a filtered/sampled subset of tracks as thin
+  polylines over the reconstruction (`drawTracksOverlay()`), coloured/styled to match the user's own
+  `sptPALM-Python` (`plot_cells_locs_sptPALM.py`/`plot_single_cell_analysis_sptPALM.py`): plain
+  magenta (`#ff3bff`) by default, or — `sptTracksColorByD` ("Colour tracks by mean D", checked by
+  default) — each track coloured by its own mean D via `getLUT('fire')` (matplotlib `hot`),
+  normalised against `sptDPlotMin`/`Max`; a track with no qualifying D (too short) draws neutral
+  `#666`. A filled circle marks each track's own start point, radius = the line's own on-screen
+  thickness (diameter = 2× line width), filled in the track's current colour. The track number sits
+  beside the start point in white on a `rgba(0,0,0,.6)` backing box (padded by one extra
+  line-thickness, sized via `ctx.measureText()`) for legibility, matching the scale bar's own
+  dark-box convention; font size scales with `view.zoom/fitZoom()` — how far past the DEFAULT fit
+  view, not `view.zoom` alone (dataset/`mag`-independent) — clamped `[9,14]px`. Clicking anywhere
+  along a track's own polyline selects it (`trackHitTest()`, point-to-segment distance, `8/view.zoom`
+  screen-px tolerance, measure/crop tools keep priority over this passive click) — the selected
+  track's line and number override to magenta (colour-by-D mode) or `#3fb950` green (plain mode,
+  matching raw-panel ROI boxes), drawn last so the highlight sits on top; click again, or elsewhere,
+  to deselect. `selectedTrackId` resets at the same five call sites `srTracksOverlayOn` itself does
+  (new stack load, new Simulate, CSV load, sSMLM Pair, crop change). Turning the overlay on also
+  switches the reconstruction to the `grey` LUT (`switchLutToGreyForTracks()`), matching
+  `plot_tracks_in_cells()`'s own plain-background convention.
 
-  **`srTracksOverlayBtn`** ("Show tracks"/"Hide tracks", SR-panel title, same inline-in-title-bar
-  placement/toggle convention as `srSegOverlayBtn`/`sSmlmColorBtn`) plots a subset of tracks as thin
-  polylines on top of the reconstruction, checked directly against the user's own `sptPALM-Python`
-  pipeline's `plot_cells_locs_sptPALM.py`/`plot_single_cell_analysis_sptPALM.py` before choosing
-  colours — magenta (`#ff3bff`) by default, matching that pipeline's own convention for in-track
-  localizations; `sptTracksColorByD` ("Colour tracks by mean D") switches each track's colour to
-  `getLUT('fire')` instead — the same ramp as matplotlib's `hot`, which `plot_tracks_in_cells()`
-  uses for exactly this — normalised against `sptDPlotMin`/`sptDPlotMax` (the D-histogram's own
-  existing display-range fields, reused rather than adding a second min/max pair); a track with no
-  qualifying D estimate (too short — see `sptTrackLenMin`) draws a neutral `#666` instead of
-  silently reading as a real (near-zero) D. Track number drawn in white at the track's first point.
-  `sptTracksColorByD` defaults to CHECKED (D-colouring is the primary intended use, not an
-  afterthought — magenta is the fallback for when no D range is meaningful yet). Line thickness is
-  `view.zoom` alone — one RECONSTRUCTION (`srFull`) pixel's own on-screen size at the current view,
-  since `view.zoom` is already "CSS px per `srFull` px" (see its own declaration comment) and one
-  `srFull` px is physically `srNmPerPx()` nm (`"Pixel size (nm)"` / `"Magnification"` — the standard
-  reconstruction-pixel-size figure), so `mag` cancels out of that relationship entirely.
-  **`mag*view.zoom` (an earlier version of this) is wrong** — that draws one CAMERA pixel's width
-  instead, `mag`× too coarse, and was the direct cause of a real, reported spike bug: unbounded as
-  you zoom in, so zooming in far enough to actually inspect individual tracks on real, dense data
-  (the expected use case, not an edge case) grew the line width into the tens-to-hundreds of px —
-  and the canvas's DEFAULT MITER line join turned every sharp turn in a track's own path into a
-  giant spike, the whole overlay becoming an unreadable field of huge red/yellow thorns. Reproduced
-  directly (confirmed `lineWidth` computed to 80px+ at a realistic "zoom in to inspect one track"
-  level) before fixing. Clamped to `[0.5, 6]` px regardless — `view.zoom` alone is smaller but still
-  literally unbounded as you keep zooming in, so the same class of bug remains possible in
-  principle, just far less severe; `lineJoin='round'`/`lineCap='round'` (not the canvas default
-  miter) additionally keep sharp turns smooth even within the clamped range.
+  **Line thickness is `view.zoom` alone, NOT `mag*view.zoom` — get this wrong and the spike bug
+  comes back.** One reconstruction (`srFull`) pixel's own on-screen size = `view.zoom` (already "CSS
+  px per `srFull` px"); `mag*view.zoom` draws one CAMERA pixel's width instead (`mag`× too coarse)
+  and is UNBOUNDED as you zoom in — the direct cause of a real, reported bug where zooming in far
+  enough to inspect one track blew the line width into the tens-to-hundreds of px, and the canvas's
+  default MITER join turned every sharp turn into a giant spike. Clamped to `[0.5,6]px` regardless
+  (still theoretically unbounded without the `mag` factor, just far less severe), `lineJoin`/
+  `lineCap`=`'round'`.
 
-  **Track number colour, size, and click-to-select** (a follow-up fine-tuning round, after the
-  above shipped): track-number text was first changed to MAGENTA (`#ff3bff`), not white — better
-  contrast against a grey/white reconstruction, by request — then, in a LATER round (see the
-  start-marker/label-backing entry below), to `plotColors().bar` (the current UI theme's own
-  histogram-bar blue), a second explicit request. Font size scales with `view.zoom/fitZoom()` (how far past
-  the initial fit view the user has zoomed, NOT `view.zoom` on its own — an absolute zoom value
-  varies wildly by dataset/`mag`, but "how much MORE zoomed in than the default fit" is a
-  consistent, dataset-independent quantity), clamped to `[9,14]`px (originally `[9,28]` — coefficient
-  and max both HALVED, `11`→`5.5`/`28`→`14`, in a follow-up round: on real dense data, zoomed-in
-  numbers read noticeably oversized next to the D colour-bar legend's own fixed 11px labels; the 9px
-  min floor is unchanged, so a number at the default fit view never shrinks below that) — numbers
-  grow legible as you zoom in to actually distinguish tracks, rather than staying a fixed on-screen
-  size. A track is
-  now SELECTABLE: clicking anywhere along its own polyline (point-to-SEGMENT distance, not
-  point-to-point, so a click between two localizations still hits — `distPointToSegment()`) selects
-  it, highlighting both its line and its own number in `#ff3bff` magenta (colour-by-D mode — stands
-  out against the fire ramp) or `#3fb950` green (plain-magenta mode — the SAME green the raw panel's
-  own ROI boxes use, i.e. `--accent2`) depending on `sptTracksColorByD`; clicking the already-
-  selected track (or empty space near no track) deselects, clicking a different track switches.
-  `trackHitTest(fx,fy)` (srFull-px coords, same space `srClickToFull()` already converts a click
-  into) is the hit test — tolerance is expressed in SCREEN px (`8/view.zoom`, a constant "click
-  precision" regardless of zoom) rather than srFull px, matching how the line-thickness formula
-  above is itself computed in screen space. Selection state (`selectedTrackId`, module-level) is
-  reset at all the same five call sites `srTracksOverlayOn` itself resets at (new stack load, new
-  Simulate, CSV load, sSMLM Pair, crop change) — a stale selection from a previous dataset must
-  never survive into a new one. Click handling lives in the SAME `$('sr').addEventListener('click',
-  ...)` measure/crop tool already uses — extended with a new branch guarded by
-  `srTracksOverlayOn && !measureMode && !cropMode` (measure/crop are explicit multi-click TOOLS the
-  user turned on, so they keep first priority over the passive tracks-overlay click; without this
-  ordering, clicking to place a measure-line point while tracks happen to be visible underneath
-  would silently select a track instead of placing the point). The selected track is drawn LAST
-  (sorted to the end of the per-frame draw loop) so its highlight visually sits on top of any track
-  it happens to physically overlap, not buried under a later stroke.
+  **`drawTracksColorBar()`** (D legend, shown while `sptTracksColorByD` is checked) anchors to the
+  PANEL itself — `x=DW-28-bw, y=(DH-bh)/2`, `bw`/`bh`=`16`/`180` — not `srBarAnchor()`'s data-extent
+  anchor `drawDepthBar()` uses (tried first, read as squeezed into the corner once the bar was sized
+  up for breathing room); shifts left by `bw+24` when `srFull._zColor` is also true, so it doesn't
+  overlap a real depth-colour bar sharing the same margin. **Must set `ctx.lineWidth=1` explicitly
+  before its own `strokeRect()`** — `ctx.lineWidth` is canvas STATE, not reset between draw calls,
+  and this function runs immediately after `drawTracksOverlay()` in the same `drawView()` call, so
+  without the explicit reset its border silently inherited the tracks' own zoom-dependent line width
+  (a real, reported bug: the legend border thickened right along with the track lines at high zoom).
+  Same lesson for `textBaseline`: the µm²/s unit label sets it to `'bottom'` explicitly rather than
+  inheriting `'middle'` from the tick-label loop above it, or the label reads cramped against the bar.
 
-  **Start-of-track marker, histogram-blue numbers, legibility backing box** (a further follow-up
-  round): each track now gets a filled circle at its own FIRST point, radius = `ctx.lineWidth`
-  (diameter = 2x the line's own on-screen thickness, by request) — so the SAME clamped, zoom-
-  dependent thickness formula the line itself uses also sizes the marker, keeping the two
-  proportional at any zoom rather than a marker that could dwarf or vanish against its own line.
-  Filled in the track's own line colour (`col`, whatever that track is currently drawn in — fire-
-  ramp/grey/selection-highlight), not a fixed colour, so the dot always reads as "this track's own
-  start," not a generic landmark. Track-number text went through TWO colour changes: first magenta
-  → `plotColors().bar` (the live histogram-bar blue, tied to "the blue we're using for plotting
-  histograms" by explicit request); then, once the backing box below existed, blue → plain `#fff`
-  white — with the box itself now providing contrast against the reconstruction, the text only needs
-  to contrast against that near-black box, which white does more reliably than the accent blue
-  (matches the scale bar's own white-on-dark-box convention) and, as a side effect, brings this back
-  in line with the module's usual "raw-panel/reconstruction overlays stay theme-independent"
-  convention (scale bar, ROI boxes, depth bar, etc.) that the blue had been a deliberate one-off
-  exception to. The selected track's own number still overrides to `selectCol` (magenta/green,
-  matching its line) — unaffected by either colour change, selection highlighting takes priority
-  over the default. Each number also gets a backing box — based on the scale bar's own
-  `rgba(0,0,0,.45)` (`drawScaleBar()`, MODULE: render), bumped to `.6` and padded out by one extra
-  effective pixel (`+startR`, the SAME clamped one-reconstruction-pixel on-screen size the start
-  marker itself uses) for a roomier, more opaque box, by a later follow-up request — sized from
-  `ctx.measureText(label)` (`actualBoundingBoxAscent`/`Descent`, falling back to a `fontPx`-derived
-  estimate if a stringified-worker/older-engine context doesn't expose them, though this function is
-  never itself reached via `workerSource()`) plus that padding, so the box hugs each number tightly
-  regardless of its own zoom-scaled font size or digit count, keeping it legible over a bright/busy
-  reconstruction the same way the scale bar's own label stays legible over the image behind it.
+  `getTracksOverlayData()` groups `lastResult.locs` by `track_id` (excluding `track_id<0`) sorted by
+  frame, cached by object identity against `lastResult.locs` — same pattern
+  `_segOverlayForLabels`/`_transReconForSrFull` use, so pan/zoom doesn't rebuild it every frame, only
+  a fresh `runSptTrack()` does. **`getVisibleTracksForOverlay()`** then narrows the full list before
+  drawing (plotting every track as a vector polyline+label is unreadably heavy on a dense real
+  dataset): `sptTrackLenMin` (the same threshold `runSptTrack()` uses for a D estimate) drops short
+  tracks, then `sptShowTracksPct` (default 10%) samples a fixed percentage of the survivors
+  deterministically — `mulberry32(TRACKS_OVERLAY_SEED)` draws one float **per track in the FULL,
+  unfiltered id-ordered list**, keeping a track iff its own draw is `<pct/100` AND it meets
+  `sptTrackLenMin`. **The draw must run over the full list, not the length-filtered subset** — an
+  earlier version filtered first, so a track's draw depended on its index among the survivors, which
+  shifted whenever `sptTrackLenMin` changed; raising the threshold could then make an unrelated track
+  suddenly appear or vanish, a real, reported bug. Fixed by calling `rng()` once per track in the
+  full list regardless of qualification. Net effect, verified with a monotonicity sweep: the same
+  dataset always shows the same track identities at a given percentage; raising the percentage only
+  ADDS tracks, never reshuffles; raising `sptTrackLenMin` only REMOVES tracks. Cached against (list
+  identity, minLen, pct); `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all live-refresh
+  the overlay via `refreshTracksOverlayIfShown()`, no fresh Track needed.
 
-  A separate SIDEBAR button, `sptShowTracksBtn` ("Show tracks" — disabled until `runSptTrack()`
-  finds at least one track, same `!r.trackLengths.length` condition `sptSaveBtn`/`sptHistBtn`
-  already use), is the entry point: clicking it turns the overlay ON and reveals
-  `srTracksOverlayBtn` for quick on/off from then on — it never itself reads "Hide tracks", only
-  the SR-panel-title toggle does, by explicit request (two different roles: one "make it visible"
-  action button, one on/off toggle). Shares its own `.btnrow` with `sptSaveBtn` (moved to the right
-  of it, per the same request) — `sptTrackBtn`/`sptHistBtn` keep their own row above. Turning the
-  overlay ON (from either button) also calls `switchLutToGreyForTracks()` — sets the reconstruction
-  colour map to `grey` and `rerender()`s, matching `sptPALM-Python`'s own `plot_tracks_in_cells()`
-  convention of plotting tracks over a plain grayscale background (a coloured LUT would otherwise
-  visually compete with the tracks' own magenta/D colouring) — same "(re-)selecting a mode picks its
-  own sensible LUT default" precedent `updateMethodUI()` already uses for `is3d`/`turbo` and
-  `phasor`+`gaussmle`/`fire`, just triggered by the tracks overlay instead of a fit-method change.
-
-  **`drawTracksColorBar()`** (D legend, shown whenever `sptTracksColorByD` is checked while the
-  overlay is on) originally reused `drawDepthBar()`'s own `srBarAnchor()` — anchored to the DATA's
-  own right edge/vertical centre, the same as the depth/sSMLM-distance bar. Reverted after a
-  real, reported complaint ("squeezed to the top right"): a data-extent anchor reads fine for a bar
-  sized to match the reconstruction's own content, but felt cramped once `bw`/`bh` were bumped up
-  for genuine breathing room. Now anchored to the PANEL itself instead — `x=DW-28-bw`,
-  `y=(DH-bh)/2` (a generous fixed right margin, vertically centred on the whole panel, independent
-  of where the data or its bounding box actually sit) — with `bw`/`bh` grown from `12`/`140` to
-  `16`/`180` alongside the repositioning, since a bigger bar was the actual point of "more space to
-  breathe", not just relocating a cramped one. `srBarAnchor()` itself is UNCHANGED and still used by
-  `drawDepthBar()` — this is a case where the tracks-by-D legend's own requirements (a panel-level
-  scale reference, not tied to any single feature's position the way real depth/z colouring is)
-  diverged from the depth bar's, not a claim that `srBarAnchor()` was wrong. If `srFull._zColor` is
-  ALSO true (a real 3D/sSMLM-coloured reconstruction plus tracks-by-D at once — a genuine, if rare,
-  combination), `drawDepthBar()` still anchors via `srBarAnchor()` into roughly the same right-hand
-  margin; `drawTracksColorBar()` detects this and shifts itself left by one bar-width + a slightly
-  larger gap (`bw+24`, up from `+20`, matching the bigger bar) so the two sit side by side instead
-  of silently overlapping. LINEAR scale against `sptDPlotMin`/`sptDPlotMax` via the `fire` LUT,
-  matching `drawTracksOverlay()`'s own linear colour mapping exactly (NOT the D histogram's log10
-  binning — a different view of the same quantity, deliberately not reused here).
-
-  **The bar's own border must set `ctx.lineWidth` explicitly before `strokeRect()`** — a real,
-  reported bug: `ctx.lineWidth` is canvas STATE, not reset between draw calls, and
-  `drawTracksColorBar()` runs immediately after `drawTracksOverlay()` in the same `drawView()` call
-  (see `drawView()`'s own `if(srTracksOverlayOn...)` block) — `drawTracksOverlay()`'s own line
-  thickness is deliberately zoom-dependent (`Math.max(0.5, Math.min(6, view.zoom))`, see its own
-  comment), and without an explicit reset here the border silently inherited that same value, so a
-  high zoom level made the legend's own border grow thick right along with the track lines even
-  though a legend border has no reason to track reconstruction zoom at all. Fixed with an explicit
-  `ctx.lineWidth=1` right before the `strokeRect()` call. Same root cause as any canvas-state bug:
-  a property one draw call sets and never resets leaks into whatever runs next on the same `ctx`.
-  The unit label (`µm²/s`) also had its own smaller legibility bug in the same round: it reused
-  `textBaseline='middle'` left over from the tick-label loop just above it, so its measured offset
-  (`y-6`) placed the text's own vertical CENTRE only 6px above the bar — reading as cramped/
-  touching. Fixed by setting `textBaseline='bottom'` explicitly right before drawing it, so the
-  offset is measured from the label's own bottom edge instead, giving real clearance.
-
-  `getTracksOverlayData()` groups `lastResult.locs` by `track_id` (excluding `track_id<0` —
-  background/untracked, see the `segCtx` path above) sorted by frame, cached by object identity
-  against `lastResult.locs` — same pattern `_segOverlayForLabels`/`_transReconForSrFull` use, so
-  panning/zooming (which redraws every frame via `drawView()`) doesn't rebuild it every frame, only
-  a genuinely fresh `runSptTrack()` (which replaces `lastResult.locs` with a new array) does. Every
-  loc in one track carries the SAME `D_coeff` (`sptCore()`'s own `withD` map sets it once per
-  `track_id`), so `pts[0].D_coeff` is enough — no need to search the whole track. Reset alongside
-  `sptSaveBtn`/`sptHistBtn` at all five existing disable-on-reset call sites (new stack load, new
-  Simulate, CSV load, sSMLM Pair, crop change) plus enabled in `runSptTrack()`'s own success path —
-  same convention, no new reset mechanism needed.
-
-  **`getVisibleTracksForOverlay()`** narrows that full list before drawing — a real, reported
-  performance/legibility complaint: plotting EVERY track as a vector polyline+label is heavy on a
-  dense real dataset (thousands of tracks), and unreadable regardless. Two filters: `sptTrackLenMin`
-  — the SAME threshold `runSptTrack()` already uses for a D estimate, no second length field — drops
-  the shortest/least-informative tracks outright, which alone accounts for most of the relief on
-  real data (e.g. 1483 linked tracks → 142 meeting a min-length-5 filter on one real test dataset);
-  `sptShowTracksPct` ("Show tracks (%)", default 10) then samples a fixed PERCENTAGE —
-  deterministically: `mulberry32(TRACKS_OVERLAY_SEED)` (a fixed constant, NOT derived from the
-  dataset) draws one float **per track in the FULL (unfiltered) id-ordered list**, keeping a track
-  iff its own draw is `< pct/100` **AND** it meets `sptTrackLenMin`. Because the draw sequence only
-  depends on track_id order and the fixed seed — never on how many tracks exist, what order they
-  were linked in, or which OTHER tracks currently qualify — the same dataset (re-tracked with the
-  same settings, so the same `track_id`s exist) always shows the same track IDENTITIES at a given
-  percentage, matching the "always the same identity of tracks for one dataset" request directly,
-  with no need to derive a seed from the data itself.
-
-  **The draw MUST run over the full list, not the `sptTrackLenMin`-filtered subset** — an earlier
-  version filtered first, then sorted and sampled only the survivors; each track's own draw is
-  really "the Nth `rng()` call," so filtering first meant every surviving track's own N shifted
-  whenever `sptTrackLenMin` changed (removing/restoring tracks ahead of it in id order), which
-  silently reassigned it a DIFFERENT random draw — a real, reported bug: raising **Min track
-  length** could make an already-qualifying, completely unrelated track suddenly appear (or a
-  previously-visible one vanish), with no logical connection to the field the user actually changed.
-  Fixed by calling `rng()` unconditionally once per track in the FULL id-ordered list (qualifying or
-  not) and applying both the draw and the length check together in one pass — every surviving
-  track's own draw is now pinned to its fixed position in the full sequence, independent of
-  `sptTrackLenMin` entirely. Verified with a monotonicity sweep on real Simulate+Track output
-  (`sptTrackLenMin` = 1→2→3→5→8 at a fixed 50% pct): the shown-id set at each step is a strict
-  SUBSET of the previous step's — zero "newly appeared" ids at any transition. A useful side effect
-  of this same per-track (not per-selection) sampling: raising the PERCENTAGE only ADDS tracks to
-  what was already shown, never reshuffles or removes previously-visible ones — verified directly
-  (every ID visible at 10% was still present at 50% on the same dataset), and this property was
-  never actually broken by the `sptTrackLenMin` bug above (percentage sampling was always correctly
-  independent of table order in that dimension — only the minLen/percentage INTERACTION was wrong).
-  Cached against (the full track list's own identity, `sptTrackLenMin`, `sptShowTracksPct`) so
-  panning/zooming doesn't re-filter every frame; `sptTrackLenMin`/`sptShowTracksPct`/
-  `sptTracksColorByD` all wire a `change` listener (`refreshTracksOverlayIfShown()`) that redraws the
-  overlay if it's currently showing — none of the three need a fresh **Track** click, matching
-  `sptTrackLenMin`'s already-established live-refresh precedent for the track-length histogram
-  marker.
+  **`sptShowTrackDataBtn`** ("Show track data", shares `sptShowTracksBtn`'s row; `sptSaveBtn` — "Save
+  track data" — alone in the row below, defaulting to the left grid slot with no extra CSS) opens
+  `trackTableModal` ("Track data"): a sortable, filterable table of `sptTrackSummary()`'s own
+  per-track rows (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`/`first_frame`/`last_frame`),
+  reusing the main table's `parseFilter()` "field op value" grammar directly (MODULE: table) rather
+  than reimplementing it. Deliberately a SEPARATE, minimal implementation (own state
+  `_trackTableState`/`Data`/`Filtered`/`Filters`, own `openTrackTable()`/`renderTrackTable()`/
+  `commitTrackTableFilter()`) rather than generalising the main table's own machinery, which is
+  entangled with reconstruction filtering/temporal clustering/the crop tool that a per-track summary
+  has no equivalent of yet — a v1, by request, to extend later (no histogram-of-column, no
+  autocomplete, no filter-driven reconstruction linkage). `#trackTable` shares `#locTable`'s CSS
+  (font/row-stripe/sticky header/hover) via one combined selector list, not a duplicated block, so
+  the two tables can't visually drift apart. Rebuilds fresh from `lastResult.locs` on every open;
+  committed filters persist across close/open, cleared only by Reset filter (same convention as the
+  main table). Enabled/disabled by the same `!r.trackLengths.length` condition as
+  `sptSaveBtn`/`sptShowTracksBtn`, at all six of their own call sites (one enable site in
+  `runSptTrack()`, five disable-on-reset sites).
 
   **Cell-by-cell tracking is also wired headlessly**, `config.segmentationFile` — a File, loaded
   the same way `config.file`/`config.calibrationFile` are (`loadTiffFile()`, frame 0 only), through
