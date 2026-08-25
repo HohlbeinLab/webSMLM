@@ -941,8 +941,12 @@ relevant one before editing rather than scrolling:
   histogram-bar blue), a second explicit request. Font size scales with `view.zoom/fitZoom()` (how far past
   the initial fit view the user has zoomed, NOT `view.zoom` on its own — an absolute zoom value
   varies wildly by dataset/`mag`, but "how much MORE zoomed in than the default fit" is a
-  consistent, dataset-independent quantity), clamped to `[9,28]`px — numbers grow legible as you
-  zoom in to actually distinguish tracks, rather than staying a fixed on-screen size. A track is
+  consistent, dataset-independent quantity), clamped to `[9,14]`px (originally `[9,28]` — coefficient
+  and max both HALVED, `11`→`5.5`/`28`→`14`, in a follow-up round: on real dense data, zoomed-in
+  numbers read noticeably oversized next to the D colour-bar legend's own fixed 11px labels; the 9px
+  min floor is unchanged, so a number at the default fit view never shrinks below that) — numbers
+  grow legible as you zoom in to actually distinguish tracks, rather than staying a fixed on-screen
+  size. A track is
   now SELECTABLE: clicking anywhere along its own polyline (point-to-SEGMENT distance, not
   point-to-point, so a click between two localizations still hits — `distPointToSegment()`) selects
   it, highlighting both its line and its own number in `#ff3bff` magenta (colour-by-D mode — stands
