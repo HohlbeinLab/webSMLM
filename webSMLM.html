@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-25l; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-25m; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1732,7 +1732,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25l</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2198,7 +2198,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25l · Tracks overlay: start-of-track marker circle, track numbers in histogram-blue on a scale-bar-style backing box</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25m · Fixed: raising Min track length could make an unrelated track suddenly (dis)appear in the tracks overlay — the %-sample draw now runs over the full id-ordered list, not the length-filtered subset</div></div>
   </main>
 </div>
 
@@ -8726,9 +8726,22 @@ function getVisibleTracksForOverlay(){
   const all=getTracksOverlayData(); if(!all) return null;
   const minLen=paramValue('sptTrackLenMin'), pct=paramValue('sptShowTracksPct');
   if(_visTracksForLocs===all && _visTracksMinLen===minLen && _visTracksPct===pct) return _visTracksData;
-  const qualifying=all.filter(t=>t.pts.length>=minLen).sort((a,b)=>a.id-b.id);
+  // Draw ONE rng() call per track over the FULL id-ordered list — NOT the
+  // minLen-filtered subset (an earlier version filtered first, then sorted
+  // and sampled the survivors) — so each track's own keep/drop draw depends
+  // only on its own id and the configured pct, never on which OTHER tracks
+  // currently also qualify. Filtering first shifted every surviving track's
+  // own index whenever minLen changed, which shifted which random number IT
+  // consumed — a real, reported bug: raising Min track length could make an
+  // already-qualifying, otherwise-unrelated track suddenly appear (or a
+  // previously-shown one disappear) purely from the reindexing, not because
+  // anything about that track itself changed. Calling rng() unconditionally
+  // for every track (qualifying or not) keeps each surviving track's own
+  // draw pinned to its id's fixed position in the full sequence regardless
+  // of minLen.
+  const ordered=[...all].sort((a,b)=>a.id-b.id);
   const rng=mulberry32(TRACKS_OVERLAY_SEED), frac=Math.max(0,Math.min(1,pct/100));
-  const visible=qualifying.filter(()=>rng()<frac);
+  const visible=ordered.filter(t=>{ const keep=rng()<frac; return keep && t.pts.length>=minLen; });
   _visTracksData=visible; _visTracksForLocs=all; _visTracksMinLen=minLen; _visTracksPct=pct;
   return visible;
 }

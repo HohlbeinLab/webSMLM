@@ -1036,26 +1036,44 @@ relevant one before editing rather than scrolling:
 
   **`getVisibleTracksForOverlay()`** narrows that full list before drawing — a real, reported
   performance/legibility complaint: plotting EVERY track as a vector polyline+label is heavy on a
-  dense real dataset (thousands of tracks), and unreadable regardless. Two filters, applied in
-  order: (1) `sptTrackLenMin` — the SAME threshold `runSptTrack()` already uses for a D estimate, no
-  second length field — drops the shortest/least-informative tracks outright, which alone accounts
-  for most of the relief on real data (e.g. 1483 linked tracks → 142 meeting a min-length-5 filter
-  on one real test dataset); (2) `sptShowTracksPct` ("Show tracks (%)", default 10) then samples a
-  fixed PERCENTAGE of the remainder — deterministically: `mulberry32(TRACKS_OVERLAY_SEED)` (a fixed
-  constant, NOT derived from the dataset) draws one float per qualifying track IN TRACK-ID ORDER,
-  keeping it iff the draw is `< pct/100`. Because the draw sequence only depends on track_id order
-  and the fixed seed — never on how many tracks exist or what order they were linked in — the same
-  dataset (re-tracked with the same settings, so the same `track_id`s exist) always shows the same
-  track IDENTITIES at a given percentage, matching the "always the same identity of tracks for one
-  dataset" request directly, with no need to derive a seed from the data itself. A useful side
-  effect of per-track (not per-selection) sampling: raising the percentage only ADDS tracks to what
-  was already shown, never reshuffles or removes previously-visible ones — verified directly (every
-  ID visible at 10% was still present at 50% on the same dataset). Cached against (the full track
-  list's own identity, `sptTrackLenMin`, `sptShowTracksPct`) so panning/zooming doesn't re-filter
-  every frame; `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all wire a `change` listener
-  (`refreshTracksOverlayIfShown()`) that redraws the overlay if it's currently showing — none of the
-  three need a fresh **Track** click, matching `sptTrackLenMin`'s already-established live-refresh
-  precedent for the track-length histogram marker.
+  dense real dataset (thousands of tracks), and unreadable regardless. Two filters: `sptTrackLenMin`
+  — the SAME threshold `runSptTrack()` already uses for a D estimate, no second length field — drops
+  the shortest/least-informative tracks outright, which alone accounts for most of the relief on
+  real data (e.g. 1483 linked tracks → 142 meeting a min-length-5 filter on one real test dataset);
+  `sptShowTracksPct` ("Show tracks (%)", default 10) then samples a fixed PERCENTAGE —
+  deterministically: `mulberry32(TRACKS_OVERLAY_SEED)` (a fixed constant, NOT derived from the
+  dataset) draws one float **per track in the FULL (unfiltered) id-ordered list**, keeping a track
+  iff its own draw is `< pct/100` **AND** it meets `sptTrackLenMin`. Because the draw sequence only
+  depends on track_id order and the fixed seed — never on how many tracks exist, what order they
+  were linked in, or which OTHER tracks currently qualify — the same dataset (re-tracked with the
+  same settings, so the same `track_id`s exist) always shows the same track IDENTITIES at a given
+  percentage, matching the "always the same identity of tracks for one dataset" request directly,
+  with no need to derive a seed from the data itself.
+
+  **The draw MUST run over the full list, not the `sptTrackLenMin`-filtered subset** — an earlier
+  version filtered first, then sorted and sampled only the survivors; each track's own draw is
+  really "the Nth `rng()` call," so filtering first meant every surviving track's own N shifted
+  whenever `sptTrackLenMin` changed (removing/restoring tracks ahead of it in id order), which
+  silently reassigned it a DIFFERENT random draw — a real, reported bug: raising **Min track
+  length** could make an already-qualifying, completely unrelated track suddenly appear (or a
+  previously-visible one vanish), with no logical connection to the field the user actually changed.
+  Fixed by calling `rng()` unconditionally once per track in the FULL id-ordered list (qualifying or
+  not) and applying both the draw and the length check together in one pass — every surviving
+  track's own draw is now pinned to its fixed position in the full sequence, independent of
+  `sptTrackLenMin` entirely. Verified with a monotonicity sweep on real Simulate+Track output
+  (`sptTrackLenMin` = 1→2→3→5→8 at a fixed 50% pct): the shown-id set at each step is a strict
+  SUBSET of the previous step's — zero "newly appeared" ids at any transition. A useful side effect
+  of this same per-track (not per-selection) sampling: raising the PERCENTAGE only ADDS tracks to
+  what was already shown, never reshuffles or removes previously-visible ones — verified directly
+  (every ID visible at 10% was still present at 50% on the same dataset), and this property was
+  never actually broken by the `sptTrackLenMin` bug above (percentage sampling was always correctly
+  independent of table order in that dimension — only the minLen/percentage INTERACTION was wrong).
+  Cached against (the full track list's own identity, `sptTrackLenMin`, `sptShowTracksPct`) so
+  panning/zooming doesn't re-filter every frame; `sptTrackLenMin`/`sptShowTracksPct`/
+  `sptTracksColorByD` all wire a `change` listener (`refreshTracksOverlayIfShown()`) that redraws the
+  overlay if it's currently showing — none of the three need a fresh **Track** click, matching
+  `sptTrackLenMin`'s already-established live-refresh precedent for the track-length histogram
+  marker.
 
   **Cell-by-cell tracking is also wired headlessly**, `config.segmentationFile` — a File, loaded
   the same way `config.file`/`config.calibrationFile` are (`loadTiffFile()`, frame 0 only), through
