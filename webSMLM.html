@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-25j; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-25k; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -1732,7 +1732,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25j</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.7-dev · build 2026-08-25k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2198,7 +2198,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25j · Tracks overlay: magenta track numbers (scale with zoom), click-to-select a track (magenta/green highlight), D colour-bar moved to a roomier panel-centred-right anchor</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.7-dev · build 2026-08-25k · Fixed: histogram x-axis now has 5% right-edge headroom, so a lone long-tail outlier bar (e.g. a 100+-loc track) isn't flush against the axis edge and invisible</div></div>
   </main>
 </div>
 
@@ -11011,6 +11011,14 @@ function plotColumnHistogram(col){
 function computeHist(col, vals, unit, markers, logY){
   let dmin=Infinity, dmax=-Infinity; for(const v of vals){ if(v<dmin)dmin=v; if(v>dmax)dmax=v; }
   const lo=Math.min(0,dmin); let hi=dmax; if(hi<=lo) hi=lo+1;
+  // 5% right-edge headroom, mirroring the Y-axis's own *1.08 factor below for
+  // the same reason: without it, the single tallest/rightmost bin's right
+  // edge sits exactly AT the plot's own right border (hi===dmax exactly) and
+  // visually fuses with the axis line — a real, reported bug where a lone
+  // long-tail outlier (e.g. one 100+-loc track on the SPT track-length
+  // histogram, everything else under ~40) was effectively invisible, flush
+  // against the edge rather than a distinguishable bar with space around it.
+  hi = lo + (hi-lo)*1.05;
   const nb=Math.max(10,Math.min(80,Math.round(Math.sqrt(vals.length)*1.5))), bw=(hi-lo)/nb, hist=new Float64Array(nb);
   for(const v of vals){ let b=((v-lo)/bw)|0; if(b<0)b=0; if(b>=nb)b=nb-1; hist[b]++; }
   let ymax=0; for(const c of hist) if(c>ymax)ymax=c; ymax*=1.08;

@@ -1335,6 +1335,18 @@ relevant one before editing rather than scrolling:
   calling `drawHistogram()`. Defaults to `null` (cleared by every `computeHist()` call), so every
   existing caller that never sets it renders identically to before.
 
+  `computeHist()`'s x-axis range (`hi`) carries a 5% right-edge headroom (`hi = lo +
+  (dmax-lo)*1.05`), mirroring the Y-axis's own long-standing `ymax*=1.08` factor a few lines below
+  it for the same reason: without it, `hi===dmax` exactly, so the single tallest/rightmost bin's
+  own right edge sits flush against the plot's own right border and visually fuses with it. A real,
+  reported bug on **spt**'s own track-length histogram: a long-tail outlier track (100+ locs,
+  everything else under ~40) was effectively invisible, indistinguishable from the axis line rather
+  than a small but visible bar with real whitespace around it — binning itself was never the
+  problem (`b>=nb` already clips into the last bin, so the value was always counted), only the
+  missing visual margin was. Binning (`nb`/`bw`) is computed against the padded `hi`, so the extra
+  headroom shows up as genuinely empty space past the last populated bin, not a redistribution of
+  existing data into a wider last bin.
+
 The list above is in the file's actual physical order (as of v0.11.1, **workers** and
 **export** were swapped to match — see `docs/REFACTOR_PLAN.md` for the reasoning and how it was
 verified safe: both are pure declarations, no cross-referencing top-level state, so JS hoisting
