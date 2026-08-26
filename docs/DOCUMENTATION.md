@@ -1519,9 +1519,8 @@ load (never auto-applied — see **in/out** in `CLAUDE.md`), which can help;
 but treat it as one input, not the final word — the bundled
 `experimental_data/` L. lactis test file is a real example of why: its
 filename implies 50 ms/frame, but its own embedded `finterval` tag says
-5 ms, an unresolved 10× discrepancy (see `experimental_data/README.md`'s
-lactis entry). See [§2](#2-module-reference)'s **spt** entry for the full
-linking/diffusion-coefficient algorithm.
+5 ms, an unresolved 10× discrepancy. See [§2](#2-module-reference)'s **spt**
+entry for the full linking/diffusion-coefficient algorithm.
 
 ### Pipeline behaviour (`pipeline`) {#pipeline-behaviour-params}
 

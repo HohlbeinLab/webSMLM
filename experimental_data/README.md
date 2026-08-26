@@ -1,10 +1,6 @@
-# experimental_data
+# Experimental data
 
-Drop real SMLM stacks here for benchmarking and validation.
-
-## These files are not committed
-
-Everything with an image extension is git-ignored — see [`.gitignore`](.gitignore).
+Links to publicaly available SMLM stacks for benchmarking and validation. Locally added files are currently git-ignored — see [`.gitignore`](.gitignore).
 That is deliberate:
 
 - **This repository is public.** Committing a stack publishes it, along with any
@@ -16,19 +12,8 @@ That is deliberate:
 
 The files are still fully usable locally — they are simply untracked.
 
-## If a fixture *should* be committed
 
-A small, deliberately-cropped stack (a few MB, e.g. 50 frames of 128×128) makes a
-genuinely useful regression fixture. Force-add it and say where it came from:
-
-```bash
-git add -f experimental_data/small_crop.tif
-```
-
-For anything larger, prefer a download link or a Zenodo deposit referenced here
-over committing the bytes.
-
-## Current benchmark dataset
+## Dataset I — DNA nanorulers
 
 GATTAquant GATTA-PAINT 80R DNA-PAINT nanoruler (80 nm mark-to-mark), acquired
 on a Leica GSD system.
@@ -47,52 +32,24 @@ from GATTAquant.
 **The public download is not a single ready-to-load stack** — it's one TIFF
 per frame. webSMLM loads it directly: click **Load movie**, then select all
 the frame files at once (Ctrl/Cmd+click, or your file manager's "select all")
-— multiple single-frame TIFFs are natural-sorted by filename and concatenated
-into one stack automatically, no separate tool needed. (An older route still
-works too: concatenate them into one multi-frame TIFF in ImageJ first — File
-→ Import, then File → Save As → Tiff — and load that single file instead;
-see below for why that path is still worth keeping around as a test case.)
 
 Three reasons this dataset is a good fixture beyond raw speed:
 
 - **It exercises the multi-file loader** (`loadTiffSequence`) — natural
   filename sorting (so frame 2 sorts before frame 10) and per-file decoding,
   each frame in its own little-endian byte order.
-- **The ImageJ-concatenated alternative exercises the big-endian 16-bit
-  decode path instead** — the per-frame originals are little-endian, but
-  ImageJ's concatenated stack comes out big-endian, a different code path
-  (`loadTiff`/`loadMultiIfdStreaming`) than loading the folder directly.
 - **It carries a resolution ground truth** — the 80 nm mark-to-mark spacing
   lets the FRC precision work be validated against a known distance rather
   than only self-consistency.
 
 **FRC on this dataset shows extra peaks at 40 nm and 20 nm**, alongside the
-expected 80 nm one — exact submultiples of the ruler spacing (80/2, 80/4),
-not a bug. A periodic structure like a regularly-spaced nanoruler array
+expected 80 nm one — exact submultiples of the ruler spacing (80/2, 80/4).
+A periodic structure like a regularly-spaced nanoruler array
 concentrates its Fourier content at the fundamental spatial frequency *and*
 its harmonics, so FRC — which assumes a generic, non-periodic structure —
-picks those harmonics up as apparent resolution. Expect this on any
-sufficiently periodic sample; it isn't extra resolved detail.
+picks those harmonics. Expect this on any sufficiently periodic sample.
 
-**`GATTA-PAINT-80R-raw_cropped.tif`** (82×83 px, 1999 frames, big-endian) is a
-smaller ImageJ-cropped derivative of the dataset above, kept alongside a
-byte-identical duplicate (`GATTA-PAINT-80R-raw_cropped copy.tif`) specifically
-to exercise `loadTiffFilesAuto()`'s OTHER multi-file case: several files that
-are each ALREADY multi-frame stacks in their own right (unlike the per-frame
-originals above), meant to be concatenated end-to-end as one continuous
-acquisition split across files purely by size — not one file per frame.
-Selecting both (Ctrl/Cmd+click **Load movie**) auto-detects this from the
-first file's own frame count and loads a combined 3998-frame stack
-(1999+1999) via `makeConcatStack()`; **Localize** runs cleanly across the
-file boundary (verified: 21,598 localizations from 3998/3998 frames, no
-errors). `makeConcatStack()` also rejects a frame-size mismatch across files
-(checked against `GATTA-PAINT-80R-raw_cropped.tif` paired with the 150×150
-`sequence-as-stack-Beads-AS-Exp.tif` below — throws immediately, `runBtn`
-stays disabled, load fails cleanly rather than silently combining
-incompatible files). See **in/out** in `CLAUDE.md`/`docs/DOCUMENTATION.md`
-for the design.
-
-## Second benchmark dataset — 3D STORM (very large, ~4.9 GB)
+## Dataset II — 3D STORM (very large, ~4.9 GB)
 
 3D STORM of spectrin rings in neurons, by **Christophe Leterrier**, on figshare:
 [3D STORM spectrin rings in neurons](https://figshare.com/articles/dataset/3D_STORM_spectrin_rings_in_neurons/19165061).
@@ -127,7 +84,7 @@ back-illuminated) that isn't part of the reported settings above, so as with
 the EPFL dataset's stated 0.90 e⁻/photon, a QE correction could be layered
 on top if wanted — not applied here.
 
-## Third benchmark dataset — 3D astigmatism ground truth (EPFL SMLM 2016 Challenge)
+## Dataset III — 3D astigmatism ground truth (EPFL SMLM 2016 Challenge)
 
 Three files from the EPFL Biomedical Imaging Group's SMLM 2016 3D simulation
 challenge, astigmatism (AS) modality, `MT0.N1` microtubule structure —
@@ -193,143 +150,31 @@ regression checks don't depend on re-downloading from EPFL.
 `sequence-as-stack-MT0.N1.LD-AS-Exp.tif` (158.9 MB) stays local-only regardless
 (over the 100 MB hard limit).
 
-## Fourth reference dataset — spectral SMLM (sSMLM) pair-finding
+## Dataset IV — spectrally resolved SMLM pair-finding
 
-`sSMLM_Fig2_locs.csv` — real localizations from the same lineage as Figure 2A
-of Martens, Gobes, Archontakis, Brillas, Zijlstra, Albertazzi & Hohlbein,
+Data for Figure 2A of Martens et al. "
 *Enabling Spectrally Resolved Single-Molecule Localization Microscopy at
-High Emitter Densities*, *Nano Lett.* **22**(21), 8618–8625 (2022),
+High Emitter Densities*", *Nano Lett.* **22**(21), 8618–8625 (2022),
 [10.1021/acs.nanolett.2c03140](https://doi.org/10.1021/acs.nanolett.2c03140).
 The full dataset behind the paper — TIFF stacks for Figures 2–4 and
 Supplementary Figures 1–2, plus processed CSVs, 19.3 GB total — is on Zenodo:
-[10.5281/zenodo.6778964](https://doi.org/10.5281/zenodo.6778964), *"Enabling
-spectrally resolved single-molecule localization microscopy at high emitter
-densities: Dataset"* (same authors).
+[10.5281/zenodo.6778964](https://doi.org/10.5281/zenodo.6778964).
 
-**Current copy is PAIRED output** (46 MB, 757,715 rows, `id,frame,x [nm],
-y [nm],z [nm],sigma [nm],intensity [photon],offset [photon],bkgstd [photon],
-uncertainty [nm]` — note the `z` column), from Localize run across **4
+Localize run across **4
 combined, cropped movies loaded together** via the multi-file "combine
 several multi-frame TIFFs" path (`loadTiffFilesAuto()`/`makeConcatStack()`,
 see **in/out** in `CLAUDE.md`), then **Pair**. 100,000 frames total, z holds
-the inter-order distance (~2,994–3,110 nm here), same trick as always. Load
-via **Load data**, not **Load movie** — there's no raw stack behind this
-copy, only the localizations. Loading it correctly shows `(3D)` and
-**Pair** correctly *refuses* it (`⚠ sSMLM pairing needs 2D localizations —
-the current result already has real z...`) — this is the guard working as
-intended, a real, natural test case for "don't silently re-pair
-already-paired data" that's worth keeping around specifically for that,
-not a dataset to feed through **Preview pairs**/**Pair** again.
+the inter-order distance (~2,994–3,110 nm here), same trick as always.
 
-An earlier version of this file (92 MB, 1,710,773 rows, **raw/unpaired**,
-31,407 frames, ~54.5 loc/frame, ~24.2 × 12.3 µm FOV) was used to validate
-the pairing algorithm itself before this repo had its own multi-movie test
-case — kept here for the record, not reproducible from the current file:
-direct analysis (sampled ~3,000 frames, all same-frame pairwise
-distances/angles, then reproduced live via **Preview pairs**) found a sharp
-**distance peak at ~2.5 µm** (median 2536 nm) against the expected smooth
+Data found a sharp **distance peak** against the expected smooth
 combinatorial background, and a **dominant angle at ~0°/180°** within that
-window — the apparent presence on *both* sides turned out to be a
-diagnostic dead end, not a real symmetric ±1st-order signal (see
-`docs/REFACTOR_PLAN.md`'s sSMLM entry: brightness turned out unreliable for
-telling 0th from 1st order; PSF width (σ) gave a real but imperfect signal;
-the mechanism that actually worked was purely directional
-self-disqualification). The module's own `PARAMS` defaults
+window. The module's own `PARAMS` defaults
 (`sSmlmDistMin=2200, sSmlmDistMax=2800, sSmlmAngleTol=5`) were tuned to that
 peak, recovering 547,183 pairs (64.0%) there, mean distance 2546 ± 73 nm — a
 mean-position sanity check (averaging all 0th-order positions vs. all
 matched 1st-order positions, an entirely independent computation from the
 per-pair distance stat) reproduced a (2544, 87) nm separation, confirming
 the pairs found were self-consistent.
-
-## Fifth reference dataset — `example_stack100.nd2` (ND2 loading investigation)
-
-From Christophe Leterrier's [`cleterrier/DECODE_NC`](https://github.com/cleterrier/DECODE_NC)
-repo (NeuroCyto tools for the DECODE SMLM software), placed here to validate
-Nikon ND2 loading support — see `docs/REFACTOR_PLAN.md`'s ND2 entry for the
-full feasibility research. **Surprising finding**: despite the `.nd2`
-extension, this file's actual bytes are a big-endian **ImageJ TIFF** stack
-(`MM\x00\x2a` magic, embedded `ImageJ=1.53c\nimages=100\nframes=100...`
-description) — independently confirmed by walking its IFD chain byte-by-byte
-(exactly 100 well-formed IFDs) and by loading it through webSMLM's existing
-TIFF path end to end: 100 frames, 256×256, Localize finds 8,681 real
-localizations (92% of 9,421 candidates kept), worker pool engages normally.
-Not a genuine native Nikon ND2 binary container — almost certainly a
-portability export DECODE_NC's own notebook pipeline produces, just named
-`.nd2` in that repo. **Does not unblock real native-ND2 parsing** (still no
-sample of the actual proprietary binary format to validate a parser
-against), but it did surface and fix a real, general robustness gap: the
-file-input's `accept` filter and the multi-file loader
-(`loadTiffFilesAuto()`/`loadTiffSequence()`) used to trust the `.tif`/`.tiff`
-*extension*; they now sniff the real magic bytes instead (`isTiffFile()`),
-so a mislabeled-but-genuinely-TIFF file like this one loads correctly, and
-genuinely non-TIFF content (e.g. a real native ND2 binary, or any other
-unsupported format) now fails with a clear error instead of silently
-producing `NaN`-sized buffers and canvas errors downstream — a real bug that
-existed before this file surfaced it, since nothing had exercised that path.
-See **in/out** in `CLAUDE.md`/`docs/DOCUMENTATION.md` for the design.
-
-## Sixth reference dataset — `Sample2_L.lactis_..._MMStack_Pos0.ome.tif` (single particle tracking)
-
-`Sample2_L.lactis_10ng-mlNR_1000f_50msft_30%green_greenfilt_1_MMStack_Pos0.ome.tif`
-(147 MB) — a real *Lactococcus lactis* sptPALM movie, the test file for the
-**spt** (single particle tracking) module (v0.11.2, see `CLAUDE.md`/
-`docs/DOCUMENTATION.md`). Verified directly rather than trusted from the
-filename: `MM\x00\x2a` magic (big-endian OME-TIFF/MMStack), 256×256,
-**1173 frames** — the filename's own "1000f" undercounts the real frame
-count by 173, worth knowing if cropping to a round number; 50 ms/frame
-(`sptFrameTime = 0.05`) does match the filename's "50msft".
-
-Loads and localizes through webSMLM's existing TIFF/Localize path with no
-changes needed. Full-stack run (default `pxnm=100`, `method=gaussmle`):
-74,011 localizations → **spt Track** finds 21,578 tracks (unchanged by
-`sptTrackLenMin`, which only gates the D estimate below, not linking
-itself), 5,175 with `sptTrackLenMin=5` (default as of the 2026-08-18
-refinement) qualify for a D estimate — mean D = 0.325 µm²/s, median D =
-0.264 µm²/s (consistent with a 100-frame-subset run: mean 0.290, median
-0.235), both physically plausible for bacterial cytoplasmic protein
-diffusion. 82 of the full run's tracks came out with a non-positive D (a
-real, expected artifact of the localization-error correction for
-near-immobile/short tracks, not a bug — see **spt** in `CLAUDE.md`);
-`drawSptDHist()` excludes these from the plotted histogram rather than
-clamping them into one bin. These numbers replace an earlier run under the
-pre-refinement algorithm (`sptTrackLenMin=2`, `sptTrackLenMax=8` truncation,
-D clamped rather than excluded), which is why the qualifying-track count and
-mean/median D shifted from that version.
-
-## Seventh & eighth reference datasets — genuine native ND2 binaries
-
-`2026-07-13_BHK21_EphB2_mEos4_substack_0-100.nd2` (13.9 MB, 100 frames) and
-`2026-07-13_BHK21_EphB2_mEos4_substack_0-500.nd2` (68.0 MB, 500 frames) —
-real STORM/PALM acquisitions (mEos4, BHK21 cells, EphB2), placed to unblock
-Nikon ND2 loading (see `docs/REFACTOR_PLAN.md`'s ND2 entry). Unlike the
-earlier `example_stack100.nd2` (which turned out to be a mislabeled TIFF),
-these are confirmed **genuine native ND2 binaries**: `file(1)` reports
-"data" (unrecognized), magic `0x0ABECEDA` at offset 0, the literal
-`"ND2 FILE SIGNATURE CHUNK NAME01!Ver3.0"` string at offset 0x10.
-
-The chunk container format was reverse-engineered directly from these two
-files (cross-validated against each other, byte-identical structure except
-frame count). Confirmed: 256×256, 16-bit storage (14-bit significant),
-single channel, frame count recoverable three independent ways (counting
-`ImageDataSeq` chunks, the `uiSequenceCount` metadata field, and the
-filename itself — all agree: 100 and 500 respectively). Real pixel payload
-bytes read as plausible uncompressed camera data, no decompression applied.
-
-**Parser shipped v0.11.2** (`isNd2File()`/`loadNd2File()`, see **in/out** in
-`CLAUDE.md`) — **still experimental**: no official Nikon spec exists, so
-this is a from-scratch reverse-engineered decoder validated against only
-these two real files (plus one independent reference-library cross-check),
-not a broad corpus of ND2 writers/versions. Both files here load, Localize,
-and headless-`analyze()` correctly. A real row-0 pixel-corruption bug (a
-24-byte per-frame sub-header misread as pixel data — tens of thousands of
-ADU, above the camera's declared 14-bit ceiling) was caught from a live
-screenshot and fixed same-cycle, verified byte-for-byte against the
-independent BSD-3-Clause `tlambert03/nd2` reference across both files. Real
-impact, not cosmetic: on the 500-frame file, Localize went from 5
-localizations before the fix to 24,533 after — treat any new ND2 file as
-worth a similar sanity check (e.g. compare a raw frame against another
-viewer) before trusting results from it.
 
 ## Useful properties to note for benchmarking
 
