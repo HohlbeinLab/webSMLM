@@ -854,21 +854,15 @@ relevant one before editing rather than scrolling:
 
   `drawSegmentedImage()` also calls `setFrameAspect(w,h)` with the segmentation image's OWN
   dimensions, taking over `--frame-ar` (the CSS custom property BOTH panels' canvases track, see
-  **render** above) regardless of what set it before. A real, reported bug otherwise: for a
-  CSV-loaded result (no `stack`, so `initScrub()` never runs), `--frame-ar` was left a
-  `parseCsvLocs()`'s own loc-bounding-box `w`/`h` — an APPROXIMATION, padded and never exactly the
-  segmentation image's true dimensions — so the "Segmented image" panel got letterboxed inside a
-  box shaped for the OTHER canvas, showing an empty gap along one edge that looked exactly like a
-  data misalignment but wasn't one: checking the actual pixel data directly (a synthetic
-  known-position test, then the real bundled segmentation image) confirmed both layers agree
-  exactly — `segmentedImageLabels.arr`'s own first non-zero row and the closest real localization's
-  own `y` both landed at row/coordinate ≈0, with no genuine gap in the DATA. The segmentation
-  image's dimensions are treated as the more authoritative source for `--frame-ar` once one is
+  **render** above) regardless of what set it before — a real, reported bug otherwise: for a
+  CSV-loaded result (no `stack`, so `initScrub()` never runs), `--frame-ar` was left at
+  `parseCsvLocs()`'s own loc-bounding-box `w`/`h`, an APPROXIMATION never exactly matching the
+  segmentation image's true dimensions, so the panel got letterboxed with a gap that looked like a
+  data misalignment but wasn't (confirmed directly against real data — both layers agree exactly).
+  The segmentation image's dimensions are the more authoritative source for `--frame-ar` once one is
   loaded — a real, known camera FOV shape, unlike a loc-bounding-box guess that's only ever an
-  approximation of the true dimensions to begin with (border-adjacent localizations are dropped
-  during fitting, so it's always somewhat smaller than the real FOV regardless). The reconstruction
-  panel may pick up a small letterbox gap of its own from this instead — the right trade, not a new
-  problem, given which of the two shapes is actually known vs. approximated.
+  approximation. The reconstruction panel may pick up a small letterbox gap of its own from this
+  instead — the right trade, given which of the two shapes is actually known vs. approximated.
 
   `segmentedImageLabels` (`{arr,w,h}`, the loaded label array — distinct from `segmentedImageData`,
   the per-cell stats table both are built from) persists independently of whatever the raw panel
@@ -892,86 +886,48 @@ relevant one before editing rather than scrolling:
   version needs the shuffled values themselves to be dense for that). Verified visually against the
   real bacteria dataset above — no two adjacent cells share a similar colour.
 
-  **SR-panel "Show segm."/"Show recon."** (`srSegOverlayBtn`, next to "SMLM reconstruction", same
-  inline-in-title-bar placement as `sSmlmColorBtn`'s "Show spectral") swaps the panel between the
-  normal density reconstruction and the segmented cells (OPAQUE) with the SAME density reconstruction
-  drawn on top of them, its own black background made highly transparent — so cell colour shows
-  through wherever there's no real signal, while density stays clearly visible on top. Two earlier
-  designs were tried and replaced, each on direct user feedback against a real dataset: a
-  semi-transparent cell blend (`ctx.globalAlpha=0.28`) UNDER the opaque density reconstruction — cell
-  borders unreadable under the fire colormap; then opaque cells with each localization as a plain
-  white point on top, REPLACING the density image outright — reported as looking worse than just
-  keeping the familiar reconstruction visible. Two offscreen canvases, both built in `drawView()`
-  (MODULE: render):
+  **SR-panel "Show segm."/"Show recon."** (`srSegOverlayBtn`, next to "SMLM reconstruction") swaps
+  the panel between the normal density reconstruction and the segmented cells (OPAQUE) with the SAME
+  density reconstruction drawn on top, its own black background made highly transparent — so cell
+  colour shows through wherever there's no real signal, while density stays clearly visible on top
+  (two earlier designs — a semi-transparent blend, then opaque cells with plain white points
+  replacing the density image entirely — were tried and rejected on direct user feedback). Two
+  offscreen canvases, both built in `drawView()` (MODULE: render):
   - `buildSegOverlayCanvas()` — at `segmentedImageLabels`' own CAMERA-pixel resolution (not
-    `srFull`'s, which is camera px × `mag`), label 0 (background) fully transparent so panning past
-    the segmentation's own edge shows black rather than a coloured fringe, every other pixel fully
-    OPAQUE at its cell's colour via the SAME `shuffledLabelColors(seed=0)` call `drawSegmentedImage()`
-    uses, so a cell's colour here always matches its colour in the "Segmented image" raw-panel view.
-    Cached (`_segOverlayCanvas`/`_segOverlayForLabels`, keyed by object identity against
-    `segmentedImageLabels`) — rebuilt only when a genuinely new segmentation image loads.
+    `srFull`'s, camera px × `mag`), label 0 (background) fully transparent, every other pixel OPAQUE
+    via the SAME `shuffledLabelColors(seed=0)` call `drawSegmentedImage()` uses, so a cell's colour
+    always matches between the two views. Cached by object identity against `segmentedImageLabels`.
   - `buildTransparentReconCanvas()` — redraws `srFull` with alpha derived from each pixel's own
-    LUMINANCE (`0.299r+0.587g+0.114b`, the same weighting `lineProfile()` already uses for its own
-    sampling) rather than duplicating `renderSuperRes()`'s accumulation math a second time — every
-    `LUT_CPS` ramp starts at `[0,0,0]` (fire, inferno, viridis, turbo, hsvBlue all confirmed), so
-    "black" and "zero density" are the same condition for every colour map this app has, making
-    luminance a safe, LUT-agnostic proxy. `*2.5` gain (first-pass, expected to be tuned) so a pixel
-    reaches full opacity well before true peak density — "highly transparent" is meant to describe
-    the near-zero-density background, not a permanently-washed-out reconstruction. `MIN_SIGNAL_ALPHA`
-    (90) floors the alpha of any pixel with genuinely nonzero luminance — a real, reported problem
-    with luminance-only alpha: every `LUT_CPS` ramp starts near-black by design, so a SPARSE/isolated
-    localization (not part of a bright cluster) was already barely non-black to begin with, and
-    `luminance*2.5` alone left it dim-coloured AND nearly transparent at once — compounding into
-    genuinely invisible against a bright cell colour underneath, not just faint. The floor guarantees
-    a visible grey speck for any real signal while true zero-density pixels stay fully `alpha=0`
-    exactly as before (`lum>0` gates the floor, not a blanket minimum). Built directly at `srFull`'s
-    OWN resolution so `drawView()` samples it with the exact same `sx,sy,sw,sh` as `srFull` itself, no
-    extra `/mag` needed. Cached by object identity against `srFull`
-    (`_transReconCanvas`/`_transReconForSrFull`) — a NEW `srFull` object only exists after
-    `rerender()` actually rebuilds the reconstruction, so this rebuilds exactly when the density
-    buffer itself would have.
+    LUMINANCE (`0.299r+0.587g+0.114b`) rather than duplicating `renderSuperRes()`'s accumulation math
+    a second time — every `LUT_CPS` ramp starts at `[0,0,0]`, so luminance is a safe, LUT-agnostic
+    zero-density proxy. `*2.5` gain so a pixel reaches full opacity well before true peak density;
+    `MIN_SIGNAL_ALPHA` (90) floors the alpha of any pixel with nonzero luminance — a real, reported
+    problem without it: a sparse/isolated localization (already near-black by LUT design) went
+    dim-coloured AND nearly transparent at once, genuinely invisible against a bright cell colour
+    underneath. Cached by object identity against `srFull`.
 
-  Neither canvas is gated on `segmentedImageLabels.w/h` exactly matching `lastResult.w/h` — an
-  earlier version DID require exact equality and silently drew nothing otherwise, a real, reported
-  bug (toggling the button on a real dataset did nothing, no explanation): real segmentation
-  pipelines routinely produce a mask a few px off from the movie's own dimensions (padding/cropping
-  in whatever tool made it), so exact equality left the button doing nothing for the common case, not
-  just a genuine mismatch. Fixed by dropping the check and matching this app's own existing "warn,
-  don't block" convention — the load-time size-mismatch warning (`loadSegmentedImage()`, checked
-  against `stack.w/h`) already tells the user once when the sizes differ; drawing top-left aligned
-  anyway just loses a thin strip at the far edge on a genuine mismatch (`ctx.drawImage()`'s own
-  source rect naturally clips against the actual canvas bounds — no exception, no corruption).
-  `srFull._zColor`'s depth-colour-bar legend stays shown while this mode is active (unlike the
-  now-removed points-only design, the density image with its own LUT/z-colouring is genuinely still
-  on screen here, so the legend stays meaningful).
+  Neither canvas is gated on `segmentedImageLabels.w/h` exactly matching `lastResult.w/h` — real
+  segmentation pipelines routinely produce a mask a few px off from the movie's own dimensions, and
+  requiring exact equality (an earlier version did) silently drew nothing for that common case, a
+  real, reported bug. Matches this app's own "warn, don't block" convention instead — the load-time
+  size-mismatch warning already tells the user once, and drawing top-left aligned anyway just loses a
+  thin strip at a genuine mismatch (`ctx.drawImage()` clips naturally, no exception/corruption).
+  `srFull._zColor`'s depth-colour-bar legend stays shown while this mode is active.
 
-  **`segmentedImageLabels.refPxNm` — segmentation/localization pixel-size decoupling.** A real,
-  reported problem with the plain top-left-aligned overlay above: localization POSITIONS never
-  depend on `pxnm` at all (`renderSuperRes()`'s `ix=Math.round(L.x*mag)` — plain camera-pixel
-  coordinates, only the scale bar/`srInfo` nm readout derive from `pxnm`, see the live-update note
-  below), so a user correcting `pxnm` AFTER loading the segmentation image — e.g. dialling it in
-  until the segmented cell outlines visually line up with the reconstruction's own bacterial shapes —
-  had no visible effect on the overlay at all, since nothing in `drawView()` read `pxnm`. Fixed by
-  treating the `pxnm` value at LOAD time as the segmentation image's own effective calibration
-  reference: `loadSegmentedImage()` stashes `segmentedImageLabels.refPxNm=paramValue('pxnm')` (ONLY
-  on a genuine fresh load, not on **Show image** re-displaying the same already-loaded image — same
-  "don't clobber on redisplay" reasoning as the **Max. cell area** auto-fill below). `drawView()`
-  computes `segScale=(current pxnm)/refPxNm` and divides the segmentation canvas's `/mag` source-rect
-  by it — `=1` (no visible change) whenever `pxnm` hasn't moved since load; as the user corrects
-  `pxnm` UPWARD, `segScale>1` GROWS the segmentation's on-screen footprint relative to the (unmoving)
-  localizations — each raw camera pixel the localizations sit on now spans more real nm, so a
-  segmentation pixel (still `refPxNm` nm wide, unchanged) now corresponds to more of those larger
-  camera pixels than it did at load time — and shrinks it symmetrically as `pxnm` is corrected
-  downward. **The direction was wrong in the first shipped version** (`segScale=refPxNm/current`,
-  shrinking as `pxnm` rose) — caught only by a real user checking it against actual data, not by the
-  derivation on paper: double-check the direction empirically again if this formula is ever touched,
-  don't trust re-derivation alone.
+  **`segmentedImageLabels.refPxNm`** — localization POSITIONS never depend on `pxnm` at all (only the
+  scale bar/`srInfo` readout do), so correcting **Pixel size (nm)** after loading a segmentation
+  image — e.g. dialling it in until the segmented outlines visually line up with the reconstruction's
+  own shapes — had no visible effect on the overlay, a real, reported bug. Fixed by treating the
+  `pxnm` value at LOAD time as the segmentation image's own calibration reference
+  (`refPxNm`, stashed only on a genuine fresh load, not on redisplay); `drawView()` then scales the
+  segmentation canvas's source-rect by `(current pxnm)/refPxNm` — growing its on-screen footprint as
+  `pxnm` is corrected upward, shrinking as it's corrected downward. **The direction was wrong in the
+  first shipped version** (inverted, `refPxNm/current`) — caught only by checking against real data,
+  not by re-deriving on paper: double-check the direction empirically again if this formula is ever
+  touched.
 
-  Editing Pixel size (nm) while "Show recon." is active needed no new wiring: `$('pxnm')`'s existing
-  `change` listener already does `lastResult.px=paramValue('pxnm'); rerender(true);` whenever a
-  reconstruction exists, and `rerender()` unconditionally ends in `drawView()`, which includes this
-  whole overlay block — so the scale bar/`srInfo` nm/px readout (independent of `segScale` above —
-  localization positions themselves never depend on `pxnm`) redraws correctly with no extra code.
+  Editing Pixel size (nm) while "Show recon." is active needs no new wiring: the existing `pxnm`
+  `change` listener already triggers `rerender()`, which ends in `drawView()`, covering this overlay.
 
   **Cell-by-cell tracking** (`Min./Max. cell area (px)`, default 50/∞ — ∞ via the same
   `default:Infinity` PARAMS convention `fitLastFrame` already uses, an intentionally-blank HTML
