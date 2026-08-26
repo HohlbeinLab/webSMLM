@@ -61,7 +61,7 @@ relevant one before editing rather than scrolling:
   each side of the `/` (` / 20000`, not `/20000`) in the same round, by request — plain spaces are
   safe here since the parent already carries `white-space:nowrap`.
 
- - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
+- **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)
   goes through `loadTiffFilesAuto()`, which auto-detects which of two combining strategies
@@ -173,9 +173,9 @@ relevant one before editing rather than scrolling:
     than that naive padding accounts for — same clamp `ftmSeriesGlobal` applies per frame
     internally (`ftmFrame()`'s single-frame path already had this right; the chunked functions
     didn't, until a worker-vs-serial correctness A/B test caught the ~5%-photon-count-bias this
-    produced for a stack's tail frames). 
+    produced for a stack's tail frames).
 
-   -  **Memory**: the barrier-phased loop's `ctxFrames` (raw context, dead once `ftmChunkParallel`
+      **Memory**: the barrier-phased loop's `ctxFrames` (raw context, dead once `ftmChunkParallel`
     returns `corrected`) must be explicitly dropped (`ctxFrames=null`, hence `let` not `const`)
     right after that call, not left reachable through the following detect/fit dispatch phase's
     own allocations (structured-clone `postMessage` per batch) in the same closure — `chunkmb`'s
@@ -215,7 +215,7 @@ relevant one before editing rather than scrolling:
   across its SPHERICAL/ELLIPTIC/ROTATED models, is the SAME Fisher-scoring shell webSMLM's own
   `inv=1/model; cf=data*inv-1; hess+=du·du·inv` already implemented — confirmed algebraically
   equivalent. `modelFn(px,py,th,duOut)` returns the per-pixel model value and
-  writes its Jacobian into a REUSED scratch array  — `mleModelSpherical`/
+  writes its Jacobian into a REUSED scratch array — `mleModelSpherical`/
   `mleModelElliptical` are erf-pixel-integrated (unchanged math, just extracted); the driver
   itself never needs to know what a parameter MEANS, only how the model responds to it, so a
   third/fourth model plugs in without touching the driver. `gaussianFit` (LSQ, Gauss-Newton +
@@ -283,7 +283,6 @@ relevant one before editing rather than scrolling:
   is present; `wcal`'s mere presence (not a second explicit flag) is what `runCore()`/the worker/
   `showFrame()` use to decide whether to call `zFromWidths()` at all, for both methods alike.
 
-
   The `cal3dRow` "Load calibration…" control moved to directly
   under `localize3DRow`, and only shows while BOTH `localize3D` is checked (or the method is
   `phasor3d`, which has no such checkbox) AND no calibration is active yet (`cal3d||cal3dW`) —
@@ -303,7 +302,7 @@ relevant one before editing rather than scrolling:
   once per `rerender()` in NATIVE px — not rescanned on every pan/zoom redraw — then converted
   through the current `view`/zoom on each draw), falling back to the bare top-right canvas corner
   only if there's no cached extent. A fixed corner alone looked disconnected: sSMLM's paired
-  reconstruction is often a  subset of a larger FOV, so the bar could end up floating in
+  reconstruction is often a subset of a larger FOV, so the bar could end up floating in
   empty space far from the actual content it's meant to label. Ticks/labels extend left (into the
   panel) so they're never clipped by the canvas edge.
 
@@ -359,7 +358,7 @@ relevant one before editing rather than scrolling:
   verified visually against the contrast theme specifically when it shipped, since that palette
   wasn't designed against a pure-black/pure-white extreme the way dark/light were. Raw-frame/
   reconstruction overlays (ROI boxes, fit crosshairs, the scale bar, the depth-colour bar) and the
-  `LUT_CPS` reconstruction colour-map dropdown are deliberately UNTOUCHED by the UI theme — they sit
+  `LUT_CPS` reconstruction colour-map dropdown are deliberately UNTOUCHED by the UI theme — they si
   on top of arbitrary image/data pixels, not a themeable panel background, so a light UI theme
   wouldn't make the *frame* or *reconstruction* pixels lighter; `drawPlotHover()`'s tooltip is the
   same way, on purpose, despite overlaying theme-aware plot panels — it's the SAME function used for
@@ -383,7 +382,7 @@ relevant one before editing rather than scrolling:
   A raster panel (`exportPanel()`'s own, unchanged path) still calls the single-type `saveBlob()`
   helper as before — `savePlotEither()` is a second, plot-only sibling to it, not a replacement.
 
-  `SvgRecordingContext` (render module, next to `setupPlot()`) is a small, purpose-built class that
+  `SvgRecordingContext` (render module, next to `setupPlot()`) is a small, purpose-built class tha
   duck-types the exact Canvas2D surface those 7 functions use (paths/rects/circles/text/save/
   restore/translate/rotate/clip — no gradients, patterns, images or curves, none of which any of
   them call) and records real SVG DOM nodes instead of painting pixels — written from scratch
@@ -445,7 +444,7 @@ relevant one before editing rather than scrolling:
   carries a `-dev · build YYYY-MM-DDx` suffix while a release is in progress (see the branch/
   release workflow below) that changes on every build-letter bump.
 
-  `axisScale(maxAbs)` gives an axis whose values commonly run large matplotlib-style "offset notation": ticks show a small (single   digit + one decimal) scaled number, with a single `×10ⁿ` multiplier drawn once near the axis   (`n = floor(log10(maxAbs))`). This is genuine SCIENTIFIC notation (one arbitrary power per axis). Lives in **render** (not `drawPcfoPlot()`  itself, the one plot currently needing it) so any other plot with the same large-number problem
+  `axisScale(maxAbs)` gives an axis whose values commonly run large, matplotlib-style "offset notation": ticks show a small (single digit + one decimal) scaled number, with a single `×10ⁿ` multiplier drawn once near the axis (`n = floor(log10(maxAbs))`). This is genuine SCIENTIFIC notation (one arbitrary power per axis). Lives in **render** (not `drawPcfoPlot()` itself, the one plot currently needing it) so any other plot with the same large-number problem
   can reuse it.
 
   Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
@@ -466,7 +465,7 @@ relevant one before editing rather than scrolling:
   and `initScrub()` never runs. The reconstruction's own bounding box is always somewhat smaller than the original camera FOV (border-adjacent localizations are dropped during fitting).
 
   **`parseCsvLocs()` NEVER shifts loc coordinates** — `(0,0)` always means the same physical
-  camera pixel it meant in the original file/session, full stop. 
+  camera pixel it meant in the original file/session, full stop.
 
   **Raw-frame display contrast** (`rawBlack`/`rawWhite`, the Contrast slider below the Frame
   scrubber, Picasso-inspired) is a FIXED [black,white] ADU range applied identically to every frame
@@ -505,13 +504,13 @@ relevant one before editing rather than scrolling:
   together — the worker's own `out.push(...)`, and both `wk.onmessage` unpack loops (the plain
   pool-dispatch loop and the FTM barrier-phased loop, which duplicate this on purpose, see
   **in/out**'s FTM entry) — a stride mismatch between any of the three is a silent data-corruption
-  bug, not a crash. 
+  bug, not a crash.
 - **3D calibration** — astigmatic: σ_x/σ_y vs z bead curves, JSON save/load. Astigmatism is the
   only method implemented; other 3D approaches (Double Helix, Biplane) would live here too.
   `calibrationCore()` takes the same `shouldStop` hook `runCore()` (Localize) does, checked at the
   same yield point as its progress/preview callbacks (a Stop click can only be observed while
   yielding); `runCalibration()` enables `stopBtn` and resets `stopRequested` the same way `run()`
-  does.  
+  does.
 - **drift** — AIM (adaptive intersection maximization), point-based, 2D+z. `drawDriftCurve()`'s
   own green (`#0a7d32`)/magenta (`#c81cc8`)/blue (`#3572b0`) drift-x/y/z palette is treated as the
   project's reference colour pairing — other plots' own green/magenta curves (NeNA, **spt**'s
@@ -521,7 +520,7 @@ relevant one before editing rather than scrolling:
   `drawDriftCurve()` is a thin dispatcher over two actual plot functions, chosen by module-level
   `driftPlotMode` (`'frame'` default, or `'xy'`): `drawDriftCurveVsFrame()` is the original view
   above (x/y/(z) vs frame index); `drawDriftCurveXY()` is a single trajectory — drift y vs drift x
-  — with each segment coloured by frame (time) through `getLUT(paramValue('lut'))`, 
+  — with each segment coloured by frame (time) through `getLUT(paramValue('lut'))`.
 
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
@@ -572,7 +571,7 @@ relevant one before editing rather than scrolling:
 
   An unpaired localization is dropped from the result. A pair's reported position is the 0th
   order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
-  offset varies per emitter with wavelength, so averaging would blur position. 
+  offset varies per emitter with wavelength, so averaging would blur position.
 
   Stores the inter-order distance in its own `dist` field so a future 3D-fit +
   sSMLM combination could carry real depth AND spectral distance on the same loc without one
@@ -726,7 +725,10 @@ relevant one before editing rather than scrolling:
   switches the reconstruction to the `grey` LUT (`switchLutToGreyForTracks()`), matching
   `plot_tracks_in_cells()`'s own plain-background convention.
 
-  **Line thickness is `view.zoom` alone.** One reconstruction (`srFull`) pixel's own on-screen size = `view.zoom` (already "CSS px per `srFull` px"); `mag*view.zoom` draws one CAMERA pixel's width. 
+  **Line thickness is `view.zoom` alone, NOT `mag*view.zoom`** — one reconstruction (`srFull`)
+  pixel's own on-screen size = `view.zoom` (already "CSS px per `srFull` px"); `mag*view.zoom` draws
+  one CAMERA pixel's width and is unbounded at high zoom — get this wrong again and it reproduces a
+  real, reported bug (giant spikes covering the reconstruction when zoomed in on one track).
 
   **`drawTracksColorBar()`** (D legend, shown while `sptTracksColorByD` is checked) anchors to the
   PANEL itself — `x=DW-28-bw, y=(DH-bh)/2`, `bw`/`bh`=`16`/`180` — not `srBarAnchor()`'s data-extent
@@ -745,11 +747,11 @@ relevant one before editing rather than scrolling:
   `_segOverlayForLabels`/`_transReconForSrFull` use, so pan/zoom doesn't rebuild it every frame, only
   a fresh `runSptTrack()` does. **`getVisibleTracksForOverlay()`** then narrows the full list before
   drawing (plotting every track as a vector polyline+label is unreadably heavy on a dense real
-  dataset): `sptTrackLenMin` (the same threshold `runSptTrack()` uses for a D estimate) drops short
+  dataset): `sptTrackLenMin` (the same threshold `runSptTrack()` uses for a D estimate) drops shor
   tracks, then `sptShowTracksPct` (default 10%) samples a fixed percentage of the survivors
   deterministically — `mulberry32(TRACKS_OVERLAY_SEED)` draws one float **per track in the FULL,
   unfiltered id-ordered list**, keeping a track iff its own draw is `<pct/100` AND it meets
-  `sptTrackLenMin`. **The draw must run over the full list, not the length-filtered subset** by calling `rng()` once per track in the   full list regardless of qualification. Net effect, verified with a monotonicity sweep: the same   dataset always shows the same track identities at a given percentage; raising the percentage only   ADDS tracks, never reshuffles; raising `sptTrackLenMin` only REMOVES tracks. Cached against (list   identity, minLen, pct); `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all live-refresh the overlay via `refreshTracksOverlayIfShown()`, no fresh Track needed.
+  `sptTrackLenMin`. **The draw must run over the full list, not the length-filtered subset** — achieved by calling `rng()` once per track in the full list regardless of qualification. Net effect, verified with a monotonicity sweep: the same dataset always shows the same track identities at a given percentage; raising the percentage only ADDS tracks, never reshuffles; raising `sptTrackLenMin` only REMOVES tracks. Cached against (list identity, minLen, pct); `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all live-refresh the overlay via `refreshTracksOverlayIfShown()`, no fresh Track needed.
 
   **`sptShowTrackDataBtn`** ("Show track data", shares `sptShowTracksBtn`'s row; `sptSaveBtn` — "Save
   track data" — alone in the row below, defaulting to the left grid slot with no extra CSS) opens
@@ -783,7 +785,7 @@ relevant one before editing rather than scrolling:
   the same warning the interactive `loadSegmentedImage()` does but still proceeds. This surfaced (and
   fixed) a real, previously-latent bug: `linkTracksPerCell()` read per-cell area off the
   module-level `segmentedImageData` global directly instead of taking it as a parameter — harmless
-  interactively (`drawSegmentedImage()` always populates that global right before this can run) but
+  interactively (`drawSegmentedImage()` always populates that global right before this can run) bu
   silently broken headlessly, since `analyze()` deliberately never touches that global (staying
   DOM-free like every other `*Core()` consumer) — every loc would have come back excluded with no
   error. Fixed by recomputing the area map from the passed-in `segLabels` via
@@ -853,7 +855,7 @@ relevant one before editing rather than scrolling:
   `drawSegmentedImage()` also calls `setFrameAspect(w,h)` with the segmentation image's OWN
   dimensions, taking over `--frame-ar` (the CSS custom property BOTH panels' canvases track, see
   **render** above) regardless of what set it before. A real, reported bug otherwise: for a
-  CSV-loaded result (no `stack`, so `initScrub()` never runs), `--frame-ar` was left at
+  CSV-loaded result (no `stack`, so `initScrub()` never runs), `--frame-ar` was left a
   `parseCsvLocs()`'s own loc-bounding-box `w`/`h` — an APPROXIMATION, padded and never exactly the
   segmentation image's true dimensions — so the "Segmented image" panel got letterboxed inside a
   box shaped for the OTHER canvas, showing an empty gap along one edge that looked exactly like a
@@ -880,12 +882,12 @@ relevant one before editing rather than scrolling:
 
   Cell colouring (`shuffledLabelColors()`) ports the *idea* behind the user's own
   `sptPALM-Python/helper_functions.py`'s `randomize_label_image()`: raster-order segmentation tools
-  (e.g. `skimage.measure.label`) number cells in scan order, so physically ADJACENT cells often get
+  (e.g. `skimage.measure.label`) number cells in scan order, so physically ADJACENT cells often ge
   CONSECUTIVE label values — through an ordinary continuous colour ramp, consecutive labels map to
   near-identical hues, so neighbours become hard to tell apart. The Python version shuffles which
   label value each cell receives (seeded, deterministic) before an external continuous-colormap
   call; this shuffles each label's RANK (0..N-1) instead via a seeded PRNG (`mulberry32`) and maps
-  rank/N straight to a hue (`hsvToRgb`, s=0.85/v=0.95) — an equivalent decorrelation, and one that
+  rank/N straight to a hue (`hsvToRgb`, s=0.85/v=0.95) — an equivalent decorrelation, and one tha
   spaces hues evenly regardless of gaps in the original label values (the shuffle-then-relabel
   version needs the shuffled values themselves to be dense for that). Verified visually against the
   real bacteria dataset above — no two adjacent cells share a similar colour.
@@ -1188,7 +1190,9 @@ be a DIRECT child of its `details.sim`, given its own `id` + inline `style="disp
 padding-left:40px"` (40px, not 14px — deliberately MORE than the generic per-section indent, so a
 sub-row still reads as visually subordinate to a plain top-level row that also happens to sit inside
 an indented section), and shown/hidden by the SAME handler that toggles its sibling group, not by
-being physically nested inside it.
+being physically nested inside it. The opposite direction breaks the same way: a row placed OUTSIDE
+any `details.sim` entirely (e.g. `pxnm`, pinned always-visible above the collapsible sections) also
+doesn't match the direct-child selector and needs its own explicit `style="padding-right:4px"`.
 
 ### Syntax gotcha
 
