@@ -47,7 +47,7 @@ relevant one before editing rather than scrolling:
   above) — so it needs no per-input wiring either: any current or future `.num` field gets
   steppers for free. Clicking dispatches real `input`/`change` events, so every existing listener
   (live preview, Save/Load Settings, …) reacts exactly as it would to typing. `input.num` itself
-  is left-aligned (not right) and narrower (64px, was 80px) to match — value first, then the
+  is left-aligned (not right) and narrower (64px) to match — value first, then the
   control that changes it, reading left to right, with no wasted width now that nothing overlays
   the digits.
 
@@ -61,18 +61,7 @@ relevant one before editing rather than scrolling:
   each side of the `/` (` / 20000`, not `/20000`) in the same round, by request — plain spaces are
   safe here since the parent already carries `white-space:nowrap`.
 
-  **`pxnm` ("Pixel size (nm)") is pinned outside any collapsible `<details>`** — it used to sit
-  inside the collapsed-by-default "Localisation settings" section, easy to never notice despite
-  feeding the scale bar, z, and every exported CSV coordinate. Now a plain always-visible row in
-  the sidebar's top `.group`, before "Memory & streaming" — a pure DOM relocation (same `id="pxnm"`,
-  same `PARAMS` entry), so `syncParamControls()`/`paramValue()`/`addNumberSteppers()`/the existing
-  `change` listener (`lastResult.px=...; rerender(true);`) all keep finding it by id with zero other
-  code changes. Gain/Camera offset deliberately stay inside Localisation settings for now. Because
-  this row sits OUTSIDE any `details.sim`, it doesn't match the `details.sim>label.row{padding-
-  right:4px}` direct-child selector every other row relies on for numstep alignment — fixed with an
-  explicit inline `style="padding-right:4px"` (same root cause as the `label.row` nesting-depth
-  gotcha below, opposite direction: that one is nested too DEEP, this one sits OUTSIDE entirely).
-- **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
+ - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)
   goes through `loadTiffFilesAuto()`, which auto-detects which of two combining strategies
@@ -89,11 +78,7 @@ relevant one before editing rather than scrolling:
   entry point backs the interactive file input, calibration loading, and the headless
   `cfg.files`/`cfg.calibrationFiles` config (see **pipeline** below) — one detection path, three
   callers. Multi-file selection filters candidates by SNIFFING the real TIFF magic bytes
-  (`isTiffFile()`, "II*\0"/"MM\0*") rather than trusting the filename extension — needed because
-  some tools export (or a user renames) a TIFF stack with a non-.tif extension (`.nd2`, in the
-  real case that found this: `experimental_data/example_stack100.nd2`, an ImageJ TIFF export from
-  Christophe Leterrier's DECODE_NC repo, real bytes despite the name — see
-  `docs/REFACTOR_PLAN.md`'s ND2 entry); the `#file` input's `accept` attribute lists `.nd2`
+  (`isTiffFile()`, "II*\0"/"MM\0*") rather than trusting the filename extension; the `#file` input's `accept` attribute lists `.nd2`
   alongside `.tif`/`.tiff` for exactly this. `loadTiff()`/`loadTiffFile()`'s fast path/
   `loadTiffSequence()`'s `decodeOne()` all additionally validate the raw ImageWidth/ImageLength
   tags (`t256`/`t257`) are present and positive before trusting a `UTIF.decode()` result — UTIF
@@ -104,10 +89,8 @@ relevant one before editing rather than scrolling:
   checks `undefined>0` and rejects every file, valid or not (a real regression, caught immediately
   by testing against the sample above rather than shipped). **Native Nikon ND2** (the genuine
   proprietary binary format, distinct from the TIFF-in-disguise case above) is also supported,
-  shipped v0.11.2, **experimental** — no official spec exists, so this is a from-scratch decoder
-  validated against only two real sample files (`experimental_data/*.nd2`, see
-  `experimental_data/README.md`) plus one independent reference-library cross-check, not a broad
-  corpus: `isNd2File()` sniffs the real magic (`0x0ABECEDA` LE u32 at byte 0) and
+  shipped v0.11.2, **experimental** — `isNd2File()` sniffs the real magic
+  (`0x0ABECEDA` LE u32 at byte 0) and
   `loadTiffFile()`'s first line dispatches to `loadNd2File()` — reaching all three existing callers
   (interactive, calibration, headless) with no caller-side changes, same "one detection path,
   three callers" precedent as the TIFF sniff above; `loadTiffFilesAuto()` also special-cases a lone
@@ -119,13 +102,7 @@ relevant one before editing rather than scrolling:
   `ImageAttributesLV!` metadata chunk sits near EOF, after all frame data (metadata chunk count is
   frame-count-independent, so cost scales with per-frame header count only). Each `ImageDataSeq|N!`
   payload is a 24-byte (`ND2_FRAME_HEADER_BYTES`) per-frame sub-header (contents unidentified,
-  never parsed) THEN the pixel array — **the shipped parser initially had this backwards** (pixels
-  assumed at byte 0, a trailer assumed after instead), which decoded without throwing
-  (dimensions/frame-count stayed self-consistent) but silently corrupted row 0's first ~6 pixels
-  into implausible spikes; caught from a live screenshot, confirmed/fixed by cross-validating
-  byte-for-byte against the independent BSD-3-Clause `tlambert03/nd2` reference. **Get this offset
-  wrong again and nothing will throw — only pixel VALUES will be wrong.** `parseNd2LvField()`
-  recursively decodes Nikon's own binary key-value ("LV") format for `ImageAttributesLV!`/
+  never parsed) THEN the pixel array, See also independent BSD-3-Clause `tlambert03/nd2` reference. `parseNd2LvField()` recursively decodes Nikon's own binary key-value ("LV") format for `ImageAttributesLV!`/
   `ImageCalibrationLV|0!`: a container (type `0x0b`) holds `childCount(u32)+byteLen(u64)` then
   recurses exactly `childCount` times — **`byteLen` must never be used as the parse boundary**, it
   can include trailing padding and produce a bogus extra read with a garbage type byte. String
@@ -136,21 +113,12 @@ relevant one before editing rather than scrolling:
   `CustomData|AcqTimesCache!` (per-frame timestamps → a MEDIAN-of-diffs frame-interval estimate,
   robust to a couple of near-zero leading placeholders seen in real files) and
   `CustomData|STORM_CAM_DATA_SHEET_XML-V1!` (camera model/bit-depth/ADU, informational only — NOT
-  wired to `gain`/`camoffset`, since it's the camera's static datasheet figure, not the
-  acquisition's actual EM gain setting) — are all logged, never auto-applied, matching this
-  project's compute-once/apply-separately convention (NeNA→SPT, PCFO's Transfer estimates).
-  Multi-channel and non-16-bit files throw a clear unsupported-format error. TIFF gets the
+  wired to `gain`/`camoffset`, since it's the camera's static datasheet figure. TIFF gets the
   analogous treatment via `tiffScaleHint(ifd0, desc)` (called from all three TIFF-decoding call
   sites): reads `finterval=` from the same `t270` description text already parsed for `images=N`,
   and — only when the description's `unit=` field says micrometers — `t282`/`t283`
   (XResolution/YResolution) for a pixel-size estimate; `t296` (ResolutionUnit) is deliberately
-  never consulted, since ImageJ leaves it at 1 and puts the real unit in the description text
-  instead. Two real ImageJ exports spell micrometers two different ways — `unit=micron` and a
-  literal `unit=µm` (the SEVEN ASCII characters backslash-u-0-0-B-5-m, not an actual µ character,
-  an ImageJ/Java encoding quirk only caught by inspecting the real string) — both recognised. All
-  of this is genuinely log-only, no "Apply" button, by deliberate choice: one bundled sample's
-  filename implies a 50 ms frame time but its own embedded `finterval` says 5 ms — that kind of
-  conflict needs a human, not an auto-fill. `makeCroppedStack()`
+  never consulted. `makeCroppedStack()`
   (raw-panel crop tool, `rawCropBtn`) is the simplest of this module's stack wrappers: it slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — deliberately a
@@ -193,28 +161,11 @@ relevant one before editing rather than scrolling:
       before starting the next chunk's FTM phase — never both job types on the pool at once. This
       is required, not just faster: each worker has exactly one `onmessage` property, not a
       queue, so without the barrier an FTM-correction reply and a detect/fit reply could clobber
-      each other's handler mid-flight. An earlier version ran chunk correction unconditionally on
-      the main thread specifically to avoid needing this barrier — measured as the dominant cost
-      on a fast fitter with large frames (~7.5s FTM vs. ~5.4s total detect/fit CPU on a
-      256×256×1200 case, 8% worker utilisation); the barrier-phased version gets full parallelism
-      for both phases instead. The timing log's `↑ N workers · X% utilisation` line covers the
+      each other's handler mid-flight. The timing log's `↑ N workers · X% utilisation` line covers the
       detect/fit phase only — its wall-clock denominator excludes the separately-reported FTM
       phase, or a run with substantial FTM time would look artificially starved. Each chunk's
       detect/fit phase resolves its own `await new Promise(...)` via a `finishChunk()` that MUST
-      check `shouldStop()` itself, not just rely on `dispatchChunk()`'s own `shouldStop()` bail-out
-      — a real, reported bug (Stop during a Run with FTM+the worker pool both active would hang
-      forever instead of stopping): every worker's `dispatchChunk()` returns immediately once
-      `shouldStop()` is true, without ever advancing `cNext` to `coreEnd`, so a `finishChunk()`
-      that only checked `cInflight===0 && (err||cNext>=coreEnd)` (missing the `shouldStop()` OR
-      term the equivalent non-FTM loop's own `finish()` already had) saw `cInflight===0` but
-      neither of the other two conditions true, and never called `resolveChunk()` — stalling the
-      whole Run inside that `await`, not just skipping the rest of one chunk. Fixed by adding
-      `shouldStop()` to `finishChunk()`'s own condition, matching `finish()`. A related, smaller
-      bug fixed alongside it: stopping THIS early (before any detect/fit batch ever completed)
-      left `tDetect+tFit===0`, and the timing log's percentage helper floors its denominator to
-      `1e-9` to avoid `0/0`, so a genuine nonzero FTM time divided by that floor printed an absurd
-      percentage (~2×10¹³%) instead of an honest "n/a" — the floor is now only used for the actual
-      division, while a separate unfloored check decides whether to print a percentage at all.
+      check `shouldStop()` itself, not just rely on `dispatchChunk()`'s own `shouldStop()` bail-out.
 
     Both implementations must widen a chunk's context fetch beyond naive `coreStart±window/2`
     whenever the chunk's core range comes close enough to either end of the **whole stack** (not
@@ -222,17 +173,14 @@ relevant one before editing rather than scrolling:
     than that naive padding accounts for — same clamp `ftmSeriesGlobal` applies per frame
     internally (`ftmFrame()`'s single-frame path already had this right; the chunked functions
     didn't, until a worker-vs-serial correctness A/B test caught the ~5%-photon-count-bias this
-    produced for a stack's tail frames). Get this wrong and nothing crashes — the affected frames
-    just get systematically undercounted photons, invisible unless you specifically compare
-    against a known-correct reference.
+    produced for a stack's tail frames). 
 
-    **Memory**: the barrier-phased loop's `ctxFrames` (raw context, dead once `ftmChunkParallel`
+   -  **Memory**: the barrier-phased loop's `ctxFrames` (raw context, dead once `ftmChunkParallel`
     returns `corrected`) must be explicitly dropped (`ctxFrames=null`, hence `let` not `const`)
     right after that call, not left reachable through the following detect/fit dispatch phase's
     own allocations (structured-clone `postMessage` per batch) in the same closure — `chunkmb`'s
     `/2` split only budgets for context+corrected coexisting, not context+corrected+in-flight
-    batch clones too. Root cause of a real mobile OOM at `chunkmb=1000`; default is back to 500.
-    `runCore()` also logs an estimated peak-MB figure (chunk working set, plus the already-cached
+    batch clones too. `runCore()` also logs an estimated peak-MB figure (chunk working set, plus the already-cached
     stack's size if `memgb` let it cache whole — a *separate* budget stacking on top of `chunkmb`,
     not a shared ceiling with it) right after the chunk-size line, advisory above ~800 MB combined
     — gated on `memgb<=8` (its old ceiling; max is now 64 for workstation-scale caching) so a
@@ -241,12 +189,9 @@ relevant one before editing rather than scrolling:
     `onerror`) — nothing here can detect or prevent that, only make a risky config visible before
     it happens instead of after.
 
-  An earlier design ran FTM once over the whole stack up front and replaced `stack` itself; it
-  was reverted because it needed the raw *and* corrected copies fully materialized in memory
-  simultaneously, which doesn't work for a stack too big to hold both. All current paths avoid
-  that by construction — bounded per-frame or per-chunk memory, never the whole stack twice.
 - **simulation** — the built-in synthetic stack generator ("Simulate movie"): demo/validation/
   teaching data, not a core analysis path. Split out from in/out since it doesn't load anything.
+
 - **detect** — per-frame band-pass, one of three filters selectable via `#detFilter`: à trous
   B-spline **wavelet** (default) or **DoG** (both thresholded by local maxima above `mean + k·σ`),
   or **uniform box filter** (difference of two box averages, thresholded by a plain intensity
@@ -256,6 +201,7 @@ relevant one before editing rather than scrolling:
   `detection_<method>_<setting>` (e.g. `detection_DoG_thr`, `detection_box_thr`) shown/hidden by
   the sync IIFE keyed off `#detFilter` — don't reintroduce a single shared field across methods,
   their thresholds mean different things (k·σ multiplier vs. raw intensity).
+
 - **fit** — phasor (fast, non-iterative), least-squares 2D-Gaussian, and Poisson-MLE 2D/3D/
   Elliptical (`gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled`; `gaussianMLEspheric` is the
   default) localization. All fitters take `gain,camoff` and convert every pixel to true photon
@@ -265,17 +211,11 @@ relevant one before editing rather than scrolling:
   this is the one place gain/offset actually change a result rather than just rescaling it.
 
   **Shared MLE accumulator**: `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all run on
-  ONE Fisher-scoring Newton driver, `mleNewtonFit(n, th, mstep, clampFn, ..., modelFn)` — before
-  this existed, `gaussianMLEspheric` and `gaussianMLEelliptic` were two independently hand-written copies
-  of the exact same loop, only their per-pixel MODEL (one shared σ vs independent σx/σy)
-  differing. Checked directly against Picasso 0.11.0's own `picasso/fitting/gaussfit.py` (not
-  assumed) before doing this: its `_estimator_terms(mle, value, data, var)` dispatch, reused
+  ONE Fisher-scoring Newton driver, `mleNewtonFit(n, th, mstep, clampFn, ..., modelFn)`. Checked directly against Picasso 0.11.0's own `picasso/fitting/gaussfit.py` before doing this: its `_estimator_terms(mle, value, data, var)` dispatch, reused
   across its SPHERICAL/ELLIPTIC/ROTATED models, is the SAME Fisher-scoring shell webSMLM's own
   `inv=1/model; cf=data*inv-1; hess+=du·du·inv` already implemented — confirmed algebraically
-  equivalent, not just "similar" — so this refactor only had to extract that existing math once,
-  not invent a new formulation. `modelFn(px,py,th,duOut)` returns the per-pixel model value and
-  writes its Jacobian into a REUSED scratch array (the original code allocated a fresh `du` array
-  per pixel; this is strictly cheaper, not just deduplicated) — `mleModelSpherical`/
+  equivalent. `modelFn(px,py,th,duOut)` returns the per-pixel model value and
+  writes its Jacobian into a REUSED scratch array  — `mleModelSpherical`/
   `mleModelElliptical` are erf-pixel-integrated (unchanged math, just extracted); the driver
   itself never needs to know what a parameter MEANS, only how the model responds to it, so a
   third/fourth model plugs in without touching the driver. `gaussianFit` (LSQ, Gauss-Newton +
@@ -283,9 +223,7 @@ relevant one before editing rather than scrolling:
   weighting (plain squared residual, no `1/model` term) and a different outer solver, so folding
   it in isn't the same small, low-risk change the MLE-side refactor is.
 
-  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gauss MLE 3D rotated elliptical" in the UI —
-  renamed alongside `gaussianMLE`→`gaussianMLEspheric`/`gaussianMLEastig`→`gaussianMLEelliptic` to
-  match Picasso's own SPHERICAL/ELLIPTIC/ROTATED naming, no behavior change from the rename itself)
+  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gauss MLE 3D rotated elliptical" in the UI
   adds a genuinely new model: `[x,y,N,bg,σx,σy]` plus a rotation angle, either FIXED (6 free params, reusing
   `mleModelElliptical` with pixel offsets pre-rotated by the constant once, before the loop — same
   size/stability class as `gaussianMLEelliptic`, no angle Hessian row at all) or FREE (7 free params,
@@ -299,10 +237,7 @@ relevant one before editing rather than scrolling:
   is the amplitude converted to a true integrated photon count (`amp*2π·σx·σy`, same relation
   `gaussianFitElliptical` already uses for its own peak-amplitude elliptical model) — NOT the raw
   θ[2] amplitude the point-sampled model actually optimizes internally (`amp` is reported
-  separately); an earlier version of this returned the raw amplitude as `photons` directly, caught
-  by a synthetic test with a known integrated photon count before shipping — would have silently
-  under-reported photon counts by the `2π·σx·σy` factor for every downstream consumer (CSV, table,
-  any photon-weighted statistic). Free-angle mode has a real, documented gotcha carried over from
+  separately). Free-angle mode has a real, documented gotcha carried over from
   Picasso's own model: the angle derivative vanishes identically when σx==σy, singularising the
   Hessian — the seed deliberately breaks that symmetry (`σx0=1.05·σ0, σy0=0.95·σ0`) whenever angle
   is free; a fixed angle never enters the optimisation, so this doesn't apply there. An
@@ -348,37 +283,27 @@ relevant one before editing rather than scrolling:
   is present; `wcal`'s mere presence (not a second explicit flag) is what `runCore()`/the worker/
   `showFrame()` use to decide whether to call `zFromWidths()` at all, for both methods alike.
 
-  **`updateMethodUI()` (MODULE: pipeline) resets the render colour map to Fire for `mle3d`/
-  `gaussmleEll` too when `localize3D` is unchecked** — a real, reported bug: `updateMethodUI()`'s
-  `is3d` branch sets `lut='turbo'` the moment either method is selected WITH `localize3D` checked
-  (a sensible depth-friendly default); its sibling `else` branch already reset `lut` back to
-  `'fire'` for `phasor`/`gaussmle` (see **render**'s LUT-default note), but originally left `mle3d`/
-  `gaussmleEll` out — so unchecking `localize3D` after having had it checked left whatever
-  turbo/hsvBlue choice the 3D state had set stuck in place on a plain 2D reconstruction with no z at
-  all. Fixed by adding both to the `else` branch's reset condition; no extra `localize3D` check
-  needed there — `is3dMethod&&localize3D` being false is the ONLY way either method reaches that
-  branch, so being one of the two there already implies `localize3D` is unchecked. `gaussls` stays
-  deliberately excluded from the auto-reset, unchanged.
 
-  The `cal3dRow` "Load calibration…" control moved (from below the frame-range fields) to directly
+  The `cal3dRow` "Load calibration…" control moved to directly
   under `localize3DRow`, and only shows while BOTH `localize3D` is checked (or the method is
   `phasor3d`, which has no such checkbox) AND no calibration is active yet (`cal3d||cal3dW`) —
   `updateMethodUI()` re-runs after every calibration load/compute (`updateCalStatus()` calls it) so
   the box disappears the moment one lands. There's deliberately no in-page "replace calibration"
   affordance yet; a fresh page load or Load-settings round-trip is the reset path.
+
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
   without refitting. `LUT_CPS` control-point maps: `fire`/`inferno`/`viridis`/`turbo` are smooth
   hue ramps for continuously-varying data (intensity, real 3D depth); `hsvBlue` is a closed-loop
   full hue cycle (240°→cyan→green→yellow→red→magenta→violet→240° again, saturation/value pinned to
-  1) matching a colour scheme from the sSMLM paper's own figures — unlike every other map here it's
+  1) — unlike every other map here it's
   cyclic, so BOTH ends of the mapped range land on the same hue (blue) by design, not an artifact
   to fix; **Pair** auto-selects it. `drawDepthBar()` (the on-canvas colour-scale strip) anchors to
   the actual DATA's own right edge and vertical centre (`srFull._locMaxXpx`/`_locMidYpx`, cached
   once per `rerender()` in NATIVE px — not rescanned on every pan/zoom redraw — then converted
   through the current `view`/zoom on each draw), falling back to the bare top-right canvas corner
   only if there's no cached extent. A fixed corner alone looked disconnected: sSMLM's paired
-  reconstruction is often a sparse subset of a much larger FOV, so the bar could end up floating in
+  reconstruction is often a  subset of a larger FOV, so the bar could end up floating in
   empty space far from the actual content it's meant to label. Ticks/labels extend left (into the
   panel) so they're never clipped by the canvas edge.
 
@@ -506,11 +431,9 @@ relevant one before editing rather than scrolling:
   states it "deliberately excludes pure display/layout (CSS)" (see **params** above), and theme
   choice is exactly that, same as sidebar collapsed/floating state.
 
-  **Quick guide** (`helpBtn`, renamed from "Help & guide") sits in the sidebar sharing `#tableBtn`'s
+  **Quick guide** (`helpBtn`) sits in the sidebar sharing `#tableBtn`'s
   own row, right of **View data/filtering**, styled with its own bespoke `.helpbtn` look (a
-  surface+accent-border+accent-text combo, distinct from a plain default button) — see
-  `CHANGELOG.md`'s v0.11.6 entry for the header-relocation detour this went through before landing
-  here. `wireHelp()` finds it by `id="helpBtn"`, position- and class-independent.
+  surface+accent-border+accent-text combo, distinct from a plain default button), `wireHelp()` finds it by `id="helpBtn"`, position- and class-independent.
 
   **`webSMLM_lastVersion`** (localStorage, right after the theme-init block above, same try/catch
   fail-safe) is a sibling of `webSMLM_theme` for a different purpose: on load, it parses the
@@ -520,26 +443,13 @@ relevant one before editing rather than scrolling:
   no-auto-update design otherwise gives a returning visitor no signal that anything shipped between
   visits. Deliberately parses only the leading `vX.Y.Z`, never the full pill text: the pill also
   carries a `-dev · build YYYY-MM-DDx` suffix while a release is in progress (see the branch/
-  release workflow below) that changes on every build-letter bump — comparing the full string would
-  fire this on nearly every reload during active local development (noise, not signal), while the
-  live GitHub Pages copy never carries that suffix at all (`main` only receives a version stamp
-  with the dev marker cleared, at an actual release), so comparing by the clean version number alone
-  also happens to be exactly the right behaviour there with no extra branching needed. Only logs
-  when a DIFFERENT version was previously recorded — a brand-new visitor (no saved key yet) just
-  gets the current version silently recorded, not a confusing "updated from nothing" message.
+  release workflow below) that changes on every build-letter bump.
 
-  `axisScale(maxAbs)` gives an axis whose values commonly run large (PCFO's noise variance can be in
-  the hundreds of thousands, ADU²) matplotlib-style "offset notation": ticks show a small (single
-  digit + one decimal) scaled number, with a single `×10ⁿ` multiplier drawn once near the axis
-  (`n = floor(log10(maxAbs))`). This is genuine SCIENTIFIC notation (one arbitrary power per axis),
-  not engineering notation's multiple-of-3 rounding, which was tried first and rejected — it still
-  left 3-digit ticks on PCFO's range (e.g. "750×10³"). Lives in **render** (not `drawPcfoPlot()`
-  itself, the one plot currently needing it) so any other plot with the same large-number problem
+  `axisScale(maxAbs)` gives an axis whose values commonly run large matplotlib-style "offset notation": ticks show a small (single   digit + one decimal) scaled number, with a single `×10ⁿ` multiplier drawn once near the axis   (`n = floor(log10(maxAbs))`). This is genuine SCIENTIFIC notation (one arbitrary power per axis). Lives in **render** (not `drawPcfoPlot()`  itself, the one plot currently needing it) so any other plot with the same large-number problem
   can reuse it.
 
   Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
-  outward-facing tick mark at each major tick, on both axes — every plot has this now, a
-  consistency pass after **Drift vs frame** was found missing one entirely. The axis border is drawn
+  outward-facing tick mark at each major tick, on both axes. The axis border is drawn
   LAST, after the data, so bars/points flush against an axis edge (NeNA in particular) can't be
   covered by it; `strokeStyle` switches to `C.text` for just the tick-mark stroke and restores to
   `C.grid` immediately after. Tick labels shift outward by the same 5px to clear the new marks.
@@ -553,43 +463,10 @@ relevant one before editing rather than scrolling:
   above), AND calls `applyLayout()` — `initScrub()` calls it with the loaded stack's own `w`/`h`;
   loading a CSV directly (`csvFile`'s own change handler, MODULE: table) calls it with
   `parseCsvLocs()`'s own bounding-box `w`/`h` instead, since there's no stack at all in that path
-  and `initScrub()` never runs. Before this, a CSV-only load left `--frame-ar` at whatever a
-  previous stack happened to set it to (or the CSS default of square, 1:1, if none ever had) — a
-  real, reported bug: a wide/narrow result stayed letterboxed in a wrong-shaped panel, with the fit
-  view (and therefore the scale bar) sitting far from the actual plotted data instead of snug
-  against it, and never auto-triggering the stacked-panels heuristic a similarly-shaped movie
-  would. The reconstruction's own bounding box is always somewhat smaller than the original camera
-  FOV (border-adjacent localizations are dropped during fitting) — expected, not something to
-  correct for; it's still the right shape to fit the panel to.
+  and `initScrub()` never runs. The reconstruction's own bounding box is always somewhat smaller than the original camera FOV (border-adjacent localizations are dropped during fitting).
 
   **`parseCsvLocs()` NEVER shifts loc coordinates** — `(0,0)` always means the same physical
-  camera pixel it meant in the original file/session, full stop. This went through two rounds: an
-  early version sized `w`/`h` off `maxX`/`maxY` ALONE (a leftover `+10` "never round a boundary loc
-  outside the canvas" margin, applied only on the high side), so the bounding box's own low corner
-  — essentially never exactly `(0,0)` — got a near-zero margin while the high corner got the full
-  `+10`, i.e. an uncentred crop; a SECOND round (looked like the right fix at the time) "corrected"
-  this by tracking `minX`/`minY` too and SHIFTING every loc by that amount so the bounding box sat
-  with an equal margin on all sides — reasoned as safe because "there's no raw frame data for a
-  CSV-only load to stay pixel-aligned with, so the shift doesn't lose or misalign anything." That
-  reasoning broke down for a genuinely different, LATER feature: the segmentation overlay (MODULE:
-  spt) uploads an image from a SEPARATE source (a different camera/session, e.g. brightfield vs.
-  fluorescence) whose own pixel grid IS expressed in that same original coordinate frame — shifting
-  the locs by an arbitrary, data-dependent amount (`minX`/`minY`, easily tens of px on real data)
-  silently broke that alignment, a real, reported bug (segmented cells and their own localizations
-  visibly not lining up — confirmed directly: reloading the SAME real dataset with the shift
-  removed showed bacterial shapes tightly covered by matching segmentation colour, where the
-  shifted version left a large uncovered band along one edge). Reverted the shift entirely — `w`/`h`
-  are sized off `maxX`/`maxY` alone again (a `+10` margin on the high side only, same as the
-  original pre-centring version), but the ASYMMETRIC-CROP concern that motivated the shift in the
-  first place is now understood to be the WRONG problem to solve here: a CSV-only reconstruction
-  being visually off-centre in its own panel is cosmetic and harmless; silently moving every loc's
-  absolute position is not, the moment ANY external reference (a segmentation image today,
-  conceivably something else later) depends on that position staying true to the original file.
-  The click handler also calls
-  `refitCanvases()` immediately, since the panel boxes just changed shape. `layoutToggleBtn` lives
-  on the right of the **Log** card's own title bar (`clearLogBtn`/`exportLogBtn` grouped on the
-  left), not a dedicated row above the canvases — that read as wasted vertical space for one small
-  button.
+  camera pixel it meant in the original file/session, full stop. 
 
   **Raw-frame display contrast** (`rawBlack`/`rawWhite`, the Contrast slider below the Frame
   scrubber, Picasso-inspired) is a FIXED [black,white] ADU range applied identically to every frame
@@ -597,46 +474,13 @@ relevant one before editing rather than scrolling:
   that made brightness/contrast visibly shift as you scrubbed and let a single dead/hot pixel
   dominate a frame's own min or max. `estimateRawContrastRange(stack)` (called once right after a
   stack loads, before the first frame paints) establishes the slider's own bounds and initial handle
-  positions: a TRUE global max would mean reading every pixel of every frame, the opposite of this
-  loader's whole streamed/sliced design for large files, so it samples a bounded number (50) of
+  positions: it samples a bounded number (50) of
   seeded-random frames instead — the same `pickSeededFrames()` PCFO's own gain/offset estimate
   already uses — accepting a small chance of missing the single hottest pixel in an unsampled frame
-  as a reasonable trade-off for a display convenience, not a measurement. The initial HANDLE
-  positions are a separate question from that bound, deliberately NOT derived from the sampled
-  frames: an earlier version defaulted them to a 0.5th/99.5th percentile over all the sampled
-  frames' pixels pooled together (mirroring the reconstruction panel's own `lutpct` "Display max
-  percentile" control) — measured wrong for sparse SMLM data specifically, since background pixels
-  vastly outnumber the bright emitter pixels that actually matter, so a percentile-of-everything
-  sits well below real signal peaks (white defaulted to ~32% of the true observed max on a real
-  stack — every frame looked far dimmer than the old per-frame auto-stretch ever did). Fixed by
-  defaulting to frame 0's own actual min/max instead, exactly reproducing what the old per-frame
-  behaviour showed for the very first view — the new part is only that it then stays fixed across
-  every other frame instead of recomputing per frame. There's no native two-thumb
-  `<input type=range>`, so the slider itself (`.dualrange` CSS, `#rawBlack`/
-  `#rawWhite`) is two ordinary range inputs stacked on the same track, each fully transparent except
-  its own thumb (`pointer-events` split via `::-webkit-slider-thumb`/`::-moz-range-thumb`) so either
-  handle can be grabbed independently without the other, or the track itself, intercepting the drag;
-  each input's own handler clamps against the other's current value so they can't cross. Dragging a
-  handle re-renders from `rawPixelData` (the exact ADU array `drawRaw()` last received) via
-  `redrawRawContrast()` rather than re-fetching the frame from the stack, so dragging stays
-  responsive regardless of stack size. The Frame scrubber (`#scrub`) got its own matching CSS
-  restyle alongside this (same 4px `--line` track, same 14px `--accent` circular thumb) — plain
-  native rendering left it visually inconsistent with the new Contrast slider directly below it
-  (different track/thumb colour and thickness); `#scrub` keeps native click-anywhere-to-jump
-  behaviour though (no `pointer-events` split — only one handle, nothing to protect the drag from).
-  `rawContrastAutoBtn` ("Auto", `.logbtn` styling — same small-inline-button pattern as
-  `clearLogBtn`/`exportLogBtn`) re-runs `estimateRawContrastRange(stack)` (the exact call a fresh
-  load already makes) then `redrawRawContrast()`, since the estimate function itself only updates
-  state/slider UI, not the on-screen frame — a manual reset back to the auto default after dragging
-  either handle away from it. The slider itself is narrower than a full-width row control
-  (`flex:0 1 55%` on `.dualrange`) to leave room for this button without crowding the "Black: X ·
-  White: Y" readout. `applyCropToRaw()`/`uncropRaw()` (the raw-panel crop tool, see **in/out**
+  as a reasonable trade-off for a display convenience, not a measurement. `applyCropToRaw()`/`uncropRaw()` (the raw-panel crop tool, see **in/out**
   above) each make this same call too, right before `showFrame(0)` — a crop/uncrop swaps `stack`
   for a genuinely different pixel population (the earlier fix that added `initScrub()` to both
-  already handled the Frame scrubber; the Contrast slider's own range was left stale, still
-  reflecting whatever was sampled before the crop, since it isn't re-derived from `stack` on every
-  frame the way the old per-frame auto-stretch was — a real gap, since the whole point of a fixed
-  range is that it does NOT recompute per frame, so nothing else was going to catch this).
+  already handled the Frame scrubber.
   Deliberately excluded from `PARAMS`/Save-Load Settings/the
   headless `analyze()` config — same "pure display/layout" carve-out as UI theme choice and sidebar
   collapsed/floating state (see **params** above) — a display convenience local to one interactive
@@ -661,22 +505,13 @@ relevant one before editing rather than scrolling:
   together — the worker's own `out.push(...)`, and both `wk.onmessage` unpack loops (the plain
   pool-dispatch loop and the FTM barrier-phased loop, which duplicate this on purpose, see
   **in/out**'s FTM entry) — a stride mismatch between any of the three is a silent data-corruption
-  bug, not a crash. This also fixes a latent gap in **sSMLM**'s own pairing: `pairCore()` reads
-  `L.sx`/`L.sy` straight off the input locs, so a worker-pool `'gaussmleEll'` Run's paired output
-  was silently missing `sx0th`/`sy0th`/`sx1st`/`sy1st` before this — only ever populated when the
-  single-threaded path happened to run.
+  bug, not a crash. 
 - **3D calibration** — astigmatic: σ_x/σ_y vs z bead curves, JSON save/load. Astigmatism is the
   only method implemented; other 3D approaches (Double Helix, Biplane) would live here too.
   `calibrationCore()` takes the same `shouldStop` hook `runCore()` (Localize) does, checked at the
   same yield point as its progress/preview callbacks (a Stop click can only be observed while
   yielding); `runCalibration()` enables `stopBtn` and resets `stopRequested` the same way `run()`
-  does. Unlike Localize there is no partial-result path on stop: the frame loop returns
-  `{stopped:true}` immediately rather than falling through to the quadratic/phasor-ratio fit —
-  fitting only the frames seen so far would silently produce a BIASED curve (missing the rest of
-  the z-range), not a smaller-but-still-correct one, so `runCalibration()` discards everything and
-  returns early rather than accepting a wrong calibration. Added after a real workflow slip
-  (3D calibration accidentally triggered on an ordinary movie, with no way to cancel the resulting
-  long run).
+  does.  
 - **drift** — AIM (adaptive intersection maximization), point-based, 2D+z. `drawDriftCurve()`'s
   own green (`#0a7d32`)/magenta (`#c81cc8`)/blue (`#3572b0`) drift-x/y/z palette is treated as the
   project's reference colour pairing — other plots' own green/magenta curves (NeNA, **spt**'s
@@ -686,35 +521,13 @@ relevant one before editing rather than scrolling:
   `drawDriftCurve()` is a thin dispatcher over two actual plot functions, chosen by module-level
   `driftPlotMode` (`'frame'` default, or `'xy'`): `drawDriftCurveVsFrame()` is the original view
   above (x/y/(z) vs frame index); `drawDriftCurveXY()` is a single trajectory — drift y vs drift x
-  — with each segment coloured by frame (time) through `getLUT(paramValue('lut'))`, the SAME LUT
-  the reconstruction panel's own z-colouring reads, reusing "time in frames" as the colour-coded
-  quantity rather than adding a second colour-map control. Both axes of the xy view share ONE nm
-  range (computed across x AND y together, like the vs-frame view's own shared value axis) so the
-  path's shape is geometrically accurate — independently autoscaled axes would visually distort it.
-  A small colour-bar legend (frame 0 → frame n−1) is drawn directly in the plot, since the gradient
-  alone can't be read as a time axis without one. Deliberately x vs y only, even when 3D drift
-  (`driftZ`) produced a real `fdz` — a genuine 3D trajectory (or x/z, y/z alternatives) is out of
-  scope for now. `driftPlotModeBtn` (inline in the raw-panel title, next to `rawFtmBtn` — same
-  show/hide-while-relevant pattern as `rawFtmBtn`/`sSmlmColorBtn`) toggles the mode and only shows
-  while the drift plot itself is up; `drawRaw()` hides it again the moment the panel is reclaimed
-  by a live frame, the same place that already resets the panel title back to "Raw frame".
-  `correctDrift()` resets `driftPlotMode` to `'frame'` on every fresh correction, so a new result
-  always opens on the default view rather than wherever a previous session's toggle left it; the
-  existing **Show drift** button (`driftShowBtn`) re-shows whichever mode is CURRENTLY selected,
-  not a reset. `drawDriftCurveXY()`'s colour-bar legend uses a manual `moveTo`/`lineTo` path
-  `stroke()` for its border, not `strokeRect()` — the latter isn't part of `SvgRecordingContext`'s
-  duck-typed surface (see **render** above), and the drift plot is one of the 7 SVG-exportable
-  plots, so anything it draws must stay inside that surface or "Save plot/image" → SVG breaks for
-  exactly this one view; caught by actually exercising the SVG export path, not just the on-screen
-  canvas one. `renderDriftPlotHeadless()` (`config.exportPlots`) renders whatever `driftPlotMode`
-  currently is, same as every other headless plot render piggybacking on interactive module state
-  (`calView`, `_plotExportMode`) — there's no separate headless mode selector.
+  — with each segment coloured by frame (time) through `getLUT(paramValue('lut'))`, 
+
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +
-  short-range + long-range terms) and magenta (`#c81cc8`, the signal-Rayleigh term alone) —
-  matching **drift**'s own green/magenta pairing; an earlier version used green for the signal term
-  and red for the full fit, swapped for this consistency.
+  short-range + long-range terms) and magenta (`#c81cc8`, the signal-Rayleigh term alone).
+
 - **sSMLM** — spectrally resolved SMLM: pairs 0th/1st-order localizations from a diffraction
   grating (ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
   Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). Role assignment (which point of a pair is
@@ -724,8 +537,7 @@ relevant one before editing rather than scrolling:
   ±180°) and `pairCore()` classifies each candidate by direction into `outEdges`/`hasIncoming`
   maps: a point qualifies as 0th order only if it has ≥1 outgoing edge (a candidate on the
   configured bearing) AND zero incoming evidence (a candidate on the opposite bearing, more likely
-  someone else's 1st order) — self-disqualifying, no brightness needed; recovers more real pairs
-  than the earlier brightness-gated approach (64.0% vs 59.0%). PSF width (σ, broader for the
+  someone else's 1st order) — self-disqualifying, no brightness needed. PSF width (σ, broader for the
   spectrally-smeared 1st order) showed only ~65–70% correlation with role — available as an
   optional, default-OFF extra filter (`sSmlmRequireNarrower`), not required. **2-point pairs only**
   (0th+1st) — multi-order chaining and FFT-based angle/distance auto-detection are
@@ -760,24 +572,9 @@ relevant one before editing rather than scrolling:
 
   An unpaired localization is dropped from the result. A pair's reported position is the 0th
   order's OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's
-  offset varies per emitter with wavelength, so averaging would blur position. Each paired row also
-  carries `sigma1st` — the 1st order's own `sigma` — exported as a `"sigma1st [nm]"` CSV/table
-  column whenever present. NOT a directional/long-axis width for most methods (every method except
-  the two elliptical fitters, `mle3d`/`gaussmleEll`, fits one symmetric `sigma`, no `sx`/`sy` split);
-  the closest available proxy for "how much wider the spectrally-smeared 1st order looks" in that
-  case. When the Run used `mle3d` or `gaussmleEll` (MODULE: fit) instead, `pairCore()` also carries
-  the real thing — `sx0th`/`sy0th`/`sx1st`/`sy1st` (from `L.sx`/`.sy` and `locs[q.down].sx`/`.sy`),
-  exported as their own optional CSV/table columns the same way — a genuine per-axis width for BOTH
-  orders, not just a proxy for the 1st. The 0th order's own `sx`≈`sy` is itself a useful
-  fit-quality/role signal, not just bonus data — the whole point of using an elliptical method for
-  sSMLM rather than only applying an elliptical fit after the fact to whichever point got classified
-  as 1st order.
+  offset varies per emitter with wavelength, so averaging would blur position. 
 
-  Stores the inter-order distance in its own `dist` field — **deliberately never `z`**: an earlier
-  design that aliased `z` was reverted, both to fix a real bug (drift correction's "Correct z too
-  (3D)" used to key off the same `has3d` check the colour toggle used, so it would silently
-  1-D-"correct" a paired result's spectral `dist` as if it were spatial depth — `driftZRow`'s
-  visibility and `driftCore`'s own gate are keyed on real `z` alone now) and so a future 3D-fit +
+  Stores the inter-order distance in its own `dist` field so a future 3D-fit +
   sSMLM combination could carry real depth AND spectral distance on the same loc without one
   clobbering the other. `renderSuperRes()`/`zRange()` take an explicit `colorField` parameter
   (`'z'` or `'dist'`) so the SAME depth-coded render path colours by either; `rerender()`/
@@ -799,6 +596,7 @@ relevant one before editing rather than scrolling:
   throws propagate immediately, and the result's `sSmlmPair` field records
   `nPairs`/`nInput`/`meanDistance`/`stdDistance`. `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and
   `?autorun=`'s `sSmlmPair=1` both forward to it.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
   `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
@@ -928,14 +726,7 @@ relevant one before editing rather than scrolling:
   switches the reconstruction to the `grey` LUT (`switchLutToGreyForTracks()`), matching
   `plot_tracks_in_cells()`'s own plain-background convention.
 
-  **Line thickness is `view.zoom` alone, NOT `mag*view.zoom` — get this wrong and the spike bug
-  comes back.** One reconstruction (`srFull`) pixel's own on-screen size = `view.zoom` (already "CSS
-  px per `srFull` px"); `mag*view.zoom` draws one CAMERA pixel's width instead (`mag`× too coarse)
-  and is UNBOUNDED as you zoom in — the direct cause of a real, reported bug where zooming in far
-  enough to inspect one track blew the line width into the tens-to-hundreds of px, and the canvas's
-  default MITER join turned every sharp turn into a giant spike. Clamped to `[0.5,6]px` regardless
-  (still theoretically unbounded without the `mag` factor, just far less severe), `lineJoin`/
-  `lineCap`=`'round'`.
+  **Line thickness is `view.zoom` alone.** One reconstruction (`srFull`) pixel's own on-screen size = `view.zoom` (already "CSS px per `srFull` px"); `mag*view.zoom` draws one CAMERA pixel's width. 
 
   **`drawTracksColorBar()`** (D legend, shown while `sptTracksColorByD` is checked) anchors to the
   PANEL itself — `x=DW-28-bw, y=(DH-bh)/2`, `bw`/`bh`=`16`/`180` — not `srBarAnchor()`'s data-extent
@@ -958,29 +749,25 @@ relevant one before editing rather than scrolling:
   tracks, then `sptShowTracksPct` (default 10%) samples a fixed percentage of the survivors
   deterministically — `mulberry32(TRACKS_OVERLAY_SEED)` draws one float **per track in the FULL,
   unfiltered id-ordered list**, keeping a track iff its own draw is `<pct/100` AND it meets
-  `sptTrackLenMin`. **The draw must run over the full list, not the length-filtered subset** — an
-  earlier version filtered first, so a track's draw depended on its index among the survivors, which
-  shifted whenever `sptTrackLenMin` changed; raising the threshold could then make an unrelated track
-  suddenly appear or vanish, a real, reported bug. Fixed by calling `rng()` once per track in the
-  full list regardless of qualification. Net effect, verified with a monotonicity sweep: the same
-  dataset always shows the same track identities at a given percentage; raising the percentage only
-  ADDS tracks, never reshuffles; raising `sptTrackLenMin` only REMOVES tracks. Cached against (list
-  identity, minLen, pct); `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all live-refresh
-  the overlay via `refreshTracksOverlayIfShown()`, no fresh Track needed.
+  `sptTrackLenMin`. **The draw must run over the full list, not the length-filtered subset** by calling `rng()` once per track in the   full list regardless of qualification. Net effect, verified with a monotonicity sweep: the same   dataset always shows the same track identities at a given percentage; raising the percentage only   ADDS tracks, never reshuffles; raising `sptTrackLenMin` only REMOVES tracks. Cached against (list   identity, minLen, pct); `sptTrackLenMin`/`sptShowTracksPct`/`sptTracksColorByD` all live-refresh the overlay via `refreshTracksOverlayIfShown()`, no fresh Track needed.
 
   **`sptShowTrackDataBtn`** ("Show track data", shares `sptShowTracksBtn`'s row; `sptSaveBtn` — "Save
   track data" — alone in the row below, defaulting to the left grid slot with no extra CSS) opens
   `trackTableModal` ("Track data"): a sortable, filterable table of `sptTrackSummary()`'s own
   per-track rows (`track_id`/`n_locs`/`D_coeff`/`mean_x`/`mean_y`/`first_frame`/`last_frame`),
   reusing the main table's `parseFilter()` "field op value" grammar directly (MODULE: table) rather
-  than reimplementing it. Deliberately a SEPARATE, minimal implementation (own state
-  `_trackTableState`/`Data`/`Filtered`/`Filters`, own `openTrackTable()`/`renderTrackTable()`/
-  `commitTrackTableFilter()`) rather than generalising the main table's own machinery, which is
-  entangled with reconstruction filtering/temporal clustering/the crop tool that a per-track summary
-  has no equivalent of yet — a v1, by request, to extend later (no histogram-of-column, no
-  autocomplete, no filter-driven reconstruction linkage). `#trackTable` shares `#locTable`'s CSS
-  (font/row-stripe/sticky header/hover) via one combined selector list, not a duplicated block, so
-  the two tables can't visually drift apart. Rebuilds fresh from `lastResult.locs` on every open;
+  than reimplementing it — same for its filter-box autocomplete, `wireFilterAutocomplete(inp, box,
+  getCols, onCommit)`, factored out of what was originally `#tableFilter`'s own inline IIFE so both
+  boxes share one implementation (`getCols()` called fresh per keystroke, so it stays live against
+  whichever table's own column list currently applies). Deliberately a SEPARATE, minimal
+  implementation otherwise (own state `_trackTableState`/`Data`/`Filtered`/`Filters`, own
+  `openTrackTable()`/`renderTrackTable()`/`commitTrackTableFilter()`) rather than generalising the
+  main table's own machinery, which is entangled with reconstruction filtering/temporal clustering/
+  the crop tool that a per-track summary has no equivalent of yet — a v1, by request, to extend
+  later (no histogram-of-column, no filter-driven reconstruction linkage). `#trackTable` shares
+  `#locTable`'s CSS (font/row-stripe/sticky header/hover) via one combined selector list, not a
+  duplicated block, so the two tables can't visually drift apart. Rebuilds fresh from
+  `lastResult.locs` on every open;
   committed filters persist across close/open, cleared only by Reset filter (same convention as the
   main table). Enabled/disabled by the same `!r.trackLengths.length` condition as
   `sptSaveBtn`/`sptShowTracksBtn`, at all six of their own call sites (one enable site in

@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.7; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-26a; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -64,15 +64,15 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9093   top-level orchestration, *Core()/wrapper split;
+    pipeline        9096   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10859  localizations table, filtering, histograms
-    headless API    11324  window.webSMLM.analyze()/analyzeBatch()
+    table           10862  localizations table, filtering, histograms
+    headless API    11341  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1657,12 +1657,12 @@ X.B(E,Y);return E}return J}())
   #locTable th:hover,#trackTable th:hover{color:var(--accent)}
   #locTable tbody tr:nth-child(even),#trackTable tbody tr:nth-child(even){background:var(--row-stripe)}
   #locTable tbody tr:hover,#trackTable tbody tr:hover{background:var(--panel)}
-  #tableFilter.bad{border-color:var(--danger)}
-  #tableFilterAC{position:absolute;top:100%;left:0;right:0;z-index:20;margin-top:2px;
+  #tableFilter.bad,#trackTableFilter.bad{border-color:var(--danger)}
+  #tableFilterAC,#trackTableFilterAC{position:absolute;top:100%;left:0;right:0;z-index:20;margin-top:2px;
     background:var(--panel);border:1px solid var(--line);border-radius:7px;
     max-height:180px;overflow:auto;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4)}
-  #tableFilterAC .ac-item{padding:5px 10px;cursor:pointer;font-size:13px;color:var(--fg)}
-  #tableFilterAC .ac-item.sel{background:var(--accent);color:#fff}
+  #tableFilterAC .ac-item,#trackTableFilterAC .ac-item{padding:5px 10px;cursor:pointer;font-size:13px;color:var(--fg)}
+  #tableFilterAC .ac-item.sel,#trackTableFilterAC .ac-item.sel{background:var(--accent);color:#fff}
   .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
   .fchip b{cursor:pointer;color:var(--muted);font-weight:700}
   .fchip b:hover{color:var(--danger)}
@@ -1740,7 +1740,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.7 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.8-dev · build 2026-08-26a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2210,7 +2210,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.7 · proof-of-concept — SPT tracks overlay, Show track data table, several reported-bug fixes. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.8-dev · build 2026-08-26a · Show track data: filter box now has the same autocomplete as the main table (shared wireFilterAutocomplete())</div></div>
   </main>
 </div>
 
@@ -8255,10 +8255,12 @@ async function exportSptSummary(){
 // _tableData/_tableFilters/renderTable() machinery — not generalised into
 // it — since that machinery is entangled with the reconstruction (
 // applyFilterToReconstruction), temporal clustering and the crop tool, none
-// of which a per-track summary has an equivalent of yet. Keep simple for
-// now (no histogram-of-column, no autocomplete, no reconstruction linkage);
-// a v1 to extend later, same spirit as the segmentation-image / sptShowTracksBtn
-// features when they first shipped.
+// of which a per-track summary has an equivalent of yet. Filter-box
+// autocomplete IS shared (wireFilterAutocomplete(), factored out for both
+// tables) — the deliberately-simple v1 scope is everything else: no
+// histogram-of-column, no reconstruction linkage; more to extend later,
+// same spirit as the segmentation-image / sptShowTracksBtn features when
+// they first shipped.
 let _trackTableState={sortCol:'track_id', sortDir:1}, _trackTableData=null, _trackTableFiltered=null, _trackTableFilters=[];
 function openTrackTable(){
   if(!lastResult || !lastResult.locs.length){ log('Track first — nothing to tabulate.'); return; }
@@ -11233,6 +11235,52 @@ function wireInfoButtons(){
   m.addEventListener('click',e=>{ if(e.target===m) hide(); });
   window.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); });
 }
+// Shared filter-box autocomplete — factored out so the main table's
+// #tableFilter and the per-track #trackTableFilter (MODULE: spt) both get
+// identical behaviour from one implementation, matching this file's own
+// "one shared rule set, not a duplicated block" precedent (see
+// #locTable/#trackTable's shared CSS). getCols() is called fresh on every
+// keystroke, not passed once, so it stays live against whichever table's
+// own column list currently applies. onCommit() is called on a plain Enter
+// (autocomplete box not open) — the caller's own commit function.
+function wireFilterAutocomplete(inp, box, getCols, onCommit){
+  let items=[], sel=-1;
+  const token=()=>{ const v=inp.value, c=inp.selectionStart, before=v.slice(0,c);
+    const m=before.match(/[a-zA-Z_]*$/); return {tok:m[0], start:c-m[0].length, end:c}; };
+  const hideAC=()=>{ box.style.display='none'; box.innerHTML=''; items=[]; sel=-1; };
+  const highlight=()=>{ [...box.children].forEach((el,i)=>el.classList.toggle('sel',i===sel)); };
+  const renderAC=()=>{
+    const {tok}=token(), cols=getCols();
+    if(!tok || !cols.length){ hideAC(); return; }
+    const low=tok.toLowerCase();
+    items=cols.filter(c=>c.toLowerCase().startsWith(low));
+    if(!items.length || (items.length===1 && items[0].toLowerCase()===low)){ hideAC(); return; }
+    sel=0;
+    box.innerHTML=items.map(c=>`<div class="ac-item">${c}</div>`).join('');
+    highlight(); box.style.display='block';
+  };
+  const applySel=i=>{ const chosen=items[i]; if(!chosen) return;
+    const {start,end}=token(), v=inp.value;
+    inp.value=v.slice(0,start)+chosen+v.slice(end);
+    const pos=start+chosen.length; inp.setSelectionRange(pos,pos);
+    hideAC(); inp.focus(); };
+  inp.addEventListener('input',()=>{ inp.classList.remove('bad'); renderAC(); });   // clear the error mark while retyping — no filtering until Enter
+  inp.addEventListener('focus',renderAC);
+  inp.addEventListener('blur',()=>setTimeout(hideAC,150));   // delay so a click on an item registers first
+  inp.addEventListener('keydown',e=>{
+    if(box.style.display==='block'){
+      if(e.key==='ArrowDown'){ e.preventDefault(); sel=(sel+1)%items.length; highlight(); return; }
+      if(e.key==='ArrowUp'){ e.preventDefault(); sel=(sel-1+items.length)%items.length; highlight(); return; }
+      if(e.key==='Tab'||e.key==='Enter'){ e.preventDefault(); applySel(sel); return; }
+      if(e.key==='Escape'){ hideAC(); return; }
+    }
+    if(e.key==='Enter'){ e.preventDefault(); onCommit(); }
+  });
+  box.addEventListener('mousedown',e=>{   // mousedown (not click) fires before the input's blur
+    const el=e.target.closest('.ac-item'); if(!el) return;
+    e.preventDefault(); applySel([...box.children].indexOf(el));
+  });
+}
 function wireHelp(){
   const m=$('helpModal'), btn=$('helpBtn'), close=$('helpClose');
   if(!m||!btn||!close) return;
@@ -11255,66 +11303,34 @@ function wireHelp(){
     $('tableBtn').addEventListener('click',openTable);
     $('tableClose').addEventListener('click',thide);
     tm.addEventListener('click',e=>{ if(e.target===tm) thide(); });
-    // Autocomplete for the filter box: every field the box actually accepts —
-    // the CURRENT table's own columns (_tableData.cols, so it tracks whatever
-    // 3D / clustering / MLE-3D state adds or removes) PLUS the two clustering
-    // pseudo-fields (tempClusteringXY/Z) that commitFilter() special-cases
-    // before the normal column grammar — they're typed in the same box with
-    // the same "field op value" shape, so they belong in the same list.
+    // Autocomplete for the filter box (wireFilterAutocomplete(), factored out
+    // above so #trackTableFilter below can share it): every field the box
+    // actually accepts — the CURRENT table's own columns (_tableData.cols, so
+    // it tracks whatever 3D / clustering / MLE-3D state adds or removes) PLUS
+    // the two clustering pseudo-fields (tempClusteringXY/Z) that
+    // commitFilter() special-cases before the normal column grammar — they're
+    // typed in the same box with the same "field op value" shape, so they
+    // belong in the same list.
     const FILTER_KEYWORDS=['tempClusteringXY','tempClusteringZ'];
-    (function(){
-      const inp=$('tableFilter'), box=$('tableFilterAC');
-      let items=[], sel=-1;
-      const token=()=>{ const v=inp.value, c=inp.selectionStart, before=v.slice(0,c);
-        const m=before.match(/[a-zA-Z_]*$/); return {tok:m[0], start:c-m[0].length, end:c}; };
-      const hideAC=()=>{ box.style.display='none'; box.innerHTML=''; items=[]; sel=-1; };
-      const highlight=()=>{ [...box.children].forEach((el,i)=>el.classList.toggle('sel',i===sel)); };
-      const renderAC=()=>{
-        const {tok}=token(), cols=(_tableData?_tableData.cols:[]).concat(FILTER_KEYWORDS);
-        if(!tok || !cols.length){ hideAC(); return; }
-        const low=tok.toLowerCase();
-        items=cols.filter(c=>c.toLowerCase().startsWith(low));
-        if(!items.length || (items.length===1 && items[0].toLowerCase()===low)){ hideAC(); return; }
-        sel=0;
-        box.innerHTML=items.map(c=>`<div class="ac-item">${c}</div>`).join('');
-        highlight(); box.style.display='block';
-      };
-      const applySel=i=>{ const chosen=items[i]; if(!chosen) return;
-        const {start,end}=token(), v=inp.value;
-        inp.value=v.slice(0,start)+chosen+v.slice(end);
-        const pos=start+chosen.length; inp.setSelectionRange(pos,pos);
-        hideAC(); inp.focus(); };
-      inp.addEventListener('input',()=>{ inp.classList.remove('bad'); renderAC(); });   // clear the error mark while retyping — no filtering until Enter
-      inp.addEventListener('focus',renderAC);
-      inp.addEventListener('blur',()=>setTimeout(hideAC,150));   // delay so a click on an item registers first
-      inp.addEventListener('keydown',e=>{
-        if(box.style.display==='block'){
-          if(e.key==='ArrowDown'){ e.preventDefault(); sel=(sel+1)%items.length; highlight(); return; }
-          if(e.key==='ArrowUp'){ e.preventDefault(); sel=(sel-1+items.length)%items.length; highlight(); return; }
-          if(e.key==='Tab'||e.key==='Enter'){ e.preventDefault(); applySel(sel); return; }
-          if(e.key==='Escape'){ hideAC(); return; }
-        }
-        if(e.key==='Enter'){ e.preventDefault(); commitFilter(); }
-      });
-      box.addEventListener('mousedown',e=>{   // mousedown (not click) fires before the input's blur
-        const el=e.target.closest('.ac-item'); if(!el) return;
-        e.preventDefault(); applySel([...box.children].indexOf(el));
-      });
-    })();
+    wireFilterAutocomplete($('tableFilter'), $('tableFilterAC'),
+      ()=>(_tableData?_tableData.cols:[]).concat(FILTER_KEYWORDS), commitFilter);
     $('tableResetBtn').addEventListener('click',resetFilters);
     $('tableHistBtn').addEventListener('click',()=>plotColumnHistogram($('tableHistCol').value));
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') thide(); }); }
   // per-track "Show track data" table — same modal-wiring shape as the
   // main table just above (close button, click-outside-to-close, Escape,
-  // Enter-to-commit-filter), deliberately without its autocomplete/histogram/
-  // clustering extras (see openTrackTable()'s own comment for why).
+  // Enter-to-commit-filter, and now the SAME shared autocomplete), just
+  // without the histogram/clustering extras (see openTrackTable()'s own
+  // comment for why). wireFilterAutocomplete() already wires its own
+  // input/keydown listeners (clearing '.bad' on input, committing on a plain
+  // Enter) — no separate listeners needed alongside it.
   const ttm=$('trackTableModal');
   if(ttm){ const tthide=()=>ttm.classList.remove('open');
     $('sptShowTrackDataBtn').addEventListener('click',openTrackTable);
     $('trackTableClose').addEventListener('click',tthide);
     ttm.addEventListener('click',e=>{ if(e.target===ttm) tthide(); });
-    $('trackTableFilter').addEventListener('input',()=>$('trackTableFilter').classList.remove('bad'));
-    $('trackTableFilter').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commitTrackTableFilter(); } });
+    wireFilterAutocomplete($('trackTableFilter'), $('trackTableFilterAC'),
+      ()=>(_trackTableData?_trackTableData.cols:[]), commitTrackTableFilter);
     $('trackTableResetBtn').addEventListener('click',()=>{ _trackTableFilters=[]; $('trackTableFilter').value=''; renderTrackTable(); });
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') tthide(); }); }
   // panel captions truncate with an ellipsis when the window is narrow — expose the
@@ -11801,6 +11817,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
         <input id="trackTableFilter" class="num" style="width:100%;text-align:left"
                placeholder="filter — e.g. n_locs > 10  ·  Enter to apply (cumulative) · type 'reset' to clear"
                autocomplete="off">
+        <div id="trackTableFilterAC"></div>
       </div>
       <button id="trackTableResetBtn" class="logbtn">Reset filter</button>
       <span id="trackTableCount" style="color:var(--accent2);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums"></span>
