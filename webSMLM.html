@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.8; may drift with
+  MODULE INDEX — line numbers as of v0.11.9-dev; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -77,7 +77,10 @@
                            not gated on atFit
     table           10936  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11429  window.webSMLM.analyze()/analyzeBatch()
+    headless API    11491  window.webSMLM.analyze()/analyzeBatch();
+                           wireHotkeys() (test prototype) sits just before
+                           wireHelp(), between table and here — Alt+1-10
+                           action buttons / Alt+Shift+1-10 module sections
   ============================================================================
 -->
 <html lang="en">
@@ -1668,6 +1671,11 @@ X.B(E,Y);return E}return J}())
     max-height:180px;overflow:auto;display:none;box-shadow:0 6px 16px rgba(0,0,0,.4)}
   #tableFilterAC .ac-item,#trackTableFilterAC .ac-item{padding:5px 10px;cursor:pointer;font-size:13px;color:var(--fg)}
   #tableFilterAC .ac-item.sel,#trackTableFilterAC .ac-item.sel{background:var(--accent);color:#fff}
+  /* Alt-hotkey number hints (wireHotkeys()) — position:fixed, viewport-rect
+     positioned in JS, so no layout dependency on the button/summary they sit
+     over (see wireHotkeys()'s own comment for why fixed-not-relative). */
+  .hotkeyHint{position:fixed;z-index:9999;background:var(--accent);color:#fff;font:700 11px/1 -apple-system,sans-serif;
+    padding:2px 6px;border-radius:9px;pointer-events:none;box-shadow:0 1px 4px var(--shadow);font-variant-numeric:tabular-nums}
   .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
   .fchip b{cursor:pointer;color:var(--muted);font-weight:700}
   .fchip b:hover{color:var(--danger)}
@@ -1745,7 +1753,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.8 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.9-dev · build 2026-08-27e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2215,7 +2223,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.8 · proof-of-concept — mobile TIFF-loading crash fixed (now defaults Memory budget lower on mobile too), headless per-column histogram export, filter autocomplete, doc cleanup. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.9-dev · build 2026-08-27e — test: Alt+1-10 / Alt+Shift+1-10 keyboard hotkeys (hold Alt to see numbered hints). See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -11374,6 +11382,68 @@ function wireFilterAutocomplete(inp, box, getCols, onCommit){
     e.preventDefault(); applySel([...box.children].indexOf(el));
   });
 }
+// Alt+1..0 / Alt+Shift+1..0 hotkeys — a TEST prototype (explicit request):
+// hold Alt, numbered hints appear on the 10 always-visible top-level action
+// buttons (Vimium/Superhuman-style "hold a modifier, hints appear"); add
+// Shift and the SAME 10 numbers instead open one of the 10 collapsible
+// module sections. Alt, not Ctrl, deliberately — Ctrl+1..9 is already bound
+// to browser tab-switching in Chrome/Firefox/Edge on Windows/Linux, so the
+// page would never even see those keydowns there. A modifier-gated scheme
+// also needs no focused-input guard the way a bare, unmodified 1..0 scheme
+// would (this app has dozens of free-typable numeric fields) — Alt+1 is a
+// different keystroke from typing "1", so it can't fire mid-typing.
+//
+// Both lists are in on-screen order; index i <-> HOTKEY_DIGITS[i]
+// (keyboard-row order, '0' last = the 10th) is a FIXED mapping that never
+// renumbers around a currently-disabled button — muscle memory ("Alt+5 =
+// Localize") should stay true regardless of what's enabled at the moment;
+// a hint simply doesn't appear for a button that's disabled or a section
+// that isn't on screen right now. Known gap this test doesn't solve: on
+// the mobile/floating sidebar drawer (collapsed by default), the hotkey
+// still opens the target <details> underneath, just invisibly until the
+// drawer itself is shown — hints correctly don't appear for it there
+// (zero-size rect), but the keypress itself doesn't also open the drawer.
+const HOTKEY_DIGITS=['1','2','3','4','5','6','7','8','9','0'];
+const HOTKEY_BUTTONS=['loadBtn','genBtn','loadSetBtn','saveSetBtn','runBtn','stopBtn','saveBtn','saveImgBtn','tableBtn','helpBtn'];
+const HOTKEY_SECTIONS=['memBox','simBox','pcfoBox','calibBox','locBox','renderBox','driftBox','precBox','sSmlmBox','sptBox'];
+function wireHotkeys(){
+  let hints=[];
+  const clearHints=()=>{ hints.forEach(el=>el.remove()); hints=[]; };
+  // Positions each numbered badge over the SUMMARY specifically for a
+  // <details> target (not the whole element — that's the full expanded
+  // box once open, which would put the badge far below the actual
+  // clickable header) via position:fixed + a live getBoundingClientRect(),
+  // so it needs no layout coupling with whatever it's overlaying.
+  const showHints=ids=>{
+    clearHints();
+    ids.forEach((id,i)=>{
+      const target=$(id); if(!target) return;
+      const anchor = target.tagName==='DETAILS' ? (target.querySelector('summary')||target) : target;
+      if(anchor.disabled) return;
+      const r=anchor.getBoundingClientRect(); if(!r.width||!r.height) return;   // not on screen right now
+      const b=document.createElement('div'); b.className='hotkeyHint'; b.textContent=HOTKEY_DIGITS[i];
+      b.style.left=r.left+'px'; b.style.top=(r.top-10)+'px';
+      document.body.appendChild(b); hints.push(b);
+    });
+  };
+  const refresh=(altOn,shiftOn)=>{ if(!altOn){ clearHints(); return; } showHints(shiftOn?HOTKEY_SECTIONS:HOTKEY_BUTTONS); };
+  window.addEventListener('keydown',e=>{
+    if(e.key==='Alt'){ refresh(true,e.shiftKey); return; }
+    if(e.key==='Shift'&&e.altKey){ refresh(true,true); return; }
+    if(!e.altKey) return;
+    const i=HOTKEY_DIGITS.indexOf(e.key); if(i<0) return;
+    e.preventDefault();
+    const id=(e.shiftKey?HOTKEY_SECTIONS:HOTKEY_BUTTONS)[i], el=$(id); if(!el) return;
+    if(e.shiftKey){ el.open=true; el.scrollIntoView({behavior:'smooth',block:'start'}); }
+    else if(!el.disabled) el.click();
+    refresh(true,e.shiftKey);   // re-show hints matching the (possibly now-changed) button/section states
+  });
+  window.addEventListener('keyup',e=>{
+    if(e.key==='Alt') clearHints();
+    else if(e.key==='Shift') refresh(e.altKey,false);
+  });
+  window.addEventListener('blur',clearHints);   // Alt+Tab away etc. — this page's own keyup for Alt never fires then
+}
 function wireHelp(){
   const m=$('helpModal'), btn=$('helpBtn'), close=$('helpClose');
   if(!m||!btn||!close) return;
@@ -11849,7 +11919,7 @@ async function runAutorun(){
 }
 window.webSMLM.runAutorun = runAutorun;   // exposed so a driving script can trigger/re-trigger it explicitly too
 
-function initPage(){ wireHelp(); wireInfoButtons(); runAutorun(); }
+function initPage(){ wireHelp(); wireInfoButtons(); wireHotkeys(); runAutorun(); }
 if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',initPage); else initPage();
 
 </script>
