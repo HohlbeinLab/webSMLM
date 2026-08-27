@@ -81,7 +81,14 @@ relevant one before editing rather than scrolling:
   original reason `SLICE_MIN` was raised to 1.5 GB in the first place — is untouched. Verified via
   Playwright against the real bundled 147 MB Sample2 L. lactis file: default budget still loads
   in-memory; a forced-low budget routes the SAME file through `loadMultiIfdStreaming()` instead,
-  producing byte-identical pixel data (frame 0 and frame 500 checked) via the other path. A multi-file selection (Ctrl/Cmd+click)
+  producing byte-identical pixel data (frame 0 and frame 500 checked) via the other path. Both
+  call sites (the contiguous-ImageJ fast path and the multi-IFD fallback) log a one-line advisory
+  — `"Streaming instead of loading whole: X file exceeds the Y Memory budget…"` — matching
+  `checkRenderSize()`/`checkTableSize()`'s own "explain before the invisible path change" style,
+  but ONLY when it's genuinely the tightened budget forcing streaming (`effSliceMin<SLICE_MIN &&
+  fileSize<=SLICE_MIN`) — a file over the fixed 1.5 GB ceiling regardless of budget already gets
+  its own explanation from `loadMultiIfdStreaming()`'s/the contiguous path's existing messages, so
+  this doesn't fire redundantly for the "genuinely huge file" case. A multi-file selection (Ctrl/Cmd+click)
   goes through `loadTiffFilesAuto()`, which auto-detects which of two combining strategies
   applies — no separate UI control for this, it's inferred from `files[0]`'s own frame count, same
   "file[0] sets the rules the rest must match" convention already used for width/height: exactly 1
