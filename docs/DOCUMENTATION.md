@@ -858,8 +858,16 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 |
+| `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 (0.5 on a narrow/mobile viewport) |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
+
+`memgb`'s own default is lowered to its own UI minimum (0.5 GB) on a narrow viewport (`window.
+innerWidth<=860`, the same signal the mobile/floating sidebar drawer uses) rather than the desktop
+3 GB — a real, reported bug otherwise: mobile Safari's real per-tab memory ceiling is well under
+3 GB with no JS-visible OOM signal, so a moderate TIFF (hundreds of MB) could crash the tab on
+first load before a user had any reason to know to lower this setting themselves. Only the initial
+default changes (resizing the window afterward doesn't re-trigger it); a loaded settings JSON's own
+`memgb` value still overrides it as always.
 
 **In-app "more info…" popup** (`hint-memory` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the

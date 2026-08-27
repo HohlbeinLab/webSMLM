@@ -17,34 +17,38 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.8; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-27d; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2225   PARAMS registry, single source of truth for params;
-                           #log/#logText box/logged-text (80ch) width split
-    in/out          2737   TIFF/ND2 parsing, in-memory/streamed loading, FTM
-    simulation      3050   synthetic stack generator ("Simulate movie")
-    detect          3938   per-frame band-pass + local-maxima detection
-    fit             4194   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    params          2226   PARAMS registry, single source of truth for params;
+                           #log/#logText box/logged-text (80ch) width split;
+                           isMobileViewport() (memgb's own lower default on
+                           a narrow viewport)
+    in/out          2773   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+                           loadTiffFile()'s effSliceMin ties the whole-file-
+                           vs-streamed threshold to Memory budget (memgb)
+    simulation      3086   synthetic stack generator ("Simulate movie")
+    detect          3974   per-frame band-pass + local-maxima detection
+    fit             4230   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4669   accumulate to offscreen buffer; view/colour/blur;
+    render          4705   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually
                            exclusive; srBarAnchor() shared by drawDepthBar()/
                            drawTracksColorBar()
-    workers         5645   frame-parallel detect/fit worker pool
-    export          5810   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6070   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6470   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5681   frame-parallel detect/fit worker pool
+    export          5846   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6106   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6506   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6786   NeNA + FRC
-    sSMLM           7429   spectrally resolved SMLM pair-finding; merged
+    locprecision    6822   NeNA + FRC
+    sSMLM           7465   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7894   single particle tracking, trackpy-inspired;
+    spt             7930   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -64,16 +68,16 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9134   top-level orchestration, *Core()/wrapper split;
+    pipeline        9170   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10900  localizations table, filtering, histograms;
+    table           10936  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11393  window.webSMLM.analyze()/analyzeBatch()
+    headless API    11429  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1741,7 +1745,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.8 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.9-dev · build 2026-08-27d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2211,7 +2215,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.8 · proof-of-concept — mobile TIFF-loading crash fixed, headless per-column histogram export, filter autocomplete, doc cleanup. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.9-dev · build 2026-08-27d · Memory budget (GB) now defaults lower (0.5 GB) on a narrow/mobile viewport, closing the gap the effSliceMin fix left for a first-time mobile load</div></div>
   </main>
 </div>
 
@@ -2609,20 +2613,55 @@ function buildSettingsJson(values){
   return { format:'webSMLM-settings', version:2, created:new Date().toISOString(), values };
 }
 
+// Same narrow-viewport signal the mobile/floating sidebar drawer already
+// uses (search '860' — the CSS breakpoint and this JS check are meant to
+// agree) — a plain width check, not device/UA sniffing: `navigator.
+// deviceMemory` doesn't exist in Safari at all (WebKit doesn't implement
+// it, so it's useless for exactly the iOS case this matters most for), and
+// a narrow viewport is already this app's own established definition of
+// "mobile" for every other purpose (16px input font-size, the drawer
+// itself). A real trade-off, not free: a desktop window resized narrow
+// reads as "mobile" too — accepted, since correlating with an existing,
+// already-relied-on signal beats adding a second, independent guess.
+function isMobileViewport(){ return window.innerWidth<=860; }
 // Registry → DOM: writes min/max/step/value (or checked, for booleans) onto
 // each bound control from PARAMS, so the registry is authoritative even
 // though the static HTML also carries its own (matching, but now redundant)
-// attributes. Runs once at startup, before any other init.
+// attributes. Runs once at startup, before any other init. One deliberate
+// exception to "PARAMS is authoritative as-is": memgb's own default is
+// lowered on a narrow viewport (0.5 GB, its own UI-allowed minimum, vs the
+// desktop 3 GB) — a real, reported bug otherwise: loadTiffFile()'s
+// whole-file-vs-streamed threshold ties to this same Memory budget (see its
+// own comment), but a mobile Safari tab's real per-tab ceiling is well
+// under 3 GB with no JS-visible OOM signal, so a moderate file (a
+// real-world 680 MB one) crashed the tab by default, silently, before a
+// user had any reason to know to lower the setting themselves first. 1 GB
+// was tried first here and rejected — verified against the actual 680 MB
+// reported file it still doesn't clear the threshold (`680 MB < 1 GB`), so
+// only 0.5 GB actually closes the gap for a file that size; double-check
+// against a real number again if this default is ever revisited, the same
+// "don't trust it without checking" lesson `effSliceMin` itself already
+// carries. Only the INITIAL default changes — resizing the window later
+// doesn't re-trigger this (same "set once at startup" behaviour every
+// other PARAMS default already has), and a loaded settings JSON's own
+// memgb value still overrides it same as always.
 function syncParamControls(){
   for(const id in PARAMS){
     const spec=PARAMS[id]; if(!spec.id) continue;
     const el=$(spec.id); if(!el) continue;
-    if(spec.type==='bool'){ el.checked=spec.default; continue; }
-    if(spec.type==='enum'){ el.value=spec.default; continue; }
+    // A local override, NOT `spec.default=...` — that would mutate the
+    // shared PARAMS registry object itself, permanently, the first time
+    // this runs on a narrow viewport (PARAMS[id] is a reference, not a
+    // copy) — a real risk for anything that reads spec.default again later
+    // (a future "reset to defaults" feature, or this function simply
+    // running a second time after a resize).
+    const def = (id==='memgb' && isMobileViewport()) ? 0.5 : spec.default;
+    if(spec.type==='bool'){ el.checked=def; continue; }
+    if(spec.type==='enum'){ el.value=def; continue; }
     el.min = spec.min==null ? '' : spec.min;
     if(spec.max!=null) el.max = spec.max;
     el.step = spec.step;
-    el.value = spec.default;
+    el.value = def;
   }
 }
 
@@ -9780,7 +9819,7 @@ $('rawFtmBtn').addEventListener('click',()=>{
 // small screens so the images are visible without scrolling past the controls.
 (function(){ const b=$('sideToggle'); if(!b) return;
   const body=document.body, pin=$('sidePin'), scrim=$('scrim');
-  const isMobile=()=>window.innerWidth<=860;
+  const isMobile=isMobileViewport;   // same narrow-viewport check syncParamControls() now also uses for memgb's own default
   const refit=()=>window.dispatchEvent(new Event('resize'));   // re-fit canvases if the grid width changed
   // Floating/mobile-drawer sidebar is position:fixed, so it needs the header's
   // real rendered height (font metrics vary by OS/zoom — a guessed px value

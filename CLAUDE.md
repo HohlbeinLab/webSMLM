@@ -88,7 +88,27 @@ relevant one before editing rather than scrolling:
   but ONLY when it's genuinely the tightened budget forcing streaming (`effSliceMin<SLICE_MIN &&
   fileSize<=SLICE_MIN`) — a file over the fixed 1.5 GB ceiling regardless of budget already gets
   its own explanation from `loadMultiIfdStreaming()`'s/the contiguous path's existing messages, so
-  this doesn't fire redundantly for the "genuinely huge file" case. A multi-file selection (Ctrl/Cmd+click)
+  this doesn't fire redundantly for the "genuinely huge file" case.
+
+  **`memgb`'s own DEFAULT is also lowered on mobile** (`syncParamControls()`, MODULE: params) — a
+  real follow-up gap in the fix above: tying `effSliceMin` to `readBudget()` only helps once a user
+  has actually lowered **Memory budget (GB)**, and at the unchanged 3 GB default a mobile-sized file
+  (the 680 MB real-world one) still took the whole-file path and crashed silently, with no reason for
+  a first-time user to know to go change that setting first. `syncParamControls()` now special-cases
+  `memgb`: on a narrow viewport (`isMobileViewport()`, `window.innerWidth<=860` — the SAME signal
+  the mobile/floating sidebar drawer already used, reused rather than adding a second guess or
+  UA-sniffing device memory, which doesn't even exist in Safari) it defaults to `0.5` (its own
+  UI-allowed minimum) instead of `3`. **1 GB was tried first and is wrong** — checked against the
+  actual 680 MB reported file, `680 MB<1 GB` still doesn't clear the threshold, so only `0.5` (512 MB)
+  actually closes the gap for a file that size; re-verify against a real number again if this default
+  is ever revisited, same "don't trust it without checking" lesson `effSliceMin` itself already
+  carries. Deliberately a LOCAL override inside the sync loop (`const def = ... ? 0.5 : spec.default`),
+  NOT `spec.default=0.5` — the latter would mutate the shared `PARAMS.memgb` object itself,
+  permanently, the first time this runs on a narrow viewport (`PARAMS[id]` is a reference, not a
+  copy) — a real risk for anything that reads `spec.default` again later. Only the INITIAL default
+  changes; resizing the window afterward doesn't re-trigger it (same "set once at startup" behaviour
+  every other `PARAMS` default already has), and a loaded settings JSON's own `memgb` value still
+  overrides it as always. A multi-file selection (Ctrl/Cmd+click)
   goes through `loadTiffFilesAuto()`, which auto-detects which of two combining strategies
   applies — no separate UI control for this, it's inferred from `files[0]`'s own frame count, same
   "file[0] sets the rules the rest must match" convention already used for width/height: exactly 1
