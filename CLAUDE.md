@@ -63,7 +63,25 @@ relevant one before editing rather than scrolling:
 
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
-  multi-GB files via `File.slice()` (never fully loaded). A multi-file selection (Ctrl/Cmd+click)
+  multi-GB files via `File.slice()` (never fully loaded). `loadTiffFile()`'s own choice between the
+  whole-file (`file.arrayBuffer()`) and streamed (`loadMultiIfdStreaming()`) path is gated on
+  `effSliceMin = Math.min(SLICE_MIN, readBudget())` — `SLICE_MIN` (~1.5 GB) alone used to be the
+  ONLY gate, disconnected from `readBudget()`/`memgb` (the SAME "Memory budget (GB)" control that
+  gates decoded-frame caching further downstream). A real, reported bug this caused: a moderate
+  file (147 MB bundled sample; a real-world 680 MB one from a user) stays comfortably under 1.5 GB
+  so always took the whole-file path — reading the ENTIRE raw file into one `ArrayBuffer` AND
+  indexing every frame's IFD metadata up front, BEFORE any budget check ever ran — while a much
+  LARGER file (the 4.9 GB Leterrier dataset) was always forced onto the always-chunked streaming
+  path regardless of its own size, and so stayed memory-frugal despite being 30×+ bigger on disk.
+  On mobile Safari, whose real per-tab ceiling is well under desktop assumptions with NO JS-visible
+  OOM signal (see FTM's own memory note below), this made the SMALLER file the riskier load — tying
+  the threshold to `readBudget()` lets a user with a memory-constrained device lower **Memory
+  budget (GB)** and actually get it applied here too, not just to frame caching; unchanged at the
+  3 GB default (`min(1.5GB, 3GB)=1.5GB`, same as before) so desktop behaviour — including the
+  original reason `SLICE_MIN` was raised to 1.5 GB in the first place — is untouched. Verified via
+  Playwright against the real bundled 147 MB Sample2 L. lactis file: default budget still loads
+  in-memory; a forced-low budget routes the SAME file through `loadMultiIfdStreaming()` instead,
+  producing byte-identical pixel data (frame 0 and frame 500 checked) via the other path. A multi-file selection (Ctrl/Cmd+click)
   goes through `loadTiffFilesAuto()`, which auto-detects which of two combining strategies
   applies — no separate UI control for this, it's inferred from `files[0]`'s own frame count, same
   "file[0] sets the rules the rest must match" convention already used for width/height: exactly 1

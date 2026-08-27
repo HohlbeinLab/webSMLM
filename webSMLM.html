@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-26a; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-27a; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -25,26 +25,26 @@
                            #log/#logText box/logged-text (80ch) width split
     in/out          2737   TIFF/ND2 parsing, in-memory/streamed loading, FTM
     simulation      3050   synthetic stack generator ("Simulate movie")
-    detect          3899   per-frame band-pass + local-maxima detection
-    fit             4155   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    detect          3919   per-frame band-pass + local-maxima detection
+    fit             4175   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4630   accumulate to offscreen buffer; view/colour/blur;
+    render          4650   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually
                            exclusive; srBarAnchor() shared by drawDepthBar()/
                            drawTracksColorBar()
-    workers         5606   frame-parallel detect/fit worker pool
-    export          5771   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6031   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6431   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5626   frame-parallel detect/fit worker pool
+    export          5791   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6051   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6451   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6747   NeNA + FRC
-    sSMLM           7390   spectrally resolved SMLM pair-finding; merged
+    locprecision    6767   NeNA + FRC
+    sSMLM           7410   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7855   single particle tracking, trackpy-inspired;
+    spt             7875   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -64,15 +64,15 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9096   top-level orchestration, *Core()/wrapper split;
+    pipeline        9115   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10862  localizations table, filtering, histograms
-    headless API    11341  window.webSMLM.analyze()/analyzeBatch()
+    table           10881  localizations table, filtering, histograms
+    headless API    11360  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1740,7 +1740,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.8-dev · build 2026-08-26a</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.8-dev · build 2026-08-27a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2210,7 +2210,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.8-dev · build 2026-08-26a · Show track data: filter box now has the same autocomplete as the main table (shared wireFilterAutocomplete())</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.8-dev · build 2026-08-27a · Fixed: large-frame-count TIFF loading now respects Memory budget (GB) before reading the whole file, not just when caching decoded frames — helps mobile/memory-constrained loads of moderate-size files</div></div>
   </main>
 </div>
 
@@ -3424,7 +3424,27 @@ async function loadTiffFile(file, onLog=log){
   // ArrayBuffer; smaller files go through the cached whole-file path (faster,
   // and UTIF handles multi-IFD correctly). Function-scoped so both the
   // contiguous check and the multi-IFD fallback can see it.
-  const SLICE_MIN = 1.5*1073741824;              // ~1.5 GB
+  //
+  // SLICE_MIN (~1.5 GB) is the historical ceiling — raised deliberately once
+  // (see the comment lower down) after a moderate-size desktop file got
+  // needlessly routed through slicing. But the whole-file path's real cost
+  // isn't just SLICE_MIN's own fixed number: file.arrayBuffer() holds the
+  // ENTIRE raw file resident, and UTIF.decode() indexes IFD metadata for
+  // EVERY frame, both unconditionally and BEFORE readBudget()'s own
+  // decoded-frame-cache check ever runs — so on a tight budget (mobile
+  // Safari's real per-tab ceiling, well under desktop assumptions, with no
+  // JS-visible OOM signal — see the FTM/memory notes elsewhere in this
+  // file), a file comfortably under SLICE_MIN can still be the riskier load
+  // than a much larger one that's forced onto the always-chunked streaming
+  // path regardless of its own on-disk size. Tying the effective threshold
+  // to readBudget() (the SAME "Memory budget (GB)" control chunk-caching
+  // already uses, not a second disconnected budget) fixes this: at the
+  // default 3 GB it's unchanged (min(1.5GB, 3GB) = 1.5GB, so desktop's own
+  // reason for raising SLICE_MIN in the first place is untouched), but a
+  // user who dials Memory budget down for a memory-constrained device now
+  // gets that setting actually applied here too, not just to frame caching.
+  const SLICE_MIN = 1.5*1073741824;              // ~1.5 GB, desktop ceiling
+  const effSliceMin = Math.min(SLICE_MIN, readBudget());
   const head=await file.slice(0, Math.min(fileSize, 1<<24)).arrayBuffer();   // 16 MB
   let hifds=null; try{ hifds=UTIF.decode(head); }catch(_){}
   // UTIF.decode() on non-TIFF bytes (e.g. a genuine native ND2 binary picked
@@ -3453,7 +3473,7 @@ async function loadTiffFile(file, onLog=log){
     // ImageJ big-stack signature: one IFD, then every frame laid out back to
     // back starting at `base`; frames must FIT in the file (ImageJ appends
     // ROI/overlay metadata after the pixels, so <= not ==).
-    if(fileSize>SLICE_MIN && declared>1 && cmpr===1 && rawBytes>0 && base+declared*rawBytes<=fileSize){
+    if(fileSize>effSliceMin && declared>1 && cmpr===1 && rawBytes>0 && base+declared*rawBytes<=fileSize){
       const fmt=(hifds[0].t339&&hifds[0].t339[0])||1;
       const isLE=new DataView(head,0,2).getUint16(0,true)===0x4949;
       const px=paramValue('pxnm');
@@ -3498,7 +3518,7 @@ async function loadTiffFile(file, onLog=log){
   // Too big to hold in one ArrayBuffer, and not a single-IFD contiguous stack
   // (e.g. a multi-GB Micro-Manager MMStack, where per-frame IFDs sit between the
   // frames at a varying stride) — index the IFD chain and stream frames.
-  if(fileSize>SLICE_MIN) return loadMultiIfdStreaming(file, fileSize, onLog);
+  if(fileSize>effSliceMin) return loadMultiIfdStreaming(file, fileSize, onLog);
   // Otherwise read the whole file (UTIF handles multi-IFD and caches frames).
   return loadTiff(await file.arrayBuffer(), fileSize, onLog);
 }
