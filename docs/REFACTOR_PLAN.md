@@ -9,13 +9,10 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 - **Rotated-elliptical 2D/3D MLE fitter — SHIPPED (build 2026-08-21f).**
 
   Deliberately deferred, not forgotten:
-  - **Per-pixel gain/offset/variance calibration maps** — Picasso's own
-    shared per-pixel estimator (`_estimator_terms(mle, value, data, var)`)
-    is already per-pixel-noise-aware via that `var` term, connecting
-    directly to the sCMOS entry further down this file. Not attempted here;
-    the accumulator refactor above makes it a smaller lift when it is
-    (the per-pixel model callback gains one more input), but genuinely not
-    done this round.
+  - **Per-pixel gain/offset/variance calibration maps** — see "Photon calibration beyond a single
+    scalar gain/offset" further down for the full picture; the accumulator refactor above makes
+    this a smaller lift when it happens (the per-pixel model callback gains one more input), but
+    genuinely not done this round.
   - **Cubic-spline PSF fitting** (`picasso/fitting/splinefit.py`) for PSFs
     that deviate from Gaussian — meaningfully bigger scope than the rotated-
     elliptical case (its own 3D calibration volume, its own PSF-model
@@ -231,7 +228,10 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   noisy pixel can masquerade as an emitter); still open: **per-pixel**
   gain/offset/variance calibration maps, with a noise model that uses them —
   see Huang et al., *Nat. Methods* **10**, 653–658 (2013),
-  https://doi.org/10.1038/nmeth.2488.
+  https://doi.org/10.1038/nmeth.2488. The MLE fitters' shared `mleNewtonFit()` accumulator (see
+  **fit** in `CLAUDE.md`) is already per-pixel-noise-aware via Picasso's own
+  `_estimator_terms(mle, value, data, var)` `var` term, so a per-pixel model callback would only
+  need one more input — a smaller lift than starting from scratch, but not yet attempted.
 - Optional **fiducial-based drift correction** when beads are present
   (simpler and more accurate than AIM for that specific case).
 - **3D point-cloud view** — an interactive, rotatable scatter (orthographic
