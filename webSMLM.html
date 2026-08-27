@@ -11448,7 +11448,22 @@ function wireHotkeys(){
     const i=HOTKEY_CODES.indexOf(e.code); if(i<0) return;
     e.preventDefault();
     const id=(e.shiftKey?HOTKEY_SECTIONS:HOTKEY_BUTTONS)[i], el=$(id); if(!el) return;
-    if(e.shiftKey){ el.open=!el.open; if(el.open) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+    if(e.shiftKey){
+      el.open=!el.open;
+      if(el.open){
+        el.scrollIntoView({behavior:'smooth',block:'start'});
+        // Focus the <summary> itself (not the first input directly) — a
+        // CLOSED <details>'s own descendants aren't in the tab order at
+        // all (the browser's own behaviour, same as display:none), only
+        // becoming tabbable the instant `.open` flips true above; focusing
+        // the summary just means the VERY NEXT Tab press — a separate,
+        // deliberate keystroke — lands on that section's first input,
+        // rather than wherever focus happened to be before Alt+Shift+N.
+        // preventScroll since the smooth scrollIntoView above already
+        // handles scrolling; focus()'s own default scroll would fight it.
+        (el.querySelector('summary')||el).focus({preventScroll:true});
+      }
+    }
     else if(!el.disabled) el.click();
     refresh(true,e.shiftKey);   // re-show hints matching the (possibly now-changed) button/section states
   });
