@@ -27,6 +27,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --sptTrack --sptFrameTime 0.05
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeNeNA --computeFRC --exportPlots
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --segmentation mask.tif --segAreaMin 50 --segAreaMax 5000
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --exportHistograms photons,sigma,bg
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -96,6 +97,13 @@
 // plot. The raw frame/reconstruction stay PNG-only as always (no vector
 // form at real localization counts); the calibration plot needs a FRESH
 // build this run (--calibration a .tif/.tiff, not a .json).
+// --exportHistograms photons,sigma,bg (comma-separated column names — no
+// spaces) renders the shared column histogram for each named column headlessly,
+// written as hist_<column>_plot.png/.svg (writePlots() below is already
+// generic over any key in result.plots, so this needed no changes there).
+// Deliberately independent of --exportPlots: usable with or without it.
+// An unknown/all-non-finite column logs a warning inside analyze() itself
+// and is silently skipped, not a hard error.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
@@ -244,6 +252,8 @@ try {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
+      } else if (key === 'exportHistograms') {
+        config[key] = String(raw).split(',').map(s => s.trim()).filter(Boolean);
       }
     }
     const fileEl = document.getElementById(fileInputId);

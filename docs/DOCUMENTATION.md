@@ -1894,13 +1894,27 @@ const result = await window.webSMLM.analyze({
   rendering `reconstructionPng` already uses, via a detached `<canvas>`/an
   SVG recorder — see **render** in `CLAUDE.md`). The raw frame/reconstruction
   are never included (no vector form at real localization counts, same
-  reasoning as the interactive **Save plot/image** button); the
-  line-profile/histogram plots are inherently interactive (a user-drawn line
-  / a chosen table column) with no headless equivalent to render from. The
-  calibration plot needs a FRESH build this call (`calibrationFile`/
+  reasoning as the interactive **Save plot/image** button); the line-profile
+  plot is inherently interactive (a user-drawn line, no reconstruction
+  geometry to draw one on headlessly) with no headless equivalent to render
+  from. The calibration plot needs a FRESH build this call (`calibrationFile`/
   `calibrationFiles`) — a bare `calibrationJson` only carries the derived
   model, not the point cloud the plot needs. Works in `config.calibrationOnly`
   mode too (renders just the calibration plot, if requested).
+- `config.exportHistograms` — an array of column names (e.g.
+  `['photons','sigma','bg']`), not a `PARAMS` entry. Renders the shared
+  column histogram (the same one **View data/filtering**'s own "Plot
+  histogram of:" draws interactively) for each named column, added into
+  `result.plots` as `hist_<column>` — e.g. `plots.hist_photons`. Deliberately
+  independent of `config.exportPlots`: usable with or without it. Any column
+  present on a localization works (`photons`/`bg`/`bgstd`/`sigma`/`x`/`y`/`z`/
+  `dist`/`sigma_x`/`sigma_y`/`track_id`/`D_coeff`/etc., depending on which
+  fit method and optional steps — sSMLM pairing, spt tracking — actually ran);
+  a column that's absent or entirely non-finite this run logs a warning and
+  is silently skipped rather than throwing. `x`/`y`/`z`/`dist`/`sigma`/
+  `sigma_x`/`sigma_y` are converted to nm before histogramming, matching the
+  CSV/table's own convention (they're stored in raw pixel units internally);
+  every other column is histogrammed as-is.
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
   be interactively (0–100), for a driving script's own progress reporting.
 - `config.onLog(msg)` — optional, called for every line `analyze()` would
@@ -1918,12 +1932,14 @@ const result = await window.webSMLM.analyze({
   with no other information), so `onProgress` is the only progress channel.
 
 **Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
-- `plots` is `null` unless `config.exportPlots` was set; otherwise an object
-  with only the keys for what was actually computed this run — e.g.
-  `{drift, nena}` if only `correctDrift`/`computeNeNA` were requested. Each
-  value is `{pngDataUrl, svgText}`: `pngDataUrl` is a
-  `data:image/png;base64,...` URL like `reconstructionPng`; `svgText` is a
-  ready-to-write SVG document string (no encoding needed).
+- `plots` is `null` unless `config.exportPlots` and/or `config.exportHistograms`
+  were set; otherwise an object with only the keys for what was actually
+  computed/requested this run — e.g. `{drift, nena}` if only
+  `correctDrift`/`computeNeNA` were requested, plus `hist_photons` etc. for
+  each column named in `exportHistograms`. Each value is `{pngDataUrl,
+  svgText}`: `pngDataUrl` is a `data:image/png;base64,...` URL like
+  `reconstructionPng`; `svgText` is a ready-to-write SVG document string (no
+  encoding needed).
 - `pcfo` is `{gain, gainStd, offset, offsetStd, r2, pts, fit}` (`pcfoCore()`'s
   return shape) when `estimateGainOffset` was requested and PCFO found
   enough usable tiles to fit, else `null`. `gain`/`offset` are what
@@ -2049,7 +2065,11 @@ not wherever the shell happens to be, unless given explicitly. `--exportPlots`
 also writes `<key>_plot.png`/`<key>_plot.svg` for each of drift/NeNA/FRC/
 PCFO/calibration that was actually requested this run (see
 `config.exportPlots` above) — e.g. `--correctDrift --computeNeNA
---exportPlots` writes `drift_plot.png`/`.svg` and `nena_plot.png`/`.svg`. Any
+--exportPlots` writes `drift_plot.png`/`.svg` and `nena_plot.png`/`.svg`.
+`--exportHistograms photons,sigma,bg` (comma-separated column names, no
+spaces) writes `hist_<column>_plot.png`/`.svg` for each — independent of
+`--exportPlots`, usable with or without it (see `config.exportHistograms`
+above). Any
 `--key=value` not listed in the script's header comment is passed straight
 through as a `PARAMS` override (§3) — e.g. `--winr=6 --gain=0.1248
 --camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/

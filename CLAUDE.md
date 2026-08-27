@@ -1026,8 +1026,35 @@ relevant one before editing rather than scrolling:
   this call (`calibrationFile`/`calibrationFiles`) — a bare `calibrationJson` only carries the
   derived model, not the point cloud the plot needs. The raw frame/reconstruction are never
   included (no vector form at real localization counts, same reasoning as the interactive button);
-  the line-profile/histogram plots are inherently interactive (a user-drawn line / a chosen table
-  column) with no headless equivalent to render from, so `exportPlots` doesn't cover them.
+  the line-profile plot is inherently interactive (a user-drawn line, no reconstruction geometry to
+  draw one on headlessly) with no headless equivalent, so `exportPlots` doesn't cover it.
+
+  **`config.exportHistograms`** (`string[]`, also `--exportHistograms photons,sigma,bg`/
+  `exportHistograms=photons,sigma,bg` — comma-separated, no spaces — on the CLI/autorun) resolves
+  the OTHER half of that "no headless equivalent" claim: unlike line-profile, the shared column
+  histogram (`computeHist()`/`drawHistogram()`, MODULE: table) already takes an explicit `vals`
+  array — no table/DOM state needed — so it just needed the same stash/restore wrapper shape
+  `renderCalibrationPlotHeadless()` already demonstrates:
+  `renderHistogramPlotHeadless(col, vals, unit)` stashes `histData`/`histView` (which `computeHist()`
+  itself SETS, unlike calibration's already-built object), computes the requested histogram, renders
+  via `renderPlotBothFormats(drawHistogram)`, then restores the previous state. Deliberately a
+  SEPARATE flag from `exportPlots`, not folded into it — usable with or without it — and an explicit
+  column LIST rather than a fixed default set, so the caller picks what matters for their own
+  experiment (`docs/REFACTOR_PLAN.md` had left this as an open decision between the two). Results
+  land in `result.plots` as flat `hist_<column>` keys (e.g. `plots.hist_photons`) — NOT a nested
+  `plots.histograms` object — so `tools/webSMLM-cli.mjs`'s already-generic `writePlots()` (writes
+  `<key>_plot.png/.svg` for every key in `plots`) needed zero changes to pick these up.
+  `x`/`y`/`z`/`dist`/`sigma`/`sigma_x`/`sigma_y` are converted to nm before histogramming (matching
+  the CSV/table's own convention — they're stored in raw pixel units internally); every other column
+  histograms as-is. Deliberately NOT reusing `locTableData()`'s own heavier unit/formatting table for
+  this — that one also does interactive-table-specific decimal formatting and column renaming
+  (`sigma_xy` etc.) that doesn't apply to a bare column-name lookup. A column that's absent or
+  entirely non-finite this run logs a warning (`onLog`) and is silently skipped, not a hard error —
+  same "warn, don't block" convention used throughout. Verified end-to-end via the real CLI
+  subprocess against the bundled Sample2 L. lactis file: valid columns (`photons`/`sigma`/`bg`)
+  render real, non-blank histograms; an unknown column logs the warning and is correctly absent from
+  `result.plots`; `exportHistograms` alone (no `exportPlots`) still populates `result.plots` with
+  just the `hist_*` keys.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it

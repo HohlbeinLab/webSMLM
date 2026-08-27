@@ -22,30 +22,6 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     "Real-time 3D single-molecule localization using experimental point
     spread functions," *Nat. Methods* 15, 367–369 (2018).
 
-- **Headless plot export (`config.exportPlots`) — extend to column
-  histograms.** Shipped v0.11.3-dev (build 2026-08-20g).
-  Deliberately left out: the shared column histogram
-  (`drawHistogram()`/`computeHist()`, **table** module) and the line-profile
-  plot — both are driven interactively (a user picks a table column, or
-  draws a line on the reconstruction) with no obvious headless default.
-  Line-profile has no real headless equivalent (no reconstruction geometry
-  exists to draw a line on) and should probably stay out of scope
-  permanently. The histogram case is different and worth revisiting — a
-  common real want is an intensity ('photons', or sigma/bg) histogram
-  auto-generated for every batch/CLI run. The mechanism is mostly already
-  there: `computeHist(col, vals, unit)` already takes an explicit `vals`
-  array (so `locs.map(L=>L[col]).filter(isFinite)` from inside `analyze()`
-  needs no new plumbing), but `drawHistogram()` itself reads the module-level
-  `histData`/`histView` (set by `computeHist()`) the same way
-  `drawCalibration()` reads `calib`/`calView` — so this needs the same
-  small `renderHistogramPlotHeadless(col, vals, unit)` stash/restore wrapper
-  `renderCalibrationPlotHeadless()` already demonstrates, not a new
-  rendering mechanism. Needs a decision on WHICH column(s) to histogram by
-  default: (a) a fixed set always rendered when `exportPlots` is set (e.g.
-  `photons`/`sigma`/`bg`), (b) a new config field naming which columns
-  (e.g. `exportHistograms: ['photons','sigma']`), or (c) something else —
-  not scoped yet, flagged here as a direction.
-
 - **File-size/modularity strategy for `webSMLM.html`.**
   Splitting the *core* app across multiple files was ruled out —
   `file://` blocks `fetch()`/dynamic `import()` under CORS in Chromium,

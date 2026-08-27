@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of build 2026-08-27b; may drift with
+  MODULE INDEX — line numbers as of build 2026-08-27c; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -71,8 +71,9 @@
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10900  localizations table, filtering, histograms
-    headless API    11379  window.webSMLM.analyze()/analyzeBatch()
+    table           10900  localizations table, filtering, histograms;
+                           renderHistogramPlotHeadless() (config.exportHistograms)
+    headless API    11393  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1740,7 +1741,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.8-dev · build 2026-08-27b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.8-dev · build 2026-08-27c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2210,7 +2211,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.8-dev · build 2026-08-27b · TIFF loading: a clear log line now explains when a tight Memory budget is what pushed a file onto the streamed-loading path</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.8-dev · build 2026-08-27c · New: config.exportHistograms (headless API/CLI) renders per-column histograms without a browser window — see --exportHistograms photons,sigma,bg</div></div>
   </main>
 </div>
 
@@ -11257,6 +11258,20 @@ function drawHistogram(){
   _replotRaw=drawHistogram;
   syncSaveImg();
 }
+// Headless histogram render (window.webSMLM.analyze()'s config.exportHistograms,
+// MODULE: headless API) — same stash/restore shape renderCalibrationPlotHeadless()
+// uses (MODULE: 3D calibration), but computeHist() itself SETS the module-level
+// histData/histView (unlike calibration, which just reads an already-built
+// object passed in) so this stashes whatever was already there — a real
+// concern if this ever ran mid-interactive-session rather than in a fresh
+// headless page — computes the requested one, renders it, then restores the
+// previous state so a headless render can never clobber a real open plot.
+function renderHistogramPlotHeadless(col, vals, unit){
+  const prevHistData=histData, prevHistView=histView;
+  computeHist(col, vals, unit);
+  try{ return renderPlotBothFormats(drawHistogram); }
+  finally{ histData=prevHistData; histView=prevHistView; }
+}
 // "more info…" buttons: each sits right before its paired (hidden) .hint div
 // in the DOM — clicking copies that hint's HTML into the shared #infoModal
 // instead of expanding inline (inline hints at the sidebar's own font-size/
@@ -11637,9 +11652,9 @@ async function analyze(config){
   // toggle — a caller that doesn't want all of them can just ignore the keys it
   // doesn't need. The raw frame/reconstruction are never included here (no
   // vector form at real localization counts — same reasoning as the interactive
-  // button); the line-profile/histogram plots are inherently interactive
-  // (a user-drawn line / a chosen table column) and have no headless equivalent
-  // to render from, so they're not covered by this flag either.
+  // button); the line-profile plot is inherently interactive (a user-drawn
+  // line, no reconstruction geometry to draw one on headlessly) and has no
+  // headless equivalent, so it's not covered by this flag.
   let plots=null;
   if(cfg.exportPlots){
     plots={};
@@ -11648,6 +11663,30 @@ async function analyze(config){
     if(frc && !frc.err) plots.frc = renderPlotBothFormats(()=>drawFrcPlot(frc));
     if(pcfo) plots.pcfo = renderPcfoPlotHeadless(pcfo.pts, pcfo.fit, pcfo.r2);
     if((cfg.calibrationFile||cfg.calibrationFiles) && calib) plots.calibration = renderCalibrationPlotHeadless(calib);
+  }
+  // config.exportHistograms: [column, ...] — the shared column histogram
+  // (interactively "Plot histogram of:" in the table, MODULE: table) IS
+  // headlessly renderable after all, unlike line-profile — computeHist()
+  // already just takes an explicit vals array, no table/DOM state needed.
+  // Deliberately a SEPARATE flag from exportPlots, not folded into it: a
+  // caller may want histograms without the drift/NeNA/FRC/PCFO/calibration
+  // plots (or vice versa), and an explicit column LIST (not a fixed default
+  // set) so the caller picks what actually matters for their own experiment
+  // rather than webSMLM guessing. `toNm` covers the handful of columns
+  // stored in raw pixel units internally (matching the CSV/table's own
+  // nm conversion) — deliberately NOT reusing locTableData()'s heavier
+  // unit/formatting table, which also does interactive-table-specific
+  // decimal formatting and column renaming (`sigma_xy` etc.) that doesn't
+  // apply here.
+  if(cfg.exportHistograms && cfg.exportHistograms.length){
+    plots=plots||{};
+    const toNm=new Set(['x','y','z','dist','sigma','sigma_x','sigma_y']);
+    for(const col of cfg.exportHistograms){
+      const nm=toNm.has(col);
+      const vals=locs.map(L=>L[col]).filter(isFinite).map(v=>nm?v*cfg.pxnm:v);
+      if(vals.length) plots['hist_'+col]=renderHistogramPlotHeadless(col, vals, nm?'nm':'');
+      else onLog(`⚠ exportHistograms: no finite "${col}" values to histogram — skipped.`);
+    }
   }
   return { locs, csvText:parts.join(''), logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
@@ -11711,6 +11750,7 @@ async function runAutorun(){
                           : spec.type==='enum' ? val : +val; continue; }
     if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair'||key==='sptTrack'||key==='exportPlots') config[key]=(val==='1'||val==='true');
     if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
+    if(key==='exportHistograms') config[key]=val.split(',').map(s=>s.trim()).filter(Boolean);
   }
   const fileUrl=qp.get('fileUrl');
   if(!fileUrl){ log('autorun=1 but no ?fileUrl= given — nothing to analyze.'); return; }
