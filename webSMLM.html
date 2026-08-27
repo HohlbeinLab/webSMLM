@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.9-dev; may drift with
+  MODULE INDEX — line numbers as of v0.11.9; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -78,9 +78,10 @@
     table           10936  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
     headless API    11491  window.webSMLM.analyze()/analyzeBatch();
-                           wireHotkeys() (test prototype) sits just before
-                           wireHelp(), between table and here — Alt+1-10
-                           action buttons / Alt+Shift+1-10 module sections
+                           wireHotkeys() sits just before wireHelp(), between
+                           table and here — Alt(/Option on Mac)+1-10 action
+                           buttons, Alt+Shift+1-10 opens/closes+focuses a
+                           module section for the next Tab press
   ============================================================================
 -->
 <html lang="en">
@@ -1760,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.9-dev · build 2026-08-27e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.9 · proof-of-concept</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2230,7 +2231,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.9-dev · build 2026-08-27e — test: Alt+1-10 / Alt+Shift+1-10 keyboard hotkeys (hold Alt to see numbered hints). See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.9 · proof-of-concept — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -11389,27 +11390,30 @@ function wireFilterAutocomplete(inp, box, getCols, onCommit){
     e.preventDefault(); applySel([...box.children].indexOf(el));
   });
 }
-// Alt+1..0 / Alt+Shift+1..0 hotkeys — a TEST prototype (explicit request):
-// hold Alt, numbered hints appear on the 10 always-visible top-level action
-// buttons (Vimium/Superhuman-style "hold a modifier, hints appear"); add
-// Shift and the SAME 10 numbers instead open one of the 10 collapsible
-// module sections. Alt, not Ctrl, deliberately — Ctrl+1..9 is already bound
-// to browser tab-switching in Chrome/Firefox/Edge on Windows/Linux, so the
-// page would never even see those keydowns there. A modifier-gated scheme
-// also needs no focused-input guard the way a bare, unmodified 1..0 scheme
-// would (this app has dozens of free-typable numeric fields) — Alt+1 is a
-// different keystroke from typing "1", so it can't fire mid-typing.
+// Alt+1..0 / Alt+Shift+1..0 hotkeys (v0.11.9, explicit request): hold Alt
+// (the same physical key is labelled Option/⌥ on Mac keyboards — it still
+// reports as e.altKey/"Alt" in the DOM, see HOTKEY_CODES below for the one
+// place Mac's own key-remapping DOES matter), numbered hints appear on the
+// 10 always-visible top-level action buttons (Vimium/Superhuman-style "hold
+// a modifier, hints appear"); add Shift and the SAME 10 numbers instead open
+// one of the 10 collapsible module sections. Alt, not Ctrl, deliberately —
+// Ctrl+1..9 is already bound to browser tab-switching in Chrome/Firefox/Edge
+// on Windows/Linux, so the page would never even see those keydowns there.
+// A modifier-gated scheme also needs no focused-input guard the way a bare,
+// unmodified 1..0 scheme would (this app has dozens of free-typable numeric
+// fields) — Alt+1 is a different keystroke from typing "1", so it can't
+// fire mid-typing.
 //
 // Both lists are in on-screen order; index i <-> HOTKEY_DIGITS[i]
 // (keyboard-row order, '0' last = the 10th) is a FIXED mapping that never
 // renumbers around a currently-disabled button — muscle memory ("Alt+5 =
 // Localize") should stay true regardless of what's enabled at the moment;
 // a hint simply doesn't appear for a button that's disabled or a section
-// that isn't on screen right now. Known gap this test doesn't solve: on
-// the mobile/floating sidebar drawer (collapsed by default), the hotkey
-// still opens the target <details> underneath, just invisibly until the
-// drawer itself is shown — hints correctly don't appear for it there
-// (zero-size rect), but the keypress itself doesn't also open the drawer.
+// that isn't on screen right now. Known gap: on the mobile/floating sidebar
+// drawer (collapsed by default), the hotkey still opens the target
+// <details> underneath, just invisibly until the drawer itself is shown —
+// hints correctly don't appear for it there (zero-size rect), but the
+// keypress itself doesn't also open the drawer.
 // HOTKEY_CODES (not e.key) is what actually gets matched: on macOS, holding
 // Option/Alt remaps e.key for the digit row to special characters (Option+1
 // -> "¡", Option+2 -> "™", etc.), so an e.key-based match silently never
@@ -12061,6 +12065,9 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
       <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction</b> removes sample drift (AIM); <b>Localization precision</b> reports NeNA/FRC; <b>Spectral SMLM analysis</b> pairs 0th/1st-order localizations from a diffraction grating; <b>Single particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients.</li>
     </ol>
+
+    <h3>Keyboard hotkeys</h3>
+    <p>Hold <b>Alt</b> (the same key macOS labels Option/⌥) to show numbered hints over the action buttons above — tap a digit to click one. Add <b>Shift</b> and the same digits instead open or close one of the sidebar sections below, scrolling to it and focusing its header so the next Tab press lands straight on its first field.</p>
 
     <h3>Acknowledgements</h3>
     <ul>

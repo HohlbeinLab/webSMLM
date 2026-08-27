@@ -76,6 +76,15 @@ below for what it does.
 | **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
 | **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data/filtering**. |
 
+**Keyboard hotkeys**: hold **Alt** (the same physical key macOS labels
+Option/⌥) to show numbered hints over these 10 buttons, in on-screen order —
+tap the matching digit to click one. Add **Shift** and the same 10 digits
+instead toggle one of the 10 collapsible module sections below open/closed,
+scrolling to and focusing its header so the next Tab press lands on that
+section's first field. A hint only appears for a button that's currently
+enabled or a section currently on screen; the digit each one maps to never
+changes based on that, so it stays predictable across sessions.
+
 ### Sidebar — Pixel size (nm)
 
 `pxnm` sits as a plain, always-visible row directly below the action

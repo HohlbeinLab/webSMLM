@@ -1016,6 +1016,36 @@ relevant one before editing rather than scrolling:
   `docs/DOCUMENTATION.md` §8 for the full headless API and `docs/REFACTOR_PLAN.md` for the design
   rationale (three-layer split: in-page API, CLI driver, URL-param autorun).
 
+  **Keyboard hotkeys** (`wireHotkeys()`, v0.11.9): holding **Alt** (the same physical key macOS
+  labels Option/⌥) shows numbered hint badges over the 10 always-visible top-level action buttons
+  (`HOTKEY_BUTTONS`, on-screen order); tapping the matching digit clicks that button. Adding
+  **Shift** switches the hint set to `HOTKEY_SECTIONS`, the 10 collapsible sidebar `<details>`
+  modules — the same digit instead toggles that section's `.open` (a second press closes it again)
+  and, on open, scrolls to and `.focus()`es its `<summary>` so the very next Tab press — a separate
+  keystroke, not automatic — lands on the section's first input (a closed `<details>`'s descendants
+  aren't in the tab order at all until `.open` flips true, same as `display:none`).
+  `focus({preventScroll:true})` avoids fighting the smooth `scrollIntoView()` call right before it.
+  Alt, not Ctrl, deliberately — Ctrl+1..9 is already bound to browser tab-switching on Windows/Linux,
+  so the page would never see those keydowns there; being modifier-gated at all also means no
+  focused-input guard is needed against the app's many free-typable numeric fields, since Alt+1 is a
+  different keystroke from typing "1" and can't fire mid-typing. Both digit lists are FIXED to
+  on-screen position (index i ↔ `HOTKEY_DIGITS[i]`, keyboard-row order, '0' last) — a hint simply
+  doesn't render for a currently-disabled button or an off-screen section, but the mapping itself
+  never renumbers around what's enabled, so muscle memory (e.g. Alt+5 = Localize) stays valid
+  regardless of app state. **Digit matching uses `e.code`, not `e.key`** — a real bug caught before
+  release: macOS remaps `e.key` for the digit row while Option/Alt is held (Option+2 sends `"™"`, not
+  `"2"`), so an `e.key`-based first version showed hint badges correctly (badge display only depends
+  on the Alt keydown itself) but silently never fired on Mac; `e.code` (`"Digit1".."Digit0"`) is the
+  physical key, unaffected by modifier-driven character remapping — verified against a synthetic
+  event reproducing the exact macOS behaviour. `.hotkeyHint` badges are a FIXED blue (`#0969da`,
+  light theme's own `--accent`) rather than `var(--accent)`, on request — same "overlay stays fixed
+  across themes" convention already used for raw-frame overlays and the tracks-colour legend (see
+  **render** below), so the badges read identically in dark/light/high-contrast instead of shifting
+  hue per theme. Known gap: on the mobile/floating sidebar drawer (collapsed by default), Alt+Shift+N
+  still opens the target `<details>` underneath, just invisibly until the drawer itself is shown —
+  hints correctly don't appear for it there (zero-size rect), but the keypress doesn't also open the
+  drawer.
+
   **Load movie/data** (`loadBtn`) is one button over ONE hidden `#file` input whose `accept` lists
   `.tif,.tiff,.nd2,.csv` together. Dispatch is by file EXTENSION alone (`/\.csv$/i`,
   case-insensitive) — real content sniffing for the movie side (`isTiffFile()`/`isNd2File()`
