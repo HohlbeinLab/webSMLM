@@ -1673,9 +1673,16 @@ X.B(E,Y);return E}return J}())
   #tableFilterAC .ac-item.sel,#trackTableFilterAC .ac-item.sel{background:var(--accent);color:#fff}
   /* Alt-hotkey number hints (wireHotkeys()) — position:fixed, viewport-rect
      positioned in JS, so no layout dependency on the button/summary they sit
-     over (see wireHotkeys()'s own comment for why fixed-not-relative). */
-  .hotkeyHint{position:fixed;z-index:9999;background:var(--accent);color:#fff;font:700 11px/1 -apple-system,sans-serif;
-    padding:2px 6px;border-radius:9px;pointer-events:none;box-shadow:0 1px 4px var(--shadow);font-variant-numeric:tabular-nums}
+     over (see wireHotkeys()'s own comment for why fixed-not-relative). Badge
+     colour is a FIXED blue (light theme's own --accent, #0969da), not
+     var(--accent) — deliberately untouched by the UI theme, same convention
+     raw-frame overlays/the tracks-colour legend already use (see CLAUDE.md's
+     render module notes): a badge sitting on top of arbitrary panel content
+     in any theme reads better as one consistent, recognizable colour than as
+     three different theme-accent hues (dark's #58a6ff and contrast's #3399ff
+     both washed out against light backgrounds behind translucent panels). */
+  .hotkeyHint{position:fixed;z-index:9999;background:#0969da;color:#fff;font:700 11px/1 -apple-system,sans-serif;
+    padding:2px 6px;border-radius:9px;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.55);font-variant-numeric:tabular-nums}
   .fchip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--fg);font-variant-numeric:tabular-nums}
   .fchip b{cursor:pointer;color:var(--muted);font-weight:700}
   .fchip b:hover{color:var(--danger)}
@@ -11403,7 +11410,14 @@ function wireFilterAutocomplete(inp, box, getCols, onCommit){
 // still opens the target <details> underneath, just invisibly until the
 // drawer itself is shown — hints correctly don't appear for it there
 // (zero-size rect), but the keypress itself doesn't also open the drawer.
+// HOTKEY_CODES (not e.key) is what actually gets matched: on macOS, holding
+// Option/Alt remaps e.key for the digit row to special characters (Option+1
+// -> "¡", Option+2 -> "™", etc.), so an e.key-based match silently never
+// fires while Alt is held — the exact bug a first version of this shipped
+// with. e.code is the PHYSICAL key ("Digit1".."Digit9","Digit0"), unaffected
+// by any modifier or by which characters a layout maps them to.
 const HOTKEY_DIGITS=['1','2','3','4','5','6','7','8','9','0'];
+const HOTKEY_CODES=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0'];
 const HOTKEY_BUTTONS=['loadBtn','genBtn','loadSetBtn','saveSetBtn','runBtn','stopBtn','saveBtn','saveImgBtn','tableBtn','helpBtn'];
 const HOTKEY_SECTIONS=['memBox','simBox','pcfoBox','calibBox','locBox','renderBox','driftBox','precBox','sSmlmBox','sptBox'];
 function wireHotkeys(){
@@ -11431,7 +11445,7 @@ function wireHotkeys(){
     if(e.key==='Alt'){ refresh(true,e.shiftKey); return; }
     if(e.key==='Shift'&&e.altKey){ refresh(true,true); return; }
     if(!e.altKey) return;
-    const i=HOTKEY_DIGITS.indexOf(e.key); if(i<0) return;
+    const i=HOTKEY_CODES.indexOf(e.code); if(i<0) return;
     e.preventDefault();
     const id=(e.shiftKey?HOTKEY_SECTIONS:HOTKEY_BUTTONS)[i], el=$(id); if(!el) return;
     if(e.shiftKey){ el.open=true; el.scrollIntoView({behavior:'smooth',block:'start'}); }
