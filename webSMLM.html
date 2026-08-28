@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.9; may drift with
+  MODULE INDEX — line numbers as of v0.11.10-dev; may drift with
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -48,7 +48,11 @@
     sSMLM           7465   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7930   single particle tracking, trackpy-inspired;
+    spt             7941   single particle tracking, trackpy-inspired;
+                           computeEnsembleMsd()/fitMsdLine() (v0.11.10, test):
+                           ensemble MSD-vs-lag plot, third sptHistMode ('msd')
+                           alongside D/track-length, generalizes beyond the
+                           lag-1-only D estimate for longer tracks;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -68,16 +72,16 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9170   top-level orchestration, *Core()/wrapper split;
+    pipeline        9363   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10936  localizations table, filtering, histograms;
+    table           11129  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11491  window.webSMLM.analyze()/analyzeBatch();
+    headless API    11709  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1761,7 +1765,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.9 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-28a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2165,7 +2169,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row">Colour tracks by mean D <input type="checkbox" id="sptTracksColorByD"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sptTrackBtn" disabled title="Link localizations into trajectories and compute a diffusion coefficient per track">Track</button>
-          <button id="sptHistBtn" disabled title="Show the diffusion-coefficient / track-length histograms (Diffusion shown first; toggle next to the raw panel title switches between the two)">Show histograms</button>
+          <button id="sptHistBtn" disabled title="Show the diffusion-coefficient / track-length / MSD-vs-lag plots (Diffusion shown first; toggle next to the raw panel title cycles between the three)">Show histograms</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="sptShowTracksBtn" disabled title="Plot every track as a thin line on the SMLM reconstruction, track number in white — zoom in to tell individual tracks apart">Show tracks</button>
@@ -2194,7 +2198,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Toggle between the diffusion-coefficient histogram and the track-length histogram">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
@@ -2231,7 +2235,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.9 · proof-of-concept — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-28a — test: SPT gains a third "MSD vs lag" plot (Track → Show histograms → toggle) — an ensemble MSD-vs-lag-time curve with a weighted linear D fit, generalizing beyond the single-lag D estimate for longer tracks. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -8218,6 +8222,88 @@ async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
   return {trackIds, diffCoeffs, trackLengths, dOfTrack, trackMSD};
 }
 
+// Ensemble MSD-vs-lag-time (v0.11.10) — addresses a real limitation of the
+// D estimate above: it uses ONLY the lag-1 (single-frame) displacement
+// average, which is fine for sptPALM's typically short, photobleaching-
+// limited tracks but wastes information on longer trajectories and can't
+// reveal deviations from free diffusion (confinement, anomalous exponents)
+// the way a proper MSD-vs-lag curve can. Per qualifying track (>=
+// sptTrackLenMin locs, same gate trackDiffusionCoeffs() uses), computes its
+// own time-averaged MSD (TAMSD) at every lag 1..maxLagHere: for lag L,
+// average the squared displacement over every pair of localizations in the
+// track whose FRAME NUMBERS differ by EXACTLY L (a frame->loc Map per
+// track, not array-adjacent steps) — this naturally handles gap-bridged
+// tracks (sptMemory>0) correctly with no separate "divide by gap"
+// correction, since a pair only ever contributes to the lag equal to its
+// own real frame separation, gap or not.
+//
+// maxLagHere = min(MSD_MAX_LAG_FRAMES, floor(track_length*MSD_MAX_LAG_FRAC))
+// — the standard SPT convention (e.g. Michalet 2010) of only trusting a
+// track's own MSD up to ~1/4 of its length, since a track's higher lags are
+// built from exponentially fewer, increasingly correlated displacement
+// pairs and get noisy fast otherwise. Both constants are conservative,
+// literature-typical defaults, not yet exposed as PARAMS (v1 — extend if a
+// real dataset needs tuning).
+const MSD_MAX_LAG_FRAMES=20, MSD_MAX_LAG_FRAC=0.25;
+function computeEnsembleMsd(trackedLocs, px, sptTrackLenMin){
+  const byTrack=new Map();
+  for(const L of trackedLocs){
+    if(L.track_id==null || L.track_id<0) continue;
+    let a=byTrack.get(L.track_id); if(!a){a=[]; byTrack.set(L.track_id,a);}
+    a.push(L);
+  }
+  const perLag=new Map();   // lag(frames) -> per-track TAMSD values (µm²)
+  let nTracksUsed=0;
+  for(const locs of byTrack.values()){
+    if(locs.length<sptTrackLenMin) continue;
+    locs.sort((a,b)=>a.frame-b.frame);
+    const byFrame=new Map();
+    for(const L of locs) byFrame.set(L.frame,L);
+    const maxLagHere=Math.min(MSD_MAX_LAG_FRAMES, Math.floor(locs.length*MSD_MAX_LAG_FRAC));
+    if(maxLagHere<1) continue;
+    nTracksUsed++;
+    for(let lag=1; lag<=maxLagHere; lag++){
+      let sumSq=0, n=0;
+      for(const A of locs){
+        const B=byFrame.get(A.frame+lag); if(!B) continue;
+        const dxUm=(B.x-A.x)*px/1000, dyUm=(B.y-A.y)*px/1000;
+        sumSq+=dxUm*dxUm+dyUm*dyUm; n++;
+      }
+      if(n<1) continue;
+      let a=perLag.get(lag); if(!a){a=[]; perLag.set(lag,a);}
+      a.push(sumSq/n);   // this track's own TAMSD at this lag
+    }
+  }
+  const lags=[...perLag.keys()].sort((a,b)=>a-b);
+  const points=lags.map(lag=>{
+    const vals=perLag.get(lag), n=vals.length;
+    const mean=vals.reduce((s,v)=>s+v,0)/n;
+    const std=n>1 ? Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)) : 0;
+    return {lag, n, mean, std, vals};
+  });
+  return {points, nTracksUsed};
+}
+// Weighted least-squares line through the ensemble MSD-vs-lag points, weight
+// = the lag's own contributing-track count — same "noise scales with sample
+// count" reasoning fitTrackLifetime() already documents: a far-tail lag
+// backed by only 2-3 surviving long tracks shouldn't get equal say to a
+// near lag backed by hundreds. x = lag*frametime (s), y = mean MSD (µm²);
+// for 2D free diffusion MSD(t)=4·D·t, so D=slope/4 and the intercept
+// (ideally 0) is a rough cross-check against 4·σ_loc² — an INDEPENDENT
+// diagnostic only, never fed back into sptLocError/D_coeff.
+function fitMsdLine(points, frametime){
+  let sw=0, swx=0, swy=0, swxx=0, swxy=0;
+  for(const p of points){
+    if(p.n<1) continue;
+    const x=p.lag*frametime, y=p.mean, w=p.n;
+    sw+=w; swx+=w*x; swy+=w*y; swxx+=w*x*x; swxy+=w*x*y;
+  }
+  const denom=sw*swxx-swx*swx; if(!denom) return null;
+  const slope=(sw*swxy-swx*swy)/denom;
+  const intercept=(swy-slope*swx)/sw;
+  return {slope, intercept};
+}
+
 // The single entry point, matching the *Core(locs, px, config, hooks) shape
 // pairCore()/driftCore() use. Does not mutate `locs`. Track is idempotent —
 // unlike sSMLM's Pair, it never reduces row count or aliases another field,
@@ -8533,23 +8619,121 @@ function refreshSptTrackLenHistIfShown(){
   if(!rawIsPlot || rawPlotName!=='histogram' || !histData || histData.col!=='SPT track length') return;
   drawSptTrackLenHist();
 }
-// Dispatcher for sptHistBtn/sptHistModeBtn (see sptHistMode's own comment
-// above drawSptDHist()) — draws whichever of the two plots sptHistMode
-// currently selects, then shows/labels sptHistModeBtn, same "dispatcher
-// owns the toggle button's visibility, not the underlying draw primitive"
-// convention drawDriftCurve() already uses for driftPlotModeBtn (neither
-// drawHistogram() nor drawSptDHist()/drawSptTrackLenHist() touch it
-// directly). Button text names the OTHER mode (what clicking it switches
-// TO), matching driftPlotModeBtn's own "Show x/y path" convention.
+// Third spt raw-panel mode (v0.11.10): a scatter/error-bar plot, not a
+// computeHist()-based bar histogram — structurally different from the two
+// above, same "dispatcher owns heterogeneous draw types" precedent
+// drawSegShow() already established for its raster-image-vs-histogram
+// split. Computed fresh from lastResult.locs on every draw (no lastSpt
+// caching) — computeEnsembleMsd()'s cost is proportional to (qualifying
+// tracks × MSD_MAX_LAG_FRAMES), cheap even for a large real dataset, and
+// staying uncached means editing Frame time/Min track length while the
+// plot is shown can just redraw it directly (see refreshSptMsdIfShown())
+// with no separate rescale path to keep in sync, unlike D's own
+// recomputeSptD() (needed there only because trackDiffusionCoeffs() itself
+// IS expensive enough to cache).
+function drawSptMsdPlot(){
+  if(!lastResult || !lastResult.locs.length) return;
+  const sptTrackLenMin=paramValue('sptTrackLenMin'), frametime=paramValue('sptFrameTime');
+  const {points, nTracksUsed}=computeEnsembleMsd(lastResult.locs, lastResult.px, sptTrackLenMin);
+  if(!points.length){ log('  Not enough qualifying tracks for an MSD-vs-lag plot — widen Min track length, or check Search range/Memory.'); return; }
+  const fit=fitMsdLine(points, frametime);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  rawFull=null; setRawPlot(true); rawPlotName='sptMsd'; $('rawTitle').textContent='SPT: MSD vs. lag time';
+  const C=plotColors();
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+  // Axes always include the origin (a lag-time axis with no visible x=0
+  // misreads the fitted intercept); ymax also covers individual per-track
+  // dots, not just the mean±std markers, so nothing gets clipped silently.
+  let xmax=0, ymax=0;
+  for(const p of points){ xmax=Math.max(xmax,p.lag*frametime); ymax=Math.max(ymax,p.mean+p.std); for(const v of p.vals) if(v>ymax) ymax=v; }
+  if(fit) ymax=Math.max(ymax, fit.slope*xmax+fit.intercept, fit.intercept);
+  xmax=Math.max(xmax*1.08, 1e-9); ymax=Math.max(ymax*1.1, 1e-12);
+  const mL=64,mR=16,mT=44,mB=48, pw=W-mL-mR, ph=H-mT-mB;
+  const X=v=>mL+pw*v/xmax, Y=v=>mT+ph*(1-v/ymax);
+  // MSD values are typically << 1 µm² — axisScale() is built for the OPPOSITE
+  // problem (large numbers, ×10ⁿ offset notation), so tick decimals are
+  // picked directly from the axis's own max instead.
+  const yDec = ymax<0.01?4 : ymax<0.1?3 : ymax<1?2 : 1;
+  ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const c of niceTicks(0,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(c.toFixed(yDec),mL-9,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const v of niceTicks(0,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(v.toFixed(v<1?2:1),x,mT+ph+9); }
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
+  // Individual per-track TAMSD values: one small semi-transparent red dot per
+  // (track, lag), matching the reference figure this plot is modeled on. A
+  // deterministic seeded x-jitter (mulberry32, keyed per lag) spreads them so
+  // overlapping values at the same lag stay readably distinct instead of
+  // stacking into one vertical smear.
+  ctx.fillStyle='rgba(214,58,58,0.5)';
+  const jitterW=Math.min(14, pw/Math.max(1,points.length)*0.28);
+  for(const p of points){
+    const rng=mulberry32(0xC0FFEE ^ (p.lag*2654435761>>>0));
+    for(const v of p.vals){
+      const jx=(rng()-0.5)*2*jitterW;
+      ctx.beginPath(); ctx.arc(X(p.lag*frametime)+jx, Y(Math.min(v,ymax)), 2, 0, 2*Math.PI); ctx.fill();
+    }
+  }
+  // Ensemble mean ± std per lag (green, matching the drift/NeNA/track-length-
+  // fit green-primary convention already used across this app) plus the
+  // weighted linear fit line.
+  ctx.strokeStyle='#0a7d32'; ctx.fillStyle='#0a7d32'; ctx.lineWidth=1.6;
+  for(const p of points){
+    const x=X(p.lag*frametime), yTop=Y(Math.min(p.mean+p.std,ymax)), yBot=Y(Math.max(p.mean-p.std,0)), y=Y(p.mean);
+    ctx.beginPath(); ctx.moveTo(x,yTop); ctx.lineTo(x,yBot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-4,yTop); ctx.lineTo(x+4,yTop); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-4,yBot); ctx.lineTo(x+4,yBot); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x,y,3.4,0,2*Math.PI); ctx.fill();
+  }
+  if(fit){
+    ctx.beginPath();
+    ctx.moveTo(X(0),Y(Math.max(0,Math.min(fit.intercept,ymax))));
+    ctx.lineTo(X(xmax),Y(Math.max(0,Math.min(fit.slope*xmax+fit.intercept,ymax))));
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
+  ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('lag time Δt (s)', mL+pw/2, mT+ph+26);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('MSD (µm²)',0,0); ctx.restore();
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.axis;
+  const dTxt = fit ? `D = ${(fit.slope/4).toFixed(4)} µm²/s` : 'fit failed';
+  ctx.fillText(`${dTxt} · ${nTracksUsed.toLocaleString()} track(s), ${points.length} lag(s)`, mL+pw, mT-8);
+  $('rawInfo').textContent='— SPT: ensemble MSD vs. lag time · red = per-track TAMSD, green = mean ± std, line = weighted fit (D from slope/4)';
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:xmax,yTop:ymax,yBot:0, fmt:(vx,vy)=>`Δt=${vx.toFixed(3)} s · MSD=${vy.toFixed(yDec)} µm²`});
+  if(fit) log(`  MSD-vs-lag ensemble fit: D = ${(fit.slope/4).toFixed(4)} µm²/s (slope/4), intercept ${fit.intercept>=0?'+':''}${fit.intercept.toExponential(2)} µm² (≈4·σ_loc², an independent cross-check only) — ${nTracksUsed.toLocaleString()} track(s) contributing across ${points.length} lag(s), ignoring any within-track changes in diffusion coefficient the way sptPALM's own per-track D can pick up.`);
+  _replotRaw=drawSptMsdPlot;
+  syncSaveImg();
+}
+function refreshSptMsdIfShown(){
+  if(!rawIsPlot || rawPlotName!=='sptMsd') return;
+  drawSptMsdPlot();
+}
+// Dispatcher for sptHistBtn/sptHistModeBtn — draws whichever of the three
+// plots sptHistMode currently selects, then shows/labels sptHistModeBtn,
+// same "dispatcher owns the toggle button's visibility, not the underlying
+// draw primitive" convention drawDriftCurve() already uses for
+// driftPlotModeBtn. With three modes (not two), the button now cycles
+// D -> length -> msd -> D and labels itself with the NEXT mode's name (what
+// clicking it switches TO), generalizing driftPlotModeBtn's original
+// "names the other mode" convention to more than one alternative.
+const SPT_HIST_MODES=['D','length','msd'];
+const SPT_HIST_LABELS={D:'Diffusion', length:'Track length', msd:'MSD vs lag'};
+function nextSptHistMode(m){ return SPT_HIST_MODES[(SPT_HIST_MODES.indexOf(m)+1)%SPT_HIST_MODES.length]; }
 function drawSptHist(){
-  if(sptHistMode==='length') drawSptTrackLenHist(); else drawSptDHist();
+  if(sptHistMode==='length') drawSptTrackLenHist();
+  else if(sptHistMode==='msd') drawSptMsdPlot();
+  else drawSptDHist();
   hideOtherRawToggleBtns('sptHistModeBtn');
   const btn=$('sptHistModeBtn');
-  if(btn){ btn.style.display=''; btn.textContent = sptHistMode==='length' ? 'Diffusion' : 'Track length'; }
+  if(btn){ btn.style.display=''; btn.textContent = SPT_HIST_LABELS[nextSptHistMode(sptHistMode)]; }
 }
 $('sptTrackBtn').addEventListener('click', runSptTrack);
 $('sptHistBtn').addEventListener('click', drawSptHist);
-$('sptHistModeBtn').addEventListener('click', ()=>{ sptHistMode = sptHistMode==='length' ? 'D' : 'length'; drawSptHist(); });
+$('sptHistModeBtn').addEventListener('click', ()=>{ sptHistMode = nextSptHistMode(sptHistMode); drawSptHist(); });
 $('sptSaveBtn').addEventListener('click', exportSptSummary);
 // "Show tracks" (sidebar) turns the overlay ON and reveals srTracksOverlayBtn
 // (raw... rather, the SR-panel title) for quick on/off from then on — mirrors
@@ -8590,6 +8774,7 @@ $('sptShowTracksPct').addEventListener('change', refreshTracksOverlayIfShown);
 // which tracks/steps exist and still require a fresh Track click.
 $('sptFrameTime').addEventListener('change', recomputeSptD);
 $('sptFrameTime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
+$('sptFrameTime').addEventListener('change', refreshSptMsdIfShown);   // rescales the x-axis (lag*frametime) and the fitted D
 $('sptLocError').addEventListener('change', recomputeSptD);
 // Min track length doesn't change trackLengths itself (see drawSptTrackLenHist's
 // own comment) — this only moves the threshold MARKER on an already-shown
@@ -8597,6 +8782,7 @@ $('sptLocError').addEventListener('change', recomputeSptD);
 // steps exist and require a fresh Track click, same as before.
 $('sptTrackLenMin').addEventListener('change', refreshSptTrackLenHistIfShown);
 $('sptTrackLenMin').addEventListener('change', refreshTracksOverlayIfShown);
+$('sptTrackLenMin').addEventListener('change', refreshSptMsdIfShown);   // changes which tracks qualify to contribute per lag
 // D plot min/max only change the histogram's own display window, not the
 // underlying D values — re-plot (if shown) without touching lastSpt itself.
 $('sptDPlotMin').addEventListener('change', refreshSptDHistIfShown);
