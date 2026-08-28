@@ -9943,6 +9943,19 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 async function run(){
   if(!stack){ log('No data loaded.'); return; }
   stopRequested=false;
+  // Everything below unconditionally discards any previous result and
+  // whatever was derived from it (drift correction, SPT tracking, sSMLM
+  // pairing) — no confirmation prompt. A user relying on the log to notice
+  // work vanished gets one line naming what's actually about to go, before
+  // it does (a real, reported gap otherwise: e.g. a CSV-loaded result or an
+  // unsaved Track run disappearing with no other signal).
+  if(lastResult && lastResult.locs && lastResult.locs.length){
+    const cleared=['previous localizations'];
+    if(lastDrift) cleared.push('drift correction');
+    if(lastSpt) cleared.push('SPT tracking');
+    if(sSmlmPairedLocs) cleared.push('sSMLM pairing');
+    log(`⚠ Starting Localize — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
+  }
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
