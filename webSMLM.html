@@ -1765,7 +1765,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-28a</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-28b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2235,7 +2235,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-28a — test: SPT gains a third "MSD vs lag" plot (Track → Show histograms → toggle) — an ensemble MSD-vs-lag-time curve with a weighted linear D fit, generalizing beyond the single-lag D estimate for longer tracks. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-28b — test: SPT gains a third "MSD vs lag" plot (Track → Show histograms → toggle) — an ensemble MSD-vs-lag-time curve with a weighted linear D fit, generalizing beyond the single-lag D estimate for longer tracks. Now with scroll/pinch horizontal zoom + pan on that plot. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -8623,46 +8623,66 @@ function refreshSptTrackLenHistIfShown(){
 // computeHist()-based bar histogram — structurally different from the two
 // above, same "dispatcher owns heterogeneous draw types" precedent
 // drawSegShow() already established for its raster-image-vs-histogram
-// split. Computed fresh from lastResult.locs on every draw (no lastSpt
-// caching) — computeEnsembleMsd()'s cost is proportional to (qualifying
-// tracks × MSD_MAX_LAG_FRAMES), cheap even for a large real dataset, and
-// staying uncached means editing Frame time/Min track length while the
-// plot is shown can just redraw it directly (see refreshSptMsdIfShown())
-// with no separate rescale path to keep in sync, unlike D's own
-// recomputeSptD() (needed there only because trackDiffusionCoeffs() itself
-// IS expensive enough to cache).
-function drawSptMsdPlot(){
+// split. Split into computeSptMsd() (data) / drawSptMsdPlot() (paint),
+// mirroring computeHist()/drawHistogram() exactly, for the same reason:
+// the X-axis zoom/pan handlers below need to redraw against an already-
+// computed sptMsdData at a MUTATED sptMsdView without recomputing from
+// scratch on every wheel tick / pinch frame. Every "logical" redraw (mode
+// switch, or Frame time/Min track length changing via refreshSptMsdIfShown())
+// calls computeSptMsd() fresh, which also RESETS sptMsdView to the full
+// range — same "recompute resets the view" behaviour computeHist() already
+// has for the D/track-length histograms. computeEnsembleMsd()'s own cost
+// (proportional to qualifying tracks × MSD_MAX_LAG_FRAMES) stays cheap
+// enough that recomputing on every such change, uncached, is fine — no
+// separate rescale path like D's own recomputeSptD() (that one exists only
+// because trackDiffusionCoeffs() itself is expensive enough to cache).
+const SPTMSD_ML=64, SPTMSD_MR=16;
+let sptMsdData=null, sptMsdView=null;
+function computeSptMsd(){
+  sptMsdData=null; sptMsdView=null;
   if(!lastResult || !lastResult.locs.length) return;
   const sptTrackLenMin=paramValue('sptTrackLenMin'), frametime=paramValue('sptFrameTime');
   const {points, nTracksUsed}=computeEnsembleMsd(lastResult.locs, lastResult.px, sptTrackLenMin);
   if(!points.length){ log('  Not enough qualifying tracks for an MSD-vs-lag plot — widen Min track length, or check Search range/Memory.'); return; }
   const fit=fitMsdLine(points, frametime);
+  // Axes always include the origin (a lag-time axis with no visible x=0
+  // misreads the fitted intercept); ymax also covers individual per-track
+  // dots, not just the mean±std markers, so nothing gets clipped silently.
+  // ymax stays FIXED regardless of X zoom (horizontal-only zoom, matching
+  // the line-profile/column-histogram X-zoom convention below) — panning/
+  // zooming the lag-time axis doesn't change what "full MSD range" means.
+  let xmaxFull=0, ymaxFull=0;
+  for(const p of points){ xmaxFull=Math.max(xmaxFull,p.lag*frametime); ymaxFull=Math.max(ymaxFull,p.mean+p.std); for(const v of p.vals) if(v>ymaxFull) ymaxFull=v; }
+  if(fit) ymaxFull=Math.max(ymaxFull, fit.slope*xmaxFull+fit.intercept, fit.intercept);
+  xmaxFull=Math.max(xmaxFull*1.08, 1e-9); ymaxFull=Math.max(ymaxFull*1.1, 1e-12);
+  sptMsdData={points, fit, nTracksUsed, frametime, xmaxFull, ymaxFull};
+  sptMsdView={x0:0, x1:xmaxFull};
+  if(fit) log(`  MSD-vs-lag ensemble fit: D = ${(fit.slope/4).toFixed(4)} µm²/s (slope/4), intercept ${fit.intercept>=0?'+':''}${fit.intercept.toExponential(2)} µm² (≈4·σ_loc², an independent cross-check only) — ${nTracksUsed.toLocaleString()} track(s) contributing across ${points.length} lag(s), ignoring any within-track changes in diffusion coefficient the way sptPALM's own per-track D can pick up.`);
+}
+function drawSptMsdPlot(){
+  if(!sptMsdData || !sptMsdView) return;
+  const {points, fit, nTracksUsed, frametime, ymaxFull}=sptMsdData;
+  const {x0:xmin, x1:xmax}=sptMsdView, xr=Math.max(1e-12,xmax-xmin);
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; setRawPlot(true); rawPlotName='sptMsd'; $('rawTitle').textContent='SPT: MSD vs. lag time';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
-  // Axes always include the origin (a lag-time axis with no visible x=0
-  // misreads the fitted intercept); ymax also covers individual per-track
-  // dots, not just the mean±std markers, so nothing gets clipped silently.
-  let xmax=0, ymax=0;
-  for(const p of points){ xmax=Math.max(xmax,p.lag*frametime); ymax=Math.max(ymax,p.mean+p.std); for(const v of p.vals) if(v>ymax) ymax=v; }
-  if(fit) ymax=Math.max(ymax, fit.slope*xmax+fit.intercept, fit.intercept);
-  xmax=Math.max(xmax*1.08, 1e-9); ymax=Math.max(ymax*1.1, 1e-12);
-  const mL=64,mR=16,mT=44,mB=48, pw=W-mL-mR, ph=H-mT-mB;
-  const X=v=>mL+pw*v/xmax, Y=v=>mT+ph*(1-v/ymax);
+  const mL=SPTMSD_ML,mR=SPTMSD_MR,mT=44,mB=48, pw=W-mL-mR, ph=H-mT-mB;
+  const X=v=>mL+pw*(v-xmin)/xr, Y=v=>mT+ph*(1-v/ymaxFull);
   // MSD values are typically << 1 µm² — axisScale() is built for the OPPOSITE
   // problem (large numbers, ×10ⁿ offset notation), so tick decimals are
-  // picked directly from the axis's own max instead.
-  const yDec = ymax<0.01?4 : ymax<0.1?3 : ymax<1?2 : 1;
+  // picked directly from the (fixed, zoom-independent) Y axis max instead.
+  const yDec = ymaxFull<0.01?4 : ymaxFull<0.1?3 : ymaxFull<1?2 : 1;
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const c of niceTicks(0,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+  for(const c of niceTicks(0,ymaxFull,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
     ctx.fillText(c.toFixed(yDec),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const v of niceTicks(0,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
+  const decX=xr<1?3:xr<10?2:1;
+  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;
-    ctx.fillText(v.toFixed(v<1?2:1),x,mT+ph+9); }
-  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
+    ctx.fillText(v.toFixed(decX),x,mT+ph+9); }
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();       // points/line clipped to the plot rect (for zoom/pan)
   // Individual per-track TAMSD values: one small semi-transparent red dot per
   // (track, lag), matching the reference figure this plot is modeled on. A
   // deterministic seeded x-jitter (mulberry32, keyed per lag) spreads them so
@@ -8674,7 +8694,7 @@ function drawSptMsdPlot(){
     const rng=mulberry32(0xC0FFEE ^ (p.lag*2654435761>>>0));
     for(const v of p.vals){
       const jx=(rng()-0.5)*2*jitterW;
-      ctx.beginPath(); ctx.arc(X(p.lag*frametime)+jx, Y(Math.min(v,ymax)), 2, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(X(p.lag*frametime)+jx, Y(Math.min(v,ymaxFull)), 2, 0, 2*Math.PI); ctx.fill();
     }
   }
   // Ensemble mean ± std per lag (green, matching the drift/NeNA/track-length-
@@ -8682,7 +8702,7 @@ function drawSptMsdPlot(){
   // weighted linear fit line.
   ctx.strokeStyle='#0a7d32'; ctx.fillStyle='#0a7d32'; ctx.lineWidth=1.6;
   for(const p of points){
-    const x=X(p.lag*frametime), yTop=Y(Math.min(p.mean+p.std,ymax)), yBot=Y(Math.max(p.mean-p.std,0)), y=Y(p.mean);
+    const x=X(p.lag*frametime), yTop=Y(Math.min(p.mean+p.std,ymaxFull)), yBot=Y(Math.max(p.mean-p.std,0)), y=Y(p.mean);
     ctx.beginPath(); ctx.moveTo(x,yTop); ctx.lineTo(x,yBot); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x-4,yTop); ctx.lineTo(x+4,yTop); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x-4,yBot); ctx.lineTo(x+4,yBot); ctx.stroke();
@@ -8690,8 +8710,8 @@ function drawSptMsdPlot(){
   }
   if(fit){
     ctx.beginPath();
-    ctx.moveTo(X(0),Y(Math.max(0,Math.min(fit.intercept,ymax))));
-    ctx.lineTo(X(xmax),Y(Math.max(0,Math.min(fit.slope*xmax+fit.intercept,ymax))));
+    ctx.moveTo(X(0),Y(Math.max(0,Math.min(fit.intercept,ymaxFull))));
+    ctx.lineTo(X(sptMsdData.xmaxFull),Y(Math.max(0,Math.min(fit.slope*sptMsdData.xmaxFull+fit.intercept,ymaxFull))));
     ctx.stroke();
   }
   ctx.restore();
@@ -8702,15 +8722,15 @@ function drawSptMsdPlot(){
   ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.axis;
   const dTxt = fit ? `D = ${(fit.slope/4).toFixed(4)} µm²/s` : 'fit failed';
   ctx.fillText(`${dTxt} · ${nTracksUsed.toLocaleString()} track(s), ${points.length} lag(s)`, mL+pw, mT-8);
-  $('rawInfo').textContent='— SPT: ensemble MSD vs. lag time · red = per-track TAMSD, green = mean ± std, line = weighted fit (D from slope/4)';
-  registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:xmax,yTop:ymax,yBot:0, fmt:(vx,vy)=>`Δt=${vx.toFixed(3)} s · MSD=${vy.toFixed(yDec)} µm²`});
-  if(fit) log(`  MSD-vs-lag ensemble fit: D = ${(fit.slope/4).toFixed(4)} µm²/s (slope/4), intercept ${fit.intercept>=0?'+':''}${fit.intercept.toExponential(2)} µm² (≈4·σ_loc², an independent cross-check only) — ${nTracksUsed.toLocaleString()} track(s) contributing across ${points.length} lag(s), ignoring any within-track changes in diffusion coefficient the way sptPALM's own per-track D can pick up.`);
+  const zoomed = xmin>1e-9 || xmax<sptMsdData.xmaxFull-1e-9;
+  $('rawInfo').textContent=`— SPT: ensemble MSD vs. lag time · red = per-track TAMSD, green = mean ± std, line = weighted fit (D from slope/4)${zoomed?' · scroll/pinch zoom x · drag pan · dbl-click reset':' · scroll/pinch to zoom x'}`;
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymaxFull,yBot:0, fmt:(vx,vy)=>`Δt=${vx.toFixed(3)} s · MSD=${vy.toFixed(yDec)} µm²`});
   _replotRaw=drawSptMsdPlot;
   syncSaveImg();
 }
 function refreshSptMsdIfShown(){
   if(!rawIsPlot || rawPlotName!=='sptMsd') return;
-  drawSptMsdPlot();
+  computeSptMsd(); drawSptMsdPlot();
 }
 // Dispatcher for sptHistBtn/sptHistModeBtn — draws whichever of the three
 // plots sptHistMode currently selects, then shows/labels sptHistModeBtn,
@@ -8725,7 +8745,7 @@ const SPT_HIST_LABELS={D:'Diffusion', length:'Track length', msd:'MSD vs lag'};
 function nextSptHistMode(m){ return SPT_HIST_MODES[(SPT_HIST_MODES.indexOf(m)+1)%SPT_HIST_MODES.length]; }
 function drawSptHist(){
   if(sptHistMode==='length') drawSptTrackLenHist();
-  else if(sptHistMode==='msd') drawSptMsdPlot();
+  else if(sptHistMode==='msd'){ computeSptMsd(); drawSptMsdPlot(); }
   else drawSptDHist();
   hideOtherRawToggleBtns('sptHistModeBtn');
   const btn=$('sptHistModeBtn');
@@ -10935,6 +10955,37 @@ $('raw').addEventListener('click',async e=>{
     if(ptrs.size===0) drag=null; else if(ptrs.size===1){ const id=[...ptrs.keys()][0]; drag={d0:ptrs.get(id), x0:histView.x0, x1:histView.x1}; } };
   cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
   cv.addEventListener('dblclick',()=>{ if(!active()) return; histView={x0:histData.lo,x1:histData.hi}; drawHistogram(); });
+})();
+
+// SPT MSD-vs-lag X-axis zoom (wheel / trackpad + touch pinch) and pan; Y
+// stays fixed — same "horizontal only" convention as the two zoom handlers
+// above, added on request: the early, small-lag end of the curve (where
+// per-lag std tends to be largest, see computeSptMsd()'s own tracks-per-lag
+// reasoning) can bunch up against the axis when a dataset also has a few
+// long-lag outliers stretching the full-range view. Active only while the
+// MSD plot is shown — otherwise the raw navigator handles pinch/wheel/drag.
+(function(){ const cv=$('raw');
+  const active=()=>rawIsPlot&&rawPlotName==='sptMsd'&&!!sptMsdData&&!!sptMsdView;
+  const dataX=clientX=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, px=(clientX-r.left)*Wc/r.width, pw=Wc-SPTMSD_ML-SPTMSD_MR, xr=sptMsdView.x1-sptMsdView.x0;
+    return sptMsdView.x0+(px-SPTMSD_ML)/Math.max(1,pw)*xr; };
+  const clampSet=(c,x0,x1,f)=>{ const lo=0, hi=sptMsdData.xmaxFull; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
+    nx0=Math.max(lo,nx0); nx1=Math.min(hi,nx1); if(nx1-nx0>=(hi-lo)*0.02){ sptMsdView={x0:nx0,x1:nx1}; drawSptMsdPlot(); } };
+  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=Wc-SPTMSD_ML-SPTMSD_MR, xr=x1-x0, lo=0, hi=sptMsdData.xmaxFull;
+    const dData=(clientDx-d0)*Wc/r.width*xr/Math.max(1,pw); let nx0=x0-dData, nx1=x1-dData;
+    if(nx0<lo){nx0=lo;nx1=lo+xr;} if(nx1>hi){nx1=hi;nx0=hi-xr;} nx0=Math.max(lo,nx0); sptMsdView={x0:nx0,x1:nx1}; drawSptMsdPlot(); };
+  cv.addEventListener('wheel',e=>{ if(!active()) return; e.preventDefault();
+    clampSet(dataX(e.clientX), sptMsdView.x0, sptMsdView.x1, Math.exp(e.deltaY*0.0015)); },{passive:false});
+  const ptrs=new Map(); let pinch=null, drag=null;
+  cv.addEventListener('pointerdown',e=>{ if(!active()) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e.clientX);
+    if(ptrs.size===2){ drag=null; const v=[...ptrs.values()]; pinch={d0:Math.abs(v[0]-v[1])||1, x0:sptMsdView.x0, x1:sptMsdView.x1, c:dataX((v[0]+v[1])/2)}; }
+    else if(ptrs.size===1){ pinch=null; drag={d0:e.clientX, x0:sptMsdView.x0, x1:sptMsdView.x1}; } });
+  cv.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,e.clientX);
+    if(pinch&&ptrs.size>=2&&sptMsdData){ e.preventDefault(); const v=[...ptrs.values()], d=Math.abs(v[0]-v[1]); if(d>0) clampSet(pinch.c, pinch.x0, pinch.x1, pinch.d0/d); }
+    else if(drag&&ptrs.size===1&&sptMsdData){ e.preventDefault(); panBy(drag.d0, drag.x0, drag.x1, e.clientX); } });
+  const end=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null;
+    if(ptrs.size===0) drag=null; else if(ptrs.size===1){ const id=[...ptrs.keys()][0]; drag={d0:ptrs.get(id), x0:sptMsdView.x0, x1:sptMsdView.x1}; } };
+  cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  cv.addEventListener('dblclick',()=>{ if(!active()) return; sptMsdView={x0:0,x1:sptMsdData.xmaxFull}; drawSptMsdPlot(); });
 })();
 
 /* ---- plot cursor readout: crosshair + x/y value under the pointer ------------
