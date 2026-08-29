@@ -68,22 +68,26 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9241   top-level orchestration, *Core()/wrapper split;
+    pipeline        9245   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit; Live streaming (streamBox,
-                           window.webSMLM.stream) — an external bridge (e.g.
-                           tools/webSMLM-stream.mjs / a Gladoscopy RT node)
-                           pushes frame chunks in via #streamChunkInput,
-                           localized per-chunk (no FTM) and accumulated into
-                           lastResult, armed only by the user's own "Start
-                           streaming" click, never by the bridge itself
-    table           11070  localizations table, filtering, histograms;
+                           window.webSMLM.stream) — two ways in: an opt-in
+                           WebSocket the page itself connects OUT to (never
+                           listens), for hooking into a tab already open
+                           (tools/test_stream_demo.py); or an external
+                           Playwright-driven bridge (tools/webSMLM-stream.mjs
+                           / a Gladoscopy RT node) via #streamChunkInput.
+                           Either way chunks are localized per-chunk (no FTM)
+                           and accumulated into lastResult, armed only by the
+                           user's own "Start streaming" click, never by the
+                           bridge/sender itself
+    table           11138  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11650  window.webSMLM.analyze()/analyzeBatch();
+    headless API    11718  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1767,7 +1771,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29a</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2205,14 +2209,24 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="streamBox">
         <summary>Live streaming</summary>
         <label class="row">Render every N chunks <input type="number" id="streamRenderEvery" value="1" min="1" max="1000" step="1" class="num"></label>
+        <label class="row" title="A local process (e.g. tools/test_stream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="streamWsUrl" value="ws://localhost:8765" style="width:150px"></label>
         <div class="btnrow" style="margin-top:6px">
-          <button id="streamStartBtn" title="Arm live streaming: an external bridge process (e.g. tools/webSMLM-stream.mjs driving a Gladoscopy RT node) can then push frame chunks in, localized and rendered here as they arrive">Start streaming</button>
+          <button id="streamConnectBtn" title="Open a WebSocket connection to a local bridge server (e.g. tools/test_stream_demo.py) so THIS tab — no separate browser launched — can receive pushed frame chunks directly">Connect</button>
+          <button id="streamDisconnectBtn" disabled title="Close the WebSocket connection — an already-armed streaming session stays armed">Disconnect</button>
+        </div>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="streamStartBtn" title="Arm live streaming: an external bridge (a WebSocket connection above, or a driving script using tools/webSMLM-stream.mjs) can then push frame chunks in, localized and rendered here as they arrive">Start streaming</button>
           <button id="streamStopBtn" disabled title="Stop the current streaming session — leaves the current reconstruction on screen as-is">Stop streaming</button>
         </div>
         <div id="streamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-stream"><span class="pill">module: pipeline</span>
-          <p>Lets an external process — e.g. a Gladoscopy RT node driving a live Micro-Manager/pycromanager acquisition via <code>tools/webSMLM-stream.mjs</code> — push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. <b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack); the bridge process then calls the page's <code>window.webSMLM.stream.pushChunk()</code> once per chunk it pushes.</p>
+          <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
+          <ul>
+          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_stream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> finalizes the session (without closing the connection or this tab).</li>
+          <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>.</li>
+          </ul>
+          <p><b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack) — pushed chunks are rejected with a clear error until this has been clicked, regardless of which of the two ways in is used.</p>
           <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode. <b>Render every N chunks</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless), trading live-view freshness for redraw cost on a long acquisition with many chunks.</p>
           <p>This is a fast preview tier only — drift correction, NeNA and FRC are not computed during streaming. Run those, and a full accurate Localize, on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>) for the final result.</p>
         </div>
@@ -2260,7 +2274,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29a — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29b — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -9834,16 +9848,23 @@ function startStreamingSession(){
   log('Live streaming: session started — an external bridge can now push frame chunks in via window.webSMLM.stream.pushChunk().');
 }
 
-// Called via page.evaluate() by the bridge script after it uploads one
-// chunk's bytes into #streamChunkInput (page.setInputFiles({name,mimeType,
-// buffer}) — no temp file on disk, same conduit #analyzeFileInput/
-// #calibrationFileInput/#segmentationFileInput already use for analyze()).
-async function streamPushChunk(){
-  if(!streamState) throw new Error('webSMLM.stream.pushChunk(): no active streaming session — click "Start streaming" first.');
-  const fileEl=$('streamChunkInput');
-  if(!fileEl.files.length) throw new Error('webSMLM.stream.pushChunk(): #streamChunkInput has no file — the driving bridge must call setInputFiles() before this.');
+// Shared core: takes a File/Blob directly (loadTiffFile() only ever needed
+// .size/.slice()/.arrayBuffer(), same as analyze()'s config.file — see
+// CLAUDE.md). Two callers feed it a chunk two different ways:
+//  - streamPushChunk() (below) — the external/Playwright-driven path, called
+//    via page.evaluate() by tools/webSMLM-stream.mjs after it uploads one
+//    chunk's bytes into #streamChunkInput (page.setInputFiles({name,
+//    mimeType,buffer}), no temp file on disk — same conduit #analyzeFileInput/
+//    #calibrationFileInput/#segmentationFileInput already use for analyze()).
+//    An external process cannot hand a JS object straight into the page any
+//    other way, hence the file-input indirection.
+//  - the WebSocket 'message' handler (streamWsConnect(), below) — runs
+//    INSIDE this page's own JS already, so it hands a chunk's Blob straight
+//    to this function with no file-input indirection needed at all.
+async function streamPushChunkFile(file){
+  if(!streamState) throw new Error('no active streaming session — click "Start streaming" first.');
   const cfg=streamState.cfg;
-  const chunkStack=await loadTiffFile(fileEl.files[0], log);
+  const chunkStack=await loadTiffFile(file, log);
   const r=await runCore(cfg, chunkStack, {zcal:streamState.zcal, wcal:streamState.wcal}, {onLog:log});
   const offset=streamState.frameOffset;
   for(const L of r.locs) L.frame+=offset;   // keep frame numbers meaningful across the whole streamed acquisition, not just this chunk
@@ -9855,6 +9876,55 @@ async function streamPushChunk(){
   $('streamStatus').textContent=`Streaming — ${streamState.frameOffset} frames · ${streamState.chunkCount} chunks · ${streamState.allLocs.length.toLocaleString()} locs`;
   return {chunkFrames:chunkStack.n, chunkLocs:r.locs.length, totalFrames:streamState.frameOffset, totalLocs:streamState.allLocs.length};
 }
+
+async function streamPushChunk(){
+  const fileEl=$('streamChunkInput');
+  if(!fileEl.files.length) throw new Error('webSMLM.stream.pushChunk(): #streamChunkInput has no file — the driving bridge must call setInputFiles() before this.');
+  return streamPushChunkFile(fileEl.files[0]);
+}
+
+// WebSocket bridge — the opt-in "hook into a tab you already have open" path
+// (tools/test_stream_demo.py, or any local process speaking this same tiny
+// protocol): this page only ever CONNECTS OUT as a client, on demand, when
+// the user clicks Connect — it never listens for/accepts incoming
+// connections itself, so this doesn't reintroduce the "no server, no
+// network calls at runtime" property webSMLM otherwise keeps (see
+// CLAUDE.md) as a default; it's an explicit, discoverable, user-initiated
+// exception scoped to this one feature. Binary messages are one chunk's raw
+// TIFF bytes each (binaryType='blob' hands streamPushChunkFile() a Blob
+// directly, same shape loadTiffFile() already accepts); a text message
+// (JSON {"cmd":"stop"}, or a bare "stop") finalizes the streaming session —
+// same as clicking Stop streaming — WITHOUT closing the connection itself.
+let streamWs=null;
+
+function streamWsConnect(){
+  const url=$('streamWsUrl').value.trim();
+  if(!url){ log('Live streaming: enter a WebSocket URL first.'); return; }
+  let ws;
+  try{ ws=new WebSocket(url); }
+  catch(err){ log(`Live streaming: could not open a WebSocket to ${url}: ${err.message}`); return; }
+  ws.binaryType='blob';
+  streamWs=ws;
+  $('streamConnectBtn').disabled=true; $('streamWsUrl').disabled=true;
+  ws.addEventListener('open', ()=>{ $('streamDisconnectBtn').disabled=false; log(`Live streaming: connected to ${url}.`); });
+  ws.addEventListener('message', async (ev)=>{
+    if(typeof ev.data==='string'){
+      let msg=null; try{ msg=JSON.parse(ev.data); }catch{ msg={cmd:ev.data}; }
+      if(msg && msg.cmd==='stop'){ log('Live streaming: sender signalled stop.'); endStreamingSession(); }
+      return;
+    }
+    try{ await streamPushChunkFile(ev.data); }
+    catch(err){ log(`Live streaming: chunk over WebSocket failed: ${err.message}`); }
+  });
+  ws.addEventListener('close', ()=>{ log('Live streaming: WebSocket connection closed.'); if(streamWs===ws) streamWsResetButtons(); });
+  ws.addEventListener('error', ()=>{ log(`Live streaming: WebSocket error connecting to ${url} — is the local bridge server running?`); });
+}
+function streamWsResetButtons(){
+  streamWs=null;
+  $('streamConnectBtn').disabled=false; $('streamWsUrl').disabled=false; $('streamDisconnectBtn').disabled=true;
+}
+$('streamConnectBtn').addEventListener('click', streamWsConnect);
+$('streamDisconnectBtn').addEventListener('click', ()=>{ if(streamWs){ const ws=streamWs; streamWsResetButtons(); ws.close(); } });
 
 function endStreamingSession(){
   if(!streamState) return;
