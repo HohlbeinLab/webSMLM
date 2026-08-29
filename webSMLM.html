@@ -1789,7 +1789,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2259,7 +2259,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-29c — recorded commands now cover Localize, Correct drift, Estimate gain/offset, 3D calibration, NeNA, FRC, sSMLM Pair and SPT Track (toggle "Record as" above); prose lines like this one are commented so a whole log stretch pastes as valid code. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-29d — Load movie/data now records a command too (single-file loads only); recorded commands cover every config-driven action (toggle "Record as" above). See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -10341,6 +10341,15 @@ async function loadMovieFiles(fs){
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
+    // A multi-file combine (Ctrl/Cmd+click several files) has no CLI/analyze()
+    // equivalent — tools/webSMLM-cli.mjs only ever takes one --file, so a
+    // faithful recorded command isn't possible there; single-file loads
+    // record cleanly. Browsers only ever expose the bare filename (File.name),
+    // never a full filesystem path, so — same caveat as any macro recorder —
+    // this reproduces correctly only when re-run from the same folder (CLI
+    // mode) or with a real File substituted in (JS mode's own `file` key
+    // needs an actual File/Blob object, not the string logged here).
+    if(!multi) logCmd({file: fs[0].name, pxnm: stack.px});
   }catch(err){ log('TIFF load failed: '+err.message); }
 }
 
