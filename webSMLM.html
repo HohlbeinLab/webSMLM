@@ -1808,7 +1808,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29f</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-30a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2278,7 +2278,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-29f — streaming per-record exports: --exportTrackData/--exportSSmlmCandidates/--exportCalibrationPoints/--exportPcfoTiles write NDJSON files for large per-track/candidate/bead/tile datasets. See docs/DOCUMENTATION.md §8 and CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-30a — recorded commands now log BEFORE the action runs, not after — the prose narrating what happened follows the command, not the other way round. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -6541,6 +6541,16 @@ async function runCalibration(){
   try{
     const config=Object.assign(buildConfigFromParams(),
       { calFirst:first, calLast:last, calFixedPts:fixedXY?calFixedPts:null, sourceFile:stackName });
+    // Logged BEFORE calibrationCore() starts — see run()'s own comment on
+    // this ordering — safe this early since config is already fully
+    // resolved. calFixedPts (the actual bead x,y coordinates) isn't
+    // captured here when calFixedXY is on — a coordinate array doesn't fit
+    // a readable one-line command; calFixedXY alone flags that this run
+    // used it.
+    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
+    logCmd({ calibrationOnly:true, calFirst:first, calLast:last, calStep:config.calStep,
+      calRef:config.calRef, calFixedXY:fixedXY, psf:config.psf, winr:config.winr,
+      detFilter:config.detFilter, [threshKey]:config[threshKey], pxnm:config.pxnm });
     const r = await calibrationCore(config, stack, {
       onLog: log, onProgress: setProg, shouldStop: () => stopRequested,
       onRawPreview: (img,w,h,maxima,frameLocs,fi,last) => {
@@ -6552,13 +6562,6 @@ async function runCalibration(){
     updateCalStatus();
     srFull=null; srIsPlot=true; srSpots=null; srLocs=null; setSrRecon(false); syncSaveImg();  // hand the SR panel over to the plot
     drawCalibration(); $('calSaveBtn').disabled=false;
-    // calFixedPts (the actual bead x,y coordinates) isn't captured here when
-    // calFixedXY is on — a coordinate array doesn't fit a readable one-line
-    // command; calFixedXY alone flags that this run used it.
-    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
-    logCmd({ calibrationOnly:true, calFirst:first, calLast:last, calStep:config.calStep,
-      calRef:config.calRef, calFixedXY:fixedXY, psf:config.psf, winr:config.winr,
-      detFilter:config.detFilter, [threshKey]:config[threshKey], pxnm:config.pxnm });
   }catch(err){ log(`⚠ Calibration failed: ${err.message}`); }
   finally{ setProg(null); $('calBtn').disabled=false; $('runBtn').disabled=false; $('stopBtn').disabled=true; stopRequested=false; }
 }
@@ -6917,6 +6920,10 @@ async function correctDrift(){
   $('driftBtn').disabled=true;
   try{
     const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ')};
+    // Logged BEFORE driftCore() starts — see run()'s own comment on this
+    // ordering (command announces what's about to run, prose narrates what
+    // happened) — safe this early since config is already fully resolved.
+    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, pxnm:px});
     const {drift:d, nFrames} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg});
     lastDrift=d; lastResult.byFrame=null;          // positions changed
     if(d.fdz) lastResult.zr=null;
@@ -6938,7 +6945,6 @@ async function correctDrift(){
     $('driftShowBtn').disabled=false;
     driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
-    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, pxnm:px});
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
   finally{ $('driftBtn').disabled=false; setProg(null); }
 }
@@ -7216,6 +7222,10 @@ async function computeNeNA(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
+    // Logged BEFORE nenaPrecision() runs — see run()'s own comment on this
+    // ordering. No config to speak of (NeNA takes none), so this is just the
+    // bare flag, same as the CLI's own --computeNeNA.
+    logCmd({computeNeNA:true, pxnm:paramValue('pxnm')});
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
@@ -7226,7 +7236,6 @@ async function computeNeNA(){
     log(`σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
     log('Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
     drawNenaPlot(r);                                  // histogram + fit on the left panel
-    logCmd({computeNeNA:true, pxnm:paramValue('pxnm')});
   }catch(err){ log(`⚠ NeNA failed: ${err.name}: ${err.message}`); }
   finally{ $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; setProg(null); }
 }
@@ -7420,6 +7429,12 @@ async function computeFRC(){
   if(paramValue('frc3d')) log('(FSC 3D not yet implemented — computing 2D FRC.)');
   $('frcBtn').disabled=true;
   try{
+    // Logged BEFORE frcResolution() runs — see run()'s own comment on this
+    // ordering. No config to speak of (FRC takes none), so this is just the
+    // bare flag, same as the CLI's own --computeFRC — one call covers both
+    // outcome branches below (previously duplicated at each, now moot since
+    // logging happens before either is reached).
+    logCmd({computeFRC:true, pxnm:paramValue('pxnm')});
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
@@ -7430,11 +7445,10 @@ async function computeFRC(){
       log(`resolution is finer than the sampling — the FRC curve stays above 1/7 up to Nyquist (${r.nyquist.toFixed(0)} nm, at ${r.pixNm.toFixed(1)} nm/px, ${r.N}²).`);
       log(r.N>=2048 ? 'The field of view is large, so FRC sampling is capped here — crop to a sub-region for a finer measurement.'
                     : `Already sampling at the ${r.lpSrc==='NeNA'?'NeNA-derived':'per-localization-precision-derived'} limit (σ/2${r.nenaSigma!=null?' = '+(r.nenaSigma/2).toFixed(1)+' nm':''}) — more localizations (denser labelling, longer acquisition) would help more than finer sampling here.`);
-      drawFrcPlot(r); logCmd({computeFRC:true, pxnm:paramValue('pxnm')}); return; }
+      drawFrcPlot(r); return; }
     log(`resolution = ${r.res.toFixed(1)}${isFinite(r.resErr)?' ± '+r.resErr.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px @ ${r.pixNm.toFixed(1)} nm/px, Nyquist ${r.nyquist.toFixed(0)} nm · ${Math.round(performance.now()-t0)} ms).`);
     log('FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
     drawFrcPlot(r);
-    logCmd({computeFRC:true, pxnm:paramValue('pxnm')});
   }catch(err){ log(`⚠ FRC failed: ${err.name}: ${err.message}`); }
   finally{ $('frcBtn').disabled=false; setProg(null); }
 }
@@ -7693,12 +7707,14 @@ async function estimateGainOffset(){
   $('pcfoBtn').disabled=true;
   try{
     const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
+    // Logged BEFORE pcfoCore() starts — see run()'s own comment on this
+    // ordering — safe this early since cfg is already fully resolved.
+    logCmd({estimateGainOffset:true, ...cfg, pxnm:paramValue('pxnm')});
     const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
     if(!r) return;
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
     drawPcfoPlot();
     $('pcfoTransferBtn').disabled=false;
-    logCmd({estimateGainOffset:true, ...cfg, pxnm:paramValue('pxnm')});
   }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
   finally{ $('pcfoBtn').disabled=false; setProg(null); }
 }
@@ -8094,6 +8110,9 @@ async function runSSmlmPair(){
     const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
       sSmlmAngleCenter:paramValue('sSmlmAngleCenter'), sSmlmAngleTol:paramValue('sSmlmAngleTol'),
       sSmlmRequireNarrower:paramValue('sSmlmRequireNarrower') };
+    // Logged BEFORE pairCore() starts — see run()'s own comment on this
+    // ordering — safe this early since cfg is already fully resolved.
+    logCmd({sSmlmPair:true, ...cfg, pxnm:lastResult.px});
     const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
     if(!r.nPairs){ log('no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
     sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;
@@ -8120,7 +8139,6 @@ async function runSSmlmPair(){
     $('sSmlmColorBtn').style.display='';
     updateSSmlmColorBtnLabel();
     log(`Reconstruction now shows the paired result, colour-coded by inter-order distance (not real z) — click "${$('sSmlmColorBtn').textContent}" above the reconstruction to compare against the original, unpaired data.`);
-    logCmd({sSmlmPair:true, ...cfg, pxnm:lastResult.px});
   }catch(err){ log(`⚠ sSMLM pairing failed: ${err.name}: ${err.message}`); }
   finally{ $('sSmlmPairBtn').disabled=false; setProg(null); }
 }
@@ -8625,6 +8643,13 @@ async function runSptTrack(){
       ? { labels:segmentedImageLabels, areaMin:paramValue('segAreaMin'), areaMax:paramValue('segAreaMax') }
       : null;
     if($('applySegmentation').checked && !segmentedImageLabels) log('⚠ Apply segmentation? is checked but no segmentation image is loaded — tracking the whole field of view instead.');
+    // Logged BEFORE sptCore() starts — see run()'s own comment on this
+    // ordering — safe this early since cfg is already fully resolved.
+    // Segmentation-aware tracking (segCtx) isn't captured here — a loaded
+    // mask file doesn't fit a readable one-line command; this only records
+    // the plain whole-FOV tracking parameters, same "curated, not
+    // exhaustive" scope as calibration's own calFixedPts omission.
+    logCmd({sptTrack:true, ...cfg, pxnm:lastResult.px});
     const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
@@ -8650,11 +8675,6 @@ async function runSptTrack(){
     // automatically on the next draw — this just triggers that next draw
     // if the overlay was already showing from a previous Track run.
     if(srTracksOverlayOn) drawView();
-    // Segmentation-aware tracking (segCtx) isn't captured here — a loaded
-    // mask file doesn't fit a readable one-line command; this only records
-    // the plain whole-FOV tracking parameters, same "curated, not
-    // exhaustive" scope as calibration's own calFixedPts omission above.
-    logCmd({sptTrack:true, ...cfg, pxnm:lastResult.px});
   }catch(err){ log(`⚠ SPT tracking failed: ${err.name}: ${err.message}`); }
   finally{ $('sptTrackBtn').disabled=false; setProg(null); }
 }
@@ -10204,6 +10224,21 @@ async function run(){
     if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
     const config=buildConfigFromParams();
     const px=config.pxnm;   // read live, not the load-time snapshot stack.px was captured with
+    // Logged BEFORE runCore() starts, not after it succeeds — a recorded
+    // command announces what's about to run, with runCore()'s own onLog
+    // prose narrating what actually happened following it, same order a
+    // real macro recorder reads in. Safe this early since every field here
+    // comes straight from `config`, already fully resolved above. Curated
+    // subset of `config` — not the whole PARAMS registry (see logCmd()'s own
+    // comment) — just the fields that actually describe THIS run: the
+    // active detection filter's own threshold field only (config.detFilter
+    // picks which of detection_wavelet_thr/DoG_thr/box_thr applies; the
+    // other two are irrelevant to what's about to run).
+    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
+    logCmd({ method, psf:config.psf, winr:config.winr, detFilter:config.detFilter,
+      [threshKey]: config[threshKey], gain:config.gain, camoffset:config.camoffset,
+      fitFirstFrame:config.fitFirstFrame, fitLastFrame:config.fitLastFrame, pxnm:px,
+      localize3D:config.localize3D });
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // z(σx,σy) width model for MLE 3D / (checked) MLE 3D rotated elliptical —
     // use the current run's pixel size for the px→nm conversion. wcal's mere
@@ -10233,16 +10268,6 @@ async function run(){
     $('sSmlmPreviewBtn').disabled = $('sSmlmPairBtn').disabled = r.locs.length===0;
     $('sptTrackBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
-    // Curated subset of `config` — not the whole PARAMS registry (see
-    // logCmd()'s own comment) — just the fields that actually described
-    // THIS run: the active detection filter's own threshold field only
-    // (config.detFilter picks which of detection_wavelet_thr/DoG_thr/
-    // box_thr applies; the other two are irrelevant to what just ran).
-    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
-    logCmd({ method, psf:config.psf, winr:config.winr, detFilter:config.detFilter,
-      [threshKey]: config[threshKey], gain:config.gain, camoffset:config.camoffset,
-      fitFirstFrame:config.fitFirstFrame, fitLastFrame:config.fitLastFrame, pxnm:px,
-      localize3D:config.localize3D });
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
   }finally{
@@ -10454,6 +10479,22 @@ async function loadMovieFiles(fs){
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
   syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
+  // Logged BEFORE loading starts, not after it succeeds — a recorded command
+  // announces what's about to run, with the prose narrating what actually
+  // happened following it, same order a real macro recorder reads in. Safe
+  // to log this early since the config doesn't depend on the load's own
+  // outcome: pxnm is the CURRENT setting either way ("Pixel size (nm)...NOT
+  // auto-updated" — see loadTiffFile()'s own metadata-advisory comment), so
+  // reading it via paramValue() here vs. stack.px after loading is the same
+  // value. A multi-file combine (Ctrl/Cmd+click several files) has no CLI/
+  // analyze() equivalent — tools/webSMLM-cli.mjs only ever takes one --file,
+  // so a faithful recorded command isn't possible there; single-file loads
+  // record cleanly. Browsers only ever expose the bare filename (File.name),
+  // never a full filesystem path, so — same caveat as any macro recorder —
+  // this reproduces correctly only when re-run from the same folder (CLI
+  // mode) or with a real File substituted in (JS mode's own `file` key needs
+  // an actual File/Blob object, not the string logged here).
+  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm')});
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
   try{
     stack = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
@@ -10465,15 +10506,6 @@ async function loadMovieFiles(fs){
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
-    // A multi-file combine (Ctrl/Cmd+click several files) has no CLI/analyze()
-    // equivalent — tools/webSMLM-cli.mjs only ever takes one --file, so a
-    // faithful recorded command isn't possible there; single-file loads
-    // record cleanly. Browsers only ever expose the bare filename (File.name),
-    // never a full filesystem path, so — same caveat as any macro recorder —
-    // this reproduces correctly only when re-run from the same folder (CLI
-    // mode) or with a real File substituted in (JS mode's own `file` key
-    // needs an actual File/Blob object, not the string logged here).
-    if(!multi) logCmd({file: fs[0].name, pxnm: stack.px});
   }catch(err){ log('TIFF load failed: '+err.message); }
 }
 
