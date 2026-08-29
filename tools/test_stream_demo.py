@@ -50,10 +50,10 @@ except ImportError:
 
 HOST = 'localhost'
 PORT = 8765
-N_CHUNKS = 100
-FRAMES_PER_CHUNK = 1
+N_CHUNKS = 10
+FRAMES_PER_CHUNK = 10
 LOCS_PER_FRAME = 10   # simulated emitters per frame -- raise this to stress-test detection/fit density
-W = H = 64
+W = H = 500
 SIM_FRAME_INTERVAL_S = 0.03   # a stand-in for the real per-frame acquisition rate
 
 
@@ -102,16 +102,31 @@ def make_chunk_bytes(n_frames, emitters):
 
 async def stream_to(ws):
     print(f'webSMLM connected from {ws.remote_address}.')
+    # Pre-render every chunk BEFORE the timed send loop starts, rather than
+    # generating each one right before its own ws.send() -- np.random.poisson
+    # over a W*H frame (times LOCS_PER_FRAME emitters) plus TIFF encoding is
+    # real CPU work, and doing it inline between sends was stealing time from
+    # the sleep, so the actual gap between sends drifted longer than
+    # SIM_FRAME_INTERVAL_S once W/H or LOCS_PER_FRAME got large. Pre-rendering
+    # trades memory (every chunk's bytes held at once -- roughly
+    # N_CHUNKS * FRAMES_PER_CHUNK * W * H * 2 bytes before TIFF overhead) for
+    # timing that's actually only the sleep, matching a real camera's fixed
+    # frame rate far more closely.
+    emitters = init_emitters()
+    chunks = []
+    print(f'Pre-rendering {N_CHUNKS} chunks ({FRAMES_PER_CHUNK} frames each, {LOCS_PER_FRAME} emitters/frame)...')
+    for _ in range(N_CHUNKS):
+        body, emitters = make_chunk_bytes(FRAMES_PER_CHUNK, emitters)
+        chunks.append(body)
+    print(f'Pre-rendered {len(chunks)} chunks, {sum(len(c) for c in chunks) / 1e6:.1f} MB total.')
     await asyncio.to_thread(
         input,
         '\nIn the webSMLM window: open "Live streaming" in the sidebar and click '
         '"Start streaming" if you have not already.\n'
         'Press Enter here to begin sending simulated frame chunks...\n',
     )
-    emitters = init_emitters()
     try:
-        for i in range(N_CHUNKS):
-            body, emitters = make_chunk_bytes(FRAMES_PER_CHUNK, emitters)
+        for i, body in enumerate(chunks):
             await ws.send(body)
             print(f'sent chunk {i + 1}/{N_CHUNKS} ({len(body)} bytes)')
             await asyncio.sleep(FRAMES_PER_CHUNK * SIM_FRAME_INTERVAL_S)
