@@ -84,10 +84,16 @@
                            Either way chunks are localized per-chunk (no FTM)
                            and accumulated into lastResult, armed only by the
                            user's own "Start streaming" click, never by the
-                           bridge/sender itself
-    table           11138  localizations table, filtering, histograms;
+                           bridge/sender itself; per-chunk log lines quieted
+                           to one periodic milestone line; raw panel gets its
+                           own scrubbable frame history (streamShowRawFrame),
+                           auto-following the newest frame unless paused by a
+                           manual scrub, capped to Memory budget (GB) via a
+                           ring buffer (streamState.rawFrames) since an open-
+                           ended acquisition can't keep every raw frame
+    table           11295  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11718  window.webSMLM.analyze()/analyzeBatch();
+    headless API    11875  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1771,7 +1777,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2219,6 +2225,17 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <button id="streamStopBtn" disabled title="Stop the current streaming session — leaves the current reconstruction on screen as-is">Stop streaming</button>
         </div>
         <div id="streamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
+        <div id="streamScrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+          <span style="color:var(--muted);font-size:12px">Frame</span>
+          <input type="range" id="streamScrub" min="0" max="0" step="1" value="0" style="flex:1">
+          <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
+            <input type="number" id="streamScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a frame number and press Enter to jump to it"><span id="streamScrubTotal" style="vertical-align:middle"> / 1</span>
+          </span>
+        </div>
+        <div id="streamScrubNote" style="display:none;margin-top:4px;color:var(--muted);font-size:11px"></div>
+        <div class="btnrow" id="streamScrubLiveRow" style="display:none;margin-top:6px">
+          <button id="streamScrubLiveBtn" title="Resume automatically following the newest incoming frame">Jump to latest</button>
+        </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-stream"><span class="pill">module: pipeline</span>
           <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
@@ -2227,7 +2244,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>.</li>
           </ul>
           <p><b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack) — pushed chunks are rejected with a clear error until this has been clicked, regardless of which of the two ways in is used.</p>
-          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. <b>Render every N frames</b> throttles how often that repaint (and milestone line) happens (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw/log cost on a long acquisition. The <b>Raw frame</b> panel updates every chunk regardless, showing that chunk's own most recent frame with its detected spots overlaid — same live view Localize gives interactively — with the Contrast slider's range set once from the very first chunk's own data.</p>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. <b>Render every N frames</b> throttles how often that repaint (and milestone line) happens (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw/log cost on a long acquisition.</p>
+          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you click <b>Jump to latest</b>. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (Memory &amp; streaming section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
           <p>This is a fast preview tier only — drift correction, NeNA and FRC are not computed during streaming. Run those, and a full accurate Localize, on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>) for the final result.</p>
         </div>
       </details>
@@ -2274,7 +2292,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29e — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29f — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -9830,7 +9848,45 @@ async function run(){
    method/etc. are always whatever the sidebar is actually set to at Start
    time, same as an ordinary interactive Run.
    =========================================================================== */
-let streamState=null;   // {cfg, zcal, wcal, allLocs, frameOffset, chunkCount} while a session is armed
+let streamState=null;   // {cfg, zcal, wcal, allLocs, frameOffset, chunkCount, active, rawFrames, rawFrameBaseIdx, rawFrameCap, followLive, w, h} once a session has been Started at least once this page load
+
+// Derives the same {sigma,win,border,k,exactBP,mode} detectSpots() needs
+// from a resolved streaming config — shared by the auto-follow path
+// (streamPushChunkFile) and manual scrub-back (streamShowRawFrame) so they
+// can never drift apart.
+function streamDetectParamsFromCfg(cfg){
+  const win=2*cfg.winr+1;
+  return { sigma:cfg.psf, win, border:(win-1)/2+1,
+           k:{wave:cfg.detection_wavelet_thr, dog:cfg.detection_DoG_thr, box:cfg.detection_box_thr}[cfg.detFilter],
+           exactBP:cfg.detection_DoG_exactbp, mode:cfg.detFilter };
+}
+
+// Shows one already-processed streamed frame (by its GLOBAL, 0-based index
+// across the whole session) in the raw panel, re-detecting it live — used
+// both to auto-follow the newest frame after every push, and for manual
+// scrub-back into history. Only the most recent streamState.rawFrameCap
+// frames' raw pixel data are actually kept in memory (an open-ended
+// acquisition can't keep it ALL, unlike a loaded file) — every accepted
+// localization stays in the reconstruction regardless, only the raw IMAGE
+// for an evicted frame is gone, so scrubbing there shows an explanatory
+// note instead of silently doing nothing.
+function streamShowRawFrame(globalIdx){
+  if(!streamState || !streamState.frameOffset) return;
+  globalIdx=Math.max(streamState.rawFrameBaseIdx, Math.min(streamState.frameOffset-1, globalIdx|0));
+  $('streamScrub').value=globalIdx; $('streamScrubNum').value=globalIdx+1;
+  const localIdx=globalIdx-streamState.rawFrameBaseIdx;
+  if(localIdx<0 || localIdx>=streamState.rawFrames.length){
+    $('streamScrubNote').style.display='block';
+    $('streamScrubNote').textContent=`Frame ${globalIdx+1}'s raw pixel data is no longer retained (only the most recent ${streamState.rawFrames.length.toLocaleString()} of ${streamState.frameOffset.toLocaleString()} frames are kept in memory) — its accepted localizations are still in the reconstruction.`;
+    return;
+  }
+  $('streamScrubNote').style.display='none';
+  const img=streamState.rawFrames[localIdx];
+  const {sigma,exactBP,mode,k,border}=streamDetectParamsFromCfg(streamState.cfg);
+  const {maxima}=detectSpots(img, streamState.w, streamState.h, sigma, exactBP, mode, k, border);
+  drawRaw(img, streamState.w, streamState.h, maxima, locsForFrame(globalIdx));
+  $('rawInfo').textContent=`frame ${globalIdx+1} (streamed) — ${maxima.length} spots`;
+}
 
 function startStreamingSession(){
   const method=paramValue('method');
@@ -9846,9 +9902,14 @@ function startStreamingSession(){
   lastResult=null; srFull=null; srIsPlot=false; setRawPlot(false); renderLocs=null; _tableFilters=[];
   $('zmin').value=''; $('zmax').value=''; lastDrift=null;
   $('saveBtn').disabled=true; $('tableBtn').disabled=true;
-  streamState={cfg, zcal, wcal, allLocs:[], frameOffset:0, chunkCount:0};
+  // A fresh Start always begins a brand-new session — any PREVIOUS session's
+  // raw-frame history/scrub position is discarded along with it, same as any
+  // other "new load resets everything" convention in this app.
+  streamState={cfg, zcal, wcal, allLocs:[], frameOffset:0, chunkCount:0, active:true,
+               rawFrames:[], rawFrameBaseIdx:0, rawFrameCap:null, followLive:true, w:0, h:0};
   $('streamStartBtn').disabled=true; $('streamStopBtn').disabled=false; $('streamRenderEvery').disabled=true;
   $('streamStatus').textContent='Streaming — armed, waiting for chunks…';
+  $('streamScrubRow').style.display='none'; $('streamScrubLiveRow').style.display='none'; $('streamScrubNote').style.display='none';
   log('Live streaming: session started — an external bridge can now push frame chunks in via window.webSMLM.stream.pushChunk().');
 }
 
@@ -9866,7 +9927,7 @@ function startStreamingSession(){
 //    INSIDE this page's own JS already, so it hands a chunk's Blob straight
 //    to this function with no file-input indirection needed at all.
 async function streamPushChunkFile(file){
-  if(!streamState) throw new Error('no active streaming session — click "Start streaming" first.');
+  if(!streamState || !streamState.active) throw new Error('no active streaming session — click "Start streaming" first.');
   const cfg=streamState.cfg;
   // Quiet onLog: both loadTiffFile() (its own "Loaded into memory — re-runs
   // will not re-decode." advisory, per chunk) and runCore()'s "Run: N
@@ -9910,25 +9971,37 @@ async function streamPushChunkFile(file){
     // single chunk.
     log(`Live streaming: ${streamState.frameOffset} frames received since streaming start (${streamState.allLocs.length.toLocaleString()} locs).`);
   }
-  // Raw panel: show the chunk's own TRUE last frame (most recent = most
-  // "live"), re-detected directly here rather than trusting runCore()'s own
-  // r.lastFrame/r.lastSpots/r.lastFrameIdx (what run()'s post-Run refresh
-  // uses) — those are only updated inside runCore()'s internal RAW_PREVIEW_MS
-  // wall-clock throttle (PARAMS.rawPreviewMs, default 200ms), tuned for
-  // spacing out preview repaints across a single big long-running Run. A
-  // small/fast streaming chunk (tens of frames, done in well under 200ms)
-  // can finish entirely before that throttle ever re-fires past its first
-  // frame, so r.lastFrameIdx would silently stay pinned near the CHUNK'S OWN
-  // frame 0 forever — confirmed with a synthetic multi-frame chunk before
-  // this fix. Re-detecting one frame directly is cheap (a single detectSpots()
-  // call) and guarantees this always reflects the chunk just pushed.
-  const lastFi=chunkStack.n-1;
-  const lastImg=(await chunkStack.getFrames(lastFi,lastFi+1))[0];
-  const sigma=cfg.psf, win=2*cfg.winr+1, border=(win-1)/2+1;
-  const k={wave:cfg.detection_wavelet_thr, dog:cfg.detection_DoG_thr, box:cfg.detection_box_thr}[cfg.detFilter];
-  const {maxima}=detectSpots(lastImg, r.w, r.h, sigma, cfg.detection_DoG_exactbp, cfg.detFilter, k, border);
-  drawRaw(lastImg, r.w, r.h, maxima, locsForFrame(offset+lastFi));
-  $('rawInfo').textContent = `frame ${offset+lastFi+1} (streamed) — ${maxima.length} spots`;
+  // Raw-frame history: a scrubbable "count up" view like a loaded movie's
+  // own Frame slider, not just the latest frame overwriting the last —
+  // fetched once here (reused for the auto-follow display below, avoiding a
+  // second fetch of the same chunk's pixel data). Unlike a loaded file this
+  // can't all stay resident forever for an open-ended acquisition: capped
+  // to whatever fits in Memory budget (GB) (readBudget(), the SAME ceiling a
+  // loaded stack's own frame cache uses — an independent per-feature budget,
+  // not a shared pool, matching that control's existing convention), sized
+  // once real frame dimensions are known (first chunk) and evicted oldest-
+  // first past that cap. Evicting the raw pixel data does NOT touch
+  // streamState.allLocs — every accepted localization from the whole
+  // acquisition stays in the reconstruction regardless of whether its own
+  // raw frame is still retained for scrubbing.
+  const chunkFrames=await chunkStack.getFrames(0,chunkStack.n);
+  if(streamState.rawFrameCap===null){
+    streamState.w=r.w; streamState.h=r.h;
+    streamState.rawFrameCap=Math.max(1, Math.floor(readBudget()/(r.w*r.h*2)));
+  }
+  for(const img of chunkFrames){
+    streamState.rawFrames.push(img);
+    if(streamState.rawFrames.length>streamState.rawFrameCap){ streamState.rawFrames.shift(); streamState.rawFrameBaseIdx++; }
+  }
+  $('streamScrubRow').style.display='flex'; $('streamScrubLiveRow').style.display='flex';
+  $('streamScrub').min=streamState.rawFrameBaseIdx; $('streamScrub').max=streamState.frameOffset-1;
+  $('streamScrubNum').min=streamState.rawFrameBaseIdx+1; $('streamScrubNum').max=streamState.frameOffset;
+  $('streamScrubTotal').textContent=` / ${streamState.frameOffset.toLocaleString()}`;
+  // Only actually repaint the raw panel while auto-following the newest
+  // frame — a user paused scrubbing through history shouldn't have their
+  // view yanked away by the next arriving chunk (streamShowRawFrame() re-
+  // detects fresh either way, so this stays correct once they jump back).
+  if(streamState.followLive) streamShowRawFrame(streamState.frameOffset-1);
   $('streamStatus').textContent=`Streaming — ${streamState.frameOffset} frames · ${streamState.chunkCount} chunks · ${streamState.allLocs.length.toLocaleString()} locs`;
   return {chunkFrames:chunkStack.n, chunkLocs:r.locs.length, totalFrames:streamState.frameOffset, totalLocs:streamState.allLocs.length};
 }
@@ -9997,9 +10070,13 @@ $('streamConnectBtn').addEventListener('click', streamWsConnect);
 $('streamDisconnectBtn').addEventListener('click', ()=>{ if(streamWs){ const ws=streamWs; streamWsResetButtons(); ws.close(); } });
 
 function endStreamingSession(){
-  if(!streamState) return;
+  if(!streamState || !streamState.active) return;
   log(`Live streaming: session stopped — ${streamState.frameOffset} frames, ${streamState.allLocs.length.toLocaleString()} localizations accumulated. This was a fast preview tier only (no drift correction/NeNA/FRC) — run a full accurate Localize on the complete saved acquisition file (e.g. via tools/webSMLM-cli.mjs) for the final result.`);
-  streamState=null;
+  // streamState itself is kept (not nulled) — its raw-frame history stays
+  // scrubbable and the reconstruction stays on screen, same "leaves things
+  // as-is" convention Stop already promises; .active=false is what actually
+  // gates pushChunk()/isActive() now, not streamState's own nullness.
+  streamState.active=false;
   $('streamStartBtn').disabled=false; $('streamStopBtn').disabled=true; $('streamRenderEvery').disabled=false;
   $('streamStatus').textContent='Not streaming.';
   if(lastResult && lastResult.locs.length){ $('saveBtn').disabled=false; $('tableBtn').disabled=false; }
@@ -10007,6 +10084,12 @@ function endStreamingSession(){
 
 $('streamStartBtn').addEventListener('click', startStreamingSession);
 $('streamStopBtn').addEventListener('click', endStreamingSession);
+// Dragging the scrub slider (or typing a frame number) pauses auto-follow —
+// the next arriving chunk shouldn't yank the view away from history the
+// user just asked to see; "Jump to latest" is the explicit way back.
+$('streamScrub').addEventListener('input', e=>{ if(!streamState) return; streamState.followLive=false; streamShowRawFrame(+e.target.value); });
+$('streamScrubNum').addEventListener('change', e=>{ if(!streamState) return; streamState.followLive=false; streamShowRawFrame((+e.target.value||1)-1); });
+$('streamScrubLiveBtn').addEventListener('click', ()=>{ if(!streamState) return; streamState.followLive=true; streamShowRawFrame(streamState.frameOffset-1); });
 
 /* ===========================================================================
    Wiring
@@ -12107,7 +12190,7 @@ window.webSMLM = { analyze, analyzeBatch, defaultConfig };
 // only, deliberately no init(config) here: a session is armed by the user
 // clicking "Start streaming" in the UI, not by a driving script, so it always
 // reflects whatever the sidebar controls are actually set to.
-window.webSMLM.stream = { pushChunk: streamPushChunk, end: endStreamingSession, isActive: () => streamState!==null };
+window.webSMLM.stream = { pushChunk: streamPushChunk, end: endStreamingSession, isActive: () => !!(streamState && streamState.active) };
 
 // autorun never touches lastResult/stack/the reconstruction (see runAutorun
 // below), so the raw/SR panels would otherwise just sit at their empty

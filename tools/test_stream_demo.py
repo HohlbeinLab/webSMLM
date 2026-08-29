@@ -50,7 +50,7 @@ except ImportError:
 
 HOST = 'localhost'
 PORT = 8765
-N_CHUNKS = 300
+N_CHUNKS = 100
 FRAMES_PER_CHUNK = 1
 LOCS_PER_FRAME = 10   # simulated emitters per frame -- raise this to stress-test detection/fit density
 W = H = 64
