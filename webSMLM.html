@@ -17,38 +17,38 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.9; may drift with
-  edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
-  build-letter bump when a change has moved things by more than a few lines.
+  MODULE INDEX — line numbers as of v0.11.9 + the separable MLE
+  Fisher build; may drift with edits, re-grep 'MODULE:' if stale.
+  Refresh alongside a build-letter bump when a change has moved things.
   ============================================================================
-    params          2226   PARAMS registry, single source of truth for params;
+    params          2247   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport)
-    in/out          2773   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          2794   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3086   synthetic stack generator ("Simulate movie")
-    detect          3974   per-frame band-pass + local-maxima detection
-    fit             4230   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3107   synthetic stack generator ("Simulate movie")
+    detect          3995   per-frame band-pass + local-maxima detection
+    fit             4251   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4705   accumulate to offscreen buffer; view/colour/blur;
+    render          4764   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually
                            exclusive; srBarAnchor() shared by drawDepthBar()/
                            drawTracksColorBar()
-    workers         5681   frame-parallel detect/fit worker pool
-    export          5846   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6106   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6506   AIM drift correction (2D+z); drift-vs-frame or
+    workers         5740   frame-parallel detect/fit worker pool
+    export          5905   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6165   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6565   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6822   NeNA + FRC
-    sSMLM           7465   spectrally resolved SMLM pair-finding; merged
+    locprecision    6881   NeNA + FRC
+    sSMLM           7524   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7930   single particle tracking, trackpy-inspired;
+    spt             7989   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -68,16 +68,16 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9170   top-level orchestration, *Core()/wrapper split;
+    pipeline        9229   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit
-    table           10936  localizations table, filtering, histograms;
+    table           10995  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11491  window.webSMLM.analyze()/analyzeBatch();
+    headless API    11575  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -4375,7 +4375,45 @@ function mleClampElliptical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4
 // this function only fits, it never rejects.
 function mleNewtonFit(n, th, mstep, clampFn, r, cx, cy, img, w, gain, camoffset, eps, maxIter, modelFn){
   const g=new Float64Array(n), du=new Array(n);
+  // SEPARABLE FAST PATH (spherical model only). Every transcendental in
+  // mleModelSpherical depends on ONE axis: PX/dPXmu/dPXs on the x offset,
+  // PY/dPYmu/dPYs on y. Evaluating the model per pixel therefore recomputes
+  // the same 2*(2r+1) erf/exp results (2r+1) times over -- 8 exp per pixel,
+  // 648 per Fisher build at r=4. Hoisting them into per-axis arrays makes it
+  // 4 exp per axis point, 72 per build, which is the same factorization
+  // 3D-DAOSTORM's daoCalcPeakShape() uses. Purely a hoist: the per-pixel
+  // expressions below are copied verbatim from mleModelSpherical, in the same
+  // loop order, so the float accumulation order -- and the result -- is
+  // unchanged. mleModelSpherical stays as the reference implementation and is
+  // still used by every other model.
+  const sep = (modelFn===mleModelSpherical), K=2*r+1;
+  const xPX=sep?new Float64Array(K):null, xDmu=sep?new Float64Array(K):null, xDs=sep?new Float64Array(K):null;
+  const yPY=sep?new Float64Array(K):null, yDmu=sep?new Float64Array(K):null, yDs=sep?new Float64Array(K):null;
   const buildFisher=withGrad=>{ const M=[]; for(let a=0;a<n;a++)M.push(new Array(n).fill(0)); if(withGrad)g.fill(0);
+    if(sep){
+      const s2=th[4]*th[4];
+      for(let i=0;i<K;i++){
+        const px=cx-r+i, d0=px-th[0];
+        xPX[i]=mleGInt(px,th[0],th[4]);
+        const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*s2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*s2));
+        xDmu[i]=-(ea0-eb0)/(_SQ2PI*th[4]);
+        xDs[i]=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(_SQ2PI*s2);
+        const py=cy-r+i, d1=py-th[1];
+        yPY[i]=mleGInt(py,th[1],th[4]);
+        const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*s2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*s2));
+        yDmu[i]=-(ea1-eb1)/(_SQ2PI*th[4]);
+        yDs[i]=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(_SQ2PI*s2);
+      }
+      for(let iy=0;iy<K;iy++){ const py=cy-r+iy, PY=yPY[iy], dPYmu=yDmu[iy], dPYs=yDs[iy], row=py*w;
+        for(let ix=0;ix<K;ix++){ const PX=xPX[ix];
+          const model=th[2]*PX*PY+th[3]; if(model<1e-6) continue;
+          du[0]=th[2]*PY*xDmu[ix]; du[1]=th[2]*PX*dPYmu; du[2]=PX*PY; du[3]=1;
+          du[4]=th[2]*(xDs[ix]*PY+PX*dPYs);
+          const inv=1/model, data=(img[row+cx-r+ix]-camoffset)*gain, cf=data*inv-1;
+          if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
+          for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } } }
+      return M;
+    }
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy;
       const model=modelFn(px,py,th,du); if(model<1e-6) continue;
       const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
