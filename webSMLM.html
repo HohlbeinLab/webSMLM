@@ -1765,7 +1765,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-28c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2234,8 +2234,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     </div>
 
     <div class="card" style="margin-top:16px">
-      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-28c — bug fix: drift correction (AIM) was corrupted whenever Localize skipped leading frames (First frame &gt; 1) — fixed, see CHANGELOG.md. Also: SPT gains a third "MSD vs lag" plot with scroll/pinch zoom.</div></div>
+      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button></span></h4>
+      <div class="log" id="log"><div id="logText">// 	webSMLM v0.11.10-dev · build 2026-08-29a — recorded commands: Localize/Correct drift now log a directly-runnable analyze()/CLI line (toggle "Record as" above); prose lines like this one are commented so a whole log stretch pastes as valid code. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2742,7 +2742,69 @@ function addNumberSteppers(){
   });
 }
 addNumberSteppers();
-const log = m => { $('logText').textContent += '\n'+m; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false; };
+// "Record as" toggle (v0.11.10, on request) — 'js' (window.webSMLM.analyze()
+// calls, the default: easier to read) or 'cli' (tools/webSMLM-cli.mjs
+// invocations, likely the more commonly USED form once copied out) — see
+// logCmd()'s own comment for why both forms exist rather than picking one.
+// Session-only, not persisted (a log-window display preference, not a
+// durable setting — same tier as driftPlotMode/sptHistMode, not
+// applyTheme()'s own localStorage).
+let logCmdStyle='js';
+// Every PROSE line gets a comment prefix (js: "// ", cli: "# ") + a tab
+// before the text — NOT the bare command lines logCmd() appends below — so
+// that selecting ANY contiguous stretch of the log, prose and commands
+// mixed, and pasting it into a .js file or shell script just works: prose
+// becomes inert comments, commands execute as-is. Applied per RENDERED
+// line (m.split('\n'), not once per log() call): several of this app's own
+// log() calls already embed a genuinely multi-line message (a leading
+// blank-line section separator, or several sentences) — prefixing only the
+// first line would leave the rest as bare, syntax-breaking prose once
+// pasted. A blank line stays blank (harmless as-is in both JS and shell,
+// and keeps the existing section-spacing look). CSS soft-wrap (the log's
+// own 80ch text column reflowing) is NOT the same thing and needs no
+// handling here — copying selected text respects the DOM's actual line
+// breaks, not the visual wrap.
+const log = m => {
+  const marker = logCmdStyle==='cli' ? '# ' : '// ';
+  const commented = String(m).split('\n').map(line => line===''?'':marker+'\t'+line).join('\n');
+  $('logText').textContent += '\n'+commented; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
+};
+// Renders a config object as the equivalent tools/webSMLM-cli.mjs
+// invocation — matching its own --key/--flag convention exactly (a bare
+// --key for a true boolean, --key value otherwise; see its own argv
+// parsing). config keys are expected pre-curated by the caller (see
+// logCmd()'s own comment) — not the full buildConfigFromParams() dump,
+// which would produce an unreadable line mixing in dozens of unrelated
+// fields (render/simulation/spt/… settings this particular action never
+// touches).
+function cliCommandFor(config){
+  const parts=[];
+  for(const [k,v] of Object.entries(config)){
+    if(v===null||v===undefined||v==='') continue;
+    if(typeof v==='boolean'){ if(v) parts.push(`--${k}`); continue; }
+    parts.push(`--${k} ${v}`);
+  }
+  return `node webSMLM-cli.mjs ${parts.join(' ')}`;
+}
+// Same config, rendered as the equivalent window.webSMLM.analyze() call.
+function jsCommandFor(config){
+  const parts=Object.entries(config).filter(([,v])=>v!==null&&v!==undefined&&v!=='')
+    .map(([k,v])=>`${k}:${JSON.stringify(v)}`);
+  return `analyze({${parts.join(', ')}})`;
+}
+// Appends a recorded, DIRECTLY RUNNABLE command line for a config-driven
+// action (Localize, Correct drift, …) — bare, no comment prefix (see
+// log()'s own comment for why prose and commands are treated oppositely).
+// Rendered as either form per logCmdStyle, from a small CURATED subset of
+// the action's own config — deliberately not the whole PARAMS registry;
+// each call site picks the handful of keys that actually describe what it
+// just did (mirroring the CLI examples a user would actually type by
+// hand), same "v1, extend later" scope-limiting this project uses
+// elsewhere rather than trying to derive relevance automatically.
+function logCmd(config){
+  const line = logCmdStyle==='cli' ? cliCommandFor(config) : jsCommandFor(config);
+  $('logText').textContent += '\n'+line; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
+}
 /* Yield to the event loop. setTimeout(0) is clamped to ~4 ms by browsers, which
    cost ~9% of runtime on a 2000-frame stack; a MessageChannel round-trip is a
    macrotask too (so paint/input still run) but is not clamped. */
@@ -6763,6 +6825,7 @@ async function correctDrift(){
     $('driftShowBtn').disabled=false;
     driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
+    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ});
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
   finally{ $('driftBtn').disabled=false; setProg(null); }
 }
@@ -10000,6 +10063,16 @@ async function run(){
     $('sSmlmPreviewBtn').disabled = $('sSmlmPairBtn').disabled = r.locs.length===0;
     $('sptTrackBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
+    // Curated subset of `config` — not the whole PARAMS registry (see
+    // logCmd()'s own comment) — just the fields that actually described
+    // THIS run: the active detection filter's own threshold field only
+    // (config.detFilter picks which of detection_wavelet_thr/DoG_thr/
+    // box_thr applies; the other two are irrelevant to what just ran).
+    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
+    logCmd({ method, psf:config.psf, winr:config.winr, detFilter:config.detFilter,
+      [threshKey]: config[threshKey], gain:config.gain, camoffset:config.camoffset,
+      fitFirstFrame:config.fitFirstFrame, fitLastFrame:config.fitLastFrame, pxnm:px,
+      localize3D:config.localize3D });
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
   }finally{
@@ -10642,6 +10715,13 @@ $('file').addEventListener('change', async e=>{
 $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
 $('clearLogBtn').addEventListener('click',()=>{ $('logText').textContent=''; $('exportLogBtn').disabled=true; });
+// Names the mode clicking switches TO, same "shows what clicking gets you"
+// convention as driftPlotModeBtn/sptHistModeBtn — reads "Record as CLI"
+// while currently recording JS, and vice versa.
+$('logCmdStyleBtn').addEventListener('click',()=>{
+  logCmdStyle = logCmdStyle==='cli' ? 'js' : 'cli';
+  $('logCmdStyleBtn').textContent = logCmdStyle==='cli' ? 'Record as JS' : 'Record as CLI';
+});
 $('exportLogBtn').addEventListener('click',async()=>{
   const txt=$('logText').textContent.replace(/^\n+/,'');
   if(!txt){ log('Log is empty.'); return; }
