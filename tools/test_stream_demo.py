@@ -35,6 +35,7 @@ import asyncio
 import io
 import json
 import sys
+import time
 
 import numpy as np
 
@@ -50,10 +51,10 @@ except ImportError:
 
 HOST = 'localhost'
 PORT = 8765
-N_CHUNKS = 10
-FRAMES_PER_CHUNK = 50
+N_CHUNKS = 500
+FRAMES_PER_CHUNK = 1
 LOCS_PER_FRAME = 10   # simulated emitters per frame -- raise this to stress-test detection/fit density
-W = H = 1000
+W = H = 256
 SIM_FRAME_INTERVAL_S = 0.03   # a stand-in for the real per-frame acquisition rate
 
 
@@ -168,14 +169,37 @@ async def stream_to(ws):
         '"Start streaming" if you have not already.\n'
         'Press Enter here to begin sending simulated frame chunks...\n',
     )
+    # Track the REAL wall-clock gap between sends (not just the sleep we ask
+    # for) so drift from send/await overhead -- WebSocket send latency,
+    # asyncio scheduling jitter, etc. -- is visible rather than assumed away.
+    # want_s is the target gap implied by SIM_FRAME_INTERVAL_S; actual_s is
+    # measured via time.monotonic() around the send+sleep pair.
+    want_s = FRAMES_PER_CHUNK * SIM_FRAME_INTERVAL_S
+    last_send_t = None
+    drifts = []
     try:
         for i, body in enumerate(chunks):
+            t0 = time.monotonic()
             await ws.send(body)
-            print(f'sent chunk {i + 1}/{N_CHUNKS} ({len(body)} bytes)')
-            await asyncio.sleep(FRAMES_PER_CHUNK * SIM_FRAME_INTERVAL_S)
+            if last_send_t is not None:
+                actual_s = t0 - last_send_t
+                drift_s = actual_s - want_s
+                drifts.append(drift_s)
+                print(f'sent chunk {i + 1}/{N_CHUNKS} ({len(body)} bytes) '
+                      f'-- gap {actual_s * 1000:.1f}ms (want {want_s * 1000:.1f}ms, '
+                      f'drift {drift_s * 1000:+.1f}ms)')
+            else:
+                print(f'sent chunk {i + 1}/{N_CHUNKS} ({len(body)} bytes)')
+            last_send_t = t0
+            await asyncio.sleep(want_s)
     except KeyboardInterrupt:
         print('\nInterrupted -- stopping early.')
     finally:
+        if drifts:
+            mean_drift = sum(drifts) / len(drifts)
+            max_drift = max(drifts)
+            print(f'\nTiming summary: {len(drifts)} gaps measured, target {want_s * 1000:.1f}ms/chunk -- '
+                  f'mean drift {mean_drift * 1000:+.1f}ms, max drift {max_drift * 1000:+.1f}ms.')
         await ws.send(json.dumps({'cmd': 'stop'}))
         print('Sent stop -- the reconstruction stays on screen in the webSMLM tab.')
 
