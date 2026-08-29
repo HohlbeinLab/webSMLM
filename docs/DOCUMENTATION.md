@@ -1932,6 +1932,30 @@ const result = await window.webSMLM.analyze({
   `sigma_x`/`sigma_y` are converted to nm before histogramming, matching the
   CSV/table's own convention (they're stored in raw pixel units internally);
   every other column is histogrammed as-is.
+- `config.exportTrackData`/`config.exportSSmlmCandidates`/
+  `config.exportCalibrationPoints`/`config.exportPcfoTiles` — booleans, not
+  `PARAMS` entries. Each streams a per-record dataset (per-track MSD curves,
+  sSMLM candidate pairs, calibration bead points, PCFO tile points
+  respectively) through `config.onRecord(kind, batch)` in bounded batches,
+  rather than into this function's own return value — see **Streaming
+  per-record exports** below for the full design and NDJSON schema, and why
+  the return value specifically was the wrong place for this. Each flag
+  requires the analysis step it augments to also run this call
+  (`sptTrack`/`sSmlmPair`/a fresh calibration build or `calibrationOnly`/
+  `estimateGainOffset` respectively) — on its own it does nothing, there
+  being no dataset yet to stream records from.
+- `config.onRecord(kind, batch)` — optional, paired with the four flags
+  above. `kind` is one of `'spt_tracks'`/`'sSmlm_candidates'`/
+  `'calibration_beads'`/`'pcfo_tiles'`; `batch` is a plain array of up to
+  2000 plain objects (`makeRecordEmitter()`'s default batch size — not
+  load-bearing, just a write/memory tradeoff). Called zero or more times per
+  export flag as the underlying computation produces records — never
+  accumulated anywhere in-page, so a real dataset's worth of tracks/
+  candidates/bead points (thousands to low millions) never needs to fit in
+  one JS array or cross back through this function's own return value at
+  all. A caller with no `onRecord` gets no records for these flags, silently
+  — no error, since "didn't ask for the records" and "asked but got zero"
+  need to look the same.
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
   be interactively (0–100), for a driving script's own progress reporting.
 - `config.onLog(msg)` — optional, called for every line `analyze()` would
@@ -2004,6 +2028,75 @@ multiple files with the same config (no per-file override yet). Sequential,
 not parallel — `getPool()`'s worker pool is memoised process-wide, so
 concurrent `analyze()` calls would contend for the same workers rather than
 speeding anything up. Fails fast: one bad file rejects the whole batch.
+
+### Streaming per-record exports (NDJSON)
+
+Some analysis steps produce a per-record dataset too detailed for a summary
+number and too large/structured for a CSV row: a track's own MSD-vs-lag
+curve, an sSMLM candidate pair, a calibration bead point, a PCFO tile point.
+`analyze()`'s existing return value is the wrong place for these — it
+crosses the DevTools Protocol as one JSON blob when driven by
+`tools/webSMLM-cli.mjs`/Playwright, so a large array there doesn't just cost
+in-page memory, it costs one large, slow round-trip; this is exactly why
+`pcfo.pts`/`sSmlmPair.locs` are already trimmed out of the CLI's own return
+handling before this feature existed (see its source comments). A real
+dataset's worth of tracks, sSMLM candidates, or bead points can run from
+thousands to low millions of rows, so simply adding them back — even behind
+an opt-in flag — would reintroduce the exact problem the trim avoided.
+
+The fix is to never put them in the return value at all. `config.onRecord`
+is a fourth live channel (alongside `onProgress`/`onLog`), called with
+`(kind, batch)` as each dataset is computed — `batch` is capped at 2000
+records — so nothing here ever holds more than one batch in memory, and the
+CLI never buffers a large array to hand back over CDP:
+
+| `kind` | Requires | One record per | Fields |
+|---|---|---|---|
+| `spt_tracks` | `sptTrack` | qualifying track | `track_id`, `n_locs`, `D_coeff` (`null` if under `sptTrackLenMin`), `mean_x`, `mean_y` (nm), `first_frame`, `last_frame` (1-indexed), `msd_per_lag` (`[{lag, tamsd}]`, µm² — that track's own MSD-vs-lag curve, otherwise only ever visible pooled into the interactive MSD-vs-lag plot's ensemble mean, see **spt** in `CLAUDE.md`) |
+| `sSmlm_candidates` | `sSmlmPair` | candidate pair in the configured distance/angle window | `dist` (nm), `angle` (folded 0–180°), `rawAngle` (directed −180–180°) — the WIDER candidate pool `pairCore()`'s directional accept/reject pass filters down to real pairs, not the paired result itself (that's already in `csvText`'s own `dist [nm]` column) |
+| `calibration_beads` | a fresh calibration build (`calibrationFile`/`Files`, or `calibrationOnly`) | detected bead per calibration frame | `fi` (0-indexed frame), `x`, `y` (px), `sx`, `sy` (elliptical-fit widths, px), `pr` (phasor magnitude ratio), `mx`, `my` (phasor magnitudes), `rrel` (fit relative residual) |
+| `pcfo_tiles` | `estimateGainOffset` | image tile per sampled frame | `imsig` (mean tile signal, ADU), `noisevar` (high-frequency noise variance, ADU²) — the same points PCFO's own gain/offset regression fits |
+
+Each is deliberately **export-only** — none round-trips back into a load
+path the way CSV/settings/calibration JSON do; there's no "load calibration
+bead points" or "load PCFO tiles" feature, and none is planned. The schema
+is intentionally narrow (a handful of numeric fields) rather than mirroring
+every internal field these computations touch — `i`/`j` (sSMLM candidates'
+own indices into that one call's transient locs snapshot, meaningless
+outside it) are dropped, for instance.
+
+`tools/webSMLM-cli.mjs` is the reference consumer: `--exportTrackData`/
+`--exportSSmlmCandidates`/`--exportCalibrationPoints`/`--exportPcfoTiles`
+each supply `config.onRecord` themselves, forwarding every batch live via
+`console.log()` (the same real-time channel `onProgress`/`onLog` already
+use — `page.on('console')` sees it well before `analyze()`'s own return
+value arrives) to a Node-side listener that appends straight to a
+newline-delimited JSON file (NDJSON — one compact JSON object per line, not
+one big array) via `fs.createWriteStream()`: `spt_tracks.ndjson`,
+`sSmlm_candidates.ndjson`, `calibration_beads.ndjson`, `pcfo_tiles.ndjson`,
+written alongside the usual `result.csv`/`summary.json`/etc. output. NDJSON
+over a single JSON array specifically because it's writable AND readable
+incrementally (a consumer — `pandas.read_json(path, lines=True)`, or a
+line-by-line reader for anything larger — never needs the whole file parsed
+at once) and stays valid when partial (every complete line parses on its
+own; a single JSON array is invalid until its closing `]` lands, so a killed
+process leaves nothing usable). Each file's first line is a schema marker
+(`{"_schema":"webSMLM.<kind>.v1"}`), the same versioning precedent
+`buildCalibJson()`/`buildSettingsJson()`'s own `format`/`version` fields set.
+A plain in-page `analyze()` call (no CLI, e.g. from a browser console or
+`?autorun=`) can supply its own `onRecord` the same way — collecting into an
+array, `IndexedDB`, or its own `FileSystemWritableFileStream` — nothing here
+is CLI-specific except the file-writing itself.
+
+**Deliberately out of scope for this first pass** (`docs/REFACTOR_PLAN.md`):
+tuning the 2000-record batch size against a real large dataset; a single
+combined `analysis.ndjson` with a `kind` tag per line instead of four
+separate files; and dedicated interactive "Save track data (detailed
+JSON)"-style UI buttons — the CLI/`analyze()` side was the priority (advanced
+users doing real analysis reach for scripting over the GUI well before a
+dataset gets large enough for this to matter), and the interactive path can
+follow the same `onRecord`/`FileSystemWritableFileStream` mechanism later if
+wanted.
 
 ### URL-param autorun (Layer 0)
 
@@ -2090,8 +2183,10 @@ above). Any
 `--key=value` not listed in the script's header comment is passed straight
 through as a `PARAMS` override (§3) — e.g. `--winr=6 --gain=0.1248
 --camoffset=100`; `--correctDrift`/`--computeNeNA`/`--computeFRC`/
-`--estimateGainOffset`/`--sSmlmPair`/`--sptTrack`/`--exportPlots` are bare
-boolean flags — the last-but-three runs PCFO gain/offset estimation on `--file` itself before
+`--estimateGainOffset`/`--sSmlmPair`/`--sptTrack`/`--exportPlots`/
+`--exportTrackData`/`--exportSSmlmCandidates`/`--exportCalibrationPoints`/
+`--exportPcfoTiles` are bare
+boolean flags — the fourth of these runs PCFO gain/offset estimation on `--file` itself before
 localizing and overrides `--gain`/`--camoffset` with the estimate
 (`summary.json`'s `pcfo` field records what was found:
 `gain`/`gainStd`/`offset`/`offsetStd`/`r2`, `pts` trimmed since it's
@@ -2120,6 +2215,19 @@ a warning but still proceeds. `--segAreaMin`/`--segAreaMax` (ordinary
 actually get tracked; `result.csv` gains `cell_id`/`cell_area` columns.
 Ignored without `--sptTrack` — see
 [§8](#8-headless-api-window-websmlm)'s `config.segmentationFile`.
+`--exportTrackData`/`--exportSSmlmCandidates`/`--exportCalibrationPoints`/
+`--exportPcfoTiles` each write a companion `.ndjson` file
+(`spt_tracks.ndjson`/`sSmlm_candidates.ndjson`/`calibration_beads.ndjson`/
+`pcfo_tiles.ndjson`) alongside the usual output — the CLI's own reference
+implementation of `config.onRecord`, forwarding every batch live via
+`console.log()` to a Node-side `fs.createWriteStream()` per file, so nothing
+here buffers a real dataset's worth of records in memory either. Each
+requires the flag it augments (`--sptTrack`/`--sSmlmPair`/a fresh
+calibration build or `--calibrationOnly`/`--estimateGainOffset`
+respectively) to actually have something to export from. See **Streaming
+per-record exports** under [§8](#8-headless-api-window-websmlm) for the full
+schema each file's records carry and the design rationale (why NDJSON, why
+not just add these to the existing return value).
 `--cropX0`/`--cropY0`/`--cropX1`/`--cropY1` (any subset — an omitted bound
 defaults to that edge of the full frame) replace `--file` with just that
 native-pixel sub-rectangle before anything else touches it, the headless

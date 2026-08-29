@@ -1105,6 +1105,26 @@ relevant one before editing rather than scrolling:
   render real, non-blank histograms; an unknown column logs the warning and is correctly absent from
   `result.plots`; `exportHistograms` alone (no `exportPlots`) still populates `result.plots` with
   just the `hist_*` keys.
+
+  **`config.exportTrackData`/`exportSSmlmCandidates`/`exportCalibrationPoints`/`exportPcfoTiles`**
+  (v0.11.10, `docs/DOCUMENTATION.md` §8 "Streaming per-record exports" has the full schema/design)
+  stream a per-record dataset too large/detailed for `analyze()`'s own return value — a per-track
+  MSD-vs-lag curve, an sSMLM candidate pair, a calibration bead point, a PCFO tile point — through a
+  new `config.onRecord(kind, batch)` hook in bounded batches (`makeRecordEmitter()`, 2000/batch),
+  never accumulated in-page or put on the return value itself (which crosses the DevTools Protocol
+  as one JSON blob when CLI-driven — exactly why `pcfo.pts`/`sSmlmPair.locs` are already trimmed out
+  of `tools/webSMLM-cli.mjs`'s own return handling; a large array behind an opt-in flag would just
+  reintroduce that same cost). `sptCore()`/`pairCore()`/`calibrationCore()`/`pcfoCore()` each accept
+  the matching flag + `hooks.onRecord`; `computeEnsembleMsd()` (MODULE: spt) now also returns
+  `perTrackMsd` (a `Map<track_id,[{lag,tamsd}]>`) for exactly this — previously computed then
+  discarded once pooled into the ensemble mean for the interactive MSD-vs-lag plot.
+  `tools/webSMLM-cli.mjs` is the reference consumer: `--exportTrackData`/etc. forward `onRecord`
+  via the SAME live `console.log()` channel `onProgress`/`onLog` already use, appended straight to a
+  per-kind `.ndjson` file (newline-delimited JSON — writable/readable incrementally, stays valid
+  when partial, unlike one big JSON array) via `fs.createWriteStream()`. Verified end-to-end both
+  in-page (`analyze()` directly, all four kinds, including the batch-splitting boundary at
+  2000/2001+ records) and via the real CLI subprocess (`spt_tracks.ndjson`/`calibration_beads.ndjson`
+  against the bundled L. lactis/bead-stack files) — every line valid JSON, correct schema.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
