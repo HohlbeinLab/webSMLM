@@ -68,16 +68,22 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9170   top-level orchestration, *Core()/wrapper split;
+    pipeline        9241   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
-                           not gated on atFit
-    table           10936  localizations table, filtering, histograms;
+                           not gated on atFit; Live streaming (streamBox,
+                           window.webSMLM.stream) — an external bridge (e.g.
+                           tools/webSMLM-stream.mjs / a Gladoscopy RT node)
+                           pushes frame chunks in via #streamChunkInput,
+                           localized per-chunk (no FTM) and accumulated into
+                           lastResult, armed only by the user's own "Start
+                           streaming" click, never by the bridge itself
+    table           11070  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11491  window.webSMLM.analyze()/analyzeBatch();
+    headless API    11650  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1761,7 +1767,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.9 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1821,6 +1827,14 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            globals and draw it into the raw panel — analyze() stays DOM-free). See
            analyze()'s config.segmentationFile below. -->
       <input type="file" id="segmentationFileInput" hidden>
+      <!-- Same conduit again, for window.webSMLM.stream.pushChunk() (MODULE: pipeline)
+           — a persistent external bridge (e.g. tools/webSMLM-stream.mjs, driving a
+           Gladoscopy RT node) calls page.setInputFiles('#streamChunkInput', {name,
+           mimeType, buffer}) once per pushed frame chunk, no temp file needed on
+           disk, same pattern as #analyzeFileInput/#calibrationFileInput/
+           #segmentationFileInput above. Separate id so a stream push never touches
+           #file's own change handler or the unrelated `stack` global. -->
+      <input type="file" id="streamChunkInput" hidden>
       <!-- Pinned outside any collapsible <details> — first-pass fix for a real complaint:
            this was buried inside "Localisation settings" (collapsed by default), easy to
            forget/never notice was there. It feeds the scale bar, z, and exported CSV
@@ -2188,6 +2202,21 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
         </div>
       </details>
+      <details class="sim" id="streamBox">
+        <summary>Live streaming</summary>
+        <label class="row">Render every N chunks <input type="number" id="streamRenderEvery" value="1" min="1" max="1000" step="1" class="num"></label>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="streamStartBtn" title="Arm live streaming: an external bridge process (e.g. tools/webSMLM-stream.mjs driving a Gladoscopy RT node) can then push frame chunks in, localized and rendered here as they arrive">Start streaming</button>
+          <button id="streamStopBtn" disabled title="Stop the current streaming session — leaves the current reconstruction on screen as-is">Stop streaming</button>
+        </div>
+        <div id="streamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden id="hint-stream"><span class="pill">module: pipeline</span>
+          <p>Lets an external process — e.g. a Gladoscopy RT node driving a live Micro-Manager/pycromanager acquisition via <code>tools/webSMLM-stream.mjs</code> — push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. <b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack); the bridge process then calls the page's <code>window.webSMLM.stream.pushChunk()</code> once per chunk it pushes.</p>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode. <b>Render every N chunks</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless), trading live-view freshness for redraw cost on a long acquisition with many chunks.</p>
+          <p>This is a fast preview tier only — drift correction, NeNA and FRC are not computed during streaming. Run those, and a full accurate Localize, on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>) for the final result.</p>
+        </div>
+      </details>
     </div>
   </aside>
 
@@ -2231,7 +2260,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.9 · proof-of-concept — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29a — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2543,6 +2572,17 @@ const PARAMS = {
   // ---- pipeline behaviour (a Run/Calibrate config knob, not a scientific parameter) ----
   // liveUpdate = re-detect/re-fit the scrubbed frame live on every settings change, without a full Run
   liveUpdate: { type:'bool', id:'liveUpdate', label:'Real-time update', default:true },
+
+  // ---- live streaming (window.webSMLM.stream — a persistent external bridge,
+  // e.g. Gladoscopy's RT-node pycromanager integration, pushing frame chunks
+  // from a running Micro-Manager acquisition; see MODULE: pipeline) ----
+  // streamRenderEvery = how many pushed chunks between reconstruction repaints.
+  // pushChunk() always accumulates every chunk's own localizations into the
+  // running total regardless of this value — only the (relatively expensive,
+  // O(total locs so far)) renderSuperRes()/rerender() repaint is throttled, so
+  // a long acquisition with many small chunks doesn't pay a full redraw cost
+  // on every single one.
+  streamRenderEvery: { type:'number', id:'streamRenderEvery', label:'Render every N chunks', min:1, max:1000, step:1, default:1, int:true },
 
   // ---- workers: dispatch thresholds (no page control yet — see docs/REFACTOR_PLAN.md) ----
   // workerMinFrames = stacks with fewer frames than this always stay single-threaded
@@ -9754,6 +9794,81 @@ async function run(){
 }
 
 /* ===========================================================================
+   Live streaming (window.webSMLM.stream, assigned near window.webSMLM.analyze
+   below — pure top-level declarations here, so the physical split is a no-op
+   for behavior, same reasoning MODULE INDEX gives for the workers/export
+   swap) — a persistent external bridge (e.g. tools/webSMLM-stream.mjs
+   driving a Gladoscopy RT node) pushes frame chunks from a live Micro-
+   Manager/pycromanager acquisition in here as they arrive. Each chunk is
+   localized independently via runCore() (no cross-chunk context — FTM,
+   which needs surrounding frames a lone chunk doesn't have, is unsupported
+   in this mode) and appended to a running total, repainting the live
+   reconstruction through the same lastResult/rerender() globals the
+   interactive Localize button already drives — so in a real (non-headless)
+   browser window the reconstruction visibly grows with no extra UI work
+   beyond this. A session is armed only by the user clicking "Start
+   streaming" (never silently by the bridge itself, by request) — the bridge
+   can only push once streamState exists (see isActive()), so pxnm/gain/
+   method/etc. are always whatever the sidebar is actually set to at Start
+   time, same as an ordinary interactive Run.
+   =========================================================================== */
+let streamState=null;   // {cfg, zcal, wcal, allLocs, frameOffset, chunkCount} while a session is armed
+
+function startStreamingSession(){
+  const method=paramValue('method');
+  const localize3D=paramValue('localize3D');
+  // Same calibration guard run() uses — resolved ONCE here rather than per
+  // chunk, since a chunk is too short on its own to ever build one.
+  const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
+  if(needCal && !calMethods[needCal]){ log(`Live streaming: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
+  const cfg=buildConfigFromParams();
+  const px=cfg.pxnm;
+  const zcal = method==='phasor3d' ? cal3d : null;
+  const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
+  lastResult=null; srFull=null; srIsPlot=false; setRawPlot(false); renderLocs=null; _tableFilters=[];
+  $('zmin').value=''; $('zmax').value=''; lastDrift=null;
+  $('saveBtn').disabled=true; $('tableBtn').disabled=true;
+  streamState={cfg, zcal, wcal, allLocs:[], frameOffset:0, chunkCount:0};
+  $('streamStartBtn').disabled=true; $('streamStopBtn').disabled=false; $('streamRenderEvery').disabled=true;
+  $('streamStatus').textContent='Streaming — armed, waiting for chunks…';
+  log('Live streaming: session started — an external bridge can now push frame chunks in via window.webSMLM.stream.pushChunk().');
+}
+
+// Called via page.evaluate() by the bridge script after it uploads one
+// chunk's bytes into #streamChunkInput (page.setInputFiles({name,mimeType,
+// buffer}) — no temp file on disk, same conduit #analyzeFileInput/
+// #calibrationFileInput/#segmentationFileInput already use for analyze()).
+async function streamPushChunk(){
+  if(!streamState) throw new Error('webSMLM.stream.pushChunk(): no active streaming session — click "Start streaming" first.');
+  const fileEl=$('streamChunkInput');
+  if(!fileEl.files.length) throw new Error('webSMLM.stream.pushChunk(): #streamChunkInput has no file — the driving bridge must call setInputFiles() before this.');
+  const cfg=streamState.cfg;
+  const chunkStack=await loadTiffFile(fileEl.files[0], log);
+  const r=await runCore(cfg, chunkStack, {zcal:streamState.zcal, wcal:streamState.wcal}, {onLog:log});
+  const offset=streamState.frameOffset;
+  for(const L of r.locs) L.frame+=offset;   // keep frame numbers meaningful across the whole streamed acquisition, not just this chunk
+  streamState.allLocs.push(...r.locs);
+  streamState.frameOffset+=chunkStack.n;
+  streamState.chunkCount++;
+  lastResult={locs:streamState.allLocs, w:r.w, h:r.h, px:cfg.pxnm, mag:paramValue('mag'), det:r.det};
+  if(streamState.chunkCount % (cfg.streamRenderEvery||1) === 0) rerender(true,false);
+  $('streamStatus').textContent=`Streaming — ${streamState.frameOffset} frames · ${streamState.chunkCount} chunks · ${streamState.allLocs.length.toLocaleString()} locs`;
+  return {chunkFrames:chunkStack.n, chunkLocs:r.locs.length, totalFrames:streamState.frameOffset, totalLocs:streamState.allLocs.length};
+}
+
+function endStreamingSession(){
+  if(!streamState) return;
+  log(`Live streaming: session stopped — ${streamState.frameOffset} frames, ${streamState.allLocs.length.toLocaleString()} localizations accumulated. This was a fast preview tier only (no drift correction/NeNA/FRC) — run a full accurate Localize on the complete saved acquisition file (e.g. via tools/webSMLM-cli.mjs) for the final result.`);
+  streamState=null;
+  $('streamStartBtn').disabled=false; $('streamStopBtn').disabled=true; $('streamRenderEvery').disabled=false;
+  $('streamStatus').textContent='Not streaming.';
+  if(lastResult && lastResult.locs.length){ $('saveBtn').disabled=false; $('tableBtn').disabled=false; }
+}
+
+$('streamStartBtn').addEventListener('click', startStreamingSession);
+$('streamStopBtn').addEventListener('click', endStreamingSession);
+
+/* ===========================================================================
    Wiring
    =========================================================================== */
 // SR canvas fixed backing resolution; CSS scales it to the column width
@@ -11848,6 +11963,11 @@ async function analyzeBatch(files, config){
   return out;
 }
 window.webSMLM = { analyze, analyzeBatch, defaultConfig };
+// Live streaming (MODULE: pipeline, right after run()) — pushChunk/end/isActive
+// only, deliberately no init(config) here: a session is armed by the user
+// clicking "Start streaming" in the UI, not by a driving script, so it always
+// reflects whatever the sidebar controls are actually set to.
+window.webSMLM.stream = { pushChunk: streamPushChunk, end: endStreamingSession, isActive: () => streamState!==null };
 
 // autorun never touches lastResult/stack/the reconstruction (see runAutorun
 // below), so the raw/SR panels would otherwise just sit at their empty
