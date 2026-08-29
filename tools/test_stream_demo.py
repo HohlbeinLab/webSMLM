@@ -50,8 +50,8 @@ except ImportError:
 
 HOST = 'localhost'
 PORT = 8765
-N_CHUNKS = 30
-FRAMES_PER_CHUNK = 10
+N_CHUNKS = 300
+FRAMES_PER_CHUNK = 1
 W = H = 64
 SIM_FRAME_INTERVAL_S = 0.03   # a stand-in for the real per-frame acquisition rate
 

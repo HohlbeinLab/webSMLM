@@ -1771,7 +1771,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29c</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2208,7 +2208,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="streamBox">
         <summary>Live streaming</summary>
-        <label class="row">Render every N chunks <input type="number" id="streamRenderEvery" value="1" min="1" max="1000" step="1" class="num"></label>
+        <label class="row">Render every N frames <input type="number" id="streamRenderEvery" value="1" min="1" max="1000" step="1" class="num"></label>
         <label class="row" title="A local process (e.g. tools/test_stream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="streamWsUrl" value="ws://localhost:8765" style="width:150px"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="streamConnectBtn" title="Open a WebSocket connection to a local bridge server (e.g. tools/test_stream_demo.py) so THIS tab — no separate browser launched — can receive pushed frame chunks directly">Connect</button>
@@ -2227,7 +2227,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>.</li>
           </ul>
           <p><b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack) — pushed chunks are rejected with a clear error until this has been clicked, regardless of which of the two ways in is used.</p>
-          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode. <b>Render every N chunks</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless), trading live-view freshness for redraw cost on a long acquisition with many chunks. The <b>Raw frame</b> panel also updates every chunk, showing that chunk's own most recent frame with its detected spots overlaid — same live view Localize gives interactively — with the Contrast slider's range set once from the very first chunk's own data.</p>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it. <b>Render every N frames</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw cost on a long acquisition. The <b>Raw frame</b> panel updates every chunk regardless, showing that chunk's own most recent frame with its detected spots overlaid — same live view Localize gives interactively — with the Contrast slider's range set once from the very first chunk's own data.</p>
           <p>This is a fast preview tier only — drift correction, NeNA and FRC are not computed during streaming. Run those, and a full accurate Localize, on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>) for the final result.</p>
         </div>
       </details>
@@ -2274,7 +2274,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29c — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29d — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2590,13 +2590,17 @@ const PARAMS = {
   // ---- live streaming (window.webSMLM.stream — a persistent external bridge,
   // e.g. Gladoscopy's RT-node pycromanager integration, pushing frame chunks
   // from a running Micro-Manager acquisition; see MODULE: pipeline) ----
-  // streamRenderEvery = how many pushed chunks between reconstruction repaints.
-  // pushChunk() always accumulates every chunk's own localizations into the
-  // running total regardless of this value — only the (relatively expensive,
+  // streamRenderEvery = how many accumulated FRAMES (not chunks — a chunk
+  // can be more than one frame) between reconstruction repaints, checked by
+  // whether the running frame total just crossed a multiple-of-N boundary
+  // (robust to variable/small chunk sizes, e.g. 1 frame/chunk, where a plain
+  // chunk-count modulus would degenerate to "every chunk"). pushChunk()
+  // always accumulates every chunk's own localizations into the running
+  // total regardless of this value — only the (relatively expensive,
   // O(total locs so far)) renderSuperRes()/rerender() repaint is throttled, so
   // a long acquisition with many small chunks doesn't pay a full redraw cost
   // on every single one.
-  streamRenderEvery: { type:'number', id:'streamRenderEvery', label:'Render every N chunks', min:1, max:1000, step:1, default:1, int:true },
+  streamRenderEvery: { type:'number', id:'streamRenderEvery', label:'Render every N frames', min:1, max:1000, step:1, default:1, int:true },
 
   // ---- workers: dispatch thresholds (no page control yet — see docs/REFACTOR_PLAN.md) ----
   // workerMinFrames = stacks with fewer frames than this always stay single-threaded
@@ -9873,14 +9877,28 @@ async function streamPushChunkFile(file){
   // page's bare startup default), unrelated to this acquisition's own ADU
   // range.
   if(streamState.chunkCount===0) await estimateRawContrastRange(chunkStack);
-  const r=await runCore(cfg, chunkStack, {zcal:streamState.zcal, wcal:streamState.wcal}, {onLog:log});
+  // Quiet onLog: runCore()'s own "Run: N frames · method · ..." header (plus
+  // any other routine progress/summary lines) is meant for ONE call per
+  // interactive Localize — firing it for every streamed chunk floods the log
+  // panel once chunks get small/frequent (e.g. one frame each). Real
+  // problems still get through: every warning this app logs is prefixed '⚠'
+  // by convention (gain/offset, size mismatches, etc.), so only those lines
+  // are forwarded to the real log; routine ones are dropped on the floor.
+  const quietLog=m=>{ if(/⚠/.test(m)) log(m); };
+  const r=await runCore(cfg, chunkStack, {zcal:streamState.zcal, wcal:streamState.wcal}, {onLog:quietLog});
   const offset=streamState.frameOffset;
   for(const L of r.locs) L.frame+=offset;   // keep frame numbers meaningful across the whole streamed acquisition, not just this chunk
   streamState.allLocs.push(...r.locs);
   streamState.frameOffset+=chunkStack.n;
   streamState.chunkCount++;
   lastResult={locs:streamState.allLocs, w:r.w, h:r.h, px:cfg.pxnm, mag:paramValue('mag'), det:r.det};
-  if(streamState.chunkCount % (cfg.streamRenderEvery||1) === 0) rerender(true,false);
+  // Render cadence is counted in actual FRAMES, not chunks — robust to
+  // variable/small chunk sizes (e.g. 1 frame/chunk): rerender() fires
+  // whenever the running frame total crosses a multiple-of-N boundary,
+  // rather than gating on chunk count, which a large chunk could otherwise
+  // jump straight past.
+  const every=cfg.streamRenderEvery||1;
+  if(Math.floor(offset/every)!==Math.floor(streamState.frameOffset/every)) rerender(true,false);
   // Raw panel: show the chunk's own TRUE last frame (most recent = most
   // "live"), re-detected directly here rather than trusting runCore()'s own
   // r.lastFrame/r.lastSpots/r.lastFrameIdx (what run()'s post-Run refresh
@@ -9934,14 +9952,28 @@ function streamWsConnect(){
   streamWs=ws;
   $('streamConnectBtn').disabled=true; $('streamWsUrl').disabled=true;
   ws.addEventListener('open', ()=>{ $('streamDisconnectBtn').disabled=false; log(`Live streaming: connected to ${url}.`); });
-  ws.addEventListener('message', async (ev)=>{
-    if(typeof ev.data==='string'){
-      let msg=null; try{ msg=JSON.parse(ev.data); }catch{ msg={cmd:ev.data}; }
-      if(msg && msg.cmd==='stop'){ log('Live streaming: sender signalled stop.'); endStreamingSession(); }
-      return;
-    }
-    try{ await streamPushChunkFile(ev.data); }
-    catch(err){ log(`Live streaming: chunk over WebSocket failed: ${err.message}`); }
+  // 'message' fires once per arrived WebSocket frame with NO built-in
+  // serialization — a sender pushing chunks faster than one full detect/fit
+  // pass takes (easy at 1 frame/chunk, no per-chunk ack/backpressure on the
+  // wire) fires many overlapping async handlers at once. That raced a
+  // trailing 'stop' message's endStreamingSession() (streamState=null)
+  // against still in-flight streamPushChunkFile() calls from EARLIER chunks
+  // that hadn't finished yet — a real, reported crash ("can't access
+  // property chunkCount, streamState is null"). Chaining onto wsQueue makes
+  // every message (chunks AND the final stop) run strictly in arrival order,
+  // one at a time, so stop can only ever run after every chunk before it has
+  // actually finished.
+  let wsQueue=Promise.resolve();
+  ws.addEventListener('message', (ev)=>{
+    wsQueue=wsQueue.then(async ()=>{
+      if(typeof ev.data==='string'){
+        let msg=null; try{ msg=JSON.parse(ev.data); }catch{ msg={cmd:ev.data}; }
+        if(msg && msg.cmd==='stop'){ log('Live streaming: sender signalled stop.'); endStreamingSession(); }
+        return;
+      }
+      try{ await streamPushChunkFile(ev.data); }
+      catch(err){ log(`Live streaming: chunk over WebSocket failed: ${err.message}`); }
+    });
   });
   ws.addEventListener('close', ()=>{ log('Live streaming: WebSocket connection closed.'); if(streamWs===ws) streamWsResetButtons(); });
   ws.addEventListener('error', ()=>{ log(`Live streaming: WebSocket error connecting to ${url} — is the local bridge server running?`); });
