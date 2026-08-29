@@ -1771,7 +1771,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29d</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2227,7 +2227,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>.</li>
           </ul>
           <p><b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack) — pushed chunks are rejected with a clear error until this has been clicked, regardless of which of the two ways in is used.</p>
-          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it. <b>Render every N frames</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw cost on a long acquisition. The <b>Raw frame</b> panel updates every chunk regardless, showing that chunk's own most recent frame with its detected spots overlaid — same live view Localize gives interactively — with the Contrast slider's range set once from the very first chunk's own data.</p>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. <b>Render every N frames</b> throttles how often that repaint (and milestone line) happens (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw/log cost on a long acquisition. The <b>Raw frame</b> panel updates every chunk regardless, showing that chunk's own most recent frame with its detected spots overlaid — same live view Localize gives interactively — with the Contrast slider's range set once from the very first chunk's own data.</p>
           <p>This is a fast preview tier only — drift correction, NeNA and FRC are not computed during streaming. Run those, and a full accurate Localize, on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>) for the final result.</p>
         </div>
       </details>
@@ -2274,7 +2274,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29d — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29e — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -9868,7 +9868,19 @@ function startStreamingSession(){
 async function streamPushChunkFile(file){
   if(!streamState) throw new Error('no active streaming session — click "Start streaming" first.');
   const cfg=streamState.cfg;
-  const chunkStack=await loadTiffFile(file, log);
+  // Quiet onLog: both loadTiffFile() (its own "Loaded into memory — re-runs
+  // will not re-decode." advisory, per chunk) and runCore()'s "Run: N
+  // frames · method · ..." header (plus any other routine progress/summary
+  // lines) are meant for ONE call per interactive load/Localize — firing
+  // either for every streamed chunk floods the log panel once chunks get
+  // small/frequent (e.g. one frame each — a real, reported complaint). Real
+  // problems still get through: every warning this app logs is prefixed '⚠'
+  // by convention (gain/offset, size mismatches, etc.), so only those lines
+  // are forwarded to the real log; routine ones are dropped on the floor. A
+  // single periodic milestone line (see the render-cadence block below)
+  // takes their place instead.
+  const quietLog=m=>{ if(/⚠/.test(m)) log(m); };
+  const chunkStack=await loadTiffFile(file, quietLog);
   // First chunk of the session only — same "establish the range once, on
   // real data, right after a load" convention initScrub()/the crop tools
   // already use (MODULE: render) — a streaming session has no interactive
@@ -9877,14 +9889,6 @@ async function streamPushChunkFile(file){
   // page's bare startup default), unrelated to this acquisition's own ADU
   // range.
   if(streamState.chunkCount===0) await estimateRawContrastRange(chunkStack);
-  // Quiet onLog: runCore()'s own "Run: N frames · method · ..." header (plus
-  // any other routine progress/summary lines) is meant for ONE call per
-  // interactive Localize — firing it for every streamed chunk floods the log
-  // panel once chunks get small/frequent (e.g. one frame each). Real
-  // problems still get through: every warning this app logs is prefixed '⚠'
-  // by convention (gain/offset, size mismatches, etc.), so only those lines
-  // are forwarded to the real log; routine ones are dropped on the floor.
-  const quietLog=m=>{ if(/⚠/.test(m)) log(m); };
   const r=await runCore(cfg, chunkStack, {zcal:streamState.zcal, wcal:streamState.wcal}, {onLog:quietLog});
   const offset=streamState.frameOffset;
   for(const L of r.locs) L.frame+=offset;   // keep frame numbers meaningful across the whole streamed acquisition, not just this chunk
@@ -9898,7 +9902,14 @@ async function streamPushChunkFile(file){
   // rather than gating on chunk count, which a large chunk could otherwise
   // jump straight past.
   const every=cfg.streamRenderEvery||1;
-  if(Math.floor(offset/every)!==Math.floor(streamState.frameOffset/every)) rerender(true,false);
+  if(Math.floor(offset/every)!==Math.floor(streamState.frameOffset/every)){
+    rerender(true,false);
+    // One compact milestone line per render, in place of the routine
+    // per-chunk lines suppressed above — enough to confirm the session is
+    // alive and progressing without appending a new line to the log every
+    // single chunk.
+    log(`Live streaming: ${streamState.frameOffset} frames received since streaming start (${streamState.allLocs.length.toLocaleString()} locs).`);
+  }
   // Raw panel: show the chunk's own TRUE last frame (most recent = most
   // "live"), re-detected directly here rather than trusting runCore()'s own
   // r.lastFrame/r.lastSpots/r.lastFrameIdx (what run()'s post-Run refresh

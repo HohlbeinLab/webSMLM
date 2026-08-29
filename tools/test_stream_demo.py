@@ -52,32 +52,52 @@ HOST = 'localhost'
 PORT = 8765
 N_CHUNKS = 300
 FRAMES_PER_CHUNK = 1
+LOCS_PER_FRAME = 10   # simulated emitters per frame -- raise this to stress-test detection/fit density
 W = H = 64
 SIM_FRAME_INTERVAL_S = 0.03   # a stand-in for the real per-frame acquisition rate
 
 
-def make_frame(cx, cy, peak=4000, bg=100, sigma=1.3):
+def make_frame(emitters, peak=4000, bg=100, sigma=1.3):
+    """emitters: list of (cx,cy) -- one Gaussian blob per emitter, summed
+    onto one shared background+noise frame."""
     yy, xx = np.mgrid[0:H, 0:W]
-    signal = bg + peak * np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sigma ** 2))
+    signal = np.full((H, W), bg, dtype=np.float64)
+    for cx, cy in emitters:
+        signal += peak * np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sigma ** 2))
     noisy = np.random.poisson(signal).astype(np.float64)   # light shot noise, so it's not a flat blob
     return np.clip(noisy, 0, 65535).astype(np.uint16)
 
 
-def make_chunk_bytes(n_frames, cx, cy):
-    """Builds one chunk's worth of frames (a slow random walk of a single
-    emitter) and returns (tiff_bytes, new_cx, new_cy)."""
+def init_emitters(n=LOCS_PER_FRAME):
+    """n emitters at random positions, clear of the frame edge."""
+    return [(float(np.random.uniform(8, W - 8)), float(np.random.uniform(8, H - 8))) for _ in range(n)]
+
+
+def step_emitters(emitters):
+    """One frame's worth of independent random-walk motion, each emitter
+    clamped to stay clear of the frame edge (same bound make_frame's own PSF
+    tails need)."""
+    return [
+        (float(np.clip(cx + np.random.uniform(-0.3, 0.3), 8, W - 8)),
+         float(np.clip(cy + np.random.uniform(-0.3, 0.3), 8, H - 8)))
+        for cx, cy in emitters
+    ]
+
+
+def make_chunk_bytes(n_frames, emitters):
+    """Builds one chunk's worth of frames (LOCS_PER_FRAME emitters, each on
+    its own slow random walk) and returns (tiff_bytes, updated_emitters)."""
     frames = []
     for _ in range(n_frames):
-        cx = float(np.clip(cx + np.random.uniform(-0.3, 0.3), 8, W - 8))
-        cy = float(np.clip(cy + np.random.uniform(-0.3, 0.3), 8, H - 8))
-        frames.append(make_frame(cx, cy))
+        emitters = step_emitters(emitters)
+        frames.append(make_frame(emitters))
     stack = np.stack(frames, axis=0)
     buf = io.BytesIO()
     # imagej=True -> the contiguous ImageJ-style multi-frame layout webSMLM's
     # in/out module indexes arithmetically (same format the real Gladoscopy
     # RT node writes, and the fast path webSMLM's own sample data uses).
     tifffile.imwrite(buf, stack, imagej=True)
-    return buf.getvalue(), cx, cy
+    return buf.getvalue(), emitters
 
 
 async def stream_to(ws):
@@ -88,10 +108,10 @@ async def stream_to(ws):
         '"Start streaming" if you have not already.\n'
         'Press Enter here to begin sending simulated frame chunks...\n',
     )
-    cx, cy = W / 2, H / 2
+    emitters = init_emitters()
     try:
         for i in range(N_CHUNKS):
-            body, cx, cy = make_chunk_bytes(FRAMES_PER_CHUNK, cx, cy)
+            body, emitters = make_chunk_bytes(FRAMES_PER_CHUNK, emitters)
             await ws.send(body)
             print(f'sent chunk {i + 1}/{N_CHUNKS} ({len(body)} bytes)')
             await asyncio.sleep(FRAMES_PER_CHUNK * SIM_FRAME_INTERVAL_S)
