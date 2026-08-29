@@ -1771,7 +1771,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2227,7 +2227,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>.</li>
           </ul>
           <p><b>Start streaming</b> arms a session using whatever pxnm/gain/method/etc. the sidebar is currently set to (same as clicking <b>Localize</b>, just repeated per chunk instead of once over a whole stack) — pushed chunks are rejected with a clear error until this has been clicked, regardless of which of the two ways in is used.</p>
-          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode. <b>Render every N chunks</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless), trading live-view freshness for redraw cost on a long acquisition with many chunks.</p>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode. <b>Render every N chunks</b> throttles how often the reconstruction actually repaints (localizations are always accumulated every chunk regardless), trading live-view freshness for redraw cost on a long acquisition with many chunks. The <b>Raw frame</b> panel also updates every chunk, showing that chunk's own most recent frame with its detected spots overlaid — same live view Localize gives interactively — with the Contrast slider's range set once from the very first chunk's own data.</p>
           <p>This is a fast preview tier only — drift correction, NeNA and FRC are not computed during streaming. Run those, and a full accurate Localize, on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>) for the final result.</p>
         </div>
       </details>
@@ -2274,7 +2274,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29b — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29c — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -9865,6 +9865,14 @@ async function streamPushChunkFile(file){
   if(!streamState) throw new Error('no active streaming session — click "Start streaming" first.');
   const cfg=streamState.cfg;
   const chunkStack=await loadTiffFile(file, log);
+  // First chunk of the session only — same "establish the range once, on
+  // real data, right after a load" convention initScrub()/the crop tools
+  // already use (MODULE: render) — a streaming session has no interactive
+  // stack load to piggyback on otherwise, so the Contrast slider would
+  // otherwise sit at whatever a PRIOR interactive load left it at (or the
+  // page's bare startup default), unrelated to this acquisition's own ADU
+  // range.
+  if(streamState.chunkCount===0) await estimateRawContrastRange(chunkStack);
   const r=await runCore(cfg, chunkStack, {zcal:streamState.zcal, wcal:streamState.wcal}, {onLog:log});
   const offset=streamState.frameOffset;
   for(const L of r.locs) L.frame+=offset;   // keep frame numbers meaningful across the whole streamed acquisition, not just this chunk
@@ -9873,6 +9881,25 @@ async function streamPushChunkFile(file){
   streamState.chunkCount++;
   lastResult={locs:streamState.allLocs, w:r.w, h:r.h, px:cfg.pxnm, mag:paramValue('mag'), det:r.det};
   if(streamState.chunkCount % (cfg.streamRenderEvery||1) === 0) rerender(true,false);
+  // Raw panel: show the chunk's own TRUE last frame (most recent = most
+  // "live"), re-detected directly here rather than trusting runCore()'s own
+  // r.lastFrame/r.lastSpots/r.lastFrameIdx (what run()'s post-Run refresh
+  // uses) — those are only updated inside runCore()'s internal RAW_PREVIEW_MS
+  // wall-clock throttle (PARAMS.rawPreviewMs, default 200ms), tuned for
+  // spacing out preview repaints across a single big long-running Run. A
+  // small/fast streaming chunk (tens of frames, done in well under 200ms)
+  // can finish entirely before that throttle ever re-fires past its first
+  // frame, so r.lastFrameIdx would silently stay pinned near the CHUNK'S OWN
+  // frame 0 forever — confirmed with a synthetic multi-frame chunk before
+  // this fix. Re-detecting one frame directly is cheap (a single detectSpots()
+  // call) and guarantees this always reflects the chunk just pushed.
+  const lastFi=chunkStack.n-1;
+  const lastImg=(await chunkStack.getFrames(lastFi,lastFi+1))[0];
+  const sigma=cfg.psf, win=2*cfg.winr+1, border=(win-1)/2+1;
+  const k={wave:cfg.detection_wavelet_thr, dog:cfg.detection_DoG_thr, box:cfg.detection_box_thr}[cfg.detFilter];
+  const {maxima}=detectSpots(lastImg, r.w, r.h, sigma, cfg.detection_DoG_exactbp, cfg.detFilter, k, border);
+  drawRaw(lastImg, r.w, r.h, maxima, locsForFrame(offset+lastFi));
+  $('rawInfo').textContent = `frame ${offset+lastFi+1} (streamed) — ${maxima.length} spots`;
   $('streamStatus').textContent=`Streaming — ${streamState.frameOffset} frames · ${streamState.chunkCount} chunks · ${streamState.allLocs.length.toLocaleString()} locs`;
   return {chunkFrames:chunkStack.n, chunkLocs:r.locs.length, totalFrames:streamState.frameOffset, totalLocs:streamState.allLocs.length};
 }
