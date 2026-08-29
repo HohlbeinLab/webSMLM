@@ -53,7 +53,7 @@ PORT = 8765
 N_CHUNKS = 10
 FRAMES_PER_CHUNK = 10
 LOCS_PER_FRAME = 10   # simulated emitters per frame -- raise this to stress-test detection/fit density
-W = H = 500
+W = H = 300
 SIM_FRAME_INTERVAL_S = 0.03   # a stand-in for the real per-frame acquisition rate
 
 
