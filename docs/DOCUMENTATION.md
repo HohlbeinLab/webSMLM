@@ -2005,6 +2005,44 @@ not parallel — `getPool()`'s worker pool is memoised process-wide, so
 concurrent `analyze()` calls would contend for the same workers rather than
 speeding anything up. Fails fast: one bad file rejects the whole batch.
 
+### Live streaming (`window.webSMLM.stream`)
+
+A different shape from `analyze()`: rather than one complete, DOM-free batch
+run, `window.webSMLM.stream` lets an external process push frame *chunks* in
+one at a time — e.g. a persistent bridge script (`tools/webSMLM-stream.mjs`)
+driving a live Micro-Manager/pycromanager acquisition (a Gladoscopy RT node,
+for instance) — with each chunk localized and the growing reconstruction
+rendered live in the page's own `SMLM reconstruction` panel, exactly as an
+interactive **Localize** run would. Unlike `analyze()`, this is **not**
+DOM-free and **not** started by a driving script: a session is armed only by
+the user clicking **Start streaming** in the sidebar's **Live streaming**
+section, using whatever pxnm/gain/camoffset/method/mag/lut/etc. the page's
+own controls are currently set to — there is no `config` object passed in
+from outside. Once armed:
+
+- `window.webSMLM.stream.isActive()` — `true` once **Start streaming** has
+  been clicked, `false` before it and after **Stop streaming**/`end()`. A
+  driving script should poll this before pushing, since `pushChunk()` throws
+  a clear "not started" error otherwise rather than silently queueing.
+- `window.webSMLM.stream.pushChunk()` — reads whatever file the caller has
+  just placed into the hidden `#streamChunkInput` (e.g. via Playwright's
+  `page.setInputFiles('#streamChunkInput', {name, mimeType, buffer})`, no
+  temp file needed), localizes it as one chunk, appends the result to the
+  running total (frame numbers offset so they stay meaningful across the
+  whole streamed acquisition), and repaints the reconstruction — throttled
+  by the **Render every N chunks** field (`PARAMS.streamRenderEvery`) so a
+  long acquisition with many small chunks doesn't pay a full redraw every
+  single one. Returns `{chunkFrames, chunkLocs, totalFrames, totalLocs}`.
+- `window.webSMLM.stream.end()` — same as clicking **Stop streaming**: logs
+  a summary and leaves the current reconstruction on screen.
+
+Each chunk is localized independently — there is no cross-chunk context, so
+temporal median filtering (FTM) is not available in streaming mode — and
+this is a fast preview tier only: drift correction, NeNA and FRC are not
+computed here. Run those, and a full accurate `analyze()`/**Localize**, on
+the complete saved acquisition afterwards (e.g. via `tools/webSMLM-cli.mjs`)
+for the final result.
+
 ### URL-param autorun (Layer 0)
 
 `webSMLM.html?autorun=1&fileUrl=https://.../stack.tif&pxnm=160&method=mle3d&...`
