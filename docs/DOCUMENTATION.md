@@ -1374,6 +1374,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 | `driftSeg` | Drift segment size (frames) | number (int) | 5 | 2000 | 5 | 100 |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
+| `driftSamplePct` | AIM sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
 
 **In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
@@ -1386,6 +1387,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
   <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
   <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
   <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
+  <li><b>AIM sample %</b> — on a large dataset where drift estimation is slow, deterministically subsample each segment's own localizations before the search (100% = no change, the default). Trades some estimation precision for speed; a segment that's already small is never subsampled further.</li>
 </ul>
 <!-- /HINT:drift -->
 

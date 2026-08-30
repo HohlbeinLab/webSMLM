@@ -21,7 +21,7 @@
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2289   PARAMS registry, single source of truth for params;
+    params          2297   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          2951   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          2990   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3264   synthetic stack generator ("Simulate movie")
-    detect          4152   per-frame band-pass + local-maxima detection
-    fit             4408   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3303   synthetic stack generator ("Simulate movie")
+    detect          4191   per-frame band-pass + local-maxima detection
+    fit             4447   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -45,37 +45,41 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          4932   accumulate to offscreen buffer; view/colour/blur;
+    render          4971   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually
                            exclusive; srBarAnchor() shared by drawDepthBar()/
                            drawTracksColorBar()
-    workers         5908   frame-parallel detect/fit worker pool
-    export          6073   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6355   astigmatic sigma_x/sigma_y vs z bead curves;
+    workers         5947   frame-parallel detect/fit worker pool
+    export          6112   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6394   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           6777   AIM drift correction (2D+z); drift-vs-frame or
+    drift           6816   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
                            run restricted to First frame>1 used to corrupt
-                           the whole estimate via empty leading segments
-    locprecision    7234   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+                           the whole estimate via empty leading segments;
+                           driftSamplePct (AIM sample %) subsamples each
+                           segment's own points before the intersection
+                           search (subsampleSegments(), AIM_SAMPLE_FLOOR-
+                           guarded) — speed vs. estimation precision
+    locprecision    7309   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           7908   spectrally resolved SMLM pair-finding; merged
+    sSMLM           7983   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             8387   single particle tracking, trackpy-inspired;
+    spt             8462   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -104,7 +108,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9862   top-level orchestration, *Core()/wrapper split;
+    pipeline        9937   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -113,9 +117,9 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    table           11710  localizations table, filtering, histograms;
+    table           11791  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12290  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12371  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1812,7 +1816,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30j</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2119,6 +2123,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
         <label class="row" id="driftZRow" style="display:none">Correct z too (3D)
           <input type="checkbox" id="driftZ" checked></label>
+        <label class="row" title="Subsample each segment's own localizations before the search, on a large dataset where AIM is slow — trades some estimation precision for speed. 100% = no change.">AIM sample %
+          <input type="number" id="driftSamplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <div class="btnrow">
           <button id="driftBtn" disabled>Correct drift</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
@@ -2131,6 +2137,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
           <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
+          <li><b>AIM sample %</b> — on a large dataset where drift estimation is slow, deterministically subsample each segment's own localizations before the search (100% = no change, the default). Trades some estimation precision for speed; a segment that's already small is never subsampled further.</li>
           </ul>
         </div>
       </details>
@@ -2282,9 +2289,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30j — the raw-panel Contrast
-// readout is now "B & W: 0 255" instead of "Black: 0 · White: 255", which
-// wrapped onto two lines for a higher-ADU-range file. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30k — Drift correction (AIM) gains
+// an "AIM sample %" option: deterministically subsample each segment's own
+// locs before the search on a large, slow dataset (100% = no change, the
+// default). See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2454,6 +2462,19 @@ const PARAMS = {
   driftRoi: { type:'number', id:'driftRoi', label:'Drift search radius (nm)', min:10, max:1000, step:10, default:120, int:false },
   // driftZ = also run the 1-D z-drift correction alongside the 2-D x/y correction
   driftZ: { type:'bool', id:'driftZ', label:'Correct z too (3D)', default:true },
+  // driftSamplePct = deterministically subsample each segment's own locs before
+  // the AIM histogram-intersection search (v0.11.11, on request) — bestShift()'s
+  // cost scales with the number of OCCUPIED bins in the segment being aligned,
+  // not with `ref`'s size, so fewer locs per segment directly cuts both the
+  // per-segment bin-map build and the (2R+1)² shift-search loop, roughly
+  // proportional to this percentage. Default 100 (no behaviour change) — this
+  // trades estimation precision for speed (fewer points per segment means
+  // noisier histogram-intersection counts feeding the sub-pixel parabolic peak
+  // fit), unlike the tracks-overlay's own seeded-percentage sampling (a
+  // display-only convenience with no correctness cost) — so it's opt-in, not a
+  // silently-safe default. See subsampleSegments()'s own floor guard (MODULE:
+  // drift) for why a sparse segment is never subsampled below usefulness.
+  driftSamplePct: { type:'number', id:'driftSamplePct', label:'AIM sample % (speed vs. precision)', min:5, max:100, step:5, default:100, int:true },
 
   // ---- precision ----
   // frc3d = compute FRC over spherical shells instead of 2D rings (not yet implemented — UI placeholder)
@@ -6819,10 +6840,40 @@ async function exportCalibration(){
 function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
   for(let k=1;k<a.length-1;k++) a[k]=0.25*p[k-1]+0.5*p[k]+0.25*p[k+1]; }
 
+// AIM sample % (v0.11.11, on request): deterministically subsample each
+// segment's own points BEFORE the histogram-intersection search — bestShift()
+// (below, in both aimDrift2D() and aimDriftZ()) iterates the shift-search grid
+// once per OCCUPIED BIN of the segment actually being aligned (not per raw
+// point, and not against `ref`'s own size, which is a plain O(1) hashmap
+// lookup regardless of how big it is) — so fewer points in that segment
+// directly cuts both this loop and the bin-map build it's iterating over,
+// roughly proportional to samplePct. Mutates `seg` in place (an array of
+// per-segment arrays — loc objects for aimDrift2D, raw z numbers for
+// aimDriftZ; either way just an array to filter). One shared seeded RNG
+// stream across the whole call (not reseeded per segment) so a given (locs
+// order, samplePct) pair always samples the same points — same
+// reproducibility precedent as the tracks-overlay's own seeded sampling
+// (getVisibleTracksForOverlay()). AIM_SAMPLE_FLOOR guards against subsampling
+// an already-small segment into (or toward) the empty-segment failure mode
+// aimDrift2D()'s own comment documents — below the floor, the segment is left
+// untouched rather than thinned further.
+const AIM_SAMPLE_SEED = 0x41494d31, AIM_SAMPLE_FLOOR = 200;
+function subsampleSegments(seg, samplePct){
+  if(samplePct>=100) return;
+  const rng=mulberry32(AIM_SAMPLE_SEED), frac=samplePct/100;
+  for(let s=0;s<seg.length;s++){
+    const full=seg[s], n=full.length;
+    if(n<=AIM_SAMPLE_FLOOR) continue;
+    const kept=[];
+    for(let i=0;i<n;i++){ if(rng()<frac) kept.push(full[i]); }
+    if(kept.length>=AIM_SAMPLE_FLOOR) seg[s]=kept;
+  }
+}
+
 // Returns {fdx,fdy}: the per-frame drift CORRECTION to ADD to each localization
 // (corrected = observed + fd[frame]), plus the per-segment estimates.
 // px = camera pixel size (nm); intersect/roi in nm.
-async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, frame0, onProgress, shouldStop=()=>false){
+async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, samplePct, frame0, onProgress, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const iD=intersectNm/px, qd=1/iD;                // quantization step (px) and its inverse
@@ -6843,6 +6894,7 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, fram
   // later segment via the running dx[k]=dx[k-1]+sx accumulation. A real,
   // reported bug found exactly this way.
   for(const L of locs){ let s=((L.frame-frame0)/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L); }
+  subsampleSegments(seg, samplePct);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1, k*segFrames+segFrames/2));
   const KEY=(bx,by)=>(bx+16384)*32768+(by+16384);
   const addTo=(map,list,ox,oy)=>{ for(const L of list){ const k=KEY(Math.floor((L.x+ox)*qd),Math.floor((L.y+oy)*qd)); map.set(k,(map.get(k)||0)+1); } return map; };
@@ -6930,7 +6982,7 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, fram
 }
 
 // z drift: the same intersection-maximization, but a 1-D search on z (nm).
-async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, frame0, onProgress, onLog=()=>{}, shouldStop=()=>false){
+async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, samplePct, frame0, onProgress, onLog=()=>{}, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const qd=1/binNm, R=Math.max(1,Math.round(roiNm/binNm));
@@ -6943,6 +6995,7 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, frame0, onProgr
   let nz=0, ncl=0;
   for(const L of locs){ if(!isFinite(L.z)) continue; if(L.zClamped){ ncl++; continue; }
     nz++; let s=((L.frame-frame0)/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
+  subsampleSegments(seg, samplePct);
   if(ncl) onLog(`z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1,k*segFrames+segFrames/2));
   const addTo=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd); map.set(b,(map.get(b)||0)+1); } return map; };
@@ -7020,6 +7073,9 @@ async function driftCore(locs, px, config, hooks={}){
   const frame0 = isFinite(minFrame) ? minFrame : 0;
   const nFrames = isFinite(minFrame) ? (maxFrame-minFrame+1) : 0;
   const segF=config.driftSeg, roiNm=config.driftRoi, intD=15;
+  // 100 when unset — headless callers/CLI scripts predating this option get
+  // the exact original (unsampled) behaviour, no config change required.
+  const samplePct = config.driftSamplePct==null ? 100 : config.driftSamplePct;
   // Each run is INDEPENDENT: always estimate from the raw, uncorrected
   // localizations. If a previous correction is in place, restore the raw
   // coordinates first — otherwise a second run would estimate the residual of
@@ -7027,9 +7083,10 @@ async function driftCore(locs, px, config, hooks={}){
   // segment size / search radius and compare results directly.
   for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
   onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
-        (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
+        (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
+        (samplePct<100?` · sampling ${samplePct}% of each segment`:'')+`…`);
   const t0=performance.now();
-  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, frame0, p=>onProgress(100*p), shouldStop);
+  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, samplePct, frame0, p=>onProgress(100*p), shouldStop);
   d.frame0=frame0;   // carried on the result so the drift plot/RMS-vs-ground-truth scoring can label true frame numbers, not the 0-based remapped index
   // z drift (Phasor 3D): independent 1-D correction on z (nm) — skipped
   // entirely if 2D already stopped, since there'd be nothing complete to
@@ -7037,7 +7094,7 @@ async function driftCore(locs, px, config, hooks={}){
   const has3d=locs.some(L=>isFinite(L.z));
   let dz=null;
   if(!d.stopped && has3d && config.driftZ){
-    dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, frame0, p=>onProgress(100*p), onLog, shouldStop);
+    dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, samplePct, frame0, p=>onProgress(100*p), onLog, shouldStop);
     d.fdz=dz.fdz;
   }
   // A stop in EITHER pass means the run as a whole is incomplete — treated
@@ -7092,11 +7149,11 @@ async function correctDrift(){
   stopRequested=false;
   $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
-    const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ')};
+    const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), driftSamplePct:paramValue('driftSamplePct')};
     // Logged BEFORE driftCore() starts — see run()'s own comment on this
     // ordering (command announces what's about to run, prose narrates what
     // happened) — safe this early since config is already fully resolved.
-    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, pxnm:px});
+    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct, pxnm:px});
     const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:stripLeadingBreakOnce(log), onProgress:setProg, shouldStop:()=>stopRequested});
     // A Stop mid-run (see driftCore()'s own comment): show whatever curve
     // was actually estimated so far — useful for judging Segment/Search

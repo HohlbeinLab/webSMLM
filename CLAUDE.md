@@ -592,6 +592,29 @@ relevant one before editing rather than scrolling:
   `analyze()` never passes a `shouldStop` hook, so `stopped` is always `false` there — this is
   interactive-only, no change to headless behaviour.
 
+  **`driftSamplePct`** ("AIM sample %", default 100, v0.11.11, on request — AIM becomes slow on a
+  large dataset). `bestShift()` iterates its `(2R+1)²` shift-search grid once per OCCUPIED BIN of
+  the segment actually being aligned — NOT per raw point, and not against `ref`'s own size (a plain
+  O(1) hashmap lookup regardless of how big it is) — so fewer points in that one segment directly
+  cuts both this loop and the bin-map build it iterates over, roughly proportional to the
+  percentage. `subsampleSegments(seg, samplePct)` (next to `_smoothSeg()`) does the actual thinning,
+  called from both `aimDrift2D()` and `aimDriftZ()` right after their own per-segment grouping —
+  mutates `seg` in place, one shared seeded RNG stream (`mulberry32(AIM_SAMPLE_SEED)`) across the
+  whole call rather than reseeded per segment, so a given (locs order, %) pair always samples the
+  same points — same reproducibility precedent as the tracks-overlay's own seeded sampling
+  (`getVisibleTracksForOverlay()`, **spt** below). Unlike that overlay sampling, this is NOT a
+  purely cosmetic convenience: fewer points per segment means noisier histogram-intersection counts
+  feeding the sub-pixel parabolic peak fit, so it trades real estimation precision for speed —
+  default stays 100 (no behaviour change) rather than a silently-safe default. `AIM_SAMPLE_FLOOR`
+  (200) guards the failure mode this could otherwise cause: a segment already at or below the floor
+  is left untouched, and even an ABOVE-floor segment falls back to its own full point set if the
+  post-sampling count would drop below the floor — verified against synthetic linear-drift data
+  with a known ground truth (300k pts, 100 segments): 20% sampling (3000→~630 pts/segment, well
+  above the floor) raised the drift-estimate RMS error only modestly (3.94→4.41 px on that
+  synthetic case), while 5% (3000×0.05=150, below the floor) correctly fell back to the full
+  segment and reproduced the 100% result exactly, rather than the estimate degrading further or the
+  known empty-segment failure mode (see `aimDrift2D()`'s own comment on that) reappearing.
+
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +
