@@ -1812,7 +1812,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30g</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2282,10 +2282,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30g — the Localize timing breakdown
-// (frame I/O/detect/fit/preview/other) now reports whole seconds instead of
-// milliseconds — easier to read at a glance on a real dataset. See
-// CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30h — the "Done/Stopped: ... in X ms
+// total" summary line and the "N workers · utilisation" line now also report
+// whole seconds instead of milliseconds, matching the timing breakdown
+// above them. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -10326,7 +10326,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const per=Math.max(1,processed);
   const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render)
 
-  onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames (${(locs.length/per).toFixed(1)} loc/frame) in ${Math.round(runMs)} ms total (${Math.round(dt)} ms compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+  onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames (${(locs.length/per).toFixed(1)} loc/frame) in ${Math.round(runMs/1000)} s total (${Math.round(dt/1000)} s compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
   if((method==='gaussmle'||method==='mle3d'||method==='gaussmleEll')&&locs.length){   // at-a-glance MLE confirmation + quality stat
     const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
     if(ps.length) onLog(`${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
@@ -10386,7 +10386,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     const ftmT=fetchStack!==stack?ftmWorkMs:0;
     const fitWall=Math.max(dt-ftmT,1e-9);
     const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*fitWall,1e-9);
-    onLog(`↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation on detect/fit (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(fitWall).toLocaleString()} ms wall${ftmT>50?', excl. the separately barrier-phased FTM stage above':''}).`);
+    onLog(`↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation on detect/fit (worker CPU ${Math.round(cpu/1000).toLocaleString()} s / ${pool.length}×${Math.round(fitWall/1000).toLocaleString()} s wall${ftmT>50?', excl. the separately barrier-phased FTM stage above':''}).`);
     onLog(`Utilisation near 100% means workers stayed fed; low would mean they starved.`);
     onLog(`Note E-cores inflate measured CPU, so this is an upper bound.`);
   }
