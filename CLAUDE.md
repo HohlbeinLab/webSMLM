@@ -1355,6 +1355,31 @@ functions, stubbing their globals (`performance`, `log`, etc.), and running agai
 ground truth in the same `osascript -l JavaScript` (JXA) engine. JXA has no good JIT (~50–100×
 slower than V8), so keep validation inputs small.
 
+### `micromanager_plugin/webSMLM_Streaming` (Java) — always rebuild the jar after editing
+
+Editing any `.java` file under `micromanager_plugin/webSMLM_Streaming/src/` does **not** update
+`target/webSMLM_Streaming.jar` by itself — that jar is a separate build artifact, and a stale one
+left in place after a source edit is worse than no jar at all (it silently keeps running the old
+code, with no signal that anything's out of date). **Rebuild it every time the Java source
+changes**, same spirit as the "bump the build letter" rule for `webSMLM.html` above:
+
+```sh
+mvn package -Dmm.install.dir="C:\path\to\your\Micro-Manager-install"
+```
+
+(see `micromanager_plugin/webSMLM_Streaming/README.md`'s own *Building* section for the full
+requirements — a local MM 2.0 install for the MM/ImageJ/scijava system-scoped jars, JDK 11+, Maven
+3.6+). If `mvn` isn't on `PATH` in the current environment, don't skip the rebuild — compile and
+jar manually instead, e.g. via `javac`/`jar` straight out of the JDK, using the same dependency
+jars `pom.xml` lists (the MM install's own `MMJ_.jar`/`MMCoreJ.jar`/`ij.jar`/
+`scijava-common-*.jar`, plus Java-WebSocket/guava/slf4j-api from `~/.m2/repository` if already
+cached there from a prior `mvn` run) — compile all four source files together, then jar up the
+compiled classes plus Java-WebSocket's own extracted classes (guava/slf4j-api stay `provided`,
+i.e. compile-time only, matching `pom.xml`'s shade config — don't bundle them). Confirm the rebuilt
+jar actually contains the change (e.g. `jar tf target/webSMLM_Streaming.jar` lists the expected
+classes, or `javap -cp target/webSMLM_Streaming.jar <class>` shows the new/changed method) rather
+than assuming the build succeeded.
+
 ## Branch & release workflow
 
 - **`main`** is live: it is served by GitHub Pages (`hohlbeinlab.github.io/webSMLM/webSMLM.html`)

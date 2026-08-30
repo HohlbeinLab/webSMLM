@@ -23,7 +23,14 @@ Wire format: each chunk is sent as one WebSocket BINARY message (raw TIFF
 bytes) — no extra framing needed, since WebSocket already frames messages
 for us. A final `{"cmd":"stop"}` TEXT message finalizes the streaming
 session on the page (same as clicking "Stop streaming" there) WITHOUT
-closing the connection or your tab.
+closing the connection or your tab. webSMLM talks back over the same
+connection: `{"cmd":"ack","framesReceived":N,"chunkCount":C,"ok":bool}`
+after every chunk it processes (ok=false if that chunk failed to decode/
+localize — framesReceived then stays unchanged from the previous ack), and
+`{"cmd":"stopAck","framesReceived":N,"chunkCount":C}` once it has handled
+our stop message — the authoritative final count. This script compares
+that against how many frames it actually sent and prints a warning if any
+went missing.
 
 This is a different bridge from tools/webSMLM-stream.mjs, which launches
 and owns its own Playwright-driven Chromium window instead — the right
@@ -51,36 +58,12 @@ except ImportError:
 
 HOST = 'localhost'
 PORT = 8765
-N_CHUNKS = 500
+N_CHUNKS = 1000
 FRAMES_PER_CHUNK = 1
-LOCS_PER_FRAME = 10   # simulated emitters per frame -- raise this to stress-test detection/fit density
+LOCS_PER_FRAME = 40   # simulated emitters per frame -- raise this to stress-test detection/fit density
 W = H = 256
-SIM_FRAME_INTERVAL_S = 0.03   # a stand-in for the real per-frame acquisition rate
+SIM_FRAME_INTERVAL_S = 0.001   # a stand-in for the real per-frame acquisition rate
 
-
-# PSF_HALF: half-width (px) of the LOCAL window each emitter's Gaussian is
-# actually evaluated over. make_frame() used to evaluate exp() (and a fresh
-# np.random.poisson() draw) across the FULL W*H frame for every single
-# emitter -- fine at the original 64x64/1-emitter test size, but a real,
-# reported slowdown once pushed toward stress-test settings (e.g. 1000x1000,
-# 10 emitters, 50 frames/chunk: measured at ~48s to pre-render just 10
-# chunks). A Gaussian's tail beyond a few sigma is negligible -- PSF_HALF=6
-# is >4x PSF_SIGMA=1.3, so the discarded tail is astronomically small -- so
-# only a small (2*PSF_HALF+1)^2 patch around each emitter's own (sub-pixel)
-# position is touched at all, turning per-emitter cost from O(W*H) into
-# O(PSF_HALF^2), independent of frame size.
-#
-# BG_NOISE_POOL_SIZE precomputed background-noise realizations (see
-# _get_noise_pool() below), cycled per frame instead of drawing a fresh
-# np.random.poisson() over the WHOLE frame every single frame -- profiling
-# showed this (not TIFF encoding, which turned out fast already) was the
-# actual dominant remaining cost once the per-emitter loop above was already
-# localized: real per-frame-independent background noise isn't needed for a
-# synthetic stress test, only *some* believable noise floor is, so a small
-# reused pool trades that for a large, measured speedup (~9.5x on the frame-
-# generation step alone) at large W*H. Actual emitter signal still gets a
-# FRESH, local Poisson draw each frame (only over each emitter's own small
-# patch, so it stays cheap) -- only the plain background noise repeats.
 PSF_SIGMA = 1.3
 PSF_HALF = 6
 BG_NOISE_POOL_SIZE = 8
@@ -95,7 +78,7 @@ def _get_bg_noise_pool(bg):
     return _bg_noise_pool
 
 
-def make_frame(emitters, peak=4000, bg=100, sigma=PSF_SIGMA):
+def make_frame(emitters, peak=500, bg=100, sigma=PSF_SIGMA):
     """emitters: list of (cx,cy) -- one Gaussian blob per emitter, each with
     its own fresh local Poisson draw, composited (sub-pixel accurate) onto a
     recycled pre-noised background."""
@@ -144,6 +127,40 @@ def make_chunk_bytes(n_frames, emitters):
     return buf.getvalue(), emitters
 
 
+async def read_acks(ws, stop_ack_event, last_ack):
+    """Background task: consumes every TEXT message webSMLM sends back (see
+    the module docstring's "Wire format" section) for the life of the
+    connection. Keeps the latest {"cmd":"ack",...} in last_ack (a plain dict
+    used as a mutable box so the caller sees updates without needing a
+    return value), prints an immediate warning the moment a chunk is
+    reported as failed, and sets stop_ack_event once the authoritative
+    {"cmd":"stopAck",...} arrives. Binary messages never occur in this
+    direction (webSMLM only ever sends JSON text back), so anything that
+    isn't valid JSON with a "cmd" is just ignored rather than raised."""
+    try:
+        async for raw in ws:
+            if not isinstance(raw, str):
+                continue
+            try:
+                msg = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            cmd = msg.get('cmd') if isinstance(msg, dict) else None
+            if cmd == 'ack':
+                last_ack.update(msg)
+                if not msg.get('ok', True):
+                    # Plain ASCII only -- Windows consoles commonly default to a
+                    # legacy codepage (cp1252/cp437) that can't encode a warning
+                    # glyph, and this print() would then crash the whole session.
+                    print(f"  WARNING: webSMLM failed to process a chunk -- frames stalled at "
+                          f"{msg.get('framesReceived', '?')}.")
+            elif cmd == 'stopAck':
+                last_ack.update(msg)
+                stop_ack_event.set()
+    except websockets.ConnectionClosed:
+        pass
+
+
 async def stream_to(ws):
     print(f'webSMLM connected from {ws.remote_address}.')
     # Pre-render every chunk BEFORE the timed send loop starts, rather than
@@ -177,10 +194,18 @@ async def stream_to(ws):
     want_s = FRAMES_PER_CHUNK * SIM_FRAME_INTERVAL_S
     last_send_t = None
     drifts = []
+    frames_sent = 0
+    # last_ack is a mutable box (see read_acks()) rather than a return value,
+    # since the reader task keeps running concurrently with the send loop
+    # below -- there's no single point to "return" an in-progress result from.
+    stop_ack_event = asyncio.Event()
+    last_ack = {}
+    reader_task = asyncio.create_task(read_acks(ws, stop_ack_event, last_ack))
     try:
         for i, body in enumerate(chunks):
             t0 = time.monotonic()
             await ws.send(body)
+            frames_sent += FRAMES_PER_CHUNK
             if last_send_t is not None:
                 actual_s = t0 - last_send_t
                 drift_s = actual_s - want_s
@@ -201,6 +226,28 @@ async def stream_to(ws):
             print(f'\nTiming summary: {len(drifts)} gaps measured, target {want_s * 1000:.1f}ms/chunk -- '
                   f'mean drift {mean_drift * 1000:+.1f}ms, max drift {max_drift * 1000:+.1f}ms.')
         await ws.send(json.dumps({'cmd': 'stop'}))
+        # Give webSMLM a chance to finish processing every chunk already sent
+        # (wsQueue there runs strictly in arrival order, so its stopAck is
+        # only sent once every earlier chunk has actually been accounted
+        # for) and reply with the authoritative final count.
+        try:
+            await asyncio.wait_for(stop_ack_event.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            print(f'\nWARNING: no confirmation from webSMLM within 5s after stop -- '
+                  f'cannot verify all {frames_sent} sent frames were received.')
+        else:
+            received = last_ack.get('framesReceived')
+            if received == frames_sent:
+                print(f'\nConfirmed: webSMLM received all {frames_sent} frames sent.')
+            else:
+                missing = frames_sent - received if isinstance(received, int) else '?'
+                print(f'\nWARNING: webSMLM only confirmed {received}/{frames_sent} frames '
+                      f'received ({missing} missing) -- check its own log for chunk errors.')
+        reader_task.cancel()
+        try:
+            await reader_task
+        except asyncio.CancelledError:
+            pass
         print('Sent stop -- the reconstruction stays on screen in the webSMLM tab.')
 
 

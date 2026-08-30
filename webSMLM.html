@@ -10023,6 +10023,16 @@ async function streamPushChunk(){
 // directly, same shape loadTiffFile() already accepts); a text message
 // (JSON {"cmd":"stop"}, or a bare "stop") finalizes the streaming session —
 // same as clicking Stop streaming — WITHOUT closing the connection itself.
+// webSMLM talks back over this same connection too, purely advisory (no
+// backpressure/retransmission, a sender is still free to push as fast as it
+// likes): {"cmd":"ack","framesReceived":N,"chunkCount":C,"ok":bool} after
+// every processed chunk (ok=false if that chunk threw — framesReceived then
+// stays at its previous value, since streamPushChunkFile() only advances
+// streamState.frameOffset on success, making the stall visible), and
+// {"cmd":"stopAck","framesReceived":N,"chunkCount":C} once "stop" itself has
+// been handled (the authoritative final count — wsQueue guarantees every
+// earlier chunk has already finished). Lets a sender compare "frames I sent"
+// against "frames webSMLM actually accepted" and warn on loss.
 let streamWs=null;
 
 function streamWsConnect(){
@@ -10049,7 +10059,7 @@ function streamWsConnect(){
   });
   // 'message' fires once per arrived WebSocket frame with NO built-in
   // serialization — a sender pushing chunks faster than one full detect/fit
-  // pass takes (easy at 1 frame/chunk, no per-chunk ack/backpressure on the
+  // pass takes (easy at 1 frame/chunk, no per-chunk backpressure on the
   // wire) fires many overlapping async handlers at once. That raced a
   // trailing 'stop' message's endStreamingSession() (streamState=null)
   // against still in-flight streamPushChunkFile() calls from EARLIER chunks
@@ -10057,17 +10067,24 @@ function streamWsConnect(){
   // property chunkCount, streamState is null"). Chaining onto wsQueue makes
   // every message (chunks AND the final stop) run strictly in arrival order,
   // one at a time, so stop can only ever run after every chunk before it has
-  // actually finished.
+  // actually finished — which is also what makes the stopAck sent below
+  // authoritative (every earlier chunk's own ack has already gone out).
   let wsQueue=Promise.resolve();
   ws.addEventListener('message', (ev)=>{
     wsQueue=wsQueue.then(async ()=>{
       if(typeof ev.data==='string'){
         let msg=null; try{ msg=JSON.parse(ev.data); }catch{ msg={cmd:ev.data}; }
-        if(msg && msg.cmd==='stop'){ log('Live streaming: sender signalled stop.'); endStreamingSession(); }
+        if(msg && msg.cmd==='stop'){
+          log('Live streaming: sender signalled stop.');
+          endStreamingSession();
+          if(streamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'stopAck', framesReceived:streamState.frameOffset, chunkCount:streamState.chunkCount}));
+        }
         return;
       }
+      let ok=true;
       try{ await streamPushChunkFile(ev.data); }
-      catch(err){ log(`Live streaming: chunk over WebSocket failed: ${err.message}`); }
+      catch(err){ ok=false; log(`Live streaming: chunk over WebSocket failed: ${err.message}`); }
+      if(streamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'ack', framesReceived:streamState.frameOffset, chunkCount:streamState.chunkCount, ok}));
     });
   });
   // Disconnect implies "stop streaming" too, same reasoning as Connect
