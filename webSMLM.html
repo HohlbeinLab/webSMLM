@@ -1808,7 +1808,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-30b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-30c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2278,7 +2278,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-30b — a blank line now separates each action's own block (command + its result prose, grouped together) from the next, so the whole log copy-pastes cleanly. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-30c — Correct drift now supports Stop: shows the drift curve computed so far, but does NOT apply it to the reconstruction/export, so you can judge Segment/Search radius settings without waiting out or committing to a slow run. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -6749,7 +6749,7 @@ function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
 // Returns {fdx,fdy}: the per-frame drift CORRECTION to ADD to each localization
 // (corrected = observed + fd[frame]), plus the per-segment estimates.
 // px = camera pixel size (nm); intersect/roi in nm.
-async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, frame0, onProgress){
+async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, frame0, onProgress, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const iD=intersectNm/px, qd=1/iD;                // quantization step (px) and its inverse
@@ -6790,41 +6790,74 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, fram
   }
   // Round 1: seg 0 is the reference (drift 0); align each later segment to the
   // accumulated corrected reference, starting from the previous cumulative drift.
+  // Sequential by construction (dx[k] depends on dx[k-1]) — a Stop mid-round
+  // leaves a genuine, real prefix of segments 0..completed-1 correctly
+  // estimated and the rest simply never touched, not a corrupted result.
   const dx=new Float64Array(nSeg), dy=new Float64Array(nSeg);
   const ref=addTo(new Map(), seg[0], 0, 0);
+  let completed=1, stopped=false;   // segment 0 needs no estimation (it IS the reference, drift 0)
   for(let k=1;k<nSeg;k++){
+    if(shouldStop()){ stopped=true; break; }
     const [sx,sy]=bestShift(seg[k], dx[k-1], dy[k-1], ref);
     dx[k]=dx[k-1]+sx; dy[k]=dy[k-1]+sy;
     addTo(ref, seg[k], dx[k], dy[k]);
+    completed=k+1;
     await yieldMaybe(0.5*k/nSeg);
   }
   // Round 2: reference = ALL localizations corrected by round 1; re-estimate each
   // segment's ABSOLUTE drift (fixes segment 0 and limits error accumulation).
-  const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full, seg[k], dx[k], dy[k]);
-  const dx2=new Float64Array(nSeg), dy2=new Float64Array(nSeg);
-  for(let k=0;k<nSeg;k++){
-    const [sx,sy]=bestShift(seg[k], dx[k], dy[k], full);
-    dx2[k]=dx[k]+sx; dy2[k]=dy[k]+sy;
-    await yieldMaybe(0.5+0.5*k/nSeg);
+  // Needs EVERY segment's own round-1 result to build `full` — not something
+  // a partial round 1 can feed at all, so a round-1 stop skips round 2
+  // entirely rather than running it on an incomplete/meaningless reference.
+  let dx2, dy2, nSegEff;
+  if(stopped){
+    nSegEff=completed; dx2=dx.slice(0,completed); dy2=dy.slice(0,completed);
+  }else{
+    const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full, seg[k], dx[k], dy[k]);
+    const dx2f=new Float64Array(nSeg), dy2f=new Float64Array(nSeg);
+    nSegEff=nSeg;
+    for(let k=0;k<nSeg;k++){
+      if(shouldStop()){ stopped=true; nSegEff=k; break; }
+      const [sx,sy]=bestShift(seg[k], dx[k], dy[k], full);
+      dx2f[k]=dx[k]+sx; dy2f[k]=dy[k]+sy;
+      await yieldMaybe(0.5+0.5*k/nSeg);
+    }
+    // A round-2 stop mid-pass: segments 0..nSegEff-1 have their own refined
+    // round-2 estimate; anything not yet reached still has SOME value —
+    // round 1's own, a real (if less refined) estimate — rather than 0.
+    if(stopped && nSegEff===0) nSegEff=1;   // segment 0 always has a value (drift 0) either way
+    dx2 = stopped ? dx2f.slice(0,nSegEff) : dx2f;
+    dy2 = stopped ? dy2f.slice(0,nSegEff) : dy2f;
   }
-  // Drift is defined up to a constant → zero-reference by removing the mean.
-  let mx=0,my=0; for(let k=0;k<nSeg;k++){ mx+=dx2[k]; my+=dy2[k]; } mx/=nSeg; my/=nSeg;
-  for(let k=0;k<nSeg;k++){ dx2[k]-=mx; dy2[k]-=my; }
+  const centersEff = stopped ? centers.slice(0,nSegEff) : centers;
+  // Drift is defined up to a constant → zero-reference by removing the mean
+  // (over whatever segments actually got estimated, complete run or not).
+  let mx=0,my=0; for(let k=0;k<nSegEff;k++){ mx+=dx2[k]; my+=dy2[k]; } mx/=nSegEff; my/=nSegEff;
+  for(let k=0;k<nSegEff;k++){ dx2[k]-=mx; dy2[k]-=my; }
   _smoothSeg(dx2); _smoothSeg(dy2);
-  // Linear interpolation of the per-segment drift (at segment centres) to frames.
+  // Linear interpolation of the per-segment drift (at segment centres) to
+  // frames — STILL sized to the full nFrames even when stopped, reusing the
+  // existing "hold the last known segment's value flat" tail behaviour
+  // (already how any complete run treats frames past its own last segment)
+  // for every frame past where estimation actually stopped, rather than a
+  // second, bespoke code path. stoppedAtFrame (nm/frame-space, filled in by
+  // driftCore()) is what the interactive plot uses to mark that boundary
+  // visually, so "real measurement" and "held flat, unmeasured" don't look
+  // like the same thing on screen.
   const fdx=new Float64Array(nFrames), fdy=new Float64Array(nFrames);
   for(let f=0;f<nFrames;f++){
-    if(nSeg===1 || f<=centers[0]){ fdx[f]=dx2[0]; fdy[f]=dy2[0]; continue; }
-    if(f>=centers[nSeg-1]){ fdx[f]=dx2[nSeg-1]; fdy[f]=dy2[nSeg-1]; continue; }
-    let k=0; while(k<nSeg-1 && centers[k+1]<f) k++;
-    const t=(f-centers[k])/(centers[k+1]-centers[k]);
+    if(nSegEff===1 || f<=centersEff[0]){ fdx[f]=dx2[0]; fdy[f]=dy2[0]; continue; }
+    if(f>=centersEff[nSegEff-1]){ fdx[f]=dx2[nSegEff-1]; fdy[f]=dy2[nSegEff-1]; continue; }
+    let k=0; while(k<nSegEff-1 && centersEff[k+1]<f) k++;
+    const t=(f-centersEff[k])/(centersEff[k+1]-centersEff[k]);
     fdx[f]=dx2[k]+(dx2[k+1]-dx2[k])*t; fdy[f]=dy2[k]+(dy2[k+1]-dy2[k])*t;
   }
-  return {fdx, fdy, segCenters:centers, segdx:dx2, segdy:dy2, nSeg};
+  return {fdx, fdy, segCenters:centersEff, segdx:dx2, segdy:dy2, nSeg:nSegEff, nSegRequested:nSeg, stopped,
+    stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
 }
 
 // z drift: the same intersection-maximization, but a 1-D search on z (nm).
-async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, frame0, onProgress, onLog=()=>{}){
+async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, frame0, onProgress, onLog=()=>{}, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const qd=1/binNm, R=Math.max(1,Math.round(roiNm/binNm));
@@ -6849,21 +6882,38 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, frame0, onProgr
     const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
     return (bb+par(at(bb-1),best,at(bb+1)))*binNm;
   }
+  // Same Stop-truncation shape as aimDrift2D() — see its own comment.
   const dz=new Float64Array(nSeg); const ref=addTo(new Map(),seg[0],0);
-  for(let k=1;k<nSeg;k++){ dz[k]=dz[k-1]+bestShift(seg[k],dz[k-1],ref); addTo(ref,seg[k],dz[k]); await yieldMaybe(0.5*k/nSeg); }
-  const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full,seg[k],dz[k]);
-  const dz2=new Float64Array(nSeg);
-  for(let k=0;k<nSeg;k++){ dz2[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg); }
-  let m=0; for(let k=0;k<nSeg;k++) m+=dz2[k]; m/=nSeg; for(let k=0;k<nSeg;k++) dz2[k]-=m;
+  let completed=1, stopped=false;
+  for(let k=1;k<nSeg;k++){
+    if(shouldStop()){ stopped=true; break; }
+    dz[k]=dz[k-1]+bestShift(seg[k],dz[k-1],ref); addTo(ref,seg[k],dz[k]); completed=k+1; await yieldMaybe(0.5*k/nSeg);
+  }
+  let dz2, nSegEff;
+  if(stopped){
+    nSegEff=completed; dz2=dz.slice(0,completed);
+  }else{
+    const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full,seg[k],dz[k]);
+    const dz2f=new Float64Array(nSeg);
+    nSegEff=nSeg;
+    for(let k=0;k<nSeg;k++){
+      if(shouldStop()){ stopped=true; nSegEff=k; break; }
+      dz2f[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg);
+    }
+    if(stopped && nSegEff===0) nSegEff=1;
+    dz2 = stopped ? dz2f.slice(0,nSegEff) : dz2f;
+  }
+  const centersEff = stopped ? centers.slice(0,nSegEff) : centers;
+  let m=0; for(let k=0;k<nSegEff;k++) m+=dz2[k]; m/=nSegEff; for(let k=0;k<nSegEff;k++) dz2[k]-=m;
   _smoothSeg(dz2); _smoothSeg(dz2);
   const fdz=new Float64Array(nFrames);
   for(let f=0;f<nFrames;f++){
-    if(nSeg===1||f<=centers[0]){ fdz[f]=dz2[0]; continue; }
-    if(f>=centers[nSeg-1]){ fdz[f]=dz2[nSeg-1]; continue; }
-    let k=0; while(k<nSeg-1&&centers[k+1]<f) k++;
-    fdz[f]=dz2[k]+(dz2[k+1]-dz2[k])*(f-centers[k])/(centers[k+1]-centers[k]);
+    if(nSegEff===1||f<=centersEff[0]){ fdz[f]=dz2[0]; continue; }
+    if(f>=centersEff[nSegEff-1]){ fdz[f]=dz2[nSegEff-1]; continue; }
+    let k=0; while(k<nSegEff-1&&centersEff[k+1]<f) k++;
+    fdz[f]=dz2[k]+(dz2[k+1]-dz2[k])*(f-centersEff[k])/(centersEff[k+1]-centersEff[k]);
   }
-  return {fdz, segdz:dz2, nSeg, nz, ncl};
+  return {fdz, segdz:dz2, nSeg:nSegEff, nSegRequested:nSeg, nz, ncl, stopped, stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
 }
 
 // Pure: runs AIM drift correction on `locs`, MUTATED IN PLACE (reversibly —
@@ -6875,8 +6925,14 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, frame0, onProgr
 // a module-level global, not a core drift-correction concern.
 async function driftCore(locs, px, config, hooks={}){
   // Defaults mirror the real log()/setProg() (see runCore's comment on the
-  // same rule).
-  const { onLog=log, onProgress=setProg } = hooks;
+  // same rule). shouldStop (v0.11.10, on request): AIM's two rounds can each
+  // take a while on a large dataset, and a user tuning driftSeg/driftRoi
+  // often wants to SEE the curve well before that to judge the settings,
+  // not wait out a run they're about to discard anyway. Checked inside
+  // aimDrift2D()/aimDriftZ() themselves (see their own comments) — a Stop
+  // there truncates to whatever segments were genuinely estimated, rather
+  // than corrupting or padding the rest.
+  const { onLog=log, onProgress=setProg, shouldStop=()=>false } = hooks;
   // span the frames ACTUALLY analysed (present in the localizations), not the
   // stack length — a stopped run only covers part of the stack, and padding to
   // stack.n adds empty segments that corrupt the drift estimate. frame0 is the
@@ -6900,15 +6956,35 @@ async function driftCore(locs, px, config, hooks={}){
   onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
         (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
   const t0=performance.now();
-  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, frame0, p=>onProgress(100*p));
+  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, frame0, p=>onProgress(100*p), shouldStop);
   d.frame0=frame0;   // carried on the result so the drift plot/RMS-vs-ground-truth scoring can label true frame numbers, not the 0-based remapped index
+  // z drift (Phasor 3D): independent 1-D correction on z (nm) — skipped
+  // entirely if 2D already stopped, since there'd be nothing complete to
+  // apply either way and no reason to spend more time computing it.
+  const has3d=locs.some(L=>isFinite(L.z));
+  let dz=null;
+  if(!d.stopped && has3d && config.driftZ){
+    dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, frame0, p=>onProgress(100*p), onLog, shouldStop);
+    d.fdz=dz.fdz;
+  }
+  // A stop in EITHER pass means the run as a whole is incomplete — treated
+  // uniformly as "not applied" rather than applying a complete 2D
+  // correction alongside a partial (or missing) z one, which would leave
+  // the reconstruction correctly x/y-corrected but ambiguously so in z.
+  const stopped = d.stopped || (dz && dz.stopped);
+  if(stopped){
+    const reqSeg=d.nSegRequested, doneSeg=d.nSeg;
+    onLog(`Stopped after ${doneSeg} of ${reqSeg} segment(s) (frames ${frame0+1}–${Math.round(d.stoppedAtFrame+frame0)+1} of ${frame0+1}–${maxFrame+1})`+
+      (dz&&dz.stopped?` · z stopped after ${dz.nSeg} of ${dz.nSegRequested} segment(s)`:'')+
+      ` — drift shown up to that point (flat beyond it, not a real measurement); NOT applied — `+
+      `the reconstruction/CSV export still use the ORIGINAL, uncorrected coordinates. Adjust `+
+      `Segment/Search radius and re-run, or run to completion to actually correct the data.`);
+    return { drift:d, nFrames, frame0, stopped:true, ms:Math.round(performance.now()-t0) };
+  }
   // apply reversibly — keep the raw coordinates in x0/y0
   for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
     const f=Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
-  // z drift (Phasor 3D): independent 1-D correction on z (nm)
-  const has3d=locs.some(L=>isFinite(L.z));
-  if(has3d && config.driftZ){
-    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, frame0, p=>onProgress(100*p), onLog);
+  if(dz){
     // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
     // boundary, so it carries no drift and is excluded. A large clamped
     // fraction means the sample's z-range exceeds the calibration: the
@@ -6917,7 +6993,6 @@ async function driftCore(locs, px, config, hooks={}){
     if(clFrac>0.2) onLog(`⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
     for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
       L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0))]; }
-    d.fdz=dz.fdz;
   }
   let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
   for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
@@ -6941,36 +7016,46 @@ let driftPlotMode='frame';
 async function correctDrift(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   const {locs,px}=lastResult;
-  $('driftBtn').disabled=true;
+  stopRequested=false;
+  $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
     const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ')};
     // Logged BEFORE driftCore() starts — see run()'s own comment on this
     // ordering (command announces what's about to run, prose narrates what
     // happened) — safe this early since config is already fully resolved.
     logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, pxnm:px});
-    const {drift:d, nFrames} = await driftCore(locs, px, config, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
-    lastDrift=d; lastResult.byFrame=null;          // positions changed
-    if(d.fdz) lastResult.zr=null;
-    setProg(null);
-    rerender(true);
-    if(simTrueDrift){                              // score against the simulator's ground truth
-      // per-axis RMS after removing the best constant offset. d.fdx/fdy are
-      // indexed relative to d.frame0 (the first analysed frame), but
-      // simTrueDrift.dx/dy(fi) expects the ABSOLUTE simulated frame index —
-      // add d.frame0 back when looking up the ground truth, or a Localize
-      // run restricted to a sub-range would score against the wrong slice
-      // of the true drift curve.
-      const rms=(rec,tru)=>{ let a=0,b=0; for(let f=0;f<nFrames;f++){a+=rec(f);b+=tru(f);} a/=nFrames;b/=nFrames;
-        let e=0; for(let f=0;f<nFrames;f++){ const dd=(rec(f)-a)-(tru(f)-b); e+=dd*dd; } return Math.sqrt(e/nFrames); };
-      const rx=rms(f=>-d.fdx[f]*px, f=>simTrueDrift.dx(f+d.frame0)), ry=rms(f=>-d.fdy[f]*px, f=>simTrueDrift.dy(f+d.frame0));
-      log(`vs simulated ground truth: RMS x ${rx.toFixed(1)} nm, y ${ry.toFixed(1)} nm.`);
+    const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:stripLeadingBreakOnce(log), onProgress:setProg, shouldStop:()=>stopRequested});
+    // A Stop mid-run (see driftCore()'s own comment): show whatever curve
+    // was actually estimated so far — useful for judging Segment/Search
+    // radius on a run that's taking too long — but locs were never touched,
+    // so skip every "positions changed" side effect below (byFrame/zr reset,
+    // rerender, ground-truth scoring, the "now drives the render" message)
+    // that would otherwise misrepresent a preview as an applied correction.
+    lastDrift=d;
+    if(!stopped){
+      lastResult.byFrame=null;          // positions changed
+      if(d.fdz) lastResult.zr=null;
+      setProg(null);
+      rerender(true);
+      if(simTrueDrift){                              // score against the simulator's ground truth
+        // per-axis RMS after removing the best constant offset. d.fdx/fdy are
+        // indexed relative to d.frame0 (the first analysed frame), but
+        // simTrueDrift.dx/dy(fi) expects the ABSOLUTE simulated frame index —
+        // add d.frame0 back when looking up the ground truth, or a Localize
+        // run restricted to a sub-range would score against the wrong slice
+        // of the true drift curve.
+        const rms=(rec,tru)=>{ let a=0,b=0; for(let f=0;f<nFrames;f++){a+=rec(f);b+=tru(f);} a/=nFrames;b/=nFrames;
+          let e=0; for(let f=0;f<nFrames;f++){ const dd=(rec(f)-a)-(tru(f)-b); e+=dd*dd; } return Math.sqrt(e/nFrames); };
+        const rx=rms(f=>-d.fdx[f]*px, f=>simTrueDrift.dx(f+d.frame0)), ry=rms(f=>-d.fdy[f]*px, f=>simTrueDrift.dy(f+d.frame0));
+        log(`vs simulated ground truth: RMS x ${rx.toFixed(1)} nm, y ${ry.toFixed(1)} nm.`);
+      }
+      log(`corrected coordinates now drive the render and CSV export.`);
     }
-    log(`corrected coordinates now drive the render and CSV export.`);
     $('driftShowBtn').disabled=false;
     driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
-  finally{ $('driftBtn').disabled=false; setProg(null); }
+  finally{ $('driftBtn').disabled=false; $('stopBtn').disabled=true; stopRequested=false; setProg(null); }
 }
 // Plot the estimated drift (nm) vs frame on the RAW (left) canvas (measured drift = −correction).
 // Dispatches to one of two views by driftPlotMode — see its own comment above.
@@ -7015,6 +7100,17 @@ function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
     for(let f=0;f<n;f++){ const x=X(f),y=Y(get(f)); f?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
   line(f=>-d.fdx[f]*px,'#0a7d32'); line(f=>-d.fdy[f]*px,'#c81cc8');
   if(d.fdz) line(f=>-d.fdz[f],'#3572b0');   // z drift is already in nm
+  // A Stop mid-run (see driftCore()'s own comment): the curve past this
+  // point is just the last real segment's value held flat, not a further
+  // measurement — a dashed vertical marker + label makes that boundary
+  // visible instead of letting it read as a real, if oddly flat, signal.
+  if(d.stopped && d.stoppedAtFrame!=null){
+    const xs=X(d.stoppedAtFrame);
+    ctx.save(); ctx.strokeStyle=C.text; ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(xs,mT); ctx.lineTo(xs,mT+ph); ctx.stroke(); ctx.restore();
+    ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText('stopped here — flat beyond', Math.min(xs+4,mL+pw-120), mT+2);
+  }
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curves
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('frame', mL+pw/2, mT+ph+28);
@@ -7022,7 +7118,9 @@ function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#0a7d32'; ctx.fillText('drift x', mL+pw-90, mT-6);
   ctx.fillStyle='#c81cc8'; ctx.fillText('drift y', mL+pw-40, mT-6);
   if(d.fdz){ ctx.fillStyle='#3572b0'; ctx.fillText('drift z', mL+pw-140, mT-6); }
-  $('rawInfo').textContent=`— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
+  $('rawInfo').textContent = d.stopped
+    ? `— PREVIEW ONLY, not applied · stopped after ${d.nSeg}/${d.nSegRequested} segments · scrub a frame to return to the raw view`
+    : `— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`frame ${(vx+f0+1).toFixed(0)} · ${vy.toFixed(1)} nm`});
 }
@@ -7071,7 +7169,9 @@ function drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='top';
   ctx.fillText(`frame ${n-1+f0+1}`, bx-4, by);
   ctx.textBaseline='bottom'; ctx.fillText(`frame ${f0+1}`, bx-4, by+bh);
-  $('rawInfo').textContent=`— drift path, x vs y · colour = frame (time) · ${d.nSeg} segments · scrub a frame to return to the raw view`;
+  $('rawInfo').textContent = d.stopped
+    ? `— PREVIEW ONLY, not applied · stopped after ${d.nSeg}/${d.nSegRequested} segments · colour = frame (time) · scrub a frame to return to the raw view`
+    : `— drift path, x vs y · colour = frame (time) · ${d.nSeg} segments · scrub a frame to return to the raw view`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:lo,xB:hi,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`x ${vx.toFixed(1)} nm, y ${vy.toFixed(1)} nm`});
 }

@@ -567,6 +567,31 @@ relevant one before editing rather than scrolling:
   above (x/y/(z) vs frame index); `drawDriftCurveXY()` is a single trajectory — drift y vs drift x
   — with each segment coloured by frame (time) through `getLUT(paramValue('lut'))`.
 
+  **Stop support** (v0.11.10, on request — AIM's two rounds can each take a while on a large
+  dataset, and a user tuning `driftSeg`/`driftRoi` wants to SEE the curve to judge the settings well
+  before a run they might discard anyway finishes). `aimDrift2D()`/`aimDriftZ()`'s own two rounds
+  are checked against `shouldStop()` per segment; Round 1 is inherently sequential (`dx[k]` depends
+  on `dx[k-1]`), so a stop there truncates to a genuine prefix of correctly-estimated segments, not
+  a corrupted or padded result. Round 2 needs EVERY segment's own round-1 result to build its
+  `full` reference, so a Round-1 stop skips Round 2 entirely rather than running it against an
+  incomplete reference; a Round-2 stop keeps whatever segments it already re-estimated and falls
+  back to each remaining segment's own (less refined, but real) round-1 value. `fdx`/`fdy` stay
+  sized to the FULL requested frame range regardless — reusing the existing "hold the last known
+  segment's value flat" tail-interpolation logic for every frame past the stop point, rather than a
+  second bespoke code path — with `stopped`/`stoppedAtFrame` on the result so `driftCore()` and the
+  interactive plot can tell a genuine measurement from the flat, unmeasured continuation.
+  `driftCore()` treats a stop in EITHER the 2D or (if requested) the z pass as the WHOLE run being
+  incomplete — never applying a complete 2D correction alongside a partial/missing z one, which
+  would leave the reconstruction ambiguously half-corrected — and skips applying ANY correction to
+  `locs` in that case: the reconstruction/CSV export keep using the original, uncorrected
+  coordinates, exactly as if Correct drift had never been clicked. `correctDrift()` still shows the
+  partial curve (`drawDriftCurveVsFrame()` draws a dashed vertical marker + "stopped here — flat
+  beyond" label at `stoppedAtFrame`, and both plot functions' own `rawInfo` text leads with "PREVIEW
+  ONLY, not applied") so the whole point — judging whether these settings are converging to
+  something sensible — still works without waiting out or committing to an unwanted run. Headless
+  `analyze()` never passes a `shouldStop` hook, so `stopped` is always `false` there — this is
+  interactive-only, no change to headless behaviour.
+
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +
