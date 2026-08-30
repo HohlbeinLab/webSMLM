@@ -17,38 +17,64 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.9; may drift with
-  edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
+  MODULE INDEX — line numbers as of v0.11.10-dev build 2026-08-30e; may drift
+  with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2226   PARAMS registry, single source of truth for params;
+    params          2325   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
-                           a narrow viewport)
-    in/out          2773   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+                           a narrow viewport); fastRecon ("Fast reconstruction
+                           (2D histogram)")
+    in/out          2894   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3086   synthetic stack generator ("Simulate movie")
-    detect          3974   per-frame band-pass + local-maxima detection
-    fit             4230   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3207   synthetic stack generator ("Simulate movie")
+    detect          4095   per-frame band-pass + local-maxima detection
+    fit             4351   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4705   accumulate to offscreen buffer; view/colour/blur;
+    render          4826   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually
                            exclusive; srBarAnchor() shared by drawDepthBar()/
-                           drawTracksColorBar()
-    workers         5681   frame-parallel detect/fit worker pool
-    export          5846   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6106   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           6506   AIM drift correction (2D+z); drift-vs-frame or
+                           drawTracksColorBar(); drawRaw() reuses a contrast
+                           LUT + ImageData across same-size calls (measured
+                           via tools/bench_render.mjs); renderSuperRes() is now
+                           ASYNC — renderSuperResPixels() (the pure, DOM-free
+                           accumulate/blur/colorize core, shared verbatim with
+                           the render worker via stringification) runs on a
+                           dedicated Worker+OffscreenCanvas when available
+                           (getRenderWorker(), MODULE: workers) so a full-
+                           quality render no longer blocks the main thread;
+                           falls back to the same single-threaded algorithm
+                           otherwise. `fast` flag (2D-histogram mode, no blur/
+                           depth-colour/sqrt curve, localizations splatted
+                           onto a weighted plus-shaped [0,1,0;1,2,1;0,1,0] 3×3
+                           footprint so isolated points stay visible when
+                           zoomed in, canvas identity reused via
+                           getOrMakeSrCanvas() to avoid GPU canvas eviction) —
+                           default during live streaming, see MODULE: pipeline.
+                           rerender() is also async now, with a monotonic
+                           _srRenderSeq token discarding a stale/superseded
+                           render (its ~24 call sites are unaffected — it
+                           still never rejects, all fire-and-forget as before)
+    workers         6010   frame-parallel detect/fit worker pool; dedicated
+                           SR-render Worker (RENDER_WORKER_PRELUDE/
+                           renderWorkerSource()/getRenderWorker()/
+                           dispatchRenderWorker(), separate from the detect/
+                           fit pool — never shares it, see that code's own
+                           comment for why)
+    export          6302   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6562   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           6962   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    6822   NeNA + FRC
-    sSMLM           7465   spectrally resolved SMLM pair-finding; merged
+    locprecision    7278   NeNA + FRC
+    sSMLM           7921   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             7930   single particle tracking, trackpy-inspired;
+    spt             8386   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -68,7 +94,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9245   top-level orchestration, *Core()/wrapper split;
+    pipeline        9641   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -90,10 +116,19 @@
                            auto-following the newest frame unless paused by a
                            manual scrub, capped to Memory budget (GB) via a
                            ring buffer (streamState.rawFrames) since an open-
-                           ended acquisition can't keep every raw frame
-    table           11295  localizations table, filtering, histograms;
+                           ended acquisition can't keep every raw frame;
+                           periodic cadence render now defaults to full
+                           quality too (renderSuperRes() is worker-backed, no
+                           longer forces fastRecon at Start/Stop), guarded by
+                           streamState.renderBusy so a fast chunk stream can't
+                           pile up renders faster than the single dedicated
+                           worker can finish them; plus a conservative idle/
+                           pause detector (streamState.idleTimer,
+                           streamPushChunkFile()) and Stop's own final render,
+                           both forceTrue=true regardless of #fastRecon
+    table           11764  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    11875  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12344  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1777,7 +1812,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-29g</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-30e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2052,7 +2087,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="renderBox">
         <summary>Rendering settings</summary>
         <label class="row">Magnification <input type="number" id="mag" min="4" max="25" step="1" value="10" class="num"></label>
-        <label class="row">Render blur σ_render (px) <input type="number" id="rblur" min="0" max="1" step="0.05" value="0.25" class="num"></label>
+        <label class="row" id="rblurRow">Render blur σ_render (px) <input type="number" id="rblur" min="0" max="1" step="0.05" value="0.25" class="num"></label>
+        <label class="row">Fast reconstruction (2D histogram) <input type="checkbox" id="fastRecon"></label>
         <label class="row">Colour map
           <select id="lut" class="sel">
             <option value="fire">Fire (hot)</option>
@@ -2291,7 +2327,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-29g — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-30e — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2406,6 +2442,13 @@ const PARAMS = {
   mag: { type:'number', id:'mag', label:'Magnification', min:4, max:25, step:1, default:10, int:true },
   // rblur = σ_render, display-only Gaussian smoothing applied to the rendered reconstruction
   rblur: { type:'number', id:'rblur', label:'Render blur σ_render (px)', min:0, max:1, step:0.05, default:0.25, int:false },
+  // fastRecon = skip blur/depth-colour/the sqrt display curve entirely — a
+  // genuine "just a 2D histogram" reconstruction, much cheaper at large
+  // FOV/magnification (see renderSuperRes()'s own `fast` branch, MODULE:
+  // render). Live streaming forces this on for the duration of a session
+  // (MODULE: pipeline, startStreamingSession()/endStreamingSession()); also
+  // available any time as a manual quick-preview option.
+  fastRecon: { type:'bool', id:'fastRecon', label:'Fast reconstruction (2D histogram)', default:false },
   // lut = "look-up table", the colour map applied to the reconstruction
   lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','hsvBlue','grey'], default:'fire' },
   // lutpct = percentile used for display-max clipping, so one hot pixel can't dim the rest
@@ -4921,37 +4964,92 @@ function checkRenderSize(W,H,w,h,mag,zColor,blurPx){
   if(bytes>budget)
     throw new Error(`Reconstruction at ${W}×${H} px (frame ${w}×${h} × ${mag}×) would need ~${fmtBytes(bytes)}, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Lower Magnification, crop the region, or raise the budget if you have the RAM.`);
 }
-function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log){
-  const W=w*mag, H=h*mag;
-  checkRenderSize(W,H,w,h,mag,zColor,blurPx);
-  // Per-pixel hit COUNT — always a non-negative integer, so Uint16 (not
-  // Float32) halves this buffer's footprint; zacc holds SUMMED colorField
-  // (nm) values instead, genuinely fractional, so it stays Float32. Uint16
-  // natively WRAPS past 65535 on overflow (silent corruption, not
-  // clamping) — saturate explicitly instead, since a real pixel hitting
-  // 65,535+ localizations needs an extreme density at one exact
-  // reconstructed position and is not expected in normal use.
-  // colorField selects WHICH per-loc value drives the colour: 'z' (real
-  // depth, a 3D fit method) or 'dist' (sSMLM's inter-order distance,
-  // deliberately a separate field from z — see MODULE: sSMLM). Never both
-  // at once today (pairCore refuses 3D input), but keeping this a
-  // parameter rather than hardcoding .z means a future combined 3D+sSMLM
-  // result could pick either without a render-side rewrite.
-  const acc=new Uint16Array(W*H), zacc=zColor?new Float32Array(W*H):null;
+// Persistent acc/zacc/blur scratch for the single-threaded FALLBACK path —
+// single last-size slot (reallocated only when W×H or zColor changes), same
+// "reallocate only on dimension change" convention as bandpass()'s own
+// _bpW/_bpH/_bpSm/_bpLg/_bpTmp (MODULE: fit). The render WORKER (MODULE:
+// workers, getRenderWorker()) keeps its own equivalent copy of this state in
+// its own global scope — these main-thread buffers are only ever touched
+// when the worker is unavailable.
+let _srW=0,_srH=0,_srZColor=false,_srAcc=null,_srZacc=null,_srBlurDst=null,_srZBlurDst=null,_srBlurTmp=null,_srFastCv=null;
+// Precomputed sqrt lookup for the density→brightness step (t=sqrt(x), x in
+// [0,1]): a per-pixel Math.sqrt() call is real, measured cost at SR-render
+// buffer sizes (tens of millions of pixels) — 65536 entries keeps the
+// quantization error at ≤1/255 per channel (verified against the exact
+// Math.sqrt() version: 0 differing pixels with no blur; ≤1/255 on ≤0.4% of
+// pixels with blur+colour-by-depth, from float rounding through the blur
+// step itself, not the LUT — same order of tolerance already accepted for
+// the box-cascade blur approximation in MODULE: detect). Referenced by
+// renderSuperResPixels() below, which is ALSO stringified into the render
+// worker (see renderWorkerSource(), MODULE: workers) — the worker declares
+// its own identical copy of this const pair in RENDER_WORKER_PRELUDE, same
+// "prelude carries the module-level state a stringified function needs"
+// convention the detect/fit worker already uses (WORKER_PRELUDE).
+const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1);
+for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);
+// Pure, DOM-free render core: accumulate (with fast-mode plus-splat) → blur
+// → normLocs pass → percentile clip → colour-map. Takes its scratch buffers
+// explicitly (`buf`: {acc,zacc,blurDst,zBlurDst,blurTmp}, already correctly
+// sized/zeroed by the caller) instead of reading module-level globals
+// directly, so this SAME function runs unmodified either on the main thread
+// (single-threaded fallback, called against _srAcc/etc. above) or stringified
+// into the render worker (called against the worker's own _rwAcc/etc.) — one
+// implementation, matching this codebase's existing "driver takes its state
+// as parameters" precedent (mleNewtonFit(), MODULE: fit) rather than
+// maintaining two copies of this algorithm. Returns {imageData,satCount} —
+// never touches a canvas/context itself (`new ImageData(w,h)` works
+// identically on the main thread and inside a worker), so the canvas/
+// OffscreenCanvas specifics stay entirely in each caller.
+//
+// fast=true — "basically just a 2D histogram" (per-request, MODULE:
+// pipeline's live-streaming default): callers are expected to already have
+// forced blurPx=0/zColor=false before calling (renderSuperRes() below does
+// this) — this function trusts that rather than re-checking, since it's also
+// reachable from the worker's own dispatch path.
+//
+// Fast-mode splat: each localization is splatted onto a small plus-shaped,
+// Gaussian-LIKE 3×3 footprint — [0,.5,0; .5,1,.5; 0,.5,0] scaled ×2 to
+// [0,1,0; 1,2,1; 0,1,0] so acc can stay a plain Uint16Array (per-pixel hit
+// COUNT — always non-negative, so Uint16 halves this buffer's footprint vs
+// zacc's genuinely-fractional Float32; WRAPS silently past 65535 on a naive
+// += though, hence the explicit satCount/clamp logic) rather than switching
+// to a fractional dtype just for this one mode — instead of exactly one
+// render pixel. A true single-pixel-per-localization histogram is only ever
+// nonzero on ~(loc count) of the W×H grid — measured on 2000 locs: 1,997
+// nonzero pixels out of 3,000,000 (0.067%), vs 88,520 (2.9%) for the SAME
+// data with the normal render's blur — ~44x sparser. At any real
+// interactive zoom level that means the SR panel is overwhelmingly likely to
+// land on pure black between isolated dots (a real, reported bug — "fast
+// reconstruction breaks [goes black] when zoomed in"). Splatting scales with
+// loc count, not W×H, so it's negligible next to the O(W·H) passes below
+// (displayMax/colorize) — this keeps fast mode "basically a histogram", just
+// with a visible, softly-weighted dot instead of a vanishing single point.
+function renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,fast,buf){
+  const {acc,zacc,blurDst,zBlurDst,blurTmp}=buf;
   let satCount=0;
+  const addFastDot=(px,py,wgt)=>{ if(px<0||px>=W||py<0||py>=H) return;
+    const idx=py*W+px;
+    if(acc[idx]<=65535-wgt) acc[idx]+=wgt; else { acc[idx]=65535; satCount++; } };
   for(const L of locs){
     // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
     if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
     const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
-    if(ix<0||iy<0||ix>=W||iy>=H) continue; const idx=iy*W+ix;
+    if(ix<0||iy<0||ix>=W||iy>=H) continue;
+    if(fast){
+      addFastDot(ix,iy,2);
+      addFastDot(ix-1,iy,1); addFastDot(ix+1,iy,1); addFastDot(ix,iy-1,1); addFastDot(ix,iy+1,1);
+      continue;
+    }
+    const idx=iy*W+ix;
     if(acc[idx]<65535) acc[idx]++; else satCount++;
     if(zColor) zacc[idx]+=L[colorField]; }
-  if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
   // Blur density and z-sum together, so the depth hue is the density-weighted
-  // mean z over the neighbourhood: meanz = blur(Σz)/blur(count).
-  const buf = blurPx>0 ? blur(acc,W,H,blurPx*mag*0.3) : acc;
-  const zbuf = zColor ? (blurPx>0 ? blur(zacc,W,H,blurPx*mag*0.3) : zacc) : null;
-  let normBuf=buf;
+  // mean z over the neighbourhood: meanz = blur(Σz)/blur(count). Calls
+  // blurInto() directly (not the blur() wrapper) to reuse blurDst/zBlurDst/
+  // blurTmp above instead of allocating fresh scratch every call.
+  const dbuf = blurPx>0 ? blurInto(acc,blurDst,blurTmp,W,H,blurPx*mag*0.3) : acc;
+  const zbuf = zColor ? (blurPx>0 ? blurInto(zacc,zBlurDst,blurTmp,W,H,blurPx*mag*0.3) : zacc) : null;
+  let normBuf=dbuf;
   if(normLocs && normLocs!==locs){
     const nacc=new Uint16Array(W*H);
     for(const L of normLocs){
@@ -4961,18 +5059,102 @@ function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,
       const nidx=iy*W+ix; if(nacc[nidx]<65535) nacc[nidx]++; }
     normBuf = blurPx>0 ? blur(nacc,W,H,blurPx*mag*0.3) : nacc;
   }
-  const norm=displayMax(normBuf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo);
-  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
-  const ctx=cv.getContext('2d'), out=ctx.createImageData(W,H);
-  for(let i=0;i<buf.length;i++){
-    const t=norm>0?Math.min(1,Math.sqrt(buf[i]/norm)):0;                // density → brightness
+  const norm=displayMax(normBuf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo), invNorm=norm>0?1/norm:0;
+  const out=new ImageData(W,H);
+  for(let i=0;i<dbuf.length;i++){
+    // density → brightness: the normal sqrt-stretched curve (tuned so sparse
+    // SMLM data stays visible), or — fast mode — a genuinely linear mapping,
+    // the honest "just a histogram" look this option promises.
+    const t = fast ? (norm>0 ? Math.min(1,dbuf[i]*invNorm) : 0)
+                   : (norm>0 ? _sqrtLut[(Math.min(1,dbuf[i]*invNorm)*_SQRT_LUT_N)|0] : 0);
     let j;
-    if(zColor){ const meanz=buf[i]>0?zbuf[i]/buf[i]:zlo;                // hue → depth
+    if(zColor){ const meanz=dbuf[i]>0?zbuf[i]/dbuf[i]:zlo;                // hue → depth
       j=(Math.max(0,Math.min(1,(meanz-zlo)/zspan))*255)|0;
       out.data[i*4]=lut[j*3]*t; out.data[i*4+1]=lut[j*3+1]*t; out.data[i*4+2]=lut[j*3+2]*t; }
     else{ j=(t*255)|0; out.data[i*4]=lut[j*3]; out.data[i*4+1]=lut[j*3+1]; out.data[i*4+2]=lut[j*3+2]; }
     out.data[i*4+3]=255; }
-  ctx.putImageData(out,0,0); return cv;
+  return {imageData:out, satCount};
+}
+// Returns the canvas a render should draw into: a fresh one every call in
+// NORMAL (non-fast) mode — several places (buildSegOverlayCanvas()/
+// buildTransparentReconCanvas(), MODULE: spt/render) cache their own derived
+// canvases keyed by srFull's OBJECT IDENTITY, so reusing the returned canvas
+// there would silently break those caches into never refreshing — or ONE
+// persistent reused canvas in fast mode (_srFastCv): a real, reported bug —
+// "the SR reconstruction disappears when you zoom in, and only reappears
+// once streaming forces a fresh render" — traced to creating (and
+// discarding) a brand-new large canvas on EVERY fast-mode render, which
+// streaming's own frequent re-render cadence does dozens/hundreds of times
+// per session; browsers can silently evict a 2D canvas's GPU-backed surface
+// under memory pressure from many large, rapidly-churned canvases, and a
+// plain zoom (drawView() re-drawing the SAME already-evicted srFull, no new
+// render) then shows nothing until the next real render lands. Deliberately
+// scoped to fast mode only — normal-mode Localize runs render far less
+// frequently, so the eviction pressure barely applies there, and normal mode
+// is exactly the case the identity-caches above need to keep working.
+// Reusing the canvas DOES still explicitly bust buildTransparentReconCanvas()'s
+// own cache (its only real object-identity consumer), so segmentation
+// overlay — unlikely to run during live streaming, but not impossible —
+// can't show stale content either.
+function getOrMakeSrCanvas(W,H,fast){
+  if(!fast){ const cv=document.createElement('canvas'); cv.width=W; cv.height=H; return cv; }
+  if(!_srFastCv || _srFastCv.width!==W || _srFastCv.height!==H){ _srFastCv=document.createElement('canvas'); _srFastCv.width=W; _srFastCv.height=H; }
+  _transReconForSrFull=null;
+  return _srFastCv;
+}
+// Async — the actual accumulate/blur/colorize work (renderSuperResPixels()
+// above) runs on a dedicated render Worker via OffscreenCanvas
+// (getRenderWorker(), MODULE: workers) whenever one is available, so a
+// genuinely expensive full-quality render no longer blocks the main thread
+// (interaction, streaming's own chunk processing) at all — previously the
+// only way to avoid freezing the tab during streaming was forcing fast=true
+// (skip blur entirely); that default stays (still a genuinely faster/
+// simpler preview), but it's no longer the ONLY way to keep the UI responsive.
+// checkRenderSize() stays a synchronous, main-thread-only pre-check (cheap,
+// no O(W·H) work, and needs paramValue()/DOM access a worker doesn't have) —
+// it fails fast, before ever dispatching to the worker. Falls back to the
+// exact same single-threaded algorithm (via the SAME renderSuperResPixels(),
+// against the main-thread _sr* buffers) when no worker is available at all,
+// or if a specific dispatch unexpectedly errors.
+async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,fast=false){
+  if(fast){ blurPx=0; zColor=false; }
+  const W=w*mag, H=h*mag;
+  checkRenderSize(W,H,w,h,mag,zColor,blurPx);
+  const worker=await getRenderWorker();
+  if(worker){
+    try{
+      const {imageBitmap,satCount}=await dispatchRenderWorker(worker,{
+        locs, normLocs:(normLocs&&normLocs!==locs)?normLocs:null,
+        W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct,fast });
+      if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
+      const cv=getOrMakeSrCanvas(W,H,fast);
+      cv.getContext('2d').drawImage(imageBitmap,0,0);
+      imageBitmap.close();
+      return cv;
+    }catch(err){
+      // This SPECIFIC dispatch failed unexpectedly (getRenderWorker() itself
+      // already permanently falls back for "never available at all" — this
+      // catches a one-off runtime error instead) — fall through to the
+      // single-threaded path below rather than losing the render entirely.
+      onLog(`⚠ Render worker error, falling back to single-threaded for this render: ${err.message}`);
+    }
+  }
+  // ---- single-threaded fallback ----
+  let acc,zacc,blurDst,zBlurDst,blurTmp;
+  if(_srW===W && _srH===H && _srZColor===zColor){
+    acc=_srAcc; acc.fill(0); zacc=_srZacc; if(zacc) zacc.fill(0);
+    blurDst=_srBlurDst; zBlurDst=_srZBlurDst; blurTmp=_srBlurTmp;
+  } else {
+    acc=new Uint16Array(W*H); zacc=zColor?new Float32Array(W*H):null;
+    blurDst=new Float32Array(W*H); zBlurDst=zColor?new Float32Array(W*H):null; blurTmp=new Float32Array(W*H);
+    _srW=W; _srH=H; _srZColor=zColor; _srAcc=acc; _srZacc=zacc;
+    _srBlurDst=blurDst; _srZBlurDst=zBlurDst; _srBlurTmp=blurTmp;
+  }
+  const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,fast,{acc,zacc,blurDst,zBlurDst,blurTmp});
+  if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
+  const cv=getOrMakeSrCanvas(W,H,fast);
+  cv.getContext('2d').putImageData(imageData,0,0);
+  return cv;
 }
 // View math is in CSS pixels (the canvas backing is CSS×dpr for crisp overlays,
 // so use clientWidth/Height — NOT the backing width/height — as the logical size).
@@ -5459,10 +5641,39 @@ function zRange(locs, field='z'){
   if(zs.length<2) return null; zs.sort((a,b)=>a-b);
   return {lo:zs[Math.floor(zs.length*0.01)], hi:zs[Math.floor(zs.length*0.99)]};
 }
-function rerender(keepView,isPreview){
+// forceTrue (3rd, optional param): overrides the fastRecon checkbox for
+// exactly this one render — used by streaming's Stop button and its idle/
+// pause detector to force a genuinely full-quality reconstruction without
+// touching #fastRecon's own checked/disabled state (still forced-checked for
+// the rest of an active session; see MODULE: pipeline).
+//
+// async — renderSuperRes() below now runs the actual pixel work on a
+// dedicated worker when available, so this function must await it. It
+// still NEVER rejects (every failure path already logs and returns, exactly
+// as before) — so its ~24 existing call sites, all fire-and-forget today,
+// need no changes at all: `rerender(true)` remains valid, it just means
+// "start a render, don't wait for it" instead of "render synchronously".
+//
+// _srRenderSeq/mySeq guards against a real race this enables: two
+// overlapping renders (e.g. rapid slider drags, or streaming's periodic
+// cadence render overlapping its own idle-timer's forced true-quality
+// render) can now genuinely run concurrently, since the main thread no
+// longer serializes them by blocking. Whichever rerender() call started
+// MOST RECENTLY wins — an older, slower render that finishes after a newer
+// one already landed is discarded rather than stomping srFull with stale
+// content.
+let _srRenderSeq=0;
+async function rerender(keepView,isPreview,forceTrue){
   if(!lastResult) return;
+  const mySeq=++_srRenderSeq;
   $('srTitle').textContent='SMLM reconstruction';
   const mag=paramValue('mag'), rblur=paramValue('rblur');
+  const fast = forceTrue ? false : paramValue('fastRecon');
+  // Blur/Colour-by-depth/z-range are inert while fast mode is on — hide
+  // rather than leave them visibly doing nothing (this app's own "don't
+  // leave a dead control on screen" convention, see CLAUDE.md). zcolorRow/
+  // zrangeRow's own visibility further below still applies once fast is off.
+  $('rblurRow').style.display = fast ? 'none' : 'flex';
   lastResult.mag=mag;
   // Real 3D z (an actual 3D fit method) and sSMLM's paired inter-order
   // distance are DELIBERATE, independent fields (see MODULE: sSMLM /
@@ -5490,10 +5701,15 @@ function rerender(keepView,isPreview){
     $('zminLabel').textContent='z min (nm)';
     $('zmaxLabel').textContent='z max (nm)';
   }
-  $('zcolorRow').style.display = colorField ? 'flex' : 'none';
+  $('zcolorRow').style.display = (colorField && !fast) ? 'flex' : 'none';
   { const zr=$('driftZRow'); if(zr) zr.style.display = hasZ ? 'flex' : 'none'; }
   // 3D shells (FSC) not implemented yet — keep the row hidden.
-  const zColor = !!colorField && paramValue('zcolor');
+  // Force zColor off in fast mode too — a "just a histogram" render never
+  // colours by depth, matching renderSuperRes()'s own fast-mode behaviour
+  // (which would ignore a true zColor here anyway; this just keeps the
+  // z-range UI/computation below from doing pointless work for a render
+  // that won't use it).
+  const zColor = !fast && !!colorField && paramValue('zcolor');
   $('zrangeRow').style.display = zColor ? 'block' : 'none';
   // z range only matters (and is only computed) in depth mode. Doing it
   // unconditionally sorted the whole loc list on every live-preview render —
@@ -5522,11 +5738,19 @@ function rerender(keepView,isPreview){
   }
   const pw=srFull&&srFull.width, ph=srFull&&srFull.height;
   const rlocs = renderLocs || lastResult.locs;   // table filter can restrict the rendered subset
+  // Full-quality (non-fast) renders can now take a real, visible amount of
+  // time on the render worker WITHOUT freezing the tab — previously the
+  // frozen tab itself was the only "something is happening" cue. Skipped for
+  // fast mode, which is fast enough not to need it; overwritten by whichever
+  // render actually lands (a stale one is caught by the mySeq check below
+  // before it can touch this text).
+  if(!fast) $('srInfo').textContent='Rendering…';
   let newSrFull;
   try{
-    newSrFull=renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
+    newSrFull=await renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
                           paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
-                          lastResult.locs, colorField||'z');   // colour scale always pinned to the full dataset, see renderSuperRes
+                          lastResult.locs, colorField||'z',   // colour scale always pinned to the full dataset, see renderSuperRes
+                          undefined, fast);
   }catch(err){
     // Magnification/frame-size combination too big to render (see
     // checkRenderSize() in renderSuperRes) — keep showing whatever was
@@ -5536,6 +5760,7 @@ function rerender(keepView,isPreview){
     log(`⚠ Reconstruction not updated: ${err.message}`);
     return;
   }
+  if(mySeq!==_srRenderSeq) return;   // a NEWER rerender() call landed first — discard this stale result
   srFull=newSrFull;
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
@@ -5749,6 +5974,32 @@ function hideOtherRawToggleBtns(exceptId){
     const b=$(id); if(b) b.style.display='none';
   }
 }
+// Precomputed [rawBlack,rawWhite]→grayscale lookup for drawRaw()'s hot loop
+// (below), rebuilt only when the Contrast slider values actually change —
+// real camera ADU is always integer, so a 65536-entry table (0..65535, the
+// full 16-bit range) is exact, not an approximation: verified byte-identical
+// against the direct per-pixel division on integer-ADU input via
+// tools/bench_render.mjs's correctness check. Values outside [0,65535]
+// (shouldn't occur for real 16-bit camera data) clamp to the table's own
+// ends before lookup, same effective behaviour as the old code's reliance on
+// Uint8ClampedArray auto-clamping for an out-of-range `t*255`.
+let _rawLutBlack=NaN, _rawLutWhite=NaN, _rawLut=null;
+function rawContrastLUT(mn,mx){
+  if(mn===_rawLutBlack && mx===_rawLutWhite) return _rawLut;
+  const lut=new Uint8ClampedArray(65536);
+  for(let v=0;v<65536;v++) lut[v] = mx>mn ? (v-mn)/(mx-mn)*255 : 0;
+  _rawLutBlack=mn; _rawLutWhite=mx; _rawLut=lut;
+  return lut;
+}
+// Persistent ImageData for drawRaw()'s own canvas — reused across same-size
+// calls (every scrub tick and every streamed frame during live MicroManager
+// streaming re-invoke drawRaw() at the SAME w×h far more often than a
+// parameter actually changes it). Safe to reuse, unlike renderSuperRes()'s
+// returned canvas (see that function's own comment): nothing keeps a
+// reference to this ImageData object beyond the immediate putImageData()
+// call below. Measured via tools/bench_render.mjs at ~2-2.8x faster than
+// rebuilding both the LUT and the ImageData every call.
+let _rawImgDataW=0, _rawImgDataH=0, _rawImgData=null;
 function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
   hideOtherRawToggleBtns(null);   // no exception — none of the four toggles are relevant to a live frame
@@ -5757,14 +6008,14 @@ function drawRaw(frame,w,h,spots,locs){
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
   if(sizeChanged){ rawFull.width=w; rawFull.height=h; }
-  const ctx=rawFull.getContext('2d'), im=ctx.createImageData(w,h);
+  const ctx=rawFull.getContext('2d');
+  if(_rawImgDataW!==w || _rawImgDataH!==h){ _rawImgData=ctx.createImageData(w,h); _rawImgDataW=w; _rawImgDataH=h; }
+  const im=_rawImgData;
   // Fixed [rawBlack,rawWhite] range (the Contrast slider below the Frame
   // scrubber), NOT this frame's own min/max — see rawBlack's own comment for
-  // why. A pixel outside the range legitimately maps outside [0,255]; the
-  // Uint8ClampedArray backing ImageData.data clamps that on assignment, so
-  // no explicit clamp is needed here.
-  const mn=rawBlack, mx=rawWhite;
-  for(let i=0;i<frame.length;i++){ const t=mx>mn?(frame[i]-mn)/(mx-mn):0, g=t*255;
+  // why.
+  const mn=rawBlack, mx=rawWhite, lut=rawContrastLUT(mn,mx);
+  for(let i=0;i<frame.length;i++){ const v=frame[i], g=lut[v<0?0:(v>65535?65535:v)|0];
     im.data[i*4]=g;im.data[i*4+1]=g;im.data[i*4+2]=g;im.data[i*4+3]=255; }
   ctx.putImageData(im,0,0);                      // frame buffer holds ONLY the grayscale image
   rawPixelData={arr:frame,w,h};
@@ -5936,6 +6187,133 @@ async function getPool(){
     _pool=[]; for(let i=0;i<nw;i++) _pool.push(new Worker(url));
     return _pool;
   }catch(err){ log('  (workers unavailable: '+err.message+' — single-threaded)'); return _pool=null; }
+}
+
+/* ---------------------------------------------------------------------------
+   Dedicated SR-render worker (MODULE: render's renderSuperRes(), above) —
+   deliberately SEPARATE from _pool/getPool() above, not drawn from it: a
+   pool worker's onmessage is reassigned per-dispatch with no queue (see the
+   detect/fit protocol below), and getPool()'s whole pool is held busy for
+   the full duration of a Localize/streaming-chunk run — sharing it for SR
+   rendering would contend with (or outright clobber) an in-flight run. SR
+   rendering is also a single serial pipeline per render, not independently-
+   batchable frame work, so it only ever needs ONE worker, not a pool of N.
+   --------------------------------------------------------------------------- */
+const RENDER_WORKER_PRELUDE=[
+  "let _mapKey='',_mapX=null,_mapY=null;",   // blurInto()'s own mirror-index cache, same as WORKER_PRELUDE above
+  "let _rwW=0,_rwH=0,_rwZColor=false,_rwAcc=null,_rwZacc=null,_rwBlurDst=null,_rwZBlurDst=null,_rwBlurTmp=null;",
+  "const LUT_CPS="+JSON.stringify(LUT_CPS)+";",
+  "let _lutCache={};",
+  "const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1); for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);",
+].join('\n');
+function renderWorkerSource(){
+  const body=[
+    "const _clMirror="+_clMirror.toString()+";",
+    blurInto.toString(), blur.toString(), getLUT.toString(), displayMax.toString(), renderSuperResPixels.toString(),
+    `onmessage=function(e){
+      const d=e.data;
+      if(d.ping){
+        // Self-test the whole path, not just the message channel — same
+        // "a forgotten helper only fails mid-run otherwise" reasoning as the
+        // detect/fit worker's own ping handler above, extended to also probe
+        // OffscreenCanvas/ImageBitmap usability specifically, since that's
+        // the part (not Worker support alone) that can be missing/broken on
+        // an older engine.
+        try{
+          const testCv=new OffscreenCanvas(4,4), testCtx=testCv.getContext('2d');
+          testCtx.putImageData(new ImageData(4,4),0,0);
+          const bmp=testCv.transferToImageBitmap(); bmp.close();
+          const w=8,h=8, locs=[{x:4,y:4,z:0}];
+          const buf={acc:new Uint16Array(w*h),zacc:null,blurDst:new Float32Array(w*h),zBlurDst:null,blurTmp:new Float32Array(w*h)};
+          renderSuperResPixels(locs,w,h,1,0.5,false,0,0,null,'z','fire',99.5,false,buf);
+          postMessage({pong:1});
+        }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
+        return;
+      }
+      const {seq,locs,normLocs,W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct,fast}=d;
+      try{
+        let buf;
+        if(_rwW===W && _rwH===H && _rwZColor===zColor){
+          buf={acc:_rwAcc,zacc:_rwZacc,blurDst:_rwBlurDst,zBlurDst:_rwZBlurDst,blurTmp:_rwBlurTmp};
+          buf.acc.fill(0); if(buf.zacc) buf.zacc.fill(0);
+        } else {
+          buf={acc:new Uint16Array(W*H), zacc:zColor?new Float32Array(W*H):null,
+               blurDst:new Float32Array(W*H), zBlurDst:zColor?new Float32Array(W*H):null, blurTmp:new Float32Array(W*H)};
+          _rwW=W; _rwH=H; _rwZColor=zColor; _rwAcc=buf.acc; _rwZacc=buf.zacc;
+          _rwBlurDst=buf.blurDst; _rwZBlurDst=buf.zBlurDst; _rwBlurTmp=buf.blurTmp;
+        }
+        const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,fast,buf);
+        const cv=new OffscreenCanvas(W,H), ctx=cv.getContext('2d');
+        ctx.putImageData(imageData,0,0);
+        const imageBitmap=cv.transferToImageBitmap();
+        postMessage({seq,imageBitmap,satCount},[imageBitmap]);
+      }catch(err){ postMessage({seq,err:String(err&&err.message||err)}); }
+    };`
+  ].join('\n');
+  // Same missing-identifier guard as workerSource() above.
+  const declared=new Set((RENDER_WORKER_PRELUDE+' _clMirror').match(/_[A-Za-z]\w*/g)||[]);
+  const missing=[...new Set(body.match(/\b_[A-Za-z]\w*/g)||[])].filter(x=>!declared.has(x));
+  if(missing.length) throw new Error('render worker prelude is missing: '+missing.join(', '));
+  return RENDER_WORKER_PRELUDE+'\n'+body;
+}
+// One persistent worker.onmessage/onerror, NOT reassigned per dispatch
+// (unlike the detect/fit pool's per-dispatch pattern — appropriate there
+// since a POOL member picks up whichever job is next; here there's only one
+// dedicated worker and requests are naturally serialized by the browser's
+// own per-worker message queue, so a second dispatchRenderWorker() call
+// arriving while the first is still computing is safe: the worker processes
+// messages in receipt order, nothing is lost or needs cancelling). Each
+// request carries its own seq; the response echoes it back so the correct
+// pending Promise resolves even if responses arrive out of the order a
+// caller might (incorrectly) assume.
+const _renderWorkerPending=new Map();
+let _renderWorkerSeq=0;
+function wireRenderWorker(worker){
+  worker.onmessage=ev=>{
+    const d=ev.data, pending=_renderWorkerPending.get(d.seq);
+    if(!pending) return;
+    _renderWorkerPending.delete(d.seq);
+    if(d.err) pending.reject(new Error(d.err)); else pending.resolve(d);
+  };
+  worker.onerror=ev=>{
+    // A worker-level error (e.g. an uncaught exception outside the
+    // onmessage handler's own try/catch) carries no seq — reject every
+    // still-pending request rather than leaving it hanging forever.
+    for(const {reject} of _renderWorkerPending.values()) reject(new Error(ev.message||'render worker error'));
+    _renderWorkerPending.clear();
+  };
+}
+function dispatchRenderWorker(worker,payload){
+  return new Promise((resolve,reject)=>{
+    const seq=++_renderWorkerSeq;
+    _renderWorkerPending.set(seq,{resolve,reject});
+    worker.postMessage({seq,...payload});
+  });
+}
+let _renderWorker=undefined;                        // undefined = not probed yet
+async function getRenderWorker(){
+  if(_renderWorker!==undefined) return _renderWorker;
+  try{
+    const url=URL.createObjectURL(new Blob([renderWorkerSource()],{type:'text/javascript'}));
+    const probe=new Worker(url);
+    const ok=await new Promise(res=>{
+      const t=setTimeout(()=>res({pong:0,err:'timeout'}),3000);
+      probe.onmessage=ev=>{clearTimeout(t);res(ev.data||{pong:0});};
+      probe.onerror  =ev=>{clearTimeout(t);res({pong:0,err:ev.message||'worker error'});};
+      probe.postMessage({ping:1});
+    });
+    if(!ok.pong){
+      probe.terminate();
+      log(`  (render worker unavailable${ok.err?' — '+ok.err:''}; SR reconstruction will run on the main thread)`);
+      return _renderWorker=null;
+    }
+    // Reuse the SAME probed worker as the live one, unlike getPool() (which
+    // discards its probe worker and builds a fresh pool of N) — SR rendering
+    // only ever needs ONE dedicated worker, so there's no reason to throw
+    // this one away just to spin up another.
+    wireRenderWorker(probe);
+    return _renderWorker=probe;
+  }catch(err){ log(`  (render worker unavailable: ${err.message} — SR reconstruction will run on the main thread)`); return _renderWorker=null; }
 }
 
 /* ===========================================================================
@@ -9905,8 +10283,18 @@ function startStreamingSession(){
   // raw-frame history/scrub position is discarded along with it, same as any
   // other "new load resets everything" convention in this app.
   streamState={cfg, zcal, wcal, allLocs:[], frameOffset:0, chunkCount:0, active:true,
-               rawFrames:[], rawFrameBaseIdx:0, rawFrameCap:null, followLive:true, w:0, h:0};
+               rawFrames:[], rawFrameBaseIdx:0, rawFrameCap:null, followLive:true, w:0, h:0,
+               idleTimer:null, lastChunkAt:0, chunkIntervalMs:null, renderBusy:false};
   $('streamStartBtn').disabled=true; $('streamStopBtn').disabled=false; $('streamRenderEvery').disabled=true;
+  // Fast (2D-histogram) reconstruction no longer defaults ON for streaming —
+  // renderSuperRes() now runs its full-quality Gaussian-blur pass on a
+  // dedicated Worker+OffscreenCanvas (MODULE: workers, getRenderWorker())
+  // when available, so it no longer blocks the main thread/chunk processing
+  // the way it used to; the periodic cadence render below (streamPushChunkFile())
+  // just uses whatever #fastRecon is currently set to (unchecked by default =
+  // full quality), same as any other render. fastRecon stays available as a
+  // manual option — e.g. for an acquisition whose frame rate outpaces even
+  // the async render — it's just not forced on/disabled anymore.
   $('streamStatus').textContent='Streaming — armed, waiting for chunks…';
   $('streamScrubRow').style.display='none'; $('streamScrubLiveRow').style.display='none'; $('streamScrubNote').style.display='none';
   log('Live streaming: session started — an external bridge can now push frame chunks in via window.webSMLM.stream.pushChunk().');
@@ -9956,6 +10344,37 @@ async function streamPushChunkFile(file){
   streamState.frameOffset+=chunkStack.n;
   streamState.chunkCount++;
   lastResult={locs:streamState.allLocs, w:r.w, h:r.h, px:cfg.pxnm, mag:paramValue('mag'), det:r.det};
+  // Idle/pause detector: a genuine drop in incoming chunks (acquisition
+  // stalled, or between phases) gets ONE render forced to full quality
+  // (forceTrue=true) without ending the session — the periodic cadence
+  // above already defaults to full quality too now, but forceTrue here still
+  // matters if the user has manually re-checked #fastRecon (no longer forced
+  // off during streaming, see startStreamingSession()) for a stream whose
+  // frame rate outpaces even the async render; this guarantees at least the
+  // "stream just went quiet" moment shows the real thing regardless. Kept
+  // CONSERVATIVE (per-request) independent of the render-quality question:
+  // the threshold adapts to the observed inter-chunk cadence (exponential
+  // moving average, so one early outlier chunk can't swing it) rather than a
+  // fixed guess, clamped to a sane [3s, 20s] window so neither a very fast
+  // nor a very slow acquisition mis-fires. One-shot per gap: only
+  // rescheduled here, on a NEW chunk, never by the idle callback itself — an
+  // acquisition that goes idle without Stop being clicked renders true
+  // quality once, not on a repeating timer.
+  const now=performance.now();
+  if(streamState.lastChunkAt){
+    const gap=now-streamState.lastChunkAt;
+    streamState.chunkIntervalMs = streamState.chunkIntervalMs==null ? gap : streamState.chunkIntervalMs*0.7+gap*0.3;
+  }
+  streamState.lastChunkAt=now;
+  if(streamState.idleTimer) clearTimeout(streamState.idleTimer);
+  const idleMs=Math.max(3000, Math.min(20000, (streamState.chunkIntervalMs||1000)*8));
+  streamState.idleTimer=setTimeout(()=>{
+    streamState.idleTimer=null;
+    if(streamState.active && lastResult && lastResult.locs.length){
+      rerender(true,false,true);
+      log(`Live streaming: no new chunks for ~${(idleMs/1000).toFixed(0)}s — rendered a full-quality reconstruction while waiting.`);
+    }
+  }, idleMs);
   // Render cadence is counted in actual FRAMES, not chunks — robust to
   // variable/small chunk sizes (e.g. 1 frame/chunk): rerender() fires
   // whenever the running frame total crosses a multiple-of-N boundary,
@@ -9963,7 +10382,22 @@ async function streamPushChunkFile(file){
   // jump straight past.
   const every=cfg.streamRenderEvery||1;
   if(Math.floor(offset/every)!==Math.floor(streamState.frameOffset/every)){
-    rerender(true,false);
+    // Backpressure guard: renderSuperRes() now defaults to the full-quality
+    // (async, worker-backed) render during streaming — genuinely slower than
+    // the old forced-fast path, and the render worker is a single dedicated
+    // worker (MODULE: workers), not a pool. Without this guard, a
+    // fast-arriving chunk stream could dispatch a new render on every cadence
+    // boundary faster than the worker can finish the previous one, growing an
+    // unbounded backlog of renders that are mostly stale by the time they
+    // land (rerender()'s own _srRenderSeq guard would discard them, but the
+    // worker still burns time computing every one). Skipping a boundary here
+    // is safe and self-healing: the NEXT boundary (or the idle-timer/Stop's
+    // own forced render below) catches the reconstruction back up — nothing
+    // about chunk/localization accumulation depends on this render firing.
+    if(!streamState.renderBusy){
+      streamState.renderBusy=true;
+      rerender(true,false).finally(()=>{ streamState.renderBusy=false; });
+    }
     // One compact milestone line per render, in place of the routine
     // per-chunk lines suppressed above — enough to confirm the session is
     // alive and progressing without appending a new line to the log every
@@ -10108,9 +10542,15 @@ function endStreamingSession(){
   // as-is" convention Stop already promises; .active=false is what actually
   // gates pushChunk()/isActive() now, not streamState's own nullness.
   streamState.active=false;
+  if(streamState.idleTimer){ clearTimeout(streamState.idleTimer); streamState.idleTimer=null; }
   $('streamStartBtn').disabled=false; $('streamStopBtn').disabled=true; $('streamRenderEvery').disabled=false;
   $('streamStatus').textContent='Not streaming.';
-  if(lastResult && lastResult.locs.length){ $('saveBtn').disabled=false; $('tableBtn').disabled=false; }
+  // One final render, forced to full quality (forceTrue=true) regardless of
+  // whatever #fastRecon currently reads — the periodic cadence render during
+  // streaming isn't guaranteed to land exactly on the last chunk (and may
+  // itself have been skipped by the backpressure guard above), so without
+  // this the displayed reconstruction could lag lastResult.locs after Stop.
+  if(lastResult && lastResult.locs.length){ $('saveBtn').disabled=false; $('tableBtn').disabled=false; rerender(true,false,true); }
 }
 
 $('streamStartBtn').addEventListener('click', startStreamingSession);
@@ -10769,6 +11209,7 @@ $('stopBtn').addEventListener('click',()=>{
 // re-render (not re-localize) when any display setting changes
 $('mag').addEventListener('change',()=>{ if(lastResult) rerender(); });
 $('rblur').addEventListener('change',()=>{ if(lastResult) rerender(true); });
+$('fastRecon').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lut').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lutpct').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('zcolor').addEventListener('change',()=>{ if(lastResult) rerender(true); });
@@ -12155,7 +12596,7 @@ async function analyze(config){
   const colorField = hasZ ? 'z' : (hasDist ? 'dist' : 'z');
   const zc = cfg.zcolor && (hasZ || hasDist);
   const zr = zc ? (zRange(locs, colorField)||{lo:0,hi:1}) : {lo:0,hi:1};
-  const cv = renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog);
+  const cv = await renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog, !!cfg.fastRecon);
   // config.exportPlots: renders whichever of drift/NeNA/FRC/PCFO/calibration
   // were actually computed above as BOTH a PNG and an SVG (renderPlotBothFormats(),
   // via the same _plotTarget redirection "Save plot/image" uses interactively
