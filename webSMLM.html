@@ -1808,7 +1808,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-30a</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-30b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2278,7 +2278,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-30a — recorded commands now log BEFORE the action runs, not after — the prose narrating what happened follows the command, not the other way round. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.10-dev · build 2026-08-30b — a blank line now separates each action's own block (command + its result prose, grouped together) from the next, so the whole log copy-pastes cleanly. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2850,9 +2850,33 @@ function jsCommandFor(config){
 // just did (mirroring the CLI examples a user would actually type by
 // hand), same "v1, extend later" scope-limiting this project uses
 // elsewhere rather than trying to derive relevance automatically.
+//
+// A blank line ALWAYS precedes the command itself — this is what separates
+// one action's whole block (its command + its own resulting prose, which
+// belong together and stay unbroken) from whatever came before, now that
+// the command fires before the action instead of after it. Each wrapper
+// that calls this (run()/correctDrift()/etc.) pairs it with
+// stripLeadingBreakOnce() on the onLog it hands to the matching *Core()
+// call, so that core's own first message — which already starts with its
+// OWN leading "\n" for headless callers that skip logCmd() entirely and
+// need that break themselves — doesn't ALSO open a second blank line
+// between the command and its own prose.
 function logCmd(config){
   const line = logCmdStyle==='cli' ? cliCommandFor(config) : jsCommandFor(config);
-  $('logText').textContent += '\n'+line; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
+  $('logText').textContent += '\n\n'+line; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
+}
+// Wraps an onLog callback so its very FIRST call has exactly one leading
+// "\n" stripped, if present — used right after logCmd() (see its own
+// comment) so a *Core() function's own "\nSection header…" opening message
+// (still needed verbatim for headless callers, which never call logCmd() at
+// all and rely on that leading break for their own section separation)
+// doesn't also open a SECOND blank line between the command logCmd() just
+// wrote and this action's own following prose, which are meant to read as
+// one unbroken block. Only the first call is touched — later messages in
+// the same run keep whatever breaks they already have.
+function stripLeadingBreakOnce(fn){
+  let first=true;
+  return m=>{ if(first){ first=false; if(typeof m==='string'&&m.startsWith('\n')) m=m.slice(1); } fn(m); };
 }
 /* Yield to the event loop. setTimeout(0) is clamped to ~4 ms by browsers, which
    cost ~9% of runtime on a 2000-frame stack; a MessageChannel round-trip is a
@@ -6552,7 +6576,7 @@ async function runCalibration(){
       calRef:config.calRef, calFixedXY:fixedXY, psf:config.psf, winr:config.winr,
       detFilter:config.detFilter, [threshKey]:config[threshKey], pxnm:config.pxnm });
     const r = await calibrationCore(config, stack, {
-      onLog: log, onProgress: setProg, shouldStop: () => stopRequested,
+      onLog: stripLeadingBreakOnce(log), onProgress: setProg, shouldStop: () => stopRequested,
       onRawPreview: (img,w,h,maxima,frameLocs,fi,last) => {
         drawRaw(img,w,h,maxima,frameLocs);
         $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spot(s), ${frameLocs.length} fit(s)`; },
@@ -6924,7 +6948,7 @@ async function correctDrift(){
     // ordering (command announces what's about to run, prose narrates what
     // happened) — safe this early since config is already fully resolved.
     logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, pxnm:px});
-    const {drift:d, nFrames} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg});
+    const {drift:d, nFrames} = await driftCore(locs, px, config, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
     lastDrift=d; lastResult.byFrame=null;          // positions changed
     if(d.fdz) lastResult.zr=null;
     setProg(null);
@@ -7226,7 +7250,11 @@ async function computeNeNA(){
     // ordering. No config to speak of (NeNA takes none), so this is just the
     // bare flag, same as the CLI's own --computeNeNA.
     logCmd({computeNeNA:true, pxnm:paramValue('pxnm')});
-    log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
+    // No leading "\n" here — logCmd() just opened this action's own blank-
+    // line separator; this function has no headless-shared caller relying
+    // on this string for its own break (analyze() calls nenaPrecision()
+    // directly, never through computeNeNA()).
+    log('NeNA precision (nearest-neighbour, consecutive frames)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p));
@@ -7435,7 +7463,10 @@ async function computeFRC(){
     // outcome branches below (previously duplicated at each, now moot since
     // logging happens before either is reached).
     logCmd({computeFRC:true, pxnm:paramValue('pxnm')});
-    log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
+    // No leading "\n" here — same reasoning as computeNeNA()'s own comment:
+    // logCmd() already opened this action's blank-line separator, and
+    // analyze() calls frcResolution() directly, never through computeFRC().
+    log('FRC resolution (Fourier ring correlation, 1/7 threshold)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10, p=>setProg(100*p), log);
@@ -7710,7 +7741,7 @@ async function estimateGainOffset(){
     // Logged BEFORE pcfoCore() starts — see run()'s own comment on this
     // ordering — safe this early since cfg is already fully resolved.
     logCmd({estimateGainOffset:true, ...cfg, pxnm:paramValue('pxnm')});
-    const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
+    const r=await pcfoCore(cfg, stack, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
     if(!r) return;
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
     drawPcfoPlot();
@@ -8113,7 +8144,7 @@ async function runSSmlmPair(){
     // Logged BEFORE pairCore() starts — see run()'s own comment on this
     // ordering — safe this early since cfg is already fully resolved.
     logCmd({sSmlmPair:true, ...cfg, pxnm:lastResult.px});
-    const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
+    const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
     if(!r.nPairs){ log('no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
     sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;
     lastResult.locs = sSmlmPairedLocs;
@@ -8650,7 +8681,7 @@ async function runSptTrack(){
     // the plain whole-FOV tracking parameters, same "curated, not
     // exhaustive" scope as calibration's own calFixedPts omission.
     logCmd({sptTrack:true, ...cfg, pxnm:lastResult.px});
-    const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
+    const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:stripLeadingBreakOnce(log), onProgress:setProg}, segCtx);
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
     // sptHistMode resets to 'D' on every fresh Track — a fresh result always
@@ -10249,7 +10280,7 @@ async function run(){
     // free, gaussmleEll only) is separate, driven by config.localize3D itself.
     const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
     const r = await runCore(config, stack, {zcal,wcal}, {
-      onLog: log,
+      onLog: stripLeadingBreakOnce(log),
       onProgress: setProg,
       shouldStop: () => stopRequested,
       onRawPreview: (img,w,h,maxima,frameLocs,fi,n) => { drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`; },
