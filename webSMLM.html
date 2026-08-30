@@ -1812,7 +1812,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30f</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2282,9 +2282,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30f — reordered the Log window's own
-// buttons: "Record as CLI/JS" now comes first, then "Clear log" and "Export
-// log". See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30g — the Localize timing breakdown
+// (frame I/O/detect/fit/preview/other) now reports whole seconds instead of
+// milliseconds — easier to read at a glance on a real dataset. See
+// CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -10343,9 +10344,15 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // time by the 1e-9 floor produced an absurd percentage (~2e13%) rather
   // than an honest "no detect/fit CPU to compare against yet".
   const pc=v=>rawBase>1e-6 ? (100*v/base).toFixed(0).padStart(2)+'%' : 'n/a';
-  const ms=v=>Math.round(v).toLocaleString().padStart(7);
-  if(useWorkers) onLog(`frame I/O   ${ms(tGet)} ms       (overlapped with compute, not CPU time)`);
-  else           onLog(`frame access${ms(tGet)} ms ${pc(tGet)}`);
+  // Rounded to whole seconds (on request) — these breakdown rows commonly run
+  // into the tens/hundreds of thousands of ms on a real dataset, where a raw
+  // ms count is harder to read at a glance than a second count; a stage under
+  // ~0.5s rounds to "0 s" here, an accepted trade-off of picking seconds as
+  // the unit (still shown, just coarse — the exact ms value stays in tDetect/
+  // tFit/etc. for anything reading these numbers programmatically instead).
+  const sec=v=>Math.round(v/1000).toLocaleString().padStart(7);
+  if(useWorkers) onLog(`frame I/O   ${sec(tGet)} s        (overlapped with compute, not CPU time)`);
+  else           onLog(`frame access${sec(tGet)} s  ${pc(tGet)}`);
   // fetchStack!==stack only when FTM actually ran this Run (see the fetchStack
   // setup above). Two disjoint code paths compute it: the serial loop reads
   // fetchStack.getFrames() directly (main-thread time, tracked by
@@ -10356,9 +10363,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // also included in tGet's "frame access" total above (happens inside the
   // same await).
   if(fetchStack!==stack){ const ftmT=useWorkers?ftmWorkMs:fetchStack.ftmMs;
-    onLog(`FTM filter  ${ms(ftmT)} ms ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
-  onLog(`detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
-  onLog(`fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
+    onLog(`FTM filter  ${sec(ftmT)} s  ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
+  onLog(`detect      ${sec(tDetect)} s  ${pc(tDetect)}   (band-pass + maxima)`);
+  onLog(`fit         ${sec(tFit)} s  ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
   // previewMs (SR/raw refresh during the Run) and the gap between runMs and
   // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
   // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
@@ -10366,9 +10373,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // Preview cost scales with the CURRENT locs count each time it fires, so on
   // a long run with millions of localizations it can grow substantially by
   // the end even though early previews were cheap.
-  if(previewMs>50) onLog(`preview     ${ms(previewMs)} ms       (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
+  if(previewMs>50) onLog(`preview     ${sec(previewMs)} s        (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
   const otherMs=runMs-dt-previewMs;
-  if(otherMs>50) onLog(`other       ${ms(otherMs)} ms       (pool setup, main-thread frame fetch/decode not itemised above)`);
+  if(otherMs>50) onLog(`other       ${sec(otherMs)} s        (pool setup, main-thread frame fetch/decode not itemised above)`);
   if(useWorkers){
     // ftmWorkMs is wall time of a SEPARATE barrier-phased pool-parallel stage
     // (row-band FTM correction), not counted in tDetect/tFit — comparing
