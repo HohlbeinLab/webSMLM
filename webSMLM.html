@@ -1674,16 +1674,15 @@ X.B(E,Y);return E}return J}())
      by explicit request. */
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
     background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
-  /* hanging each-line: the FIRST visual row of each real (\n-separated) log
-     line starts flush, matching its own "// "/"# " comment marker (see
-     log()'s own comment, MODULE: params) — but a long line's CSS-wrapped
-     CONTINUATION rows (white-space:pre-wrap above) indent to 3ch, aligning
-     under the text rather than falling back to the left margin. 3ch matches
-     the marker's own width ("// " or "# " is 2-3 characters) in this
-     monospace font, where ch is exact. A real, reported bug without this:
-     a wrapped long prose line's continuation looked like a ragged,
-     unindented orphan next to every short line's own clean marker. */
-  .log #logText{max-width:80ch;text-indent:3ch hanging each-line}
+  /* log() itself now hard-wraps prose at real newlines (see wrapCommentLine(),
+     MODULE: params, next to log()) rather than leaving it to CSS — every
+     visible row is a genuine "\n"-separated line with its own "// "/"# "
+     marker already baked in, not a browser soft-wrap of one long marked
+     line. max-width here is just a readable column cap matching that same
+     wrap width (belt-and-suspenders for the one case wrapCommentLine() can't
+     help — a single unbreakable token, e.g. a URL, longer than the wrap
+     width, which necessarily stays on one un-split line). */
+  .log #logText{max-width:80ch}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
@@ -1813,7 +1812,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30d</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -2283,7 +2282,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30d — synced main's v0.11.10 release: Gaussian MLE fitting (spherical and axis-aligned-elliptical) is now ~1.7-1.9x faster, via a separable Fisher-build fast path contributed by Hazen Babcock (PR #7); output is bit-identical to before. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30e — the log window now hard-wraps
+// prose at real newlines, so every visible line carries its own "// "/"# "
+// marker (previously only the first row of a long CSS-wrapped line did). See
+// CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2798,29 +2800,47 @@ addNumberSteppers();
 // durable setting — same tier as driftPlotMode/sptHistMode, not
 // applyTheme()'s own localStorage).
 let logCmdStyle='js';
-// Every PROSE line gets a comment prefix (js: "// ", cli: "# ", the marker's
-// own trailing space is the only separator — no extra tab, a real, reported
-// visual bug: a tab before the text put the FIRST visual row of a long
-// prose line at one indent while its own CSS-soft-wrapped continuation rows
-// (see `.log`'s `white-space:pre-wrap`) fell all the way back to the left
-// margin, an inconsistent-looking ragged edge. Fixed for real by
-// `text-indent:...hanging each-line` on #logText (MODULE: params CSS,
-// search `hanging each-line`), which indents WRAPPED continuation of a
-// long line to align under the text — dropping the tab here just keeps the
-// marker itself simple, matching that CSS indent width) — NOT the bare
-// command lines logCmd() appends below — so that selecting ANY contiguous
-// stretch of the log, prose and commands mixed, and pasting it into a .js
-// file or shell script just works: prose becomes inert comments, commands
-// execute as-is. Applied per RENDERED line (m.split('\n'), not once per
-// log() call): several of this app's own log() calls already embed a
+// Every PROSE line gets a comment prefix (js: "// ", cli: "# ") — NOT the
+// bare command lines logCmd() appends below — so that selecting ANY
+// contiguous stretch of the log, prose and commands mixed, and pasting it
+// into a .js file or shell script just works: prose becomes inert comments,
+// commands execute as-is. wrapCommentLine() does the actual word-wrapping
+// itself (real "\n"s, one marker per resulting line) rather than leaving it
+// to CSS soft-wrap: a tried-and-reverted earlier version marked only the
+// first RENDERED line of each real line and relied on `white-space:
+// pre-wrap` for the rest, with a CSS `text-indent:hanging` trick to at
+// least align the unmarked continuation rows — but a real, reported
+// follow-up complaint pointed out those continuation rows still had no "//"
+// of their own once you actually looked, e.g. right where a message's own
+// embedded URL landed on its own wrapped row. Copy-paste of the CSS-wrapped
+// text was already technically safe (a soft wrap isn't a real newline, so
+// pasting reassembles one long, still-correctly-marked line) — but reading
+// the log, or opening an exported .txt in an editor that itself soft-wraps,
+// showed the same bare-continuation look either way. Hard-wrapping in JS
+// means every VISIBLE row is a genuine marked line, matching the "every
+// line contains the // " request literally rather than only in the
+// technical copy-paste sense. Applied per already-real line first
+// (m.split('\n')) — several of this app's own log() calls already embed a
 // genuinely multi-line message (a leading blank-line section separator, or
-// several sentences) — prefixing only the first line would leave the rest
-// as bare, syntax-breaking prose once pasted. A blank line stays blank
-// (harmless as-is in both JS and shell, and keeps the existing
-// section-spacing look).
+// several sentences) — each of THOSE is then independently word-wrapped.
+// A blank line stays blank (harmless as-is in both JS and shell, and keeps
+// the existing section-spacing look).
+function wrapCommentLine(line, marker, width=80){
+  if(line==='') return '';
+  const maxContent = Math.max(20, width-marker.length);
+  const words = line.split(' ');
+  const out=[]; let cur='';
+  for(const w of words){
+    const cand = cur ? cur+' '+w : w;
+    if(cand.length>maxContent && cur){ out.push(marker+cur); cur=w; }
+    else cur=cand;
+  }
+  if(cur) out.push(marker+cur);
+  return out.join('\n');
+}
 const log = m => {
   const marker = logCmdStyle==='cli' ? '# ' : '// ';
-  const commented = String(m).split('\n').map(line => line===''?'':marker+line).join('\n');
+  const commented = String(m).split('\n').map(line => wrapCommentLine(line, marker)).join('\n');
   $('logText').textContent += '\n'+commented; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
 };
 // Renders a config object as the equivalent tools/webSMLM-cli.mjs
