@@ -86,9 +86,11 @@
                            [{lag,tamsd}]>, previously pooled away and
                            discarded) to attach each track's own MSD curve;
                            computeEnsembleMsd()/fitMsdLine() (v0.11.10, test):
-                           ensemble MSD-vs-lag plot, third sptHistMode ('msd')
-                           alongside D/track-length, generalizes beyond the
-                           lag-1-only D estimate for longer tracks;
+                           ensemble MSD-vs-lag plot, sptHistMode ('msd') now
+                           the DEFAULT view after Track (falls back to D,
+                           then track-length, if too few qualifying tracks),
+                           generalizes beyond the lag-1-only D estimate for
+                           longer tracks;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -1816,7 +1818,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30l</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-30m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2289,9 +2291,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30l — Contrast readout is now
-// "B & W: 2399-9280" (a dash between the two numbers); the gap between the
-// Contrast row and the Log card below it is a bit tighter. See
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.11-dev · build 2026-08-30m — after Track, the SPT panel
+// now opens on the ensemble MSD-vs-lag plot by default (falls back to the
+// D histogram, then track length, if there's not enough data for it). See
 // CHANGELOG.md.</div></div>
   </main>
 </div>
@@ -8914,21 +8916,25 @@ async function runSptTrack(){
     const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:stripLeadingBreakOnce(log), onProgress:setProg}, segCtx);
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
-    // sptHistMode resets to 'D' on every fresh Track — a fresh result always
-    // opens on the default view, same precedent driftPlotMode's own reset
-    // point follows. sptHistBtn is enabled off trackLengths (matches the old
-    // sptTrackLenHistBtn's own, more permissive condition — every linked
-    // track counts, regardless of D qualification); if there's no D data to
-    // show, fall straight to the length histogram instead of a disabled
-    // button — preserves the exact fallback behaviour the two separate
-    // buttons used to give.
-    sptHistMode='D';
+    // sptHistMode resets to 'msd' on every fresh Track (on request — the
+    // ensemble MSD-vs-lag plot is the first thing shown now, not the D
+    // histogram) — a fresh result always opens on the default view, same
+    // precedent driftPlotMode's own reset point follows. sptHistBtn is
+    // enabled off trackLengths (every linked track counts, regardless of D/
+    // MSD qualification); if there aren't enough qualifying tracks for an
+    // MSD estimate (computeSptMsd()'s own check, sptMsdData stays null),
+    // fall back to D, then to the track-length histogram (always
+    // available) if there's no D data either — preserves the exact
+    // fallback chain the two now-merged buttons used to give.
+    sptHistMode='msd';
     $('sptHistBtn').disabled=!r.trackLengths.length;
     $('sptSaveBtn').disabled=!r.trackLengths.length;
     $('sptShowTracksBtn').disabled=!r.trackLengths.length;
     $('sptShowTrackDataBtn').disabled=!r.trackLengths.length;
     if(r.trackLengths.length){
-      if(!r.diffCoeffs.length){ sptHistMode='length'; log('no tracks met the minimum length for a D estimate — widen Min track length or Search range.'); }
+      computeSptMsd();
+      if(!sptMsdData) sptHistMode = r.diffCoeffs.length ? 'D' : 'length';
+      if(sptHistMode!=='msd' && !r.diffCoeffs.length) log('no tracks met the minimum length for a D estimate — widen Min track length or Search range.');
       drawSptHist();
     }
     // A fresh Track run replaces lastResult.locs with a new array, so
@@ -9082,11 +9088,12 @@ function recomputeSptD(){
 // buttons (Show D histogram / Show length hist.) into one, with
 // sptHistModeBtn (inline in the raw-panel title, same place/pattern as
 // driftPlotModeBtn) toggling which of the two draws. sptHistMode is reset
-// to 'D' only at the start of a fresh runSptTrack() (mirrors
+// to 'msd' only at the start of a fresh runSptTrack() (mirrors
 // driftPlotMode's own "a fresh result always opens on the default view"
-// reset point) — sptHistBtn's own click just reopens whichever mode was
-// last active, it does NOT force 'D' every time.
-let sptHistMode='D';
+// reset point, and matches the MSD-vs-lag plot being the first thing shown,
+// per request) — sptHistBtn's own click just reopens whichever mode was
+// last active, it does NOT force 'msd' every time.
+let sptHistMode='msd';
 function drawSptDHist(){
   if(!lastSpt || !lastSpt.diffCoeffs.length) return;
   const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax');
