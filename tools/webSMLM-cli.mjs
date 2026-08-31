@@ -28,6 +28,31 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeNeNA --computeFRC --exportPlots
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --segmentation mask.tif --segAreaMin 50 --segAreaMax 5000
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --exportHistograms photons,sigma,bg
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --exportTrackData
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --exportSSmlmCandidates
+//   node webSMLM-cli.mjs --calibration beadstack.tif --calibrationOnly --exportCalibrationPoints
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --exportPcfoTiles
+//
+// --exportTrackData/--exportSSmlmCandidates/--exportCalibrationPoints/
+// --exportPcfoTiles each write a companion .ndjson file (newline-delimited
+// JSON — one compact object per line) alongside the usual output:
+// spt_tracks.ndjson (one line per track: track_id/n_locs/D_coeff/mean_x/
+// mean_y/first_frame/last_frame/msd_per_lag — the last is that track's own
+// MSD-vs-lag curve, otherwise only visible pooled into the ensemble mean
+// via the interactive MSD-vs-lag plot), sSmlm_candidates.ndjson (every
+// candidate pair in the configured distance/angle window, before the
+// directional accept/reject pass — dist/angle/rawAngle), calibration_beads.
+// ndjson (every detected bead point across the calibration z-stack), and
+// pcfo_tiles.ndjson (every tile's signal/noise-variance point PCFO's own
+// regression fits). Each requires the flag it augments (sptTrack/sSmlmPair/
+// calibrationOnly-or-a-fresh-calibration/estimateGainOffset respectively) —
+// on its own it does nothing, there being no dataset to export from. Chosen
+// as NDJSON rather than one big JSON array specifically so a real dataset's
+// worth of records (a track/candidate/bead-point count that can run into
+// the thousands to low millions) streams to disk in bounded batches as
+// they're computed, never fully buffered in the page's own memory or in
+// this script's page.evaluate() return value (docs/DOCUMENTATION.md §8 has
+// the full design rationale and schema).
 //
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
@@ -105,7 +130,7 @@
 // An unknown/all-non-finite column logs a warning inside analyze() itself
 // and is silently skipped, not a hard error.
 import { chromium } from 'playwright';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, createWriteStream } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -171,6 +196,42 @@ const htmlUrl = pathToFileURL(join(repoRoot, 'webSMLM.html')).href;
 // error, e.g.) passes through unprefixed.
 const PROGRESS_TAG = ' WEBSMLM_PROGRESS ';
 const LOG_TAG = ' WEBSMLM_LOG ';
+// Third channel: --exportTrackData/--exportSSmlmCandidates/
+// --exportCalibrationPoints/--exportPcfoTiles (docs/DOCUMENTATION.md §8)
+// stream per-record datasets — too large to buffer into the eventual
+// page.evaluate() return value (see that value's own trimming comments
+// below for why) — as {kind, batch} JSON, one console.log per BATCH (not
+// per record). recordStreams below appends each batch straight to a
+// per-kind .ndjson file, so nothing here holds more than one batch (2000
+// records, per makeRecordEmitter()'s own default) in memory at once either.
+const RECORD_TAG = ' WEBSMLM_RECORD ';
+const RECORD_FILENAMES = {
+  spt_tracks: 'spt_tracks.ndjson',
+  sSmlm_candidates: 'sSmlm_candidates.ndjson',
+  calibration_beads: 'calibration_beads.ndjson',
+  pcfo_tiles: 'pcfo_tiles.ndjson',
+};
+const recordStreams = new Map();   // kind -> {stream, count}
+function writeRecordBatch(kind, batch) {
+  let entry = recordStreams.get(kind);
+  if (!entry) {
+    const name = RECORD_FILENAMES[kind] || `${kind}.ndjson`;
+    const stream = createWriteStream(join(outDir, name));
+    stream.write(JSON.stringify({ _schema: `webSMLM.${kind}.v1` }) + '\n');
+    entry = { stream, count: 0 };
+    recordStreams.set(kind, entry);
+  }
+  for (const rec of batch) entry.stream.write(JSON.stringify(rec) + '\n');
+  entry.count += batch.length;
+}
+// Node's own fs.WriteStream buffers internally and flushes async — 'finish'
+// fires once everything queued has actually been written, so callers must
+// await this per stream before the process exits or the tail of a large
+// file can be silently truncated.
+function closeRecordStreams() {
+  return Promise.all([...recordStreams.values()].map(({ stream }) =>
+    new Promise(resolve => { stream.end(resolve); })));
+}
 
 // A standard, in-place terminal progress bar (\r-overwrite, no new line per
 // update) — driven by onProgress, which fires as often as the run
@@ -219,6 +280,10 @@ page.on('console', msg => {
     currentPhase = line.trim();
     printLine(line);
   }
+  else if (text.startsWith(RECORD_TAG)) {
+    const { kind, batch } = JSON.parse(text.slice(RECORD_TAG.length));
+    writeRecordBatch(kind, batch);
+  }
   else if (msg.type() === 'error') printLine('  [page error] ' + text);
 });
 
@@ -240,7 +305,7 @@ try {
   }
 
   console.log('Running analyze()...');
-  const result = await page.evaluate(async ({ rawConfig, calibrationJson, calibIsTiff, hasSeg, fileInputId, calFileInputId, segFileInputId, progressTag, logTag }) => {
+  const result = await page.evaluate(async ({ rawConfig, calibrationJson, calibIsTiff, hasSeg, fileInputId, calFileInputId, segFileInputId, progressTag, logTag, recordTag }) => {
     const config = {};
     for (const key in rawConfig) {
       const spec = PARAMS[key];
@@ -248,7 +313,7 @@ try {
       if (spec) {
         config[key] = spec.type === 'bool' ? (raw === '1' || raw === 'true' || raw === true)
                      : spec.type === 'enum' ? String(raw) : +raw;
-      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sptTrack' || key === 'exportPlots') {
+      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sptTrack' || key === 'exportPlots' || key === 'exportTrackData' || key === 'exportSSmlmCandidates' || key === 'exportCalibrationPoints' || key === 'exportPcfoTiles') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
@@ -270,6 +335,17 @@ try {
     // percentage lines — the bar is the only place progress shows.
     config.onProgress = pct => console.log(progressTag + pct);
     config.onLog = m => console.log(logTag + m);
+    // config.exportTrackData/exportSSmlmCandidates/exportCalibrationPoints/
+    // exportPcfoTiles (docs/DOCUMENTATION.md §8) stream per-record datasets
+    // through onRecord in bounded batches (makeRecordEmitter(), webSMLM.html)
+    // — forwarded live the SAME way onProgress/onLog already are, deliberately
+    // NOT accumulated into this function's own return value: that return value
+    // crosses the DevTools Protocol as one JSON blob (see the pcfo/sSmlmPair
+    // trimming comments below), so a large array there would just reintroduce
+    // the exact problem those trims exist to avoid. One JSON.stringify per
+    // BATCH (not per record) keeps the console-message count reasonable even
+    // for a real dataset's worth of tracks/candidates/bead points.
+    config.onRecord = (kind, batch) => console.log(recordTag + JSON.stringify({ kind, batch }));
     const r = await window.webSMLM.analyze(config);
     if (config.calibrationOnly) return { calibrationOnly: true, calibJsonText: r.calibJsonText, logText: r.logText, plots: r.plots };
     // Trim: locs itself can be large and is redundant with csvText for file
@@ -291,7 +367,14 @@ try {
       spt: r.spt,
       plots: r.plots,
     };
-  }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, hasSeg: !!segPath, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', segFileInputId: 'segmentationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG });
+  }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, hasSeg: !!segPath, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', segFileInputId: 'segmentationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG, recordTag: RECORD_TAG });
+
+  // Flush every record stream (fs.WriteStream buffers internally) before
+  // reporting what was written — otherwise the tail of a large .ndjson file
+  // can still be in flight when the process exits.
+  await closeRecordStreams();
+  const recordFiles = [...recordStreams.entries()].map(([kind, { count }]) =>
+    `${RECORD_FILENAMES[kind] || kind + '.ndjson'} (${count.toLocaleString()} record${count === 1 ? '' : 's'})`);
 
   const calibOutName = (calibPath ? basename(calibPath).replace(/\.(ome\.)?tiff?$/i, '') : 'webSMLM') + '_calib.json';
 
@@ -315,7 +398,8 @@ try {
     writeFileSync(join(outDir, 'log.txt'), result.logText);
     writeFileSync(join(outDir, calibOutName), result.calibJsonText);
     const plotFiles = writePlots(result.plots);
-    printLine(`Done: calibration written to ${join(outDir, calibOutName)}${plotFiles.length ? ` (+ ${plotFiles.join(', ')})` : ''}`);
+    const extra = [...plotFiles, ...recordFiles];
+    printLine(`Done: calibration written to ${join(outDir, calibOutName)}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
   } else {
     writeFileSync(join(outDir, 'result.csv'), result.csvText);
     writeFileSync(join(outDir, 'settings.json'), result.settingsText);
@@ -330,7 +414,8 @@ try {
       sSmlmPair: result.sSmlmPair, spt: result.spt,
     }, null, 2));
 
-    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}${plotFiles.length ? ` (+ ${plotFiles.join(', ')})` : ''}`);
+    const extra = [...plotFiles, ...recordFiles];
+    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
   }
 } catch (err) {
   if (barActive) { process.stdout.write('\n'); barActive = false; }

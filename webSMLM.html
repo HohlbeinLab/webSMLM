@@ -17,22 +17,36 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.10-dev build 2026-08-31k; may drift
-  with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
-  build-letter bump when a change has moved things by more than a few lines.
+  MODULE INDEX — line numbers as of the MicroManager_Streaming/main merge
+  (build 2026-08-31l); may drift with edits, re-grep 'MODULE:' if this looks
+  stale. Refresh alongside a build-letter bump when a change has moved things
+  by more than a few lines.
   ============================================================================
     params          2345   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
-                           a narrow viewport); fastRecon ("Fast reconstruction
-                           (2D histogram)")
+                           a narrow viewport); log()/logCmd() — prose gets a
+                           per-line "// "/"# " comment marker (js/cli, see
+                           #logCmdStyleBtn), commands stay bare so a whole
+                           log stretch pastes as valid code; #logText's
+                           text-indent:hanging each-line keeps a wrapped
+                           line's continuation aligned under the text;
+                           fastRecon ("Fast reconstruction (2D histogram)")
     in/out          2914   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
     simulation      3227   synthetic stack generator ("Simulate movie")
     detect          4115   per-frame band-pass + local-maxima detection
     fit             4371   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
-                           localization; shared mleNewtonFit() driver
+                           localization; shared mleNewtonFit() driver;
+                           separable Fisher-build fast path for spherical/
+                           axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
+                           — hoists per-axis erf/exp terms instead of
+                           recomputing them per pixel, ~1.7-1.9x faster
+                           fitting, bit-identical output (verified);
+                           pcfoCore() logCmd()-adjacent config.exportPcfoTiles
+                           streams pcfo_tiles records via onRecord (already-
+                           in-memory pts, just avoids the CDP return payload)
     render          4846   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
@@ -67,14 +81,43 @@
                            fit pool — never shares it, see that code's own
                            comment for why)
     export          6346   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6606   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           7006   AIM drift correction (2D+z); drift-vs-frame or
-                           x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    7322   NeNA + FRC
-    sSMLM           7983   spectrally resolved SMLM pair-finding; merged
+    3D calibration  6606   astigmatic sigma_x/sigma_y vs z bead curves;
+                           runCalibration() logCmd()s a calibrationOnly:true
+                           recorded command on success; calibrationCore()'s
+                           config.exportCalibrationPoints streams each bead
+                           point (calibration_beads.ndjson) via onRecord as
+                           they're detected, not built up then trimmed
+    drift           6819   AIM drift correction (2D+z); drift-vs-frame or
+                           x/y-path-coloured-by-time plot (driftPlotMode);
+                           frame0 (first ANALYSED frame) offsets segment
+                           binning in aimDrift2D()/aimDriftZ() — a Localize
+                           run restricted to First frame>1 used to corrupt
+                           the whole estimate via empty leading segments;
+                           driftSamplePct (AIM sample %) subsamples each
+                           segment's own points before the intersection
+                           search (subsampleSegments(), AIM_SAMPLE_FLOOR-
+                           guarded) — speed vs. estimation precision
+    locprecision    7312   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+                           {computeFRC:true} on success (no other config)
+    sSMLM           7986   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
-                           Fit angle & tol./Pair share a row, Unpair alone
-    spt             8448   single particle tracking, trackpy-inspired;
+                           Fit angle & tol./Pair share a row, Unpair alone;
+                           runSSmlmPair() logCmd()s its own cfg on success;
+                           pairCore()'s config.exportSSmlmCandidates streams
+                           the wider candidate pool (sSmlm_candidates.ndjson)
+                           via onRecord, before the directional accept/reject
+    spt             8465   single particle tracking, trackpy-inspired;
+                           config.exportTrackData streams spt_tracks.ndjson
+                           via onRecord — sptCore() calls computeEnsembleMsd()
+                           for its now-exposed perTrackMsd (Map<track_id,
+                           [{lag,tamsd}]>, previously pooled away and
+                           discarded) to attach each track's own MSD curve;
+                           computeEnsembleMsd()/fitMsdLine() (v0.11.10, test):
+                           ensemble MSD-vs-lag plot, sptHistMode ('msd') now
+                           the DEFAULT view after Track (falls back to D,
+                           then track-length, if too few qualifying tracks),
+                           generalizes beyond the lag-1-only D estimate for
+                           longer tracks;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -100,12 +143,14 @@
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
-                           not gated on atFit; Live streaming (nested inside
-                           memBox, "Memory & streaming", window.webSMLM.stream)
-                           — two ways in: an opt-in
-                           WebSocket the page itself connects OUT to (never
-                           listens), for hooking into a tab already open
-                           (tools/test_stream_demo.py); or an external
+                           not gated on atFit; run()/runSptTrack() each
+                           logCmd() a curated config subset (not the whole
+                           PARAMS registry) on success — see MODULE: params;
+                           Live streaming (nested inside memBox, "Memory &
+                           streaming", window.webSMLM.stream) — two ways in:
+                           an opt-in WebSocket the page itself connects OUT to
+                           (never listens), for hooking into a tab already
+                           open (tools/test_stream_demo.py); or an external
                            Playwright-driven bridge (tools/webSMLM-stream.mjs
                            / a Gladoscopy RT node) via #streamChunkInput.
                            Either way chunks are localized per-chunk (no FTM)
@@ -134,9 +179,16 @@
                            frameOffset/rawFrames/the reconstruction to empty
                            without touching .active — chunks keep arriving
                            through the call, no reconnect needed
+                           (see also MODULE: liveStreaming, once split out —
+                           tracked as a follow-up)
     table           11891  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
     headless API    12471  window.webSMLM.analyze()/analyzeBatch();
+                           config.onRecord + makeRecordEmitter() (MODULE:
+                           params) stream per-record datasets in bounded
+                           batches, never in analyze()'s own return value —
+                           docs/DOCUMENTATION.md §8 "Streaming per-record
+                           exports" has the full design/schema;
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1690,6 +1742,14 @@ X.B(E,Y);return E}return J}())
      by explicit request. */
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
     background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
+  /* log() itself now hard-wraps prose at real newlines (see wrapCommentLine(),
+     MODULE: params, next to log()) rather than leaving it to CSS — every
+     visible row is a genuine "\n"-separated line with its own "// "/"# "
+     marker already baked in, not a browser soft-wrap of one long marked
+     line. max-width here is just a readable column cap matching that same
+     wrap width (belt-and-suspenders for the one case wrapCommentLine() can't
+     help — a single unbreakable token, e.g. a URL, longer than the wrap
+     width, which necessarily stays on one un-split line). */
   .log #logText{max-width:80ch}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
@@ -1820,8 +1880,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-31k</span></h1>
-    <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
+    <h1>webSMLM <span class="pill">v0.11.11-dev · build 2026-08-31l</span></h1>
+    <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
     <div class="theme-switch" role="group" aria-label="Colour theme">
@@ -2158,6 +2218,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
         <label class="row" id="driftZRow" style="display:none">Correct z too (3D)
           <input type="checkbox" id="driftZ" checked></label>
+        <label class="row" title="Subsample each segment's own localizations before the search, on a large dataset where AIM is slow — trades some estimation precision for speed. 100% = no change.">AIM sample %
+          <input type="number" id="driftSamplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <div class="btnrow">
           <button id="driftBtn" disabled>Correct drift</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
@@ -2170,6 +2232,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
           <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
+          <li><b>AIM sample %</b> — on a large dataset where drift estimation is slow, deterministically subsample each segment's own localizations before the search (100% = no change, the default). Trades some estimation precision for speed; a segment that's already small is never subsampled further.</li>
           </ul>
         </div>
       </details>
@@ -2255,7 +2318,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row">Colour tracks by mean D <input type="checkbox" id="sptTracksColorByD"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="sptTrackBtn" disabled title="Link localizations into trajectories and compute a diffusion coefficient per track">Track</button>
-          <button id="sptHistBtn" disabled title="Show the diffusion-coefficient / track-length histograms (Diffusion shown first; toggle next to the raw panel title switches between the two)">Show histograms</button>
+          <button id="sptHistBtn" disabled title="Show the diffusion-coefficient / track-length / MSD-vs-lag plots (Diffusion shown first; toggle next to the raw panel title cycles between the three)">Show histograms</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="sptShowTracksBtn" disabled title="Plot every track as a thin line on the SMLM reconstruction, track number in white — zoom in to tell individual tracks apart">Show tracks</button>
@@ -2284,7 +2347,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Toggle between the diffusion-coefficient histogram and the track-length histogram">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
@@ -2309,7 +2372,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
               <input type="range" id="rawBlack" min="0" max="255" step="1" value="0">
               <input type="range" id="rawWhite" min="0" max="255" step="1" value="255">
             </div>
-            <span class="val" id="rawContrastV" style="min-width:150px;text-align:right;font-size:12px">Black: 0 · White: 255</span>
+            <span class="val" id="rawContrastV" style="min-width:110px;text-align:right;font-size:12px;white-space:nowrap">B &amp; W: 0-255</span>
             <button id="rawContrastAutoBtn" class="logbtn" title="Reset Black/White to the auto-estimated default range">Auto</button>
           </div>
         </div>
@@ -2327,9 +2390,14 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
-      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-31k — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+    <div class="card" style="margin-top:10px">
+      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.11-dev · build 2026-08-31l — merged v0.11.11 (streaming
+per-record exports, drift Stop support, AIM sample % knob, SPT ensemble
+MSD-vs-lag plot, "Record as JS/CLI" macro-recording log) with the
+Micro-Manager live-streaming bridge. Keyboard hotkeys: hold Alt (Option
+⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons,
+Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2506,6 +2574,19 @@ const PARAMS = {
   driftRoi: { type:'number', id:'driftRoi', label:'Drift search radius (nm)', min:10, max:1000, step:10, default:120, int:false },
   // driftZ = also run the 1-D z-drift correction alongside the 2-D x/y correction
   driftZ: { type:'bool', id:'driftZ', label:'Correct z too (3D)', default:true },
+  // driftSamplePct = deterministically subsample each segment's own locs before
+  // the AIM histogram-intersection search (v0.11.11, on request) — bestShift()'s
+  // cost scales with the number of OCCUPIED bins in the segment being aligned,
+  // not with `ref`'s size, so fewer locs per segment directly cuts both the
+  // per-segment bin-map build and the (2R+1)² shift-search loop, roughly
+  // proportional to this percentage. Default 100 (no behaviour change) — this
+  // trades estimation precision for speed (fewer points per segment means
+  // noisier histogram-intersection counts feeding the sub-pixel parabolic peak
+  // fit), unlike the tracks-overlay's own seeded-percentage sampling (a
+  // display-only convenience with no correctness cost) — so it's opt-in, not a
+  // silently-safe default. See subsampleSegments()'s own floor guard (MODULE:
+  // drift) for why a sparse segment is never subsampled below usefulness.
+  driftSamplePct: { type:'number', id:'driftSamplePct', label:'AIM sample % (speed vs. precision)', min:5, max:100, step:5, default:100, int:true },
 
   // ---- precision ----
   // frc3d = compute FRC over spherical shells instead of 2D rings (not yet implemented — UI placeholder)
@@ -2858,7 +2939,118 @@ function addNumberSteppers(){
   });
 }
 addNumberSteppers();
-const log = m => { const l=$('log'); const atBottom = l.scrollHeight-l.scrollTop-l.clientHeight<24; $('logText').textContent += '\n'+m; if(atBottom) l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false; };
+// "Record as" toggle (v0.11.10, on request) — 'js' (window.webSMLM.analyze()
+// calls, the default: easier to read) or 'cli' (tools/webSMLM-cli.mjs
+// invocations, likely the more commonly USED form once copied out) — see
+// logCmd()'s own comment for why both forms exist rather than picking one.
+// Session-only, not persisted (a log-window display preference, not a
+// durable setting — same tier as driftPlotMode/sptHistMode, not
+// applyTheme()'s own localStorage).
+let logCmdStyle='js';
+// Every PROSE line gets a comment prefix (js: "// ", cli: "# ") — NOT the
+// bare command lines logCmd() appends below — so that selecting ANY
+// contiguous stretch of the log, prose and commands mixed, and pasting it
+// into a .js file or shell script just works: prose becomes inert comments,
+// commands execute as-is. wrapCommentLine() does the actual word-wrapping
+// itself (real "\n"s, one marker per resulting line) rather than leaving it
+// to CSS soft-wrap: a tried-and-reverted earlier version marked only the
+// first RENDERED line of each real line and relied on `white-space:
+// pre-wrap` for the rest, with a CSS `text-indent:hanging` trick to at
+// least align the unmarked continuation rows — but a real, reported
+// follow-up complaint pointed out those continuation rows still had no "//"
+// of their own once you actually looked, e.g. right where a message's own
+// embedded URL landed on its own wrapped row. Copy-paste of the CSS-wrapped
+// text was already technically safe (a soft wrap isn't a real newline, so
+// pasting reassembles one long, still-correctly-marked line) — but reading
+// the log, or opening an exported .txt in an editor that itself soft-wraps,
+// showed the same bare-continuation look either way. Hard-wrapping in JS
+// means every VISIBLE row is a genuine marked line, matching the "every
+// line contains the // " request literally rather than only in the
+// technical copy-paste sense. Applied per already-real line first
+// (m.split('\n')) — several of this app's own log() calls already embed a
+// genuinely multi-line message (a leading blank-line section separator, or
+// several sentences) — each of THOSE is then independently word-wrapped.
+// A blank line stays blank (harmless as-is in both JS and shell, and keeps
+// the existing section-spacing look).
+function wrapCommentLine(line, marker, width=80){
+  if(line==='') return '';
+  const maxContent = Math.max(20, width-marker.length);
+  const words = line.split(' ');
+  const out=[]; let cur='';
+  for(const w of words){
+    const cand = cur ? cur+' '+w : w;
+    if(cand.length>maxContent && cur){ out.push(marker+cur); cur=w; }
+    else cur=cand;
+  }
+  if(cur) out.push(marker+cur);
+  return out.join('\n');
+}
+const log = m => {
+  const marker = logCmdStyle==='cli' ? '# ' : '// ';
+  const commented = String(m).split('\n').map(line => wrapCommentLine(line, marker)).join('\n');
+  const l=$('log'); const atBottom = l.scrollHeight-l.scrollTop-l.clientHeight<24;
+  $('logText').textContent += '\n'+commented; if(atBottom) l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
+};
+// Renders a config object as the equivalent tools/webSMLM-cli.mjs
+// invocation — matching its own --key/--flag convention exactly (a bare
+// --key for a true boolean, --key value otherwise; see its own argv
+// parsing). config keys are expected pre-curated by the caller (see
+// logCmd()'s own comment) — not the full buildConfigFromParams() dump,
+// which would produce an unreadable line mixing in dozens of unrelated
+// fields (render/simulation/spt/… settings this particular action never
+// touches).
+function cliCommandFor(config){
+  const parts=[];
+  for(const [k,v] of Object.entries(config)){
+    if(v===null||v===undefined||v==='') continue;
+    if(typeof v==='boolean'){ if(v) parts.push(`--${k}`); continue; }
+    parts.push(`--${k} ${v}`);
+  }
+  return `node webSMLM-cli.mjs ${parts.join(' ')}`;
+}
+// Same config, rendered as the equivalent window.webSMLM.analyze() call.
+function jsCommandFor(config){
+  const parts=Object.entries(config).filter(([,v])=>v!==null&&v!==undefined&&v!=='')
+    .map(([k,v])=>`${k}:${JSON.stringify(v)}`);
+  return `analyze({${parts.join(', ')}})`;
+}
+// Appends a recorded, DIRECTLY RUNNABLE command line for a config-driven
+// action (Localize, Correct drift, …) — bare, no comment prefix (see
+// log()'s own comment for why prose and commands are treated oppositely).
+// Rendered as either form per logCmdStyle, from a small CURATED subset of
+// the action's own config — deliberately not the whole PARAMS registry;
+// each call site picks the handful of keys that actually describe what it
+// just did (mirroring the CLI examples a user would actually type by
+// hand), same "v1, extend later" scope-limiting this project uses
+// elsewhere rather than trying to derive relevance automatically.
+//
+// A blank line ALWAYS precedes the command itself — this is what separates
+// one action's whole block (its command + its own resulting prose, which
+// belong together and stay unbroken) from whatever came before, now that
+// the command fires before the action instead of after it. Each wrapper
+// that calls this (run()/correctDrift()/etc.) pairs it with
+// stripLeadingBreakOnce() on the onLog it hands to the matching *Core()
+// call, so that core's own first message — which already starts with its
+// OWN leading "\n" for headless callers that skip logCmd() entirely and
+// need that break themselves — doesn't ALSO open a second blank line
+// between the command and its own prose.
+function logCmd(config){
+  const line = logCmdStyle==='cli' ? cliCommandFor(config) : jsCommandFor(config);
+  $('logText').textContent += '\n\n'+line; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
+}
+// Wraps an onLog callback so its very FIRST call has exactly one leading
+// "\n" stripped, if present — used right after logCmd() (see its own
+// comment) so a *Core() function's own "\nSection header…" opening message
+// (still needed verbatim for headless callers, which never call logCmd() at
+// all and rely on that leading break for their own section separation)
+// doesn't also open a SECOND blank line between the command logCmd() just
+// wrote and this action's own following prose, which are meant to read as
+// one unbroken block. Only the first call is touched — later messages in
+// the same run keep whatever breaks they already have.
+function stripLeadingBreakOnce(fn){
+  let first=true;
+  return m=>{ if(first){ first=false; if(typeof m==='string'&&m.startsWith('\n')) m=m.slice(1); } fn(m); };
+}
 /* Yield to the event loop. setTimeout(0) is clamped to ~4 ms by browsers, which
    cost ~9% of runtime on a 2000-frame stack; a MessageChannel round-trip is a
    macrotask too (so paint/input still run) but is not clamped. */
@@ -2873,6 +3065,29 @@ const tick = (()=>{
 // this one bar — see the .bar CSS rule for why.
 const setProg = pct => { $('prog').style.width = pct==null ? '0%' : Math.max(0,Math.min(100,pct)).toFixed(1)+'%'; };
 const fmtBytes = b => b>1073741824 ? (b/1073741824).toFixed(2)+' GB' : (b/1048576).toFixed(0)+' MB';
+
+// Batches records before handing them to an onRecord hook (the *Core() hooks
+// convention every other callback here follows) — backs config.exportTrackData/
+// exportSSmlmCandidates/exportCalibrationPoints/exportPcfoTiles (v0.11.10,
+// docs/DOCUMENTATION.md §8) for streaming potentially large per-record
+// datasets (per-track MSD curves, sSMLM candidates, calibration bead points,
+// PCFO tile points) out to disk without ever holding the whole array in
+// memory OR putting it in analyze()'s own return value. That return value
+// matters specifically for the CLI: it crosses the DevTools Protocol as one
+// JSON blob (see tools/webSMLM-cli.mjs's own trimming comments on pcfo/
+// sSmlmPair), so a large array THERE just moves the same problem rather than
+// solving it — onRecord instead reuses the SAME live console.log forwarding
+// onLog/onProgress already use, one bounded batch at a time. batchSize
+// trades write-call overhead against how much sits in memory at once — 2000
+// is a reasonable default, not load-bearing. Returns a no-op when the
+// caller didn't ask for this export (onRecord null), so every *Core() call
+// site can call push()/flush() unconditionally without its own if-guard.
+function makeRecordEmitter(kind, onRecord, batchSize=2000){
+  if(!onRecord) return { push(){}, flush(){} };
+  let buf=[];
+  const flush=()=>{ if(buf.length){ onRecord(kind, buf); buf=[]; } };
+  return { push(r){ buf.push(r); if(buf.length>=batchSize) flush(); }, flush };
+}
 
 // Accept ',' as a decimal separator on every number input (common outside
 // en-US locales). The HTML spec requires '.' for type=number, so a typed or
@@ -3171,7 +3386,7 @@ function makeFtmStack(rawStack, win, camoffset, chunkmb, hooks={}){
         const ctxStart=Math.max(0, Math.min(n-win, coreStart-half));
         const ctxEnd=Math.max(0, Math.min(n-win, coreEnd-1-half))+win;
         const ctxFrames=new Array(ctxEnd-ctxStart);
-        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk, context ${ctxStart+1}–${ctxEnd})…`);
+        onLog(`FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk, context ${ctxStart+1}–${ctxEnd})…`);
         const BLK=32;   // fetch in blocks, not one call — avoids a single giant read on a sliced/streamed stack
         for(let b=ctxStart; b<ctxEnd; b+=BLK){
           const bl=await rawStack.getFrames(b, Math.min(ctxEnd,b+BLK));
@@ -3516,14 +3731,14 @@ async function loadNd2File(file, onLog=log){
   const declared=attrs.uiSequenceCount||0, found=frameOffsets.length;
   const n=declared>0 ? Math.min(declared,found) : found;
   if(!n) throw new Error('ND2: no ImageDataSeq chunks found — unsupported/corrupt file');
-  if(declared && declared!==found) onLog(`  ⚠ ImageAttributesLV declares ${declared} frame(s) but ${found} ImageDataSeq chunk(s) were found — using ${n}.`);
+  if(declared && declared!==found) onLog(`⚠ ImageAttributesLV declares ${declared} frame(s) but ${found} ImageDataSeq chunk(s) were found — using ${n}.`);
   for(let i=0;i<n;i++) if(!frameOffsets[i]) throw new Error(`ND2: missing ImageDataSeq|${i}! chunk — corrupt or unsupported file`);
   const px=paramValue('pxnm');
   const scaleParts=[];
   if(calibUmPerPx) scaleParts.push(`pixel size ≈ ${(calibUmPerPx*1000).toFixed(1)} nm/px (file calibration)`);
   if(frameIntervalMs) scaleParts.push(`frame interval ${frameIntervalMs.toFixed(2)} ms (from per-frame timestamps)`);
-  onLog(`  ${n} frame(s) · ${w}×${h} · 16-bit`+(scaleParts.length?` · file's own metadata: ${scaleParts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.`:'.'));
-  if(cameraInfo) onLog(`  camera: ${cameraInfo}`);
+  onLog(`${n} frame(s) · ${w}×${h} · 16-bit`+(scaleParts.length?` · file's own metadata: ${scaleParts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.`:'.'));
+  if(cameraInfo) onLog(`camera: ${cameraInfo}`);
   const rawBytes=w*h*2;
   // Fast path mirrors loadTiffFile()'s own contiguous-TIFF one: a 2-byte-
   // aligned relative offset lets a direct Uint16Array view bulk-copy at the
@@ -3581,7 +3796,7 @@ function tiffScaleHint(ifd0, desc){
   const parts=[];
   if(isMicron && ifd0.t282 && ifd0.t282[0]>0) parts.push(`pixel size ≈ ${(1000/ifd0.t282[0]).toFixed(1)} nm/px (XResolution+unit)`);
   if(fi && +fi[1]>0) parts.push(`frame interval ${(+fi[1]*1000).toFixed(1)} ms (finterval)`);
-  return parts.length ? `  file's own metadata: ${parts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.` : '';
+  return parts.length ? `file's own metadata: ${parts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.` : '';
 }
 /* Reads only a header slice first. If the file turns out to be a contiguous
    ImageJ stack, frames are read on demand with File.slice() and the whole file
@@ -3659,7 +3874,7 @@ async function loadTiffFile(file, onLog=log){
       // only fires when it's the tightened Memory budget forcing this, not a
       // genuinely huge file (which would take this path regardless of budget).
       if(effSliceMin<SLICE_MIN && fileSize<=SLICE_MIN){
-        onLog(`  (Below the ${fmtBytes(SLICE_MIN)} size where this is required regardless — the ${fmtBytes(effSliceMin)} Memory budget is what pushed it here; raise it if you have the RAM to load faster.)`);
+        onLog(`(Below the ${fmtBytes(SLICE_MIN)} size where this is required regardless — the ${fmtBytes(effSliceMin)} Memory budget is what pushed it here; raise it if you have the RAM to load faster.)`);
       }
       const hint=tiffScaleHint(hifds[0], dv('t270')); if(hint) onLog(hint);
       // Fast path: single-channel, native (LE) byte order, aligned offset — a
@@ -3756,7 +3971,7 @@ async function loadTiffSequence(fileList, onLog=log){
   const all=[...fileList];
   const isTiff=await Promise.all(all.map(isTiffFile));
   const files=all.filter((f,i)=>isTiff[i]).sort((a,b)=>naturalCompare(a.name,b.name));
-  if(all.length!==files.length) onLog(`  (${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
+  if(all.length!==files.length) onLog(`(${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
   if(!files.length) throw new Error('no TIFF-formatted files in the selection');
   const n=files.length, px=paramValue('pxnm');
   const decodeOne=async f=>{
@@ -3774,7 +3989,7 @@ async function loadTiffSequence(fileList, onLog=log){
   const ifd0=await decodeOne(files[0]);
   const w=ifd0.width, h=ifd0.height;
   onLog(`Folder selection: ${n} single-frame TIFFs · ${w}×${h} · sorted by filename`);
-  onLog(`  ${files[0].name} … ${files[n-1].name}`);
+  onLog(`${files[0].name} … ${files[n-1].name}`);
   const descOf0=t=>{ const v=ifd0[t]; return !v?'' : (typeof v==='string'?v : (v.join?v.join(''):String(v))); };
   const seqHint=tiffScaleHint(ifd0, descOf0('t270')); if(seqHint) onLog(seqHint);
   let cached0=ifdToFloat(ifd0,w,h);            // avoid decoding frame 0 twice
@@ -3858,7 +4073,7 @@ async function loadTiffFilesAuto(fileList, onLog=log){
   if(all.length===1 && await isNd2File(all[0])) return loadTiffFile(all[0], onLog);
   const isTiff=await Promise.all(all.map(isTiffFile));
   const files=all.filter((f,i)=>isTiff[i]).sort((a,b)=>naturalCompare(a.name,b.name));
-  if(all.length!==files.length) onLog(`  (${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
+  if(all.length!==files.length) onLog(`(${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
   if(!files.length) throw new Error('no TIFF-formatted files in the selection');
   if(files.length===1) return loadTiffFile(files[0], onLog);
   // Buffer file[0]'s own log lines instead of printing them immediately —
@@ -3883,13 +4098,13 @@ async function loadTiffFilesAuto(fileList, onLog=log){
   // not the filename on every line.
   const fileLog=i=>{ let head=true; return msg=>{
     if(head){ onLog(`File ${i+1}/${files.length}: ${files[i].name} — ${msg.replace(/^File: /,'')}`); head=false; }
-    else onLog(`  ${msg}`);
+    else onLog(`${msg}`);
   }; };
   buffered.forEach(fileLog(0));
   const stacks=[first];
   for(let i=1;i<files.length;i++) stacks.push(await loadTiffFile(files[i], fileLog(i)));
   const combined=makeConcatStack(stacks, files.map(f=>f.name));
-  onLog(`  ${files.length} files → ${combined.n.toLocaleString()} frames total (${stacks.map(s=>s.n).join('+')}) · ${combined.w}×${combined.h}.`);
+  onLog(`${files.length} files → ${combined.n.toLocaleString()} frames total (${stacks.map(s=>s.n).join('+')}) · ${combined.w}×${combined.h}.`);
   return combined;
 }
 
@@ -3930,7 +4145,7 @@ async function loadMultiIfdStreaming(file, fileSize, onLog=log){
   setProg(null);
   const n=offsets.length;
   if(!n) throw new Error('no image frames found');
-  onLog(`  indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
+  onLog(`indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
   // Fast path: single-channel, native (LE) byte order, aligned offset — a direct
   // TypedArray view + Float32Array.set() bulk-copies/converts at the engine
   // level (measured ~45x faster than the per-pixel DataView loop below, since
@@ -4003,7 +4218,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
     if(guess>1){
       declared=guess;
       onLog(`⚠ Only 1 IFD, but the file holds ~${guess} frames of raw data.`);
-      onLog(`   No images= record found; inferring the count from the file size.`);
+      onLog(`No images= record found; inferring the count from the file size.`);
     }
   }
   if(declared>n){
@@ -4018,13 +4233,13 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
     const usable=Math.min(declared,avail);
     onLog(`Contiguous stack: description declares ${declared} frames, ${n} IFD${n===1?'':'s'} present.`);
     if(fileBuf.byteLength<fileSize){
-      onLog(`  ⚠ Only ${fmtBytes(fileBuf.byteLength)} of the ${fmtBytes(fileSize)} file reached memory`);
-      onLog(`     (JS ArrayBuffer size limit) — ${usable} of ${declared} frames are reachable.`);
+      onLog(`⚠ Only ${fmtBytes(fileBuf.byteLength)} of the ${fmtBytes(fileSize)} file reached memory`);
+      onLog(`(JS ArrayBuffer size limit) — ${usable} of ${declared} frames are reachable.`);
     }
     if(cmpr===1 && rawBytes>0 && usable>1){
       const isLE=new DataView(fileBuf,0,2).getUint16(0,true)===0x4949;
       const fmt=(ifds[0].t339&&ifds[0].t339[0])||1;
-      onLog(`  Indexing ${usable} frame(s) directly from offset ${base} (${bps}-bit, ${isLE?'LE':'BE'}).`);
+      onLog(`Indexing ${usable} frame(s) directly from offset ${base} (${bps}-bit, ${isLE?'LE':'BE'}).`);
       const readFrame=fi=>{
         const off=base+fi*rawBytes, g=new Float32Array(w*h);
         if(bps===8){ const u=new Uint8Array(fileBuf,off,rawBytes);
@@ -4037,7 +4252,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
         return g;
       };
       const needC=usable*frameBytes;
-      onLog(`  Decoded working set if fully cached: ~${fmtBytes(needC)} (budget ${fmtBytes(budget)}).`);
+      onLog(`Decoded working set if fully cached: ~${fmtBytes(needC)} (budget ${fmtBytes(budget)}).`);
       if(needC<=budget){
         try{
           const frames=new Array(usable);
@@ -4047,19 +4262,19 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
               await tick(); }
           }
           setProg(null);
-          onLog('  Loaded into memory — re-runs will not re-decode.');
+          onLog('Loaded into memory — re-runs will not re-decode.');
           return makeStack(w,h,usable,px, fi=>frames[fi]);
         }catch(err){
           setProg(null); if(!isAlloc(err)) throw err;
-          onLog(`  ⚠ In-memory load hit a memory limit; decoding on demand instead.`);
+          onLog(`⚠ In-memory load hit a memory limit; decoding on demand instead.`);
         }
       }
       // Random access is O(1) here, so no heaps are needed — decode per frame.
-      onLog(`  Exceeds budget — decoding frames on demand (no re-decode penalty: it is a plain byte read).`);
+      onLog(`Exceeds budget — decoding frames on demand (no re-decode penalty: it is a plain byte read).`);
       return makeStack(w,h,usable,px, readFrame);
     }
-    onLog(`  ⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
-    onLog(`     only ${n} of ${declared} frames will be analysed.`);
+    onLog(`⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
+    onLog(`only ${n} of ${declared} frames will be analysed.`);
   }
   onLog(`Decoded working set if fully cached: ~${fmtBytes(need)} (budget ${fmtBytes(budget)}).`);
 
@@ -4080,7 +4295,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
         try{ heap=build(s); start=s; return; }
         catch(err){ if(!isAlloc(err)||cf<=1) throw err;
           heap=[]; cf=Math.max(1,cf>>1); s=Math.floor(fi/cf)*cf;
-          onLog(`  heap too large — shrinking to ${cf} frame(s)/heap.`); } } };
+          onLog(`heap too large — shrinking to ${cf} frame(s)/heap.`); } } };
     return { w,h,n,px, streaming:true, get chunkFrames(){return cf;},
       getFrame(fi){ ensure(fi); return heap[fi-start]; },
       async getFrames(s,e){ e=Math.min(e,n); const out=[];
@@ -4495,7 +4710,56 @@ function mleClampElliptical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4
 // this function only fits, it never rejects.
 function mleNewtonFit(n, th, mstep, clampFn, r, cx, cy, img, w, gain, camoffset, eps, maxIter, modelFn){
   const g=new Float64Array(n), du=new Array(n);
+  // SEPARABLE FAST PATH (spherical + axis-aligned elliptical). Every
+  // transcendental in mleModelSpherical/mleModelElliptical depends on ONE
+  // axis: PX/dPXmu/dPXs on the x offset, PY/dPYmu/dPYs on y. Evaluating the
+  // model per pixel therefore recomputes the same 2*(2r+1) erf/exp results
+  // (2r+1) times over -- 8 exp per pixel, 648 per Fisher build at r=4.
+  // Hoisting them into per-axis arrays makes it 4 exp per axis point, 72 per
+  // build, which is the same factorization 3D-DAOSTORM's daoCalcPeakShape()
+  // uses. Purely a hoist: the per-pixel expressions below are copied verbatim
+  // from the two models, in the same loop order, so the float accumulation
+  // order -- and the result -- is unchanged. Both models stay as the
+  // reference implementations and still serve every other caller.
+  //
+  // mleModelRotated is deliberately NOT here and cannot be: its arga/argb are
+  // both rotations of (dx,dy) together, so its single exp(-(arga^2/sx2 +
+  // argb^2/sy2)/2) does not factor into an x-part times a y-part at a general
+  // angle. It is also point-sampled rather than pixel-integrated, so it only
+  // spends one exp per pixel (81 per build, not 648) and has far less to gain.
+  // gaussianMLEellipticangled additionally passes a closure rather than the
+  // bare function, so it can never match either identity check below.
+  const sepS = (modelFn===mleModelSpherical), sepE = (modelFn===mleModelElliptical);
+  const sep = sepS||sepE, K=2*r+1;
+  const xPX=sep?new Float64Array(K):null, xDmu=sep?new Float64Array(K):null, xDs=sep?new Float64Array(K):null;
+  const yPY=sep?new Float64Array(K):null, yDmu=sep?new Float64Array(K):null, yDs=sep?new Float64Array(K):null;
   const buildFisher=withGrad=>{ const M=[]; for(let a=0;a<n;a++)M.push(new Array(n).fill(0)); if(withGrad)g.fill(0);
+    if(sep){
+      // spherical shares one sigma across both axes; elliptical uses th[4]/th[5].
+      const sigX=th[4], sigY=sepS?th[4]:th[5], sx2=sigX*sigX, sy2=sigY*sigY;
+      for(let i=0;i<K;i++){
+        const px=cx-r+i, d0=px-th[0];
+        xPX[i]=mleGInt(px,th[0],sigX);
+        const ea0=Math.exp(-(d0+0.5)*(d0+0.5)/(2*sx2)), eb0=Math.exp(-(d0-0.5)*(d0-0.5)/(2*sx2));
+        xDmu[i]=-(ea0-eb0)/(_SQ2PI*sigX);
+        xDs[i]=-((d0+0.5)*ea0-(d0-0.5)*eb0)/(_SQ2PI*sx2);
+        const py=cy-r+i, d1=py-th[1];
+        yPY[i]=mleGInt(py,th[1],sigY);
+        const ea1=Math.exp(-(d1+0.5)*(d1+0.5)/(2*sy2)), eb1=Math.exp(-(d1-0.5)*(d1-0.5)/(2*sy2));
+        yDmu[i]=-(ea1-eb1)/(_SQ2PI*sigY);
+        yDs[i]=-((d1+0.5)*ea1-(d1-0.5)*eb1)/(_SQ2PI*sy2);
+      }
+      for(let iy=0;iy<K;iy++){ const py=cy-r+iy, PY=yPY[iy], dPYmu=yDmu[iy], dPYs=yDs[iy], row=py*w;
+        for(let ix=0;ix<K;ix++){ const PX=xPX[ix];
+          const model=th[2]*PX*PY+th[3]; if(model<1e-6) continue;
+          du[0]=th[2]*PY*xDmu[ix]; du[1]=th[2]*PX*dPYmu; du[2]=PX*PY; du[3]=1;
+          if(sepS){ du[4]=th[2]*(xDs[ix]*PY+PX*dPYs); }
+          else { du[4]=th[2]*PY*xDs[ix]; du[5]=th[2]*PX*dPYs; }
+          const inv=1/model, data=(img[row+cx-r+ix]-camoffset)*gain, cf=data*inv-1;
+          if(withGrad) for(let a=0;a<n;a++) g[a]+=cf*du[a];
+          for(let a=0;a<n;a++) for(let b=a;b<n;b++){ const v=du[a]*du[b]*inv; M[a][b]+=v; if(b!==a) M[b][a]+=v; } } }
+      return M;
+    }
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx, py=cy+dy;
       const model=modelFn(px,py,th,du); if(model<1e-6) continue;
       const inv=1/model, data=(img[py*w+px]-camoffset)*gain, cf=data*inv-1;
@@ -5868,7 +6132,7 @@ function syncRawContrastUI(){
   const fB=frac(rawBlack), fW=frac(rawWhite);
   $('rawContrastFill').style.left=fillX(fB);
   $('rawContrastFill').style.width=`calc(${Math.max(0,fW-fB)}*(100% - ${DUALRANGE_THUMB_PX}px))`;
-  $('rawContrastV').textContent=`Black: ${rawBlack.toFixed(0)} · White: ${rawWhite.toFixed(0)}`;
+  $('rawContrastV').textContent=`B & W: ${rawBlack.toFixed(0)}-${rawWhite.toFixed(0)}`;
 }
 // Re-renders the currently-cached raw frame at the new contrast without
 // re-fetching it from the stack (would lag while dragging a handle) —
@@ -6206,13 +6470,13 @@ async function getPool(){
     });
     probe.terminate();
     if(!ok.pong){
-      log(`  (workers unavailable${ok.err?' — '+ok.err:''}; running single-threaded)`);
+      log(`(workers unavailable${ok.err?' — '+ok.err:''}; running single-threaded)`);
       return _pool=null;
     }
     const nw=Math.max(1,Math.min(12, navigator.hardwareConcurrency||4));
     _pool=[]; for(let i=0;i<nw;i++) _pool.push(new Worker(url));
     return _pool;
-  }catch(err){ log('  (workers unavailable: '+err.message+' — single-threaded)'); return _pool=null; }
+  }catch(err){ log('(workers unavailable: '+err.message+' — single-threaded)'); return _pool=null; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -6360,11 +6624,11 @@ async function saveBlob(blob,name,desc,mime,ext){
       const ws=await h.createWritable(); await ws.write(blob); await ws.close();
       return h.name;
     }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
-      log(`  (save dialog unavailable: ${err&&err.message||err})`); }
+      log(`(save dialog unavailable: ${err&&err.message||err})`); }
   } else if(!_dlHintShown){
     _dlHintShown=true;
-    log('  (Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
-    log('   Enable “Ask where to save each file” in your browser to be prompted for a location.)');
+    log('(Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
+    log('Enable “Ask where to save each file” in your browser to be prompted for a location.)');
   }
   const url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
@@ -6392,11 +6656,11 @@ async function savePlotEither(pngBlob, svgText, pngName){
       const ws=await h.createWritable(); await ws.write(blob); await ws.close();
       return h.name;
     }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
-      log(`  (save dialog unavailable: ${err&&err.message||err})`); }
+      log(`(save dialog unavailable: ${err&&err.message||err})`); }
   } else if(!_dlHintShown){
     _dlHintShown=true;
-    log('  (Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
-    log('   Enable “Ask where to save each file” in your browser to be prompted for a location.)');
+    log('(Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
+    log('Enable “Ask where to save each file” in your browser to be prompted for a location.)');
   }
   const url=URL.createObjectURL(pngBlob), a=document.createElement('a');
   a.href=url; a.download=pngName; document.body.appendChild(a); a.click(); a.remove();
@@ -6501,11 +6765,12 @@ async function exportCSV(){
   const saved=await saveBlob(blob,suggestedName,'CSV (ThunderSTORM)','text/csv','.csv');
   if(!saved){ log('Export cancelled.'); return; }
   log(`Exported ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} as ${saved} (${(blob.size/1048576).toFixed(1)} MB)${renderLocs?` — filtered subset (${lastResult.locs.length.toLocaleString()} total localizations before filters)`:''}.`);
-  if(nNoSigma) log(`  note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
+  log('This CSV is also written automatically as result.csv by any CLI/analyze() run — no extra flag needed.');
+  if(nNoSigma) log(`note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
   if(gain===1&&camoffset===0){
-    log('  ⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
-    log('    The uncertainty column scales as 1/√N and is therefore not physically');
-    log('    meaningful until a real ADU→photon conversion is entered.');
+    log('⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
+    log('The uncertainty column scales as 1/√N and is therefore not physically');
+    log('meaningful until a real ADU→photon conversion is entered.');
   }
 }
 
@@ -6561,6 +6826,11 @@ async function exportPanel(which){
   const saved=await saveBlob(blob,name,'PNG image','image/png','.png');
   if(!saved){ log('Image save cancelled.'); return; }
   log(`Saved ${c.label} as ${saved} (${outW}×${outH} px${note}, ${(blob.size/1048576).toFixed(1)} MB).`);
+  // Only the reconstruction has a headless equivalent — the CLI writes
+  // reconstruction.png automatically for every run, no flag needed. The raw
+  // frame has no such output (analyze() processes a whole movie, not one
+  // frame to snapshot).
+  if(isSR) log('This reconstruction is also written automatically as reconstruction.png by any CLI/analyze() run — no extra flag needed.');
 }
 // The Save-plot/image button: if both windows have content, ask which;
 // otherwise save whichever one is showing. Format (PNG vs SVG, for a plot)
@@ -6600,6 +6870,22 @@ async function exportPlotEither(which){
   if(!saved){ log('Image save cancelled.'); return; }
   const isSvg=/\.svg$/i.test(saved);
   log(`Saved ${c.label} as ${saved} (${isSvg?'vector SVG':`${outW}×${outH} px, screen resolution`}).`);
+  // config.exportPlots covers drift/NeNA/FRC/PCFO/calibration (the SR panel
+  // is always calibration when it's a plot); a per-loc column histogram
+  // (the main table's "Plot histogram of:") is covered separately by
+  // config.exportHistograms, keyed on the real column name. sSMLM/spt/
+  // segmentation's own histograms (log10(D), SPT track length, Cell area,
+  // sSMLM pair distance/angle) reuse the same drawHistogram() but aren't
+  // real per-loc columns — exportHistograms would just read undefined for
+  // them, so those — plus the inherently-interactive line profile, and the
+  // MSD-vs-lag plot (no headless equivalent yet, docs/REFACTOR_PLAN.md) —
+  // have no recordable command here.
+  if(isSR || ['drift','nena','frc','pcfo'].includes(rawPlotName)){
+    logCmd({exportPlots:true});
+  }else if(rawPlotName==='histogram' && histData){
+    const NON_COLUMN_HIST_LABELS=new Set(['log10(D)','SPT track length','Cell area','sSMLM pair distance','sSMLM pair angle']);
+    if(!NON_COLUMN_HIST_LABELS.has(histData.col)) logCmd({exportHistograms:[histData.col]});
+  }
 }
 
 /* ===========================================================================
@@ -6726,7 +7012,12 @@ async function locateBeadsForCalib(){
 // quadratic fit) — a real rejected promise instead of a silent no-op,
 // matching runCore/analyze()'s guard-throw convention.
 async function calibrationCore(config, stack, hooks={}){
-  const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, shouldStop=()=>false } = hooks;
+  const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, shouldStop=()=>false, onRecord=null } = hooks;
+  // config.exportCalibrationPoints (docs/DOCUMENTATION.md §8): every detected
+  // bead point across every calibration frame, streamed as they're computed
+  // below rather than built up in `pts` first — pushed inline in the same
+  // per-frame loop that already builds `pts` for the quadratic fit itself.
+  const beadEmitter=makeRecordEmitter('calibration_beads', onRecord);
   const first=Math.max(1,config.calFirst|0), last=Math.min(stack.n,config.calLast|0);
   const step=config.calStep, refFr=config.calRef;
   if(last<=first) throw new Error('last frame must exceed first');
@@ -6748,14 +7039,16 @@ async function calibrationCore(config, stack, hooks={}){
         if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // bead too close to this frame's edge
         const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,p.x,p.y,win,sigma); if(!L) continue;
         const P=phasorFit(img,w,h,cx,cy,win);
-        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
+        const pt={fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel};
+        pts.push(pt); beadEmitter.push(pt);
         frameLocs.push({x:L.x,y:L.y});
       }
     } else {
       for(const [cx,cy] of maxima){
         const L=gaussianFitElliptical(img,w,h,cx,cy,win,sigma); if(!L) continue;
         const P=phasorFit(img,w,h,cx,cy,win);
-        pts.push({fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel});
+        const pt={fi,x:L.x,y:L.y,sx:L.sx,sy:L.sy,pr:P.pratio,mx:P.pmagX,my:P.pmagY,rrel:L.rrel};
+        pts.push(pt); beadEmitter.push(pt);
         frameLocs.push({x:L.x,y:L.y});             // for the raw-frame overlay
       }
     }
@@ -6768,15 +7061,20 @@ async function calibrationCore(config, stack, hooks={}){
       // fitting a quadratic (or the phasor-ratio model) to only the frames
       // seen so far would silently produce a biased curve, not a smaller-
       // but-still-correct one, so a stop here discards everything instead.
-      if(shouldStop()){ onLog(`  Stopped — ${pts.length} spot(s) collected from frames ${first}–${fi+1}, no partial calibration fit (would bias the curve).`); return {stopped:true}; }
+      if(shouldStop()){ onLog(`Stopped — ${pts.length} spot(s) collected from frames ${first}–${fi+1}, no partial calibration fit (would bias the curve).`); return {stopped:true}; }
     }
   }
   onProgress(100);
+  // Flushed only on normal completion, not the shouldStop() early return
+  // above — a stopped calibration already discards everything else (see its
+  // own comment: a partial z-range would bias the quadratic fit), so a
+  // partial bead-point export would be equally misleading here.
+  beadEmitter.flush();
   if(pts.length<12) throw new Error(`Only ${pts.length} usable spots — lower the threshold or widen the range`);
   // quality filter: drop fits that hit the σ clamp or have a high relative residual
   const rr=pts.map(p=>p.rrel).slice().sort((a,b)=>a-b), rcut=Math.max(0.05, 3*(rr[rr.length>>1]||0));
   const good=pts.filter(p=> p.sx>0.55&&p.sx<5.9&&p.sy>0.55&&p.sy<5.9 && p.rrel<rcut);
-  onLog(`  ${pts.length} spots detected, ${good.length} pass quality filter.`);
+  onLog(`${pts.length} spots detected, ${good.length} pass quality filter.`);
   // absolute z per frame (nm); reference applied after we know the crossing
   const zAbs=p=>p.fi*step;
   let zx=good.map(zAbs), sxN=good.map(p=>p.sx*px), syN=good.map(p=>p.sy*px);
@@ -6821,12 +7119,12 @@ async function calibrationCore(config, stack, hooks={}){
   const cal3dW=(qx&&qy)?{qx:{a:qx.a,c:qx.c,b:qx.b},qy:{a:qy.a,c:qy.c,b:qy.b},zmin:calib.zmin,zmax:calib.zmax,px}:null;  // width model for MLE 3D
   const calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
   const f=q=>`a=${q.a.toExponential(2)} c=${q.c.toFixed(0)}nm b=${q.b.toFixed(1)}nm`;
-  onLog(`  σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
-  onLog(`  σy(z) = a(z−c)²+b :  ${f(qy)}   (${qy.kept}/${qy.total} pts)`);
-  onLog(`  focus (σx=σy) at frame ≈ ${(zref/step+1).toFixed(1)} → z=0. Usable z where the curves separate monotonically.`);
-  onLog(`  Calibration models: ${[calMethods.phasor_magnitude&&CALIB_METHODS.phasor_magnitude, calMethods.gaussian_width&&CALIB_METHODS.gaussian_width].filter(Boolean).join(' + ')||'none'}.`);
-  if(zcal) onLog(`  Phasor 3D (${CALIB_METHODS.phasor_magnitude}): z(ratio) fitted, axial RMS ≈ ${zcal.rms.toFixed(0)} nm over ratio ${zcal.rmin.toFixed(2)}–${zcal.rmax.toFixed(2)}.`);
-  else     onLog(`  Phasor 3D: z(ratio) fit needs more points.`);
+  onLog(`σx(z) = a(z−c)²+b :  ${f(qx)}   (${qx.kept}/${qx.total} pts)`);
+  onLog(`σy(z) = a(z−c)²+b :  ${f(qy)}   (${qy.kept}/${qy.total} pts)`);
+  onLog(`focus (σx=σy) at frame ≈ ${(zref/step+1).toFixed(1)} → z=0. Usable z where the curves separate monotonically.`);
+  onLog(`Calibration models: ${[calMethods.phasor_magnitude&&CALIB_METHODS.phasor_magnitude, calMethods.gaussian_width&&CALIB_METHODS.gaussian_width].filter(Boolean).join(' + ')||'none'}.`);
+  if(zcal) onLog(`Phasor 3D (${CALIB_METHODS.phasor_magnitude}): z(ratio) fitted, axial RMS ≈ ${zcal.rms.toFixed(0)} nm over ratio ${zcal.rmin.toFixed(2)}–${zcal.rmax.toFixed(2)}.`);
+  else     onLog(`Phasor 3D: z(ratio) fit needs more points.`);
   return { calib, cal3d, cal3dW, calMethods };
 }
 
@@ -6848,8 +7146,18 @@ async function runCalibration(){
   try{
     const config=Object.assign(buildConfigFromParams(),
       { calFirst:first, calLast:last, calFixedPts:fixedXY?calFixedPts:null, sourceFile:stackName });
+    // Logged BEFORE calibrationCore() starts — see run()'s own comment on
+    // this ordering — safe this early since config is already fully
+    // resolved. calFixedPts (the actual bead x,y coordinates) isn't
+    // captured here when calFixedXY is on — a coordinate array doesn't fit
+    // a readable one-line command; calFixedXY alone flags that this run
+    // used it.
+    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
+    logCmd({ calibrationOnly:true, calFirst:first, calLast:last, calStep:config.calStep,
+      calRef:config.calRef, calFixedXY:fixedXY, psf:config.psf, winr:config.winr,
+      detFilter:config.detFilter, [threshKey]:config[threshKey], pxnm:config.pxnm });
     const r = await calibrationCore(config, stack, {
-      onLog: log, onProgress: setProg, shouldStop: () => stopRequested,
+      onLog: stripLeadingBreakOnce(log), onProgress: setProg, shouldStop: () => stopRequested,
       onRawPreview: (img,w,h,maxima,frameLocs,fi,last) => {
         drawRaw(img,w,h,maxima,frameLocs);
         $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spot(s), ${frameLocs.length} fit(s)`; },
@@ -7019,17 +7327,61 @@ async function exportCalibration(){
 function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
   for(let k=1;k<a.length-1;k++) a[k]=0.25*p[k-1]+0.5*p[k]+0.25*p[k+1]; }
 
+// AIM sample % (v0.11.11, on request): deterministically subsample each
+// segment's own points BEFORE the histogram-intersection search — bestShift()
+// (below, in both aimDrift2D() and aimDriftZ()) iterates the shift-search grid
+// once per OCCUPIED BIN of the segment actually being aligned (not per raw
+// point, and not against `ref`'s own size, which is a plain O(1) hashmap
+// lookup regardless of how big it is) — so fewer points in that segment
+// directly cuts both this loop and the bin-map build it's iterating over,
+// roughly proportional to samplePct. Mutates `seg` in place (an array of
+// per-segment arrays — loc objects for aimDrift2D, raw z numbers for
+// aimDriftZ; either way just an array to filter). One shared seeded RNG
+// stream across the whole call (not reseeded per segment) so a given (locs
+// order, samplePct) pair always samples the same points — same
+// reproducibility precedent as the tracks-overlay's own seeded sampling
+// (getVisibleTracksForOverlay()). AIM_SAMPLE_FLOOR guards against subsampling
+// an already-small segment into (or toward) the empty-segment failure mode
+// aimDrift2D()'s own comment documents — below the floor, the segment is left
+// untouched rather than thinned further.
+const AIM_SAMPLE_SEED = 0x41494d31, AIM_SAMPLE_FLOOR = 200;
+function subsampleSegments(seg, samplePct){
+  if(samplePct>=100) return;
+  const rng=mulberry32(AIM_SAMPLE_SEED), frac=samplePct/100;
+  for(let s=0;s<seg.length;s++){
+    const full=seg[s], n=full.length;
+    if(n<=AIM_SAMPLE_FLOOR) continue;
+    const kept=[];
+    for(let i=0;i<n;i++){ if(rng()<frac) kept.push(full[i]); }
+    if(kept.length>=AIM_SAMPLE_FLOOR) seg[s]=kept;
+  }
+}
+
 // Returns {fdx,fdy}: the per-frame drift CORRECTION to ADD to each localization
 // (corrected = observed + fd[frame]), plus the per-segment estimates.
 // px = camera pixel size (nm); intersect/roi in nm.
-async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onProgress){
+async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, samplePct, frame0, onProgress, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const iD=intersectNm/px, qd=1/iD;                // quantization step (px) and its inverse
   const R=Math.max(1, Math.round(roiNm/intersectNm));    // search radius, in bins
   const nSeg=Math.max(1, Math.ceil(nFrames/segFrames));
   const seg=Array.from({length:nSeg},()=>[]);
-  for(const L of locs){ let s=(L.frame/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L); }
+  // frame0 = the first frame ACTUALLY present in locs (driftCore's own
+  // minFrame) — binning must be relative to that, not absolute frame 0. A
+  // Localize run restricted to a sub-range (fitFirstFrame/fitLastFrame, e.g.
+  // skipping the first 5000 frames) has every L.frame starting near 5000,
+  // not 0; binning on the raw absolute frame number would create thousands
+  // of fully EMPTY leading segments, and bestShift() below has no "no data"
+  // case — an empty candidate list still degenerately "wins" the very FIRST
+  // (sx,sy) tried in its shift search (t=0 beats the initial best=-1 sentinel
+  // on iteration one, and no other empty-vs-anything shift can score higher
+  // than 0 either), so every empty segment silently reports a shift pinned
+  // to a full-search-radius corner — then compounds forward through every
+  // later segment via the running dx[k]=dx[k-1]+sx accumulation. A real,
+  // reported bug found exactly this way.
+  for(const L of locs){ let s=((L.frame-frame0)/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L); }
+  subsampleSegments(seg, samplePct);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1, k*segFrames+segFrames/2));
   const KEY=(bx,by)=>(bx+16384)*32768+(by+16384);
   const addTo=(map,list,ox,oy)=>{ for(const L of list){ const k=KEY(Math.floor((L.x+ox)*qd),Math.floor((L.y+oy)*qd)); map.set(k,(map.get(k)||0)+1); } return map; };
@@ -7050,41 +7402,74 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, onPr
   }
   // Round 1: seg 0 is the reference (drift 0); align each later segment to the
   // accumulated corrected reference, starting from the previous cumulative drift.
+  // Sequential by construction (dx[k] depends on dx[k-1]) — a Stop mid-round
+  // leaves a genuine, real prefix of segments 0..completed-1 correctly
+  // estimated and the rest simply never touched, not a corrupted result.
   const dx=new Float64Array(nSeg), dy=new Float64Array(nSeg);
   const ref=addTo(new Map(), seg[0], 0, 0);
+  let completed=1, stopped=false;   // segment 0 needs no estimation (it IS the reference, drift 0)
   for(let k=1;k<nSeg;k++){
+    if(shouldStop()){ stopped=true; break; }
     const [sx,sy]=bestShift(seg[k], dx[k-1], dy[k-1], ref);
     dx[k]=dx[k-1]+sx; dy[k]=dy[k-1]+sy;
     addTo(ref, seg[k], dx[k], dy[k]);
+    completed=k+1;
     await yieldMaybe(0.5*k/nSeg);
   }
   // Round 2: reference = ALL localizations corrected by round 1; re-estimate each
   // segment's ABSOLUTE drift (fixes segment 0 and limits error accumulation).
-  const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full, seg[k], dx[k], dy[k]);
-  const dx2=new Float64Array(nSeg), dy2=new Float64Array(nSeg);
-  for(let k=0;k<nSeg;k++){
-    const [sx,sy]=bestShift(seg[k], dx[k], dy[k], full);
-    dx2[k]=dx[k]+sx; dy2[k]=dy[k]+sy;
-    await yieldMaybe(0.5+0.5*k/nSeg);
+  // Needs EVERY segment's own round-1 result to build `full` — not something
+  // a partial round 1 can feed at all, so a round-1 stop skips round 2
+  // entirely rather than running it on an incomplete/meaningless reference.
+  let dx2, dy2, nSegEff;
+  if(stopped){
+    nSegEff=completed; dx2=dx.slice(0,completed); dy2=dy.slice(0,completed);
+  }else{
+    const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full, seg[k], dx[k], dy[k]);
+    const dx2f=new Float64Array(nSeg), dy2f=new Float64Array(nSeg);
+    nSegEff=nSeg;
+    for(let k=0;k<nSeg;k++){
+      if(shouldStop()){ stopped=true; nSegEff=k; break; }
+      const [sx,sy]=bestShift(seg[k], dx[k], dy[k], full);
+      dx2f[k]=dx[k]+sx; dy2f[k]=dy[k]+sy;
+      await yieldMaybe(0.5+0.5*k/nSeg);
+    }
+    // A round-2 stop mid-pass: segments 0..nSegEff-1 have their own refined
+    // round-2 estimate; anything not yet reached still has SOME value —
+    // round 1's own, a real (if less refined) estimate — rather than 0.
+    if(stopped && nSegEff===0) nSegEff=1;   // segment 0 always has a value (drift 0) either way
+    dx2 = stopped ? dx2f.slice(0,nSegEff) : dx2f;
+    dy2 = stopped ? dy2f.slice(0,nSegEff) : dy2f;
   }
-  // Drift is defined up to a constant → zero-reference by removing the mean.
-  let mx=0,my=0; for(let k=0;k<nSeg;k++){ mx+=dx2[k]; my+=dy2[k]; } mx/=nSeg; my/=nSeg;
-  for(let k=0;k<nSeg;k++){ dx2[k]-=mx; dy2[k]-=my; }
+  const centersEff = stopped ? centers.slice(0,nSegEff) : centers;
+  // Drift is defined up to a constant → zero-reference by removing the mean
+  // (over whatever segments actually got estimated, complete run or not).
+  let mx=0,my=0; for(let k=0;k<nSegEff;k++){ mx+=dx2[k]; my+=dy2[k]; } mx/=nSegEff; my/=nSegEff;
+  for(let k=0;k<nSegEff;k++){ dx2[k]-=mx; dy2[k]-=my; }
   _smoothSeg(dx2); _smoothSeg(dy2);
-  // Linear interpolation of the per-segment drift (at segment centres) to frames.
+  // Linear interpolation of the per-segment drift (at segment centres) to
+  // frames — STILL sized to the full nFrames even when stopped, reusing the
+  // existing "hold the last known segment's value flat" tail behaviour
+  // (already how any complete run treats frames past its own last segment)
+  // for every frame past where estimation actually stopped, rather than a
+  // second, bespoke code path. stoppedAtFrame (nm/frame-space, filled in by
+  // driftCore()) is what the interactive plot uses to mark that boundary
+  // visually, so "real measurement" and "held flat, unmeasured" don't look
+  // like the same thing on screen.
   const fdx=new Float64Array(nFrames), fdy=new Float64Array(nFrames);
   for(let f=0;f<nFrames;f++){
-    if(nSeg===1 || f<=centers[0]){ fdx[f]=dx2[0]; fdy[f]=dy2[0]; continue; }
-    if(f>=centers[nSeg-1]){ fdx[f]=dx2[nSeg-1]; fdy[f]=dy2[nSeg-1]; continue; }
-    let k=0; while(k<nSeg-1 && centers[k+1]<f) k++;
-    const t=(f-centers[k])/(centers[k+1]-centers[k]);
+    if(nSegEff===1 || f<=centersEff[0]){ fdx[f]=dx2[0]; fdy[f]=dy2[0]; continue; }
+    if(f>=centersEff[nSegEff-1]){ fdx[f]=dx2[nSegEff-1]; fdy[f]=dy2[nSegEff-1]; continue; }
+    let k=0; while(k<nSegEff-1 && centersEff[k+1]<f) k++;
+    const t=(f-centersEff[k])/(centersEff[k+1]-centersEff[k]);
     fdx[f]=dx2[k]+(dx2[k+1]-dx2[k])*t; fdy[f]=dy2[k]+(dy2[k+1]-dy2[k])*t;
   }
-  return {fdx, fdy, segCenters:centers, segdx:dx2, segdy:dy2, nSeg};
+  return {fdx, fdy, segCenters:centersEff, segdx:dx2, segdy:dy2, nSeg:nSegEff, nSegRequested:nSeg, stopped,
+    stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
 }
 
 // z drift: the same intersection-maximization, but a 1-D search on z (nm).
-async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onLog=()=>{}){
+async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, samplePct, frame0, onProgress, onLog=()=>{}, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async p=>{ if(!onProgress) return; onProgress(p); if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const qd=1/binNm, R=Math.max(1,Math.round(roiNm/binNm));
@@ -7093,10 +7478,12 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onL
   // exclude clamped z (out of the calibrated range): those pile up at the z
   // boundaries as fixed, non-drifting spikes that otherwise dominate and
   // corrupt the estimate (a sawtooth).
+  // frame0: see aimDrift2D()'s own comment — same fix, same reason.
   let nz=0, ncl=0;
   for(const L of locs){ if(!isFinite(L.z)) continue; if(L.zClamped){ ncl++; continue; }
-    nz++; let s=(L.frame/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
-  if(ncl) onLog(`  z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
+    nz++; let s=((L.frame-frame0)/segFrames)|0; if(s>=nSeg)s=nSeg-1; if(s<0)s=0; seg[s].push(L.z); }
+  subsampleSegments(seg, samplePct);
+  if(ncl) onLog(`z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1,k*segFrames+segFrames/2));
   const addTo=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd); map.set(b,(map.get(b)||0)+1); } return map; };
   function bestShift(list,o,ref){
@@ -7108,21 +7495,38 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onL
     const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
     return (bb+par(at(bb-1),best,at(bb+1)))*binNm;
   }
+  // Same Stop-truncation shape as aimDrift2D() — see its own comment.
   const dz=new Float64Array(nSeg); const ref=addTo(new Map(),seg[0],0);
-  for(let k=1;k<nSeg;k++){ dz[k]=dz[k-1]+bestShift(seg[k],dz[k-1],ref); addTo(ref,seg[k],dz[k]); await yieldMaybe(0.5*k/nSeg); }
-  const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full,seg[k],dz[k]);
-  const dz2=new Float64Array(nSeg);
-  for(let k=0;k<nSeg;k++){ dz2[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg); }
-  let m=0; for(let k=0;k<nSeg;k++) m+=dz2[k]; m/=nSeg; for(let k=0;k<nSeg;k++) dz2[k]-=m;
+  let completed=1, stopped=false;
+  for(let k=1;k<nSeg;k++){
+    if(shouldStop()){ stopped=true; break; }
+    dz[k]=dz[k-1]+bestShift(seg[k],dz[k-1],ref); addTo(ref,seg[k],dz[k]); completed=k+1; await yieldMaybe(0.5*k/nSeg);
+  }
+  let dz2, nSegEff;
+  if(stopped){
+    nSegEff=completed; dz2=dz.slice(0,completed);
+  }else{
+    const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full,seg[k],dz[k]);
+    const dz2f=new Float64Array(nSeg);
+    nSegEff=nSeg;
+    for(let k=0;k<nSeg;k++){
+      if(shouldStop()){ stopped=true; nSegEff=k; break; }
+      dz2f[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg);
+    }
+    if(stopped && nSegEff===0) nSegEff=1;
+    dz2 = stopped ? dz2f.slice(0,nSegEff) : dz2f;
+  }
+  const centersEff = stopped ? centers.slice(0,nSegEff) : centers;
+  let m=0; for(let k=0;k<nSegEff;k++) m+=dz2[k]; m/=nSegEff; for(let k=0;k<nSegEff;k++) dz2[k]-=m;
   _smoothSeg(dz2); _smoothSeg(dz2);
   const fdz=new Float64Array(nFrames);
   for(let f=0;f<nFrames;f++){
-    if(nSeg===1||f<=centers[0]){ fdz[f]=dz2[0]; continue; }
-    if(f>=centers[nSeg-1]){ fdz[f]=dz2[nSeg-1]; continue; }
-    let k=0; while(k<nSeg-1&&centers[k+1]<f) k++;
-    fdz[f]=dz2[k]+(dz2[k+1]-dz2[k])*(f-centers[k])/(centers[k+1]-centers[k]);
+    if(nSegEff===1||f<=centersEff[0]){ fdz[f]=dz2[0]; continue; }
+    if(f>=centersEff[nSegEff-1]){ fdz[f]=dz2[nSegEff-1]; continue; }
+    let k=0; while(k<nSegEff-1&&centersEff[k+1]<f) k++;
+    fdz[f]=dz2[k]+(dz2[k+1]-dz2[k])*(f-centersEff[k])/(centersEff[k+1]-centersEff[k]);
   }
-  return {fdz, segdz:dz2, nSeg, nz, ncl};
+  return {fdz, segdz:dz2, nSeg:nSegEff, nSegRequested:nSeg, nz, ncl, stopped, stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
 }
 
 // Pure: runs AIM drift correction on `locs`, MUTATED IN PLACE (reversibly —
@@ -7134,45 +7538,85 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, onProgress, onL
 // a module-level global, not a core drift-correction concern.
 async function driftCore(locs, px, config, hooks={}){
   // Defaults mirror the real log()/setProg() (see runCore's comment on the
-  // same rule).
-  const { onLog=log, onProgress=setProg } = hooks;
+  // same rule). shouldStop (v0.11.10, on request): AIM's two rounds can each
+  // take a while on a large dataset, and a user tuning driftSeg/driftRoi
+  // often wants to SEE the curve well before that to judge the settings,
+  // not wait out a run they're about to discard anyway. Checked inside
+  // aimDrift2D()/aimDriftZ() themselves (see their own comments) — a Stop
+  // there truncates to whatever segments were genuinely estimated, rather
+  // than corrupting or padding the rest.
+  const { onLog=log, onProgress=setProg, shouldStop=()=>false } = hooks;
   // span the frames ACTUALLY analysed (present in the localizations), not the
   // stack length — a stopped run only covers part of the stack, and padding to
-  // stack.n adds empty segments that corrupt the drift estimate.
-  let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
+  // stack.n adds empty segments that corrupt the drift estimate. frame0 is the
+  // FIRST analysed frame's own absolute (0-indexed) number — a Localize run
+  // restricted to fitFirstFrame/fitLastFrame (e.g. skipping the first 5000
+  // frames) has every L.frame start near 5000, not 0, so nFrames/segmenting
+  // must be relative to frame0, never to absolute frame 0 (a real, reported
+  // bug: see aimDrift2D()'s own comment for exactly how the un-fixed version
+  // corrupted the whole estimate via empty leading segments).
+  let minFrame=Infinity, maxFrame=-Infinity;
+  for(const L of locs){ if(L.frame<minFrame) minFrame=L.frame; if(L.frame>maxFrame) maxFrame=L.frame; }
+  const frame0 = isFinite(minFrame) ? minFrame : 0;
+  const nFrames = isFinite(minFrame) ? (maxFrame-minFrame+1) : 0;
   const segF=config.driftSeg, roiNm=config.driftRoi, intD=15;
+  // 100 when unset — headless callers/CLI scripts predating this option get
+  // the exact original (unsampled) behaviour, no config change required.
+  const samplePct = config.driftSamplePct==null ? 100 : config.driftSamplePct;
   // Each run is INDEPENDENT: always estimate from the raw, uncorrected
   // localizations. If a previous correction is in place, restore the raw
   // coordinates first — otherwise a second run would estimate the residual of
   // the already-corrected data and under-correct. This makes it safe to sweep
   // segment size / search radius and compare results directly.
   for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
-  onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search…`);
+  onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
+        (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
+        (samplePct<100?` · sampling ${samplePct}% of each segment`:'')+`…`);
   const t0=performance.now();
-  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, p=>onProgress(100*p));
+  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, samplePct, frame0, p=>onProgress(100*p), shouldStop);
+  d.frame0=frame0;   // carried on the result so the drift plot/RMS-vs-ground-truth scoring can label true frame numbers, not the 0-based remapped index
+  // z drift (Phasor 3D): independent 1-D correction on z (nm) — skipped
+  // entirely if 2D already stopped, since there'd be nothing complete to
+  // apply either way and no reason to spend more time computing it.
+  const has3d=locs.some(L=>isFinite(L.z));
+  let dz=null;
+  if(!d.stopped && has3d && config.driftZ){
+    dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, samplePct, frame0, p=>onProgress(100*p), onLog, shouldStop);
+    d.fdz=dz.fdz;
+  }
+  // A stop in EITHER pass means the run as a whole is incomplete — treated
+  // uniformly as "not applied" rather than applying a complete 2D
+  // correction alongside a partial (or missing) z one, which would leave
+  // the reconstruction correctly x/y-corrected but ambiguously so in z.
+  const stopped = d.stopped || (dz && dz.stopped);
+  if(stopped){
+    const reqSeg=d.nSegRequested, doneSeg=d.nSeg;
+    onLog(`Stopped after ${doneSeg} of ${reqSeg} segment(s) (frames ${frame0+1}–${Math.round(d.stoppedAtFrame+frame0)+1} of ${frame0+1}–${maxFrame+1})`+
+      (dz&&dz.stopped?` · z stopped after ${dz.nSeg} of ${dz.nSegRequested} segment(s)`:'')+
+      ` — drift shown up to that point (flat beyond it, not a real measurement); NOT applied — `+
+      `the reconstruction/CSV export still use the ORIGINAL, uncorrected coordinates. Adjust `+
+      `Segment/Search radius and re-run, or run to completion to actually correct the data.`);
+    return { drift:d, nFrames, frame0, stopped:true, ms:Math.round(performance.now()-t0) };
+  }
   // apply reversibly — keep the raw coordinates in x0/y0
   for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
-    const f=Math.min(nFrames-1,Math.max(0,L.frame|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
-  // z drift (Phasor 3D): independent 1-D correction on z (nm)
-  const has3d=locs.some(L=>isFinite(L.z));
-  if(has3d && config.driftZ){
-    const dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, p=>onProgress(100*p), onLog);
+    const f=Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
+  if(dz){
     // Clamped z (phasor ratio out of the calibrated range) is pinned to a z
     // boundary, so it carries no drift and is excluded. A large clamped
     // fraction means the sample's z-range exceeds the calibration: the
     // in-range population is truncated and z-drift is under-estimated.
     const clFrac=(dz.nz+dz.ncl)?dz.ncl/(dz.nz+dz.ncl):0;
-    if(clFrac>0.2) onLog(`  ⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
+    if(clFrac>0.2) onLog(`⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
     for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
-      L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,L.frame|0))]; }
-    d.fdz=dz.fdz;
+      L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0))]; }
   }
   let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
   for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
     if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
-  onLog(`  drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm`+
+  onLog(`drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm`+
       (d.fdz?`, z ${(Math.max(...d.fdz)-Math.min(...d.fdz)).toFixed(0)} nm`:'')+` · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
-  return { drift:d, nFrames, ms:Math.round(performance.now()-t0) };
+  return { drift:d, nFrames, frame0, ms:Math.round(performance.now()-t0) };
 }
 
 let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
@@ -7189,27 +7633,46 @@ let driftPlotMode='frame';
 async function correctDrift(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   const {locs,px}=lastResult;
-  $('driftBtn').disabled=true;
+  stopRequested=false;
+  $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
-    const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ')};
-    const {drift:d, nFrames} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg});
-    lastDrift=d; lastResult.byFrame=null;          // positions changed
-    if(d.fdz) lastResult.zr=null;
-    setProg(null);
-    rerender(true);
-    if(simTrueDrift){                              // score against the simulator's ground truth
-      // per-axis RMS after removing the best constant offset
-      const rms=(rec,tru)=>{ let a=0,b=0; for(let f=0;f<nFrames;f++){a+=rec(f);b+=tru(f);} a/=nFrames;b/=nFrames;
-        let e=0; for(let f=0;f<nFrames;f++){ const dd=(rec(f)-a)-(tru(f)-b); e+=dd*dd; } return Math.sqrt(e/nFrames); };
-      const rx=rms(f=>-d.fdx[f]*px, f=>simTrueDrift.dx(f)), ry=rms(f=>-d.fdy[f]*px, f=>simTrueDrift.dy(f));
-      log(`  vs simulated ground truth: RMS x ${rx.toFixed(1)} nm, y ${ry.toFixed(1)} nm.`);
+    const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), driftSamplePct:paramValue('driftSamplePct')};
+    // Logged BEFORE driftCore() starts — see run()'s own comment on this
+    // ordering (command announces what's about to run, prose narrates what
+    // happened) — safe this early since config is already fully resolved.
+    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct, pxnm:px});
+    const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:stripLeadingBreakOnce(log), onProgress:setProg, shouldStop:()=>stopRequested});
+    // A Stop mid-run (see driftCore()'s own comment): show whatever curve
+    // was actually estimated so far — useful for judging Segment/Search
+    // radius on a run that's taking too long — but locs were never touched,
+    // so skip every "positions changed" side effect below (byFrame/zr reset,
+    // rerender, ground-truth scoring, the "now drives the render" message)
+    // that would otherwise misrepresent a preview as an applied correction.
+    lastDrift=d;
+    if(!stopped){
+      lastResult.byFrame=null;          // positions changed
+      if(d.fdz) lastResult.zr=null;
+      setProg(null);
+      rerender(true);
+      if(simTrueDrift){                              // score against the simulator's ground truth
+        // per-axis RMS after removing the best constant offset. d.fdx/fdy are
+        // indexed relative to d.frame0 (the first analysed frame), but
+        // simTrueDrift.dx/dy(fi) expects the ABSOLUTE simulated frame index —
+        // add d.frame0 back when looking up the ground truth, or a Localize
+        // run restricted to a sub-range would score against the wrong slice
+        // of the true drift curve.
+        const rms=(rec,tru)=>{ let a=0,b=0; for(let f=0;f<nFrames;f++){a+=rec(f);b+=tru(f);} a/=nFrames;b/=nFrames;
+          let e=0; for(let f=0;f<nFrames;f++){ const dd=(rec(f)-a)-(tru(f)-b); e+=dd*dd; } return Math.sqrt(e/nFrames); };
+        const rx=rms(f=>-d.fdx[f]*px, f=>simTrueDrift.dx(f+d.frame0)), ry=rms(f=>-d.fdy[f]*px, f=>simTrueDrift.dy(f+d.frame0));
+        log(`vs simulated ground truth: RMS x ${rx.toFixed(1)} nm, y ${ry.toFixed(1)} nm.`);
+      }
+      log(`corrected coordinates now drive the render and CSV export.`);
     }
-    log(`  corrected coordinates now drive the render and CSV export.`);
     $('driftShowBtn').disabled=false;
     driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
-  finally{ $('driftBtn').disabled=false; setProg(null); }
+  finally{ $('driftBtn').disabled=false; $('stopBtn').disabled=true; stopRequested=false; setProg(null); }
 }
 // Plot the estimated drift (nm) vs frame on the RAW (left) canvas (measured drift = −correction).
 // Dispatches to one of two views by driftPlotMode — see its own comment above.
@@ -7231,6 +7694,12 @@ function drawDriftCurve(){
   syncSaveImg();
 }
 function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
+  // d.fdx/fdy/fdz are indexed relative to d.frame0 (the first ANALYSED
+  // frame — see driftCore()'s own comment); f0+1 converts back to the
+  // absolute, 1-indexed frame number the rest of the app (CSV/table/Frame
+  // scrubber) displays, so a run restricted to e.g. frames 5001+ reads
+  // "frame 5001" here too, not a misleading "frame 1".
+  const f0=d.frame0||0;
   let lo=0,hi=0; for(let f=0;f<n;f++){ const a=-d.fdx[f]*px,b=-d.fdy[f]*px; lo=Math.min(lo,a,b); hi=Math.max(hi,a,b);
     if(d.fdz){ const c=-d.fdz[f]; lo=Math.min(lo,c); hi=Math.max(hi,c); } }
   const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
@@ -7243,11 +7712,22 @@ function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   ctx.textAlign='center'; ctx.textBaseline='top';
   for(const f of niceTicks(0,n-1,6)){ const x=X(f);
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
-    ctx.fillText(f.toFixed(0),x,mT+ph+9); }
+    ctx.fillText((f+f0+1).toFixed(0),x,mT+ph+9); }
   const line=(get,col)=>{ ctx.strokeStyle=col; ctx.lineWidth=1.6; ctx.beginPath();
     for(let f=0;f<n;f++){ const x=X(f),y=Y(get(f)); f?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); };
   line(f=>-d.fdx[f]*px,'#0a7d32'); line(f=>-d.fdy[f]*px,'#c81cc8');
   if(d.fdz) line(f=>-d.fdz[f],'#3572b0');   // z drift is already in nm
+  // A Stop mid-run (see driftCore()'s own comment): the curve past this
+  // point is just the last real segment's value held flat, not a further
+  // measurement — a dashed vertical marker + label makes that boundary
+  // visible instead of letting it read as a real, if oddly flat, signal.
+  if(d.stopped && d.stoppedAtFrame!=null){
+    const xs=X(d.stoppedAtFrame);
+    ctx.save(); ctx.strokeStyle=C.text; ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(xs,mT); ctx.lineTo(xs,mT+ph); ctx.stroke(); ctx.restore();
+    ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText('stopped here — flat beyond', Math.min(xs+4,mL+pw-120), mT+2);
+  }
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curves
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('frame', mL+pw/2, mT+ph+28);
@@ -7255,9 +7735,11 @@ function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='#0a7d32'; ctx.fillText('drift x', mL+pw-90, mT-6);
   ctx.fillStyle='#c81cc8'; ctx.fillText('drift y', mL+pw-40, mT-6);
   if(d.fdz){ ctx.fillStyle='#3572b0'; ctx.fillText('drift z', mL+pw-140, mT-6); }
-  $('rawInfo').textContent=`— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
+  $('rawInfo').textContent = d.stopped
+    ? `— PREVIEW ONLY, not applied · stopped after ${d.nSeg}/${d.nSegRequested} segments · scrub a frame to return to the raw view`
+    : `— estimated drift · ${d.nSeg} segments · scrub a frame to return to the raw view`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
-    fmt:(vx,vy)=>`frame ${vx.toFixed(0)} · ${vy.toFixed(1)} nm`});
+    fmt:(vx,vy)=>`frame ${(vx+f0+1).toFixed(0)} · ${vy.toFixed(1)} nm`});
 }
 // Trajectory view: drift y vs drift x, one continuous path coloured by frame
 // (time) via the SAME LUT the reconstruction's z-colouring uses — "time in
@@ -7267,6 +7749,7 @@ function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
 // independently autoscaled axes would visually distort it. x vs y only, even
 // with real 3D drift (fdz) — see driftPlotMode's own comment.
 function drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
+  const f0=d.frame0||0;   // see drawDriftCurveVsFrame()'s own comment
   const dx=f=>-d.fdx[f]*px, dy=f=>-d.fdy[f]*px;
   let lo=0,hi=0; for(let f=0;f<n;f++){ const a=dx(f),b=dy(f); lo=Math.min(lo,a,b); hi=Math.max(hi,a,b); }
   const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
@@ -7301,9 +7784,11 @@ function drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   ctx.moveTo(bx-.5,by-.5); ctx.lineTo(bx+bw+.5,by-.5); ctx.lineTo(bx+bw+.5,by+bh+.5); ctx.lineTo(bx-.5,by+bh+.5); ctx.lineTo(bx-.5,by-.5);
   ctx.stroke();
   ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='top';
-  ctx.fillText(`frame ${n-1}`, bx-4, by);
-  ctx.textBaseline='bottom'; ctx.fillText('frame 0', bx-4, by+bh);
-  $('rawInfo').textContent=`— drift path, x vs y · colour = frame (time) · ${d.nSeg} segments · scrub a frame to return to the raw view`;
+  ctx.fillText(`frame ${n-1+f0+1}`, bx-4, by);
+  ctx.textBaseline='bottom'; ctx.fillText(`frame ${f0+1}`, bx-4, by+bh);
+  $('rawInfo').textContent = d.stopped
+    ? `— PREVIEW ONLY, not applied · stopped after ${d.nSeg}/${d.nSegRequested} segments · colour = frame (time) · scrub a frame to return to the raw view`
+    : `— drift path, x vs y · colour = frame (time) · ${d.nSeg} segments · scrub a frame to return to the raw view`;
   registerPlotHover('raw',{mL,mT,pw,ph,xA:lo,xB:hi,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`x ${vx.toFixed(1)} nm, y ${vy.toFixed(1)} nm`});
 }
@@ -7496,15 +7981,23 @@ async function computeNeNA(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
-    log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
-    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
+    // Logged BEFORE nenaPrecision() runs — see run()'s own comment on this
+    // ordering. No config to speak of (NeNA takes none), so this is just the
+    // bare flag, same as the CLI's own --computeNeNA.
+    logCmd({computeNeNA:true, pxnm:paramValue('pxnm')});
+    // No leading "\n" here — logCmd() just opened this action's own blank-
+    // line separator; this function has no headless-shared caller relying
+    // on this string for its own break (analyze() calls nenaPrecision()
+    // directly, never through computeNeNA()).
+    log('NeNA precision (nearest-neighbour, consecutive frames)…');
+    if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p), log);
     setProg(null);
-    if(r.err){ log('  '+r.err+'.'); return; }
+    if(r.err){ log(r.err+'.'); return; }
     lastNena=r;
-    log(`  σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
-    log('  Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
+    log(`σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
+    log('Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
     drawNenaPlot(r);                                  // histogram + fit on the left panel
   }catch(err){ log(`⚠ NeNA failed: ${err.name}: ${err.message}`); }
   finally{ $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; setProg(null); }
@@ -7604,13 +8097,13 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
       + ` precision (${modeNm.toFixed(1)} nm) — likely fit to spacing between distinct nearby molecules rather than`
       + ` real repeat-detections (common after temporal clustering, which removes those pairs by design)`;
   }
-  if(lpSrc==='NeNA') onLog(`  FRC target pixel size from NeNA precision: σ = ${lpNm.toFixed(1)} nm (binsize = σ/2). Diffusing/mobile`
+  if(lpSrc==='NeNA') onLog(`FRC target pixel size from NeNA precision: σ = ${lpNm.toFixed(1)} nm (binsize = σ/2). Diffusing/mobile`
          + ` probes inflate σ via real motion between frames on top of localization error — coarsens this estimate,`
          + ` doesn't invalidate the FRC result itself.`);
   else if(lpSrc==='mode'){ const why=nenaRejectReason||(nenaR.err||'fit did not converge to a usable value');
-    onLog(`  NeNA precision ${nenaRejectReason?'rejected':'unavailable'}: ${why} — falling back to the mode of`
+    onLog(`NeNA precision ${nenaRejectReason?'rejected':'unavailable'}: ${why} — falling back to the mode of`
       + ` per-localization precision: σ ≈ ${lpNm.toFixed(1)} nm (binsize = σ/2).`); }
-  else onLog(`  NeNA precision unavailable${nenaR.err?` (${nenaR.err})`:''} and too few localizations for a precision`
+  else onLog(`NeNA precision unavailable${nenaR.err?` (${nenaR.err})`:''} and too few localizations for a precision`
          + ` histogram — falling back to reconstruction pixel size for FRC sampling.`);
   const targetPixNm = (lpNm!=null && isFinite(lpNm) && lpNm>0) ? lpNm/2 : px/mag;
   // N a power of 2, capped for compute. targetPixNm<=0/non-finite (shouldn't happen
@@ -7627,15 +8120,15 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
   // Log the inputs, not just the result: pixNm = extPx·px/N, so whether it matches
   // the NeNA-derived target or has been coarsened by the 2048 cap is visible
   // directly, instead of only the (possibly surprising) end number.
-  onLog(`  field of view ${extPx.toFixed(0)} px (${(extPx*px/1000).toFixed(2)} µm) · target pixel ${targetPixNm.toFixed(1)} nm/px`
+  onLog(`field of view ${extPx.toFixed(0)} px (${(extPx*px/1000).toFixed(2)} µm) · target pixel ${targetPixNm.toFixed(1)} nm/px`
     + (N<want ? ` (capped from ${want.toFixed(0)} px)` : ''));
-  onLog(`  sampling ${N}² px @ ${pixNm.toFixed(1)} nm/px (Nyquist ${(2*pixNm).toFixed(0)} nm)…`);
+  onLog(`sampling ${N}² px @ ${pixNm.toFixed(1)} nm/px (Nyquist ${(2*pixNm).toFixed(0)} nm)…`);
   if(N<want){
     // 2048 px can cover at most 2048*targetPixNm nm of field of view at the
     // target resolution — independent of the current extPx, since want/N both
     // scale with it. Below that, cropping stops helping (want<2048 already).
     const maxFovNm=2048*targetPixNm;
-    onLog(`  target not reached — the 2048² cap only covers ${(maxFovNm/1000).toFixed(2)} µm of field of view at`
+    onLog(`target not reached — the 2048² cap only covers ${(maxFovNm/1000).toFixed(2)} µm of field of view at`
       + ` this resolution; crop to that size (or smaller) with the crop tool to sample at the full ${targetPixNm.toFixed(1)} nm/px.`);
   }
   // reuse four Float32 buffers across splits — bounded, memory-light peak
@@ -7696,22 +8189,31 @@ function drawFrcPlot(r){
 }
 async function computeFRC(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
-  if(paramValue('frc3d')) log('  (FSC 3D not yet implemented — computing 2D FRC.)');
+  if(paramValue('frc3d')) log('(FSC 3D not yet implemented — computing 2D FRC.)');
   $('frcBtn').disabled=true;
   try{
-    log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
-    if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
+    // Logged BEFORE frcResolution() runs — see run()'s own comment on this
+    // ordering. No config to speak of (FRC takes none), so this is just the
+    // bare flag, same as the CLI's own --computeFRC — one call covers both
+    // outcome branches below (previously duplicated at each, now moot since
+    // logging happens before either is reached).
+    logCmd({computeFRC:true, pxnm:paramValue('pxnm')});
+    // No leading "\n" here — same reasoning as computeNeNA()'s own comment:
+    // logCmd() already opened this action's blank-line separator, and
+    // analyze() calls frcResolution() directly, never through computeFRC().
+    log('FRC resolution (Fourier ring correlation, 1/7 threshold)…');
+    if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const r=await frcResolution(renderLocs||lastResult.locs, lastResult.px, lastResult.mag||10, p=>setProg(100*p), log);
     setProg(null);
-    if(r.err){ log('  '+r.err+'.'); return; }
+    if(r.err){ log(r.err+'.'); return; }
     if(!isFinite(r.res)){
-      log(`  resolution is finer than the sampling — the FRC curve stays above 1/7 up to Nyquist (${r.nyquist.toFixed(0)} nm, at ${r.pixNm.toFixed(1)} nm/px, ${r.N}²).`);
-      log(r.N>=2048 ? '  The field of view is large, so FRC sampling is capped here — crop to a sub-region for a finer measurement.'
-                    : `  Already sampling at the ${r.lpSrc==='NeNA'?'NeNA-derived':'per-localization-precision-derived'} limit (σ/2${r.nenaSigma!=null?' = '+(r.nenaSigma/2).toFixed(1)+' nm':''}) — more localizations (denser labelling, longer acquisition) would help more than finer sampling here.`);
+      log(`resolution is finer than the sampling — the FRC curve stays above 1/7 up to Nyquist (${r.nyquist.toFixed(0)} nm, at ${r.pixNm.toFixed(1)} nm/px, ${r.N}²).`);
+      log(r.N>=2048 ? 'The field of view is large, so FRC sampling is capped here — crop to a sub-region for a finer measurement.'
+                    : `Already sampling at the ${r.lpSrc==='NeNA'?'NeNA-derived':'per-localization-precision-derived'} limit (σ/2${r.nenaSigma!=null?' = '+(r.nenaSigma/2).toFixed(1)+' nm':''}) — more localizations (denser labelling, longer acquisition) would help more than finer sampling here.`);
       drawFrcPlot(r); return; }
-    log(`  resolution = ${r.res.toFixed(1)}${isFinite(r.resErr)?' ± '+r.resErr.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px @ ${r.pixNm.toFixed(1)} nm/px, Nyquist ${r.nyquist.toFixed(0)} nm · ${Math.round(performance.now()-t0)} ms).`);
-    log('  FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
+    log(`resolution = ${r.res.toFixed(1)}${isFinite(r.resErr)?' ± '+r.resErr.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px @ ${r.pixNm.toFixed(1)} nm/px, Nyquist ${r.nyquist.toFixed(0)} nm · ${Math.round(performance.now()-t0)} ms).`);
+    log('FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
     drawFrcPlot(r);
   }catch(err){ log(`⚠ FRC failed: ${err.name}: ${err.message}`); }
   finally{ $('frcBtn').disabled=false; setProg(null); }
@@ -7919,7 +8421,7 @@ function renderPcfoPlotHeadless(pts, fit, r2){
 // exact stack it's about to localize, with no page/DOM present at all. onLog/onProgress
 // default to no-ops, mirroring every other *Core's hook contract.
 async function pcfoCore(config, stack, hooks={}){
-  const { onLog=()=>{}, onProgress=()=>{} } = hooks;
+  const { onLog=()=>{}, onProgress=()=>{}, onRecord=null } = hooks;
   const NFRAMES=config.pcfoFrames, K_THRESH=config.pcfoK, RNSTD=config.pcfoRnstd;
   const S=pcfoTileSize(stack.w,stack.h);
   const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
@@ -7933,7 +8435,7 @@ async function pcfoCore(config, stack, hooks={}){
     await tick();
   }
   const fit=pcfoRegress(pts,RNSTD);
-  if(!fit){ onLog(`  too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return null; }
+  if(!fit){ onLog(`too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return null; }
   // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
   // camera calibration convention); webSMLM's Camera gain field is photons/ADU, so invert.
   const gain=1/fit.gain;
@@ -7950,9 +8452,20 @@ async function pcfoCore(config, stack, hooks={}){
   const std=a=>{ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); };
   const gainStd=jGains.length>1?std(jGains):NaN, offsetStd=jOffsets.length>1?std(jOffsets):NaN;
   const r2=pcfoRSquared(pts,fit.gain,fit.c);
-  onLog(`  gain = ${gain.toFixed(3)}${isFinite(gainStd)?' ± '+gainStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(offsetStd)?' ± '+offsetStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
-  onLog(`  linearity check: R² = ${r2.toFixed(4)} (signal vs. noise-variance across ${pts.length} tiles)`
+  onLog(`gain = ${gain.toFixed(3)}${isFinite(gainStd)?' ± '+gainStd.toFixed(3):''} photons/ADU, offset = ${fit.offset.toFixed(2)}${isFinite(offsetStd)?' ± '+offsetStd.toFixed(2):''} ADU  (from ${idx.length} frame(s), ${pts.length} point(s)).`);
+  onLog(`linearity check: R² = ${r2.toFixed(4)} (signal vs. noise-variance across ${pts.length} tiles)`
     + `${r2<0.3?' — LOW: tiles do not sit on a line; most likely too low a photon count — or, less commonly, saturation, non-uniform illumination, or non-Poissonian noise. Check the plot before trusting this result.':'.'}`);
+  // config.exportPcfoTiles (docs/DOCUMENTATION.md §8): `pts` already sits
+  // fully in memory regardless (the jackknife loop above needs random access
+  // to the whole array), so this is purely about avoiding a large array in
+  // analyze()'s own return value / the CLI's CDP round-trip — see
+  // tools/webSMLM-cli.mjs's own comment on why pcfo.pts is trimmed there
+  // today ("can run into the thousands").
+  if(config.exportPcfoTiles && onRecord){
+    const emitter=makeRecordEmitter('pcfo_tiles', onRecord);
+    for(const p of pts) emitter.push({imsig:p.imsig, noisevar:p.noisevar});
+    emitter.flush();
+  }
   return { gain, gainStd, offset:fit.offset, offsetStd, r2, pts, fit };
 }
 async function estimateGainOffset(){
@@ -7960,7 +8473,10 @@ async function estimateGainOffset(){
   $('pcfoBtn').disabled=true;
   try{
     const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
-    const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
+    // Logged BEFORE pcfoCore() starts — see run()'s own comment on this
+    // ordering — safe this early since cfg is already fully resolved.
+    logCmd({estimateGainOffset:true, ...cfg, pxnm:paramValue('pxnm')});
+    const r=await pcfoCore(cfg, stack, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
     if(!r) return;
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
     drawPcfoPlot();
@@ -8081,7 +8597,7 @@ function angleDiff360(a,b){ let d=Math.abs(a-b)%360; if(d>180) d=360-d; return d
 // it into lastResult.locs. config = {sSmlmDistMin/Max, sSmlmAngleCenter/Tol,
 // sSmlmRequireNarrower}, all ordinary PARAMS.
 async function pairCore(locs, px, config, hooks={}){
-  const { onLog=log, onProgress=setProg } = hooks;
+  const { onLog=log, onProgress=setProg, onRecord=null } = hooks;
   // Both guards THROW (not just log-and-return) so every caller — the
   // interactive wrapper below AND any future headless one — gets the same
   // protection with no separate check to remember. Real z (a 3D fit) and
@@ -8099,6 +8615,17 @@ async function pairCore(locs, px, config, hooks={}){
   // — same "allot each phase a slice of 0–100" convention runCore's
   // FTM-phased loop uses for its own two stages.
   const cands=await sSmlmCandidates(locs, px, config.sSmlmDistMin, config.sSmlmDistMax, config.sSmlmAngleCenter, config.sSmlmAngleTol, p=>onProgress(p/2));
+  // config.exportSSmlmCandidates (docs/DOCUMENTATION.md §8): every candidate
+  // pair within the configured window, streamed via onRecord — i/j (indices
+  // into THIS call's own locs snapshot) are dropped, not stable IDs outside
+  // this function. Distinct from the already-paired result's own `dist`
+  // column in the main CSV: this is the WIDER candidate pool before the
+  // directional accept/reject pass below decides which become real pairs.
+  if(config.exportSSmlmCandidates && onRecord){
+    const emitter=makeRecordEmitter('sSmlm_candidates', onRecord);
+    for(const c of cands) emitter.push({dist:c.dist, angle:c.angle, rawAngle:c.rawAngle});
+    emitter.flush();
+  }
   const acNorm=((config.sSmlmAngleCenter%360)+360)%360;
   // Classify each candidate by DIRECTION: if i->j's bearing is close to
   // acNorm, i is upstream (0th-candidate) and j downstream (its 1st); if
@@ -8180,14 +8707,14 @@ async function pairCore(locs, px, config, hooks={}){
   const n=paired.length, meanDistance=n?sumDist/n:NaN;
   const stdDistance=n?Math.sqrt(Math.max(0,sumDistSq/n-meanDistance*meanDistance)):NaN;
   const nDropped=locs.length-2*n;
-  onLog(`  ${n.toLocaleString()} pair(s) from ${locs.length.toLocaleString()} localizations (${locs.length?(100*2*n/locs.length).toFixed(1):'0.0'}% paired)`
+  onLog(`${n.toLocaleString()} pair(s) from ${locs.length.toLocaleString()} localizations (${locs.length?(100*2*n/locs.length).toFixed(1):'0.0'}% paired)`
     + (n?` — mean distance ${meanDistance.toFixed(0)} ± ${stdDistance.toFixed(0)} nm.`:'.'));
   // Spelled out explicitly, not just implied by the percentage above: the
   // reconstruction below shows ONLY the n paired points (one per pair, at
   // the 0th order's own position) — the nDropped localizations that found
   // no unambiguous partner are excluded entirely, not drawn "unpaired" or
   // left doubled.
-  onLog(`  → reconstruction below uses only these ${n.toLocaleString()} paired points; ${nDropped.toLocaleString()} localizations with no unambiguous partner in the window are dropped, not shown.`);
+  onLog(`→ reconstruction below uses only these ${n.toLocaleString()} paired points; ${nDropped.toLocaleString()} localizations with no unambiguous partner in the window are dropped, not shown.`);
   return { locs:paired, nPairs:n, nInput:locs.length, meanDistance, stdDistance };
 }
 // Interactive layer: Preview/Pair/Unpair wrap pairCore()/sSmlmCandidates()
@@ -8349,8 +8876,11 @@ async function runSSmlmPair(){
     const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
       sSmlmAngleCenter:paramValue('sSmlmAngleCenter'), sSmlmAngleTol:paramValue('sSmlmAngleTol'),
       sSmlmRequireNarrower:paramValue('sSmlmRequireNarrower') };
-    const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
-    if(!r.nPairs){ log('  no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
+    // Logged BEFORE pairCore() starts — see run()'s own comment on this
+    // ordering — safe this early since cfg is already fully resolved.
+    logCmd({sSmlmPair:true, ...cfg, pxnm:lastResult.px});
+    const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
+    if(!r.nPairs){ log('no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
     sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;
     lastResult.locs = sSmlmPairedLocs;
     renderLocs=null; _tableFilters=[];
@@ -8374,7 +8904,7 @@ async function runSSmlmPair(){
     $('sSmlmUnpairBtn').disabled=false;
     $('sSmlmColorBtn').style.display='';
     updateSSmlmColorBtnLabel();
-    log(`  Reconstruction now shows the paired result, colour-coded by inter-order distance (not real z) — click "${$('sSmlmColorBtn').textContent}" above the reconstruction to compare against the original, unpaired data.`);
+    log(`Reconstruction now shows the paired result, colour-coded by inter-order distance (not real z) — click "${$('sSmlmColorBtn').textContent}" above the reconstruction to compare against the original, unpaired data.`);
   }catch(err){ log(`⚠ sSMLM pairing failed: ${err.name}: ${err.message}`); }
   finally{ $('sSmlmPairBtn').disabled=false; setProg(null); }
 }
@@ -8565,7 +9095,7 @@ async function linkTracks(locs, px, config, onProgress=()=>{}){
       }
       if(n>HUNGARIAN_MAX && !hungarianFallbackWarned){
         hungarianFallbackWarned=true;
-        log(`  ⚠ SPT: a ${n}-point cluster exceeded the exact-assignment size limit (${HUNGARIAN_MAX}) — using a faster nearest-neighbor fallback there instead (may be less accurate for that crowded region only).`);
+        log(`⚠ SPT: a ${n}-point cluster exceeded the exact-assignment size limit (${HUNGARIAN_MAX}) — using a faster nearest-neighbor fallback there instead (may be less accurate for that crowded region only).`);
       }
       const rowToCol = n>HUNGARIAN_MAX ? greedyAssign(cost,SENTINEL) : hungarianAssign(cost);
       for(let a=0;a<ts.length;a++){
@@ -8715,6 +9245,97 @@ async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
   return {trackIds, diffCoeffs, trackLengths, dOfTrack, trackMSD};
 }
 
+// Ensemble MSD-vs-lag-time (v0.11.10) — addresses a real limitation of the
+// D estimate above: it uses ONLY the lag-1 (single-frame) displacement
+// average, which is fine for sptPALM's typically short, photobleaching-
+// limited tracks but wastes information on longer trajectories and can't
+// reveal deviations from free diffusion (confinement, anomalous exponents)
+// the way a proper MSD-vs-lag curve can. Per qualifying track (>=
+// sptTrackLenMin locs, same gate trackDiffusionCoeffs() uses), computes its
+// own time-averaged MSD (TAMSD) at every lag 1..maxLagHere: for lag L,
+// average the squared displacement over every pair of localizations in the
+// track whose FRAME NUMBERS differ by EXACTLY L (a frame->loc Map per
+// track, not array-adjacent steps) — this naturally handles gap-bridged
+// tracks (sptMemory>0) correctly with no separate "divide by gap"
+// correction, since a pair only ever contributes to the lag equal to its
+// own real frame separation, gap or not.
+//
+// maxLagHere = min(MSD_MAX_LAG_FRAMES, floor(track_length*MSD_MAX_LAG_FRAC))
+// — the standard SPT convention (e.g. Michalet 2010) of only trusting a
+// track's own MSD up to ~1/4 of its length, since a track's higher lags are
+// built from exponentially fewer, increasingly correlated displacement
+// pairs and get noisy fast otherwise. Both constants are conservative,
+// literature-typical defaults, not yet exposed as PARAMS (v1 — extend if a
+// real dataset needs tuning).
+const MSD_MAX_LAG_FRAMES=20, MSD_MAX_LAG_FRAC=0.25;
+function computeEnsembleMsd(trackedLocs, px, sptTrackLenMin){
+  const byTrack=new Map();
+  for(const L of trackedLocs){
+    if(L.track_id==null || L.track_id<0) continue;
+    let a=byTrack.get(L.track_id); if(!a){a=[]; byTrack.set(L.track_id,a);}
+    a.push(L);
+  }
+  const perLag=new Map();   // lag(frames) -> per-track TAMSD values (µm²)
+  // perTrackMsd (track_id -> [{lag,tamsd}]) is the per-track breakdown the
+  // ensemble points below pool away — kept for exportTrackData (v0.11.10,
+  // docs/DOCUMENTATION.md §8) so a headless run can write each track's own
+  // MSD-vs-lag curve to spt_tracks.ndjson, not just the ensemble mean.
+  const perTrackMsd=new Map();
+  let nTracksUsed=0;
+  for(const [tid,locs] of byTrack){
+    if(locs.length<sptTrackLenMin) continue;
+    locs.sort((a,b)=>a.frame-b.frame);
+    const byFrame=new Map();
+    for(const L of locs) byFrame.set(L.frame,L);
+    const maxLagHere=Math.min(MSD_MAX_LAG_FRAMES, Math.floor(locs.length*MSD_MAX_LAG_FRAC));
+    if(maxLagHere<1) continue;
+    nTracksUsed++;
+    const own=[];
+    for(let lag=1; lag<=maxLagHere; lag++){
+      let sumSq=0, n=0;
+      for(const A of locs){
+        const B=byFrame.get(A.frame+lag); if(!B) continue;
+        const dxUm=(B.x-A.x)*px/1000, dyUm=(B.y-A.y)*px/1000;
+        sumSq+=dxUm*dxUm+dyUm*dyUm; n++;
+      }
+      if(n<1) continue;
+      const tamsd=sumSq/n;   // this track's own TAMSD at this lag
+      let a=perLag.get(lag); if(!a){a=[]; perLag.set(lag,a);}
+      a.push(tamsd);
+      own.push({lag,tamsd});
+    }
+    perTrackMsd.set(tid,own);
+  }
+  const lags=[...perLag.keys()].sort((a,b)=>a-b);
+  const points=lags.map(lag=>{
+    const vals=perLag.get(lag), n=vals.length;
+    const mean=vals.reduce((s,v)=>s+v,0)/n;
+    const std=n>1 ? Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)) : 0;
+    return {lag, n, mean, std, vals};
+  });
+  return {points, nTracksUsed, perTrackMsd};
+}
+// Weighted least-squares line through the ensemble MSD-vs-lag points, weight
+// = the lag's own contributing-track count — same "noise scales with sample
+// count" reasoning fitTrackLifetime() already documents: a far-tail lag
+// backed by only 2-3 surviving long tracks shouldn't get equal say to a
+// near lag backed by hundreds. x = lag*frametime (s), y = mean MSD (µm²);
+// for 2D free diffusion MSD(t)=4·D·t, so D=slope/4 and the intercept
+// (ideally 0) is a rough cross-check against 4·σ_loc² — an INDEPENDENT
+// diagnostic only, never fed back into sptLocError/D_coeff.
+function fitMsdLine(points, frametime){
+  let sw=0, swx=0, swy=0, swxx=0, swxy=0;
+  for(const p of points){
+    if(p.n<1) continue;
+    const x=p.lag*frametime, y=p.mean, w=p.n;
+    sw+=w; swx+=w*x; swy+=w*y; swxx+=w*x*x; swxy+=w*x*y;
+  }
+  const denom=sw*swxx-swx*swx; if(!denom) return null;
+  const slope=(sw*swxy-swx*swy)/denom;
+  const intercept=(swy-slope*swx)/sw;
+  return {slope, intercept};
+}
+
 // The single entry point, matching the *Core(locs, px, config, hooks) shape
 // pairCore()/driftCore() use. Does not mutate `locs`. Track is idempotent —
 // unlike sSMLM's Pair, it never reduces row count or aliases another field,
@@ -8729,7 +9350,7 @@ async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
 // assigns a real id — so this is a no-op for the plain path, only actually
 // filters anything once excluded/background locs can appear).
 async function sptCore(locs, px, config, hooks={}, segCtx=null){
-  const { onLog=log, onProgress=setProg } = hooks;
+  const { onLog=log, onProgress=setProg, onRecord=null } = hooks;
   let tracked;
   if(segCtx){
     const areaLabel = isFinite(segCtx.areaMax) ? segCtx.areaMax : '∞';
@@ -8737,7 +9358,7 @@ async function sptCore(locs, px, config, hooks={}, segCtx=null){
           `frame time ${config.sptFrameTime} s, cell area ${segCtx.areaMin}–${areaLabel} px…`);
     tracked=await linkTracksPerCell(locs, px, config, segCtx.labels, segCtx.areaMin, segCtx.areaMax, onProgress);
     const nIn=tracked.reduce((a,L)=>a+(L.cell_id>0?1:0),0);
-    onLog(`  ${nIn.toLocaleString()}/${tracked.length.toLocaleString()} localization(s) fell inside a qualifying cell; `+
+    onLog(`${nIn.toLocaleString()}/${tracked.length.toLocaleString()} localization(s) fell inside a qualifying cell; `+
           `the rest are background or in a cell outside the area range and were not tracked.`);
   }else{
     onLog(`\nSPT tracking: search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), frame time ${config.sptFrameTime} s…`);
@@ -8748,9 +9369,26 @@ async function sptCore(locs, px, config, hooks={}, segCtx=null){
   const nTracks=new Set(tracked.filter(L=>L.track_id>=0).map(L=>L.track_id)).size, n=diffCoeffs.length;
   let meanD=NaN, medianD=NaN;
   if(n){ meanD=diffCoeffs.reduce((a,b)=>a+b,0)/n; const sorted=[...diffCoeffs].sort((a,b)=>a-b); medianD=sorted[Math.floor(n/2)]; }
-  onLog(`  ${nTracks.toLocaleString()} track(s) found from ${locs.length.toLocaleString()} localizations; `+
+  onLog(`${nTracks.toLocaleString()} track(s) found from ${locs.length.toLocaleString()} localizations; `+
         `${n.toLocaleString()} track(s) with ≥${config.sptTrackLenMin} locs qualify for a D estimate — `+
         `mean D = ${isFinite(meanD)?meanD.toFixed(3):'n/a'} µm²/s, median D = ${isFinite(medianD)?medianD.toFixed(3):'n/a'} µm²/s.`);
+  // config.exportTrackData (docs/DOCUMENTATION.md §8): streams one record per
+  // track — the same fields sptTrackSummary()/"Save track data" already
+  // export, PLUS that track's own per-lag MSD curve (computeEnsembleMsd()'s
+  // perTrackMsd, otherwise pooled away into the ensemble mean and discarded)
+  // — through onRecord in bounded batches, never as one big array in this
+  // function's own return value. Only computed when actually requested: a
+  // real, potentially large dataset's worth of per-track MSD curves isn't
+  // free, and every other caller of sptCore() (interactive Track, headless
+  // runs without this flag) doesn't need it.
+  if(config.exportTrackData && onRecord){
+    const emitter=makeRecordEmitter('spt_tracks', onRecord);
+    const {perTrackMsd}=computeEnsembleMsd(withD, px, config.sptTrackLenMin);
+    for(const row of sptTrackSummary(withD, px)){
+      emitter.push({...row, msd_per_lag: perTrackMsd.get(row.track_id)||[]});
+    }
+    emitter.flush();
+  }
   return { locs:withD, nTracks, diffCoeffs, trackIds, trackLengths, trackMSD, meanD, medianD };
 }
 // Latest sptCore() result — kept so Show D histogram can redraw without
@@ -8770,25 +9408,36 @@ async function runSptTrack(){
     const segCtx = ($('applySegmentation').checked&&segmentedImageLabels)
       ? { labels:segmentedImageLabels, areaMin:paramValue('segAreaMin'), areaMax:paramValue('segAreaMax') }
       : null;
-    if($('applySegmentation').checked && !segmentedImageLabels) log('  ⚠ Apply segmentation? is checked but no segmentation image is loaded — tracking the whole field of view instead.');
-    const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
+    if($('applySegmentation').checked && !segmentedImageLabels) log('⚠ Apply segmentation? is checked but no segmentation image is loaded — tracking the whole field of view instead.');
+    // Logged BEFORE sptCore() starts — see run()'s own comment on this
+    // ordering — safe this early since cfg is already fully resolved.
+    // Segmentation-aware tracking (segCtx) isn't captured here — a loaded
+    // mask file doesn't fit a readable one-line command; this only records
+    // the plain whole-FOV tracking parameters, same "curated, not
+    // exhaustive" scope as calibration's own calFixedPts omission.
+    logCmd({sptTrack:true, ...cfg, pxnm:lastResult.px});
+    const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:stripLeadingBreakOnce(log), onProgress:setProg}, segCtx);
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
-    // sptHistMode resets to 'D' on every fresh Track — a fresh result always
-    // opens on the default view, same precedent driftPlotMode's own reset
-    // point follows. sptHistBtn is enabled off trackLengths (matches the old
-    // sptTrackLenHistBtn's own, more permissive condition — every linked
-    // track counts, regardless of D qualification); if there's no D data to
-    // show, fall straight to the length histogram instead of a disabled
-    // button — preserves the exact fallback behaviour the two separate
-    // buttons used to give.
-    sptHistMode='D';
+    // sptHistMode resets to 'msd' on every fresh Track (on request — the
+    // ensemble MSD-vs-lag plot is the first thing shown now, not the D
+    // histogram) — a fresh result always opens on the default view, same
+    // precedent driftPlotMode's own reset point follows. sptHistBtn is
+    // enabled off trackLengths (every linked track counts, regardless of D/
+    // MSD qualification); if there aren't enough qualifying tracks for an
+    // MSD estimate (computeSptMsd()'s own check, sptMsdData stays null),
+    // fall back to D, then to the track-length histogram (always
+    // available) if there's no D data either — preserves the exact
+    // fallback chain the two now-merged buttons used to give.
+    sptHistMode='msd';
     $('sptHistBtn').disabled=!r.trackLengths.length;
     $('sptSaveBtn').disabled=!r.trackLengths.length;
     $('sptShowTracksBtn').disabled=!r.trackLengths.length;
     $('sptShowTrackDataBtn').disabled=!r.trackLengths.length;
     if(r.trackLengths.length){
-      if(!r.diffCoeffs.length){ sptHistMode='length'; log('  no tracks met the minimum length for a D estimate — widen Min track length or Search range.'); }
+      computeSptMsd();
+      if(!sptMsdData) sptHistMode = r.diffCoeffs.length ? 'D' : 'length';
+      if(sptHistMode!=='msd' && !r.diffCoeffs.length) log('no tracks met the minimum length for a D estimate — widen Min track length or Search range.');
       drawSptHist();
     }
     // A fresh Track run replaces lastResult.locs with a new array, so
@@ -8917,7 +9566,7 @@ function recomputeSptD(){
   lastSpt.meanD=n?diffCoeffs.reduce((a,b)=>a+b,0)/n:NaN;
   const sorted=[...diffCoeffs].sort((a,b)=>a-b);
   lastSpt.medianD=n?sorted[Math.floor(n/2)]:NaN;
-  log(`  SPT frame time/localization error changed — D rescaled from cached MSDs: mean D = ${isFinite(lastSpt.meanD)?lastSpt.meanD.toFixed(3):'n/a'} µm²/s, median D = ${isFinite(lastSpt.medianD)?lastSpt.medianD.toFixed(3):'n/a'} µm²/s.`);
+  log(`SPT frame time/localization error changed — D rescaled from cached MSDs: mean D = ${isFinite(lastSpt.meanD)?lastSpt.meanD.toFixed(3):'n/a'} µm²/s, median D = ${isFinite(lastSpt.medianD)?lastSpt.medianD.toFixed(3):'n/a'} µm²/s.`);
   refreshSptDHistIfShown();
 }
 // D commonly spans orders of magnitude between bound/slow and free/fast
@@ -8942,11 +9591,12 @@ function recomputeSptD(){
 // buttons (Show D histogram / Show length hist.) into one, with
 // sptHistModeBtn (inline in the raw-panel title, same place/pattern as
 // driftPlotModeBtn) toggling which of the two draws. sptHistMode is reset
-// to 'D' only at the start of a fresh runSptTrack() (mirrors
+// to 'msd' only at the start of a fresh runSptTrack() (mirrors
 // driftPlotMode's own "a fresh result always opens on the default view"
-// reset point) — sptHistBtn's own click just reopens whichever mode was
-// last active, it does NOT force 'D' every time.
-let sptHistMode='D';
+// reset point, and matches the MSD-vs-lag plot being the first thing shown,
+// per request) — sptHistBtn's own click just reopens whichever mode was
+// last active, it does NOT force 'msd' every time.
+let sptHistMode='msd';
 function drawSptDHist(){
   if(!lastSpt || !lastSpt.diffCoeffs.length) return;
   const dMin=paramValue('sptDPlotMin'), dMax=paramValue('sptDPlotMax');
@@ -8957,8 +9607,8 @@ function drawSptDHist(){
     if(d<dMin || d>dMax){ nOutOfRange++; continue; }
     logD.push(Math.log10(d));
   }
-  if(nNonPositive) log(`  (${nNonPositive.toLocaleString()} track(s) had a non-positive D after the localization-error correction — likely near-immobile or too short to estimate reliably; excluded from the histogram, not shown as a fake peak.)`);
-  if(nOutOfRange) log(`  (${nOutOfRange.toLocaleString()} track(s) fell outside the D plot range [${dMin}, ${dMax}] µm²/s and aren't shown — widen D plot min/max to see them.)`);
+  if(nNonPositive) log(`(${nNonPositive.toLocaleString()} track(s) had a non-positive D after the localization-error correction — likely near-immobile or too short to estimate reliably; excluded from the histogram, not shown as a fake peak.)`);
+  if(nOutOfRange) log(`(${nOutOfRange.toLocaleString()} track(s) fell outside the D plot range [${dMin}, ${dMax}] µm²/s and aren't shown — widen D plot min/max to see them.)`);
   computeHist('log10(D)', logD, 'µm²/s, log10');
   drawHistogram();
 }
@@ -9020,9 +9670,9 @@ function drawSptTrackLenHist(){
     // trackDiffusionCoeffs() already uses for D.
     const frametime=paramValue('sptFrameTime');
     histData.curveLabel=`τ = ${fit.tau.toFixed(2)} locs (${(fit.tau*frametime).toFixed(2)} s)`;
-    log(`  Track-length exponential fit: τ = ${fit.tau.toFixed(2)} locs ≈ ${(fit.tau*frametime).toFixed(3)} s (locs≈frames when SPT memory=0; an approximation once gap-bridging is active).`);
+    log(`Track-length exponential fit: τ = ${fit.tau.toFixed(2)} locs ≈ ${(fit.tau*frametime).toFixed(3)} s (locs≈frames when SPT memory=0; an approximation once gap-bridging is active).`);
   }else{
-    log(`  Track-length exponential fit: not enough populated bins (or the distribution isn't decaying) to fit — showing the histogram without a fit curve.`);
+    log(`Track-length exponential fit: not enough populated bins (or the distribution isn't decaying) to fit — showing the histogram without a fit curve.`);
   }
   drawHistogram();
 }
@@ -9030,23 +9680,141 @@ function refreshSptTrackLenHistIfShown(){
   if(!rawIsPlot || rawPlotName!=='histogram' || !histData || histData.col!=='SPT track length') return;
   drawSptTrackLenHist();
 }
-// Dispatcher for sptHistBtn/sptHistModeBtn (see sptHistMode's own comment
-// above drawSptDHist()) — draws whichever of the two plots sptHistMode
-// currently selects, then shows/labels sptHistModeBtn, same "dispatcher
-// owns the toggle button's visibility, not the underlying draw primitive"
-// convention drawDriftCurve() already uses for driftPlotModeBtn (neither
-// drawHistogram() nor drawSptDHist()/drawSptTrackLenHist() touch it
-// directly). Button text names the OTHER mode (what clicking it switches
-// TO), matching driftPlotModeBtn's own "Show x/y path" convention.
+// Third spt raw-panel mode (v0.11.10): a scatter/error-bar plot, not a
+// computeHist()-based bar histogram — structurally different from the two
+// above, same "dispatcher owns heterogeneous draw types" precedent
+// drawSegShow() already established for its raster-image-vs-histogram
+// split. Split into computeSptMsd() (data) / drawSptMsdPlot() (paint),
+// mirroring computeHist()/drawHistogram() exactly, for the same reason:
+// the X-axis zoom/pan handlers below need to redraw against an already-
+// computed sptMsdData at a MUTATED sptMsdView without recomputing from
+// scratch on every wheel tick / pinch frame. Every "logical" redraw (mode
+// switch, or Frame time/Min track length changing via refreshSptMsdIfShown())
+// calls computeSptMsd() fresh, which also RESETS sptMsdView to the full
+// range — same "recompute resets the view" behaviour computeHist() already
+// has for the D/track-length histograms. computeEnsembleMsd()'s own cost
+// (proportional to qualifying tracks × MSD_MAX_LAG_FRAMES) stays cheap
+// enough that recomputing on every such change, uncached, is fine — no
+// separate rescale path like D's own recomputeSptD() (that one exists only
+// because trackDiffusionCoeffs() itself is expensive enough to cache).
+const SPTMSD_ML=64, SPTMSD_MR=16;
+let sptMsdData=null, sptMsdView=null;
+function computeSptMsd(){
+  sptMsdData=null; sptMsdView=null;
+  if(!lastResult || !lastResult.locs.length) return;
+  const sptTrackLenMin=paramValue('sptTrackLenMin'), frametime=paramValue('sptFrameTime');
+  const {points, nTracksUsed}=computeEnsembleMsd(lastResult.locs, lastResult.px, sptTrackLenMin);
+  if(!points.length){ log('Not enough qualifying tracks for an MSD-vs-lag plot — widen Min track length, or check Search range/Memory.'); return; }
+  const fit=fitMsdLine(points, frametime);
+  // Axes always include the origin (a lag-time axis with no visible x=0
+  // misreads the fitted intercept); ymax also covers individual per-track
+  // dots, not just the mean±std markers, so nothing gets clipped silently.
+  // ymax stays FIXED regardless of X zoom (horizontal-only zoom, matching
+  // the line-profile/column-histogram X-zoom convention below) — panning/
+  // zooming the lag-time axis doesn't change what "full MSD range" means.
+  let xmaxFull=0, ymaxFull=0;
+  for(const p of points){ xmaxFull=Math.max(xmaxFull,p.lag*frametime); ymaxFull=Math.max(ymaxFull,p.mean+p.std); for(const v of p.vals) if(v>ymaxFull) ymaxFull=v; }
+  if(fit) ymaxFull=Math.max(ymaxFull, fit.slope*xmaxFull+fit.intercept, fit.intercept);
+  xmaxFull=Math.max(xmaxFull*1.08, 1e-9); ymaxFull=Math.max(ymaxFull*1.1, 1e-12);
+  sptMsdData={points, fit, nTracksUsed, frametime, xmaxFull, ymaxFull};
+  sptMsdView={x0:0, x1:xmaxFull};
+  if(fit) log(`MSD-vs-lag ensemble fit: D = ${(fit.slope/4).toFixed(4)} µm²/s (slope/4), intercept ${fit.intercept>=0?'+':''}${fit.intercept.toExponential(2)} µm² (≈4·σ_loc², an independent cross-check only) — ${nTracksUsed.toLocaleString()} track(s) contributing across ${points.length} lag(s), ignoring any within-track changes in diffusion coefficient the way sptPALM's own per-track D can pick up.`);
+}
+function drawSptMsdPlot(){
+  if(!sptMsdData || !sptMsdView) return;
+  const {points, fit, nTracksUsed, frametime, ymaxFull}=sptMsdData;
+  const {x0:xmin, x1:xmax}=sptMsdView, xr=Math.max(1e-12,xmax-xmin);
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  rawFull=null; setRawPlot(true); rawPlotName='sptMsd'; $('rawTitle').textContent='SPT: MSD vs. lag time';
+  const C=plotColors();
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+  const mL=SPTMSD_ML,mR=SPTMSD_MR,mT=44,mB=48, pw=W-mL-mR, ph=H-mT-mB;
+  const X=v=>mL+pw*(v-xmin)/xr, Y=v=>mT+ph*(1-v/ymaxFull);
+  // MSD values are typically << 1 µm² — axisScale() is built for the OPPOSITE
+  // problem (large numbers, ×10ⁿ offset notation), so tick decimals are
+  // picked directly from the (fixed, zoom-independent) Y axis max instead.
+  const yDec = ymaxFull<0.01?4 : ymaxFull<0.1?3 : ymaxFull<1?2 : 1;
+  ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const c of niceTicks(0,ymaxFull,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(c.toFixed(yDec),mL-9,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const decX=xr<1?3:xr<10?2:1;
+  for(const v of niceTicks(xmin,xmax,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(v.toFixed(decX),x,mT+ph+9); }
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();       // points/line clipped to the plot rect (for zoom/pan)
+  // Individual per-track TAMSD values: one small semi-transparent red dot per
+  // (track, lag), matching the reference figure this plot is modeled on. A
+  // deterministic seeded x-jitter (mulberry32, keyed per lag) spreads them so
+  // overlapping values at the same lag stay readably distinct instead of
+  // stacking into one vertical smear.
+  ctx.fillStyle='rgba(214,58,58,0.5)';
+  const jitterW=Math.min(14, pw/Math.max(1,points.length)*0.28);
+  for(const p of points){
+    const rng=mulberry32(0xC0FFEE ^ (p.lag*2654435761>>>0));
+    for(const v of p.vals){
+      const jx=(rng()-0.5)*2*jitterW;
+      ctx.beginPath(); ctx.arc(X(p.lag*frametime)+jx, Y(Math.min(v,ymaxFull)), 2, 0, 2*Math.PI); ctx.fill();
+    }
+  }
+  // Ensemble mean ± std per lag (green, matching the drift/NeNA/track-length-
+  // fit green-primary convention already used across this app) plus the
+  // weighted linear fit line.
+  ctx.strokeStyle='#0a7d32'; ctx.fillStyle='#0a7d32'; ctx.lineWidth=1.6;
+  for(const p of points){
+    const x=X(p.lag*frametime), yTop=Y(Math.min(p.mean+p.std,ymaxFull)), yBot=Y(Math.max(p.mean-p.std,0)), y=Y(p.mean);
+    ctx.beginPath(); ctx.moveTo(x,yTop); ctx.lineTo(x,yBot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-4,yTop); ctx.lineTo(x+4,yTop); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-4,yBot); ctx.lineTo(x+4,yBot); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x,y,3.4,0,2*Math.PI); ctx.fill();
+  }
+  if(fit){
+    ctx.beginPath();
+    ctx.moveTo(X(0),Y(Math.max(0,Math.min(fit.intercept,ymaxFull))));
+    ctx.lineTo(X(sptMsdData.xmaxFull),Y(Math.max(0,Math.min(fit.slope*sptMsdData.xmaxFull+fit.intercept,ymaxFull))));
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
+  ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('lag time Δt (s)', mL+pw/2, mT+ph+26);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('MSD (µm²)',0,0); ctx.restore();
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.axis;
+  const dTxt = fit ? `D = ${(fit.slope/4).toFixed(4)} µm²/s` : 'fit failed';
+  ctx.fillText(`${dTxt} · ${nTracksUsed.toLocaleString()} track(s), ${points.length} lag(s)`, mL+pw, mT-8);
+  const zoomed = xmin>1e-9 || xmax<sptMsdData.xmaxFull-1e-9;
+  $('rawInfo').textContent=`— SPT: ensemble MSD vs. lag time · red = per-track TAMSD, green = mean ± std, line = weighted fit (D from slope/4)${zoomed?' · scroll/pinch zoom x · drag pan · dbl-click reset':' · scroll/pinch to zoom x'}`;
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:xmin,xB:xmax,yTop:ymaxFull,yBot:0, fmt:(vx,vy)=>`Δt=${vx.toFixed(3)} s · MSD=${vy.toFixed(yDec)} µm²`});
+  _replotRaw=drawSptMsdPlot;
+  syncSaveImg();
+}
+function refreshSptMsdIfShown(){
+  if(!rawIsPlot || rawPlotName!=='sptMsd') return;
+  computeSptMsd(); drawSptMsdPlot();
+}
+// Dispatcher for sptHistBtn/sptHistModeBtn — draws whichever of the three
+// plots sptHistMode currently selects, then shows/labels sptHistModeBtn,
+// same "dispatcher owns the toggle button's visibility, not the underlying
+// draw primitive" convention drawDriftCurve() already uses for
+// driftPlotModeBtn. With three modes (not two), the button now cycles
+// D -> length -> msd -> D and labels itself with the NEXT mode's name (what
+// clicking it switches TO), generalizing driftPlotModeBtn's original
+// "names the other mode" convention to more than one alternative.
+const SPT_HIST_MODES=['D','length','msd'];
+const SPT_HIST_LABELS={D:'Diffusion', length:'Track length', msd:'MSD vs lag'};
+function nextSptHistMode(m){ return SPT_HIST_MODES[(SPT_HIST_MODES.indexOf(m)+1)%SPT_HIST_MODES.length]; }
 function drawSptHist(){
-  if(sptHistMode==='length') drawSptTrackLenHist(); else drawSptDHist();
+  if(sptHistMode==='length') drawSptTrackLenHist();
+  else if(sptHistMode==='msd'){ computeSptMsd(); drawSptMsdPlot(); }
+  else drawSptDHist();
   hideOtherRawToggleBtns('sptHistModeBtn');
   const btn=$('sptHistModeBtn');
-  if(btn){ btn.style.display=''; btn.textContent = sptHistMode==='length' ? 'Diffusion' : 'Track length'; }
+  if(btn){ btn.style.display=''; btn.textContent = SPT_HIST_LABELS[nextSptHistMode(sptHistMode)]; }
 }
 $('sptTrackBtn').addEventListener('click', runSptTrack);
 $('sptHistBtn').addEventListener('click', drawSptHist);
-$('sptHistModeBtn').addEventListener('click', ()=>{ sptHistMode = sptHistMode==='length' ? 'D' : 'length'; drawSptHist(); });
+$('sptHistModeBtn').addEventListener('click', ()=>{ sptHistMode = nextSptHistMode(sptHistMode); drawSptHist(); });
 $('sptSaveBtn').addEventListener('click', exportSptSummary);
 // "Show tracks" (sidebar) turns the overlay ON and reveals srTracksOverlayBtn
 // (raw... rather, the SR-panel title) for quick on/off from then on — mirrors
@@ -9087,6 +9855,7 @@ $('sptShowTracksPct').addEventListener('change', refreshTracksOverlayIfShown);
 // which tracks/steps exist and still require a fresh Track click.
 $('sptFrameTime').addEventListener('change', recomputeSptD);
 $('sptFrameTime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
+$('sptFrameTime').addEventListener('change', refreshSptMsdIfShown);   // rescales the x-axis (lag*frametime) and the fitted D
 $('sptLocError').addEventListener('change', recomputeSptD);
 // Min track length doesn't change trackLengths itself (see drawSptTrackLenHist's
 // own comment) — this only moves the threshold MARKER on an already-shown
@@ -9094,6 +9863,7 @@ $('sptLocError').addEventListener('change', recomputeSptD);
 // steps exist and require a fresh Track click, same as before.
 $('sptTrackLenMin').addEventListener('change', refreshSptTrackLenHistIfShown);
 $('sptTrackLenMin').addEventListener('change', refreshTracksOverlayIfShown);
+$('sptTrackLenMin').addEventListener('change', refreshSptMsdIfShown);   // changes which tracks qualify to contribute per lag
 // D plot min/max only change the histogram's own display window, not the
 // underlying D values — re-plot (if shown) without touching lastSpt itself.
 $('sptDPlotMin').addEventListener('change', refreshSptDHistIfShown);
@@ -9767,7 +10537,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // warning elsewhere. Free-angle mode (localize3D checked) fits its own
   // angle per emitter, so sSmlmAngleCenter is irrelevant there — no warning.
   if(method==='gaussmleEll' && !config.localize3D && !config.sSmlmAngleCenter){
-    onLog(`  ⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs → Fit angle & tol., on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
+    onLog(`⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs → Fit angle & tol., on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
   }
   // FTM (temporal median filtering): if enabled, every frame fetch below goes
   // through makeFtmStack() instead of `stack` directly, so detect/fit see
@@ -9796,7 +10566,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       // scale onProgress uses everywhere else in this function.
       fetchStack=makeFtmStack(stack, config.ftmWindow, config.camoffset, config.chunkmb,
         { onLog, onProgress: absFrame=>onProgress(100*Math.max(0,Math.min(1,(absFrame-firstIdx)/n))) });
-      onLog(`  Temporal median filtering ON (window=${config.ftmWindow}) — Localize runs on FTM-corrected frames `+
+      onLog(`Temporal median filtering ON (window=${config.ftmWindow}) — Localize runs on FTM-corrected frames `+
             `(chunk size ${ftmChunkSize.toLocaleString()} frames → ~${ftmNChunks} chunk${ftmNChunks>1?'s':''} for this Run; `+
             `chunkmb=${config.chunkmb} — shrink it for more, smaller chunks and more frequent progress updates).`);
       // Peak-memory visibility: a mobile tab that gets killed for memory pressure
@@ -9819,7 +10589,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       const stackResidentMB = stack.streaming ? 0 : Math.round(nStack*w*h*4/1e6);
       const totalMB = stackResidentMB + config.chunkmb;
       const looksRisky = config.memgb<=8 && totalMB>800;
-      onLog(`  Estimated peak memory: ~${config.chunkmb} MB for FTM's own chunk working set`+
+      onLog(`Estimated peak memory: ~${config.chunkmb} MB for FTM's own chunk working set`+
             (stackResidentMB ? ` + ~${stackResidentMB} MB for the already-cached stack = ~${totalMB} MB total` : '')+
             `.`+(looksRisky ? ` ⚠ That's a lot for a browser tab, especially on mobile — if a Run stops with no further log line, lower Stream heap (chunkmb) and/or Memory budget (memgb) first.` : ''));
     }
@@ -9858,7 +10628,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     // knobs are PARAMS (no UI control yet — set via a loaded settings JSON) for
     // experimenting with worker utilisation on a given machine/method.
     const BATCH=Math.max(config.workerBatchMin, Math.min(config.workerBatchMax, Math.ceil(n/(pool.length*config.workerBatchTarget))));
-    onLog(`  parallel: ${pool.length} workers × ${BATCH}-frame batches`);
+    onLog(`parallel: ${pool.length} workers × ${BATCH}-frame batches`);
     let next=firstIdx, doneF=0, inflight=0, err=null, shown=null;
     // Workers dispatch same-size batches at roughly the same time, so they
     // tend to FINISH in a synchronized cluster too — a burst of onmessage
@@ -9924,7 +10694,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           for(let i=0;i<bl.length;i++) ctxFrames[b-ctxStart+i]=bl[i];
         }
         if(err) break;
-        onLog(`  FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk, context ${ctxStart+1}–${ctxEnd})…`);
+        onLog(`FTM correcting frames ${coreStart+1}–${coreEnd} (${(coreEnd-coreStart).toLocaleString()}-frame chunk, context ${ctxStart+1}–${ctxEnd})…`);
         onProgress(100*(coreStart-firstIdx)/n);   // frames before this chunk are done (both phases); this chunk's own FTM phase has no finer-grained progress of its own — see docs/DOCUMENTATION.md
         const tFtm0=performance.now();
         let corrected;
@@ -10122,10 +10892,10 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const per=Math.max(1,processed);
   const runMs=performance.now()-runT0;           // entire Run (incl. previews + final render)
 
-  onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames (${(locs.length/per).toFixed(1)} loc/frame) in ${Math.round(runMs)} ms total (${Math.round(dt)} ms compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+  onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames (${(locs.length/per).toFixed(1)} loc/frame) in ${Math.round(runMs/1000)} s total (${Math.round(dt/1000)} s compute · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
   if((method==='gaussmle'||method==='mle3d'||method==='gaussmleEll')&&locs.length){   // at-a-glance MLE confirmation + quality stat
     const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
-    if(ps.length) onLog(`  ${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
+    if(ps.length) onLog(`${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
   // a timing breakdown, so you can see where the time actually goes.
   // In parallel mode detect/fit are summed ACROSS workers, so they are CPU
   // time and legitimately exceed the wall clock; report them as such.
@@ -10139,10 +10909,16 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // got a single batch (tDetect+tFit===0): dividing a genuine nonzero FTM
   // time by the 1e-9 floor produced an absurd percentage (~2e13%) rather
   // than an honest "no detect/fit CPU to compare against yet".
-  const pc=v=>rawBase>1e-6 ? (100*v/base).toFixed(0).padStart(2)+'%' : '  n/a';
-  const ms=v=>Math.round(v).toLocaleString().padStart(7);
-  if(useWorkers) onLog(`  frame I/O   ${ms(tGet)} ms       (overlapped with compute, not CPU time)`);
-  else           onLog(`  frame access${ms(tGet)} ms ${pc(tGet)}`);
+  const pc=v=>rawBase>1e-6 ? (100*v/base).toFixed(0).padStart(2)+'%' : 'n/a';
+  // Rounded to whole seconds (on request) — these breakdown rows commonly run
+  // into the tens/hundreds of thousands of ms on a real dataset, where a raw
+  // ms count is harder to read at a glance than a second count; a stage under
+  // ~0.5s rounds to "0 s" here, an accepted trade-off of picking seconds as
+  // the unit (still shown, just coarse — the exact ms value stays in tDetect/
+  // tFit/etc. for anything reading these numbers programmatically instead).
+  const sec=v=>Math.round(v/1000).toLocaleString().padStart(7);
+  if(useWorkers) onLog(`frame I/O   ${sec(tGet)} s        (overlapped with compute, not CPU time)`);
+  else           onLog(`frame access${sec(tGet)} s  ${pc(tGet)}`);
   // fetchStack!==stack only when FTM actually ran this Run (see the fetchStack
   // setup above). Two disjoint code paths compute it: the serial loop reads
   // fetchStack.getFrames() directly (main-thread time, tracked by
@@ -10153,9 +10929,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // also included in tGet's "frame access" total above (happens inside the
   // same await).
   if(fetchStack!==stack){ const ftmT=useWorkers?ftmWorkMs:fetchStack.ftmMs;
-    onLog(`  FTM filter  ${ms(ftmT)} ms ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
-  onLog(`  detect      ${ms(tDetect)} ms ${pc(tDetect)}   (band-pass + maxima)`);
-  onLog(`  fit         ${ms(tFit)} ms ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
+    onLog(`FTM filter  ${sec(ftmT)} s  ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
+  onLog(`detect      ${sec(tDetect)} s  ${pc(tDetect)}   (band-pass + maxima)`);
+  onLog(`fit         ${sec(tFit)} s  ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
   // previewMs (SR/raw refresh during the Run) and the gap between runMs and
   // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
   // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
@@ -10163,9 +10939,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // Preview cost scales with the CURRENT locs count each time it fires, so on
   // a long run with millions of localizations it can grow substantially by
   // the end even though early previews were cheap.
-  if(previewMs>50) onLog(`  preview     ${ms(previewMs)} ms       (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
+  if(previewMs>50) onLog(`preview     ${sec(previewMs)} s        (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
   const otherMs=runMs-dt-previewMs;
-  if(otherMs>50) onLog(`  other       ${ms(otherMs)} ms       (pool setup, main-thread frame fetch/decode not itemised above)`);
+  if(otherMs>50) onLog(`other       ${sec(otherMs)} s        (pool setup, main-thread frame fetch/decode not itemised above)`);
   if(useWorkers){
     // ftmWorkMs is wall time of a SEPARATE barrier-phased pool-parallel stage
     // (row-band FTM correction), not counted in tDetect/tFit — comparing
@@ -10176,9 +10952,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     const ftmT=fetchStack!==stack?ftmWorkMs:0;
     const fitWall=Math.max(dt-ftmT,1e-9);
     const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*fitWall,1e-9);
-    onLog(`  ↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation on detect/fit (worker CPU ${Math.round(cpu).toLocaleString()} ms / ${pool.length}×${Math.round(fitWall).toLocaleString()} ms wall${ftmT>50?', excl. the separately barrier-phased FTM stage above':''}).`);
-    onLog(`    Utilisation near 100% means workers stayed fed; low would mean they starved.`);
-    onLog(`    Note E-cores inflate measured CPU, so this is an upper bound.`);
+    onLog(`↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation on detect/fit (worker CPU ${Math.round(cpu/1000).toLocaleString()} s / ${pool.length}×${Math.round(fitWall/1000).toLocaleString()} s wall${ftmT>50?', excl. the separately barrier-phased FTM stage above':''}).`);
+    onLog(`Utilisation near 100% means workers stayed fed; low would mean they starved.`);
+    onLog(`Note E-cores inflate measured CPU, so this is an upper bound.`);
   }
   if(stopped) onLog('Partial result shown — press “Localize” to start over.');
 
@@ -10197,6 +10973,19 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 async function run(){
   if(!stack){ log('No data loaded.'); return; }
   stopRequested=false;
+  // Everything below unconditionally discards any previous result and
+  // whatever was derived from it (drift correction, SPT tracking, sSMLM
+  // pairing) — no confirmation prompt. A user relying on the log to notice
+  // work vanished gets one line naming what's actually about to go, before
+  // it does (a real, reported gap otherwise: e.g. a CSV-loaded result or an
+  // unsaved Track run disappearing with no other signal).
+  if(lastResult && lastResult.locs && lastResult.locs.length){
+    const cleared=['previous localizations'];
+    if(lastDrift) cleared.push('drift correction');
+    if(lastSpt) cleared.push('SPT tracking');
+    if(sSmlmPairedLocs) cleared.push('sSMLM pairing');
+    log(`⚠ Starting Localize — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
+  }
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
@@ -10212,6 +11001,21 @@ async function run(){
     if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
     const config=buildConfigFromParams();
     const px=config.pxnm;   // read live, not the load-time snapshot stack.px was captured with
+    // Logged BEFORE runCore() starts, not after it succeeds — a recorded
+    // command announces what's about to run, with runCore()'s own onLog
+    // prose narrating what actually happened following it, same order a
+    // real macro recorder reads in. Safe this early since every field here
+    // comes straight from `config`, already fully resolved above. Curated
+    // subset of `config` — not the whole PARAMS registry (see logCmd()'s own
+    // comment) — just the fields that actually describe THIS run: the
+    // active detection filter's own threshold field only (config.detFilter
+    // picks which of detection_wavelet_thr/DoG_thr/box_thr applies; the
+    // other two are irrelevant to what's about to run).
+    const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
+    logCmd({ method, psf:config.psf, winr:config.winr, detFilter:config.detFilter,
+      [threshKey]: config[threshKey], gain:config.gain, camoffset:config.camoffset,
+      fitFirstFrame:config.fitFirstFrame, fitLastFrame:config.fitLastFrame, pxnm:px,
+      localize3D:config.localize3D });
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // z(σx,σy) width model for MLE 3D / (checked) MLE 3D rotated elliptical —
     // use the current run's pixel size for the px→nm conversion. wcal's mere
@@ -10222,7 +11026,7 @@ async function run(){
     // free, gaussmleEll only) is separate, driven by config.localize3D itself.
     const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
     const r = await runCore(config, stack, {zcal,wcal}, {
-      onLog: log,
+      onLog: stripLeadingBreakOnce(log),
       onProgress: setProg,
       shouldStop: () => stopRequested,
       onRawPreview: (img,w,h,maxima,frameLocs,fi,n) => { drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`; },
@@ -10857,6 +11661,22 @@ async function loadMovieFiles(fs){
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
   syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
+  // Logged BEFORE loading starts, not after it succeeds — a recorded command
+  // announces what's about to run, with the prose narrating what actually
+  // happened following it, same order a real macro recorder reads in. Safe
+  // to log this early since the config doesn't depend on the load's own
+  // outcome: pxnm is the CURRENT setting either way ("Pixel size (nm)...NOT
+  // auto-updated" — see loadTiffFile()'s own metadata-advisory comment), so
+  // reading it via paramValue() here vs. stack.px after loading is the same
+  // value. A multi-file combine (Ctrl/Cmd+click several files) has no CLI/
+  // analyze() equivalent — tools/webSMLM-cli.mjs only ever takes one --file,
+  // so a faithful recorded command isn't possible there; single-file loads
+  // record cleanly. Browsers only ever expose the bare filename (File.name),
+  // never a full filesystem path, so — same caveat as any macro recorder —
+  // this reproduces correctly only when re-run from the same folder (CLI
+  // mode) or with a real File substituted in (JS mode's own `file` key needs
+  // an actual File/Blob object, not the string logged here).
+  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm')});
   log(multi ? `Loading ${fs.length} selected files…` : `Loading ${fs[0].name}…`);
   try{
     stack = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
@@ -11091,8 +11911,8 @@ function updateCalStatus(){
 function logParamValues(values){
   for(const id in values){
     const spec=PARAMS[id];
-    log(spec ? `  ${id} (${spec.label}) = ${JSON.stringify(values[id])}`
-              : `  ${id} = ${JSON.stringify(values[id])}  (not recognised — ignored)`);
+    log(spec ? `${id} (${spec.label}) = ${JSON.stringify(values[id])}`
+              : `${id} = ${JSON.stringify(values[id])}  (not recognised — ignored)`);
   }
 }
 // Load settings: apply a JSON of {id: value} pairs against the PARAMS
@@ -11119,7 +11939,7 @@ $('setFile').addEventListener('change',async e=>{
       }
       n++;
     }
-    log(`  ${n} of ${Object.keys(v).length} values applied.`);
+    log(`${n} of ${Object.keys(v).length} values applied.`);
   }catch(err){ log('Settings load failed: '+err.message); }
   e.target.value='';
 });
@@ -11302,6 +12122,13 @@ $('file').addEventListener('change', async e=>{
 $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
 $('clearLogBtn').addEventListener('click',()=>{ $('logText').textContent=''; $('exportLogBtn').disabled=true; });
+// Names the mode clicking switches TO, same "shows what clicking gets you"
+// convention as driftPlotModeBtn/sptHistModeBtn — reads "Record as CLI"
+// while currently recording JS, and vice versa.
+$('logCmdStyleBtn').addEventListener('click',()=>{
+  logCmdStyle = logCmdStyle==='cli' ? 'js' : 'cli';
+  $('logCmdStyleBtn').textContent = logCmdStyle==='cli' ? 'Record as JS' : 'Record as CLI';
+});
 $('exportLogBtn').addEventListener('click',async()=>{
   const txt=$('logText').textContent.replace(/^\n+/,'');
   if(!txt){ log('Log is empty.'); return; }
@@ -11683,6 +12510,37 @@ $('raw').addEventListener('click',async e=>{
     if(ptrs.size===0) drag=null; else if(ptrs.size===1){ const id=[...ptrs.keys()][0]; drag={d0:ptrs.get(id), x0:histView.x0, x1:histView.x1}; } };
   cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
   cv.addEventListener('dblclick',()=>{ if(!active()) return; histView={x0:histData.lo,x1:histData.hi}; drawHistogram(); });
+})();
+
+// SPT MSD-vs-lag X-axis zoom (wheel / trackpad + touch pinch) and pan; Y
+// stays fixed — same "horizontal only" convention as the two zoom handlers
+// above, added on request: the early, small-lag end of the curve (where
+// per-lag std tends to be largest, see computeSptMsd()'s own tracks-per-lag
+// reasoning) can bunch up against the axis when a dataset also has a few
+// long-lag outliers stretching the full-range view. Active only while the
+// MSD plot is shown — otherwise the raw navigator handles pinch/wheel/drag.
+(function(){ const cv=$('raw');
+  const active=()=>rawIsPlot&&rawPlotName==='sptMsd'&&!!sptMsdData&&!!sptMsdView;
+  const dataX=clientX=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, px=(clientX-r.left)*Wc/r.width, pw=Wc-SPTMSD_ML-SPTMSD_MR, xr=sptMsdView.x1-sptMsdView.x0;
+    return sptMsdView.x0+(px-SPTMSD_ML)/Math.max(1,pw)*xr; };
+  const clampSet=(c,x0,x1,f)=>{ const lo=0, hi=sptMsdData.xmaxFull; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
+    nx0=Math.max(lo,nx0); nx1=Math.min(hi,nx1); if(nx1-nx0>=(hi-lo)*0.02){ sptMsdView={x0:nx0,x1:nx1}; drawSptMsdPlot(); } };
+  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=Wc-SPTMSD_ML-SPTMSD_MR, xr=x1-x0, lo=0, hi=sptMsdData.xmaxFull;
+    const dData=(clientDx-d0)*Wc/r.width*xr/Math.max(1,pw); let nx0=x0-dData, nx1=x1-dData;
+    if(nx0<lo){nx0=lo;nx1=lo+xr;} if(nx1>hi){nx1=hi;nx0=hi-xr;} nx0=Math.max(lo,nx0); sptMsdView={x0:nx0,x1:nx1}; drawSptMsdPlot(); };
+  cv.addEventListener('wheel',e=>{ if(!active()) return; e.preventDefault();
+    clampSet(dataX(e.clientX), sptMsdView.x0, sptMsdView.x1, Math.exp(e.deltaY*0.0015)); },{passive:false});
+  const ptrs=new Map(); let pinch=null, drag=null;
+  cv.addEventListener('pointerdown',e=>{ if(!active()) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e.clientX);
+    if(ptrs.size===2){ drag=null; const v=[...ptrs.values()]; pinch={d0:Math.abs(v[0]-v[1])||1, x0:sptMsdView.x0, x1:sptMsdView.x1, c:dataX((v[0]+v[1])/2)}; }
+    else if(ptrs.size===1){ pinch=null; drag={d0:e.clientX, x0:sptMsdView.x0, x1:sptMsdView.x1}; } });
+  cv.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,e.clientX);
+    if(pinch&&ptrs.size>=2&&sptMsdData){ e.preventDefault(); const v=[...ptrs.values()], d=Math.abs(v[0]-v[1]); if(d>0) clampSet(pinch.c, pinch.x0, pinch.x1, pinch.d0/d); }
+    else if(drag&&ptrs.size===1&&sptMsdData){ e.preventDefault(); panBy(drag.d0, drag.x0, drag.x1, e.clientX); } });
+  const end=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null;
+    if(ptrs.size===0) drag=null; else if(ptrs.size===1){ const id=[...ptrs.keys()][0]; drag={d0:ptrs.get(id), x0:sptMsdView.x0, x1:sptMsdView.x1}; } };
+  cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  cv.addEventListener('dblclick',()=>{ if(!active()) return; sptMsdView={x0:0,x1:sptMsdData.xmaxFull}; drawSptMsdPlot(); });
 })();
 
 /* ---- plot cursor readout: crosshair + x/y value under the pointer ------------
@@ -12555,6 +13413,23 @@ function calibFromJson(o){
 //                          line-profile/histogram plots are inherently
 //                          interactive (a user-drawn line / a chosen table
 //                          column) and have no headless equivalent to render.
+//   exportTrackData/exportSSmlmCandidates/exportCalibrationPoints/
+//   exportPcfoTiles       — stream per-record datasets (per-track MSD
+//                          curves, sSMLM candidate pairs, calibration bead
+//                          points, PCFO tile points respectively) through
+//                          config.onRecord(kind, batch) in bounded batches —
+//                          NOT included in this function's own return value
+//                          (would reintroduce the exact large-CDP-payload
+//                          problem tools/webSMLM-cli.mjs already trims pcfo.pts/
+//                          sSmlmPair.locs to avoid). A caller with no
+//                          onRecord hook gets no records at all for these
+//                          flags — see makeRecordEmitter()'s own comment and
+//                          docs/DOCUMENTATION.md §8 for the NDJSON schema
+//                          each kind writes to when the CLI is the caller.
+//   onRecord              — optional (kind, batch) callback, see above —
+//                          tools/webSMLM-cli.mjs forwards it to a real NDJSON
+//                          file per kind via console.log, the same live
+//                          channel onLog/onProgress already use
 //   onProgress            — optional (0..100) callback for a driving script's
 //                          own progress reporting
 // Returns {locs, csvText, logText, settingsText, timings, reconstructionPng,
@@ -12590,10 +13465,10 @@ async function analyze(config){
           if(config.calLast==null) defaulted.push(`calLast ${calLast} (default)`); }
     if(config.calStep==null) defaulted.push(`z-step ${cfg.calStep} nm (default — pass calStep if this doesn't match the acquisition!)`);
     if(config.calRef==null) defaulted.push(`z=0 reference: auto (default)`);
-    if(defaulted.length) onLog(`  ⚠ Calibration parameter default(s) in use — ${defaulted.join(' · ')}.`);
+    if(defaulted.length) onLog(`⚠ Calibration parameter default(s) in use — ${defaulted.join(' · ')}.`);
     const sourceFile = cfg.calibrationFiles ? cfg.calibrationFiles[0].name : cfg.calibrationFile.name;
     const calCfg=Object.assign({}, cfg, { calFirst, calLast, calFixedPts:null, sourceFile });
-    const cr = await calibrationCore(calCfg, calStack, { onLog, onProgress });
+    const cr = await calibrationCore(calCfg, calStack, { onLog, onProgress, onRecord:cfg.onRecord });
     calib=cr.calib; cal3d=cr.cal3d; cal3dW=cr.cal3dW;
     calibJsonText = JSON.stringify(buildCalibJson(calib), null, 2);
   } else if(cfg.calibrationJson){
@@ -12627,9 +13502,9 @@ async function analyze(config){
   // the interactive Transfer estimates button staying disabled on failure.
   let pcfo=null;
   if(cfg.estimateGainOffset){
-    pcfo = await pcfoCore(cfg, stack, {onLog, onProgress});
+    pcfo = await pcfoCore(cfg, stack, {onLog, onProgress, onRecord:cfg.onRecord});
     if(pcfo){
-      onLog(`  overriding gain ${cfg.gain} -> ${pcfo.gain.toFixed(3)} photons/ADU, offset ${cfg.camoffset} -> ${Math.round(pcfo.offset)} ADU (PCFO estimate).`);
+      onLog(`overriding gain ${cfg.gain} -> ${pcfo.gain.toFixed(3)} photons/ADU, offset ${cfg.camoffset} -> ${Math.round(pcfo.offset)} ADU (PCFO estimate).`);
       cfg.gain=pcfo.gain; cfg.camoffset=Math.round(pcfo.offset);
     }
   }
@@ -12654,9 +13529,9 @@ async function analyze(config){
   // then optionally correct drift/measure precision on the paired set).
   let sSmlmPair=null;
   if(cfg.sSmlmPair && locs.length){
-    sSmlmPair = await pairCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
+    sSmlmPair = await pairCore(locs, cfg.pxnm, cfg, {onLog, onProgress, onRecord:cfg.onRecord});
     if(sSmlmPair.nPairs) locs = sSmlmPair.locs;
-    else onLog('  no pairs found — widen sSmlmDistMin/Max/sSmlmAngleTol and try again.');
+    else onLog('no pairs found — widen sSmlmDistMin/Max/sSmlmAngleTol and try again.');
   }
   let drift=null;
   if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
@@ -12698,7 +13573,7 @@ async function analyze(config){
       if(segStack.w!==r.w || segStack.h!==r.h) onLog(`⚠ Segmentation image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${r.w}×${r.h}) — pixel correspondence will be off.`);
       segCtx = { labels:{arr:segImg,w:segStack.w,h:segStack.h}, areaMin:cfg.segAreaMin, areaMax:cfg.segAreaMax };
     }
-    const sr = await sptCore(locs, cfg.pxnm, cfg, {onLog, onProgress}, segCtx);
+    const sr = await sptCore(locs, cfg.pxnm, cfg, {onLog, onProgress, onRecord:cfg.onRecord}, segCtx);
     locs = sr.locs;
     spt = {nTracks:sr.nTracks, nQualify:sr.diffCoeffs.length, meanD:sr.meanD, medianD:sr.medianD};
   }
@@ -12708,9 +13583,9 @@ async function analyze(config){
   // part of the same call, so without this the warning would just never
   // fire at all for a headless run that forgot --gain/--camoffset.
   if(cfg.gain===1 && cfg.camoffset===0){
-    onLog('  ⚠ gain 1 / offset 0 — "intensity [photon]" is in ADU, not photons.');
-    onLog('    The uncertainty column scales as 1/√N and is therefore not physically');
-    onLog('    meaningful until a real ADU→photon conversion is entered.');
+    onLog('⚠ gain 1 / offset 0 — "intensity [photon]" is in ADU, not photons.');
+    onLog('The uncertainty column scales as 1/√N and is therefore not physically');
+    onLog('meaningful until a real ADU→photon conversion is entered.');
   }
   const paramsOnly={}; for(const id in PARAMS) paramsOnly[id]=cfg[id];   // drop file/calibrationJson/onProgress/… — not PARAMS entries
   // Real 3D z and sSMLM's dist are independent fields (see pairCore) — only
@@ -12885,7 +13760,7 @@ async function runAutorun(){
                       'webSMLM_autorun_log.txt','Log (text)','text/plain','.txt');
       const pngBlob=await (await fetch(result.reconstructionPng)).blob();   // fetch() decodes a data: URL into a Blob directly
       await saveBlob(pngBlob,'webSMLM_autorun_reconstruction.png','PNG image','image/png','.png');
-      log('  webSMLM_autorun_{result.json,result.csv,settings.json,log.txt,reconstruction.png} written to Downloads.');
+      log('webSMLM_autorun_{result.json,result.csv,settings.json,log.txt,reconstruction.png} written to Downloads.');
     }
   }catch(err){ log(`⚠ Autorun failed: ${err.name}: ${err.message}`); }
   finally{ setProg(null); }
@@ -13014,6 +13889,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <li><b>Koen J. A. Martens</b> contributed the uniform box-filter detection method (Huang et al. 2011), the <b>Real-time update</b> live-preview toggle, the wheel-zoom / ctrl+wheel-scrub raw-panel scroll rework, and sizing the green ROI box from the actual fit radius (<a href="https://github.com/HohlbeinLab/webSMLM/pull/4" target="_blank">PR #4</a>, v0.9.1).</li>
       <li><b>Koen J. A. Martens</b> also contributed <b>Gain &amp; offset estimation</b> (the PCFO photon-conversion-factor method) and the Simulation settings module's physically-motivated emitter-lifetime and camera forward models (<a href="https://github.com/HohlbeinLab/webSMLM/pull/5" target="_blank">PR #5</a>, v0.10.2).</li>
       <li><b>Aun Al Atiat</b> contributed the Read the Docs manual build (Sphinx + MyST, splitting <code>docs/DOCUMENTATION.md</code> into a multi-page reference site) (<a href="https://github.com/HohlbeinLab/webSMLM/pull/6" target="_blank">PR #6</a>, v0.11.4).</li>
+      <li><b>Hazen Babcock</b> contributed a separable-Fisher-build fast path for the spherical and axis-aligned-elliptical Gaussian MLE fitters — hoisting per-axis erf/exp terms instead of recomputing them per pixel, ~1.7&ndash;1.9&times; faster fitting with bit-identical output (<a href="https://github.com/HohlbeinLab/webSMLM/pull/7" target="_blank">PR #7</a>, v0.11.10).</li>
     </ul>
 
     <h3>License &amp; author</h3>
