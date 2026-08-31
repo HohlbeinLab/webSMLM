@@ -170,16 +170,22 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     plumbing for the gain step specifically; the dark-only offset/noise step is the easy part
     either way, common to both.
 
-  **A genuinely smaller v1, native to this codebase**: PCFO already solves "no controlled
-  calibration source needed" a different, lighter way — `pcfoFrameTilePoints()` uses the NATURAL
-  spatial intensity variation across tiles of the ALREADY-LOADED movie as its own stand-in for
-  varying signal levels, no special acquisition at all — then `pcfoRegress()` pools every tile's
-  own (mean, noise-variance) point into ONE global regression. Doing that regression PER TILE
-  POSITION instead of pooling across the whole FOV — reusing `pcfoFrameTilePoints`/`pcfoRegress`/
-  `pickSeededFrames` almost unchanged — gives a coarse (tile-resolution) gain/offset MAP straight
-  from data the user has to load anyway. Likely the right default v1; Picasso's dark(+bright)-movie
-  route stays useful as a higher-fidelity/verification path for a user who already has proper
-  calibration movies from elsewhere.
+  **A genuinely smaller v1, native to this codebase — but with a real open question, not a free
+  lunch**: PCFO already avoids needing CONDITION-TAGGED calibration movies (no bright series, no
+  exposure ladder, no per-file "this = intensity level 3" bookkeeping) — `pcfoFrameTilePoints()`
+  gets its dynamic range in signal level from pooling across TWO axes at once: different tile
+  POSITIONS (spatially, real images have bright structure and dim background) AND different FRAMES
+  (temporally, via blinking/bleaching) of one ordinary already-loaded movie. That's the genuine win
+  over Picasso/ACCéNT's multi-condition file plumbing — but it means a naive "regress per tile
+  position instead of pooling globally" throws away the SPATIAL axis entirely, leaving only that one
+  location's own frame-to-frame fluctuation to fit a slope from — quite possibly too narrow/noisy to
+  be reliable, not verified either way. A more honest middle ground: pool a small spatial
+  NEIGHBOURHOOD of tiles (not the whole FOV, not one exact tile) around each map location, across
+  the sampled frames — keeps some spatial range alongside the temporal one, trading map resolution
+  for regression stability via a tunable neighbourhood size. Needs real-data testing (synthetic data
+  with a known injected per-pixel gain pattern would isolate this cleanly) before trusting it as a
+  default; Picasso's dark(+bright)-movie route stays the higher-fidelity, already-validated
+  fallback for a user who has proper calibration movies from elsewhere.
 
   **Proposed integration** (per discussion): stays inside the existing **Gain & offset estimation**
   module (`pcfoBox`), not a new sidebar section — a camera-model select, **EMCCD** (today's scalar
