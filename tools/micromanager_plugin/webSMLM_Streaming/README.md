@@ -1,16 +1,17 @@
 # webSMLM_Streaming — Micro-Manager plugin
 
-A Micro-Manager 2.0 Java plugin that streams live camera frames (Snap, Live, or MDA — whatever
-Micro-Manager is currently acquiring) to a [webSMLM](../../webSMLM.html) browser tab over
+A Micro-Manager 2.0 Java plugin that streams live camera frames (Snap, Live, MDA, or Album —
+whatever Micro-Manager is currently acquiring) to a [webSMLM](../../webSMLM.html) browser tab over
 WebSocket, so localizations render in real time as frames come off the camera. It's the "real
 acquisition source" counterpart to [`tools/test_stream_demo.py`](../../tools/test_stream_demo.py),
 which is a synthetic Python stand-in for testing the same wire protocol without a microscope.
 
 **Status**: builds cleanly against a real MM 2.0.3 install (`mvn package`, verified below) and its
 TIFF chunk format has been independently verified byte-correct via `tifffile`. User-tested against
-a live MM session: **Live mode confirmed working**; Snap and MDA were confirmed broken on the
-first drop and have since been fixed (see *Corrections* below) — re-test in a live session is the
-next step, see *Known limitations*.
+a live MM session: **Live, Snap, and MDA all confirmed working** (Snap/MDA were initially broken,
+then fixed — see *Corrections* below). **Album was confirmed broken** on that same test round and
+has now been fixed too (see *Corrections* below) — re-test Album specifically in a live session is
+the next step, see *Known limitations*.
 
 ## What it does
 
@@ -21,7 +22,9 @@ next step, see *Known limitations*.
 3. On **Start**, it opens a WebSocket server on `host:port` and starts watching for new frames:
    every currently-open display window's datastore, polled and refreshed twice a second, which
    covers Live, Snap, and MDA alike (see *Corrections* below for why this is polled rather than
-   event-driven). Frames are batched into groups of *Frames per chunk*; each full batch is
+   event-driven), **plus** the Album feature's own datastore, polled the same way but separately
+   (Album doesn't go through a display window's own DataProvider the way Live/Snap/MDA do — see
+   *Corrections* below). Frames are batched into groups of *Frames per chunk*; each full batch is
    encoded as an ImageJ-style TIFF and broadcast as one WebSocket binary message to any connected
    client.
 4. In webSMLM, open the **Live streaming** panel, set the WebSocket URL to `ws://<host>:<port>`
@@ -125,22 +128,32 @@ the resulting bytes were decoded with Python's `tifffile` (the same library
   chunk" defaults to `1`. Switched to the generic `FileSaver#saveAsTiff`, confirmed (via the
   `tifffile` check above) to write a correctly ImageJ-tagged TIFF for both a 1-slice and an
   N-slice stack.
+- **Album**: after Live/Snap/MDA were all confirmed working in a live session, Album was
+  user-confirmed **not** streaming. Root cause, confirmed via `javap` against the real MM 2.0.3
+  jars: `Studio.album()` returns an `org.micromanager.Album`, backed by its own
+  `org.micromanager.data.Datastore` — a completely separate object from anything
+  `Studio.displays().getAllDataViewers()` surfaces, regardless of whether an Album window happens
+  to be open. `pollDataProviders()` only ever walked the display-viewer list, so Album's datastore
+  was never registered on at all. Fixed by polling `studio.album().getDatastore()` as a second,
+  independent step every tick (`Datastore extends DataProvider`, so it registers on it exactly the
+  same way as any display's own provider — no separate event-handling path needed).
 
 ## Known limitations
 
-- **Snap/MDA fix not yet re-verified in a live session.** Live mode was user-confirmed working;
-  Snap and MDA were user-confirmed broken (see *Corrections* above) and have been fixed by
-  switching to display-polling, verified so far only by static API checks (`javap` against the
-  real jars, plus bytecode-level confirmation that `createDisplay()` populates
-  `getAllDataViewers()`) — not yet re-tested by actually clicking Snap or running an MDA in a live
-  MM session. Do that next: build, drop the jar into `mmplugins/`, launch MM, open *Plugins →
-  webSMLM Streaming*, click Start, then try Snap, Live, and a short MDA run in turn, confirming
-  chunks arrive and render in webSMLM's **Live streaming** panel for all three.
-- The display-polling mechanism only sees a datastore once MM has shown a display window for it,
-  which is the default for Snap/Live/MDA but can be turned off (e.g. an MDA run with "Show"
-  unchecked, or an entirely scripted/headless acquisition) — such a datastore currently won't be
-  picked up. Not expected to matter for normal interactive use; worth knowing if a future report
-  says "still not streaming" for a specifically headless acquisition.
+- **Album fix not yet re-verified in a live session.** Live, Snap, and MDA are all user-confirmed
+  working. Album was user-confirmed broken (see *Corrections* above) and has been fixed by
+  additionally polling `studio.album().getDatastore()`, verified so far only by a `javap`-confirmed
+  API shape and a clean `mvn`/manual javac rebuild — not yet re-tested by actually clicking Album
+  in a live MM session. Do that next: build, drop the jar into `mmplugins/`, launch MM, open
+  *Plugins → webSMLM Streaming*, click Start, then press Album a few times, confirming chunks
+  arrive and render in webSMLM's **Live streaming** panel.
+- The display-polling mechanism (Live/Snap/MDA, not Album — Album's datastore is polled directly
+  regardless of whether it has a window open, see *Corrections* above) only sees a datastore once
+  MM has shown a display window for it, which is the default for Snap/Live/MDA but can be turned
+  off (e.g. an MDA run with "Show" unchecked, or an entirely scripted/headless acquisition) — such
+  a datastore currently won't be picked up. Not expected to matter for normal interactive use;
+  worth knowing if a future report says "still not streaming" for a specifically headless
+  acquisition.
 - New frames can take up to ~500 ms (the poll interval) to start streaming after a *brand new*
   display window is created (the very first Snap or Live-on of a session, or the first frame of a
   fresh MDA run) — after that, the same display's `DataProvider` is already registered and every
