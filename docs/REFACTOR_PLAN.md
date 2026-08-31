@@ -139,42 +139,89 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   from the data itself (PCFO, a photon-transfer-curve variant) shipped in 0.10.2. A scalar still
   reasonably approximates an EMCCD chip, but most current SMLM runs on sCMOS, where gain, offset
   and read noise are all pixel-dependent — still open: **per-pixel** calibration maps, with a noise
-  model that uses them. References, newest first:
+  model that uses them.
+
+  **Complexity comparison, Huang/Picasso vs. ACCéNT** — both reduce to the SAME two-step shape: (1)
+  per-pixel offset + read-noise from dark data alone, a simple temporal mean/variance pass,
+  architecturally identical to FTM's own per-pixel temporal computation (already proven at scale
+  here); (2) per-pixel GAIN from a per-pixel linear regression of variance vs. mean across several
+  DIFFERENT signal levels — the same `polyfit`-grade math either way, so the math isn't the
+  differentiator:
+  - **Picasso/Huang** varies signal level via CONTROLLED ILLUMINATION (a bright reference series,
+    several movies at different brightness). Simple math, but needs a dimmable/controllable light
+    source most setups aren't automated for — and since webSMLM has no camera control, the user
+    has to capture that series externally and just load the resulting movie(s); real UI/
+    data-management overhead (matching several movies to their own intensity "level") on top of the
+    easy dark-only step.
+  - **ACCéNT** varies signal level via EXPOSURE TIME instead, exploiting that dark current is
+    itself Poisson and scales with exposure time — no light source needed, a genuine ergonomic win.
+    But the published protocol uses 5–10 exposure times × up to a few thousand frames each
+    (~8,000–20,000 frames total, per Diekmann et al.) — MORE total acquisition than Picasso's own
+    single 1,000-frame dark series — and needs precise per-block EXPOSURE-TIME bookkeeping
+    webSMLM's TIFF loader doesn't track today (`tiffScaleHint()` reads `finterval=`/pixel size from
+    ImageJ-style description text, not a literal "exposure time for this movie" tag): likely the
+    same "several separate movie files, matched up by hand" burden as Picasso's bright series, just
+    on a different axis. Also genuinely unverified from the literature summary alone (re-check the
+    primary source before committing): whether ACCéNT's own per-pixel GAIN output is meaningfully
+    higher-resolution than a coarse/near-global estimate in practice — dark current's usable
+    dynamic range is small next to real photon flux, so it may not clearly beat Picasso's
+    bright-series gain map on FIDELITY, only on acquisition ergonomics.
+  - **Neither is obviously the smaller port** — both need new multi-movie/multi-condition data
+    plumbing for the gain step specifically; the dark-only offset/noise step is the easy part
+    either way, common to both.
+
+  **A genuinely smaller v1, native to this codebase**: PCFO already solves "no controlled
+  calibration source needed" a different, lighter way — `pcfoFrameTilePoints()` uses the NATURAL
+  spatial intensity variation across tiles of the ALREADY-LOADED movie as its own stand-in for
+  varying signal levels, no special acquisition at all — then `pcfoRegress()` pools every tile's
+  own (mean, noise-variance) point into ONE global regression. Doing that regression PER TILE
+  POSITION instead of pooling across the whole FOV — reusing `pcfoFrameTilePoints`/`pcfoRegress`/
+  `pickSeededFrames` almost unchanged — gives a coarse (tile-resolution) gain/offset MAP straight
+  from data the user has to load anyway. Likely the right default v1; Picasso's dark(+bright)-movie
+  route stays useful as a higher-fidelity/verification path for a user who already has proper
+  calibration movies from elsewhere.
+
+  **Proposed integration** (per discussion): stays inside the existing **Gain & offset estimation**
+  module (`pcfoBox`), not a new sidebar section — a camera-model select, **EMCCD** (today's scalar
+  path, unchanged, stays the default) vs. **sCMOS** (per-pixel), reveals sCMOS-specific inputs
+  (map/tile resolution at minimum; a Picasso-style "Load calibration movie/map" affordance can come
+  later without blocking v1). The two existing buttons keep doing their own jobs, not new ones:
+  **Estimate** runs either the current pooled-global regression (EMCCD) or the new per-tile one
+  (sCMOS); **Transfer estimates** either writes the scalar `gain`/`camoffset` fields as it does
+  today, or — sCMOS path — stashes the computed maps into new module-level state the fit pipeline
+  reads instead of a scalar.
+
+  References, newest first:
   - Picasso's own implementation
-    (https://picassosr.readthedocs.io/en/latest/localize.html#scmos-camera-calibration) is the
-    closest prior art to mirror: a dark movie (1000+ frames) gives offset (temporal mean) and
-    read-noise variance (temporal variance) maps; an optional bright reference series at several
-    illumination levels adds a gain map (per-pixel photon-transfer-curve slope). Loaded maps
-    override the scalar `gain`/`camoffset` fields (set to the maps' own medians, then disabled).
+    (https://picassosr.readthedocs.io/en/latest/localize.html#scmos-camera-calibration): dark movie
+    (1000+ frames) → offset + read-noise-variance maps; optional bright reference series at several
+    illumination levels → gain map. Loaded maps override the scalar `gain`/`camoffset` fields (set
+    to the maps' own medians, then disabled) — matches the "Transfer estimates" idea above closely.
   - Diekmann, Deschamps, Li et al., "Photon-free (s)CMOS camera characterization…," *Nat. Commun.*
     **13**, 3362 (2022), https://doi.org/10.1038/s41467-022-30907-2, and its companion tool
-    **ACCéNT** (github.com/ries-lab/Accent, GPL-3.0) — gets offset/gain/variance from DARK frames
-    alone, no controlled illumination series needed, a nice match for PCFO's own "no calibrated
-    light source required" goal; worth trying before assuming a bright series is necessary.
+    **ACCéNT** (github.com/ries-lab/Accent, GPL-3.0) — see the comparison above.
   - Babcock, "Multiplane and Spectrally-Resolved SMLM with Industrial Grade CMOS cameras,"
     *Sci. Rep.* **8**, 1726 (2018), https://doi.org/10.1038/s41598-018-19981-z — per-pixel noise on
     cheaper industrial (not scientific-grade) sensors; useful background on how much read-noise
     non-uniformity to expect across camera tiers, i.e. how much a map actually buys a given user.
   - Huang et al., *Nat. Methods* **10**, 653–658 (2013), https://doi.org/10.1038/nmeth.2488 — the
-    original model, and the reason this is a smaller lift than it looks: read-noise variance enters
-    the Poisson likelihood as an ADDITIVE equivalent-photon term on both data and model
-    (`data+var/gain²` vs `model+var/gain²`), not a separate noise term. The MLE fitters' shared
-    `mleNewtonFit()` accumulator is already per-pixel-`var`-aware (Picasso's own
-    `_estimator_terms(mle, value, data, var)`, see **fit** in `CLAUDE.md`) — swapping today's scalar
-    `var` for a per-pixel lookup needs no new solver. Phasor/LS have no equivalent hook, so a first
-    pass should scope this to MLE methods only, matching Picasso's own precedent.
+    original model, and the reason applying a map is a smaller lift than it looks regardless of how
+    it's obtained: read-noise variance enters the Poisson likelihood as an ADDITIVE
+    equivalent-photon term on both data and model (`data+var/gain²` vs `model+var/gain²`), not a
+    separate noise term. The MLE fitters' shared `mleNewtonFit()` accumulator is already
+    per-pixel-`var`-aware (Picasso's own `_estimator_terms(mle, value, data, var)`, see **fit** in
+    `CLAUDE.md`) — swapping today's scalar `var` for a per-pixel lookup needs no new solver.
+    Phasor/LS have no equivalent hook, so a first pass should scope this to MLE methods only.
 
-  Rough shape, not designed in detail: a calibration step (dark[+bright] movie, same
-  `loadTiffFile()` path everything else uses) computing offset/variance(/gain) maps via a per-pixel
-  temporal mean/variance pass — architecturally close to FTM's own per-pixel temporal computation,
-  mean/variance instead of median, over the whole movie rather than a sliding window. Storage
-  probably a JSON sidecar (like the existing 3D calibration JSON) holding the maps as flat
-  `Float32Array`s — ADU² variance and a gain ratio don't fit comfortably in a 16-bit-integer TIFF
-  the way a segmentation label mask does, though a float-sample TIFF might work too, not checked
-  against the UTIF-based reader. Genuinely unscoped: how a loaded map's pixel indices track a
-  cropped/streamed stack (likely needs the same offset bookkeeping `makeCroppedStack()` already does
-  for the movie itself), and whether DETECTION should also become noise-map-aware — a separate,
-  likely harder problem tangled up with "Robust detection threshold" above, not assumed solved here.
+  Genuinely unscoped beyond the above: storage format for a computed/loaded map (a JSON sidecar of
+  flat `Float32Array`s, like the existing 3D calibration JSON, is the likely choice — ADU² variance
+  and a gain ratio don't fit comfortably in a 16-bit-integer TIFF the way a segmentation label mask
+  does, though a float-sample TIFF isn't ruled out, not checked against the UTIF-based reader); how
+  a map's pixel indices track a cropped/streamed stack (likely needs the same offset bookkeeping
+  `makeCroppedStack()` already does for the movie itself); whether Load/Save Settings should
+  round-trip a map at all (probably its own file, too large for the flat settings JSON); and whether
+  DETECTION should also become noise-map-aware — a separate, likely harder problem tangled up with
+  "Robust detection threshold" above, not assumed solved here.
 - Optional **fiducial-based drift correction** when beads are present (simpler and more accurate
   than AIM for that specific case).
 - **3D point-cloud view** — an interactive, rotatable scatter (orthographic projection, colour = z)
