@@ -170,32 +170,38 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     plumbing for the gain step specifically; the dark-only offset/noise step is the easy part
     either way, common to both.
 
-  **A genuinely smaller v1, native to this codebase — but with a real open question, not a free
-  lunch**: PCFO already avoids needing CONDITION-TAGGED calibration movies (no bright series, no
-  exposure ladder, no per-file "this = intensity level 3" bookkeeping) — `pcfoFrameTilePoints()`
-  gets its dynamic range in signal level from pooling across TWO axes at once: different tile
-  POSITIONS (spatially, real images have bright structure and dim background) AND different FRAMES
-  (temporally, via blinking/bleaching) of one ordinary already-loaded movie. That's the genuine win
-  over Picasso/ACCéNT's multi-condition file plumbing — but it means a naive "regress per tile
-  position instead of pooling globally" throws away the SPATIAL axis entirely, leaving only that one
-  location's own frame-to-frame fluctuation to fit a slope from — quite possibly too narrow/noisy to
-  be reliable, not verified either way. A more honest middle ground: pool a small spatial
-  NEIGHBOURHOOD of tiles (not the whole FOV, not one exact tile) around each map location, across
-  the sampled frames — keeps some spatial range alongside the temporal one, trading map resolution
-  for regression stability via a tunable neighbourhood size. Needs real-data testing (synthetic data
-  with a known injected per-pixel gain pattern would isolate this cleanly) before trusting it as a
-  default; Picasso's dark(+bright)-movie route stays the higher-fidelity, already-validated
-  fallback for a user who has proper calibration movies from elsewhere.
+  **No shortcut for the GAIN map — a real correction, not just an open question.** An earlier draft
+  of this note proposed reusing PCFO's own tile-pooling trick per-tile-position instead of globally,
+  as a cheap per-pixel gain estimate. That doesn't work, and the reason is structural: a per-pixel
+  gain needs REPEATED measurements of ONE SPECIFIC PIXEL at several genuinely different, deliberately
+  varied signal levels, so a slope can be fit for that pixel alone. PCFO's global fit instead gets
+  its dynamic range by pooling DIFFERENT PIXELS' single-frame brightness together — valid only for
+  estimating a gain SHARED across the whole pool. Borrowing brightness variation from a neighbouring
+  tile to estimate "the gain at this one location" bakes in the assumption that gain is locally
+  uniform, which is circular — it can't detect the very pixel-to-pixel differences it's meant to
+  measure. A single tile's own frame-to-frame fluctuation isn't a substitute either: ordinary SMLM
+  background stays roughly constant between frames at any one location, so there's rarely genuine
+  signal-LEVEL variation to regress against there in the first place. **Per-pixel offset and
+  read-noise variance ARE genuinely free from one ordinary dark movie** (temporal mean/variance per
+  pixel, single condition, no varied illumination or exposure needed — same shape as FTM's existing
+  per-pixel temporal pass). **Gain is not** — it structurally needs the same multi-condition
+  acquisition Picasso/Huang or ACCéNT use (an illumination series or an exposure-time ladder),
+  applied globally so every pixel is measured at the SAME set of true signal levels. There's no
+  cheaper substitute; v1 should implement one of those two protocols properly, not look for a
+  shortcut around the underlying statistics.
 
   **Proposed integration** (per discussion): stays inside the existing **Gain & offset estimation**
   module (`pcfoBox`), not a new sidebar section — a camera-model select, **EMCCD** (today's scalar
-  path, unchanged, stays the default) vs. **sCMOS** (per-pixel), reveals sCMOS-specific inputs
-  (map/tile resolution at minimum; a Picasso-style "Load calibration movie/map" affordance can come
-  later without blocking v1). The two existing buttons keep doing their own jobs, not new ones:
-  **Estimate** runs either the current pooled-global regression (EMCCD) or the new per-tile one
-  (sCMOS); **Transfer estimates** either writes the scalar `gain`/`camoffset` fields as it does
-  today, or — sCMOS path — stashes the computed maps into new module-level state the fit pipeline
-  reads instead of a scalar.
+  path, unchanged, stays the default) vs. **sCMOS** (per-pixel), reveals sCMOS-specific inputs: a
+  dark-movie loader (offset + read-noise variance, one file, always available) and, for gain, a
+  loader for SEVERAL movies at different known-varying conditions (either a bright series at
+  different illumination levels, or several exposure times on dark data) — genuinely new file/
+  condition-management UI, not a reuse of whatever single stack happens to already be loaded. The
+  two existing buttons keep doing their own jobs, not new ones: **Estimate** runs either the current
+  pooled-global regression (EMCCD) or the new per-pixel regression across the loaded calibration
+  movie(s) (sCMOS); **Transfer estimates** either writes the scalar `gain`/`camoffset` fields as it
+  does today, or — sCMOS path — stashes the computed maps into new module-level state the fit
+  pipeline reads instead of a scalar.
 
   References, newest first:
   - Picasso's own implementation
