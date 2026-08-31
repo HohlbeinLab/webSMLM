@@ -17,23 +17,23 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.11.10-dev build 2026-08-31g; may drift
+  MODULE INDEX — line numbers as of v0.11.10-dev build 2026-08-31k; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2352   PARAMS registry, single source of truth for params;
+    params          2345   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); fastRecon ("Fast reconstruction
                            (2D histogram)")
-    in/out          2921   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          2914   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3234   synthetic stack generator ("Simulate movie")
-    detect          4122   per-frame band-pass + local-maxima detection
-    fit             4378   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3227   synthetic stack generator ("Simulate movie")
+    detect          4115   per-frame band-pass + local-maxima detection
+    fit             4371   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver
-    render          4853   accumulate to offscreen buffer; view/colour/blur;
+    render          4846   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -60,21 +60,21 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6060   frame-parallel detect/fit worker pool; dedicated
+    workers         6054   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6352   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6612   astigmatic sigma_x/sigma_y vs z bead curves
-    drift           7012   AIM drift correction (2D+z); drift-vs-frame or
+    export          6346   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6606   astigmatic sigma_x/sigma_y vs z bead curves
+    drift           7006   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode)
-    locprecision    7328   NeNA + FRC
-    sSMLM           7971   spectrally resolved SMLM pair-finding; merged
+    locprecision    7322   NeNA + FRC
+    sSMLM           7983   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone
-    spt             8436   single particle tracking, trackpy-inspired;
+    spt             8448   single particle tracking, trackpy-inspired;
                            segmentation-image loading/visualization +
                            cell-by-cell tracking (now wired headlessly too,
                            config.segmentationFile/--segmentation) + "Show
@@ -94,14 +94,15 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9676   top-level orchestration, *Core()/wrapper split;
+    pipeline        9688   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
-                           not gated on atFit; Live streaming (streamBox,
-                           window.webSMLM.stream) — two ways in: an opt-in
+                           not gated on atFit; Live streaming (nested inside
+                           memBox, "Memory & streaming", window.webSMLM.stream)
+                           — two ways in: an opt-in
                            WebSocket the page itself connects OUT to (never
                            listens), for hooking into a tab already open
                            (tools/test_stream_demo.py); or an external
@@ -133,9 +134,9 @@
                            frameOffset/rawFrames/the reconstruction to empty
                            without touching .active — chunks keep arriving
                            through the call, no reconnect needed
-    table           11862  localizations table, filtering, histograms;
+    table           11891  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12442  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12471  window.webSMLM.analyze()/analyzeBatch();
                            wireHotkeys() sits just before wireHelp(), between
                            table and here — Alt(/Option on Mac)+1-10 action
                            buttons, Alt+Shift+1-10 opens/closes+focuses a
@@ -1819,7 +1820,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-31g</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.10-dev · build 2026-08-31k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a></p>
   </div>
   <div class="header-actions">
@@ -1909,6 +1910,28 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
           <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
           </ul>
+        </div>
+        <hr class="sep" style="margin:10px 0 8px">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px">Live streaming</div>
+        <label class="row">Render every N frames <input type="number" id="streamRenderEvery" value="10" min="1" max="1000" step="1" class="num"></label>
+        <label class="row" title="A local process (e.g. tools/test_stream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="streamWsUrl" value="ws://localhost:8765" style="width:150px"></label>
+        <div class="btnrow" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
+          <button id="streamConnectBtn" title="Connect this tab to a WebSocket bridge server (e.g. tools/test_stream_demo.py) at the URL above to start receiving live frame chunks — streaming runs for as long as the connection stays open, no separate start/stop step needed.">Connect</button>
+          <button id="streamDisconnectBtn" disabled title="Close the WebSocket connection — also ends the streaming session, leaving the reconstruction on screen as-is">Disconnect</button>
+          <button id="streamClearBtn" disabled title="Discard every localization/frame accumulated so far and restart the reconstruction from empty — the connection/session itself keeps running, so new chunks keep arriving without reconnecting.">Clear</button>
+        </div>
+        <div id="streamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden id="hint-stream"><span class="pill">module: pipeline</span>
+          <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
+          <ul>
+          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_stream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment; <b>Disconnect</b> (or the connection dropping unexpectedly) ends it, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session without disconnecting.</li>
+          <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>. This path never touches Connect/Disconnect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.stream.end()</code> ends it.</li>
+          </ul>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. <b>Render every N frames</b> throttles how often that repaint (and milestone line) happens (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw/log cost on a long acquisition.</p>
+          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (Memory &amp; streaming section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
+          <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
+          <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
         </div>
       </details>
       <details class="sim" id="simBox">
@@ -2255,31 +2278,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save data**/the table.</p>
         </div>
       </details>
-      <details class="sim" id="streamBox">
-        <summary>Live streaming</summary>
-        <label class="row">Render every N frames <input type="number" id="streamRenderEvery" value="10" min="1" max="1000" step="1" class="num"></label>
-        <label class="row" title="A local process (e.g. tools/test_stream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="streamWsUrl" value="ws://localhost:8765" style="width:150px"></label>
-        <div class="btnrow" style="margin-top:6px">
-          <button id="streamConnectBtn" title="Open a WebSocket connection to a local bridge server (e.g. tools/test_stream_demo.py) so THIS tab — no separate browser launched — can receive pushed frame chunks directly. Streaming is on for as long as the connection is open — there is no separate step.">Connect</button>
-          <button id="streamDisconnectBtn" disabled title="Close the WebSocket connection — also ends the streaming session, leaving the reconstruction on screen as-is">Disconnect</button>
-        </div>
-        <div class="btnrow" style="margin-top:6px">
-          <button id="streamClearBtn" disabled title="Discard every localization/frame accumulated so far and restart the reconstruction from empty — the connection/session itself keeps running, so new chunks keep arriving without reconnecting.">Clear localizations</button>
-        </div>
-        <div id="streamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
-        <button type="button" class="infobtn">more info…</button>
-        <div class="hint" hidden id="hint-stream"><span class="pill">module: pipeline</span>
-          <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
-          <ul>
-          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_stream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment; <b>Disconnect</b> (or the connection dropping unexpectedly) ends it, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session without disconnecting.</li>
-          <li><b>tools/webSMLM-stream.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.stream.pushChunk()</code>. This path never touches Connect/Disconnect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.stream.end()</code> ends it.</li>
-          </ul>
-          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. <b>Render every N frames</b> throttles how often that repaint (and milestone line) happens (localizations are always accumulated every chunk regardless, and this counts real frames, not chunks, so it stays meaningful whatever the chunk size is), trading live-view freshness for redraw/log cost on a long acquisition.</p>
-          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (Memory &amp; streaming section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
-          <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
-          <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
-        </div>
-      </details>
     </div>
   </aside>
 
@@ -2331,7 +2329,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-31g — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.10-dev · build 2026-08-31k — keyboard hotkeys: hold Alt (Option ⌥ on Mac) for numbered hints, Alt+1-10 for the action buttons, Alt+Shift+1-10 to open/close a settings section. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -7343,15 +7341,15 @@ function gridNN(A,B){
   const cyf=y=>Math.min(ny-1,Math.max(0,((y-ymin)/cell)|0));
   for(const p of B){ const k=cyf(p.y)*nx+cxf(p.x); (grid[k]||(grid[k]=[])).push(p); }
   const out=[];
-  for(const q of A){ const qx=cxf(q.x), qy=cyf(q.y); let best=Infinity;
+  for(const q of A){ const qx=cxf(q.x), qy=cyf(q.y); let best=Infinity, bestP=null;
     for(let r=0;r<=nx+ny;r++){
       for(let dy=-r;dy<=r;dy++){ const gy=qy+dy; if(gy<0||gy>=ny) continue;
         for(let dx=-r;dx<=r;dx++){ if(Math.max(Math.abs(dx),Math.abs(dy))!==r) continue;
           const gx=qx+dx; if(gx<0||gx>=nx) continue; const ca=grid[gy*nx+gx]; if(!ca) continue;
-          for(const p of ca){ const D=(p.x-q.x)**2+(p.y-q.y)**2; if(D<best) best=D; } } }
+          for(const p of ca){ const D=(p.x-q.x)**2+(p.y-q.y)**2; if(D<best){best=D;bestP=p;} } } }
       if(isFinite(best) && Math.sqrt(best)<=r*cell) break;    // nothing unscanned can be closer
     }
-    if(isFinite(best)) out.push(Math.sqrt(best));
+    if(isFinite(best)) out.push({d:Math.sqrt(best), a:q, b:bestP});
   }
   return out;
 }
@@ -7397,17 +7395,35 @@ function fitNeNA(d,y){
   const errSig=(col&&col[1]>0)?Math.sqrt(s2*col[1]):NaN;
   return {p, errSig};                                // p=[a1, σ, a2, d_c, ω, a3]
 }
-// NeNA: mean single-localization precision (nm). onProgress(0..1) optional.
-async function nenaPrecision(locs, px, onProgress){
+// A pair distance at/near exactly 0 nm is not a real repeat-detection of the
+// same molecule at slightly different positions — it's the identical (x,y)
+// showing up twice (e.g. a duplicated row in a loaded CSV, or a detector
+// finding the same peak on both frames with no jitter at all), and it would
+// otherwise pile into the fit's very first bin and distort the Rayleigh peak
+// rather than reflect real localization precision. NENA_ZERO_DIST_NM is the
+// cutoff below which a pair is treated as such a duplicate and excluded.
+const NENA_ZERO_DIST_NM=1e-3;
+// NeNA: mean single-localization precision (nm). onProgress(0..1) optional;
+// onLog(msg) optional — reports how many near-zero-distance pairs (see
+// NENA_ZERO_DIST_NM above) were excluded, with the unique frames they occur
+// on, so a duplicate-row problem in the input data is visible rather than
+// silently biasing the fit.
+async function nenaPrecision(locs, px, onProgress, onLog){
   const byF=new Map();
   for(const L of locs){ const f=L.frame|0; let a=byF.get(f); if(!a){a=[];byF.set(f,a);} a.push(L); }
   const frames=[...byF.keys()].sort((a,b)=>a-b);
-  const dists=[]; let _yld=performance.now();
+  const dists=[]; const zeroFrames=new Set(); let zeroCount=0; let _yld=performance.now();
   for(let i=0;i<frames.length-1;i++){ const f0=frames[i],f1=frames[i+1];
-    if(f1===f0+1){ for(const dd of gridNN(byF.get(f0), byF.get(f1))) dists.push(dd*px); }
+    if(f1===f0+1){ for(const pr of gridNN(byF.get(f0), byF.get(f1))){ const dd=pr.d*px;
+      if(dd<NENA_ZERO_DIST_NM){ zeroCount++; zeroFrames.add(f0); zeroFrames.add(f1); continue; }
+      dists.push(dd); } }
     if(onProgress && performance.now()-_yld>50){ onProgress(i/frames.length); await tick(); _yld=performance.now(); }
   }
-  if(dists.length<50) return {err:`only ${dists.length.toLocaleString()} consecutive-frame pairs — need more localizations`};
+  if(zeroCount && onLog){ const fl=[...zeroFrames].sort((a,b)=>a-b);
+    onLog(`  ⚠ ${zeroCount.toLocaleString()} consecutive-frame pair(s) with a ~0 nm NN distance (<${NENA_ZERO_DIST_NM} nm) excluded —`
+    + ` likely duplicate localizations rather than real repeat-detections. Frames: ${fl.join(', ')}`);
+  }
+  if(dists.length<50) return {err:`only ${dists.length.toLocaleString()} consecutive-frame pairs — need more localizations`, zeroCount};
   dists.sort((a,b)=>a-b);
   // signal lives at small d; cap the range to a robust small-scale estimate so
   // bins resolve the peak rather than being dominated by the background tail.
@@ -7416,7 +7432,7 @@ async function nenaPrecision(locs, px, onProgress){
   for(let i=0;i<nb;i++) d[i]=(i+0.5)*binW;
   for(const v of dists){ if(v<maxD) y[(v/binW)|0]++; }
   const {p,errSig}=fitNeNA(d,y);                    // p=[a1, σ, a2, d_c, ω, a3]
-  return {sigma:p[1], sigErr:errSig, nPairs:dists.length, d, y, binW, p};
+  return {sigma:p[1], sigErr:errSig, nPairs:dists.length, d, y, binW, p, zeroCount};
 }
 // Plot the NeNA nearest-neighbour histogram + fit on the LEFT (raw) panel.
 function drawNenaPlot(res){
@@ -7483,7 +7499,7 @@ async function computeNeNA(){
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
     if(renderLocs) log(`  (using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p));
+    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p), log);
     setProg(null);
     if(r.err){ log('  '+r.err+'.'); return; }
     lastNena=r;
@@ -7577,7 +7593,7 @@ async function frcResolution(locs, px, mag, onProgress=p=>setProg(100*p), onLog=
   //     the spacing between DIFFERENT nearby molecules instead of real precision,
   //     silently reporting hundreds-to-thousands of nm rather than a few tens.
   //  3. Reconstruction pixel size (px/mag) — no physical grounding at all, last resort.
-  const nenaR = await nenaPrecision(locs, px, onProgress);
+  const nenaR = await nenaPrecision(locs, px, onProgress, onLog);
   const nenaOk = !nenaR.err && isFinite(nenaR.sigma) && nenaR.sigma>0;
   const modeNm = modeUncertaintyNm(locs, px);   // computed regardless — fallback AND NeNA sanity check
   let lpNm=null, lpSrc=null, nenaRejectReason=null;
@@ -11389,11 +11405,24 @@ makeNavigator($('sr'),  {full:()=>srFull,  view,    fitZoom, fit:fitView, clamp:
 // reports for it (unlike a trackpad's continuous stream of small events), so
 // this keeps "one tick = one frame" true everywhere without per-device tuning.
 (function(){
-  const scrubByWheel=dy=>{ if(!stack) return; const dir=dy>0?1:-1;
+  // While a streaming session is active (or has left history behind, see
+  // streamState.rawFrames), the raw panel is owned by #streamScrubRow, not
+  // #scrub/stack — route shift+wheel/scrub-slider-wheel there instead, same
+  // "one tick = one frame" behaviour as the ordinary loaded-stack path.
+  const streamingActive=()=> streamState && (streamState.active || streamState.rawFrames.length);
+  const scrubByWheel=dy=>{ const dir=dy>0?1:-1;
+    if(streamingActive()){
+      const lo=+$('streamScrub').min||0, hi=+$('streamScrub').max||0;
+      const nx=Math.max(lo,Math.min(hi,(+$('streamScrub').value)+dir));
+      streamState.followLive=(nx>=streamState.frameOffset-1); streamShowRawFrame(nx);
+      return;
+    }
+    if(!stack) return;
     const nx=Math.max(0,Math.min(stack.n-1,(+$('scrub').value)+dir));
     $('scrub').value=nx; showFrame(nx); };
   makeNavigator($('raw'), {full:()=>rawFull, view:rawView, fitZoom:fitRawZoom, fit:fitRawView, clamp:clampRawView, draw:drawRawView, maxZoom:40, scrub:scrubByWheel});
   $('scrub').addEventListener('wheel',e=>{ if(!stack) return; e.preventDefault(); scrubByWheel(e.deltaY); },{passive:false});
+  $('streamScrub').addEventListener('wheel',e=>{ if(!streamingActive()) return; e.preventDefault(); scrubByWheel(e.deltaY); },{passive:false});
 })();
 
 // Shared by the line-profile and crop tools: SR-panel click → srFull-pixel
@@ -12637,7 +12666,7 @@ async function analyze(config){
   // same ×100 scaling computeNeNA()/computeFRC() already do interactively —
   // passing it bare here would have silently sent 0..1 values to a caller
   // (e.g. the CLI) expecting 0..100, reading as permanently ~0%.
-  if(cfg.computeNeNA && locs.length) nena = await nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p));
+  if(cfg.computeNeNA && locs.length) nena = await nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p), onLog);
   if(cfg.computeFRC && locs.length) frc = await frcResolution(locs, cfg.pxnm, cfg.mag, p=>onProgress(100*p), onLog);
   // config.sptTrack — the headless equivalent of clicking Track (MODULE:
   // spt). Unlike sSmlmPair, runs AFTER drift/NeNA/FRC rather than before:
