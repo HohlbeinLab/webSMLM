@@ -101,10 +101,12 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     image splitter gives between donor and acceptor sub-images (translation-dominated, unlike a
     diffraction grating's dispersion, but the same "search a fixed distance/angle window" math).
     Reusing it sidesteps needing a full affine channel-registration transform for a first pass —
-    IF channel misalignment really is translation-dominated on real data; a splitter/setup with
-    meaningful rotation or magnification mismatch between channels would need a proper affine map
-    (fit from a bead/fiducial image visible in both channels) instead — not yet checked which case
-    is typical for the hardware this would actually be tested against.
+    IF channel misalignment really is translation-dominated on real data. Working assumption (per
+    discussion): translation (distance + angle, sSMLM's own pairing as-is) is likely sufficient for
+    the hardware in question — but this is a guess, not a measurement, and needs checking against
+    real dual-channel raw data before committing to it; a splitter/setup with meaningful rotation or
+    magnification mismatch between channels would need a proper affine map instead (fit from a
+    bead/fiducial image visible in both channels).
   - **Building the DD(t)/DA(t)/(AA(t)) trace = the calibration module's own "fit at fixed x,y."**
     Once a molecule's position is fixed (composite + link step above), the 3D calibration module
     already fits amplitude/σx/σy/background PER FRAME at a fixed x,y without re-detecting — the same
