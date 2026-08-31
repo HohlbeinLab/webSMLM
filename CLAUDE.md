@@ -896,6 +896,36 @@ relevant one before editing rather than scrolling:
   reference consumer: `--exportTrackData`/etc. forward `onRecord` via the SAME live `console.log()`
   channel `onProgress`/`onLog` use, appended to a per-kind `.ndjson` file via
   `fs.createWriteStream()`.
+- **liveStreaming** (`window.webSMLM.liveStream`) — a Micro-Manager/pycromanager camera bridge,
+  physically right after **pipeline** (whose `runCore()` it calls per chunk) and split into its own
+  indexed `MODULE:` banner for its size, not moved elsewhere in the file. Distinct from, and named
+  to avoid colliding with, both the in/out module's own unrelated TIFF chunked/streamed-loading
+  flag (`chunkmb`/`loadMultiIfdStreaming()`/`stack.streaming`) and the headless API's NDJSON
+  "streaming per-record exports" (`onRecord`/`makeRecordEmitter()`, above) — three genuinely
+  different features that all happen to use the word "stream". Two ways in, both nested inside
+  `memBox` ("Memory & streaming"): an opt-in WebSocket the page itself connects OUT to (never
+  listens), for hooking into a tab already open (`tools/test_livestream_demo.py`); or an external
+  Playwright-driven bridge (`tools/webSMLM-livestream-bridge.mjs`, e.g. driving a Gladoscopy RT
+  node) via a hidden `#liveStreamChunkInput` file conduit. Either way, each chunk is localized
+  independently via `runCore()` (no cross-chunk context, so FTM is unsupported in this mode) and
+  appended to a running total, repainting the reconstruction through the same `lastResult`/
+  `rerender()` globals an interactive Localize run already uses. No separate Start/Stop step: a
+  session (`liveStreamState`) arms itself the moment streaming actually begins — Connect, or the
+  first pushed chunk — using whatever pxnm/gain/method/etc. the sidebar is set to at that moment.
+  The raw panel gets its own scrubbable frame history (`liveStreamShowRawFrame()`), auto-following
+  the newest frame unless paused by a manual scrub, capped to **Memory budget (GB)** via a ring
+  buffer (`liveStreamState.rawFrames`) since an open-ended acquisition can't keep every raw frame
+  in memory. The periodic cadence render (`liveStreamRenderEvery`) is a real, worker-backed
+  full-quality reconstruction, guarded by `liveStreamState.renderBusy` so a fast chunk stream can't
+  pile up renders faster than the single dedicated render worker can finish them, plus a
+  conservative idle/pause detector and a session's own final render on end so the displayed
+  reconstruction never lags behind `lastResult.locs`. `liveStreamOwnsRawPanel()` is the single
+  shared "does streaming currently own the raw panel" check, used by the Contrast-auto handler and
+  wheel-scrub routing — `initScrub()` deliberately does NOT use it: a fresh stack/CSV load must
+  always reclaim the panel from a stopped session's leftover scrub-back history, a narrower check
+  by design, not an oversight. **Clear localizations** (`liveStreamClearBtn`,
+  `clearLiveStreamingLocalizations()`) resets `allLocs`/`frameOffset`/`rawFrames`/the reconstruction
+  to empty without touching `.active` — chunks keep arriving through the call, no reconnect needed.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it

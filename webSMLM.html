@@ -22,7 +22,7 @@
   stale. Refresh alongside a build-letter bump when a change has moved things
   by more than a few lines.
   ============================================================================
-    params          2345   PARAMS registry, single source of truth for params;
+    params          2417   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -31,12 +31,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          2914   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3126   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3227   synthetic stack generator ("Simulate movie")
-    detect          4115   per-frame band-pass + local-maxima detection
-    fit             4371   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3439   synthetic stack generator ("Simulate movie")
+    detect          4327   per-frame band-pass + local-maxima detection
+    fit             4583   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -46,7 +46,7 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          4846   accumulate to offscreen buffer; view/colour/blur;
+    render          5107   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -66,20 +66,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6054   frame-parallel detect/fit worker pool; dedicated
+    workers         6240   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6346   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6606   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6532   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6814   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           6819   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7236   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -89,16 +89,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7312   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7729   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           7986   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8421   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             8465   single particle tracking, trackpy-inspired;
+    spt             8900   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -129,7 +129,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9688   top-level orchestration, *Core()/wrapper split;
+    pipeline        10380   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -137,10 +137,14 @@
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
-                           PARAMS registry) on success — see MODULE: params;
-                           Live streaming (nested inside memBox, "Memory &
-                           streaming", window.webSMLM.liveStream) — two ways in:
-                           an opt-in WebSocket the page itself connects OUT to
+                           PARAMS registry) on success — see MODULE: params
+    liveStreaming   10980  Micro-Manager/pycromanager camera bridge
+                           (nested inside memBox, "Memory & streaming",
+                           window.webSMLM.liveStream), physically right after
+                           MODULE: pipeline (whose runCore() it calls per
+                           chunk) — pulled into its own indexed module for
+                           its size, not moved elsewhere. Two ways in: an
+                           opt-in WebSocket the page itself connects OUT to
                            (never listens), for hooking into a tab already
                            open (tools/test_livestream_demo.py); or an external
                            Playwright-driven bridge (tools/webSMLM-livestream-bridge.mjs
@@ -170,12 +174,17 @@
                            clearLiveStreamingLocalizations()) resets allLocs/
                            frameOffset/rawFrames/the reconstruction to empty
                            without touching .active — chunks keep arriving
-                           through the call, no reconnect needed
-                           (see also MODULE: liveStreaming, once split out —
-                           tracked as a follow-up)
-    table           11891  localizations table, filtering, histograms;
+                           through the call, no reconnect needed;
+                           liveStreamOwnsRawPanel() is the single shared
+                           "does streaming own the raw panel right now" check
+                           (Contrast-auto handler, wheel-scrub routing) —
+                           initScrub()'s own narrower .active-only check is
+                           intentionally different (a fresh stack load must
+                           always reclaim the panel, even from a stopped
+                           session's leftover scrub-back history)
+    table           12681  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12471  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13261  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1974,7 +1983,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <div id="liveStreamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
         <button type="button" class="infobtn">more info…</button>
-        <div class="hint" hidden id="hint-liveStreaming"><span class="pill">module: pipeline</span>
+        <div class="hint" hidden id="hint-liveStreaming"><span class="pill">module: liveStreaming</span>
           <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
           <ul>
           <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment; <b>Disconnect</b> (or the connection dropping unexpectedly) ends it, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session without disconnecting.</li>
@@ -10968,10 +10977,15 @@ async function run(){
 }
 
 /* ===========================================================================
-   Live streaming (window.webSMLM.liveStream, assigned near window.webSMLM.analyze
-   below — pure top-level declarations here, so the physical split is a no-op
-   for behavior, same reasoning MODULE INDEX gives for the workers/export
-   swap) — a persistent external bridge (e.g. tools/webSMLM-livestream-bridge.mjs
+   MODULE: liveStreaming — Micro-Manager/pycromanager camera bridge
+   (window.webSMLM.liveStream, assigned near window.webSMLM.analyze below —
+   pure top-level declarations here, so the physical split is a no-op for
+   behavior, same reasoning MODULE INDEX gives for the workers/export swap).
+   Physically still nested right after MODULE: pipeline, whose *Core()/
+   runCore() it calls per chunk (see below) — pulled into its own indexed
+   module because of its real size, not moved elsewhere in the file.
+
+   A persistent external bridge (e.g. tools/webSMLM-livestream-bridge.mjs
    driving a Gladoscopy RT node) pushes frame chunks from a live Micro-
    Manager/pycromanager acquisition in here as they arrive. Each chunk is
    localized independently via runCore() (no cross-chunk context — FTM,
