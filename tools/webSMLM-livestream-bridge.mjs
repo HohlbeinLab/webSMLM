@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // webSMLM live-streaming bridge — keeps ONE non-headless Chromium page open
-// for a whole acquisition and repeatedly calls window.webSMLM.stream.
+// for a whole acquisition and repeatedly calls window.webSMLM.liveStream.
 // pushChunk() (MODULE: pipeline, webSMLM.html) as an external process (e.g.
 // a Gladoscopy RT node driving a live Micro-Manager/pycromanager
 // acquisition) pushes frame chunks in — a different shape from
@@ -33,7 +33,7 @@
 //   {"ok":false, "error":"..."}
 //
 // Usage:
-//   node tools/webSMLM-stream.mjs
+//   node tools/webSMLM-livestream-bridge.mjs
 // A driving process (a Gladoscopy RT node, or a standalone test script for
 // the feasibility spike — see docs/REFACTOR_PLAN.md) writes commands to
 // this process's stdin and reads one JSON reply per line from stdout;
@@ -53,15 +53,15 @@ const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
 page.on('console', msg => { if (msg.type() === 'error') console.error('  [page error] ' + msg.text()); });
 await page.goto(htmlUrl);
-await page.waitForFunction(() => window.webSMLM && window.webSMLM.stream);
+await page.waitForFunction(() => window.webSMLM && window.webSMLM.liveStream);
 console.error('Ready — set pxnm/gain/method/etc. in the webSMLM window, then start pushing chunks on stdin (the first push arms the session automatically).');
 
 function reply(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
 
 async function handlePush(buf) {
-  await page.setInputFiles('#streamChunkInput', { name: 'chunk.tif', mimeType: 'image/tiff', buffer: buf });
+  await page.setInputFiles('#liveStreamChunkInput', { name: 'chunk.tif', mimeType: 'image/tiff', buffer: buf });
   try {
-    const result = await page.evaluate(() => window.webSMLM.stream.pushChunk());
+    const result = await page.evaluate(() => window.webSMLM.liveStream.pushChunk());
     reply({ ok: true, ...result });
   } catch (err) {
     reply({ ok: false, error: (err && err.message) || String(err) });
@@ -69,7 +69,7 @@ async function handlePush(buf) {
 }
 
 async function handleStop() {
-  try { await page.evaluate(() => window.webSMLM.stream.end()); reply({ ok: true, stopped: true }); }
+  try { await page.evaluate(() => window.webSMLM.liveStream.end()); reply({ ok: true, stopped: true }); }
   catch (err) { reply({ ok: false, error: (err && err.message) || String(err) }); }
   await browser.close();
   process.exit(0);

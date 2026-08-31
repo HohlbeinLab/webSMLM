@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""tools/test_stream_demo.py — standalone WebSocket demo/test driver for
-webSMLM's live streaming feature (window.webSMLM.stream), with NO browser
+"""tools/test_livestream_demo.py — standalone WebSocket demo/test driver for
+webSMLM's live streaming feature (window.webSMLM.liveStream), with NO browser
 automation at all: this runs a tiny local WebSocket SERVER that YOUR OWN,
 already-open webSMLM.html tab (any browser — Firefox included) connects OUT
 to, opt-in, only when you click "Connect" in its "Live streaming" sidebar
@@ -11,7 +11,7 @@ Setup (once):
     pip install numpy tifffile websockets
 
 Usage:
-    python tools/test_stream_demo.py
+    python tools/test_livestream_demo.py
     # Open webSMLM.html yourself, in whatever browser tab you already have.
     # In the sidebar: open "Live streaming" (collapsed by default), set the
     # WebSocket URL to ws://localhost:8765 (this script's default), and click
@@ -32,7 +32,7 @@ our stop message — the authoritative final count. This script compares
 that against how many frames it actually sent and prints a warning if any
 went missing.
 
-This is a different bridge from tools/webSMLM-stream.mjs, which launches
+This is a different bridge from tools/webSMLM-livestream-bridge.mjs, which launches
 and owns its own Playwright-driven Chromium window instead — the right
 choice for a fully automated/headless session (e.g. a real Gladoscopy RT
 node), but the wrong one when you just want to hook into a tab you already
@@ -161,7 +161,7 @@ async def read_acks(ws, stop_ack_event, last_ack):
         pass
 
 
-async def stream_to(ws):
+async def livestream_to(ws):
     print(f'webSMLM connected from {ws.remote_address}.')
     # Pre-render every chunk BEFORE the timed send loop starts, rather than
     # generating each one right before its own ws.send() -- np.random.poisson
@@ -259,7 +259,7 @@ async def main():
 
     async def handler(ws):
         try:
-            await stream_to(ws)
+            await livestream_to(ws)
         finally:
             done.set()
 

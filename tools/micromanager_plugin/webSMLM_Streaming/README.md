@@ -3,7 +3,7 @@
 A Micro-Manager 2.0 Java plugin that streams live camera frames (Snap, Live, MDA, or Album —
 whatever Micro-Manager is currently acquiring) to a [webSMLM](../../webSMLM.html) browser tab over
 WebSocket, so localizations render in real time as frames come off the camera. It's the "real
-acquisition source" counterpart to [`tools/test_stream_demo.py`](../../tools/test_stream_demo.py),
+acquisition source" counterpart to [`tools/test_livestream_demo.py`](../../tools/test_livestream_demo.py),
 which is a synthetic Python stand-in for testing the same wire protocol without a microscope.
 
 **Status**: builds cleanly against a real MM 2.0.3 install (`mvn package`, verified below) and its
@@ -35,8 +35,8 @@ the next step, see *Known limitations*.
 
 ## Wire protocol
 
-Identical to what `tools/test_stream_demo.py` implements and `webSMLM.html`'s
-`streamWsConnect()`/`streamPushChunkFile()` consume:
+Identical to what `tools/test_livestream_demo.py` implements and `webSMLM.html`'s
+`liveStreamWsConnect()`/`liveStreamPushChunkFile()` consume:
 
 - The plugin is always the WebSocket **server**; webSMLM's browser tab is always the **client**.
 - One chunk of frames = one WebSocket **binary** message, whose payload is the raw bytes of an
@@ -95,7 +95,7 @@ The TIFF-chunk encoding path was further checked independently of Micro-Manager 
 standalone Java program built the same `ImageStack`→`ImagePlus`→`FileSaver` pipeline
 `StreamingController.encodeAsImageJTiffStack` uses, for both a 1-frame and a 3-frame batch, and
 the resulting bytes were decoded with Python's `tifffile` (the same library
-`tools/test_stream_demo.py` uses) — `is_imagej: True`, byte-exact pixel data, and correct
+`tools/test_livestream_demo.py` uses) — `is_imagej: True`, byte-exact pixel data, and correct
 `(frames, height, width)` shape/dtype in both cases.
 
 ### Corrections made during verification (things that were wrong on the first pass)

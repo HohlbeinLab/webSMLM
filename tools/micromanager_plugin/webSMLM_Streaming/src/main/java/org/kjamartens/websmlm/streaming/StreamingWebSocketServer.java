@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 
 /**
  * WebSocket server side of webSMLM's live-streaming protocol (see webSMLM.html's
- * streamWsConnect() and tools/test_stream_demo.py, which this class replaces with a real
+ * liveStreamWsConnect() and tools/test_livestream_demo.py, which this class replaces with a real
  * Micro-Manager acquisition source).
  *
  * Wire protocol implemented here:
@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 public class StreamingWebSocketServer extends WebSocketServer {
 
     // Matches the small, fixed-shape JSON webSMLM itself always produces for these two
-    // message kinds (see webSMLM.html's streamWsConnect()) - a hand-rolled scan rather
+    // message kinds (see webSMLM.html's liveStreamWsConnect()) - a hand-rolled scan rather
     // than pulling in a JSON library dependency for two integer fields.
     private static final Pattern FRAMES_RECEIVED_RE = Pattern.compile("\"framesReceived\"\\s*:\\s*(\\d+)");
 

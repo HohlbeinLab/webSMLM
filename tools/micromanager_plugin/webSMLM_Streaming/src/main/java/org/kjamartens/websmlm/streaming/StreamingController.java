@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  * Owns the lifecycle of one streaming session: watches Micro-Manager for newly acquired
  * frames, batches raw frames into chunks of {@code batchSize}, encodes each chunk as an
  * ImageJ-style multi-page TIFF (byte-for-byte the same "ImageJ, contiguous" layout
- * tools/test_stream_demo.py produces via tifffile's imagej=True, which is what webSMLM's
+ * tools/test_livestream_demo.py produces via tifffile's imagej=True, which is what webSMLM's
  * loadTiffFile() fast path expects), and hands the encoded bytes to a
  * StreamingWebSocketServer to broadcast.
  *
