@@ -67,6 +67,77 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   - A minimum-neighbour-count spatial consistency filter (reject sparse false pairs with too few
     nearby confirmed pairs) — `sSMLMAnalyzer` has one, webSMLM doesn't.
 
+- **smFRET/ALEX integration** — a genuinely new analysis MODALITY, not a small addition; sketched
+  here per discussion, not scoped in detail yet. References: Kapanidis, Lee, Laurence, Doose,
+  Margeat & Weiss, "Fluorescence-aided molecule sorting: Analysis of structure and interactions by
+  alternating-laser excitation of single molecules," *PNAS* **101**(24), 8936–8941 (2004),
+  https://doi.org/10.1073/pnas.0401690101 (introduces ALEX); Hohlbein, Craggs & Cordes,
+  "Alternating-laser excitation: single-molecule FRET and beyond," *Chem. Soc. Rev.* **43**(4),
+  1156–1171 (2014), https://doi.org/10.1039/c3cs60233h (review).
+
+  **The measurement**: molecules immobilised on a surface, imaged in two spectrally separated
+  detection channels — donor channel (DD, donor excitation → donor emission) and acceptor channel
+  (DA, donor excitation → acceptor emission via FRET). With ALEX, donor-excitation frames alternate
+  with acceptor-excitation frames, adding AA (acceptor excitation → acceptor emission, probing
+  acceptor existence directly) and AD (acceptor excitation → donor channel, ideally ~0). Per-frame
+  intensities at a molecule's fixed position give E_raw = DA/(DA+DD) and, with ALEX, S_raw =
+  (DD+DA)/(DD+DA+AA) — a stoichiometry that separates donor-only/acceptor-only/both-present
+  populations on a 2D E–S histogram. **Accurate FRET** (correcting E_raw/S_raw for leakage/
+  crosstalk, direct excitation, and the γ-factor derived from that same population structure) is
+  explicitly a later step, not v1.
+
+  **Mapped onto webSMLM's own building blocks** — surprisingly little is genuinely new:
+  - **"Determine positions of interest" = the existing "Fix bead x,y" pattern.** Averaging a
+    user-selected frame range into one stable composite, detecting once, and fitting each detected
+    maximum is already implemented (`averageFrames()`/`locateBeadsForCalib()`, 3D calibration
+    module) for exactly the same reason it's needed here: real blinking/bleaching between frames
+    makes per-frame detection jump around, so localise once from a stable average instead. The only
+    new piece is letting the user pick WHICH frames feed that average — DD, DA, or DD+DA (and, if
+    ALEX is on, scoping to donor-excitation frames only, vs. also including AA/acceptor-excitation
+    frames) — rather than always the whole loaded range.
+  - **Linking a DD candidate to its DA partner = sSMLM's own pairing.** `pairCore()`'s directional
+    distance+bearing-angle matching (built for 0th/1st-order diffraction-grating pairs) assumes a
+    roughly CONSTANT offset vector between two related spots — exactly what a well-aligned dual-view
+    image splitter gives between donor and acceptor sub-images (translation-dominated, unlike a
+    diffraction grating's dispersion, but the same "search a fixed distance/angle window" math).
+    Reusing it sidesteps needing a full affine channel-registration transform for a first pass —
+    IF channel misalignment really is translation-dominated on real data; a splitter/setup with
+    meaningful rotation or magnification mismatch between channels would need a proper affine map
+    (fit from a bead/fiducial image visible in both channels) instead — not yet checked which case
+    is typical for the hardware this would actually be tested against.
+  - **Building the DD(t)/DA(t)/(AA(t)) trace = the calibration module's own "fit at fixed x,y."**
+    Once a molecule's position is fixed (composite + link step above), the 3D calibration module
+    already fits amplitude/σx/σy/background PER FRAME at a fixed x,y without re-detecting — the same
+    operation needed here, just reading out amplitude/photons over time instead of width over a
+    z-scan. **Run smFRET** would do this for every linked position across every frame (bucketed into
+    DD/DA/AA by ALEX frame role), building one row per molecule per frame.
+  - **Output = the existing streaming-NDJSON precedent**, not a new mechanism — `spt_tracks.ndjson`
+    (`makeRecordEmitter()`, this session) is the same shape of problem (many molecules × many
+    frames, too large for `analyze()`'s own return value), so a `smfret_traces.ndjson` stream (one
+    record per molecule with its own DD/DA/AA-vs-frame arrays, or one record per molecule-frame —
+    TBD) is a natural reuse rather than a new export mechanism. E_raw/S_raw are then trivial derived
+    columns from DD/DA/AA, no new algorithm.
+  - Molecules that aren't perfectly immobilised (tethered particle motion) could reuse **spt**'s own
+    `linkTracks()` instead of a fixed-xy assumption — a distinct, later option, not needed for a
+    genuinely immobilised-molecule v1.
+
+  **Genuinely new infrastructure, not a reuse of anything existing**:
+  - **Dual-channel input.** Today one frame = one full-FOV image with one meaning. A single-camera
+    image-splitter setup needs a frame-region split (two sub-rectangles of the SAME frame, donor +
+    acceptor) — structurally like the raw-panel crop tool's `makeCroppedStack()`, but producing TWO
+    frame-synchronised sub-stacks from one crop step instead of one. A two-camera setup (separate
+    donor/acceptor cameras) needs genuinely new frame-synchronised dual-stack loading — no existing
+    precedent to lean on there.
+  - **ALEX frame-role bookkeeping.** Which frames are donor-excitation vs. acceptor-excitation is
+    new state nothing in webSMLM tracks today (a period/pattern control, or explicit frame-index
+    lists) — needed before any DD/DA/AA/AD sorting can happen.
+
+  Not scoped: whether this becomes its own sidebar module (most likely, given the size — a new
+  "smFRET (ALEX)" section, not squeezed into sSMLM or 3D calibration) vs. a mode of an existing one;
+  headless/CLI support (should follow the same `analyze()`/PARAMS pattern as everything else, once
+  the interactive shape is settled); and the accurate-FRET correction-factor step, deliberately
+  deferred per the references above.
+
 - **Single particle tracking (spt)** — deliberately deferred, not forgotten:
   - **Length-resolved D histogram** (the reference pipeline's `D_track_length_matrix`, one
     histogram per track length rather than one pooled/ensemble one — distinct from the ensemble
@@ -190,12 +261,24 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   cheaper substitute; v1 should implement one of those two protocols properly, not look for a
   shortcut around the underlying statistics.
 
-  **Proposed integration** (per discussion): stays inside the existing **Gain & offset estimation**
-  module (`pcfoBox`), not a new sidebar section — a camera-model select, **EMCCD** (today's scalar
-  path, unchanged, stays the default) vs. **sCMOS** (per-pixel), reveals sCMOS-specific inputs: a
-  dark-movie loader (offset + read-noise variance, one file, always available) and, for gain, a
-  loader for SEVERAL movies at different known-varying conditions (either a bright series at
-  different illumination levels, or several exposure times on dark data) — genuinely new file/
+  **A cheaper first step than implementing any of the above: just LOAD maps computed elsewhere.**
+  ImageJ/Fiji (via ACCéNT's own plugin) or Picasso itself can already produce offset/gain/variance
+  maps — webSMLM doesn't have to own the acquisition-and-regression pipeline to benefit from
+  per-pixel calibration, only the "load a map, feed it into `mleNewtonFit()`'s existing `var` hook"
+  half. This is a MUCH smaller, self-contained v1 (a file loader + the small MLE accumulator change
+  from Huang's note above, no new acquisition UI, no multi-condition file plumbing at all) —
+  probably worth doing before, or instead of, building any in-app calibration workflow. Likely a
+  niche feature either way (most users won't have or want to run a separate calibration pipeline),
+  so low urgency, but a good candidate for "small effort, real capability" if anyone asks for
+  sCMOS-aware fitting before the bigger acquisition workflow is worth building.
+
+  **Proposed integration** (per discussion, for whichever route actually gets built): stays inside
+  the existing **Gain & offset estimation** module (`pcfoBox`), not a new sidebar section — a
+  camera-model select, **EMCCD** (today's scalar path, unchanged, stays the default) vs. **sCMOS**
+  (per-pixel), reveals sCMOS-specific inputs: at minimum a "Load calibration map" file picker (the
+  cheap route above); if the in-app acquisition workflow is ever built too, also a dark-movie loader
+  (offset + read-noise variance, one file) and, for gain, a loader for SEVERAL movies at different
+  known-varying conditions (a bright series or an exposure-time ladder) — genuinely new file/
   condition-management UI, not a reuse of whatever single stack happens to already be loaded. The
   two existing buttons keep doing their own jobs, not new ones: **Estimate** runs either the current
   pooled-global regression (EMCCD) or the new per-pixel regression across the loaded calibration
