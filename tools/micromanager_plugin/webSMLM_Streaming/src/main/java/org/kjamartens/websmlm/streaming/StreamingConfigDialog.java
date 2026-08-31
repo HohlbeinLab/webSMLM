@@ -93,7 +93,11 @@ public class StreamingConfigDialog extends JDialog {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                saveSettings();
+                // shutdown() (not just saveSettings()) so closing this window while a
+                // session is running actually stops the WebSocket server/poll timer -
+                // previously only the Stop button did that, leaving both running
+                // indefinitely if the user closed the dialog instead.
+                shutdown();
             }
         });
     }

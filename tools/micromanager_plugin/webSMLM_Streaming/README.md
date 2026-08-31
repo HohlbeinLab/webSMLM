@@ -93,7 +93,7 @@ and packages cleanly against them (`mvn clean package`).
 
 The TIFF-chunk encoding path was further checked independently of Micro-Manager entirely: a
 standalone Java program built the same `ImageStack`→`ImagePlus`→`FileSaver` pipeline
-`StreamingController.encodeAsImageJTiffStack` uses, for both a 1-frame and a 3-frame batch, and
+`ImageJTiffChunkEncoder.encode` uses, for both a 1-frame and a 3-frame batch, and
 the resulting bytes were decoded with Python's `tifffile` (the same library
 `tools/test_livestream_demo.py` uses) — `is_imagej: True`, byte-exact pixel data, and correct
 `(frames, height, width)` shape/dtype in both cases.

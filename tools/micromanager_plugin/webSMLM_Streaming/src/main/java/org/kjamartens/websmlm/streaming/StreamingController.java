@@ -1,12 +1,6 @@
 package org.kjamartens.websmlm.streaming;
 
 import com.google.common.eventbus.Subscribe;
-import ij.ImagePlus;
-import ij.ImageStack;
-import ij.io.FileSaver;
-import ij.process.ByteProcessor;
-import ij.process.ShortProcessor;
-import org.java_websocket.WebSocket;
 import org.micromanager.Studio;
 import org.micromanager.data.DataProvider;
 import org.micromanager.data.DataProviderHasNewImageEvent;
@@ -15,25 +9,23 @@ import org.micromanager.data.Image;
 import org.micromanager.display.DataViewer;
 
 import javax.swing.Timer;
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 
 /**
  * Owns the lifecycle of one streaming session: watches Micro-Manager for newly acquired
- * frames, batches raw frames into chunks of {@code batchSize}, encodes each chunk as an
- * ImageJ-style multi-page TIFF (byte-for-byte the same "ImageJ, contiguous" layout
- * tools/test_livestream_demo.py produces via tifffile's imagej=True, which is what webSMLM's
- * loadTiffFile() fast path expects), and hands the encoded bytes to a
- * StreamingWebSocketServer to broadcast.
+ * frames, batches raw frames into chunks of {@code batchSize}, hands each chunk to {@link
+ * ImageJTiffChunkEncoder} to encode as an ImageJ-style multi-page TIFF, and hands the encoded
+ * bytes to a StreamingWebSocketServer to broadcast. Ack/loss bookkeeping (comparing what was
+ * sent against what webSMLM confirms receiving) is delegated to {@link StreamingAckTracker} -
+ * this class stays focused on MM event polling, session lifecycle, and batching, calling out
+ * to those two stateless collaborators rather than doing everything itself.
  *
  * Micro-Manager 2.0 has no single global "a new image arrived" event - each
  * {@link DataProvider} (a Live/Snap display's datastore, or an MDA run's Datastore) fires
@@ -125,29 +117,10 @@ public class StreamingController {
         log("Streaming started on " + host + ":" + port + " (batch size " + this.batchSize + ").");
     }
 
-    /** Periodic (POLL_INTERVAL_MS) live readout of how far behind webSMLM's own
-     * confirmations are trailing what's actually been sent this session - NOT the
-     * authoritative loss verdict (that's finishStop(), after stop()'s grace period, which
-     * waits for processing to fully catch up first). A transient gap here is normal and
-     * expected under continuous streaming (network + detect/fit latency); it's meant as a
-     * live "is the pipeline keeping up" signal, most useful when it grows without bound
-     * rather than hovering near a small, stable number. */
+    /** Periodic (POLL_INTERVAL_MS) live "frames sent vs. confirmed" readout - see {@link
+     * StreamingAckTracker#reportProgress} for what this actually means. */
     private synchronized void reportFrameProgress() {
-        if (onProgress == null || server == null) {
-            return;
-        }
-        Map<WebSocket, Integer> confirmed = server.getLastFramesReceived();
-        if (confirmed.isEmpty()) {
-            onProgress.accept(framesSent + " frames sent - no client confirmation yet.");
-            return;
-        }
-        int minConfirmed = Integer.MAX_VALUE;
-        for (int v : confirmed.values()) {
-            minConfirmed = Math.min(minConfirmed, v);
-        }
-        int gap = framesSent - minConfirmed;
-        onProgress.accept(framesSent + " sent, " + minConfirmed + " confirmed"
-                + (gap > 0 ? " (" + gap + " not yet confirmed)" : " - fully caught up."));
+        StreamingAckTracker.reportProgress(framesSent, server, onProgress);
     }
 
     public synchronized void stop() {
@@ -189,28 +162,13 @@ public class StreamingController {
         log("Streaming stopped.");
     }
 
-    /** Delayed second half of stop(): compares each client's confirmed frame count
-     * against what this session actually sent, logs a warning on any shortfall, then
-     * actually closes the socket server. See stop()'s own comment for why this is
+    /** Delayed second half of stop(): checks each client's confirmed frame count against
+     * what this session actually sent (see {@link StreamingAckTracker#checkFinalCounts}),
+     * then actually closes the socket server. See stop()'s own comment for why this is
      * delayed rather than run inline. */
     private synchronized void finishStop(StreamingWebSocketServer s, int sentThisSession) {
         stopGraceTimer = null;
-        Map<WebSocket, Integer> confirmed = s.getLastFramesReceived();
-        if (confirmed.isEmpty()) {
-            log("No frame-count confirmation received from webSMLM - cannot verify all "
-                    + sentThisSession + " sent frames arrived (no client connected, or it never acked).");
-        } else {
-            for (Map.Entry<WebSocket, Integer> e : confirmed.entrySet()) {
-                int received = e.getValue();
-                String addr = String.valueOf(e.getKey().getRemoteSocketAddress());
-                if (received >= sentThisSession) {
-                    log("webSMLM at " + addr + " confirmed all " + sentThisSession + " frames received.");
-                } else {
-                    log("⚠ webSMLM at " + addr + " only confirmed " + received + "/" + sentThisSession
-                            + " frames received (" + (sentThisSession - received) + " missing).");
-                }
-            }
-        }
+        StreamingAckTracker.checkFinalCounts(sentThisSession, s, this::log);
         try {
             s.stop(1000);
         } catch (InterruptedException e) {
@@ -306,7 +264,7 @@ public class StreamingController {
 
     private void sendBatch(List<Image> images) {
         try {
-            byte[] tiffBytes = encodeAsImageJTiffStack(images);
+            byte[] tiffBytes = ImageJTiffChunkEncoder.encode(images);
             StreamingWebSocketServer s;
             synchronized (this) {
                 s = server;
@@ -323,58 +281,6 @@ public class StreamingController {
             }
         } catch (Exception e) {
             log("Failed to encode/send chunk: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Builds an ImageJ ImageStack from the raw pixel buffers and writes it out via
-     * ij.io.FileSaver#saveAsTiff, which produces the standard ImageJ TIFF format (the
-     * "ImageJ=1.xx / images=N" description tag on a multi-slice stack) - the same format
-     * tifffile.imwrite(..., imagej=True) produces on the Python demo side. Routed through a
-     * short-lived temp file rather than an in-memory ij.io.TiffEncoder call: FileSaver's
-     * file-based API is the stable, well-documented ImageJ1 entry point, at the cost of one
-     * small local disk round trip per chunk.
-     *
-     * Deliberately calls the generic saveAsTiff(), NOT saveAsTiffStack() - saveAsTiffStack()
-     * refuses a single-slice ImageStack ("This is not a stack", returns false) while
-     * saveAsTiff() writes a correct ImageJ-tagged TIFF for both a 1-slice and an N-slice
-     * stack alike (verified against both cases via tifffile). This matters because the
-     * default "Frames per chunk" is 1, which is the single-slice case.
-     */
-    private byte[] encodeAsImageJTiffStack(List<Image> images) throws IOException {
-        if (images.isEmpty()) {
-            throw new IllegalArgumentException("empty batch");
-        }
-        Image first = images.get(0);
-        int width = first.getWidth();
-        int height = first.getHeight();
-
-        ImageStack stack = new ImageStack(width, height);
-        for (Image img : images) {
-            int bpp = img.getBytesPerPixel();
-            Object pixels = img.getRawPixels();
-            if (bpp == 2) {
-                stack.addSlice(new ShortProcessor(width, height, (short[]) pixels, null));
-            } else if (bpp == 1) {
-                stack.addSlice(new ByteProcessor(width, height, (byte[]) pixels));
-            } else {
-                throw new IOException("Unsupported pixel depth (" + bpp + " bytes/px); "
-                        + "webSMLM_Streaming currently only supports 8-bit and 16-bit grayscale cameras.");
-            }
-        }
-
-        ImagePlus imp = new ImagePlus("chunk", stack);
-        File tmp = File.createTempFile("websmlm_chunk_", ".tif");
-        try {
-            FileSaver saver = new FileSaver(imp);
-            boolean ok = saver.saveAsTiff(tmp.getAbsolutePath());
-            if (!ok) {
-                throw new IOException("ImageJ FileSaver.saveAsTiff() returned false");
-            }
-            return Files.readAllBytes(tmp.toPath());
-        } finally {
-            //noinspection ResultOfMethodCallIgnored
-            tmp.delete();
         }
     }
 
