@@ -1818,7 +1818,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.12-dev · build 2026-08-31h</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.12-dev · build 2026-08-31i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2291,11 +2291,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.12-dev · build 2026-08-31h — the raw-panel crop tool now
-// logs its own recorded command (cropX0/Y0/X1/Y1, already CLI/analyze()-
-// enabled), and Localize/Estimate/Calibrate's own recorded commands
-// include the active crop bounds too, so they stay faithful replays of
-// what actually ran. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.12-dev · build 2026-08-31i — fixed a real bug: panning/
+// zooming a histogram (or any other raw-panel plot) while the crop tool
+// was still selected got silently reinterpreted as a crop-corner click,
+// applying an unwanted extra crop of the already-cropped stack. See
+// CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -11542,7 +11542,17 @@ $('rawCropBtn').addEventListener('click',async()=>{
   drawRawView();
 });
 $('raw').addEventListener('click',async e=>{
-  if(!rawCropMode || !stack) return;
+  // rawCropMode deliberately STAYS on after a crop ("pick another crop, or
+  // click the button to exit" — see applyCropToRaw()'s own comment), so it
+  // can still be true long after the crop itself, e.g. once a histogram or
+  // other plot (rawIsPlot) has since taken over the SAME #raw canvas —
+  // setRawPlot(true) disables rawCropBtn itself while a plot shows, but that
+  // doesn't touch rawCropMode or stop THIS listener from still firing. A
+  // real, reported bug without this check: panning/zooming a histogram (a
+  // click-drag on #raw) got silently reinterpreted as a crop-corner click,
+  // applying an unwanted second crop of the ALREADY-cropped stack from
+  // whatever arbitrary pixel the plot interaction happened to land on.
+  if(!rawCropMode || !stack || rawIsPlot) return;
   const {nx,ny}=rawClickToNative(e);
   if(!rawCropPt0){ rawCropPt0={x:nx,y:ny}; drawRawView(); return; }
   const x0=Math.max(0,Math.floor(Math.min(rawCropPt0.x,nx)));
