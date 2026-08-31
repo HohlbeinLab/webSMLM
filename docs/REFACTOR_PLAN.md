@@ -138,13 +138,43 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 - **Photon calibration beyond a single scalar gain/offset.** Single-image gain/offset estimation
   from the data itself (PCFO, a photon-transfer-curve variant) shipped in 0.10.2. A scalar still
   reasonably approximates an EMCCD chip, but most current SMLM runs on sCMOS, where gain, offset
-  and read noise are all pixel-dependent (and non-uniform read noise also affects detection — a
-  noisy pixel can masquerade as an emitter); still open: **per-pixel** gain/offset/variance
-  calibration maps, with a noise model that uses them — see Huang et al., *Nat. Methods* **10**,
-  653–658 (2013), https://doi.org/10.1038/nmeth.2488. The MLE fitters' shared `mleNewtonFit()`
-  accumulator (see **fit** in `CLAUDE.md`) is already per-pixel-noise-aware via Picasso's own
-  `_estimator_terms(mle, value, data, var)` `var` term, so a per-pixel model callback would only
-  need one more input — a smaller lift than starting from scratch, but not yet attempted.
+  and read noise are all pixel-dependent — still open: **per-pixel** calibration maps, with a noise
+  model that uses them. References, newest first:
+  - Picasso's own implementation
+    (https://picassosr.readthedocs.io/en/latest/localize.html#scmos-camera-calibration) is the
+    closest prior art to mirror: a dark movie (1000+ frames) gives offset (temporal mean) and
+    read-noise variance (temporal variance) maps; an optional bright reference series at several
+    illumination levels adds a gain map (per-pixel photon-transfer-curve slope). Loaded maps
+    override the scalar `gain`/`camoffset` fields (set to the maps' own medians, then disabled).
+  - Diekmann, Deschamps, Li et al., "Photon-free (s)CMOS camera characterization…," *Nat. Commun.*
+    **13**, 3362 (2022), https://doi.org/10.1038/s41467-022-30907-2, and its companion tool
+    **ACCéNT** (github.com/ries-lab/Accent, GPL-3.0) — gets offset/gain/variance from DARK frames
+    alone, no controlled illumination series needed, a nice match for PCFO's own "no calibrated
+    light source required" goal; worth trying before assuming a bright series is necessary.
+  - Babcock, "Multiplane and Spectrally-Resolved SMLM with Industrial Grade CMOS cameras,"
+    *Sci. Rep.* **8**, 1726 (2018), https://doi.org/10.1038/s41598-018-19981-z — per-pixel noise on
+    cheaper industrial (not scientific-grade) sensors; useful background on how much read-noise
+    non-uniformity to expect across camera tiers, i.e. how much a map actually buys a given user.
+  - Huang et al., *Nat. Methods* **10**, 653–658 (2013), https://doi.org/10.1038/nmeth.2488 — the
+    original model, and the reason this is a smaller lift than it looks: read-noise variance enters
+    the Poisson likelihood as an ADDITIVE equivalent-photon term on both data and model
+    (`data+var/gain²` vs `model+var/gain²`), not a separate noise term. The MLE fitters' shared
+    `mleNewtonFit()` accumulator is already per-pixel-`var`-aware (Picasso's own
+    `_estimator_terms(mle, value, data, var)`, see **fit** in `CLAUDE.md`) — swapping today's scalar
+    `var` for a per-pixel lookup needs no new solver. Phasor/LS have no equivalent hook, so a first
+    pass should scope this to MLE methods only, matching Picasso's own precedent.
+
+  Rough shape, not designed in detail: a calibration step (dark[+bright] movie, same
+  `loadTiffFile()` path everything else uses) computing offset/variance(/gain) maps via a per-pixel
+  temporal mean/variance pass — architecturally close to FTM's own per-pixel temporal computation,
+  mean/variance instead of median, over the whole movie rather than a sliding window. Storage
+  probably a JSON sidecar (like the existing 3D calibration JSON) holding the maps as flat
+  `Float32Array`s — ADU² variance and a gain ratio don't fit comfortably in a 16-bit-integer TIFF
+  the way a segmentation label mask does, though a float-sample TIFF might work too, not checked
+  against the UTIF-based reader. Genuinely unscoped: how a loaded map's pixel indices track a
+  cropped/streamed stack (likely needs the same offset bookkeeping `makeCroppedStack()` already does
+  for the movie itself), and whether DETECTION should also become noise-map-aware — a separate,
+  likely harder problem tangled up with "Robust detection threshold" above, not assumed solved here.
 - Optional **fiducial-based drift correction** when beads are present (simpler and more accurate
   than AIM for that specific case).
 - **3D point-cloud view** — an interactive, rotatable scatter (orthographic projection, colour = z)
