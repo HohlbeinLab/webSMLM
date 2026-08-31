@@ -1818,7 +1818,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.12-dev · build 2026-08-31g</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.12-dev · build 2026-08-31h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2291,11 +2291,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.12-dev · build 2026-08-31g — the smFRET/ALEX roadmap note
-// now flags that sSMLM's own grating-dispersed 0th/1st order IS already a
-// virtual donor/acceptor channel setup — no new dual-channel loading
-// infrastructure needed for that acquisition mode, only for an
-// image-splitter/two-camera setup. See CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.12-dev · build 2026-08-31h — the raw-panel crop tool now
+// logs its own recorded command (cropX0/Y0/X1/Y1, already CLI/analyze()-
+// enabled), and Localize/Estimate/Calibrate's own recorded commands
+// include the active crop bounds too, so they stay faithful replays of
+// what actually ran. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2913,6 +2913,19 @@ function logCmd(config){
   const line = logCmdStyle==='cli' ? cliCommandFor(config) : jsCommandFor(config);
   $('logText').textContent += '\n\n'+line; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
 }
+// Spread into any logCmd() call site that touches `stack` directly (run(),
+// estimateGainOffset(), runCalibration()) so a recorded command stays a
+// faithful, self-sufficient replay of what's actually running — without
+// this, a Localize/PCFO/calibration run done while cropped would record a
+// command that, replayed against the full uncropped file, analyses the
+// wrong region. `{}` (spreads to nothing) when no crop is active. Reads
+// straight off `stack.cropX0` etc. (see makeCroppedStack()) rather than a
+// separate flag, so it can never drift out of sync with the actual crop.
+function cropCmdFields(){
+  return stack && stack.cropX0!=null
+    ? { cropX0:stack.cropX0, cropY0:stack.cropY0, cropX1:stack.cropX1, cropY1:stack.cropY1 }
+    : {};
+}
 // Wraps an onLog callback so its very FIRST call has exactly one leading
 // "\n" stripped, if present — used right after logCmd() (see its own
 // comment) so a *Core() function's own "\nSection header…" opening message
@@ -3309,6 +3322,13 @@ function makeCroppedStack(rawStack, x0, y0, x1, y1){
     for(let row=0;row<ch;row++) out.set(full.subarray((y0+row)*rawStack.w+x0, (y0+row)*rawStack.w+x0+cw), row*cw);
     return out; };
   return {w:cw, h:ch, n:rawStack.n, px:rawStack.px, streaming:!!rawStack.streaming,
+    // Crop bounds carried on the stack itself (not just the caller's local
+    // args) so any logCmd() call site that touches `stack` directly (run(),
+    // estimateGainOffset(), runCalibration()) can read back the ACTIVE crop
+    // and include it in its own recorded command — otherwise a Localize run
+    // done while cropped would record a command that, replayed against the
+    // full uncropped file, analyses the wrong region.
+    cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1,
     getFrame(){ throw new Error('Cropped stack: use getFrames()'); },   // matches makeFtmStack's own convention — nothing calls getFrame() (singular) anywhere in this codebase, getFrames() is the uniform interface
     async getFrames(s,e){ return (await rawStack.getFrames(s,e)).map(cropOne); }};
 }
@@ -6671,7 +6691,8 @@ async function runCalibration(){
     const threshKey=`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[config.detFilter]}_thr`;
     logCmd({ calibrationOnly:true, calFirst:first, calLast:last, calStep:config.calStep,
       calRef:config.calRef, calFixedXY:fixedXY, psf:config.psf, winr:config.winr,
-      detFilter:config.detFilter, [threshKey]:config[threshKey], pxnm:config.pxnm });
+      detFilter:config.detFilter, [threshKey]:config[threshKey], pxnm:config.pxnm,
+      ...cropCmdFields() });
     const r = await calibrationCore(config, stack, {
       onLog: stripLeadingBreakOnce(log), onProgress: setProg, shouldStop: () => stopRequested,
       onRawPreview: (img,w,h,maxima,frameLocs,fi,last) => {
@@ -7973,7 +7994,7 @@ async function estimateGainOffset(){
     const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
     // Logged BEFORE pcfoCore() starts — see run()'s own comment on this
     // ordering — safe this early since cfg is already fully resolved.
-    logCmd({estimateGainOffset:true, ...cfg, pxnm:paramValue('pxnm')});
+    logCmd({estimateGainOffset:true, ...cfg, pxnm:paramValue('pxnm'), ...cropCmdFields()});
     const r=await pcfoCore(cfg, stack, {onLog:stripLeadingBreakOnce(log), onProgress:setProg});
     if(!r) return;
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
@@ -10513,7 +10534,7 @@ async function run(){
     logCmd({ method, psf:config.psf, winr:config.winr, detFilter:config.detFilter,
       [threshKey]: config[threshKey], gain:config.gain, camoffset:config.camoffset,
       fitFirstFrame:config.fitFirstFrame, fitLastFrame:config.fitLastFrame, pxnm:px,
-      localize3D:config.localize3D });
+      localize3D:config.localize3D, ...cropCmdFields() });
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // z(σx,σy) width model for MLE 3D / (checked) MLE 3D rotated elliptical —
     // use the current run's pixel size for the px→nm conversion. wcal's mere
@@ -11460,6 +11481,15 @@ function resetAfterCropChange(){
 }
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
+  // Logged BEFORE the crop actually swaps `stack` — see run()'s own comment
+  // on this ordering. cropX0/Y0/X1/Y1 are the same headless-equivalent keys
+  // analyze()/the CLI already accept (MODULE: headless API) — this alone
+  // isn't a runnable command on its own (no file:), same convention as
+  // computeNeNA's/computeFRC's bare logCmd() calls; the crop bounds are
+  // ALSO merged into run()/estimateGainOffset()/runCalibration()'s own
+  // recorded commands (via stack.cropX0 etc., see makeCroppedStack()) so
+  // THOSE stay self-sufficient/faithful to what's actually running.
+  logCmd({cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1, pxnm:paramValue('pxnm')});
   originalStack = originalStack || stack;   // only ever set from the TRUE original, so re-cropping while still in crop mode keeps chaining off it, not an intermediate crop
   const ow=originalStack.w, oh=originalStack.h;
   stack = makeCroppedStack(originalStack, x0, y0, x1, y1);
