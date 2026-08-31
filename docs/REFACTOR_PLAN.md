@@ -87,6 +87,16 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   explicitly a later step, not v1.
 
   **Mapped onto webSMLM's own building blocks** — surprisingly little is genuinely new:
+  - **sSMLM's grating-dispersed 0th/1st order IS already a virtual donor/acceptor channel setup —
+    not just the pairing math below.** A diffraction grating spectrally splits each emitter's own
+    emission into an 0th-order (undispersed) and 1st-order (dispersed) spot on ONE frame; with the
+    right grating/filter choice, that split can separate donor vs. acceptor emission directly — the
+    same physical trick an image splitter does spatially, just done spectrally instead. For THIS
+    acquisition mode specifically, no new dual-channel loading infrastructure is needed at all (see
+    "Genuinely new infrastructure" below, which is scoped to the image-splitter/two-camera cases
+    only) — one movie, the existing detect/fit pipeline, `pairCore()`'s existing pairing, all
+    already built and tested. Likely the cheapest real path to a working v1 prototype, ahead of the
+    harder image-splitter/two-camera cases that need genuinely new loading code first.
   - **"Determine positions of interest" = the existing "Fix bead x,y" pattern.** Averaging a
     user-selected frame range into one stable composite, detecting once, and fitting each detected
     maximum is already implemented (`averageFrames()`/`locateBeadsForCalib()`, 3D calibration
@@ -123,13 +133,14 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     `linkTracks()` instead of a fixed-xy assumption — a distinct, later option, not needed for a
     genuinely immobilised-molecule v1.
 
-  **Genuinely new infrastructure, not a reuse of anything existing**:
-  - **Dual-channel input.** Today one frame = one full-FOV image with one meaning. A single-camera
-    image-splitter setup needs a frame-region split (two sub-rectangles of the SAME frame, donor +
-    acceptor) — structurally like the raw-panel crop tool's `makeCroppedStack()`, but producing TWO
-    frame-synchronised sub-stacks from one crop step instead of one. A two-camera setup (separate
-    donor/acceptor cameras) needs genuinely new frame-synchronised dual-stack loading — no existing
-    precedent to lean on there.
+  **Genuinely new infrastructure, not a reuse of anything existing** — none of this applies to the
+  sSMLM-style acquisition mode above, only to the alternative hardware setups:
+  - **Dual-channel input for an image-splitter or two-camera setup.** Today one frame = one
+    full-FOV image with one meaning. A single-camera image-splitter setup needs a frame-region
+    split (two sub-rectangles of the SAME frame, donor + acceptor) — structurally like the
+    raw-panel crop tool's `makeCroppedStack()`, but producing TWO frame-synchronised sub-stacks
+    from one crop step instead of one. A two-camera setup (separate donor/acceptor cameras) needs
+    genuinely new frame-synchronised dual-stack loading — no existing precedent to lean on there.
   - **ALEX frame-role bookkeeping.** Which frames are donor-excitation vs. acceptor-excitation is
     new state nothing in webSMLM tracks today (a period/pattern control, or explicit frame-index
     lists) — needed before any DD/DA/AA/AD sorting can happen.
