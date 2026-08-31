@@ -21,7 +21,7 @@
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2300   PARAMS registry, single source of truth for params;
+    params          2296   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          2993   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          2947   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3306   synthetic stack generator ("Simulate movie")
-    detect          4194   per-frame band-pass + local-maxima detection
-    fit             4450   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3246   synthetic stack generator ("Simulate movie")
+    detect          4141   per-frame band-pass + local-maxima detection
+    fit             4418   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -45,22 +45,22 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          4974   accumulate to offscreen buffer; view/colour/blur;
+    render          4942   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
                            keeps the four raw-panel mode toggles mutually
                            exclusive; srBarAnchor() shared by drawDepthBar()/
                            drawTracksColorBar()
-    workers         5950   frame-parallel detect/fit worker pool
-    export          6115   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6397   astigmatic sigma_x/sigma_y vs z bead curves;
+    workers         5918   frame-parallel detect/fit worker pool
+    export          6083   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6365   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           6819   AIM drift correction (2D+z); drift-vs-frame or
+    drift           6788   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -70,16 +70,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7312   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7281   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           7986   spectrally resolved SMLM pair-finding; merged
+    sSMLM           7955   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             8465   single particle tracking, trackpy-inspired;
+    spt             8434   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -110,7 +110,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9945   top-level orchestration, *Core()/wrapper split;
+    pipeline        9914   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -119,9 +119,9 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    table           11799  localizations table, filtering, histograms;
+    table           11787  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12379  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12367  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1542,17 +1542,12 @@ X.B(E,Y);return E}return J}())
   button:disabled{opacity:.45;cursor:not-allowed}
   button:disabled:hover{border-color:var(--line)}
   input[type=file]{width:100%;font-size:12px;color:var(--muted)}
-  /* Native spinners were tried (re-enabled via color-scheme, one round back)
-     and reverted: look varies a lot across browser engines/themes, and —
-     more importantly — they're hover-reveal only, so on a touchscreen (no
-     hover state at all) they're effectively unreachable. addNumberSteppers()
-     (MODULE: params, right after syncParamControls()) wraps every .num
-     field in a .numstep/.numstep-btns −/+ pair instead — Inkscape-style,
-     always visible, real click targets, still driven by each field's own
-     already-wired min/max/step, no per-input work either. Suppress the
-     native spinner so it doesn't ALSO show up alongside the custom one.
-     Left-aligned (not right) to match the −/+ pair's own reading order —
-     value, then the control that changes it, left to right. */
+  /* Native number-input spinners were tried and reverted: look varies across
+     browser engines, and they're hover-reveal only (unreachable on a
+     touchscreen). addNumberSteppers() (MODULE: params) wraps every .num
+     field in an always-visible custom −/+ pair instead — suppress the
+     native one below so it doesn't also show up alongside it. Left-aligned
+     (not right) to match the −/+ pair's own left-to-right reading order. */
   input.num{width:64px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
     border-radius:6px;padding:4px 9px;font-size:12px;text-align:left;
     -moz-appearance:textfield;appearance:textfield}
@@ -1818,7 +1813,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.12-dev · build 2026-08-31i</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.12-dev · build 2026-08-31j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2291,11 +2286,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">// webSMLM v0.11.12-dev · build 2026-08-31i — fixed a real bug: panning/
-// zooming a histogram (or any other raw-panel plot) while the crop tool
-// was still selected got silently reinterpreted as a crop-corner click,
-// applying an unwanted extra crop of the already-cropped stack. See
-// CHANGELOG.md.</div></div>
+      <div class="log" id="log"><div id="logText">// webSMLM v0.11.12-dev · build 2026-08-31j — comment cleanup, batch 1
+// (params/in-out/simulation/detect): every previously-uncommented
+// function gets a one-line intro, and several long narrative comments
+// (duplicated design history, superseded bug post-mortems) are
+// compressed — no code/behaviour changes. See CHANGELOG.md.</div></div>
   </main>
 </div>
 
@@ -2706,48 +2701,28 @@ function buildSettingsJson(values){
   return { format:'webSMLM-settings', version:2, created:new Date().toISOString(), values };
 }
 
-// Same narrow-viewport signal the mobile/floating sidebar drawer already
-// uses (search '860' — the CSS breakpoint and this JS check are meant to
-// agree) — a plain width check, not device/UA sniffing: `navigator.
-// deviceMemory` doesn't exist in Safari at all (WebKit doesn't implement
-// it, so it's useless for exactly the iOS case this matters most for), and
-// a narrow viewport is already this app's own established definition of
-// "mobile" for every other purpose (16px input font-size, the drawer
-// itself). A real trade-off, not free: a desktop window resized narrow
-// reads as "mobile" too — accepted, since correlating with an existing,
-// already-relied-on signal beats adding a second, independent guess.
+// True on a narrow viewport — same signal the mobile/floating sidebar
+// drawer uses (breakpoint 860, kept in sync with that CSS). A plain width
+// check, not UA/device-memory sniffing (`navigator.deviceMemory` doesn't
+// exist in Safari, so it can't help on iOS, the case that matters most).
 function isMobileViewport(){ return window.innerWidth<=860; }
-// Registry → DOM: writes min/max/step/value (or checked, for booleans) onto
-// each bound control from PARAMS, so the registry is authoritative even
-// though the static HTML also carries its own (matching, but now redundant)
-// attributes. Runs once at startup, before any other init. One deliberate
-// exception to "PARAMS is authoritative as-is": memgb's own default is
-// lowered on a narrow viewport (0.5 GB, its own UI-allowed minimum, vs the
-// desktop 3 GB) — a real, reported bug otherwise: loadTiffFile()'s
-// whole-file-vs-streamed threshold ties to this same Memory budget (see its
-// own comment), but a mobile Safari tab's real per-tab ceiling is well
-// under 3 GB with no JS-visible OOM signal, so a moderate file (a
-// real-world 680 MB one) crashed the tab by default, silently, before a
-// user had any reason to know to lower the setting themselves first. 1 GB
-// was tried first here and rejected — verified against the actual 680 MB
-// reported file it still doesn't clear the threshold (`680 MB < 1 GB`), so
-// only 0.5 GB actually closes the gap for a file that size; double-check
-// against a real number again if this default is ever revisited, the same
-// "don't trust it without checking" lesson `effSliceMin` itself already
-// carries. Only the INITIAL default changes — resizing the window later
-// doesn't re-trigger this (same "set once at startup" behaviour every
-// other PARAMS default already has), and a loaded settings JSON's own
-// memgb value still overrides it same as always.
+// Registry → DOM: writes each PARAMS entry's min/max/step/value (or
+// checked, for booleans) onto its bound control, so the registry stays
+// authoritative over the static HTML's own (matching but redundant)
+// attributes. Runs once at startup. Special case: `memgb` defaults to 0.5
+// (its own UI minimum) instead of 3 on a narrow viewport — mobile Safari's
+// real per-tab memory ceiling is well under desktop assumptions with no
+// JS-visible OOM signal, and loadTiffFile()'s whole-file-vs-streamed
+// threshold ties to this same setting. Only the INITIAL
+// value changes (a later resize doesn't re-trigger it); a loaded settings
+// JSON's own memgb still overrides it as normal.
 function syncParamControls(){
   for(const id in PARAMS){
     const spec=PARAMS[id]; if(!spec.id) continue;
     const el=$(spec.id); if(!el) continue;
-    // A local override, NOT `spec.default=...` — that would mutate the
-    // shared PARAMS registry object itself, permanently, the first time
-    // this runs on a narrow viewport (PARAMS[id] is a reference, not a
-    // copy) — a real risk for anything that reads spec.default again later
-    // (a future "reset to defaults" feature, or this function simply
-    // running a second time after a resize).
+    // Local override, not `spec.default=...` — PARAMS[id] is a shared
+    // reference, so mutating it here would permanently corrupt the
+    // registry's own default the first time this runs on a narrow viewport.
     const def = (id==='memgb' && isMobileViewport()) ? 0.5 : spec.default;
     if(spec.type==='bool'){ el.checked=def; continue; }
     if(spec.type==='enum'){ el.value=def; continue; }
@@ -2760,18 +2735,12 @@ function syncParamControls(){
 
 const $  = id => document.getElementById(id);
 syncParamControls();   // registry → DOM, now that $ exists — before anything else reads a control
-// Wraps every numeric field (PARAMS-driven or not — calFirst/calLast/etc. carry
-// their own static min/max/step in the HTML, see PARAMS' own "excludes
-// per-dataset working state" note) with a −/+ button pair, Inkscape-style,
-// rather than the browser's own native spinner (tried first — re-enabling it
-// was a genuine one-line global toggle too, but its look varies wildly across
-// engines/themes and is invisible until hover, a real problem on touch
-// devices with no hover state at all). Runs once, after syncParamControls()
-// has set every PARAMS-mapped input's min/max/step, so every field — however
-// it got its attributes — already has the right values to read here. Same
-// "one mechanism, no per-input wiring" property the native-spinner attempt
-// had: add a PARAMS entry (or a plain HTML min/max/step input) and it gets
-// steppers for free, nothing else to touch.
+// Wraps every `input.num` (PARAMS-driven or not — calFirst/calLast/etc.
+// carry their own static min/max/step in the HTML) with a custom −/+ button
+// pair, replacing the native spinner (see that CSS rule's own comment for
+// why). Runs once, after syncParamControls() has set every PARAMS-mapped
+// input's min/max/step, so it just reads whatever's already on each field —
+// no per-input wiring needed for a new PARAMS entry or plain HTML input.
 function addNumberSteppers(){
   document.querySelectorAll('input.num[type="number"]').forEach(inp=>{
     if(inp.dataset.stepped) return;   // idempotent — safe if ever called twice
@@ -2823,31 +2792,12 @@ addNumberSteppers();
 // durable setting — same tier as driftPlotMode/sptHistMode, not
 // applyTheme()'s own localStorage).
 let logCmdStyle='js';
-// Every PROSE line gets a comment prefix (js: "// ", cli: "# ") — NOT the
-// bare command lines logCmd() appends below — so that selecting ANY
-// contiguous stretch of the log, prose and commands mixed, and pasting it
-// into a .js file or shell script just works: prose becomes inert comments,
-// commands execute as-is. wrapCommentLine() does the actual word-wrapping
-// itself (real "\n"s, one marker per resulting line) rather than leaving it
-// to CSS soft-wrap: a tried-and-reverted earlier version marked only the
-// first RENDERED line of each real line and relied on `white-space:
-// pre-wrap` for the rest, with a CSS `text-indent:hanging` trick to at
-// least align the unmarked continuation rows — but a real, reported
-// follow-up complaint pointed out those continuation rows still had no "//"
-// of their own once you actually looked, e.g. right where a message's own
-// embedded URL landed on its own wrapped row. Copy-paste of the CSS-wrapped
-// text was already technically safe (a soft wrap isn't a real newline, so
-// pasting reassembles one long, still-correctly-marked line) — but reading
-// the log, or opening an exported .txt in an editor that itself soft-wraps,
-// showed the same bare-continuation look either way. Hard-wrapping in JS
-// means every VISIBLE row is a genuine marked line, matching the "every
-// line contains the // " request literally rather than only in the
-// technical copy-paste sense. Applied per already-real line first
-// (m.split('\n')) — several of this app's own log() calls already embed a
-// genuinely multi-line message (a leading blank-line section separator, or
-// several sentences) — each of THOSE is then independently word-wrapped.
-// A blank line stays blank (harmless as-is in both JS and shell, and keeps
-// the existing section-spacing look).
+// Word-wraps one line of prose to `width`, prefixing EVERY resulting row
+// with `marker` (real "\n"s, not CSS soft-wrap) — so every visible row in
+// the log is a genuine "// "/"# "-marked line, and selecting any stretch of
+// it (prose and commands mixed) and pasting into a script just works: prose
+// is inert comments, commands (logCmd(), below) execute as-is. A blank
+// input line stays blank.
 function wrapCommentLine(line, marker, width=80){
   if(line==='') return '';
   const maxContent = Math.max(20, width-marker.length);
@@ -2889,26 +2839,16 @@ function jsCommandFor(config){
     .map(([k,v])=>`${k}:${JSON.stringify(v)}`);
   return `analyze({${parts.join(', ')}})`;
 }
-// Appends a recorded, DIRECTLY RUNNABLE command line for a config-driven
-// action (Localize, Correct drift, …) — bare, no comment prefix (see
-// log()'s own comment for why prose and commands are treated oppositely).
-// Rendered as either form per logCmdStyle, from a small CURATED subset of
-// the action's own config — deliberately not the whole PARAMS registry;
-// each call site picks the handful of keys that actually describe what it
-// just did (mirroring the CLI examples a user would actually type by
-// hand), same "v1, extend later" scope-limiting this project uses
-// elsewhere rather than trying to derive relevance automatically.
-//
-// A blank line ALWAYS precedes the command itself — this is what separates
-// one action's whole block (its command + its own resulting prose, which
-// belong together and stay unbroken) from whatever came before, now that
-// the command fires before the action instead of after it. Each wrapper
-// that calls this (run()/correctDrift()/etc.) pairs it with
-// stripLeadingBreakOnce() on the onLog it hands to the matching *Core()
-// call, so that core's own first message — which already starts with its
-// OWN leading "\n" for headless callers that skip logCmd() entirely and
-// need that break themselves — doesn't ALSO open a second blank line
-// between the command and its own prose.
+// Appends a recorded, directly-runnable command line for a config-driven
+// action (Localize, Correct drift, …) — bare, no comment prefix (unlike
+// log()'s prose), rendered as either form per logCmdStyle. `config` is a
+// small curated subset of the action's own settings, not the whole PARAMS
+// registry — each call site picks just the keys that describe what it did.
+// Always preceded by a blank line, so the command + the prose that follows
+// it (from the matching *Core() call) read as one block, separated from
+// whatever came before — callers pair this with stripLeadingBreakOnce() on
+// their own onLog so that core function's OWN leading "\n" (needed for
+// headless callers, which skip logCmd() entirely) doesn't open a second one.
 function logCmd(config){
   const line = logCmdStyle==='cli' ? cliCommandFor(config) : jsCommandFor(config);
   $('logText').textContent += '\n\n'+line; const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
@@ -3043,32 +2983,18 @@ function makeStack(w,h,n,px,getFrame){
 // Jabermoradi et al., Phil. Trans. R. Soc. A 380(2220), 20200164 (2022),
 // https://doi.org/10.1098/rsta.2020.0164.
 //
-// For frame i: fetch a WIN-frame window of context centred on i (clamped,
-// not shrunk, at the two ends of the stack, so every frame still gets a
-// full-width window), then for each pixel take the MEDIAN across that
-// window and subtract it from the pixel's value at frame i, floored at
-// zero (a median-subtracted pixel going negative is expected/normal for a
-// median filter, not an error). No sliding-window bookkeeping needed here
-// (unlike a whole-stack pass): this is a one-shot median per pixel, since
-// only a single frame's output is ever needed at a time.
-//
-// Parallelizes spatially (row bands), not by frame batch like detect/fit:
-// each pixel's computation depends only on its own value across the
-// context window, never on neighbouring pixels (unlike detection, which
-// needs a border margin around whatever region a worker gets) — so the
-// image splits cleanly into row bands with no overlap needed.
-// camoffset: the fit functions (gaussianMLEspheric etc.) all convert their input
-// pixels as (raw-camoffset)*gain before use — see the fit module. FTM's
-// median subtraction already removes the background baseline, so an
-// FTM-corrected pixel is NOT "raw ADU" anymore; flooring the correction at
-// camoffset (instead of 0) and *adding* camoffset back keeps the output in
-// the same "as if this were raw ADU with the background already at the
-// camera's own baseline" space the fit functions expect — so their own
-// -camoffset cancels back out to just *gain, instead of double-subtracting
-// the baseline (which would silently undercount every photon count by
-// camoffset*gain). Only matters for data actually going into a fit;
-// doesn't change how FTM looks as a plain visual preview (values are still
-// max(camoffset, ...) — displayed as ADU-ish numbers either way).
+// For frame i: fetch a WIN-frame window of context centred on it (clamped
+// at the two stack ends, never shrunk), then per pixel take the MEDIAN
+// across that window and subtract it from frame i's own value — a one-shot
+// median per pixel, no sliding-window state needed since only one frame's
+// output is ever produced at a time. Parallelizes spatially (row bands),
+// since each pixel's own computation never depends on its neighbours.
+// Floored at `camoffset`, not 0, and added back — NOT the same as a plain
+// ADU value: the fit functions convert input as (raw-camoffset)*gain, so
+// flooring/re-adding camoffset here keeps an FTM-corrected pixel in that
+// same "raw ADU, baseline already at camoffset" space, letting the fit's
+// own -camoffset cancel out to just *gain instead of double-subtracting the
+// baseline. Only matters for data going into a fit, not the visual preview.
 async function ftmFrame(st, i, win, camoffset, onLog=log){
   const {w,h,n}=st;
   if(n<win){
@@ -3240,19 +3166,12 @@ function makeFtmStack(rawStack, win, camoffset, chunkmb, hooks={}){
   const CHUNK=Math.max(win, Math.floor((chunkmb*1e6/2)/frameBytes));
   const half=win>>1;
   let cacheStart=-1, cacheEnd=-1, cached=null;   // cached: corrected frames for [cacheStart,cacheEnd)
-  // Single-flight lock: runCore()'s worker-dispatch path has up to
-  // pool.length concurrent dispatch() calls in flight, each independently
-  // awaiting fetchStack.getFrames() — without this, two concurrent callers
-  // needing different (uncached) ranges could each see "not covered" and
-  // both start fetching+computing a new chunk at once, racing to overwrite
-  // cacheStart/cacheEnd/cached non-atomically (wrong results, and wasted
-  // duplicate work). Concurrent callers instead await the SAME in-flight
-  // fetch, then recheck whether it happened to cover their own range too
-  // (usually yes — runCore() advances frame-by-frame, so concurrent
-  // requests are normally for nearby ranges that land in one chunk).
-  // (The serial path this is actually used from only ever has one caller at
-  // a time anyway; kept for safety and because it costs nothing when
-  // uncontended.)
+  // Single-flight lock: without it, concurrent callers (runCore()'s worker
+  // path can have up to pool.length in flight) needing different uncached
+  // ranges could each see "not covered" and race to overwrite cacheStart/
+  // cacheEnd/cached. Concurrent callers instead await the SAME in-flight
+  // fetch, then recheck whether it covered their own range too (usually
+  // yes, since requests are normally for nearby ranges in one chunk).
   let pending=null;
   let ftmMs=0;   // total wall time spent computing (not waiting on) FTM chunks — surfaced in runCore()'s timing breakdown
   async function ensureCache(s,e){
@@ -3338,12 +3257,20 @@ function makeCroppedStack(rawStack, x0, y0, x1, y1){
    movie"), used for demos, validation and teaching; not a core analysis path.
    =========================================================================== */
 let _g=null;
+// Standard-normal random sample (Box-Muller, generated in pairs — one value
+// cached in _g and returned on the next call, no wasted draws).
 function gauss(){ if(_g!==null){const g=_g;_g=null;return g;}
   let u=0,v=0,s=0; do{u=Math.random()*2-1;v=Math.random()*2-1;s=u*u+v*v;}while(s>=1||s===0);
   const m=Math.sqrt(-2*Math.log(s)/s); _g=v*m; return u*m; }
+// Poisson-distributed random sample with mean `l` — exact inversion sampling
+// for small l, a Gaussian approximation above l=60 (exact sampling's own
+// per-draw cost scales with l, too slow for a bright simulated pixel).
 function poisson(l){ if(l>60) return Math.max(0,Math.round(l+Math.sqrt(l)*gauss()));
   const L=Math.exp(-l); let k=0,p=1; do{k++;p*=Math.random();}while(p>L); return k-1; }
 
+// Candidate emitter-site positions for the synthetic sample: three sine-wave
+// "filaments" plus one ring, used by generateSynthetic() as the structure
+// simulated emitters attach to.
 function buildStructure(w,h){
   const pts=[], cx=w/2, cy=h/2;
   for(let f=0; f<3; f++){ const y0=h*(0.25+0.25*f), amp=8+4*f, k=0.09+0.02*f, ph=f*2;
@@ -3353,6 +3280,11 @@ function buildStructure(w,h){
   return pts;
 }
 
+// Builds a full synthetic TIFF-like stack ("Simulate movie") — Poisson
+// emitter arrivals on buildStructure()'s sites, camera forward-modelled
+// (gain/offset/read noise) into ADU, wrapped as a stack object matching
+// makeStack()'s own interface so the rest of the app can't tell it apart
+// from a loaded file.
 async function generateSynthetic(){
   const w=128,h=128;
   const n=paramValue('frames'), dens=paramValue('dens'), photPerFrame=paramValue('phot');
@@ -3490,6 +3422,8 @@ function ifdToFloat(ifd,w,h){
 // unaffected by this bug, they have no such per-record header.
 const ND2_MAGIC=0x0abeceda;
 const ND2_FRAME_HEADER_BYTES=24;   // per-frame sub-header preceding each ImageDataSeq's pixel array — see above
+// Sniffs the real Nikon ND2 magic bytes at the start of the file, rather
+// than trusting the .nd2 extension — mirrors isTiffFile()'s own convention.
 async function isNd2File(f){
   if(f.size<4) return false;
   const dv=new DataView(await f.slice(0,4).arrayBuffer());
@@ -3706,29 +3640,16 @@ async function loadTiffFile(file, onLog=log){
   if(await isNd2File(file)) return loadNd2File(file, onLog);
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const fileSize=file.size;
-  // The on-demand slice paths only exist for files too big to load into one
-  // ArrayBuffer; smaller files go through the cached whole-file path (faster,
-  // and UTIF handles multi-IFD correctly). Function-scoped so both the
-  // contiguous check and the multi-IFD fallback can see it.
-  //
-  // SLICE_MIN (~1.5 GB) is the historical ceiling — raised deliberately once
-  // (see the comment lower down) after a moderate-size desktop file got
-  // needlessly routed through slicing. But the whole-file path's real cost
-  // isn't just SLICE_MIN's own fixed number: file.arrayBuffer() holds the
-  // ENTIRE raw file resident, and UTIF.decode() indexes IFD metadata for
-  // EVERY frame, both unconditionally and BEFORE readBudget()'s own
-  // decoded-frame-cache check ever runs — so on a tight budget (mobile
-  // Safari's real per-tab ceiling, well under desktop assumptions, with no
-  // JS-visible OOM signal — see the FTM/memory notes elsewhere in this
-  // file), a file comfortably under SLICE_MIN can still be the riskier load
-  // than a much larger one that's forced onto the always-chunked streaming
-  // path regardless of its own on-disk size. Tying the effective threshold
-  // to readBudget() (the SAME "Memory budget (GB)" control chunk-caching
-  // already uses, not a second disconnected budget) fixes this: at the
-  // default 3 GB it's unchanged (min(1.5GB, 3GB) = 1.5GB, so desktop's own
-  // reason for raising SLICE_MIN in the first place is untouched), but a
-  // user who dials Memory budget down for a memory-constrained device now
-  // gets that setting actually applied here too, not just to frame caching.
+  // Files under effSliceMin go through the cached whole-file path (faster,
+  // correct multi-IFD handling); larger ones stream via File.slice() instead.
+  // effSliceMin ties SLICE_MIN's ~1.5 GB desktop ceiling to readBudget() (the
+  // same Memory budget (GB) control frame-caching already uses) rather than
+  // a fixed number — on a memory-constrained device the whole-file path's
+  // real cost (the ENTIRE file resident, plus every frame's IFD indexed,
+  // both before any budget check runs) can make a moderate file riskier
+  // than a much larger one already forced onto the streamed path; see
+  // CLAUDE.md's in/out module notes for the full story. Unchanged at the
+  // default 3 GB budget (min(1.5GB,3GB)=1.5GB).
   const SLICE_MIN = 1.5*1073741824;              // ~1.5 GB, desktop ceiling
   const effSliceMin = Math.min(SLICE_MIN, readBudget());
   const head=await file.slice(0, Math.min(fileSize, 1<<24)).arrayBuffer();   // 16 MB
@@ -4074,6 +3995,11 @@ async function loadMultiIfdStreaming(file, fileSize, onLog=log){
   return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('sliced stack: use getFrames()'); }};
 }
 
+// Decodes an already-fully-read TIFF ArrayBuffer (the whole-file, in-memory
+// path — see loadTiffFile()'s own choice between this and the streamed
+// path) into a stack object: handles both a contiguous ImageJ-style stack
+// (one IFD, frames packed after it, real count in the "images=" description)
+// and a genuine multi-IFD stack, indexing every frame's own byte offset.
 async function loadTiff(fileBuf, fileSize, onLog=log){
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const ifds=UTIF.decode(fileBuf);
@@ -4286,20 +4212,28 @@ function boxSizes(sigma,n){
   const s=[]; for(let i=0;i<n;i++) s.push(i<m?wl:wu); return s;
 }
 const _bmCache={};
+// Cached mirror-boundary index map for a running-sum box filter of radius r
+// over a line of length len — shared by boxH()/boxV() so it's built once per
+// (length, radius) pair, not per row/column.
 function boxMap(len,r){ const key=len+'_'+r; if(_bmCache[key]) return _bmCache[key];
   const m=new Int32Array(len+2*r+2);
   for(let j=0;j<m.length;j++) m[j]=_clMirror(j-(r+1),len);
   return _bmCache[key]=m; }
+// Horizontal running-sum box average, radius r — O(1) per pixel (add the
+// incoming edge, drop the outgoing one) via boxMap()'s mirrored indices.
 function boxH(src,dst,w,h,r){ const m=boxMap(w,r), nm=1/(2*r+1);
   for(let y=0;y<h;y++){ const row=y*w; let s=0;
     for(let i=-r;i<=r;i++) s+=src[row+m[i+r+1]];
     dst[row]=s*nm;
     for(let x=1;x<w;x++){ s+=src[row+m[x+2*r+1]]-src[row+m[x]]; dst[row+x]=s*nm; } } }
+// Vertical counterpart of boxH().
 function boxV(src,dst,w,h,r){ const m=boxMap(h,r), nm=1/(2*r+1);
   for(let x=0;x<w;x++){ let s=0;
     for(let i=-r;i<=r;i++) s+=src[m[i+r+1]*w+x];
     dst[x]=s*nm;
     for(let y=1;y<h;y++){ s+=src[m[y+2*r+1]*w+x]-src[m[y]*w+x]; dst[y*w+x]=s*nm; } } }
+// Three-pass box cascade (see the comment above boxSizes()) approximating a
+// Gaussian blur of the given sigma into dst.
 function boxInto(src,dst,tmp,w,h,sigma){
   const sz=boxSizes(sigma,3); let cur=src;
   for(let p=0;p<3;p++){ const r=(sz[p]-1)/2; boxH(cur,tmp,w,h,r); boxV(tmp,dst,w,h,r); cur=dst; }
@@ -4356,6 +4290,10 @@ function waveletBP(img,w,h){
 // (mode 'box' is handled one level up, in detectSpots — it never reaches here.)
 function detectFilter(img,w,h,sigma,exact,mode){ return mode==='wave' ? waveletBP(img,w,h) : bandpass(img,w,h,sigma,exact); }
 
+// Thresholds the wavelet/DoG band-passed image at mean+k·σ (computed over
+// the whole frame) and returns [x,y] pixel coordinates of every local
+// maximum (strict 8-neighbour comparison) above it, at least `border` from
+// the frame edge — the wavelet/DoG detection filters' shared candidate step.
 function findMaxima(filt,w,h,k,border){
   // mean and variance in a single pass (Σ and Σ²), not two.
   let sum=0,sumSq=0; const n=filt.length;
@@ -4379,7 +4317,10 @@ function findMaxima(filt,w,h,k,border){
    (not k·σ_noise — there is no per-frame noise statistic here). Candidates
    are found where the band-pass equals its own dilation over a σ_PSF-sized
    square window, mirroring imboxfilt/imdilate from the reference MATLAB. */
+// Round x to the nearest odd integer (a box-filter window must be odd-sized).
 function roundOdd(x){ let r=Math.round(x); if(r%2===0) r+=1; return r; }
+// Uniform (box) average over a winSize×winSize window — separable via
+// boxH()/boxV(), same as the box-cascade Gaussian approximation.
 function uniformFilterInto(src,dst,tmp,w,h,winSize){
   const r=(winSize-1)/2; boxH(src,tmp,w,h,r); boxV(tmp,dst,w,h,r); return dst;
 }
@@ -4405,6 +4346,8 @@ function uniformBP(img,w,h,sigma){
 // Capacity is window+1 (classic circular-buffer trick: one spare slot makes
 // head===tail unambiguously mean "empty", head one behind tail mean "full").
 let _mdCap=0,_mdPos=null,_mdVal=null;
+// Horizontal pass of the sliding-window maximum filter (see the comment
+// block above) — grayscale dilation by a 2r+1-wide line.
 function maxH(src,dst,w,h,r){
   const m=boxMap(w,r), win=2*r+1, cap=win+1;
   if(cap!==_mdCap){ _mdCap=cap; _mdPos=new Int32Array(cap); _mdVal=new Float32Array(cap); }
@@ -4426,6 +4369,8 @@ function maxH(src,dst,w,h,r){
     }
   }
 }
+// Vertical counterpart of maxH() — together, a separable 2D sliding-window
+// maximum (grayscale dilation) over a (2r+1)×(2r+1) square.
 function maxV(src,dst,w,h,r){
   const m=boxMap(h,r), win=2*r+1, cap=win+1;
   if(cap!==_mdCap){ _mdCap=cap; _mdPos=new Int32Array(cap); _mdVal=new Float32Array(cap); }
@@ -4447,6 +4392,8 @@ function maxV(src,dst,w,h,r){
     }
   }
 }
+// 2D sliding-window maximum into dst — maxH() then maxV(), used as the
+// dilation step in findMaximaUniform()'s box-filter detection.
 function maxFilterInto(src,dst,tmp,w,h,r){ maxH(src,tmp,w,h,r); maxV(tmp,dst,w,h,r); return dst; }
 let _ufW=0,_ufH=0,_ufDil=null,_ufTmp=null;
 // Local maxima of a box-diff band-pass above a plain intensity threshold, using
