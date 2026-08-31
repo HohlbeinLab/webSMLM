@@ -13,12 +13,11 @@
 // acquisition, not just get numbers back.
 //
 // This script sends NO config/init message of its own. A streaming session
-// is armed only by the OPERATOR clicking "Start streaming" in webSMLM's own
-// sidebar (the "Live streaming" section) — they set pxnm/gain/camoffset/
-// method/mag/lut/etc. through webSMLM's normal controls first, exactly as
-// for an ordinary interactive Localize. Until that click, window.webSMLM.
-// stream.isActive() is false and every "push" this script receives comes
-// back as a clear "not started" error rather than being silently queued.
+// arms itself automatically on the very first pushChunk() call this script
+// makes, using whatever pxnm/gain/camoffset/method/mag/lut/etc. the OPERATOR
+// has set through webSMLM's own sidebar controls at that moment — exactly as
+// for an ordinary interactive Localize, just with no separate "Start
+// streaming" click needed first.
 //
 // Protocol (stdin -> this process, one command at a time, ASCII '\n'
 // (0x0A) terminated JSON header lines):
@@ -55,13 +54,11 @@ const page = await browser.newPage();
 page.on('console', msg => { if (msg.type() === 'error') console.error('  [page error] ' + msg.text()); });
 await page.goto(htmlUrl);
 await page.waitForFunction(() => window.webSMLM && window.webSMLM.stream);
-console.error('Ready — click "Start streaming" in the webSMLM window, then start pushing chunks on stdin.');
+console.error('Ready — set pxnm/gain/method/etc. in the webSMLM window, then start pushing chunks on stdin (the first push arms the session automatically).');
 
 function reply(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
 
 async function handlePush(buf) {
-  const armed = await page.evaluate(() => window.webSMLM.stream.isActive());
-  if (!armed) { reply({ ok: false, error: 'not started — click "Start streaming" in the webSMLM window first' }); return; }
   await page.setInputFiles('#streamChunkInput', { name: 'chunk.tif', mimeType: 'image/tiff', buffer: buf });
   try {
     const result = await page.evaluate(() => window.webSMLM.stream.pushChunk());

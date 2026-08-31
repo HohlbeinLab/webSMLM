@@ -2014,27 +2014,28 @@ driving a live Micro-Manager/pycromanager acquisition (a Gladoscopy RT node,
 for instance) — with each chunk localized and the growing reconstruction
 rendered live in the page's own `SMLM reconstruction` panel, exactly as an
 interactive **Localize** run would. Unlike `analyze()`, this is **not**
-DOM-free and **not** started by a driving script: a session is armed only by
-the user clicking **Start streaming** in the sidebar's **Live streaming**
-section, using whatever pxnm/gain/camoffset/method/mag/lut/etc. the page's
-own controls are currently set to — there is no `config` object passed in
-from outside. Once armed:
+DOM-free, and there is no separate "start" step or `config` object passed in
+from outside: a session arms itself automatically the moment streaming
+actually begins — the sidebar's **Connect** button for the WebSocket path, or
+the very first `pushChunk()` call for this bridge path — using whatever
+pxnm/gain/camoffset/method/mag/lut/etc. the page's own controls are currently
+set to at that moment. Once armed:
 
-- `window.webSMLM.stream.isActive()` — `true` once **Start streaming** has
-  been clicked, `false` before it and after **Stop streaming**/`end()`. A
-  driving script should poll this before pushing, since `pushChunk()` throws
-  a clear "not started" error otherwise rather than silently queueing.
+- `window.webSMLM.stream.isActive()` — `true` once a session has armed
+  itself (the first successful `pushChunk()` call, or **Connect**), `false`
+  before that and after `end()`/**Disconnect**.
 - `window.webSMLM.stream.pushChunk()` — reads whatever file the caller has
   just placed into the hidden `#streamChunkInput` (e.g. via Playwright's
   `page.setInputFiles('#streamChunkInput', {name, mimeType, buffer})`, no
-  temp file needed), localizes it as one chunk, appends the result to the
-  running total (frame numbers offset so they stay meaningful across the
-  whole streamed acquisition), and repaints the reconstruction — throttled
-  by the **Render every N chunks** field (`PARAMS.streamRenderEvery`) so a
-  long acquisition with many small chunks doesn't pay a full redraw every
-  single one. Returns `{chunkFrames, chunkLocs, totalFrames, totalLocs}`.
-- `window.webSMLM.stream.end()` — same as clicking **Stop streaming**: logs
-  a summary and leaves the current reconstruction on screen.
+  temp file needed), arming a new session first if none is active yet,
+  localizes the file as one chunk, appends the result to the running total
+  (frame numbers offset so they stay meaningful across the whole streamed
+  acquisition), and repaints the reconstruction — throttled by the **Render
+  every N frames** field (`PARAMS.streamRenderEvery`) so a long acquisition
+  with many small chunks doesn't pay a full redraw every single one. Returns
+  `{chunkFrames, chunkLocs, totalFrames, totalLocs}`.
+- `window.webSMLM.stream.end()` — same as clicking **Disconnect**: logs a
+  summary and leaves the current reconstruction on screen.
 
 Each chunk is localized independently — there is no cross-chunk context, so
 temporal median filtering (FTM) is not available in streaming mode — and

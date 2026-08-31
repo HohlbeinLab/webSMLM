@@ -4,8 +4,8 @@ webSMLM's live streaming feature (window.webSMLM.stream), with NO browser
 automation at all: this runs a tiny local WebSocket SERVER that YOUR OWN,
 already-open webSMLM.html tab (any browser — Firefox included) connects OUT
 to, opt-in, only when you click "Connect" in its "Live streaming" sidebar
-section. Nothing here launches, controls, or even needs to know about a
-browser process.
+section -- which also arms streaming, no separate step needed. Nothing here
+launches, controls, or even needs to know about a browser process.
 
 Setup (once):
     pip install numpy tifffile websockets
@@ -14,16 +14,16 @@ Usage:
     python tools/test_stream_demo.py
     # Open webSMLM.html yourself, in whatever browser tab you already have.
     # In the sidebar: open "Live streaming" (collapsed by default), set the
-    # WebSocket URL to ws://localhost:8765 (this script's default), click
-    # "Connect", then click "Start streaming". Come back here and press
-    # Enter to start sending simulated frame chunks; watch the SMLM
-    # reconstruction panel fill in live.
+    # WebSocket URL to ws://localhost:8765 (this script's default), and click
+    # "Connect" -- that alone arms streaming, no separate step. Come back
+    # here and press Enter to start sending simulated frame chunks; watch the
+    # SMLM reconstruction panel fill in live.
 
 Wire format: each chunk is sent as one WebSocket BINARY message (raw TIFF
 bytes) — no extra framing needed, since WebSocket already frames messages
 for us. A final `{"cmd":"stop"}` TEXT message finalizes the streaming
-session on the page (same as clicking "Stop streaming" there) WITHOUT
-closing the connection or your tab. webSMLM talks back over the same
+session on the page (same as clicking "Disconnect" there, but WITHOUT
+closing the connection or your tab). webSMLM talks back over the same
 connection: `{"cmd":"ack","framesReceived":N,"chunkCount":C,"ok":bool}`
 after every chunk it processes (ok=false if that chunk failed to decode/
 localize — framesReceived then stays unchanged from the previous ack), and
@@ -183,7 +183,7 @@ async def stream_to(ws):
     await asyncio.to_thread(
         input,
         '\nIn the webSMLM window: open "Live streaming" in the sidebar and click '
-        '"Start streaming" if you have not already.\n'
+        '"Connect" if you have not already.\n'
         'Press Enter here to begin sending simulated frame chunks...\n',
     )
     # Track the REAL wall-clock gap between sends (not just the sleep we ask
