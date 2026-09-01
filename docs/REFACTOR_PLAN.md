@@ -67,6 +67,90 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   - A minimum-neighbour-count spatial consistency filter (reject sparse false pairs with too few
     nearby confirmed pairs) — `sSMLMAnalyzer` has one, webSMLM doesn't.
 
+- **smFRET/ALEX integration** — a genuinely new analysis MODALITY, not a small addition; sketched
+  here per discussion, not scoped in detail yet. References: Kapanidis, Lee, Laurence, Doose,
+  Margeat & Weiss, "Fluorescence-aided molecule sorting: Analysis of structure and interactions by
+  alternating-laser excitation of single molecules," *PNAS* **101**(24), 8936–8941 (2004),
+  https://doi.org/10.1073/pnas.0401690101 (introduces ALEX); Hohlbein, Craggs & Cordes,
+  "Alternating-laser excitation: single-molecule FRET and beyond," *Chem. Soc. Rev.* **43**(4),
+  1156–1171 (2014), https://doi.org/10.1039/c3cs60233h (review).
+
+  **The measurement**: molecules immobilised on a surface, imaged in two spectrally separated
+  detection channels — donor channel (DD, donor excitation → donor emission) and acceptor channel
+  (DA, donor excitation → acceptor emission via FRET). With ALEX, donor-excitation frames alternate
+  with acceptor-excitation frames, adding AA (acceptor excitation → acceptor emission, probing
+  acceptor existence directly) and AD (acceptor excitation → donor channel, ideally ~0). Per-frame
+  intensities at a molecule's fixed position give E_raw = DA/(DA+DD) and, with ALEX, S_raw =
+  (DD+DA)/(DD+DA+AA) — a stoichiometry that separates donor-only/acceptor-only/both-present
+  populations on a 2D E–S histogram. **Accurate FRET** (correcting E_raw/S_raw for leakage/
+  crosstalk, direct excitation, and the γ-factor derived from that same population structure) is
+  explicitly a later step, not v1.
+
+  **Mapped onto webSMLM's own building blocks** — surprisingly little is genuinely new:
+  - **sSMLM's grating-dispersed 0th/1st order IS already a virtual donor/acceptor channel setup —
+    not just the pairing math below.** A diffraction grating spectrally splits each emitter's own
+    emission into an 0th-order (undispersed) and 1st-order (dispersed) spot on ONE frame; with the
+    right grating/filter choice, that split can separate donor vs. acceptor emission directly — the
+    same physical trick an image splitter does spatially, just done spectrally instead. For THIS
+    acquisition mode specifically, no new dual-channel loading infrastructure is needed at all (see
+    "Genuinely new infrastructure" below, which is scoped to the image-splitter/two-camera cases
+    only) — one movie, the existing detect/fit pipeline, `pairCore()`'s existing pairing, all
+    already built and tested. Likely the cheapest real path to a working v1 prototype, ahead of the
+    harder image-splitter/two-camera cases that need genuinely new loading code first.
+  - **"Determine positions of interest" = the existing "Fix bead x,y" pattern.** Averaging a
+    user-selected frame range into one stable composite, detecting once, and fitting each detected
+    maximum is already implemented (`averageFrames()`/`locateBeadsForCalib()`, 3D calibration
+    module) for exactly the same reason it's needed here: real blinking/bleaching between frames
+    makes per-frame detection jump around, so localise once from a stable average instead. The only
+    new piece is letting the user pick WHICH frames feed that average — DD, DA, or DD+DA (and, if
+    ALEX is on, scoping to donor-excitation frames only, vs. also including AA/acceptor-excitation
+    frames) — rather than always the whole loaded range.
+  - **Linking a DD candidate to its DA partner = sSMLM's own pairing.** `pairCore()`'s directional
+    distance+bearing-angle matching (built for 0th/1st-order diffraction-grating pairs) assumes a
+    roughly CONSTANT offset vector between two related spots — exactly what a well-aligned dual-view
+    image splitter gives between donor and acceptor sub-images (translation-dominated, unlike a
+    diffraction grating's dispersion, but the same "search a fixed distance/angle window" math).
+    Reusing it sidesteps needing a full affine channel-registration transform for a first pass —
+    IF channel misalignment really is translation-dominated on real data. Working assumption (per
+    discussion): translation (distance + angle, sSMLM's own pairing as-is) is likely sufficient for
+    the hardware in question — but this is a guess, not a measurement, and needs checking against
+    real dual-channel raw data before committing to it; a splitter/setup with meaningful rotation or
+    magnification mismatch between channels would need a proper affine map instead (fit from a
+    bead/fiducial image visible in both channels).
+  - **Building the DD(t)/DA(t)/(AA(t)) trace = the calibration module's own "fit at fixed x,y."**
+    Once a molecule's position is fixed (composite + link step above), the 3D calibration module
+    already fits amplitude/σx/σy/background PER FRAME at a fixed x,y without re-detecting — the same
+    operation needed here, just reading out amplitude/photons over time instead of width over a
+    z-scan. **Run smFRET** would do this for every linked position across every frame (bucketed into
+    DD/DA/AA by ALEX frame role), building one row per molecule per frame.
+  - **Output = the existing streaming-NDJSON precedent**, not a new mechanism — `spt_tracks.ndjson`
+    (`makeRecordEmitter()`, this session) is the same shape of problem (many molecules × many
+    frames, too large for `analyze()`'s own return value), so a `smfret_traces.ndjson` stream (one
+    record per molecule with its own DD/DA/AA-vs-frame arrays, or one record per molecule-frame —
+    TBD) is a natural reuse rather than a new export mechanism. E_raw/S_raw are then trivial derived
+    columns from DD/DA/AA, no new algorithm.
+  - Molecules that aren't perfectly immobilised (tethered particle motion) could reuse **spt**'s own
+    `linkTracks()` instead of a fixed-xy assumption — a distinct, later option, not needed for a
+    genuinely immobilised-molecule v1.
+
+  **Genuinely new infrastructure, not a reuse of anything existing** — none of this applies to the
+  sSMLM-style acquisition mode above, only to the alternative hardware setups:
+  - **Dual-channel input for an image-splitter or two-camera setup.** Today one frame = one
+    full-FOV image with one meaning. A single-camera image-splitter setup needs a frame-region
+    split (two sub-rectangles of the SAME frame, donor + acceptor) — structurally like the
+    raw-panel crop tool's `makeCroppedStack()`, but producing TWO frame-synchronised sub-stacks
+    from one crop step instead of one. A two-camera setup (separate donor/acceptor cameras) needs
+    genuinely new frame-synchronised dual-stack loading — no existing precedent to lean on there.
+  - **ALEX frame-role bookkeeping.** Which frames are donor-excitation vs. acceptor-excitation is
+    new state nothing in webSMLM tracks today (a period/pattern control, or explicit frame-index
+    lists) — needed before any DD/DA/AA/AD sorting can happen.
+
+  Not scoped: whether this becomes its own sidebar module (most likely, given the size — a new
+  "smFRET (ALEX)" section, not squeezed into sSMLM or 3D calibration) vs. a mode of an existing one;
+  headless/CLI support (should follow the same `analyze()`/PARAMS pattern as everything else, once
+  the interactive shape is settled); and the accurate-FRET correction-factor step, deliberately
+  deferred per the references above.
+
 - **Single particle tracking (spt)** — deliberately deferred, not forgotten:
   - **Length-resolved D histogram** (the reference pipeline's `D_track_length_matrix`, one
     histogram per track length rather than one pooled/ensemble one — distinct from the ensemble
@@ -138,13 +222,114 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 - **Photon calibration beyond a single scalar gain/offset.** Single-image gain/offset estimation
   from the data itself (PCFO, a photon-transfer-curve variant) shipped in 0.10.2. A scalar still
   reasonably approximates an EMCCD chip, but most current SMLM runs on sCMOS, where gain, offset
-  and read noise are all pixel-dependent (and non-uniform read noise also affects detection — a
-  noisy pixel can masquerade as an emitter); still open: **per-pixel** gain/offset/variance
-  calibration maps, with a noise model that uses them — see Huang et al., *Nat. Methods* **10**,
-  653–658 (2013), https://doi.org/10.1038/nmeth.2488. The MLE fitters' shared `mleNewtonFit()`
-  accumulator (see **fit** in `CLAUDE.md`) is already per-pixel-noise-aware via Picasso's own
-  `_estimator_terms(mle, value, data, var)` `var` term, so a per-pixel model callback would only
-  need one more input — a smaller lift than starting from scratch, but not yet attempted.
+  and read noise are all pixel-dependent — still open: **per-pixel** calibration maps, with a noise
+  model that uses them.
+
+  **Complexity comparison, Huang/Picasso vs. ACCéNT** — both reduce to the SAME two-step shape: (1)
+  per-pixel offset + read-noise from dark data alone, a simple temporal mean/variance pass,
+  architecturally identical to FTM's own per-pixel temporal computation (already proven at scale
+  here); (2) per-pixel GAIN from a per-pixel linear regression of variance vs. mean across several
+  DIFFERENT signal levels — the same `polyfit`-grade math either way, so the math isn't the
+  differentiator:
+  - **Picasso/Huang** varies signal level via CONTROLLED ILLUMINATION (a bright reference series,
+    several movies at different brightness). Simple math, but needs a dimmable/controllable light
+    source most setups aren't automated for — and since webSMLM has no camera control, the user
+    has to capture that series externally and just load the resulting movie(s); real UI/
+    data-management overhead (matching several movies to their own intensity "level") on top of the
+    easy dark-only step.
+  - **ACCéNT** varies signal level via EXPOSURE TIME instead, exploiting that dark current is
+    itself Poisson and scales with exposure time — no light source needed, a genuine ergonomic win.
+    But the published protocol uses 5–10 exposure times × up to a few thousand frames each
+    (~8,000–20,000 frames total, per Diekmann et al.) — MORE total acquisition than Picasso's own
+    single 1,000-frame dark series — and needs precise per-block EXPOSURE-TIME bookkeeping
+    webSMLM's TIFF loader doesn't track today (`tiffScaleHint()` reads `finterval=`/pixel size from
+    ImageJ-style description text, not a literal "exposure time for this movie" tag): likely the
+    same "several separate movie files, matched up by hand" burden as Picasso's bright series, just
+    on a different axis. Also genuinely unverified from the literature summary alone (re-check the
+    primary source before committing): whether ACCéNT's own per-pixel GAIN output is meaningfully
+    higher-resolution than a coarse/near-global estimate in practice — dark current's usable
+    dynamic range is small next to real photon flux, so it may not clearly beat Picasso's
+    bright-series gain map on FIDELITY, only on acquisition ergonomics.
+  - **Neither is obviously the smaller port** — both need new multi-movie/multi-condition data
+    plumbing for the gain step specifically; the dark-only offset/noise step is the easy part
+    either way, common to both.
+
+  **No shortcut for the GAIN map — a real correction, not just an open question.** An earlier draft
+  of this note proposed reusing PCFO's own tile-pooling trick per-tile-position instead of globally,
+  as a cheap per-pixel gain estimate. That doesn't work, and the reason is structural: a per-pixel
+  gain needs REPEATED measurements of ONE SPECIFIC PIXEL at several genuinely different, deliberately
+  varied signal levels, so a slope can be fit for that pixel alone. PCFO's global fit instead gets
+  its dynamic range by pooling DIFFERENT PIXELS' single-frame brightness together — valid only for
+  estimating a gain SHARED across the whole pool. Borrowing brightness variation from a neighbouring
+  tile to estimate "the gain at this one location" bakes in the assumption that gain is locally
+  uniform, which is circular — it can't detect the very pixel-to-pixel differences it's meant to
+  measure. A single tile's own frame-to-frame fluctuation isn't a substitute either: ordinary SMLM
+  background stays roughly constant between frames at any one location, so there's rarely genuine
+  signal-LEVEL variation to regress against there in the first place. **Per-pixel offset and
+  read-noise variance ARE genuinely free from one ordinary dark movie** (temporal mean/variance per
+  pixel, single condition, no varied illumination or exposure needed — same shape as FTM's existing
+  per-pixel temporal pass). **Gain is not** — it structurally needs the same multi-condition
+  acquisition Picasso/Huang or ACCéNT use (an illumination series or an exposure-time ladder),
+  applied globally so every pixel is measured at the SAME set of true signal levels. There's no
+  cheaper substitute; v1 should implement one of those two protocols properly, not look for a
+  shortcut around the underlying statistics.
+
+  **A cheaper first step than implementing any of the above: just LOAD maps computed elsewhere.**
+  ImageJ/Fiji (via ACCéNT's own plugin) or Picasso itself can already produce offset/gain/variance
+  maps — webSMLM doesn't have to own the acquisition-and-regression pipeline to benefit from
+  per-pixel calibration, only the "load a map, feed it into `mleNewtonFit()`'s existing `var` hook"
+  half. This is a MUCH smaller, self-contained v1 (a file loader + the small MLE accumulator change
+  from Huang's note above, no new acquisition UI, no multi-condition file plumbing at all) —
+  probably worth doing before, or instead of, building any in-app calibration workflow. Likely a
+  niche feature either way (most users won't have or want to run a separate calibration pipeline),
+  so low urgency, but a good candidate for "small effort, real capability" if anyone asks for
+  sCMOS-aware fitting before the bigger acquisition workflow is worth building.
+
+  **Proposed integration** (per discussion, for whichever route actually gets built): stays inside
+  the existing **Gain & offset estimation** module (`pcfoBox`), not a new sidebar section — a
+  camera-model select, **EMCCD** (today's scalar path, unchanged, stays the default) vs. **sCMOS**
+  (per-pixel), reveals sCMOS-specific inputs: at minimum a "Load calibration map" file picker (the
+  cheap route above); if the in-app acquisition workflow is ever built too, also a dark-movie loader
+  (offset + read-noise variance, one file) and, for gain, a loader for SEVERAL movies at different
+  known-varying conditions (a bright series or an exposure-time ladder) — genuinely new file/
+  condition-management UI, not a reuse of whatever single stack happens to already be loaded. The
+  two existing buttons keep doing their own jobs, not new ones: **Estimate** runs either the current
+  pooled-global regression (EMCCD) or the new per-pixel regression across the loaded calibration
+  movie(s) (sCMOS); **Transfer estimates** either writes the scalar `gain`/`camoffset` fields as it
+  does today, or — sCMOS path — stashes the computed maps into new module-level state the fit
+  pipeline reads instead of a scalar.
+
+  References, newest first:
+  - Picasso's own implementation
+    (https://picassosr.readthedocs.io/en/latest/localize.html#scmos-camera-calibration): dark movie
+    (1000+ frames) → offset + read-noise-variance maps; optional bright reference series at several
+    illumination levels → gain map. Loaded maps override the scalar `gain`/`camoffset` fields (set
+    to the maps' own medians, then disabled) — matches the "Transfer estimates" idea above closely.
+  - Diekmann, Deschamps, Li et al., "Photon-free (s)CMOS camera characterization…," *Nat. Commun.*
+    **13**, 3362 (2022), https://doi.org/10.1038/s41467-022-30907-2, and its companion tool
+    **ACCéNT** (github.com/ries-lab/Accent, GPL-3.0) — see the comparison above.
+  - Babcock, "Multiplane and Spectrally-Resolved SMLM with Industrial Grade CMOS cameras,"
+    *Sci. Rep.* **8**, 1726 (2018), https://doi.org/10.1038/s41598-018-19981-z — per-pixel noise on
+    cheaper industrial (not scientific-grade) sensors; useful background on how much read-noise
+    non-uniformity to expect across camera tiers, i.e. how much a map actually buys a given user.
+  - Huang et al., *Nat. Methods* **10**, 653–658 (2013), https://doi.org/10.1038/nmeth.2488 — the
+    original model, and the reason applying a map is a smaller lift than it looks regardless of how
+    it's obtained: read-noise variance enters the Poisson likelihood as an ADDITIVE
+    equivalent-photon term on both data and model (`data+var/gain²` vs `model+var/gain²`), not a
+    separate noise term. The MLE fitters' shared `mleNewtonFit()` accumulator is already
+    per-pixel-`var`-aware (Picasso's own `_estimator_terms(mle, value, data, var)`, see **fit** in
+    `CLAUDE.md`) — swapping today's scalar `var` for a per-pixel lookup needs no new solver.
+    Phasor/LS have no equivalent hook, so a first pass should scope this to MLE methods only.
+
+  Genuinely unscoped beyond the above: storage format for a computed/loaded map (a JSON sidecar of
+  flat `Float32Array`s, like the existing 3D calibration JSON, is the likely choice — ADU² variance
+  and a gain ratio don't fit comfortably in a 16-bit-integer TIFF the way a segmentation label mask
+  does, though a float-sample TIFF isn't ruled out, not checked against the UTIF-based reader); how
+  a map's pixel indices track a cropped/streamed stack (likely needs the same offset bookkeeping
+  `makeCroppedStack()` already does for the movie itself); whether Load/Save Settings should
+  round-trip a map at all (probably its own file, too large for the flat settings JSON); and whether
+  DETECTION should also become noise-map-aware — a separate, likely harder problem tangled up with
+  "Robust detection threshold" above, not assumed solved here.
 - Optional **fiducial-based drift correction** when beads are present (simpler and more accurate
   than AIM for that specific case).
 - **3D point-cloud view** — an interactive, rotatable scatter (orthographic projection, colour = z)
