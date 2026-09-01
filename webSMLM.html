@@ -53,15 +53,15 @@
                            exclusive; depthBarPos/depthBarRect() make the
                            depth-colour bar drag-to-reposition, screen-fixed
                            once dragged instead of chasing the data extent
-    workers         5877   frame-parallel detect/fit worker pool
-    export          6051   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6343   astigmatic sigma_x/sigma_y vs z bead curves;
+    workers         5893   frame-parallel detect/fit worker pool
+    export          6067   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6359   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           6760   AIM drift correction (2D+z); drift-vs-frame or
+    drift           6776   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -71,16 +71,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7258   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7274   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           7937   spectrally resolved SMLM pair-finding; merged
+    sSMLM           7953   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             8407   single particle tracking, trackpy-inspired;
+    spt             8423   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -111,7 +111,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9908   top-level orchestration, *Core()/wrapper split;
+    pipeline        9924   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -120,9 +120,9 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    table           11833  localizations table, filtering, histograms;
+    table           11849  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12408  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12424  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1814,7 +1814,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01b</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2287,10 +2287,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.13-dev · build 2026-09-01b — the depth-colour bar (3D/sSMLM)
-is now drag-to-reposition and stays put under pan/zoom instead of chasing
-the data extent; standard position is the panel's right margin, vertically
-centred on whatever's currently shown.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.13-dev · build 2026-09-01c — "Colour by depth (z)" now
+auto-checks itself the moment a result actually has real z or sSMLM
+distance data (a fresh 3D Localize, a 3D/paired CSV reload, or clicking
+Pair), not just when a 3D method is selected in the dropdown.</div></div>
   </main>
 </div>
 
@@ -5592,6 +5592,22 @@ function rerender(keepView,isPreview){
   const hasZ=lastResult.locs.some(L=>isFinite(L.z));
   const hasDist=lastResult.locs.some(L=>isFinite(L.dist));
   const colorField = hasZ ? 'z' : (hasDist ? 'dist' : null);
+  // Auto-check "Colour by depth (z)" the first time THIS result turns out to
+  // be colourable — updateMethodUI() already checks it the moment a 3D
+  // method is SELECTED, but that fires on the dropdown, not the data: a CSV
+  // reload of an existing 3D/sSMLM-paired result, or sSMLM's own Pair button
+  // (which mutates lastResult.locs in place rather than swapping the object,
+  // see MODULE: sSMLM), never goes through updateMethodUI() at all, so the
+  // row appeared with the box still unchecked (reported). Flagged directly
+  // on lastResult (not a module-level var) so it naturally resets to unset
+  // on any genuinely NEW result (a fresh object) but survives an in-place
+  // mutation of the SAME object (pairing) — fires once per result, so a
+  // user who deliberately unchecks it afterward isn't fought on every
+  // following settings-change rerender().
+  if(colorField && !lastResult._zColorAutoChecked){
+    lastResult._zColorAutoChecked=true;
+    $('zcolor').checked=true;
+  }
   // Labels name whichever field is ACTUALLY active, not a static "z" that
   // would be flat wrong for an sSMLM-paired result (colouring by distance,
   // not depth) — checked to fit on one line at the sidebar's normal width
