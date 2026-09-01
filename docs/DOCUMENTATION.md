@@ -1201,8 +1201,8 @@ no separate calibration acquisition needed. Tiles a sample of frames, measures m
 high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
 draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
 linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
-it doesn't touch the Gain / Camera offset fields in Localisation settings itself; <b>Transfer estimates</b>
-(disabled until a successful Estimate) copies the last result into them.</p>
+it doesn't touch the Gain / Camera offset fields in Localisation settings itself; use <b>Get estimate</b>,
+underneath those two fields, to fill them in (running Estimate first if it hasn't been run yet).</p>
 <ul>
   <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
   <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
