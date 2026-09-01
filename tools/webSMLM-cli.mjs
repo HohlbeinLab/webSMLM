@@ -415,7 +415,10 @@ try {
     }, null, 2));
 
     const extra = [...plotFiles, ...recordFiles];
-    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations in ${Math.round(result.timings.runMs)} ms. Output in ${outDir}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
+    // timings is null for a CSV input (analyze() skips Localize entirely — no
+    // Run to time, see webSMLM.html's own analyze() comment on isCsv).
+    const timingNote = result.timings ? ` in ${Math.round(result.timings.runMs)} ms` : '';
+    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations${timingNote}. Output in ${outDir}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
   }
 } catch (err) {
   if (barActive) { process.stdout.write('\n'); barActive = false; }

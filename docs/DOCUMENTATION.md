@@ -1818,6 +1818,17 @@ const result = await window.webSMLM.analyze({
   auto-detected "several single-frame files" vs. "several chunks of one
   continuous acquisition" cases — see **in/out**), loaded via the existing
   `loadTiffFile`/`loadTiffFilesAuto`. One of the two is required.
+- **`config.file` ending in `.csv`** (v0.11.13) — the headless equivalent of
+  loading a CSV via **Load movie/data** (same extension-only dispatch), not
+  a movie at all: parsed directly via `parseCsvLocs()`, skipping Localize
+  (and so `method`/`psf`/`winr`/…), `cropX0`–`cropY1`, `estimateGainOffset`,
+  and any calibration entirely — none of those apply without raw pixel data.
+  Everything downstream (`sSmlmPair`, `correctDrift`, `computeNeNA`/`FRC`,
+  `sptTrack`, the CSV/reconstruction/plot exports) runs exactly as it would
+  on Localize's own output, since none of it ever needed a `stack`, only
+  `locs`/`pxnm`. The returned `timings` is `null` (there's no Run to time).
+  Multi-file CSV concatenation isn't supported (matching the interactive
+  load) — always use `config.file`, never `config.files`, for a CSV.
 - `config.cropX0`/`config.cropY0`/`config.cropX1`/`config.cropY1` — not
   `PARAMS` entries (per-dataset pixel geometry, same treatment as `calFirst`/
   `calLast`). If any is given, `config.file`/`config.files` is immediately

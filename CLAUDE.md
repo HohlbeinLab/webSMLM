@@ -862,6 +862,18 @@ relevant one before editing rather than scrolling:
   guessing via file count or order. An all-CSV selection with more than one file warns (doesn't
   block) and loads only `files[0]`.
 
+  **`analyze()`'s `config.file` now also accepts a `.csv`** (v0.11.13, same extension-only
+  dispatch), parsed via `parseCsvLocs()` instead of `loadTiffFile()` — Localize/crop/
+  `estimateGainOffset`/calibration are all skipped (no raw pixel data to act on), but everything
+  downstream (`sSmlmPair`/`correctDrift`/`computeNeNA`/`computeFRC`/`sptTrack`/export/render) runs
+  unchanged, since none of those `*Core()` functions ever took a `stack` to begin with — only
+  `locs`/`pxnm`. `timings` comes back `null` (no Run to time); `tools/webSMLM-cli.mjs` handles that
+  (a real, previously-crashing gap — its own summary line unconditionally read `timings.runMs`).
+  `loadCsvFile()` now calls `logCmd()` too, matching `loadMovieFiles()`'s own convention — until
+  this, a CSV load was the one **Load movie/data** path that recorded no command at all, a real,
+  reported gap (spotted from the log output itself: prose with no command line above it) that also
+  happened to be genuinely justified before this — there was no headless equivalent to record.
+
   `config.exportPlots` (also `--exportPlots`/`exportPlots=1`) renders whichever of drift/NeNA/FRC/
   PCFO/calibration were actually computed this call into `result.plots`, each a `{pngDataUrl,
   svgText}` pair — reuses **render**'s `renderPlotBothFormats()`/`_plotTarget` redirection (the

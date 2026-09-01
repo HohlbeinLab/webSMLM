@@ -120,9 +120,9 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    table           11858  localizations table, filtering, histograms;
+    table           11864  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12433  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12439  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1814,7 +1814,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01e</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2287,10 +2287,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.13-dev · build 2026-09-01e — the drift x/y path plot is now
-drawn in a true square, equal nm-per-pixel on both axes (like the SR
-panel's own reconstruction), instead of squeezed to fit a non-square
-plot area.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.13-dev · build 2026-09-01f — loading a CSV now logs a real
+recorded command (analyze()'s config.file accepts a .csv directly,
+skipping Localize but running drift/NeNA/FRC/pairing/tracking exactly
+as it would on a fresh Run's own output).</div></div>
   </main>
 </div>
 
@@ -11123,6 +11123,12 @@ function parseCsvLocs(text){
 // by extension — logic is otherwise byte-for-byte unchanged.
 async function loadCsvFile(f){
   if(!f) return;
+  // Logged before parsing starts, same "announce, then narrate" convention
+  // loadMovieFiles() uses (see its own comment) — analyze()/the CLI's own
+  // config.file now dispatches a .csv the same way this function does
+  // (MODULE: headless API), so this is a genuinely runnable recorded command,
+  // not just a movie-load lookalike.
+  logCmd({file: f.name, pxnm: paramValue('pxnm')});
   try{
     const {locs,w,h,px}=parseCsvLocs(await f.text());
     if(!locs.length) throw new Error('no data rows');
@@ -11150,7 +11156,7 @@ async function loadCsvFile(f){
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
     const has3d=locs.some(L=>isFinite(L.z)), hasDist=locs.some(L=>isFinite(L.dist)), isClustered=locs[0].nMerged!==undefined;
-    log(`Loaded ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} from ${f.name}, `+
+    log(`\nLoaded ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} from ${f.name}, `+
         `${nFrames.toLocaleString()} frames (${(locs.length/Math.max(1,nFrames)).toFixed(1)} loc/frame)`+
         `${has3d?' (3D)':''}${hasDist?' (sSMLM paired)':''} — using the current Pixel size (${px} nm) and Magnification to render; `+
         `no raw frame data, so re-detection/live preview aren't available for this data.`);
@@ -12593,48 +12599,73 @@ async function analyze(config){
     return { calib, calibJsonText, logText: logLines.join('\n'), plots };
   }
 
-  let stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
-  // config.cropX0/Y0/X1/Y1 — the headless equivalent of the raw-panel crop tool
-  // (MODULE: in/out, makeCroppedStack()): replaces `stack` with a cropped
-  // wrapper BEFORE anything else (PCFO, runCore) touches it, matching the
-  // interactive tool exactly — everything downstream just sees a smaller
-  // stack, no coordinate offsets anywhere. Not PARAMS entries (per-dataset
-  // pixel geometry, same treatment as calFirst/calLast). Any bound omitted
-  // defaults to that edge of the full frame (0/0/w/h), so e.g. only
-  // cropX0+cropX1 crops full-height columns.
-  if(cfg.cropX0!=null || cfg.cropY0!=null || cfg.cropX1!=null || cfg.cropY1!=null){
-    const x0=cfg.cropX0??0, y0=cfg.cropY0??0, x1=cfg.cropX1??stack.w, y1=cfg.cropY1??stack.h;
-    if(x1-x0<8 || y1-y0<8) throw new Error(`analyze(): crop region too small (${x1-x0}×${y1-y0} px, minimum 8×8) — check cropX0/cropY0/cropX1/cropY1`);
-    onLog(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${stack.w}×${stack.h}) — analysing this region only.`);
-    stack = makeCroppedStack(stack, x0, y0, x1, y1);
-  }
-  // config.estimateGainOffset runs PCFO (see MODULE: fit, pcfoCore) on the SAME stack
-  // about to be localized, then overrides cfg.gain/cfg.camoffset with the estimate before
-  // runCore uses them for the ADU->photon conversion — the natural headless equivalent of
-  // clicking "Estimate", then "Transfer estimates", then "Localize" interactively. A null
-  // result (too few usable tile points) leaves cfg.gain/cfg.camoffset untouched, same as
-  // the interactive Transfer estimates button staying disabled on failure.
-  let pcfo=null;
-  if(cfg.estimateGainOffset){
-    pcfo = await pcfoCore(cfg, stack, {onLog, onProgress, onRecord:cfg.onRecord});
-    if(pcfo){
-      onLog(`overriding gain ${cfg.gain} -> ${pcfo.gain.toFixed(3)} photons/ADU, offset ${cfg.camoffset} -> ${Math.round(pcfo.offset)} ADU (PCFO estimate).`);
-      cfg.gain=pcfo.gain; cfg.camoffset=Math.round(pcfo.offset);
+  // config.file ending in .csv — the headless equivalent of loadCsvFile()
+  // (same extension-only dispatch the interactive combined Load movie/data
+  // button uses, MODULE: pipeline). A CSV has no raw pixel data at all, so
+  // Localize/crop/PCFO/calibration are all meaningless here and skipped
+  // entirely, same as the interactive load (crop/PCFO tools have nothing to
+  // act on, and 3D z/sSMLM dist — if present — already came baked into the
+  // CSV, not from a fresh fit). Everything from sSmlmPair onward below only
+  // ever needed locs+cfg.pxnm, never `stack`, so it's untouched either way.
+  // Multi-file CSV concat isn't supported interactively either (see
+  // loadCsvFile()'s own comment) — cfg.files always means a TIFF/ND2
+  // concat/sequence instead, never CSVs, so this only ever checks cfg.file.
+  const isCsv = !cfg.files && cfg.file && /\.csv$/i.test(cfg.file.name||'');
+  let r, locs, pcfo=null;
+  if(isCsv){
+    const text = typeof cfg.file.text==='function' ? await cfg.file.text() : new TextDecoder().decode(await cfg.file.arrayBuffer());
+    const parsed = parseCsvLocs(text);
+    if(!parsed.locs.length) throw new Error('analyze(): CSV has no data rows');
+    locs = parsed.locs;
+    r = { w:parsed.w, h:parsed.h, timings:null };
+    const isClustered = locs[0].nMerged!==undefined;
+    const has3d = locs.some(L=>isFinite(L.z)), hasDist = locs.some(L=>isFinite(L.dist));
+    onLog(`Loaded ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} from ${cfg.file.name} — `+
+          `using pxnm=${cfg.pxnm}${has3d?' (3D)':''}${hasDist?' (sSMLM paired)':''}; no raw frame data, `+
+          `so method/crop/estimateGainOffset/calibration options don't apply to a CSV input.`);
+  } else {
+    let stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+    // config.cropX0/Y0/X1/Y1 — the headless equivalent of the raw-panel crop tool
+    // (MODULE: in/out, makeCroppedStack()): replaces `stack` with a cropped
+    // wrapper BEFORE anything else (PCFO, runCore) touches it, matching the
+    // interactive tool exactly — everything downstream just sees a smaller
+    // stack, no coordinate offsets anywhere. Not PARAMS entries (per-dataset
+    // pixel geometry, same treatment as calFirst/calLast). Any bound omitted
+    // defaults to that edge of the full frame (0/0/w/h), so e.g. only
+    // cropX0+cropX1 crops full-height columns.
+    if(cfg.cropX0!=null || cfg.cropY0!=null || cfg.cropX1!=null || cfg.cropY1!=null){
+      const x0=cfg.cropX0??0, y0=cfg.cropY0??0, x1=cfg.cropX1??stack.w, y1=cfg.cropY1??stack.h;
+      if(x1-x0<8 || y1-y0<8) throw new Error(`analyze(): crop region too small (${x1-x0}×${y1-y0} px, minimum 8×8) — check cropX0/cropY0/cropX1/cropY1`);
+      onLog(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${stack.w}×${stack.h}) — analysing this region only.`);
+      stack = makeCroppedStack(stack, x0, y0, x1, y1);
     }
+    // config.estimateGainOffset runs PCFO (see MODULE: fit, pcfoCore) on the SAME stack
+    // about to be localized, then overrides cfg.gain/cfg.camoffset with the estimate before
+    // runCore uses them for the ADU->photon conversion — the natural headless equivalent of
+    // clicking "Estimate", then "Transfer estimates", then "Localize" interactively. A null
+    // result (too few usable tile points) leaves cfg.gain/cfg.camoffset untouched, same as
+    // the interactive Transfer estimates button staying disabled on failure.
+    if(cfg.estimateGainOffset){
+      pcfo = await pcfoCore(cfg, stack, {onLog, onProgress, onRecord:cfg.onRecord});
+      if(pcfo){
+        onLog(`overriding gain ${cfg.gain} -> ${pcfo.gain.toFixed(3)} photons/ADU, offset ${cfg.camoffset} -> ${Math.round(pcfo.offset)} ADU (PCFO estimate).`);
+        cfg.gain=pcfo.gain; cfg.camoffset=Math.round(pcfo.offset);
+      }
+    }
+    // Mirrors run()'s needCal guard, self-contained since there's no calMethods
+    // global reflecting an interactive session's loaded calibration headlessly
+    // — without this, a 3D method silently falls back to z=NaN for every loc
+    // rather than a clear error when the calibration doesn't match the method.
+    // mle3d/gaussmleEll only need it when cfg.localize3D is set (default true
+    // — see PARAMS.localize3D); unchecked, both just run their own elliptical
+    // fit with no z lookup.
+    const needCal = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') ? (cfg.localize3D?ALGO_CALIB_METHOD[cfg.method]:null) : ALGO_CALIB_METHOD[cfg.method];
+    if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
+    if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
+    const wcalForRun = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') && cfg.localize3D ? cal3dW : null;
+    r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun}, {onLog, onProgress});
+    locs=r.locs;
   }
-  // Mirrors run()'s needCal guard, self-contained since there's no calMethods
-  // global reflecting an interactive session's loaded calibration headlessly
-  // — without this, a 3D method silently falls back to z=NaN for every loc
-  // rather than a clear error when the calibration doesn't match the method.
-  // mle3d/gaussmleEll only need it when cfg.localize3D is set (default true
-  // — see PARAMS.localize3D); unchecked, both just run their own elliptical
-  // fit with no z lookup.
-  const needCal = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') ? (cfg.localize3D?ALGO_CALIB_METHOD[cfg.method]:null) : ALGO_CALIB_METHOD[cfg.method];
-  if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
-  if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
-  const wcalForRun = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') && cfg.localize3D ? cal3dW : null;
-  const r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun}, {onLog, onProgress});
-  let locs=r.locs;
   // config.sSmlmPair — the headless equivalent of clicking Pair (MODULE:
   // sSMLM): pairCore() itself throws (real z present, or the input is
   // already-paired output) rather than analyze() needing its own guard, so
