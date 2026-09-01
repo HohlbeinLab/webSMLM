@@ -120,9 +120,9 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    table           11912  localizations table, filtering, histograms;
+    table           11915  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12487  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12490  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1814,7 +1814,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01g</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2286,7 +2286,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     </div>
 
     <div class="card" style="margin-top:10px">
-      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
+      <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are shown as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Show as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><div id="logText"></div></div>
   </main>
 </div>
@@ -11229,15 +11229,18 @@ $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
 $('clearLogBtn').addEventListener('click',()=>{ logHistory=[]; $('logText').textContent=''; $('exportLogBtn').disabled=true; });
 // Names the mode clicking switches TO, same "shows what clicking gets you"
-// convention as driftPlotModeBtn/sptHistModeBtn — reads "Record as CLI"
-// while currently recording JS, and vice versa. Also rewrites the ENTIRE
-// existing log in place (renderLogText(), next to formatLogEntry() above) —
-// every command AND every "// "/"# " prose marker switches style right
-// there, not just log lines written from this point on (reported: toggling
-// used to do nothing to what was already on screen).
+// convention as driftPlotModeBtn/sptHistModeBtn — reads "Show as CLI" while
+// currently showing JS, and vice versa. "Show", not "Record" — nothing here
+// records anything new, it only changes how the SAME already-logged
+// commands are rendered (on request: the old "Record as…" wording read as
+// if clicking it started/changed what got captured). Also rewrites the
+// ENTIRE existing log in place (renderLogText(), next to formatLogEntry()
+// above) — every command AND every "// "/"# " prose marker switches style
+// right there, not just log lines written from this point on (reported:
+// toggling used to do nothing to what was already on screen).
 $('logCmdStyleBtn').addEventListener('click',()=>{
   logCmdStyle = logCmdStyle==='cli' ? 'js' : 'cli';
-  $('logCmdStyleBtn').textContent = logCmdStyle==='cli' ? 'Record as JS' : 'Record as CLI';
+  $('logCmdStyleBtn').textContent = logCmdStyle==='cli' ? 'Show as JS' : 'Show as CLI';
   renderLogText();
 });
 $('exportLogBtn').addEventListener('click',async()=>{
@@ -11798,11 +11801,10 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.11.13-dev · build 2026-09-01g — the seed banner and every
-existing log line now switch style live when "Record as CLI"/"Record as
-JS" is clicked, instead of only new lines from that point on; the seed
-banner itself is now a real, commented log line too, not un-commented
-static HTML.`);
+log(`webSMLM v0.11.13-dev · build 2026-09-01h — "Record as CLI"/"Record as
+JS" renamed to "Show as CLI"/"Show as JS" — clicking it only changes how
+the SAME already-logged commands are displayed, it doesn't record
+anything new.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
