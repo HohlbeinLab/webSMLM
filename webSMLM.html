@@ -71,16 +71,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7276   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7284   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           7955   spectrally resolved SMLM pair-finding; merged
+    sSMLM           7963   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             8425   single particle tracking, trackpy-inspired;
+    spt             8433   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -111,7 +111,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        9926   top-level orchestration, *Core()/wrapper split;
+    pipeline        9934   top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -120,9 +120,9 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    table           11850  localizations table, filtering, histograms;
+    table           11858  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    12425  window.webSMLM.analyze()/analyzeBatch();
+    headless API    12433  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1814,7 +1814,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01d</span></h1>
+    <h1>webSMLM <span class="pill">v0.11.13-dev · build 2026-09-01e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2287,10 +2287,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are logged as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Record as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log"><div id="logText">webSMLM v0.11.13-dev · build 2026-09-01d — 3D data now defaults to the
-turbo colour map, sSMLM-paired data to HSV (blue loop), the moment either
-is detected — not just when picked manually. Loading a CSV/data file no
-longer auto-opens the Localizations table.</div></div>
+      <div class="log" id="log"><div id="logText">webSMLM v0.11.13-dev · build 2026-09-01e — the drift x/y path plot is now
+drawn in a true square, equal nm-per-pixel on both axes (like the SR
+panel's own reconstruction), instead of squeezed to fit a non-square
+plot area.</div></div>
   </main>
 </div>
 
@@ -7224,36 +7224,44 @@ function drawDriftCurveVsFrame(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
 // (time) via the SAME LUT the reconstruction's z-colouring uses — "time in
 // frames" standing in for z, not a second colour-map control. Both axes
 // share one nm range (computed across x AND y together, like the vs-frame
-// view's shared value axis) so the path's shape is geometrically accurate —
-// independently autoscaled axes would visually distort it. x vs y only, even
-// with real 3D drift (fdz) — see driftPlotMode's own comment.
+// view's shared value axis) AND are drawn into a SQUARE sub-rect (side =
+// min(pw,ph), centred within the plot area) rather than the raw pw×ph
+// rect — sharing just the value range isn't enough on its own: pw and ph
+// are almost never equal (the panel tracks the loaded movie's own aspect
+// ratio), so mapping the same nm span through unequal pixel extents still
+// squeezes the path exactly the way independently-autoscaled axes would.
+// Squaring the DRAWN rect makes nm-per-pixel identical on both axes — the
+// same "a pixel is equal size in every direction" property the SR panel's
+// own reconstruction already guarantees. x vs y only, even with real 3D
+// drift (fdz) — see driftPlotMode's own comment.
 function drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   const f0=d.frame0||0;   // see drawDriftCurveVsFrame()'s own comment
   const dx=f=>-d.fdx[f]*px, dy=f=>-d.fdy[f]*px;
   let lo=0,hi=0; for(let f=0;f<n;f++){ const a=dx(f),b=dy(f); lo=Math.min(lo,a,b); hi=Math.max(hi,a,b); }
   const pad=(hi-lo)*0.1||1; lo-=pad; hi+=pad;
-  const X=v=>mL+pw*(v-lo)/Math.max(1e-9,hi-lo), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
+  const s=Math.min(pw,ph), oL=mL+(pw-s)/2, oT=mT+(ph-s)/2;   // square sub-rect, centred in the available plot area
+  const X=v=>oL+s*(v-lo)/Math.max(1e-9,hi-lo), Y=v=>oT+s*(1-(v-lo)/Math.max(1e-9,hi-lo));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
-    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
-    ctx.fillText(v.toFixed(0),mL-9,y); }
+  for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(oL,y); ctx.lineTo(oL+s,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(oL-5,y); ctx.lineTo(oL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(v.toFixed(0),oL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
   for(const v of niceTicks(lo,hi,6)){ const x=X(v);
-    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();
-    ctx.fillText(v.toFixed(0),x,mT+ph+9); }
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,oT+s); ctx.lineTo(x,oT+s+5); ctx.stroke();
+    ctx.fillText(v.toFixed(0),x,oT+s+9); }
   const lut=getLUT(paramValue('lut'));
   ctx.lineWidth=1.8;
   for(let f=0;f<n-1;f++){ const t=n>1?f/(n-1):0, j=(t*255)|0;
     ctx.strokeStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`;
     ctx.beginPath(); ctx.moveTo(X(dx(f)),Y(dy(f))); ctx.lineTo(X(dx(f+1)),Y(dy(f+1))); ctx.stroke(); }
-  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the path
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(oL,oT); ctx.lineTo(oL,oT+s); ctx.lineTo(oL+s,oT+s); ctx.stroke();   // axis, drawn last so it's never covered by the path
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.fillText('drift x (nm)', mL+pw/2, mT+ph+28);
-  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('drift y (nm)',0,0); ctx.restore();
+  ctx.fillText('drift x (nm)', oL+s/2, oT+s+28);
+  ctx.save(); ctx.translate(14,oT+s/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('drift y (nm)',0,0); ctx.restore();
   // colour-bar legend: which end of the LUT is frame 0 vs the last frame —
   // without it the colour gradient alone can't be read as a time axis.
-  const bw=12, bh=Math.min(100,ph*0.5), bx=mL+pw-bw-8, by=mT+8;
+  const bw=12, bh=Math.min(100,s*0.5), bx=oL+s-bw-8, by=oT+8;
   for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
     ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(bx,by+i,bw,1); }
   // strokeRect() isn't in SvgRecordingContext's duck-typed surface (see
@@ -7268,7 +7276,7 @@ function drawDriftCurveXY(ctx,C,mL,mR,mT,mB,pw,ph,d,px,n){
   $('rawInfo').textContent = d.stopped
     ? `— PREVIEW ONLY, not applied · stopped after ${d.nSeg}/${d.nSegRequested} segments · colour = frame (time) · scrub a frame to return to the raw view`
     : `— drift path, x vs y · colour = frame (time) · ${d.nSeg} segments · scrub a frame to return to the raw view`;
-  registerPlotHover('raw',{mL,mT,pw,ph,xA:lo,xB:hi,yTop:hi,yBot:lo,
+  registerPlotHover('raw',{mL:oL,mT:oT,pw:s,ph:s,xA:lo,xB:hi,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`x ${vx.toFixed(1)} nm, y ${vy.toFixed(1)} nm`});
 }
 // Headless drift-plot render (window.webSMLM.analyze()'s config.exportPlots)
