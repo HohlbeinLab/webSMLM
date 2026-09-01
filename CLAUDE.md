@@ -447,6 +447,11 @@ relevant one before editing rather than scrolling:
   real per-axis width (`isFinite(L.sx)&&isFinite(L.sy)`, i.e. the Run used `mle3d` or `gaussmleEll`)
   — independent of `sigma1st`/`sx0th`/`sy0th`/`sx1st`/`sy1st` (sSMLM-pair-specific; these are
   per-loc, paired or not). `parseCsvLocs()` reads them back into `L.sx`/`L.sy` for a round trip.
+  `"angle [deg]"` (CSV) / `angle` (table) is the same kind of optional column, present only when
+  `gaussianMLEellipticangled` set `L.angle` (radians on the loc, converted to/from degrees at the
+  CSV/table boundary) — the fitted ellipse rotation itself, previously computed but never surfaced
+  anywhere: with `localize3D` checked it's a genuine per-emitter angle, with it unchecked every loc
+  shares the same FIXED `sSmlmAngleCenter` value (still exported, but not a per-emitter measurement).
   **Required a real fix**: the worker pool's message protocol only packed `x,y,photons,bg,bgstd,
   sigma,z,zClamped,frame,lpx,lpy,lpz` (12 floats) per loc — `sigma` (`(sx+sy)/2`) but never `sx`/`sy`
   themselves — so a worker-pool Run silently lost per-axis width entirely, even though the
@@ -454,7 +459,9 @@ relevant one before editing rather than scrolling:
   appended, `NaN` for methods that don't fit them) at all three sites that must move together — the
   worker's own `out.push(...)`, and both `wk.onmessage` unpack loops (the plain pool-dispatch loop
   and the FTM barrier-phased loop, which duplicate this on purpose, see **in/out**'s FTM entry) — a
-  stride mismatch between any of the three is a silent data-corruption bug, not a crash.
+  stride mismatch between any of the three is a silent data-corruption bug, not a crash. Widened
+  again to 15 floats (`angle` appended, radians, `NaN` unless the Run used `gaussmleEll`) so the
+  fitted ellipse rotation survives a worker-pool Run too — same three-site convention, same risk.
 - **3D calibration** — astigmatic: σ_x/σ_y vs z bead curves, JSON save/load. Astigmatism is the
   only method implemented; other 3D approaches (Double Helix, Biplane) would live here too.
   `calibrationCore()` takes the same `shouldStop` hook `runCore()` (Localize) does, checked at the
