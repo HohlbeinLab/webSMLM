@@ -21,7 +21,7 @@
   edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2396   PARAMS registry, single source of truth for params;
+    params          2402   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3092   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3119   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3391   synthetic stack generator ("Simulate movie")
-    detect          4269   per-frame band-pass + local-maxima detection
-    fit             4546   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3418   synthetic stack generator ("Simulate movie")
+    detect          4296   per-frame band-pass + local-maxima detection
+    fit             4573   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -45,7 +45,7 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          5055   accumulate to offscreen buffer; view/colour/blur;
+    render          5082   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -67,20 +67,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6203   frame-parallel detect/fit worker pool; dedicated
+    workers         6364   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6504   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6796   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6670   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6962   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7213   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7379   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -90,16 +90,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7719   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7885   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8428   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8594   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             8898   single particle tracking, trackpy-inspired;
+    spt             9064   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +130,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10399  top-level orchestration, *Core()/wrapper split;
+    pipeline        10565  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11020  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11186  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -183,9 +183,9 @@
                            intentionally different (a fresh stack load must
                            always reclaim the panel, even from a stopped
                            session's leftover scrub-back history)
-    table           12842  localizations table, filtering, histograms;
+    table           13030  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13417  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13605  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1877,7 +1877,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-02c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-02d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2176,7 +2176,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="renderBox">
         <summary>Rendering settings</summary>
         <label class="row">Magnification <input type="number" id="mag" min="4" max="25" step="1" value="10" class="num"></label>
-        <label class="row" id="rblurRow">Render blur σ_render (px) <input type="number" id="rblur" min="0" max="1" step="0.05" value="0.25" class="num"></label>
+        <label class="row">Render mode
+          <select id="renderMode" class="sel">
+            <option value="precision" selected>Localization precision</option>
+            <option value="fixed">Fixed blur</option>
+            <option value="dither">Precision (fast/dithered)</option>
+          </select></label>
+        <label class="row" id="rblurRow" style="display:none">Render blur σ_render (px) <input type="number" id="rblur" min="0" max="1" step="0.05" value="0.25" class="num"></label>
         <label class="row">Colour map
           <select id="lut" class="sel">
             <option value="fire">Fire (hot)</option>
@@ -2503,7 +2509,28 @@ const PARAMS = {
   pxnm: { type:'number', id:'pxnm', label:'Pixel size (nm)', min:1, max:2000, step:1, default:100, int:false },
   // mag = reconstruction magnification; render pixel size = pxnm / mag
   mag: { type:'number', id:'mag', label:'Magnification', min:4, max:25, step:1, default:10, int:true },
-  // rblur = σ_render, display-only Gaussian smoothing applied to the rendered reconstruction
+  // renderMode = 'precision' (default): each localization is rendered as its own
+  // Gaussian, sized by ITS OWN lpx/lpy (real CRLB precision) — Picasso's own
+  // default rendering convention, window capped at MAX_SPLAT_SIGMA_PX (see
+  // renderSuperResPixels(), MODULE: render) so a badly-localized outlier or a
+  // high mag can't blow its per-loc cost up unboundedly. 'fixed': the old
+  // behaviour, bin then apply ONE uniform blur (rblur) to the whole
+  // reconstruction buffer regardless of density — cost scales with buffer
+  // AREA (W×H), not localization count, so it gets disproportionately
+  // expensive at high magnification/large FOV even for sparse data. 'dither':
+  // a stochastic alternative to 'precision' — same CRLB-informed sizing, but
+  // O(1) per loc (jitter, then bin) instead of O(sigma²) per loc (splat a
+  // window) — 10-24x faster on a real, dense (millions-of-locs) dataset, at
+  // the cost of visible single-sample grain that only converges to the true
+  // density once many locs overlap (see renderSuperResPixels()'s own
+  // comment) — not the default for that reason, but used automatically for
+  // liveStreaming's own repeating cadence render regardless of this setting
+  // (MODULE: liveStreaming), where speed matters most and the view keeps
+  // refreshing anyway.
+  renderMode: { type:'enum', id:'renderMode', label:'Render mode', options:['precision','fixed','dither'], default:'precision' },
+  // rblur = σ_render — in 'fixed' mode, the uniform blur applied to the whole
+  // reconstruction; in 'precision' mode, only the FALLBACK width for a
+  // localization with no real lpx/lpy (e.g. phasor, which fits no CRLB).
   rblur: { type:'number', id:'rblur', label:'Render blur σ_render (px)', min:0, max:1, step:0.05, default:0.25, int:false },
   // lut = "look-up table", the colour map applied to the reconstruction
   lut: { type:'enum', id:'lut', label:'Colour map', options:['fire','inferno','viridis','turbo','hsvBlue','grey'], default:'fire' },
@@ -5171,18 +5198,21 @@ function displayMax(buf,pct){
 // the SAME user-facing "Memory budget (GB)" control rather than a second,
 // separate setting.
 const CANVAS_MAX_DIM=16384;
-function checkRenderSize(W,H,w,h,mag,zColor,blurPx){
+function checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode='fixed'){
   if(W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM)
     throw new Error(`Reconstruction would be ${W}×${H} px (frame ${w}×${h} × ${mag}×) — exceeds the ~${CANVAS_MAX_DIM}px per-side canvas limit most browsers enforce. Lower Magnification or crop the region first.`);
   const px=W*H;
-  // Concurrently-alive buffers, worst case: the count accumulator (Uint16,
-  // 2 bytes — see below), the z-sum accumulator (Float32, only with Colour
-  // by depth), blur()'s own dst+tmp scratch (Float32 each, only with
-  // Render blur), the final ImageData output, and the canvas's own backing
-  // store (browser-internal, same order of magnitude as ImageData).
-  let bytes=px*2;
+  // Concurrently-alive buffers, worst case: the accumulator ('fixed' mode:
+  // Uint16 hit-count, 2 bytes; 'precision' mode: Float32 Gaussian-mass sum,
+  // 4 bytes, but with no blur scratch at all — each splat already IS the
+  // blur, see splatGaussianLoc()), the z-sum accumulator (Float32, only with
+  // Colour by depth), blur()'s own dst+tmp scratch (Float32 each, only in
+  // 'fixed' mode with Render blur), the final ImageData output, and the
+  // canvas's own backing store (browser-internal, same order of magnitude
+  // as ImageData).
+  let bytes = renderMode==='precision' ? px*4 : px*2;
   if(zColor) bytes+=px*4;
-  if(blurPx>0) bytes+=px*4*2;
+  if(renderMode==='fixed' && blurPx>0) bytes+=px*4*2;
   bytes+=px*4*2;
   const budget=paramValue('memgb')*1073741824;
   if(bytes>budget)
@@ -5195,7 +5225,7 @@ function checkRenderSize(W,H,w,h,mag,zColor,blurPx){
 // workers, getRenderWorker()) keeps its own equivalent copy of this state in
 // its own global scope — these main-thread buffers are only ever touched
 // when the worker is unavailable.
-let _srW=0,_srH=0,_srZColor=false,_srAcc=null,_srZacc=null,_srBlurDst=null,_srZBlurDst=null,_srBlurTmp=null;
+let _srW=0,_srH=0,_srZColor=false,_srMode='',_srAcc=null,_srZacc=null,_srBlurDst=null,_srZBlurDst=null,_srBlurTmp=null;
 // Precomputed sqrt lookup for the density→brightness step (t=sqrt(x), x in
 // [0,1]): a per-pixel Math.sqrt() call is real, measured cost at SR-render
 // buffer sizes (tens of millions of pixels) — 65536 entries keeps the
@@ -5211,6 +5241,48 @@ let _srW=0,_srH=0,_srZColor=false,_srAcc=null,_srZacc=null,_srBlurDst=null,_srZB
 // convention the detect/fit worker already uses (WORKER_PRELUDE).
 const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1);
 for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);
+// Reusable scratch for splatGaussianLoc()'s separable 1D Gaussian factors
+// (below) — grown (never shrunk) as needed within a render, avoiding a
+// fresh typed-array allocation for potentially millions of localizations.
+// Rendering is always sequential (one call site at a time, whether on the
+// main thread or inside the render worker), so sharing one pair across
+// every splatGaussianLoc() call in a render is safe.
+let _splatGx=new Float32Array(256), _splatGy=new Float32Array(256);
+// Renders ONE localization as its own 2D Gaussian, additively splatted into
+// `acc` (and `zacc`, density-weighted by the same per-pixel mass, if given)
+// — the 'precision' render mode's core primitive (renderSuperResPixels()
+// below), one call per localization, sized by ITS OWN (px,py) position and
+// (sx,sy) sigma, both already in SR-PIXEL units (native px × mag, same
+// convention every other position/width value in this module uses).
+// Bounded to ±3σ (same as Picasso's own render.py _draw_gaussian_loc,
+// ported from there) so cost scales with the localization's own precision,
+// not the reconstruction buffer size — the whole point of this mode over
+// 'fixed's single blur-the-whole-buffer pass. The kernel is separable
+// (exp(-(dx²/2σx²+dy²/2σy²)) = gx(dx)·gy(dy)), so gx/gy are each computed
+// with one exp() call per COLUMN/ROW (O(nx+ny) total) instead of one exp()
+// per PIXEL in the window (O(nx·ny)) — same trick Picasso's own
+// _draw_gaussian_loc uses, ported here rather than reinvented.
+function splatGaussianLoc(acc,zacc,W,H,px,py,sx,sy,zval){
+  if(!(sx>0) || !(sy>0)) return;   // degenerate/missing precision — caller already substitutes a fallback width, so this only ever fires on NaN/zero
+  const iMin=Math.max(0,Math.floor(py-3*sy)), iMax=Math.min(H,Math.ceil(py+3*sy)+1);
+  const jMin=Math.max(0,Math.floor(px-3*sx)), jMax=Math.min(W,Math.ceil(px+3*sx)+1);
+  const nx=jMax-jMin, ny=iMax-iMin;
+  if(nx<=0 || ny<=0) return;
+  if(nx>_splatGx.length) _splatGx=new Float32Array(nx);
+  if(ny>_splatGy.length) _splatGy=new Float32Array(ny);
+  const gx=_splatGx, gy=_splatGy;
+  const inv2sx2=1/(2*sx*sx), inv2sy2=1/(2*sy*sy), norm=1/(2*Math.PI*sx*sy);
+  for(let jj=0;jj<nx;jj++){ const dx=(jMin+jj)+0.5-px; gx[jj]=Math.exp(-dx*dx*inv2sx2); }
+  for(let ii=0;ii<ny;ii++){ const dy=(iMin+ii)+0.5-py; gy[ii]=Math.exp(-dy*dy*inv2sy2); }
+  for(let ii=0;ii<ny;ii++){
+    const row=(iMin+ii)*W, gyi=gy[ii]*norm;
+    for(let jj=0;jj<nx;jj++){
+      const w=gyi*gx[jj], idx=row+jMin+jj;
+      acc[idx]+=w;
+      if(zacc) zacc[idx]+=w*zval;
+    }
+  }
+}
 // Pure, DOM-free render core: accumulate → blur → normLocs pass → percentile
 // clip → colour-map. Takes its scratch buffers explicitly (`buf`:
 // {acc,zacc,blurDst,zBlurDst,blurTmp}, already correctly sized/zeroed by the
@@ -5224,23 +5296,102 @@ for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);
 // never touches a canvas/context itself (`new ImageData(w,h)` works
 // identically on the main thread and inside a worker), so the canvas/
 // OffscreenCanvas specifics stay entirely in each caller.
-function renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,buf){
+function renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,buf,renderMode){
   const {acc,zacc,blurDst,zBlurDst,blurTmp}=buf;
-  let satCount=0;
-  for(const L of locs){
-    // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
-    if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
-    const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
-    if(ix<0||iy<0||ix>=W||iy>=H) continue;
-    const idx=iy*W+ix;
-    if(acc[idx]<65535) acc[idx]++; else satCount++;
-    if(zColor) zacc[idx]+=L[colorField]; }
-  // Blur density and z-sum together, so the depth hue is the density-weighted
-  // mean z over the neighbourhood: meanz = blur(Σz)/blur(count). Calls
-  // blurInto() directly (not the blur() wrapper) to reuse blurDst/zBlurDst/
-  // blurTmp above instead of allocating fresh scratch every call.
-  const dbuf = blurPx>0 ? blurInto(acc,blurDst,blurTmp,W,H,blurPx*mag*0.3) : acc;
-  const zbuf = zColor ? (blurPx>0 ? blurInto(zacc,zBlurDst,blurTmp,W,H,blurPx*mag*0.3) : zacc) : null;
+  let satCount=0, dbuf, zbuf;
+  if(renderMode==='precision'){
+    // Each localization splats its OWN Gaussian (splatGaussianLoc(), above)
+    // instead of one bin-then-blur-the-whole-buffer pass — acc/zacc are
+    // Float32 density accumulators here (see renderSuperRes()'s own
+    // buffer-allocation branch), not the Uint16 hit-COUNT 'fixed' mode uses,
+    // since a pixel's value is now a sum of overlapping Gaussian tails, not
+    // an integer count — no saturation concept applies, satCount stays 0.
+    // sx/sy: real CRLB precision (lpx/lpy, native px) converted to SR-pixel
+    // units the same way x/y positions already are (×mag); blurPx is the
+    // FALLBACK width for a method with no real per-loc precision (phasor).
+    // MAX_SPLAT_SIGMA_PX caps the RENDERED sigma itself, in SR-pixel units —
+    // a DIFFERENT bound from splatGaussianLoc()'s own ±3σ window truncation
+    // (that only trims a given Gaussian's negligible tails; it does nothing
+    // to stop sigma itself, and so the window it bounds, from growing with
+    // mag×lpx). Without this, a real dataset's own badly-localized tail (a
+    // handful of low-photon events with lpx of several hundred nm — normal
+    // in real data, e.g. the Leterrier STORM CSV's max was 468.6 nm) each
+    // splat a huge window at any mag ≳10, measured to flip 'precision' mode
+    // from faster-than-'fixed' (mag=5: 1.14×) to markedly slower (mag=20:
+    // 0.64×) despite being a tiny fraction of the dataset — filtering that
+    // tail out entirely barely moved the timing, confirming the cost is the
+    // window AREA (∝σ², unbounded) not the outlier COUNT. 6 SR-px keeps the
+    // worst-case window ≤37×37px/loc regardless of mag or how poor a single
+    // fit's precision is, while sitting far above any well-localized point's
+    // real sigma even at high mag (e.g. mag=20 on this same real dataset:
+    // median lpx=6.3 nm → sx≈1.26 SR-px, well under the cap, untouched).
+    const MAX_SPLAT_SIGMA_PX=6;
+    for(const L of locs){
+      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
+      const px=L.x*mag, py=L.y*mag;
+      if(px<0||py<0||px>=W||py>=H) continue;
+      const sx=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(L.lpx)&&L.lpx>0 ? L.lpx : blurPx)*mag);
+      const sy=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(L.lpy)&&L.lpy>0 ? L.lpy : blurPx)*mag);
+      splatGaussianLoc(acc, zColor?zacc:null, W,H, px,py, sx,sy, zColor?L[colorField]:0);
+    }
+    dbuf=acc; zbuf=zColor?zacc:null;
+  } else if(renderMode==='dither'){
+    // Stochastic alternative to the analytic splat above, for datasets where
+    // 'precision' mode's O(sigma^2)-per-loc window cost adds up (millions of
+    // overlapping locs at moderate-to-high mag — see the MAX_SPLAT_SIGMA_PX
+    // comment above for the real numbers this was measured against). Instead
+    // of rendering each loc's own Gaussian into a window, draw ONE random
+    // offset from N(0, its own CRLB sigma) and bin to the nearest pixel — same
+    // O(1)-per-loc cost as 'fixed' mode's plain count loop, no window at all,
+    // so cost is completely independent of sigma/mag (no cap needed, unlike
+    // 'precision'). This is the classical Average-Shifted-Histogram / Monte-
+    // Carlo kernel-density argument: each localization contributes ONE sample
+    // from its own posterior; with millions of independent locs the POOLED
+    // histogram converges to the same density the analytic splat computes
+    // exactly, without ever evaluating a Gaussian. Verified against real data
+    // (Leterrier STORM CSV, 4.2M locs): 10-24x faster than the capped splat
+    // at mag 5/10/20, structurally indistinguishable reconstruction (same
+    // filaments/crossings), with the expected extra grain from single-sample
+    // jitter. That grain is exactly why this is NOT the default: on a sparse
+    // dataset (few overlapping locs — small/early-stage acquisitions, mag<10
+    // where the splat has no cost problem anyway) a lone jittered dot doesn't
+    // converge to anything, and looks like noise rather than a soft blob the
+    // way the analytic splat still correctly does. Seeded (not
+    // Math.random()) so the same locs always dither identically — a redraw
+    // (pan/zoom, re-opening the same dataset) doesn't flicker.
+    const rnd=mulberry32(0xD17E5);
+    for(const L of locs){
+      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
+      const sx=(isFinite(L.lpx)&&L.lpx>0 ? L.lpx : blurPx)*mag;
+      const sy=(isFinite(L.lpy)&&L.lpy>0 ? L.lpy : blurPx)*mag;
+      // Box-Muller: two uniforms -> two independent standard normals
+      const u1=Math.max(1e-12,rnd()), u2=rnd();
+      const r=Math.sqrt(-2*Math.log(u1));
+      const z1=r*Math.cos(2*Math.PI*u2), z2=r*Math.sin(2*Math.PI*u2);
+      const ix=Math.round(L.x*mag+z1*sx), iy=Math.round(L.y*mag+z2*sy);
+      if(ix<0||iy<0||ix>=W||iy>=H) continue;
+      const idx=iy*W+ix;
+      if(acc[idx]<65535) acc[idx]++; else satCount++;
+      if(zColor) zacc[idx]+=L[colorField];
+    }
+    dbuf=acc; zbuf=zColor?zacc:null;
+  } else {
+    // ---- 'fixed' (original behaviour): bin, then ONE uniform blur over the whole buffer ----
+    for(const L of locs){
+      // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
+      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
+      const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
+      if(ix<0||iy<0||ix>=W||iy>=H) continue;
+      const idx=iy*W+ix;
+      if(acc[idx]<65535) acc[idx]++; else satCount++;
+      if(zColor) zacc[idx]+=L[colorField]; }
+    // Blur density and z-sum together, so the depth hue is the density-weighted
+    // mean z over the neighbourhood: meanz = blur(Σz)/blur(count). Calls
+    // blurInto() directly (not the blur() wrapper) to reuse blurDst/zBlurDst/
+    // blurTmp above instead of allocating fresh scratch every call.
+    dbuf = blurPx>0 ? blurInto(acc,blurDst,blurTmp,W,H,blurPx*mag*0.3) : acc;
+    zbuf = zColor ? (blurPx>0 ? blurInto(zacc,zBlurDst,blurTmp,W,H,blurPx*mag*0.3) : zacc) : null;
+  }
   let normBuf=dbuf;
   if(normLocs && normLocs!==locs){
     const nacc=new Uint16Array(W*H);
@@ -5285,15 +5436,15 @@ function getOrMakeSrCanvas(W,H){
 // exact same single-threaded algorithm (via the SAME renderSuperResPixels(),
 // against the main-thread _sr* buffers) when no worker is available at all,
 // or if a specific dispatch unexpectedly errors.
-async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log){
+async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,renderMode='fixed'){
   const W=w*mag, H=h*mag;
-  checkRenderSize(W,H,w,h,mag,zColor,blurPx);
+  checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode);
   const worker=await getRenderWorker();
   if(worker){
     try{
       const {imageBitmap,satCount}=await dispatchRenderWorker(worker,{
         locs, normLocs:(normLocs&&normLocs!==locs)?normLocs:null,
-        W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct });
+        W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct,renderMode });
       if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
       const cv=getOrMakeSrCanvas(W,H);
       cv.getContext('2d').drawImage(imageBitmap,0,0);
@@ -5308,17 +5459,27 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
     }
   }
   // ---- single-threaded fallback ----
+  // 'precision' mode's acc/zacc are Float32 (a pixel accumulates fractional
+  // Gaussian mass, not an integer hit count) — a real dtype difference from
+  // 'fixed', not just a value-range one, so the cache key includes mode too:
+  // switching modes on the SAME W/H/zColor must still reallocate, not reuse
+  // a Uint16Array as if it were Float32 (or vice versa).
   let acc,zacc,blurDst,zBlurDst,blurTmp;
-  if(_srW===W && _srH===H && _srZColor===zColor){
+  if(_srW===W && _srH===H && _srZColor===zColor && _srMode===renderMode){
     acc=_srAcc; acc.fill(0); zacc=_srZacc; if(zacc) zacc.fill(0);
     blurDst=_srBlurDst; zBlurDst=_srZBlurDst; blurTmp=_srBlurTmp;
   } else {
-    acc=new Uint16Array(W*H); zacc=zColor?new Float32Array(W*H):null;
-    blurDst=new Float32Array(W*H); zBlurDst=zColor?new Float32Array(W*H):null; blurTmp=new Float32Array(W*H);
-    _srW=W; _srH=H; _srZColor=zColor; _srAcc=acc; _srZacc=zacc;
+    acc = renderMode==='precision' ? new Float32Array(W*H) : new Uint16Array(W*H);
+    zacc = zColor ? new Float32Array(W*H) : null;
+    // 'precision' mode never blurs (each splat already IS the blur) — no
+    // need for blurDst/zBlurDst/blurTmp scratch at all in that mode.
+    blurDst = renderMode==='fixed' ? new Float32Array(W*H) : null;
+    zBlurDst = (renderMode==='fixed' && zColor) ? new Float32Array(W*H) : null;
+    blurTmp = renderMode==='fixed' ? new Float32Array(W*H) : null;
+    _srW=W; _srH=H; _srZColor=zColor; _srMode=renderMode; _srAcc=acc; _srZacc=zacc;
     _srBlurDst=blurDst; _srZBlurDst=zBlurDst; _srBlurTmp=blurTmp;
   }
-  const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,{acc,zacc,blurDst,zBlurDst,blurTmp});
+  const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,{acc,zacc,blurDst,zBlurDst,blurTmp},renderMode);
   if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
   const cv=getOrMakeSrCanvas(W,H);
   cv.getContext('2d').putImageData(imageData,0,0);
@@ -5825,7 +5986,7 @@ function zRange(locs, field='z'){
 // one already landed is discarded rather than stomping srFull with stale
 // content.
 let _srRenderSeq=0;
-async function rerender(keepView,isPreview){
+async function rerender(keepView,isPreview,renderModeOverride){
   if(!lastResult) return;
   const mySeq=++_srRenderSeq;
   $('srTitle').textContent='SMLM reconstruction';
@@ -5917,7 +6078,7 @@ async function rerender(keepView,isPreview){
   try{
     newSrFull=await renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
                           paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
-                          lastResult.locs, colorField||'z');   // colour scale always pinned to the full dataset, see renderSuperRes
+                          lastResult.locs, colorField||'z', log, renderModeOverride||paramValue('renderMode'));   // colour scale always pinned to the full dataset, see renderSuperRes
   }catch(err){
     // Magnification/frame-size combination too big to render (see
     // checkRenderSize() in renderSuperRes) — keep showing whatever was
@@ -6395,15 +6556,16 @@ async function getPool(){
    --------------------------------------------------------------------------- */
 const RENDER_WORKER_PRELUDE=[
   "let _mapKey='',_mapX=null,_mapY=null;",   // blurInto()'s own mirror-index cache, same as WORKER_PRELUDE above
-  "let _rwW=0,_rwH=0,_rwZColor=false,_rwAcc=null,_rwZacc=null,_rwBlurDst=null,_rwZBlurDst=null,_rwBlurTmp=null;",
+  "let _rwW=0,_rwH=0,_rwZColor=false,_rwMode='',_rwAcc=null,_rwZacc=null,_rwBlurDst=null,_rwZBlurDst=null,_rwBlurTmp=null;",
   "const LUT_CPS="+JSON.stringify(LUT_CPS)+";",
   "let _lutCache={};",
   "const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1); for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);",
+  "let _splatGx=new Float32Array(256), _splatGy=new Float32Array(256);",   // splatGaussianLoc()'s own reusable scratch, same convention
 ].join('\n');
 function renderWorkerSource(){
   const body=[
     "const _clMirror="+_clMirror.toString()+";",
-    blurInto.toString(), blur.toString(), getLUT.toString(), displayMax.toString(), renderSuperResPixels.toString(),
+    blurInto.toString(), blur.toString(), getLUT.toString(), displayMax.toString(), splatGaussianLoc.toString(), mulberry32.toString(), renderSuperResPixels.toString(),
     `onmessage=function(e){
       const d=e.data;
       if(d.ping){
@@ -6419,24 +6581,28 @@ function renderWorkerSource(){
           const bmp=testCv.transferToImageBitmap(); bmp.close();
           const w=8,h=8, locs=[{x:4,y:4,z:0}];
           const buf={acc:new Uint16Array(w*h),zacc:null,blurDst:new Float32Array(w*h),zBlurDst:null,blurTmp:new Float32Array(w*h)};
-          renderSuperResPixels(locs,w,h,1,0.5,false,0,0,null,'z','fire',99.5,buf);
+          renderSuperResPixels(locs,w,h,1,0.5,false,0,0,null,'z','fire',99.5,buf,'fixed');
           postMessage({pong:1});
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
-      const {seq,locs,normLocs,W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct}=d;
+      const {seq,locs,normLocs,W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct,renderMode}=d;
       try{
         let buf;
-        if(_rwW===W && _rwH===H && _rwZColor===zColor){
+        if(_rwW===W && _rwH===H && _rwZColor===zColor && _rwMode===renderMode){
           buf={acc:_rwAcc,zacc:_rwZacc,blurDst:_rwBlurDst,zBlurDst:_rwZBlurDst,blurTmp:_rwBlurTmp};
           buf.acc.fill(0); if(buf.zacc) buf.zacc.fill(0);
         } else {
-          buf={acc:new Uint16Array(W*H), zacc:zColor?new Float32Array(W*H):null,
-               blurDst:new Float32Array(W*H), zBlurDst:zColor?new Float32Array(W*H):null, blurTmp:new Float32Array(W*H)};
-          _rwW=W; _rwH=H; _rwZColor=zColor; _rwAcc=buf.acc; _rwZacc=buf.zacc;
-          _rwBlurDst=buf.blurDst; _rwZBlurDst=buf.zBlurDst; _rwBlurTmp=buf.blurTmp;
+          const acc = renderMode==='precision' ? new Float32Array(W*H) : new Uint16Array(W*H);
+          const zacc = zColor ? new Float32Array(W*H) : null;
+          const blurDst = renderMode==='fixed' ? new Float32Array(W*H) : null;
+          const zBlurDst = (renderMode==='fixed' && zColor) ? new Float32Array(W*H) : null;
+          const blurTmp = renderMode==='fixed' ? new Float32Array(W*H) : null;
+          buf={acc,zacc,blurDst,zBlurDst,blurTmp};
+          _rwW=W; _rwH=H; _rwZColor=zColor; _rwMode=renderMode; _rwAcc=acc; _rwZacc=zacc;
+          _rwBlurDst=blurDst; _rwZBlurDst=zBlurDst; _rwBlurTmp=blurTmp;
         }
-        const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,buf);
+        const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,buf,renderMode);
         const cv=new OffscreenCanvas(W,H), ctx=cv.getContext('2d');
         ctx.putImageData(imageData,0,0);
         const imageBitmap=cv.transferToImageBitmap();
@@ -11235,20 +11401,31 @@ async function liveStreamPushChunkFile(file){
   // jump straight past.
   const every=cfg.liveStreamRenderEvery||1;
   if(Math.floor(offset/every)!==Math.floor(liveStreamState.frameOffset/every)){
-    // Backpressure guard: every streaming render is a real, full-quality
-    // (async, worker-backed) reconstruction, and the render worker is a
-    // single dedicated worker (MODULE: workers), not a pool. Without this
-    // guard, a fast-arriving chunk stream could dispatch a new render on every cadence
-    // boundary faster than the worker can finish the previous one, growing an
+    // Backpressure guard: every streaming render is a real, worker-backed
+    // reconstruction, and the render worker is a single dedicated worker
+    // (MODULE: workers), not a pool. Without this guard, a fast-arriving
+    // chunk stream could dispatch a new render on every cadence boundary
+    // faster than the worker can finish the previous one, growing an
     // unbounded backlog of renders that are mostly stale by the time they
     // land (rerender()'s own _srRenderSeq guard would discard them, but the
     // worker still burns time computing every one). Skipping a boundary here
     // is safe and self-healing: the NEXT boundary (or the idle-timer/Stop's
     // own forced render below) catches the reconstruction back up — nothing
     // about chunk/localization accumulation depends on this render firing.
+    // Forced to 'dither' (MODULE: render) regardless of the user's own
+    // Render mode selection — this specific render repeats on every cadence
+    // boundary for the life of the session, and 'allLocs' only grows, so
+    // this is exactly the "millions of overlapping locs, speed matters more
+    // than one render's grain" case dither targets (10-24x faster than the
+    // analytic splat on real dense data, and dither's O(1)-per-loc cost is
+    // independent of mag/precision — nothing here can blow up the way
+    // 'precision' mode's window can). Deliberately does NOT touch the
+    // Render-mode dropdown itself: the idle-timeout and Stop-triggered
+    // renders below stay on whatever the user actually selected, since
+    // those aren't repeating under time pressure the way this one is.
     if(!liveStreamState.renderBusy){
       liveStreamState.renderBusy=true;
-      rerender(true,false).finally(()=>{ liveStreamState.renderBusy=false; });
+      rerender(true,false,'dither').finally(()=>{ liveStreamState.renderBusy=false; });
     }
   }
   // Raw-frame history: a scrubbable "count up" view like a loaded movie's
@@ -12165,6 +12342,14 @@ $('stopBtn').addEventListener('click',()=>{
 });
 // re-render (not re-localize) when any display setting changes
 $('mag').addEventListener('change',()=>{ if(lastResult) rerender(); });
+// rblurRow only means anything in 'fixed' mode ('precision' mode uses each
+// loc's own lpx/lpy instead, with rblur as just the no-precision fallback
+// width, no row needed for that) — same show/hide-on-select convention as
+// detFilter's own per-method threshold rows.
+$('renderMode').addEventListener('change',()=>{
+  $('rblurRow').style.display = $('renderMode').value==='fixed' ? 'flex' : 'none';
+  if(lastResult) rerender(true);
+});
 $('rblur').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lut').addEventListener('change',()=>{ if(lastResult) rerender(true); });
 $('lutpct').addEventListener('change',()=>{ if(lastResult) rerender(true); });
@@ -12726,12 +12911,15 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.0-dev · build 2026-09-02c — fixed a real regression from
-the async render conversion: a Run's live reconstruction preview could get
-permanently stuck on "Rendering…" on a large/dense dataset (reported), since
-the adaptive preview-interval measured near-zero (an unawaited async call)
-and kept firing overlapping renders that each discarded the last before it
-finished. Still under review; not yet released to main.`);
+log(`webSMLM v0.12.0-dev · build 2026-09-02d — new Render mode setting
+(Rendering settings): 'Localization precision' (default, per-loc Gaussian
+splat sized by real CRLB precision, now capped so a badly-localized outlier
+or high mag can't blow up render cost), 'Fixed blur' (the old behaviour),
+and 'Precision (fast/dithered)' (a stochastic alternative — jitter each loc
+by its own CRLB sigma then bin, 10-24x faster on real dense data, at the
+cost of visible grain on sparse datasets) — also now used automatically for
+Live streaming's own repeating cadence render regardless of this setting.
+Still under review; not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -13718,7 +13906,7 @@ async function analyze(config){
   const colorField = hasZ ? 'z' : (hasDist ? 'dist' : 'z');
   const zc = cfg.zcolor && (hasZ || hasDist);
   const zr = zc ? (zRange(locs, colorField)||{lo:0,hi:1}) : {lo:0,hi:1};
-  const cv = await renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog);
+  const cv = await renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog, cfg.renderMode);
   // config.exportPlots: renders whichever of drift/NeNA/FRC/PCFO/calibration
   // were actually computed above as BOTH a PNG and an SVG (renderPlotBothFormats(),
   // via the same _plotTarget redirection "Save plot/image" uses interactively
