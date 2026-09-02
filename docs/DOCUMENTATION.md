@@ -1272,6 +1272,7 @@ headless equivalent.
 |---|---|---|---|---|---|---|
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
 | `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
+| `renderMode` | Render mode | enum | — | — | — | `precision` (options: `precision`, `fixed`, `dither`) |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
 | `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `hsvBlue`, `grey`) |
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
@@ -1283,12 +1284,58 @@ headless equivalent.
 
 <!-- HINT:render -->
 <ul>
+  <li><b>Render mode</b> — <b>Localization precision</b> (default) renders each localization as its own Gaussian sized by its real fitted precision, the scientifically correct choice for most datasets. <b>Fixed blur</b> is the older uniform-blur-over-everything behaviour, controlled by <b>Render blur σ_render</b> below (which only appears in this mode). <b>Precision (fast/dithered)</b> is a much faster stochastic approximation, best suited to very large/dense datasets where the exact per-localization rendering gets slow — it looks grainier on sparse data, so it isn't the default.</li>
   <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
   <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
   <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume. After an sSMLM <b>Pair</b>, this same toggle reads "Colour by distance (sSMLM)" and colours by inter-order spectral distance instead of real z.</li>
 </ul>
 <p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
 <!-- /HINT:render -->
+
+**Render mode.** `precision` renders each localization as its own bounded
+(±3σ) 2D Gaussian, sized by its OWN fitted precision (`lpx`/`lpy`, the CRLB
+from an MLE fit; a method with no true CRLB, e.g. phasor, falls back to
+`rblur` for that localization) — the same convention Picasso's own default
+renderer uses (`_draw_gaussian_loc`, `picasso/render.py`; Schnitzbauer,
+Strauss, Schlichthaerle, Schueder & Jungmann, *Nat. Protoc.* 12, 1198–1228,
+2017). The rendered σ is capped at 6 super-resolution pixels regardless of
+magnification or how poor a single fit's precision is — the ±3σ bound alone
+only trims a *given* Gaussian's negligible tail, it doesn't stop σ itself
+(∝ precision × magnification) from growing arbitrarily large for a
+badly-localized outlier, which otherwise dominates render time out of
+proportion to its share of the dataset. `fixed` is the original behaviour:
+bin every localization into the reconstruction grid, then apply one uniform
+blur (`rblur`) to the whole buffer — cost scales with the buffer's pixel
+area, not the dataset, so it can get disproportionately expensive at high
+magnification even for a sparse dataset, independent of precision quality.
+
+`dither` is a stochastic alternative to `precision`, for datasets large and
+dense enough that the per-localization Gaussian's own cost (∝ σ², so ∝
+magnification²) adds up: instead of rendering a localization's full
+Gaussian into a window, it draws ONE random offset from a normal
+distribution with that localization's own σ and bins the result to the
+nearest pixel — O(1) per localization, independent of σ or magnification,
+the same cost class as `fixed`'s plain counting pass. This is the classical
+averaged-shifted-histogram / Monte-Carlo kernel-density argument (Scott,
+*Ann. Statist.* 13(3), 1024–1040, 1985; the randomized-shift refinement:
+Bourel, Fraiman & Ghattas, *Comput. Stat. Data Anal.* 79, 149–164, 2014): each
+localization contributes one sample from its own posterior, and with many
+independent localizations the pooled histogram converges to the same
+density the analytic Gaussian sum computes exactly — without ever
+evaluating one. Measured 10–24× faster than the capped `precision` splat on
+a real, dense dataset (4.2M localizations), with a structurally faithful
+reconstruction. The trade-off is visible single-sample grain that only
+resolves into a smooth shape once many localizations overlap — on a sparse
+dataset a single jittered dot doesn't converge to anything and looks like
+noise rather than the soft blob `precision` still renders correctly there,
+which is why `dither` isn't the default. It IS used automatically —
+regardless of this setting — for **Live streaming**'s own repeating cadence
+render (see [§8](#live-streaming)), since that
+render repeats for the life of a streaming session and speed matters more
+there than any single render's grain; the final render on Stop still honours
+whatever `renderMode` is actually selected here. The random offsets are
+seeded (not `Math.random()`), so the same localizations always dither
+identically — panning/zooming or reopening the same dataset doesn't flicker.
 
 `hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
