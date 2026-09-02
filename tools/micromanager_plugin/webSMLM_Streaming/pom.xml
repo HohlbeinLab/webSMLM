@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.kjamartens.websmlm</groupId>
+  <artifactId>webSMLM_Streaming</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>8</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!--
+      Point this at your local Micro-Manager 2.0 installation directory (the folder
+      containing ImageJ.exe / plugins / mmplugins). Override on the command line, e.g.:
+        mvn package -Dmm.install.dir="C:\Program Files\Micro-Manager-2.0"
+      or edit the default below to match your machine. The three MM/ImageJ jars below are
+      NOT published to Maven Central, so they're referenced as "system" scope, straight out
+      of the install directory, rather than as a normal dependency coordinate.
+    -->
+    <mm.install.dir>C:\Program Files\Micro-Manager-2.0</mm.install.dir>
+  </properties>
+
+  <dependencies>
+    <!-- Micro-Manager Java API + JNI core wrapper (ships inside every MM 2.0 install). -->
+    <dependency>
+      <groupId>org.micromanager</groupId>
+      <artifactId>MMJ_</artifactId>
+      <version>2.0</version>
+      <scope>system</scope>
+      <systemPath>${mm.install.dir}/plugins/Micro-Manager/MMJ_.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>org.micromanager</groupId>
+      <artifactId>MMCoreJ_</artifactId>
+      <version>2.0</version>
+      <scope>system</scope>
+      <systemPath>${mm.install.dir}/plugins/Micro-Manager/MMCoreJ.jar</systemPath>
+    </dependency>
+    <!-- ImageJ1, bundled with MM; gives us ij.io.TiffEncoder for writing ImageJ-style TIFFs. -->
+    <dependency>
+      <groupId>net.imagej</groupId>
+      <artifactId>ij</artifactId>
+      <version>1.0</version>
+      <scope>system</scope>
+      <systemPath>${mm.install.dir}/ij.jar</systemPath>
+    </dependency>
+    <!-- SciJava plugin annotations, used by MM 2.0's own plugin loader. Bundled with MM
+         under plugins/Micro-Manager/ alongside MMJ_.jar. -->
+    <dependency>
+      <groupId>org.scijava</groupId>
+      <artifactId>scijava-common</artifactId>
+      <version>2.0</version>
+      <scope>system</scope>
+      <systemPath>${mm.install.dir}/plugins/Micro-Manager/scijava-common-2.83.3.jar</systemPath>
+    </dependency>
+
+    <!-- Lightweight WebSocket server implementation; shaded into the final jar so it
+         doesn't need to be installed separately into MM's classpath. Its slf4j-api transitive
+         dependency is excluded (see the "provided" slf4j-api dependency below) so the shaded
+         jar doesn't carry a second, different-version copy alongside MM's own bundled one. -->
+    <dependency>
+      <groupId>org.java-websocket</groupId>
+      <artifactId>Java-WebSocket</artifactId>
+      <version>1.5.6</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Guava's EventBus is what Studio.events() is built on in MM 2.0 - every MM install
+         already ships a guava jar on its classpath, so this is "provided" (not shaded) to
+         avoid bundling a second, possibly-conflicting copy. -->
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>17.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- MM 2.0 already bundles slf4j-api-1.7.30.jar; excluded above from Java-WebSocket's own
+         transitive dependency and declared here as "provided" only so the code still compiles
+         against the same API shape Java-WebSocket expects at runtime. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.30</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>webSMLM_Streaming</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <!-- Only bundle Java-WebSocket (+ its own deps, e.g. slf4j-api). The MM/ImageJ
+                   system-scope jars are never included by shade, so they stay "provided" by
+                   whatever MM instance loads this plugin, as intended. -->
+              <minimizeJar>false</minimizeJar>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

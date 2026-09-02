@@ -915,6 +915,36 @@ relevant one before editing rather than scrolling:
   reference consumer: `--exportTrackData`/etc. forward `onRecord` via the SAME live `console.log()`
   channel `onProgress`/`onLog` use, appended to a per-kind `.ndjson` file via
   `fs.createWriteStream()`.
+- **liveStreaming** (`window.webSMLM.liveStream`) — a Micro-Manager/pycromanager camera bridge,
+  physically right after **pipeline** (whose `runCore()` it calls per chunk) and split into its own
+  indexed `MODULE:` banner for its size, not moved elsewhere in the file. Distinct from, and named
+  to avoid colliding with, both the in/out module's own unrelated TIFF chunked/streamed-loading
+  flag (`chunkmb`/`loadMultiIfdStreaming()`/`stack.streaming`) and the headless API's NDJSON
+  "streaming per-record exports" (`onRecord`/`makeRecordEmitter()`, above) — three genuinely
+  different features that all happen to use the word "stream". Two ways in, both nested inside
+  `memBox` ("Memory & streaming"): an opt-in WebSocket the page itself connects OUT to (never
+  listens), for hooking into a tab already open (`tools/test_livestream_demo.py`); or an external
+  Playwright-driven bridge (`tools/webSMLM-livestream-bridge.mjs`, e.g. driving a Gladoscopy RT
+  node) via a hidden `#liveStreamChunkInput` file conduit. Either way, each chunk is localized
+  independently via `runCore()` (no cross-chunk context, so FTM is unsupported in this mode) and
+  appended to a running total, repainting the reconstruction through the same `lastResult`/
+  `rerender()` globals an interactive Localize run already uses. No separate Start/Stop step: a
+  session (`liveStreamState`) arms itself the moment streaming actually begins — Connect, or the
+  first pushed chunk — using whatever pxnm/gain/method/etc. the sidebar is set to at that moment.
+  The raw panel gets its own scrubbable frame history (`liveStreamShowRawFrame()`), auto-following
+  the newest frame unless paused by a manual scrub, capped to **Memory budget (GB)** via a ring
+  buffer (`liveStreamState.rawFrames`) since an open-ended acquisition can't keep every raw frame
+  in memory. The periodic cadence render (`liveStreamRenderEvery`) is a real, worker-backed
+  full-quality reconstruction, guarded by `liveStreamState.renderBusy` so a fast chunk stream can't
+  pile up renders faster than the single dedicated render worker can finish them, plus a
+  conservative idle/pause detector and a session's own final render on end so the displayed
+  reconstruction never lags behind `lastResult.locs`. `liveStreamOwnsRawPanel()` is the single
+  shared "does streaming currently own the raw panel" check, used by the Contrast-auto handler and
+  wheel-scrub routing — `initScrub()` deliberately does NOT use it: a fresh stack/CSV load must
+  always reclaim the panel from a stopped session's leftover scrub-back history, a narrower check
+  by design, not an oversight. **Clear localizations** (`liveStreamClearBtn`,
+  `clearLiveStreamingLocalizations()`) resets `allLocs`/`frameOffset`/`rawFrames`/the reconstruction
+  to empty without touching `.active` — chunks keep arriving through the call, no reconnect needed.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
@@ -1126,6 +1156,38 @@ functions, stubbing their globals (`performance`, `log`, etc.), and running agai
 ground truth in the same `osascript -l JavaScript` (JXA) engine. JXA has no good JIT (~50–100×
 slower than V8), so keep validation inputs small.
 
+### `micromanager_plugin/webSMLM_Streaming` (Java) — rebuild locally to test, never commit the jar
+
+Editing any `.java` file under `micromanager_plugin/webSMLM_Streaming/src/` does **not** update
+`target/webSMLM_Streaming.jar` by itself — that jar is a build artifact, and a stale one left in
+place after a source edit is worse than no jar at all (it silently keeps running the old code,
+with no signal that anything's out of date). **Rebuild it locally every time you need to actually
+test a Java-source change**:
+
+```sh
+mvn package -Dmm.install.dir="C:\path\to\your\Micro-Manager-install"
+```
+
+(see `micromanager_plugin/webSMLM_Streaming/README.md`'s own *Building* section for the full
+requirements — a local MM 2.0 install for the MM/ImageJ/scijava system-scoped jars, JDK 11+, Maven
+3.6+). If `mvn` isn't on `PATH` in the current environment, don't skip the rebuild — compile and
+jar manually instead, e.g. via `javac`/`jar` straight out of the JDK, using the same dependency
+jars `pom.xml` lists (the MM install's own `MMJ_.jar`/`MMCoreJ.jar`/`ij.jar`/
+`scijava-common-*.jar`, plus Java-WebSocket/guava/slf4j-api from `~/.m2/repository` if already
+cached there from a prior `mvn` run) — compile all four source files together, then jar up the
+compiled classes plus Java-WebSocket's own extracted classes (guava/slf4j-api stay `provided`,
+i.e. compile-time only, matching `pom.xml`'s shade config — don't bundle them). Confirm the rebuilt
+jar actually contains the change (e.g. `jar tf target/webSMLM_Streaming.jar` lists the expected
+classes, or `javap -cp target/webSMLM_Streaming.jar <class>` shows the new/changed method) rather
+than assuming the build succeeded.
+
+**`target/` is gitignored — the compiled jar is never committed** (an earlier version of this
+plugin shipped it in-tree; dropped on review: a binary rebuilt-and-recommitted on every edit grows
+the repo forever with undiffable blobs, and git alone can't prove a committed jar actually matches
+the source it sits next to). Distribute a built jar to end users via a GitHub Release asset (or
+have them run the `mvn package` command above themselves) instead of expecting one to already be
+in the repo.
+
 ## Branch & release workflow
 
 - **`main`** is live: it is served by GitHub Pages (`hohlbeinlab.github.io/webSMLM/webSMLM.html`)
@@ -1217,9 +1279,10 @@ slower than V8), so keep validation inputs small.
   never hand-edit a `.hint` div directly, it'll be overwritten on the next sync. `--check` exits 1
   without writing if `webSMLM.html` would change, for a pre-commit/CI-style drift check. The
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is NOT part of the
-  synced content (kept as fixed markup in `webSMLM.html`). All 11 `.hint` divs
-  (`hint-memory`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/`hint-detectfit`/`hint-export`/
-  `hint-render`/`hint-drift`/`hint-locprecision`/`hint-sSMLM`/`hint-spt`) use this mechanism. Each
+  synced content (kept as fixed markup in `webSMLM.html`). All 12 `.hint` divs
+  (`hint-memory`/`hint-liveStreaming`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
+  `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-locprecision`/`hint-sSMLM`/
+  `hint-spt`) use this mechanism. Each
   marker is placed as the INTRO to its DOCUMENTATION.md section, right after the PARAMS table — the
   surrounding prose picks up only where the popup leaves off, not restating it.
 - **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the
