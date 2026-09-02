@@ -1292,22 +1292,58 @@ headless equivalent.
 <p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
 <!-- /HINT:render -->
 
+**Choosing Magnification relative to localization precision.** `mag` (with
+`pxnm`) sets the super-resolution pixel size (`pxnm`/`mag`) — too coarse a
+pixel actively limits the resolution a reconstruction can show, independent
+of how good the underlying localizations are. Nieuwenhuizen et al. (2013,
+*Nat. Methods* 10, 557–562, §5.2 "Discretization" of the Supplementary
+Information) derive this quantitatively for FRC-measured resolution:
+binning into a pixel of size `l` acts as a low-pass filter on the FRC,
+equivalent (at the resolution frequency) to inflating the effective
+localization uncertainty from σ to a larger σ_eff via a `sinc(πql)` factor
+(their Eq. S.79–S.80). Requiring the resulting resolution loss stay under
+10% (their Eq. S.81–S.83) gives their stated conclusion: keep pixel size
+`l` < R/4, where R ≈ 2πσ is the FRC resolution implied by precision σ —
+i.e. **keep the super-resolution pixel size smaller than ≈1.57× the
+dataset's typical localization precision** (R/4 = 2πσ/4 = πσ/2). Above
+that, the pixel grid itself — not the fits — is what's limiting
+resolution, regardless of `renderMode` below.
+The same section (§5.3 "Data visualization") also shows that any
+*isotropic linear* filter applied on top of binning — `fixed`'s own uniform
+blur (`rblur`) included — does not change the FRC-measured resolution
+(verified there to ~10⁻⁴, negligible against the FRC's own variance): FRC
+depends only on the correlation between two half-datasets, not on the
+magnitude of the frequency components a linear filter suppresses. A
+*non-linear* visualization (their point, not this app's), by contrast,
+cannot both stay unbiased (linear in localization density) and improve the
+FRC over plain binning.
+
 **Render mode.** `precision` renders each localization as its own bounded
 (±3σ) 2D Gaussian, sized by its OWN fitted precision (`lpx`/`lpy`, the CRLB
 from an MLE fit; a method with no true CRLB, e.g. phasor, falls back to
 `rblur` for that localization) — the same convention Picasso's own default
 renderer uses (`_draw_gaussian_loc`, `picasso/render.py`; Schnitzbauer,
 Strauss, Schlichthaerle, Schueder & Jungmann, *Nat. Protoc.* 12, 1198–1228,
-2017). The rendered σ is capped at 6 super-resolution pixels regardless of
-magnification or how poor a single fit's precision is — the ±3σ bound alone
-only trims a *given* Gaussian's negligible tail, it doesn't stop σ itself
-(∝ precision × magnification) from growing arbitrarily large for a
-badly-localized outlier, which otherwise dominates render time out of
+2017). This is a known trade-off, not a free improvement: rendering a
+localization's own precision AS its display width convolves the true
+structure with an extra Gaussian of that same width on top of the
+localization error already inherent in it, which Martens, Turkowyd &
+Endesfelder's SMLM analysis review (2022, *Front. Bioinform.* 1, 817254,
+Module 6 "Image Generation") describes as "a loss of visual resolution …
+resulting in a √2 resolution loss" relative to the precision alone — the
+same review's Nyquist-Shannon argument for `mag` above this paragraph is
+also theirs. The rendered σ is capped at 6 super-resolution pixels
+regardless of magnification or how poor a single fit's precision is — the
+±3σ bound alone only trims a *given* Gaussian's negligible tail, it doesn't
+stop σ itself (∝ precision × magnification) from growing arbitrarily large
+for a badly-localized outlier, which otherwise dominates render time out of
 proportion to its share of the dataset. `fixed` is the original behaviour:
 bin every localization into the reconstruction grid, then apply one uniform
 blur (`rblur`) to the whole buffer — cost scales with the buffer's pixel
 area, not the dataset, so it can get disproportionately expensive at high
-magnification even for a sparse dataset, independent of precision quality.
+magnification even for a sparse dataset, independent of precision quality;
+per Nieuwenhuizen et al. above, this uniform blur is at least harmless to
+the FRC-measured resolution, whatever its cost.
 
 `dither` is a stochastic alternative to `precision`, for datasets large and
 dense enough that the per-localization Gaussian's own cost (∝ σ², so ∝
