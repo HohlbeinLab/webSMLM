@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   10991  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11020  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -183,9 +183,9 @@
                            intentionally different (a fresh stack load must
                            always reclaim the panel, even from a stopped
                            session's leftover scrub-back history)
-    table           12814  localizations table, filtering, histograms;
+    table           12842  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13389  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13417  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1877,7 +1877,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-02b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-02c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -10561,6 +10561,23 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // run) and self-throttle once they get expensive, capped at srPreviewMaxMs.
   let previewInterval=SR_PREVIEW_MS;
   const srPreviewMaxMs=config.srPreviewMaxMs;
+  // onSrPreview (-> rerender()) is async now (MODULE: render's renderSuperRes(),
+  // dispatched to a dedicated worker) — srPreviewBusy stops a NEW preview from
+  // firing while one is still in flight, the same "don't pile up overlapping
+  // renders" guard live streaming's own liveStreamState.renderBusy already
+  // uses. Required, not just tidy: without it, the three call sites below kept
+  // firing every previewInterval regardless, each one bumping rerender()'s own
+  // _srRenderSeq and so discarding whichever prior render hadn't finished yet
+  // — on a large/dense run the render never WON, srInfo stuck on "Rendering…"
+  // indefinitely (reported). It also fixes previewInterval itself: the old
+  // code measured (performance.now()-tp) synchronously right after firing
+  // onSrPreview(), when rerender() only just started (async now, so that gap
+  // is near-zero) — the adaptive "scale up to ~10x this render's own cost"
+  // comment above no longer had a real cost to scale from, so it stayed
+  // pinned at SR_PREVIEW_MS regardless of how expensive a render actually
+  // was. Moving the measurement into a .finally() after the real promise
+  // settles fixes both at once.
+  let srPreviewBusy=false;
   let tGet=0, tDetect=0, tFit=0, nCand=0;        // timing/candidate-count instrumentation
   let ftmWorkMs=0;   // FTM barrier-phased worker path only (see useWorkers below); the serial path reports fetchStack.ftmMs instead
 
@@ -10693,11 +10710,13 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
               doneF+=d.count; processed=doneF; cInflight--;
               onProgress(100*doneF/n);
               if(batchImg && batchStart>latestFi){ latestFi=batchStart; latestImg=batchImg; latestLocs=batchLocs; }
-              if(locs.length && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
-                lastSrMs=performance.now();
-                onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
-                previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
-                previewMs+=performance.now()-tp; }
+              if(locs.length && !srPreviewBusy && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
+                lastSrMs=performance.now(); srPreviewBusy=true;
+                Promise.resolve(onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode})).finally(()=>{
+                  const dt=performance.now()-tp;
+                  previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, dt*10));
+                  previewMs+=dt; srPreviewBusy=false;
+                }); }
               dispatchChunk(wk);
             };
             wk.onerror=ev=>{ err=new Error('worker failed: '+(ev.message||'unknown')); finishChunk(); };
@@ -10758,11 +10777,13 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           // this an OLDER batch arriving after a NEWER one was already cached
           // would overwrite it and the raw panel would visibly rewind.
           if(batchImg && batchStart>latestFi){ latestFi=batchStart; latestImg=batchImg; latestLocs=batchLocs; }
-          if(locs.length && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
-            lastSrMs=performance.now();
-            onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
-            previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
-            previewMs+=performance.now()-tp; }        // display only, not compute time
+          if(locs.length && !srPreviewBusy && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
+            lastSrMs=performance.now(); srPreviewBusy=true;
+            Promise.resolve(onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode})).finally(()=>{   // display only, not compute time
+              const dt=performance.now()-tp;
+              previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, dt*10));
+              previewMs+=dt; srPreviewBusy=false;
+            }); }
           dispatch(wk);
         };
         wk.onerror=ev=>{ err=new Error('worker failed: '+(ev.message||'unknown')); finish(); };
@@ -10812,11 +10833,14 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           lastRawMs=performance.now();
           lastSpots=maxima; lastFrame=img; lastFrameIdx=fi;
           onRawPreview(img,w,h,maxima,frameLocs,fi,nStack);   // nStack: label shows true position in the whole stack, not the selected range
-          if(locs.length && performance.now()-lastSrMs>previewInterval){   // live super-res preview, adaptively throttled
-            const tp=performance.now(); lastSrMs=performance.now();
-            onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode});
-            previewMs+=performance.now()-tp;       // don't charge preview to compute time
-            previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, (performance.now()-tp)*10));
+          if(locs.length && !srPreviewBusy && performance.now()-lastSrMs>previewInterval){   // live super-res preview, adaptively throttled
+            const tp=performance.now(); lastSrMs=performance.now(); srPreviewBusy=true;
+            Promise.resolve(onSrPreview(locs,w,h,px,{sigma,k,win,border,exactBP,mode})).finally(()=>{
+              const dt=performance.now()-tp;
+              previewMs+=dt;       // don't charge preview to compute time
+              previewInterval=Math.min(srPreviewMaxMs, Math.max(SR_PREVIEW_MS, dt*10));
+              srPreviewBusy=false;
+            });
           }
         }
         processed=fi-firstIdx+1;   // count of frames done so far in THIS run, not an absolute stack index
@@ -10975,7 +10999,12 @@ async function run(){
       onRawPreview: (img,w,h,maxima,frameLocs,fi,n) => { drawRaw(img,w,h,maxima,frameLocs); $('rawInfo').textContent=`frame ${fi+1}/${n} — ${maxima.length} spots`; },
       // mag is read live (not from config) so a mid-Run magnification change
       // is reflected in the very next preview, matching prior behaviour.
-      onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; rerender(true,true); },
+      // Returns rerender()'s own promise — runCore()'s srPreviewBusy guard
+      // awaits it (via Promise.resolve(...).finally()) to know when this
+      // preview has ACTUALLY finished, not just been kicked off; without the
+      // return here that guard would resolve almost immediately regardless
+      // (rerender() is async now), defeating the whole guard.
+      onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; return rerender(true,true); },
     });
     lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det,firstIdx:r.firstIdx,lastIdx:r.lastIdx};
     rerender(true);
@@ -12697,13 +12726,12 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.0-dev · build 2026-09-02b — addressed this session's PR
-#8 review: fixed a WebSocket close-event race that could end the wrong
-live-streaming session on a fast Disconnect+reconnect, corrected a stale
-doc claiming drift/NeNA/FRC aren't available while streaming (they are),
-stopped tracking the plugin's compiled jar in git, and added the missing
-hint-liveStreaming/DOCUMENTATION.md sync. Still under review; not yet
-released to main.`);
+log(`webSMLM v0.12.0-dev · build 2026-09-02c — fixed a real regression from
+the async render conversion: a Run's live reconstruction preview could get
+permanently stuck on "Rendering…" on a large/dense dataset (reported), since
+the adaptive preview-interval measured near-zero (an unawaited async call)
+and kept firing overlapping renders that each discarded the last before it
+finished. Still under review; not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
