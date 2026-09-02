@@ -128,8 +128,17 @@ function renderSuperResPersist(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,no
 
 // Fused variant: precomputed sqrt lookup table for the density->brightness
 // step (t=sqrt(buf[i]/norm)) instead of a Math.sqrt() call per pixel.
-const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1);
-for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);
+// _BENCH_-prefixed (not _SQRT_LUT_N/_sqrtLut) — this variant's own finding is
+// exactly what webSMLM.html's real renderSuperResPixels() now does, under
+// those unprefixed names, at module scope. addScriptTag() injects this whole
+// string as a SECOND top-level script into the SAME page, so declaring
+// _SQRT_LUT_N here would re-declare an identifier the page already has — a
+// SyntaxError that fails this entire injected script silently (every variant
+// function below goes undefined, baseline still "works" since it's the
+// app's own real function, and every other page.evaluate() call then throws
+// "fn is not a function" downstream). Confirmed by reproducing it.
+const _BENCH_SQRT_LUT_N=65536, _benchSqrtLut=new Float32Array(_BENCH_SQRT_LUT_N+1);
+for(let i=0;i<=_BENCH_SQRT_LUT_N;i++) _benchSqrtLut[i]=Math.sqrt(i/_BENCH_SQRT_LUT_N);
 function renderSuperResFused(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=()=>{}){
   const W=w*mag, H=h*mag;
   checkRenderSize(W,H,w,h,mag,zColor,blurPx);
@@ -158,7 +167,7 @@ function renderSuperResFused(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,norm
   const invNorm = norm>0 ? 1/norm : 0;
   for(let i=0;i<buf.length;i++){
     const r = norm>0 ? Math.min(1,buf[i]*invNorm) : 0;
-    const t = _sqrtLut[(r*_SQRT_LUT_N)|0];
+    const t = _benchSqrtLut[(r*_BENCH_SQRT_LUT_N)|0];
     let j;
     if(zColor){ const meanz=buf[i]>0?zbuf[i]/buf[i]:zlo;
       j=(Math.max(0,Math.min(1,(meanz-zlo)/zspan))*255)|0;
@@ -215,7 +224,7 @@ function renderSuperResCombined(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,n
   const invNorm = norm>0 ? 1/norm : 0;
   for(let i=0;i<buf.length;i++){
     const r = norm>0 ? Math.min(1,buf[i]*invNorm) : 0;
-    const t = _sqrtLut[(r*_SQRT_LUT_N)|0];
+    const t = _benchSqrtLut[(r*_BENCH_SQRT_LUT_N)|0];
     let j;
     if(zColor){ const meanz=buf[i]>0?zbuf[i]/buf[i]:zlo;
       j=(Math.max(0,Math.min(1,(meanz-zlo)/zspan))*255)|0;
@@ -273,7 +282,7 @@ function renderSuperResPersistAll(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi
   const invNorm = norm>0 ? 1/norm : 0;
   for(let i=0;i<buf.length;i++){
     const r = norm>0 ? Math.min(1,buf[i]*invNorm) : 0;
-    const t = _sqrtLut[(r*_SQRT_LUT_N)|0];
+    const t = _benchSqrtLut[(r*_BENCH_SQRT_LUT_N)|0];
     let j;
     if(zColor){ const meanz=buf[i]>0?zbuf[i]/buf[i]:zlo;
       j=(Math.max(0,Math.min(1,(meanz-zlo)/zspan))*255)|0;
