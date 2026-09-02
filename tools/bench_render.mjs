@@ -424,13 +424,26 @@ try {
   const renderRows = [];
   for (const { w, h, mag } of RENDER_COMBOS) {
     for (const blurPx of [0, 1.5]) {
-      const baselineMs = await page.evaluate(({ w, h, mag, blurPx, n, reps }) => {
+      // renderSuperRes() is now async (it dispatches to a dedicated render
+      // Worker via getRenderWorker() when one's available — see webSMLM.html)
+      // — MUST be awaited, or fn(...) just returns a pending Promise
+      // immediately and this measures "time to return a Promise" (~0ms),
+      // not the actual render (a real, reproduced bug: every combo reported
+      // baseline ~0.0ms against every candidate's real hundreds-of-ms cost,
+      // an impossible result that silently broke every speedup column in
+      // the table below). Awaiting it also means "baseline" now measures
+      // the real, current production path end-to-end, worker dispatch
+      // overhead included — no longer a clean apples-to-apples comparison
+      // against the candidate variants below (which all still run
+      // synchronously on the main thread, pre-dating the worker), but it's
+      // the only honest number for "what does the real function cost".
+      const baselineMs = await page.evaluate(async ({ w, h, mag, blurPx, n, reps }) => {
         const locs = Array.from({ length: n }, () => ({ x: Math.random() * w, y: Math.random() * h, z: 0 }));
         const fn = window['renderSuperRes'];
-        fn(locs, w, h, mag, blurPx, 'fire', 99.5, false, 0, 0, locs); // warm-up
+        await fn(locs, w, h, mag, blurPx, 'fire', 99.5, false, 0, 0, locs); // warm-up
         if (window.gc) window.gc();
         const times = [];
-        for (let i = 0; i < reps; i++) { const t0 = performance.now(); fn(locs, w, h, mag, blurPx, 'fire', 99.5, false, 0, 0, locs); times.push(performance.now() - t0); }
+        for (let i = 0; i < reps; i++) { const t0 = performance.now(); await fn(locs, w, h, mag, blurPx, 'fire', 99.5, false, 0, 0, locs); times.push(performance.now() - t0); }
         return times;
       }, { w, h, mag, blurPx, n: RENDER_LOC_COUNT, reps: RENDER_REPEATS });
       const baseMed = median(baselineMs);
