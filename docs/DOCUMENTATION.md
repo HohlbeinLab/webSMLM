@@ -73,7 +73,7 @@ below for what it does.
 | **Stop** | `stopBtn` | Requests an early stop of a running **Localize** or **3D calibration**. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **3D calibration** again to restart with a narrower/correct frame range. |
 | **Save data** | `saveBtn` | Exports the current (filtered) localizations as a ThunderSTORM-compatible CSV — see [§6](#6-csv-export-format). Disabled until there are localizations. |
 | **Save plot/image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
-| **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations. Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
+| **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations; during **Live streaming** this enables as soon as any localization has arrived, same as **Correct drift**/NeNA/FRC — see [§2](#table)'s "Available during Live streaming" note for what's restricted (committing a new filter) vs. not (browsing/sorting/histograms). Loading a CSV back in (via **Load movie/data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
 | **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data/filtering**. |
 
 **Keyboard hotkeys**: hold **Alt** (the same physical key macOS labels
@@ -847,6 +847,21 @@ decides whether the table's base row set is raw `lastResult.locs` or
 `clusterEvents()`-derived merged events; everything downstream (render,
 export, NeNA, FRC) is unaware of the distinction.
 
+**Available during Live streaming** (enabled as soon as any localization
+has arrived, same condition as **Correct drift**/NeNA/FRC — reported that
+it stayed disabled for the whole session even though locs were visibly
+rendering). Sorting, browsing and per-column histograms all work on
+whatever has accumulated so far, since they read `_tableData`/
+`_tableFiltered` directly and need no filter to work at all. *Committing a
+new filter* (typing an expression and pressing Enter, or the reconstruction
+panel's own crop tool — see `cropBtn`, [§2](#render)) is refused with a
+logged message while a session is active: a committed filter restricts
+`renderLocs` to a one-time snapshot that is never re-applied as later
+chunks arrive, which would otherwise silently freeze the visible
+reconstruction while the real, growing dataset kept moving underneath it.
+**Reset** (typing `reset`) always stays available, since clearing is never
+harmful. Stop the session first to filter/crop normally.
+
 ---
 
 ## 3 · Parameters (`PARAMS` registry)
@@ -1364,14 +1379,18 @@ reconstruction. The trade-off is visible single-sample grain that only
 resolves into a smooth shape once many localizations overlap — on a sparse
 dataset a single jittered dot doesn't converge to anything and looks like
 noise rather than the soft blob `precision` still renders correctly there,
-which is why `dither` isn't the default. It IS used automatically —
-regardless of this setting — for **Live streaming**'s own repeating cadence
-render (see [§8](#live-streaming)), since that
-render repeats for the life of a streaming session and speed matters more
-there than any single render's grain; the final render on Stop still honours
-whatever `renderMode` is actually selected here. The random offsets are
-seeded (not `Math.random()`), so the same localizations always dither
-identically — panning/zooming or reopening the same dataset doesn't flicker.
+which is why `dither` isn't the default — including for **Live streaming**'s
+own repeating cadence render (see [§8](#live-streaming)): an early version
+of this feature forced that specific render to `dither` regardless of this
+setting, on the reasoning that it repeats for the life of a session and
+speed matters more there than any single render's grain — reverted after
+testing, since a session looks grainy for as long as it stays small, which
+is exactly the part of a live acquisition a user watches most closely.
+`renderMode` is fully respected everywhere, including mid-session — switch
+to `dither` by hand once a stream has grown large/dense enough that render
+speed matters more than per-render grain. The random offsets are seeded
+(not `Math.random()`), so the same localizations always dither identically
+— panning/zooming or reopening the same dataset doesn't flicker.
 
 `hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
