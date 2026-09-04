@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.0-dev build 2026-09-04b; may drift
+  MODULE INDEX — line numbers as of v0.12.0-dev build 2026-09-04c; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2411   PARAMS registry, single source of truth for params;
+    params          2413   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3129   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3131   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3428   synthetic stack generator ("Simulate movie")
-    detect          4306   per-frame band-pass + local-maxima detection
-    fit             4583   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3430   synthetic stack generator ("Simulate movie")
+    detect          4308   per-frame band-pass + local-maxima detection
+    fit             4585   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -45,7 +45,7 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          5092   accumulate to offscreen buffer; view/colour/blur;
+    render          5094   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -67,20 +67,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6387   frame-parallel detect/fit worker pool; dedicated
+    workers         6389   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6693   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6985   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6695   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6987   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7402   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7404   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -90,16 +90,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7908   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7910   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8617   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8619   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9087   single particle tracking, trackpy-inspired;
+    spt             9089   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +130,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10588  top-level orchestration, *Core()/wrapper split;
+    pipeline        10590  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11209  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11211  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -182,18 +182,21 @@
                            initScrub()'s own narrower .active-only check is
                            intentionally different (a fresh stack load must
                            always reclaim the panel, even from a stopped
-                           session's leftover scrub-back history);
-                           liveStreamDisconnectBtn's click handler now calls
-                           endLiveStreamingSession() directly instead of
-                           relying on the 'close' event's liveStreamWs===ws
-                           guard, which was always false on an explicit
-                           Disconnect click (resetButtons() nulls liveStreamWs
-                           before ws.close() fires it) — Save data/View data
-                           silently never re-enabled after Disconnect, a real
-                           bug found on real openframe-rig testing (PR #8)
-    table           13140  localizations table, filtering, histograms;
+                           session's leftover scrub-back history); the
+                           top-level Stop button is the single control that
+                           ends a session from either path (closing the
+                           WebSocket first if one's open) — the sidebar's own
+                           Disconnect button was folded into it and removed,
+                           since Stop covers everything it did and also
+                           works for the bridge-push path, which has no
+                           Connect/Disconnect of its own; periodic render
+                           cadence is adaptive/time-based (srPreviewMs/
+                           srPreviewMaxMs, MODULE: pipeline), the same
+                           mechanism a normal Localize run's own live preview
+                           uses, not a manual "Render every N frames" setting
+    table           13125  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13727  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13712  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1885,7 +1888,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-04b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-04c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1979,9 +1982,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <hr class="sep" style="margin:10px 0 8px">
         <div style="font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px">Live streaming</div>
         <label class="row" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" style="width:150px"></label>
-        <div class="btnrow" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
-          <button id="liveStreamConnectBtn" title="Connect this tab to a WebSocket bridge server (e.g. tools/test_livestream_demo.py) at the URL above to start receiving live frame chunks — streaming runs for as long as the connection stays open, no separate start/stop step needed.">Connect</button>
-          <button id="liveStreamDisconnectBtn" disabled title="Close the WebSocket connection — also ends the streaming session, leaving the reconstruction on screen as-is">Disconnect</button>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="liveStreamConnectBtn" title="Connect this tab to a WebSocket bridge server (e.g. tools/test_livestream_demo.py) at the URL above to start receiving live frame chunks — streaming runs for as long as the connection stays open, no separate start/stop step needed. The top-level Stop button ends a session started this way too (closing the connection first).">Connect</button>
           <button id="liveStreamClearBtn" disabled title="Discard every localization/frame accumulated so far and restart the reconstruction from empty — the connection/session itself keeps running, so new chunks keep arriving without reconnecting.">Clear</button>
         </div>
         <div id="liveStreamStatus" style="margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
@@ -1989,10 +1991,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-liveStreaming"><span class="pill">module: liveStreaming</span>
           <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
           <ul>
-          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment; <b>Disconnect</b> (or the connection dropping unexpectedly) ends it, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session without disconnecting.</li>
-          <li><b>tools/webSMLM-livestream-bridge.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.liveStream.pushChunk()</code>. This path never touches Connect/Disconnect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.liveStream.end()</code> ends it.</li>
+          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment. The connection dropping unexpectedly also ends the session, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session, leaving the connection itself open.</li>
+          <li><b>tools/webSMLM-livestream-bridge.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.liveStream.pushChunk()</code>. This path never touches Connect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.liveStream.end()</code> ends it.</li>
           </ul>
-          <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) also ends an active streaming session, from either path — closing the WebSocket first if one is open, exactly like <b>Disconnect</b> — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect/Disconnect of its own to click.</p>
+          <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) is the one control that ends an active streaming session from either path — closing the WebSocket first if one is open — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect of its own to click. (An earlier version of this sidebar had a separate Disconnect button; folded into Stop and removed, since Stop does everything it did and also covers the bridge path.)</p>
           <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. That repaint (and milestone line) is throttled adaptively by elapsed time, not a frame count — frequent while cheap, self-throttling once the growing dataset makes a render expensive — the same mechanism a normal Localize run's own live preview uses.</p>
           <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (Memory &amp; streaming section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
           <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
@@ -11336,12 +11338,13 @@ function startLiveStreamingSession(){
                lastSrMs:-Infinity, previewInterval:paramValue('srPreviewMs')};
   $('liveStreamClearBtn').disabled=false;
   // Previously never enabled at all for a streaming session (only the
-  // regular Localize/drift/calibration wrappers touched it) — a session had
-  // NO in-page way to stop the bridge-push path (no Connect/Disconnect of
-  // its own) and, on the WebSocket path, only the separate Disconnect
-  // button worked (reported). stopBtn's own click handler now checks for an
-  // active streaming session first (see its listener below) and ends it the
-  // same way Disconnect does.
+  // regular Localize/drift/calibration wrappers touched it), leaving the
+  // bridge-push path (no Connect/Disconnect of its own) with no in-page way
+  // to stop at all (reported). stopBtn's own click handler now checks for
+  // an active streaming session first (see its listener below) and ends it
+  // — the sidebar's own Disconnect button, which used to be the only
+  // working control for the WebSocket path, was folded into this and
+  // removed.
   $('stopBtn').disabled=false;
   // renderSuperRes() runs its full Gaussian-blur pass on a dedicated
   // Worker+OffscreenCanvas (MODULE: workers, getRenderWorker()) when
@@ -11579,7 +11582,6 @@ function liveStreamWsConnect(){
   // history accumulated so far the way a second startLiveStreamingSession() call
   // would.
   ws.addEventListener('open', ()=>{
-    $('liveStreamDisconnectBtn').disabled=false;
     log(`Live streaming: connected to ${url}.`);
     if(!liveStreamState || !liveStreamState.active) startLiveStreamingSession();
   });
@@ -11613,36 +11615,26 @@ function liveStreamWsConnect(){
       if(liveStreamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'ack', framesReceived:liveStreamState.frameOffset, chunkCount:liveStreamState.chunkCount, ok}));
     });
   });
-  // Disconnect implies "stop streaming" too, same reasoning as Connect
-  // arming it — covers both an explicit Disconnect click and an unexpected
-  // drop (server closed, network hiccup) uniformly, since both end up here.
-  // Guarded on liveStreamWs===ws (not just resetButtons() above) — ws.close()
-  // fires 'close' ASYNCHRONOUSLY, so Disconnect (resets buttons/liveStreamWs
-  // immediately, then calls ws.close()) followed by a fast reconnect can
-  // leave this OLD socket's 'close' event arriving after a NEW ws2 is
-  // already liveStreamWs. Without the guard, endLiveStreamingSession() ran
-  // unconditionally and would end the brand-new session that ws2 just
-  // started — same race class as the wsQueue fix above, just on the other
-  // end of the connection's lifecycle.
+  // A dropped connection implies "stop streaming" too, same reasoning as
+  // Connect arming it — covers both stopBtn's own explicit close (below)
+  // and an unexpected drop (server closed, network hiccup) uniformly, since
+  // both end up here. Guarded on liveStreamWs===ws (not just
+  // resetButtons() above) — ws.close() fires 'close' ASYNCHRONOUSLY, so an
+  // explicit Stop click (resets buttons/liveStreamWs immediately, then
+  // calls ws.close()) followed by a fast reconnect can leave this OLD
+  // socket's 'close' event arriving after a NEW ws2 is already liveStreamWs.
+  // Without the guard, endLiveStreamingSession() ran unconditionally and
+  // would end the brand-new session that ws2 just started — same race class
+  // as the wsQueue fix above, just on the other end of the connection's
+  // lifecycle.
   ws.addEventListener('close', ()=>{ log('Live streaming: WebSocket connection closed.'); if(liveStreamWs===ws){ liveStreamWsResetButtons(); endLiveStreamingSession(); } });
   ws.addEventListener('error', ()=>{ log(`Live streaming: WebSocket error connecting to ${url} — is the local bridge server running?`); });
 }
 function liveStreamWsResetButtons(){
   liveStreamWs=null;
-  $('liveStreamConnectBtn').disabled=false; $('liveStreamWsUrl').disabled=false; $('liveStreamDisconnectBtn').disabled=true;
+  $('liveStreamConnectBtn').disabled=false; $('liveStreamWsUrl').disabled=false;
 }
 $('liveStreamConnectBtn').addEventListener('click', liveStreamWsConnect);
-// Ends the session HERE, synchronously, rather than relying on the 'close'
-// handler above — that handler's liveStreamWs===ws guard exists for the
-// reconnect race (an OLD socket's close arriving after a fast new Connect),
-// but resetButtons() already nulls liveStreamWs before ws.close() fires the
-// close event, so on an explicit Disconnect click the guard was always
-// false and endLiveStreamingSession() silently never ran — a real, reported
-// bug (Save data/table never re-enabled after Disconnect). Calling it here
-// makes the explicit click authoritative; the close event's own call is a
-// harmless no-op afterward (endLiveStreamingSession() early-returns once
-// liveStreamState.active is already false).
-$('liveStreamDisconnectBtn').addEventListener('click', ()=>{ if(liveStreamWs){ const ws=liveStreamWs; liveStreamWsResetButtons(); endLiveStreamingSession(); ws.close(); } });
 
 function endLiveStreamingSession(){
   if(!liveStreamState || !liveStreamState.active) return;
@@ -11653,15 +11645,11 @@ function endLiveStreamingSession(){
   // gates pushChunk()/isActive() now, not liveStreamState's own nullness.
   liveStreamState.active=false;
   if(liveStreamState.idleTimer){ clearTimeout(liveStreamState.idleTimer); liveStreamState.idleTimer=null; }
-  // stopBtn is enabled the moment a session arms (startLiveStreamingSession())
-  // and — before this — was never disabled again except by its OWN click
-  // handler, which (before that handler learned about streaming, see below)
-  // did nothing useful for a streaming session: it stayed visually enabled,
-  // inviting a click that was a silent no-op, for as long as the session
-  // ran, and stayed enabled even after ending it via Disconnect or an
-  // external end() call. This is the single choke point every "session just
-  // ended" path already runs through (Stop, Disconnect, external end()), so
-  // resetting it here keeps it correct regardless of which one fired.
+  // stopBtn is enabled the moment a session arms (startLiveStreamingSession());
+  // this is the single choke point every "session just ended" path already
+  // runs through (an explicit Stop click, the WebSocket 'close' handler, or
+  // an external liveStream.end() call), so resetting it here keeps it
+  // correct regardless of which one fired.
   $('stopBtn').disabled=true;
   $('liveStreamStatus').textContent='Not streaming.';
   // #liveStreamScrubRow deliberately stays showing (and #scrubRow stays hidden) — it now sits in
@@ -12425,19 +12413,16 @@ $('exportLogBtn').addEventListener('click',async()=>{
 });
 $('stopBtn').addEventListener('click',()=>{
   if($('stopBtn').disabled) return;
-  // A live streaming session enables this SAME button (startLiveStreamingSession())
-  // but previously gave it no real effect there — stopRequested is only ever
-  // read by runCore()/driftCore()/calibrationCore()'s own shouldStop() hooks,
-  // none of which a streaming chunk's runCore() call is given (MODULE:
-  // liveStreaming), so clicking Stop during a session logged "Stopping…" and
-  // disabled itself without actually stopping anything (reported) — the
-  // WebSocket path had its own separate Disconnect button that worked, but
-  // the external-bridge path had no in-page stop control at all. Checked
-  // first and handled the same way Disconnect already does (close the
-  // WebSocket if one is open — an open connection's next incoming message
-  // would otherwise silently re-arm the session, see liveStreamPushChunkFile()'s
-  // own "no separate Start/Stop step" design — then end the session itself),
-  // so Stop now works uniformly regardless of which path fed the session.
+  // A live streaming session enables this SAME button (startLiveStreamingSession()) —
+  // checked first so Stop ends a session uniformly regardless of which path
+  // fed it (WebSocket Connect, or the external-bridge pushChunk() path,
+  // which has no other in-page stop control at all): close the WebSocket if
+  // one is open (an open connection's next incoming message would otherwise
+  // silently re-arm the session, see liveStreamPushChunkFile()'s own "no
+  // separate Start/Stop step" design), then end the session itself.
+  // stopRequested (below) is unrelated — only read by runCore()/driftCore()/
+  // calibrationCore()'s own shouldStop() hooks, none of which a streaming
+  // chunk's runCore() call is given (MODULE: liveStreaming).
   if(liveStreamState && liveStreamState.active){
     if(liveStreamWs){ const ws=liveStreamWs; liveStreamWsResetButtons(); ws.close(); }
     endLiveStreamingSession();   // also disables stopBtn itself
@@ -13017,18 +13002,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.0-dev · build 2026-09-04b — two more Live streaming
-fixes/simplifications (both suggested, both verified via real Playwright
-chunk pushes): the top-level Stop button now actually ends an active
-streaming session (closing the WebSocket first if one is open) — it was
-enabled by other code paths but never wired for streaming at all before
-now, so clicking it did nothing for a session, and the bridge-push path
-(no Connect/Disconnect of its own) had no in-page way to stop at all.
-The periodic reconstruction render is now adaptively time-based
-(srPreviewMs/srPreviewMaxMs, the same mechanism a normal Localize run's
-own live preview uses) instead of a manual "Render every N frames"
-setting, which behaved inconsistently depending on external chunk size a
-bridge controls, not this app — that setting/PARAMS entry is removed.
+log(`webSMLM v0.12.0-dev · build 2026-09-04c — removed the sidebar's
+Disconnect button (reported it was still showing up even though Stop now
+covers everything it did): Connect/Clear are the only two buttons left in
+that row, back to the standard two-column button width. Stop remains the
+one control that ends a WebSocket-driven session too (closes the
+connection, then ends the session) — verified via a real WebSocket
+Connect + Stop click against tools/test_livestream_demo.py's own server.
 Still under review; not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

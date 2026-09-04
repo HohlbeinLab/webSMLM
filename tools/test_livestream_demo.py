@@ -22,8 +22,9 @@ Usage:
 Wire format: each chunk is sent as one WebSocket BINARY message (raw TIFF
 bytes) — no extra framing needed, since WebSocket already frames messages
 for us. A final `{"cmd":"stop"}` TEXT message finalizes the streaming
-session on the page (same as clicking "Disconnect" there, but WITHOUT
-closing the connection or your tab). webSMLM talks back over the same
+session on the page (the same session-ending call clicking "Stop" there
+uses, but WITHOUT closing the connection or your tab — so this script can
+still receive the final stopAck below). webSMLM talks back over the same
 connection: `{"cmd":"ack","framesReceived":N,"chunkCount":C,"ok":bool}`
 after every chunk it processes (ok=false if that chunk failed to decode/
 localize — framesReceived then stays unchanged from the previous ack), and
