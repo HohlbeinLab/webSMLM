@@ -661,15 +661,21 @@ composite via `averageFrames()`, runs `detectSpots()` once on that
 composite, and fits each detected maximum via `gaussianFitElliptical()` —
 byte-for-byte the same "average, then detect once" approach
 `locateBeadsForCalib()` (3D calibration module) already implements, not a
-reimplementation. Deliberately a manual button rather than
-`locateBeadsForCalib()`'s own auto-rerun-on-settings-change behaviour,
-since averaging real emitter data (not a bead z-stack) is a slower,
-more deliberate step a user is expected to trigger explicitly. Results
-land in `smfretSOI` (`{x,y}` per site) and are shown the same way a bead
-composite is: the composite image fills the reconstruction (right) panel
-as `srFull`, with `srSpots`/`srLocs` driving the ROI-box/fit-crosshair
-overlay (`drawSpotOverlays()`, MODULE: render) — a reference view, not a
-real per-localization reconstruction (`setSrRecon(false)`).
+reimplementation. The FIRST run is a manual button click; once an SOI
+composite is showing, changing **Average frames** or any detection/fit
+setting that would affect it (Threshold, σ_PSF, Window radius, detection
+filter/its own threshold field, Exact ±3σ box) re-runs it automatically —
+the same "always reflects the current settings" convention
+`locateBeadsForCalib()`'s own listeners use, gated on `smfretSOI!==null`
+instead of a checkbox (smFRET has no separate on/off toggle). Real SOI
+signals are commonly faint, so this live feedback matters in practice —
+finding them at all often needs the threshold hand-tuned down from
+whatever a bright, well-separated dataset's default would suggest.
+Results land in `smfretSOI` (`{x,y}` per site) and are shown the same way
+a bead composite is: the composite image fills the reconstruction (right)
+panel as `srFull`, with `srSpots`/`srLocs` driving the ROI-box/fit-
+crosshair overlay (`drawSpotOverlays()`, MODULE: render) — a reference
+view, not a real per-localization reconstruction (`setSrRecon(false)`).
 **Average frames** is clamped to the loaded movie's own frame count at
 use (`Math.min(stack.n,...)`), the same convention `calFirst`/`calLast`
 already use, rather than a dynamic HTML `max` attribute.
@@ -1684,6 +1690,7 @@ for the first implementation.
 <!-- HINT:smfret -->
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
 <p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
+<p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try.</p>
 <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 

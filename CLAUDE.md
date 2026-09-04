@@ -604,10 +604,12 @@ relevant one before editing rather than scrolling:
   `gaussianFitElliptical()` chain verbatim — averages the first `smfretAvgFrames` frames (clamped to
   the stack's own length, `Math.min(stack.n,...)`) into one composite, detects once, fits each
   maximum, same "average, then detect once" reasoning `locateBeadsForCalib()` already uses (real
-  molecule positions stay bright across an average the way transient noise doesn't). A manual
-  button, not `locateBeadsForCalib()`'s own auto-rerun-on-change — real emitter averaging is a
-  slower, more deliberate step than re-locating a handful of calibration beads. Results
-  (`smfretSOI`, `{x,y}` per site) display the same way a bead composite does: `srFull`/`srSpots`/
+  molecule positions stay bright across an average the way transient noise doesn't). The FIRST run
+  is a manual button click; once `smfretSOI!==null` (a composite is already showing), changing
+  `smfretAvgFrames` or any detection/fit field also wired to `locateBeadsForCalib()`'s own listeners
+  re-runs it automatically too — real SOI signals are commonly faint, so hand-tuning the threshold
+  with live feedback matters here in practice, unlike a bright/well-separated bead calibration.
+  Results (`smfretSOI`, `{x,y}` per site) display the same way a bead composite does: `srFull`/`srSpots`/
   `srLocs` in the reconstruction (right) panel, `setSrRecon(false)` (reference view, not a real
   reconstruction). Not yet its own `MODULE:` banner — lives at the sSMLM/spt physical boundary,
   small enough for now; promote it once it grows (matching **liveStreaming**'s own precedent).

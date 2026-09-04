@@ -99,7 +99,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9124   single particle tracking, trackpy-inspired;
+    spt             9134   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +130,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10625  top-level orchestration, *Core()/wrapper split;
+    pipeline        10635  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11246  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11256  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -193,9 +193,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13104  localizations table, filtering, histograms;
+    table           13120  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13689  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13705  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1887,7 +1887,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-04b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-04c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2308,6 +2308,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
           <p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
+          <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -9129,6 +9130,15 @@ async function locateSmfretSOI(){
   }catch(err){ log(`⚠ Localise SOI failed: ${err.name}: ${err.message}`); }
 }
 $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
+// Many SOI signals are faint, so the threshold/σ_PSF/window etc. often need
+// hand-tuning to find them at all — re-run automatically once an SOI
+// composite is already showing, same "reflects the current settings without
+// a separate manual step" convention locateBeadsForCalib()'s own listeners
+// (search calFixedXY below) use, gated on smfretSOI!==null instead of a
+// checkbox (smFRET has no on/off toggle, just the button).
+['smfretAvgFrames','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
+  $(id).addEventListener('change',()=>{ if(stack && smfretSOI!==null) locateSmfretSOI(); });
+});
 
 /* ===========================================================================
    MODULE: spt — single particle tracking. Links per-frame localizations into
@@ -12051,7 +12061,8 @@ function initScrub(){
     setFrameAspect(stack.w, stack.h);
     calFixedPts=null; _projCache=null;      // a new stack invalidates any previously fixed positions/projection
     $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
-    const st=$('calLocateStatus'); if(st) st.style.display='none'; }
+    const st=$('calLocateStatus'); if(st) st.style.display='none';
+    smfretSOI=null; }                       // same reasoning — SOI positions are scoped to one loaded stack, not sticky
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
@@ -12992,11 +13003,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-04b — new smFRET (experimental)
-sidebar module: v1 is "sites of interest" (SOI) detection only —
-Localise SOI averages the first N frames into one composite, detects and
-fits real emitter positions on it once, same "Fix bead x,y" approach 3D
-calibration already uses. Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-04c — smFRET's Localise SOI now
+live-updates: once a composite is showing, changing Average frames or any
+detection/fit setting (Threshold, σ_PSF, Window radius, filter) re-runs
+it automatically, no re-click needed — real SOI signals are commonly
+faint, so this matters for hand-tuning the threshold down until they
+actually show up (verified: 248 → 2358 sites found after only lowering
+Threshold, no button click). Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
