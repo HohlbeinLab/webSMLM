@@ -97,14 +97,13 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     only) — one movie, the existing detect/fit pipeline, `pairCore()`'s existing pairing, all
     already built and tested. Likely the cheapest real path to a working v1 prototype, ahead of the
     harder image-splitter/two-camera cases that need genuinely new loading code first.
-  - **"Determine positions of interest" = the existing "Fix bead x,y" pattern.** Averaging a
-    user-selected frame range into one stable composite, detecting once, and fitting each detected
-    maximum is already implemented (`averageFrames()`/`locateBeadsForCalib()`, 3D calibration
-    module) for exactly the same reason it's needed here: real blinking/bleaching between frames
-    makes per-frame detection jump around, so localise once from a stable average instead. The only
-    new piece is letting the user pick WHICH frames feed that average — DD, DA, or DD+DA (and, if
-    ALEX is on, scoping to donor-excitation frames only, vs. also including AA/acceptor-excitation
-    frames) — rather than always the whole loaded range.
+  - **"Determine positions of interest" — v1 shipped** (new `smFRET` sidebar module, **Localise
+    SOI**): averages the first N frames into one stable composite, detects once, fits each detected
+    maximum — the exact "Fix bead x,y" pattern this note originally proposed, reusing
+    `averageFrames()`/`detectSpots()`/`gaussianFitElliptical()` directly rather than a
+    reimplementation. Still open: letting the user pick WHICH frames feed that average — DD, DA, or
+    DD+DA (and, if ALEX is on, scoping to donor-excitation frames only, vs. also including
+    AA/acceptor-excitation frames) — v1 only ever averages from frame 1, no frame-role selection yet.
   - **Linking a DD candidate to its DA partner = sSMLM's own pairing.** `pairCore()`'s directional
     distance+bearing-angle matching (built for 0th/1st-order diffraction-grating pairs) assumes a
     roughly CONSTANT offset vector between two related spots — exactly what a well-aligned dual-view

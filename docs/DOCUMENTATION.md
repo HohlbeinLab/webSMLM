@@ -641,6 +641,45 @@ button works on them directly — no separate table for sSMLM. **Headless**
 (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before
 drift/NeNA/FRC — see §8.
 
+### smFRET (experimental) (`smFRET`) {#smfret}
+
+Single-molecule FRET (donor/acceptor pair analysis) — new, **experimental**,
+and still v1: only "sites of interest" (SOI) detection so far, the first
+step of the broader smFRET/ALEX integration sketched in
+`docs/REFACTOR_PLAN.md` ("Determine positions of interest = the existing
+'Fix bead x,y' pattern"). Not squeezed into the sSMLM or 3D calibration
+modules — a genuinely different optical setup from sSMLM's own diffraction-
+grating 0th/1st-order pairs (real data motivating this: a prism +
+polychroic beam-splitter splitting the emission spectrum, giving a pair
+that is NOT a 0th/1st order in sSMLM's sense) and a different purpose from
+3D calibration's own bead-position fixing, even though **Localise SOI**
+reuses the exact same underlying mechanism.
+
+**Localise SOI** (`locateSmfretSOI()`) averages the first **Average
+frames** frames (from frame 1) of the loaded movie into one stable
+composite via `averageFrames()`, runs `detectSpots()` once on that
+composite, and fits each detected maximum via `gaussianFitElliptical()` —
+byte-for-byte the same "average, then detect once" approach
+`locateBeadsForCalib()` (3D calibration module) already implements, not a
+reimplementation. Deliberately a manual button rather than
+`locateBeadsForCalib()`'s own auto-rerun-on-settings-change behaviour,
+since averaging real emitter data (not a bead z-stack) is a slower,
+more deliberate step a user is expected to trigger explicitly. Results
+land in `smfretSOI` (`{x,y}` per site) and are shown the same way a bead
+composite is: the composite image fills the reconstruction (right) panel
+as `srFull`, with `srSpots`/`srLocs` driving the ROI-box/fit-crosshair
+overlay (`drawSpotOverlays()`, MODULE: render) — a reference view, not a
+real per-localization reconstruction (`setSrRecon(false)`).
+**Average frames** is clamped to the loaded movie's own frame count at
+use (`Math.min(stack.n,...)`), the same convention `calFirst`/`calLast`
+already use, rather than a dynamic HTML `max` attribute.
+
+Not yet implemented (see `docs/REFACTOR_PLAN.md` for the full sketch):
+per-frame DD/DA/(AA) trace extraction at each SOI's fixed position (the
+3D calibration module's own "fit amplitude/σ at a fixed x,y per frame"
+machinery, reused the same way); pairing an SOI's donor candidate to its
+acceptor partner; E_raw/S_raw computation; ALEX frame-role bookkeeping.
+
 ### Single particle tracking (`spt`) {#spt}
 
 Links per-frame
@@ -1626,6 +1665,27 @@ then commit with **Pair**. See
 [§2](#2-module-reference)'s **sSMLM** entry for the full pairing algorithm
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
+
+### smFRET settings (`smFRET`) {#smfret-params}
+
+**Experimental** — see [§2](#smfret) for the full write-up (v1 scope, what
+`Localise SOI` reuses from 3D calibration, what's not implemented yet).
+
+*Module:* **smFRET** — see [§2](#smfret).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `smfretAvgFrames` | Average frames | number (int) | 1 | 100000 | 10 | 100 |
+
+**In-app "more info…" popup** (`hint-smfret` in `webSMLM.html`; synced by
+`tools/sync_hints.mjs` — edit here, then run the script, never edit the
+`.hint` div directly):
+
+<!-- HINT:smfret -->
+<p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
+<p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
+<p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
+<!-- /HINT:smfret -->
 
 ### Single particle tracking (`spt`) {#spt-params}
 

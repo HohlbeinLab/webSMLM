@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2412   PARAMS registry, single source of truth for params;
+    params          2427   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3117   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3140   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3416   synthetic stack generator ("Simulate movie")
-    detect          4294   per-frame band-pass + local-maxima detection
-    fit             4571   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3439   synthetic stack generator ("Simulate movie")
+    detect          4317   per-frame band-pass + local-maxima detection
+    fit             4594   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -45,7 +45,7 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          5080   accumulate to offscreen buffer; view/colour/blur;
+    render          5103   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -67,20 +67,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6357   frame-parallel detect/fit worker pool; dedicated
+    workers         6380   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6663   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6955   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6686   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6978   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7372   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7395   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -90,16 +90,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7878   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7901   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8587   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8610   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9057   single particle tracking, trackpy-inspired;
+    spt             9124   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +130,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10558  top-level orchestration, *Core()/wrapper split;
+    pipeline        10625  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11179  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11246  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -193,9 +193,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13038  localizations table, filtering, histograms;
+    table           13104  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13623  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13689  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1887,7 +1887,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-04a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-04b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2297,6 +2297,20 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
         </div>
       </details>
+      <details class="sim" id="smfretBox">
+        <summary>smFRET (experimental)</summary>
+        <label class="row">Average frames
+          <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="smfretLocateBtn" type="button" disabled style="grid-column:2" title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localise SOI</button>
+        </div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
+          <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
+          <p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
+          <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
+        </div>
+      </details>
       <details class="sim" id="sptBox">
         <summary>Single particle tracking</summary>
         <label class="row">Apply segmentation? <input type="checkbox" id="applySegmentation"></label>
@@ -2629,6 +2643,14 @@ const PARAMS = {
   // data (much better than brightness's ~50%, but still imperfect), hence
   // optional and off by default rather than a hard requirement.
   sSmlmRequireNarrower: { type:'bool', id:'sSmlmRequireNarrower', label:'Require narrower 0th order (σ)', default:false },
+
+  // ---- smFRET (experimental) — see docs/REFACTOR_PLAN.md's own smFRET/ALEX
+  // integration sketch. v1 is "sites of interest" (SOI) detection only:
+  // smfretAvgFrames = how many frames, from frame 1, to average into one
+  // composite before detecting real emitter positions on it — clamped to
+  // the loaded stack's own length at use (Math.min(stack.n,...), the same
+  // convention calFirst/calLast already use, not a dynamic max attribute). ----
+  smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average frames', min:1, max:100000, step:10, default:100, int:true },
 
   // ---- spt (single particle tracking) ----
   // Defaults ported from the user's own sptPALM-Python pipeline's
@@ -9064,6 +9086,50 @@ $('sSmlmDistMax').addEventListener('change',refreshSSmlmHistIfShown);
 $('sSmlmAngleCenter').addEventListener('change',refreshSSmlmHistIfShown);
 $('sSmlmAngleTol').addEventListener('change',refreshSSmlmHistIfShown);
 
+// smFRET (experimental) — v1 is "sites of interest" (SOI) detection only,
+// per docs/REFACTOR_PLAN.md's own smFRET/ALEX integration sketch ("Determine
+// positions of interest = the existing 'Fix bead x,y' pattern"). Not yet its
+// own MODULE: banner — small enough to live at the sSMLM/spt boundary for
+// now; promote it once it grows, matching liveStreaming's own precedent.
+let smfretSOI=null;   // fitted {x,y} site-of-interest positions from Localise SOI
+// Averages the first N frames (Average frames, smfretAvgFrames) into one
+// composite, detects real emitter positions on it once, and fits each — same
+// "average, then detect once" approach 3D calibration's own locateBeadsForCalib()
+// uses (reuses averageFrames()/detectSpots()/gaussianFitElliptical() directly,
+// not a reimplementation), triggered by an explicit button here rather than
+// auto-rerunning on every settings change.
+async function locateSmfretSOI(){
+  if(!stack) return;
+  const n=Math.min(stack.n, Math.max(1, +$('smfretAvgFrames').value|0));
+  const {w,h}=stack, sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1,
+        exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter'), border=(win-1)/2+1;
+  try{
+    const r=await averageFrames(stack, 0, n, paramValue('stackProjCap'));
+    if(!r) return;                                  // stack changed underneath us
+    const {img:proj,used}=r;
+    const {maxima}=detectSpots(proj,w,h,sigma,exactBP,mode,k,border);
+    const fitted=[];
+    for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma); if(L) fitted.push({x:L.x,y:L.y}); }
+    smfretSOI=fitted;
+    // Same composite-canvas + ROI/crosshair-overlay display locateBeadsForCalib()
+    // uses (srSpots/srLocs, MODULE: render) — a reference view in the SR (right)
+    // panel, not a real reconstruction.
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    const cctx=cv.getContext('2d'), im=cctx.createImageData(w,h);
+    let mn=Infinity,mx=-Infinity; for(const v of proj){ if(v<mn)mn=v; if(v>mx)mx=v; }
+    for(let idx=0;idx<proj.length;idx++){ const t=mx>mn?(proj[idx]-mn)/(mx-mn):0, g=t*255;
+      im.data[idx*4]=g; im.data[idx*4+1]=g; im.data[idx*4+2]=g; im.data[idx*4+3]=255; }
+    cctx.putImageData(im,0,0);
+    srFull=cv; srIsPlot=false; srSpots=maxima; srLocs=fitted; setSrRecon(false);
+    fitView(); clampView(); drawView();
+    $('srTitle').textContent='SOI composite';
+    $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
+    syncSaveImg();
+    log(`smFRET: Localise SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest.`);
+  }catch(err){ log(`⚠ Localise SOI failed: ${err.name}: ${err.message}`); }
+}
+$('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
+
 /* ===========================================================================
    MODULE: spt — single particle tracking. Links per-frame localizations into
    trajectories and computes a per-track diffusion coefficient. A trackpy-
@@ -11791,7 +11857,7 @@ async function showStackProjection(){
 }
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
@@ -11806,7 +11872,7 @@ $('genBtn').addEventListener('click',async()=>{
     await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
     log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
@@ -11822,7 +11888,7 @@ $('genBtn').addEventListener('click',async()=>{
 async function loadMovieFiles(fs){
   if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -11859,7 +11925,7 @@ async function loadMovieFiles(fs){
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false;
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
   }catch(err){ log('TIFF load failed: '+err.message); }
 }
@@ -12926,8 +12992,11 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-04a — new dev cycle after v0.12.0.
-Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-04b — new smFRET (experimental)
+sidebar module: v1 is "sites of interest" (SOI) detection only —
+Localise SOI averages the first N frames into one composite, detects and
+fits real emitter positions on it once, same "Fix bead x,y" approach 3D
+calibration already uses. Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

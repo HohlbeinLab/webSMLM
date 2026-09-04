@@ -596,6 +596,25 @@ relevant one before editing rather than scrolling:
   and the result's `sSmlmPair` field records `nPairs`/`nInput`/`meanDistance`/`stdDistance`.
   `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and `?autorun=`'s `sSmlmPair=1` both forward to it.
 
+- **smFRET** (v0.12.1-dev) — Marked **experimental**, v1 only: "sites of interest" (SOI) detection,
+  the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX integration sketch. Not squeezed into
+  sSMLM (a genuinely different optical setup motivating this — a prism + polychroic beam-splitter,
+  not sSMLM's own diffraction grating) or 3D calibration, though **Localise SOI**
+  (`locateSmfretSOI()`) reuses that module's own `averageFrames()`/`detectSpots()`/
+  `gaussianFitElliptical()` chain verbatim — averages the first `smfretAvgFrames` frames (clamped to
+  the stack's own length, `Math.min(stack.n,...)`) into one composite, detects once, fits each
+  maximum, same "average, then detect once" reasoning `locateBeadsForCalib()` already uses (real
+  molecule positions stay bright across an average the way transient noise doesn't). A manual
+  button, not `locateBeadsForCalib()`'s own auto-rerun-on-change — real emitter averaging is a
+  slower, more deliberate step than re-locating a handful of calibration beads. Results
+  (`smfretSOI`, `{x,y}` per site) display the same way a bead composite does: `srFull`/`srSpots`/
+  `srLocs` in the reconstruction (right) panel, `setSrRecon(false)` (reference view, not a real
+  reconstruction). Not yet its own `MODULE:` banner — lives at the sSMLM/spt physical boundary,
+  small enough for now; promote it once it grows (matching **liveStreaming**'s own precedent).
+  Real motivating dataset: a prism/polychroic-split immobile DNA-FRET sample
+  (`experimental_data/Donor-1b …prisms9393…tif`) — donor-heavy, so most detected SOI likely have
+  little/no acceptor signal; not yet established whether real pairs are even present in it.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
   `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
