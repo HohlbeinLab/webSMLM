@@ -124,7 +124,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     z-scan. **Run smFRET** would do this for every linked position across every frame (bucketed into
     DD/DA/AA by ALEX frame role), building one row per molecule per frame.
   - **Output = the existing streaming-NDJSON precedent**, not a new mechanism — `spt_tracks.ndjson`
-    (`makeRecordEmitter()`, this session) is the same shape of problem (many molecules × many
+    (`makeRecordEmitter()`, v0.11.10) is the same shape of problem (many molecules × many
     frames, too large for `analyze()`'s own return value), so a `smfret_traces.ndjson` stream (one
     record per molecule with its own DD/DA/AA-vs-frame arrays, or one record per molecule-frame —
     TBD) is a natural reuse rather than a new export mechanism. E_raw/S_raw are then trivial derived

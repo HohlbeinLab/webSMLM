@@ -307,6 +307,23 @@ relevant one before editing rather than scrolling:
   `Float32Array`. `Uint16Array` WRAPS silently past 65535 on a naive `+=1`, so the increment is
   guarded explicitly (`if(acc[idx]<65535) acc[idx]++`) with a one-line saturation warning.
 
+  **`renderMode`** (`PARAMS.renderMode`, default `'precision'`) picks how `renderSuperResPixels()`
+  turns locs into pixels: `'precision'` splats each loc as its own bounded (±3σ) Gaussian sized by
+  its real CRLB (`lpx`/`lpy`; `rblur` is the fallback width for a method with none, e.g. phasor) —
+  Picasso's own default convention — with σ additionally capped at `MAX_SPLAT_SIGMA_PX` (6 SR-px)
+  since the ±3σ bound alone doesn't stop σ itself (∝ precision×mag) from growing unbounded for a
+  badly-localized outlier or high mag, which otherwise dominates render cost out of proportion to
+  its share of the dataset (measured on a real 4.2M-loc dataset). `'fixed'` is the original
+  behaviour: bin then apply one uniform blur (`rblur`) to the whole buffer — cost ∝ buffer area, not
+  loc count. `'dither'` is a stochastic alternative to `'precision'` for large/dense datasets:
+  jitters each loc by one seeded draw from N(0, its own σ) and bins — O(1)/loc instead of O(σ²)/loc,
+  10-24x faster on real dense data (Average-Shifted-Histogram/Monte-Carlo-KDE argument: each loc is
+  one sample from its own posterior, converging to the true density once many overlap) — but grainy
+  on sparse data, so not the default. Buffer dtype/allocation (`renderSuperRes()`'s main-thread
+  fallback AND the render worker's own copy) key off `renderMode` too: `Uint16Array` for
+  `'fixed'`/`'dither'` (integer hit count), `Float32Array` for `'precision'` (fractional Gaussian
+  mass); a mode switch must reallocate, never reuse the other dtype.
+
   `setupPlot(cv, isPlot=false)` (shared by every draw function on the raw/sr canvases) letterboxes
   a fixed 4/3 sub-rectangle, centred within the panel's own box, for plots — rather than changing
   the canvas's own size (a CSS-`aspect-ratio` approach was tried first and rejected: CSS Grid
@@ -928,23 +945,34 @@ relevant one before editing rather than scrolling:
   node) via a hidden `#liveStreamChunkInput` file conduit. Either way, each chunk is localized
   independently via `runCore()` (no cross-chunk context, so FTM is unsupported in this mode) and
   appended to a running total, repainting the reconstruction through the same `lastResult`/
-  `rerender()` globals an interactive Localize run already uses. No separate Start/Stop step: a
+  `rerender()` globals an interactive Localize run already uses. No separate Start step: a
   session (`liveStreamState`) arms itself the moment streaming actually begins — Connect, or the
   first pushed chunk — using whatever pxnm/gain/method/etc. the sidebar is set to at that moment.
-  The raw panel gets its own scrubbable frame history (`liveStreamShowRawFrame()`), auto-following
-  the newest frame unless paused by a manual scrub, capped to **Memory budget (GB)** via a ring
-  buffer (`liveStreamState.rawFrames`) since an open-ended acquisition can't keep every raw frame
-  in memory. The periodic cadence render (`liveStreamRenderEvery`) is a real, worker-backed
-  full-quality reconstruction, guarded by `liveStreamState.renderBusy` so a fast chunk stream can't
-  pile up renders faster than the single dedicated render worker can finish them, plus a
-  conservative idle/pause detector and a session's own final render on end so the displayed
-  reconstruction never lags behind `lastResult.locs`. `liveStreamOwnsRawPanel()` is the single
-  shared "does streaming currently own the raw panel" check, used by the Contrast-auto handler and
-  wheel-scrub routing — `initScrub()` deliberately does NOT use it: a fresh stack/CSV load must
-  always reclaim the panel from a stopped session's leftover scrub-back history, a narrower check
-  by design, not an oversight. **Clear localizations** (`liveStreamClearBtn`,
-  `clearLiveStreamingLocalizations()`) resets `allLocs`/`frameOffset`/`rawFrames`/the reconstruction
-  to empty without touching `.active` — chunks keep arriving through the call, no reconnect needed.
+  The top-level **Stop** button is the one control that ends a session either way (closing the
+  WebSocket first if one's open); an earlier separate Disconnect button was folded into it and
+  removed once Stop covered everything it did. The raw panel gets its own scrubbable frame history
+  (`liveStreamShowRawFrame()`), auto-following the newest frame unless paused by a manual scrub,
+  capped to **Memory budget (GB)** via a ring buffer (`liveStreamState.rawFrames`) since an
+  open-ended acquisition can't keep every raw frame in memory. The periodic cadence render is
+  adaptively time-based (`liveStreamState.previewInterval`, seeded from `srPreviewMs`/scaled to
+  ~10x its own measured cost up to `srPreviewMaxMs` — the same mechanism a normal Localize run's
+  live preview uses; a manual "Render every N frames" setting was removed since its effective
+  cadence depended on external chunk size, not anything this app controls), guarded by
+  `liveStreamState.renderBusy` so a fast chunk stream can't pile up renders faster than the single
+  dedicated render worker can finish them, plus a conservative idle/pause detector and a session's
+  own final render on end so the displayed reconstruction never lags behind `lastResult.locs`.
+  `liveStreamOwnsRawPanel()` is the single shared "does streaming currently own the raw panel"
+  check, used by the Contrast-auto handler and wheel-scrub routing — `initScrub()` deliberately does
+  NOT use it: a fresh stack/CSV load must always reclaim the panel from a stopped session's leftover
+  scrub-back history, a narrower check by design, not an oversight. **View data/filtering** (the
+  locs table) is available mid-session too (same "any locs exist" gate as drift/NeNA/FRC) for
+  browsing/sorting/histograms, but committing a NEW filter (or the reconstruction panel's crop
+  tool, same `_tableFilters` mechanism) is refused while streaming — a filter is a one-time
+  snapshot never re-applied to later chunks, so using one mid-stream would silently freeze the
+  displayed reconstruction while `lastResult.locs` kept growing underneath it. **Clear
+  localizations** (`liveStreamClearBtn`, `clearLiveStreamingLocalizations()`) resets `allLocs`/
+  `frameOffset`/`rawFrames`/the reconstruction to empty without touching `.active` — chunks keep
+  arriving through the call, no reconnect needed.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it

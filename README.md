@@ -59,6 +59,29 @@ in-app, plus acknowledgements and licence.
    **Single particle tracking** links per-frame localizations into
    trajectories and estimates diffusion coefficients.
 
+## Live streaming
+
+For real-time acquisition rather than a saved file: an external process pushes
+frame chunks in as they're acquired, each localized and rendered into the
+reconstruction live, with no full stack ever loaded upfront. Two ways in:
+
+- **WebSocket** — hook into a tab you already have open, in any browser. A
+  local script (`tools/test_livestream_demo.py`) opens a WebSocket server;
+  the page only ever connects *out* to it, opt-in, when you click **Connect**
+  in the sidebar's **Memory & streaming** section — webSMLM never listens for
+  incoming connections itself.
+- **`tools/webSMLM-livestream-bridge.mjs`** — a fully automated/headless
+  session (e.g. a Micro-Manager/pycromanager acquisition via a Gladoscopy RT
+  node): a Playwright-driven bridge launches its own browser and feeds chunks
+  in via `window.webSMLM.liveStream.pushChunk()`, no manual clicking at all.
+
+Either way, the top-level **Stop** button ends the session; results (drift
+correction, NeNA/FRC, CSV export, the locs table) are available while
+streaming is still active, the same as after a normal Localize. See the
+in-app **Memory & streaming** section's own "more info…" popup, or
+[the full reference](https://websmlm.readthedocs.io/en/latest/) §2/§8, for
+details.
+
 ## Data & privacy
 
 The application is a single static HTML file. Your image data is read locally by

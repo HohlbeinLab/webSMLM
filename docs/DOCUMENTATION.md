@@ -23,9 +23,9 @@ Each popup's content lives inside a `<!-- HINT:<name> --> ... <!-- /HINT:<name>
 directly (see `CLAUDE.md`'s **Documentation build** section for the full
 mechanism).
 
-Line/anchor references below point at `webSMLM.html` as of **v0.10.3**;
-exact line numbers will drift as the file grows, but the `id=`/function names
-they're built from won't.
+References below point at `webSMLM.html`'s own `id=`/function names, which
+stay stable across versions — exact line numbers aren't given, since they
+drift as the file grows.
 
 ---
 
@@ -2509,7 +2509,13 @@ What this tool borrows from, and where to read more.
 - "A simple method to estimate the average localization precision of a single-molecule localization microscopy experiment," U. Endesfelder, S. Malkusch, F. Fricke, M. Heilemann, *Histochem. Cell Biol.* **141**, 629–638 (2014). [doi:10.1007/s00418-014-1192-3](https://doi.org/10.1007/s00418-014-1192-3)
 
 **Image resolution (FRC)**
-- "Measuring image resolution in optical nanoscopy," R. P. J. Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga, B. Rieger, *Nat. Methods* **10**, 557–562 (2013). [doi:10.1038/nmeth.2448](https://doi.org/10.1038/nmeth.2448)
+- "Measuring image resolution in optical nanoscopy," R. P. J. Nieuwenhuizen, K. A. Lidke, M. Bates, D. L. Puig, D. Grünwald, S. Stallinga, B. Rieger, *Nat. Methods* **10**, 557–562 (2013). [doi:10.1038/nmeth.2448](https://doi.org/10.1038/nmeth.2448) — also the source for the Render mode section's ([§2](#render)) super-resolution-pixel-size-vs-precision guidance (§5.2 of its Supplementary Information).
+
+**Rendering (Render mode)**
+- "Super-resolution microscopy with DNA-PAINT," J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, *Nat. Protoc.* **12**, 1198–1228 (2017). [doi:10.1038/nprot.2017.024](https://doi.org/10.1038/nprot.2017.024) — Picasso's own default per-localization Gaussian rendering, the model for `precision` mode's splat.
+- "Raw Data to Results: A Hands-On Introduction and Overview of Computational Analysis for Single-Molecule Localization Microscopy," K. J. A. Martens, B. Turkowyd, U. Endesfelder, *Front. Bioinform.* **1**, 817254 (2022). [doi:10.3389/fbinf.2021.817254](https://doi.org/10.3389/fbinf.2021.817254) — histogram-vs-Gaussian rendering trade-offs, including the √2 resolution loss `precision` mode's own docs cite.
+- "Averaged shifted histograms: effective nonparametric density estimators in several dimensions," D. W. Scott, *Ann. Statist.* **13**(3), 1024–1040 (1985). [projecteuclid.org/euclid.aos/1176349654](https://projecteuclid.org/euclid.aos/1176349654) — the statistical basis for `dither` mode: shift-and-bin converges to a kernel density estimate.
+- "Random average shifted histograms," M. Bourel, R. Fraiman, B. Ghattas, *Comput. Stat. Data Anal.* **79**, 149–164 (2014). [doi:10.1016/j.csda.2014.05.004](https://doi.org/10.1016/j.csda.2014.05.004) — the randomized-shift refinement `dither` mode's single seeded jitter per localization is closer in spirit to.
 
 **Temporal median filtering (FTM)**
 - Originates with the Nieuwenhuizen et al. paper above; ported from the Hohlbein Lab's own newer implementation, [FTM2](https://github.com/HohlbeinLab/FTM2), used in "Enabling single-molecule localization microscopy in turbid food emulsions," A. Jabermoradi, S. Yang, M. I. Gobes, J. P. M. van Duynhoven, J. Hohlbein, *Phil. Trans. R. Soc. A* **380**(2220), 20200164 (2022). [doi:10.1098/rsta.2020.0164](https://doi.org/10.1098/rsta.2020.0164)

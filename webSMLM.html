@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.0-dev build 2026-09-04c; may drift
+  MODULE INDEX — line numbers as of v0.12.0-dev build 2026-09-04d; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2413   PARAMS registry, single source of truth for params;
+    params          2412   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3131   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3117   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3430   synthetic stack generator ("Simulate movie")
-    detect          4308   per-frame band-pass + local-maxima detection
-    fit             4585   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3416   synthetic stack generator ("Simulate movie")
+    detect          4294   per-frame band-pass + local-maxima detection
+    fit             4571   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -45,7 +45,7 @@
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
                            in-memory pts, just avoids the CDP return payload)
-    render          5094   accumulate to offscreen buffer; view/colour/blur;
+    render          5080   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -67,20 +67,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6389   frame-parallel detect/fit worker pool; dedicated
+    workers         6357   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6695   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6987   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6663   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  6955   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7404   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7372   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -90,16 +90,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7910   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7878   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8619   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8587   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9089   single particle tracking, trackpy-inspired;
+    spt             9057   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +130,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10590  top-level orchestration, *Core()/wrapper split;
+    pipeline        10558  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11211  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11179  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -184,19 +184,18 @@
                            always reclaim the panel, even from a stopped
                            session's leftover scrub-back history); the
                            top-level Stop button is the single control that
-                           ends a session from either path (closing the
+                           ends a session either way it was fed (closing the
                            WebSocket first if one's open) — the sidebar's own
                            Disconnect button was folded into it and removed,
-                           since Stop covers everything it did and also
-                           works for the bridge-push path, which has no
-                           Connect/Disconnect of its own; periodic render
-                           cadence is adaptive/time-based (srPreviewMs/
-                           srPreviewMaxMs, MODULE: pipeline), the same
-                           mechanism a normal Localize run's own live preview
-                           uses, not a manual "Render every N frames" setting
-    table           13125  localizations table, filtering, histograms;
+                           since the bridge-push path has no Connect of its
+                           own either; periodic render cadence is adaptive/
+                           time-based (srPreviewMs/srPreviewMaxMs, MODULE:
+                           pipeline), the same mechanism a normal Localize
+                           run's own live preview uses, not a manual "Render
+                           every N frames" setting
+    table           13043  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13712  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13628  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1888,7 +1887,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-04c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.0-dev · build 2026-09-04d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2520,27 +2519,14 @@ const PARAMS = {
   pxnm: { type:'number', id:'pxnm', label:'Pixel size (nm)', min:1, max:2000, step:1, default:100, int:false },
   // mag = reconstruction magnification; render pixel size = pxnm / mag
   mag: { type:'number', id:'mag', label:'Magnification', min:4, max:25, step:1, default:10, int:true },
-  // renderMode = 'precision' (default): each localization is rendered as its own
-  // Gaussian, sized by ITS OWN lpx/lpy (real CRLB precision) — Picasso's own
-  // default rendering convention, window capped at MAX_SPLAT_SIGMA_PX (see
-  // renderSuperResPixels(), MODULE: render) so a badly-localized outlier or a
-  // high mag can't blow its per-loc cost up unboundedly. 'fixed': the old
-  // behaviour, bin then apply ONE uniform blur (rblur) to the whole
-  // reconstruction buffer regardless of density — cost scales with buffer
-  // AREA (W×H), not localization count, so it gets disproportionately
-  // expensive at high magnification/large FOV even for sparse data. 'dither':
-  // a stochastic alternative to 'precision' — same CRLB-informed sizing, but
-  // O(1) per loc (jitter, then bin) instead of O(sigma²) per loc (splat a
-  // window) — 10-24x faster on a real, dense (millions-of-locs) dataset, at
-  // the cost of visible single-sample grain that only converges to the true
-  // density once many locs overlap (see renderSuperResPixels()'s own
-  // comment) — not the default for that reason. Fully respected during
-  // liveStreaming's own repeating cadence render too (MODULE: liveStreaming)
-  // — an earlier version forced that specific render to 'dither' regardless
-  // of this setting, reverted (reported) since a session looks grainy for
-  // as long as it stays small, which is exactly the part a user watches
-  // most closely; switch to 'dither' by hand once a session has grown
-  // large/dense enough that render speed matters more than per-render grain.
+  // renderMode = 'precision' (default): per-loc Gaussian splat sized by real
+  // CRLB precision, Picasso's own convention. 'fixed': bin + one uniform
+  // blur (rblur) over the whole buffer, the old behaviour. 'dither': a
+  // faster stochastic alternative to 'precision' for large/dense datasets,
+  // grainy on sparse ones so not the default. Full rationale in
+  // renderSuperResPixels() (MODULE: render). Fully respected during
+  // liveStreaming's own cadence render too — switch to 'dither' by hand once
+  // a session has grown large/dense enough to need the speed.
   renderMode: { type:'enum', id:'renderMode', label:'Render mode', options:['precision','fixed','dither'], default:'precision' },
   // rblur = σ_render — in 'fixed' mode, the uniform blur applied to the whole
   // reconstruction; in 'precision' mode, only the FALLBACK width for a
@@ -5109,17 +5095,13 @@ let srIsRecon=false;                   // true only when srFull is the REAL per-
 // (not the pre-Run data projection or the calibration bead composite, which also draw into srFull
 // but aren't tied to lastResult.locs — cropping either would crop against the wrong/no data).
 function setSrRecon(v){ srIsRecon=v;
-  // Crop commits an x/y filter into _tableFilters -> renderLocs (see cropBtn's
-  // click handler and applyFilterToReconstruction()) — a ONE-TIME snapshot,
-  // never re-applied as more localizations arrive, so using it mid-stream
-  // would silently freeze the visible reconstruction at whatever locs existed
-  // the moment it was clicked while lastResult.locs (and the real dataset)
-  // keeps growing underneath it. Locked out for the duration of an active
-  // Live streaming session for that reason (this runs on every render,
-  // including streaming's own periodic cadence one, so it stays correctly
-  // locked/unlocked without extra wiring at session start/stop). measureBtn
-  // (line profile) is a pure read-only overlay — no filter, no lastResult
-  // mutation — so it's unaffected.
+  // Crop commits a ONE-TIME x/y filter into _tableFilters -> renderLocs
+  // (cropBtn's click handler, applyFilterToReconstruction()) never re-applied
+  // to later locs — mid-stream, that would freeze the reconstruction while
+  // the real dataset kept growing. Locked out while streaming is active;
+  // this runs on every render (including streaming's own cadence one), so it
+  // stays correctly locked/unlocked with no extra wiring at session
+  // start/stop. measureBtn (read-only line profile) is unaffected.
   const streamLocked = !!(liveStreamState && liveStreamState.active);
   const b=$('cropBtn'); if(b) b.disabled = !v || streamLocked; const m=$('measureBtn'); if(m) m.disabled=!v;
   if((!v || streamLocked) && cropMode){ cropMode=false; if(b) b.classList.remove('on'); cropPt0=null; }
@@ -5326,30 +5308,22 @@ function renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorF
   let satCount=0, dbuf, zbuf;
   if(renderMode==='precision'){
     // Each localization splats its OWN Gaussian (splatGaussianLoc(), above)
-    // instead of one bin-then-blur-the-whole-buffer pass — acc/zacc are
-    // Float32 density accumulators here (see renderSuperRes()'s own
-    // buffer-allocation branch), not the Uint16 hit-COUNT 'fixed' mode uses,
-    // since a pixel's value is now a sum of overlapping Gaussian tails, not
-    // an integer count — no saturation concept applies, satCount stays 0.
-    // sx/sy: real CRLB precision (lpx/lpy, native px) converted to SR-pixel
-    // units the same way x/y positions already are (×mag); blurPx is the
-    // FALLBACK width for a method with no real per-loc precision (phasor).
-    // MAX_SPLAT_SIGMA_PX caps the RENDERED sigma itself, in SR-pixel units —
-    // a DIFFERENT bound from splatGaussianLoc()'s own ±3σ window truncation
-    // (that only trims a given Gaussian's negligible tails; it does nothing
-    // to stop sigma itself, and so the window it bounds, from growing with
-    // mag×lpx). Without this, a real dataset's own badly-localized tail (a
-    // handful of low-photon events with lpx of several hundred nm — normal
-    // in real data, e.g. the Leterrier STORM CSV's max was 468.6 nm) each
-    // splat a huge window at any mag ≳10, measured to flip 'precision' mode
-    // from faster-than-'fixed' (mag=5: 1.14×) to markedly slower (mag=20:
-    // 0.64×) despite being a tiny fraction of the dataset — filtering that
-    // tail out entirely barely moved the timing, confirming the cost is the
-    // window AREA (∝σ², unbounded) not the outlier COUNT. 6 SR-px keeps the
-    // worst-case window ≤37×37px/loc regardless of mag or how poor a single
-    // fit's precision is, while sitting far above any well-localized point's
-    // real sigma even at high mag (e.g. mag=20 on this same real dataset:
-    // median lpx=6.3 nm → sx≈1.26 SR-px, well under the cap, untouched).
+    // instead of bin-then-blur-the-whole-buffer. acc/zacc are Float32 here
+    // (density = sum of overlapping Gaussian tails, not an integer count —
+    // no saturation, satCount stays 0), not the Uint16 'fixed' uses. sx/sy:
+    // CRLB precision (lpx/lpy, native px → SR-px via ×mag, same as x/y);
+    // blurPx is the fallback width for a method with no real precision
+    // (phasor). MAX_SPLAT_SIGMA_PX caps the rendered sigma itself, in
+    // SR-px — DIFFERENT from splatGaussianLoc()'s own ±3σ window truncation,
+    // which trims a given Gaussian's tail but doesn't stop sigma (∝mag×lpx)
+    // growing unbounded. Without it, a real dataset's badly-localized tail
+    // (e.g. Leterrier STORM CSV, max lpx 468.6 nm) flips 'precision' from
+    // faster-than-'fixed' (mag=5: 1.14×) to markedly slower (mag=20: 0.64×)
+    // — filtering that tail barely moved the timing, so the cost is window
+    // AREA (∝σ², unbounded), not outlier COUNT. 6 SR-px bounds the worst
+    // case to ≤37×37px/loc while sitting well above any well-localized
+    // point's real sigma (same dataset, mag=20: median lpx 6.3 nm →
+    // sx≈1.26 SR-px, untouched).
     const MAX_SPLAT_SIGMA_PX=6;
     for(const L of locs){
       if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
@@ -5361,29 +5335,23 @@ function renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorF
     }
     dbuf=acc; zbuf=zColor?zacc:null;
   } else if(renderMode==='dither'){
-    // Stochastic alternative to the analytic splat above, for datasets where
+    // Stochastic alternative to the splat above, for datasets where
     // 'precision' mode's O(sigma^2)-per-loc window cost adds up (millions of
-    // overlapping locs at moderate-to-high mag — see the MAX_SPLAT_SIGMA_PX
-    // comment above for the real numbers this was measured against). Instead
-    // of rendering each loc's own Gaussian into a window, draw ONE random
-    // offset from N(0, its own CRLB sigma) and bin to the nearest pixel — same
-    // O(1)-per-loc cost as 'fixed' mode's plain count loop, no window at all,
-    // so cost is completely independent of sigma/mag (no cap needed, unlike
-    // 'precision'). This is the classical Average-Shifted-Histogram / Monte-
-    // Carlo kernel-density argument: each localization contributes ONE sample
-    // from its own posterior; with millions of independent locs the POOLED
-    // histogram converges to the same density the analytic splat computes
-    // exactly, without ever evaluating a Gaussian. Verified against real data
-    // (Leterrier STORM CSV, 4.2M locs): 10-24x faster than the capped splat
-    // at mag 5/10/20, structurally indistinguishable reconstruction (same
-    // filaments/crossings), with the expected extra grain from single-sample
-    // jitter. That grain is exactly why this is NOT the default: on a sparse
-    // dataset (few overlapping locs — small/early-stage acquisitions, mag<10
-    // where the splat has no cost problem anyway) a lone jittered dot doesn't
-    // converge to anything, and looks like noise rather than a soft blob the
-    // way the analytic splat still correctly does. Seeded (not
-    // Math.random()) so the same locs always dither identically — a redraw
-    // (pan/zoom, re-opening the same dataset) doesn't flicker.
+    // overlapping locs at moderate-to-high mag). Instead of rendering each
+    // loc's Gaussian into a window, draw ONE random offset from N(0, its own
+    // CRLB sigma) and bin to the nearest pixel — O(1)/loc like 'fixed', no
+    // window, no cap needed. Average-Shifted-Histogram / Monte-Carlo
+    // kernel-density argument: each loc is one sample from its own posterior;
+    // pooled over millions of independent locs, the histogram converges to
+    // the same density the analytic splat computes exactly. Verified against
+    // real data (Leterrier STORM CSV, 4.2M locs): 10-24x faster than the
+    // capped splat at mag 5/10/20, structurally indistinguishable
+    // reconstruction, with the expected extra grain from single-sample
+    // jitter. That grain is why this isn't the default — on a sparse dataset
+    // a lone jittered dot doesn't converge to anything and reads as noise,
+    // not the soft blob the splat still renders correctly there. Seeded
+    // (not Math.random()) so the same locs always dither identically — a
+    // redraw (pan/zoom, reopening the dataset) doesn't flicker.
     const rnd=mulberry32(0xD17E5);
     for(const L of locs){
       if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
@@ -11294,6 +11262,9 @@ function liveStreamShowRawFrame(globalIdx){
   $('rawInfo').textContent=`frame ${globalIdx+1} (streamed) — ${maxima.length} spots`;
 }
 
+// Arms a fresh live streaming session (liveStreamState) from the sidebar's
+// current settings — called on Connect or the first pushed chunk, whichever
+// happens first; never called a second time while a session is active.
 function startLiveStreamingSession(){
   const method=paramValue('method');
   const localize3D=paramValue('localize3D');
@@ -11312,39 +11283,25 @@ function startLiveStreamingSession(){
   // A fresh Start always begins a brand-new session — any PREVIOUS session's
   // raw-frame history/scrub position is discarded along with it, same as any
   // other "new load resets everything" convention in this app.
-  // lastSrMs/previewInterval: the SAME adaptive time-based cadence
+  // lastSrMs/previewInterval: render cadence, same adaptive mechanism
   // runCore()'s own live preview uses (search previewInterval there) —
-  // renders at most once every srPreviewMs, scaling up to ~10x a render's
-  // own measured cost (capped at srPreviewMaxMs) so cadence stays sensible
-  // whether renders are cheap (early/sparse) or expensive (late/dense).
-  // Previously a manual "Render every N frames" (liveStreamRenderEvery)
-  // setting instead — removed (reported as unnecessary complexity, and a
-  // real design weakness: the SAME N behaves completely differently
-  // depending on external chunk granularity a bridge controls, not this
-  // app — a 1-frame-per-chunk bridge renders ~10x more often than a
-  // 100-frame-per-chunk one at the same N). lastSrMs:-Infinity guarantees
-  // the FIRST chunk always renders immediately — seeding it 0 instead
-  // (runCore()'s own live-preview init does exactly that, relying on
-  // performance.now() already being comfortably >800ms since navigation
-  // start by the time a human clicks Localize) looked equivalent but isn't
-  // safe here: an automated bridge (tools/webSMLM-livestream-bridge.mjs)
-  // can open the page and start pushing chunks within under a second,
-  // before performance.now() has even reached the srPreviewMs floor —
-  // caught by a fast Playwright test doing exactly that, not a real report,
-  // but a real gap all the same.
+  // at most once per srPreviewMs, growing to ~10x a render's own measured
+  // cost, capped at srPreviewMaxMs. Not a manual per-N-frames setting:
+  // that depends on external chunk granularity a bridge controls, not
+  // this app. lastSrMs:-Infinity (not 0, unlike runCore()'s own init) so
+  // the first chunk always renders immediately even if performance.now()
+  // hasn't yet cleared srPreviewMs — a real gap for an automated bridge
+  // that can start streaming within under a second of page load.
   liveStreamState={cfg, zcal, wcal, allLocs:[], frameOffset:0, chunkCount:0, active:true,
                rawFrames:[], rawFrameBaseIdx:0, rawFrameCap:null, followLive:true, w:0, h:0,
                idleTimer:null, lastChunkAt:0, chunkIntervalMs:null, renderBusy:false,
                lastSrMs:-Infinity, previewInterval:paramValue('srPreviewMs')};
   $('liveStreamClearBtn').disabled=false;
-  // Previously never enabled at all for a streaming session (only the
-  // regular Localize/drift/calibration wrappers touched it), leaving the
-  // bridge-push path (no Connect/Disconnect of its own) with no in-page way
-  // to stop at all (reported). stopBtn's own click handler now checks for
-  // an active streaming session first (see its listener below) and ends it
-  // — the sidebar's own Disconnect button, which used to be the only
-  // working control for the WebSocket path, was folded into this and
-  // removed.
+  // Only the regular Localize/drift/calibration wrappers used to touch
+  // stopBtn, leaving the bridge-push path (no Connect/Disconnect of its
+  // own) with no in-page way to stop. Its click handler (below) now checks
+  // for an active session first and ends it — folding in what the
+  // sidebar's own (now-removed) Disconnect button did for the WS path.
   $('stopBtn').disabled=false;
   // renderSuperRes() runs its full Gaussian-blur pass on a dedicated
   // Worker+OffscreenCanvas (MODULE: workers, getRenderWorker()) when
@@ -11421,13 +11378,11 @@ async function liveStreamPushChunkFile(file){
   // still-growing dataset has no final drift curve yet.
   if(liveStreamState.allLocs.length){
     $('driftBtn').disabled=false; $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
-    // View data/filtering only ever reads lastResult.locs (openTable()/
-    // rebuildTableData()), same as drift/NeNA/FRC above — no reason to make
-    // a user wait for Stop just to browse/sort/histogram what's accumulated
-    // so far (reported: locs were visibly rendering but the table stayed
-    // disabled the whole session). Committing a NEW filter is still blocked
-    // while streaming (see commitFilter()'s own guard) since that DOES
-    // mutate the live reconstruction and would freeze it on a stale subset.
+    // View data/filtering only reads lastResult.locs (openTable()/
+    // rebuildTableData()), same as drift/NeNA/FRC above — no reason to wait
+    // for Stop just to browse/sort/histogram (reported: stayed disabled the
+    // whole session despite locs visibly rendering). Committing a NEW
+    // filter is still blocked while streaming — see commitFilter()'s guard.
     $('tableBtn').disabled=false;
   }
   // Idle/pause detector: a genuine drop in incoming chunks (acquisition
@@ -11457,41 +11412,15 @@ async function liveStreamPushChunkFile(file){
       log(`Live streaming: no new chunks for ~${(idleMs/1000).toFixed(0)}s — rendered the reconstruction while waiting.`);
     }
   }, idleMs);
-  // Render cadence: adaptive, time-based — the SAME pattern runCore()'s own
-  // live preview uses (search previewInterval there), not a per-chunk or
-  // per-N-frames trigger. Renders at most once every liveStreamState.
-  // previewInterval (seeded from srPreviewMs, default 800ms), which scales
-  // up to ~10x a render's own measured cost after each one (capped at
-  // srPreviewMaxMs) — cheap/early renders stay frequent, expensive/dense
-  // ones self-throttle. Replaced an earlier frame-count trigger
-  // (liveStreamRenderEvery, "Render every N frames") that had a real design
-  // weakness: the SAME N behaved completely differently depending on
-  // external chunk granularity a bridge controls, not this app (a
-  // 1-frame-per-chunk bridge rendered ~10x more often than a
-  // 100-frame-per-chunk one at the same N) — removed as unnecessary
-  // complexity once cadence tracks actual elapsed time instead.
-  // liveStreamState.renderBusy doubles as this pattern's own srPreviewBusy
-  // guard, same "don't pile up overlapping renders" role it already played
-  // against the backpressure concern below.
+  // Render cadence: adaptive/time-based, see lastSrMs/previewInterval's own
+  // comment above. renderBusy is this mechanism's srPreviewBusy guard AND
+  // the backpressure guard below — the render worker is single, not a pool
+  // (MODULE: workers), so a render can't be "due" again until the .finally()
+  // below (which measures real cost and grows previewInterval) resolves.
+  // Uses whatever Render mode (MODULE: render) is currently selected — not
+  // forced to 'dither', which only looks good once many locs overlap and so
+  // read as grainy/broken for as long as a session stayed small.
   if(!liveStreamState.renderBusy && performance.now()-liveStreamState.lastSrMs>liveStreamState.previewInterval){
-    // Backpressure: every streaming render is a real, worker-backed
-    // reconstruction, and the render worker is a single dedicated worker
-    // (MODULE: workers), not a pool — renderBusy above already keeps a new
-    // render from dispatching while one is in flight; the .finally() below
-    // is what actually measures real cost and grows previewInterval, so a
-    // render that's currently busy can never also be "due" again until it
-    // resolves. Uses whatever Render mode (MODULE: render) is currently
-    // selected — an earlier version forced this specific render to
-    // 'dither' regardless of the dropdown, reasoning that this render
-    // repeats for the life of the session so speed matters more than one
-    // render's grain. Reverted (reported): 'dither' only looks good once
-    // many localizations overlap, so a session forced onto it looked
-    // grainy/unconvincing for as long as the dataset stayed small — exactly
-    // the part of a live acquisition a user is watching most closely. The
-    // user can freely switch to 'dither' themselves once a session has
-    // grown large/dense enough that speed starts to matter more than
-    // per-render grain — the dropdown now actually takes effect here, same
-    // as everywhere else, rather than being silently overridden.
     const tp=performance.now(); liveStreamState.lastSrMs=tp; liveStreamState.renderBusy=true;
     rerender(true,false).finally(()=>{
       const dt=performance.now()-tp;
@@ -11535,6 +11464,8 @@ async function liveStreamPushChunkFile(file){
   return {chunkFrames:chunkStack.n, chunkLocs:r.locs.length, totalFrames:liveStreamState.frameOffset, totalLocs:liveStreamState.allLocs.length};
 }
 
+// window.webSMLM.liveStream.pushChunk() — the external-bridge entry point;
+// reads whatever file the caller just placed into #liveStreamChunkInput.
 async function liveStreamPushChunk(){
   const fileEl=$('liveStreamChunkInput');
   if(!fileEl.files.length) throw new Error('webSMLM.liveStream.pushChunk(): #liveStreamChunkInput has no file — the driving bridge must call setInputFiles() before this.');
@@ -11565,6 +11496,9 @@ async function liveStreamPushChunk(){
 // against "frames webSMLM actually accepted" and warn on loss.
 let liveStreamWs=null;
 
+// Connect button handler: opens a WebSocket to the sidebar's URL and arms
+// a session once it's open; wires 'message'/'close'/'error' for the rest
+// of that connection's life.
 function liveStreamWsConnect(){
   const url=$('liveStreamWsUrl').value.trim();
   if(!url){ log('Live streaming: enter a WebSocket URL first.'); return; }
@@ -11615,27 +11549,24 @@ function liveStreamWsConnect(){
       if(liveStreamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'ack', framesReceived:liveStreamState.frameOffset, chunkCount:liveStreamState.chunkCount, ok}));
     });
   });
-  // A dropped connection implies "stop streaming" too, same reasoning as
-  // Connect arming it — covers both stopBtn's own explicit close (below)
-  // and an unexpected drop (server closed, network hiccup) uniformly, since
-  // both end up here. Guarded on liveStreamWs===ws (not just
-  // resetButtons() above) — ws.close() fires 'close' ASYNCHRONOUSLY, so an
-  // explicit Stop click (resets buttons/liveStreamWs immediately, then
-  // calls ws.close()) followed by a fast reconnect can leave this OLD
-  // socket's 'close' event arriving after a NEW ws2 is already liveStreamWs.
-  // Without the guard, endLiveStreamingSession() ran unconditionally and
-  // would end the brand-new session that ws2 just started — same race class
-  // as the wsQueue fix above, just on the other end of the connection's
-  // lifecycle.
+  // Covers both an explicit Stop close and an unexpected drop — both end up
+  // here. Guarded on liveStreamWs===ws: ws.close() fires 'close'
+  // ASYNCHRONOUSLY, so Stop (resets liveStreamWs, then calls ws.close())
+  // followed by a fast reconnect can leave this OLD socket's 'close' event
+  // arriving after a NEW ws2 is already liveStreamWs — without the guard
+  // this would end the brand-new session ws2 just started.
   ws.addEventListener('close', ()=>{ log('Live streaming: WebSocket connection closed.'); if(liveStreamWs===ws){ liveStreamWsResetButtons(); endLiveStreamingSession(); } });
   ws.addEventListener('error', ()=>{ log(`Live streaming: WebSocket error connecting to ${url} — is the local bridge server running?`); });
 }
+// Clears liveStreamWs and restores Connect/URL to their pre-connection state.
 function liveStreamWsResetButtons(){
   liveStreamWs=null;
   $('liveStreamConnectBtn').disabled=false; $('liveStreamWsUrl').disabled=false;
 }
 $('liveStreamConnectBtn').addEventListener('click', liveStreamWsConnect);
 
+// Ends the active session (Stop click, WS close, or an external end() call)
+// — leaves the reconstruction/raw history on screen, only flips .active off.
 function endLiveStreamingSession(){
   if(!liveStreamState || !liveStreamState.active) return;
   log(`Live streaming: session stopped — ${liveStreamState.frameOffset} frames, ${liveStreamState.allLocs.length.toLocaleString()} localizations accumulated. Drift correction/NeNA/FRC are available on this result now, but temporal median filtering (FTM) still isn't (no cross-chunk context) — run a full accurate Localize on the complete saved acquisition file (e.g. via tools/webSMLM-cli.mjs) if FTM matters for the final result.`);
@@ -11645,11 +11576,8 @@ function endLiveStreamingSession(){
   // gates pushChunk()/isActive() now, not liveStreamState's own nullness.
   liveStreamState.active=false;
   if(liveStreamState.idleTimer){ clearTimeout(liveStreamState.idleTimer); liveStreamState.idleTimer=null; }
-  // stopBtn is enabled the moment a session arms (startLiveStreamingSession());
-  // this is the single choke point every "session just ended" path already
-  // runs through (an explicit Stop click, the WebSocket 'close' handler, or
-  // an external liveStream.end() call), so resetting it here keeps it
-  // correct regardless of which one fired.
+  // Single choke point every "session ended" path runs through (Stop click,
+  // WS 'close', external end()) — resets stopBtn regardless of which fired.
   $('stopBtn').disabled=true;
   $('liveStreamStatus').textContent='Not streaming.';
   // #liveStreamScrubRow deliberately stays showing (and #scrubRow stays hidden) — it now sits in
@@ -12413,16 +12341,12 @@ $('exportLogBtn').addEventListener('click',async()=>{
 });
 $('stopBtn').addEventListener('click',()=>{
   if($('stopBtn').disabled) return;
-  // A live streaming session enables this SAME button (startLiveStreamingSession()) —
-  // checked first so Stop ends a session uniformly regardless of which path
-  // fed it (WebSocket Connect, or the external-bridge pushChunk() path,
-  // which has no other in-page stop control at all): close the WebSocket if
-  // one is open (an open connection's next incoming message would otherwise
-  // silently re-arm the session, see liveStreamPushChunkFile()'s own "no
-  // separate Start/Stop step" design), then end the session itself.
-  // stopRequested (below) is unrelated — only read by runCore()/driftCore()/
-  // calibrationCore()'s own shouldStop() hooks, none of which a streaming
-  // chunk's runCore() call is given (MODULE: liveStreaming).
+  // Live streaming also enables this button — checked first so Stop ends a
+  // session either way it was fed (WS Connect, or the bridge pushChunk()
+  // path, which has no other stop control): close the WebSocket if one's
+  // open (else its next message silently re-arms the session), then end it.
+  // stopRequested below is unrelated to streaming — only runCore()/
+  // driftCore()/calibrationCore()'s own shouldStop() hooks read it.
   if(liveStreamState && liveStreamState.active){
     if(liveStreamWs){ const ws=liveStreamWs; liveStreamWsResetButtons(); ws.close(); }
     endLiveStreamingSession();   // also disables stopBtn itself
@@ -12648,10 +12572,9 @@ $('sr').addEventListener('click',e=>{
     else { measureLine={x0:measurePt0.x,y0:measurePt0.y,x1:fx,y1:fy}; measurePt0=null; drawView(); lineProfile(measureLine); }
     return;
   }
-  // cropMode — the button is disabled whenever !srIsRecon or a Live streaming
-  // session is active (see setSrRecon()); this is just defense in depth
-  // against e.g. a stale click already queued when the panel switched away
-  // from a real reconstruction, or right as a streaming session arms.
+  // Defense in depth — the button is already disabled in both cases
+  // (setSrRecon()); this catches a stale click queued right as either
+  // condition changed.
   if(!srIsRecon || (liveStreamState && liveStreamState.active)) return;
   if(!cropPt0){ cropPt0={x:fx,y:fy}; drawView(); return; }
   // srFull-px rect first (kept for the auto-zoom below), nm second (for the
@@ -13002,13 +12925,15 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.0-dev · build 2026-09-04c — removed the sidebar's
-Disconnect button (reported it was still showing up even though Stop now
-covers everything it did): Connect/Clear are the only two buttons left in
-that row, back to the standard two-column button width. Stop remains the
-one control that ends a WebSocket-driven session too (closes the
-connection, then ends the session) — verified via a real WebSocket
-Connect + Stop click against tools/test_livestream_demo.py's own server.
+log(`webSMLM v0.12.0-dev · build 2026-09-04d — docs pass: README gets a
+Live streaming section; CLAUDE.md's liveStreaming/render entries updated
+(the removed liveStreamRenderEvery setting, Stop replacing Disconnect, the
+renderMode split was entirely missing before now); DOCUMENTATION.md's
+stale v0.10.3 line-reference note removed and Render mode's citations
+added to the central References section. Trimmed the Live streaming/
+render-mode comments added over the last few builds — same information,
+much less of it — and added intro comments to a few functions that were
+missing one entirely.
 Still under review; not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -13344,14 +13269,12 @@ function commitFilter(){
   const raw=$('tableFilter').value.trim();
   if(raw.toLowerCase()==='reset'){ resetFilters(); return; }
   if(!raw) return;
-  // Same reasoning as the crop tool's own lockout (setSrRecon()) — a
-  // committed filter restricts renderLocs to a ONE-TIME snapshot that never
-  // grows as more chunks arrive, silently freezing the reconstruction mid-
-  // acquisition. Table VIEWING (sort/browse/per-column histogram) reads
-  // _tableData/_tableFiltered directly and needs no filter at all to work,
-  // so it stays fully available during streaming — only committing a NEW
-  // restriction is blocked. Clearing (reset, above) is always harmless and
-  // stays allowed.
+  // Same lockout reasoning as the crop tool (setSrRecon()) — a committed
+  // filter freezes renderLocs to a one-time snapshot, never re-applied as
+  // more chunks arrive. Table VIEWING (sort/browse/histogram) reads
+  // _tableData/_tableFiltered directly, no filter needed, so it stays fully
+  // available; only committing a NEW restriction is blocked. Reset (above)
+  // always stays allowed.
   if(liveStreamState && liveStreamState.active){
     log('⚠ Filtering is unavailable while Live streaming is active (it would freeze the reconstruction on today\'s data) — Stop first, or browse/sort/histogram the table unfiltered.');
     return;
