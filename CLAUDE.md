@@ -932,8 +932,11 @@ relevant one before editing rather than scrolling:
   reference consumer: `--exportTrackData`/etc. forward `onRecord` via the SAME live `console.log()`
   channel `onProgress`/`onLog` use, appended to a per-kind `.ndjson` file via
   `fs.createWriteStream()`.
-- **liveStreaming** (`window.webSMLM.liveStream`) — a Micro-Manager/pycromanager camera bridge,
-  physically right after **pipeline** (whose `runCore()` it calls per chunk) and split into its own
+- **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
+  less battle-tested than the rest of the app (several real bugs found and fixed via actual
+  openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
+  table staying disabled all session, an adaptive-cadence timing gap). A Micro-Manager/pycromanager
+  camera bridge, physically right after **pipeline** (whose `runCore()` it calls per chunk) and split into its own
   indexed `MODULE:` banner for its size, not moved elsewhere in the file. Distinct from, and named
   to avoid colliding with, both the in/out module's own unrelated TIFF chunked/streamed-loading
   flag (`chunkmb`/`loadMultiIfdStreaming()`/`stack.streaming`) and the headless API's NDJSON

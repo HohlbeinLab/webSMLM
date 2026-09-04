@@ -914,18 +914,18 @@ No `PARAMS` entries of its own — the render cadence reuses `srPreviewMs`/
 `srPreviewMaxMs` ([§3](#pipeline-tuning-params)'s "reconstruction
 live-preview interval", the same adaptive interval `runCore()`'s own live
 preview uses), rather than a separate manual "Render every N frames"
-setting an earlier
-version had. That setting's behaviour depended on external chunk
-granularity a bridge controls, not this app — the same N meant completely
-different things depending on whether a bridge pushed one frame per chunk
-or a hundred — so it was removed once cadence tracked actual elapsed time
-instead.
+setting an earlier version had. That setting's behaviour depended on
+external chunk granularity a bridge controls, not this app — the same N
+meant completely different things depending on whether a bridge pushed one
+frame per chunk or a hundred — so it was removed once cadence tracked
+actual elapsed time instead.
 
 **In-app "more info…" popup** (`hint-liveStreaming` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 `.hint` div directly):
 
 <!-- HINT:liveStreaming -->
+<p><i>Live streaming is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
 <p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
 <ul>
 <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment. The connection dropping unexpectedly also ends the session, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session, leaving the connection itself open.</li>
@@ -2179,6 +2179,9 @@ concurrent `analyze()` calls would contend for the same workers rather than
 speeding anything up. Fails fast: one bad file rejects the whole batch.
 
 ### Live streaming (Micro-Manager camera bridge, `window.webSMLM.liveStream`) {#live-streaming}
+
+Marked **experimental** — real and used, but younger and less battle-tested
+than the rest of the app.
 
 A different shape from `analyze()`: rather than one complete, DOM-free batch
 run, `window.webSMLM.liveStream` lets an external process push frame *chunks*

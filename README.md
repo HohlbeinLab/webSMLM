@@ -59,7 +59,7 @@ in-app, plus acknowledgements and licence.
    **Single particle tracking** links per-frame localizations into
    trajectories and estimates diffusion coefficients.
 
-## Live streaming
+## Live streaming (experimental)
 
 For real-time acquisition rather than a saved file: an external process pushes
 frame chunks in as they're acquired, each localized and rendered into the
