@@ -104,7 +104,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9347   single particle tracking, trackpy-inspired;
+    spt             9352   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10848  top-level orchestration, *Core()/wrapper split;
+    pipeline        10853  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11469  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11474  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,9 +198,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13376  localizations table, filtering, histograms;
+    table           13385  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13961  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13970  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1892,7 +1892,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9309,11 +9309,15 @@ function drawSmfretTrace(idx){
   if(!isFinite(lo)){ lo=0; hi=1; }   // every frame missed this site — still draw empty axes, not a NaN-driven crash
   const pad=(hi-lo)*0.1||1; lo=Math.min(0,lo-pad); hi+=pad;
   const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
+  // Full 5-6 digit ADU tick labels visually collide with the rotated axis-name
+  // text at this margin (same "offset notation" fix drawPcfoPlot() already
+  // needed for its own large-value axis — see axisScale()'s own comment).
+  const yScale=axisScale(Math.max(Math.abs(lo),Math.abs(hi)));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
-    ctx.fillText(v.toFixed(0),mL-9,y); }
+    ctx.fillText((v/yScale.scale).toFixed(yScale.decimals),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
   for(const f of niceTicks(0,n-1,6)){ const x=X(f);
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
@@ -9332,6 +9336,7 @@ function drawSmfretTrace(idx){
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('frame', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (ADU)',0,0); ctx.restore();
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='11px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
   const nGaps=ys.reduce((c,v)=>c+(isFinite(v)?0:1),0);
   $('rawInfo').textContent = `— site ${idx+1}/${smfretTraces.length} at (${site.x.toFixed(1)}, ${site.y.toFixed(1)}) px`
     + (nGaps ? ` · ${nGaps} frame(s) not fit` : '');
@@ -13248,17 +13253,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-05d — smFRET: "Localise SOI" is now
-"Localize SOI" (moved to the left) with a new "Get time traces" button
-beside it. A new "Fix SOI x,y for time traces" checkbox auto-checks once
-sites are found — it's a status flag, not something to click by hand;
-unchecking it discards the sites and any time traces. "Get time traces"
-fits every site at its own fixed x,y position in every frame of the movie
-and plots one site's intensity-vs-frame curve in the raw (left) panel,
-4:3 letterboxed; while it's showing, the Frame scrubber is replaced by a
-Site scrubber — mouse wheel or the bar below the panel scrolls through
-sites instead of frames. Simple diagnostic only for now: raw ADU (no
-gain/offset correction), no donor/acceptor/FRET channel sorting yet.
+log(`webSMLM v0.12.1-dev · build 2026-09-05e — fixed a reported bug: the
+Time trace plot's (smFRET → Get time traces) y-axis tick labels — full
+5-6 digit ADU values — visually collided with the rotated "intensity
+(ADU)" axis title. Now uses the same matplotlib-style offset notation
+drawPcfoPlot() already relies on for its own large-value axis
+(axisScale()): small 1-2 digit ticks plus a single "×10ⁿ" multiplier
+shown once near the axis.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

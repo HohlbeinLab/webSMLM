@@ -716,7 +716,12 @@ rather than aborting the whole trace. Results land in `smfretTraces`
 panel's live frame display with a plot of one site's own intensity-vs-frame
 curve (`drawSmfretTrace()`) — the same "left panel doubles as a plot
 surface" pattern drift/NeNA/FRC already use (`rawFull=null`,
-`setRawPlot(true)`), 4:3 letterboxed via the shared `setupPlot()`. While a
+`setRawPlot(true)`), 4:3 letterboxed via the shared `setupPlot()`. The
+y-axis uses the same matplotlib-style offset notation (`axisScale()`) the
+PCFO plot already relies on for its own large-value axis — full 5-6 digit
+ADU tick labels otherwise visually collide with the rotated "intensity
+(ADU)" axis title; ticks instead show small 1-2 digit numbers plus a single
+`×10ⁿ` multiplier drawn once near the axis. While a
 trace is showing, the raw panel's own Frame scrubber (`#scrubRow`) is
 replaced by a dedicated **site** scrubber (`#smfretTraceScrubRow`) — mouse
 wheel over its slider, or dragging the slider itself, steps through SITES

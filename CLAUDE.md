@@ -684,7 +684,11 @@ relevant one before editing rather than scrolling:
   letterbox, `_replotRaw` for resize/theme redraws, `registerPlotHover()` for the hover readout) —
   structurally a simplified `drawDriftCurveVsFrame()` (one curve, no drift-specific dashed-stop
   marker), breaking the line at any `NaN` sample instead of interpolating across a gap or drawing
-  to a non-finite coordinate. **`smfretOwnsRawPanel()`** (`smfretTraces!==null`) is the same
+  to a non-finite coordinate. **Y-axis ticks use `axisScale()`** (reported — full 5-6 digit ADU
+  values visually collided with the rotated "intensity (ADU)" axis title, the exact same failure
+  `drawPcfoPlot()`'s own large-value axis already needed `axisScale()` for): small 1-2 digit ticks
+  plus one `×10ⁿ` multiplier drawn once near the axis, same placement convention (`mL, mT-8`).
+  **`smfretOwnsRawPanel()`** (`smfretTraces!==null`) is the same
   "another feature owns the raw panel" pattern `liveStreamOwnsRawPanel()` established for its own
   scrubber — checked by the SAME shared `scrubByWheel` routing (MODULE: pipeline) that already
   branches on `liveStreamOwnsRawPanel()`, redirecting shift+wheel/slider-wheel to the dedicated
