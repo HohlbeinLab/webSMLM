@@ -1084,7 +1084,7 @@ scoring drift correction. See the **simulation** module.
 | `detection_box_thr` | Uniform box filter threshold (intensity) | number | 0 | 65535 | 1 | 25 |
 | `detection_DoG_exactbp` | Exact band-pass (DoG only) | bool | — | — | — | false |
 | `psf` | σ_PSF — PSF width (px) | number | 0.8 | 5 | 0.1 | 1.3 |
-| `winr` | Fit radius (px) — window size = 2·winr+1 | number (int) | 2 | 10 | 1 | 3 |
+| `winr` | Fit radius (px) — window size = 2·winr+1; **no page control**, mirrors `winr2d`/`winr3d` below — see [§2](#fit) | number (int) | 2 | 10 | 1 | 3 |
 | `winr2d` | Fit radius 2D (px) | number (int) | 2 | 10 | 1 | 3 |
 | `winr3d` | Fit radius 3D (px) | number (int) | 2 | 10 | 1 | 4 |
 
@@ -1119,7 +1119,7 @@ run the script, never edit the `.hint` div directly):
   <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
 </ul>
 <p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
-<p><b>Fit radius</b> is the active fit window half-width — auto-set from <b>Fit radius 2D</b>/<b>Fit radius 3D</b> whenever you switch between a 2D and a genuinely 3D fit, unless you've edited it by hand since the last auto-set (your own value is never silently overwritten).</p>
+<p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation?</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
 <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
 <ul>
   <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -1140,28 +1140,39 @@ implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" re
 <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
 <!-- /HINT:detectfit -->
 
-**Fit radius, and why it's split into three fields.** `winr` is the value
-every fitter actually uses; `winr2d`/`winr3d` are two remembered defaults
-`applyWinrDefault()` (MODULE: pipeline) auto-applies to it whenever the
-2D/3D context changes (`currentIs3d()` — real z coming out, not just a
-3D-capable method selected: `mle3d`/`gaussmleEll` with **3D localisation?**
-unchecked still counts as 2D here). A symmetric 2D PSF at this codebase's
-typical σ_PSF (~1.3 px) is well-fit by a narrower window than an astigmatic
-3D PSF, whose elongated axis needs more pixels not to get truncated/biased
-near the edges of the calibrated z-range — one global default couldn't
-serve both well. The auto-apply is **non-clobbering**: it only overwrites
-`winr` if its current value still equals whatever the mechanism itself last
-wrote there (tracked in `_winrAutoSetValue`) — edit `winr` by hand and it
-stays exactly as you left it until you touch `winr2d`/`winr3d` themselves
-or the tracked value happens to match again. This is a real fix for a
-reported issue: `winr` used to *also* set the accept/reject drift tolerance
-every fitter applies (see the next paragraph) — changing it to get
-more/less fit context silently changed how strict that gate was too, with a
-non-obvious, data-dependent direction. Headless
-`analyze()` callers set `winr` directly in `config`, same as always — the
-auto-apply mechanism is interactive-UI-only, with no headless equivalent
-(matching every other `updateMethodUI()`-driven auto-default, e.g. the LUT
-auto-selection).
+**Fit radius, and why `winr` itself has no page control.** `winr` is the
+value every fitter actually uses; `winr2d`/`winr3d` are the two fields
+actually shown in the sidebar, and `applyWinrDefault()` (MODULE: pipeline)
+keeps `winr` mirroring whichever one is relevant as the 2D/3D context
+changes (`currentIs3d()` — real z coming out, not just a 3D-capable method
+selected: `mle3d`/`gaussmleEll` with **3D localisation?** unchecked still
+counts as 2D here). A symmetric 2D PSF at this codebase's typical σ_PSF
+(~1.3 px) is well-fit by a narrower window than an astigmatic 3D PSF, whose
+elongated axis needs more pixels not to get truncated/biased near the edges
+of the calibrated z-range — one global default couldn't serve both well.
+`winr`'s own sidebar row is present in the DOM (`style="display:none"`) but
+never shown — kept only so the existing PARAMS/live-preview/worker wiring
+built around `$('winr')` needs no changes; edit **Fit radius 2D**/**Fit
+radius 3D** directly instead; they now double as "the active value for that
+mode", not just a remembered default for a separate visible field (dropped
+in v0.12.1-dev once having all three on screen at once — reported — read as
+confusingly redundant, since two of the three always showed the identical
+number anyway). The auto-apply is still internally **non-clobbering** (only
+overwrites `winr` if its current value still equals whatever the mechanism
+itself last wrote there, tracked in `_winrAutoSetValue`) — with no UI path
+left to manually edit `winr` itself, this now just means editing the
+*inactive* one of `winr2d`/`winr3d` has no visible effect until you actually
+switch into that context, which is what you'd want. This whole mechanism is
+also a real fix for a reported issue: `winr` used to *also* set the
+accept/reject drift tolerance every fitter applies (see the next paragraph)
+— changing it to get more/less fit context silently changed how strict that
+gate was too, with a non-obvious, data-dependent direction. Headless
+`analyze()` callers set `winr` directly in `config`, same as always (still
+a real, settable field, just without a page control — the same convention
+[§3](#fit-params) already uses for parameters with no dedicated control) —
+the auto-apply mechanism is interactive-UI-only, with no headless
+equivalent (matching every other `updateMethodUI()`-driven auto-default,
+e.g. the LUT auto-selection).
 
 **The accept/reject drift gate no longer depends on Fit radius at all.**
 Every fitter (`gaussianFit`, `gaussianFitElliptical`, `gaussianMLEspheric`,

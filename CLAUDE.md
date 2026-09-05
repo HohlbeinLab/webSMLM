@@ -229,16 +229,24 @@ relevant one before editing rather than scrolling:
   promote to a real setting later if 2× ever proves wrong for real data. `sigma0` is already a
   parameter on every one of these 5 functions, so this needed zero signature or call-site changes.
 
-  **`winr2d`/`winr3d`** (Fit radius 2D/3D) are two remembered defaults `applyWinrDefault()`
-  (MODULE: pipeline, called from `updateMethodUI()`'s own `currentIs3d()`) auto-applies to the
-  ACTIVE `winr` field whenever the 2D/3D context changes — a symmetric 2D PSF at this codebase's
-  typical σ_PSF (~1.3 px) is well-fit by a narrower window (default 3) than an astigmatic 3D PSF's
-  elongated axis (default 4), so one global `winr` default (previously 4, now 3) couldn't serve both.
-  Deliberately NON-CLOBBERING, unlike `updateMethodUI()`'s own LUT auto-default just below (which
-  always overwrites on every method switch, since LUT is a display preference with nothing to
-  protect): `applyWinrDefault()` only overwrites `winr` if its current value still equals
-  `_winrAutoSetValue` (what the mechanism itself last wrote there) — a manual edit to `winr` since
-  then is respected and left alone. `currentIs3d()` means real z coming out, not just a 3D-capable
+  **`winr2d`/`winr3d`** (Fit radius 2D/3D) are the two fields actually shown in the sidebar;
+  `applyWinrDefault()` (MODULE: pipeline, called from `updateMethodUI()`'s own `currentIs3d()`)
+  keeps the underlying `winr` field mirroring whichever one is relevant as the 2D/3D context
+  changes — a symmetric 2D PSF at this codebase's typical σ_PSF (~1.3 px) is well-fit by a
+  narrower window (default 3) than an astigmatic 3D PSF's elongated axis (default 4), so one
+  global `winr` default (previously 4, now 3) couldn't serve both. `winr`'s own sidebar row is
+  hidden (`style="display:none"`, reported: three near-identical-looking fields on screen at once
+  read as confusingly redundant, since two of the three always showed the same number) but stays
+  in the DOM — every existing `$('winr')`-based mechanism (PARAMS, live-preview listener arrays,
+  the worker-dispatch value) needed zero changes; edit **Fit radius 2D**/**Fit radius 3D** directly
+  instead, they now double as "the active value for that mode". `applyWinrDefault()` itself is
+  still internally NON-CLOBBERING, unlike `updateMethodUI()`'s own LUT auto-default just below
+  (which always overwrites on every method switch, since LUT is a display preference with nothing
+  to protect): it only overwrites `winr` if its current value still equals `_winrAutoSetValue`
+  (what the mechanism itself last wrote there) — with no UI path left to hand-edit `winr` itself,
+  this now just means editing the *inactive* one of `winr2d`/`winr3d` has no visible effect until
+  you actually switch into that context, which is the wanted behaviour. `currentIs3d()` means real
+  z coming out, not just a 3D-capable
   method selected (`mle3d`/`gaussmleEll` with **3D localisation?** unchecked still counts as 2D
   here) — extracted as its own function so `winr2d`/`winr3d`'s own `change` listeners can reuse the
   identical logic `updateMethodUI()` already had, rather than a second copy. Headless `analyze()`

@@ -1892,7 +1892,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2143,9 +2143,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" id="detection_DoG_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_DoG_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
         <label class="row" id="detection_box_thrRow" style="margin-top:8px">Threshold (intensity) <input type="number" id="detection_box_thr" min="0" max="65535" step="1" value="25" class="num"></label>
         <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="5" step="0.1" value="1.3" class="num"></label>
-        <label class="row" title="The active fit window half-width — auto-set from Fit radius 2D/3D below whenever you switch between a 2D and a genuinely-3D fit method, unless you've edited it manually since the last auto-set.">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="3" class="num"></label>
-        <label class="row" title="Remembered default for Fit radius above, applied whenever a 2D method (or a 3D-capable method with 3D localisation? unchecked) is active.">Fit radius 2D (px) <input type="number" id="winr2d" min="2" max="10" step="1" value="3" class="num"></label>
-        <label class="row" title="Remembered default for Fit radius above, applied whenever a genuinely 3D fit (real z coming out) is active — wider, since an astigmatic PSF's elongated axis needs more pixels.">Fit radius 3D (px) <input type="number" id="winr3d" min="2" max="10" step="1" value="4" class="num"></label>
+        <label class="row" style="display:none" title="The active fit window half-width, internally auto-set from Fit radius 2D/3D below — no longer a separate control; see winr2d/winr3d.">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="3" class="num"></label>
+        <label class="row" title="The fit window half-width used whenever a 2D method (or a 3D-capable method with 3D localisation? unchecked) is active.">Fit radius 2D (px) <input type="number" id="winr2d" min="2" max="10" step="1" value="3" class="num"></label>
+        <label class="row" title="The fit window half-width used whenever a genuinely 3D fit (real z coming out) is active — wider, since an astigmatic PSF's elongated axis needs more pixels.">Fit radius 3D (px) <input type="number" id="winr3d" min="2" max="10" step="1" value="4" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-detectfit"><span class="pill">module: detect/fit</span>
           <p><b>Fit method</b> — σ_noise below is the spread of the filtered image, not the PSF width.</p>
@@ -2156,7 +2156,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
           </ul>
           <p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
-          <p><b>Fit radius</b> is the active fit window half-width — auto-set from <b>Fit radius 2D</b>/<b>Fit radius 3D</b> whenever you switch between a 2D and a genuinely 3D fit, unless you've edited it by hand since the last auto-set (your own value is never silently overwritten).</p>
+          <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation?</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
           <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
           <ul>
           <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -13094,17 +13094,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-05b — fixed a reported bug:
-changing Fit radius (winr) used to also change the fit's own accept/reject
-drift tolerance (they shared one value), so widening/narrowing it could
-silently include or exclude localizations with no consistent direction.
-All 5 fitters now bound drift by FIT_MAX_DRIFT_SIGMA_MULT x seed sigma_PSF
-instead, independent of window size. Fit radius is now also two separate,
-remembered defaults — Fit radius 2D (3px) and Fit radius 3D (4px) — auto-
-applied via applyWinrDefault() whenever you switch between a 2D and a
-genuinely 3D fit, but never clobbering a manual edit you've made since the
-last auto-apply. See docs/DOCUMENTATION.md's fit module/PARAMS sections for
-the full story. Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-05c — reported: the sidebar's
+"Fit radius (px)" field looked like a redundant third copy of whatever
+Fit radius 2D/3D already showed (since it always mirrored one of them).
+Its row is now hidden — edit Fit radius 2D / Fit radius 3D directly, they
+double as the active value for that mode. winr itself is unchanged
+internally (still the value every fitter reads, still auto-synced by
+applyWinrDefault()); this only removes the redundant visible field.
+Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
