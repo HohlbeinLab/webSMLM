@@ -365,10 +365,16 @@ filtered image's own spread, not σ_PSF).
 Phasor (fast, non-iterative), Gaussian least-squares, and
 Gaussian Poisson-MLE 2D/3D (`gaussianMLEspheric`/`gaussianMLEelliptic`, the
 default). All convert ADU→photons via `gain`/`camoffset` before fitting.
-MLE fitters reject a candidate outright (return `null`) rather than
-keeping a degenerate result: not converged within the iteration budget,
-amplitude pinned at the enforced floor (background mistaken for a spot),
-or a non-finite CRLB (singular Fisher matrix). `gaussianMLEelliptic` also
+MLE fitters (and the LS ones — `gaussianFit`/`gaussianFitElliptical`) reject
+a candidate outright (return `null`) rather than keeping a degenerate
+result: not converged within the iteration budget, amplitude pinned at the
+enforced floor (background mistaken for a spot), a non-finite CRLB
+(singular Fisher matrix, MLE only), or the converged position drifting more
+than `FIT_MAX_DRIFT_SIGMA_MULT` (2) times the seed σ_PSF from where it
+started — deliberately independent of **Fit radius** (`winr`), which used
+to also set this bound and so coupled "how much context to fit" to "how
+strict the quality gate is"; see [§3](#fit-params) for the full story and
+the reported issue it fixes. `gaussianMLEelliptic` also
 returns `lpsx`/`lpsy` (fit precision of the σx/σy widths), consumed by
 `zFromWidths()` to estimate `lpz` — an approximate z-precision via error
 propagation through the calibration curve's local slope (not a true joint
@@ -1078,7 +1084,9 @@ scoring drift correction. See the **simulation** module.
 | `detection_box_thr` | Uniform box filter threshold (intensity) | number | 0 | 65535 | 1 | 25 |
 | `detection_DoG_exactbp` | Exact band-pass (DoG only) | bool | — | — | — | false |
 | `psf` | σ_PSF — PSF width (px) | number | 0.8 | 5 | 0.1 | 1.3 |
-| `winr` | Fit radius (px) — window size = 2·winr+1 | number (int) | 2 | 10 | 1 | 4 |
+| `winr` | Fit radius (px) — window size = 2·winr+1 | number (int) | 2 | 10 | 1 | 3 |
+| `winr2d` | Fit radius 2D (px) | number (int) | 2 | 10 | 1 | 3 |
+| `winr3d` | Fit radius 3D (px) | number (int) | 2 | 10 | 1 | 4 |
 
 The in-app "more info…" popup for these fields (`hint-detectfit`) is shared
 with **Fit** below — one popup covers `liveUpdate` through `winr` as a
@@ -1111,6 +1119,7 @@ run the script, never edit the `.hint` div directly):
   <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
 </ul>
 <p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
+<p><b>Fit radius</b> is the active fit window half-width — auto-set from <b>Fit radius 2D</b>/<b>Fit radius 3D</b> whenever you switch between a 2D and a genuinely 3D fit, unless you've edited it by hand since the last auto-set (your own value is never silently overwritten).</p>
 <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
 <ul>
   <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -1130,6 +1139,46 @@ implementation, <a href="https://github.com/HohlbeinLab/FTM2" target="_blank" re
 (<a href="https://doi.org/10.1098/rsta.2020.0164" target="_blank" rel="noopener">Jabermoradi et al.,
 <i>Phil. Trans. R. Soc. A</i> 380(2220), 20200164, 2022</a>).</small></p>
 <!-- /HINT:detectfit -->
+
+**Fit radius, and why it's split into three fields.** `winr` is the value
+every fitter actually uses; `winr2d`/`winr3d` are two remembered defaults
+`applyWinrDefault()` (MODULE: pipeline) auto-applies to it whenever the
+2D/3D context changes (`currentIs3d()` — real z coming out, not just a
+3D-capable method selected: `mle3d`/`gaussmleEll` with **3D localisation?**
+unchecked still counts as 2D here). A symmetric 2D PSF at this codebase's
+typical σ_PSF (~1.3 px) is well-fit by a narrower window than an astigmatic
+3D PSF, whose elongated axis needs more pixels not to get truncated/biased
+near the edges of the calibrated z-range — one global default couldn't
+serve both well. The auto-apply is **non-clobbering**: it only overwrites
+`winr` if its current value still equals whatever the mechanism itself last
+wrote there (tracked in `_winrAutoSetValue`) — edit `winr` by hand and it
+stays exactly as you left it until you touch `winr2d`/`winr3d` themselves
+or the tracked value happens to match again. This is a real fix for a
+reported issue: `winr` used to *also* set the accept/reject drift tolerance
+every fitter applies (see the next paragraph) — changing it to get
+more/less fit context silently changed how strict that gate was too, with a
+non-obvious, data-dependent direction. Headless
+`analyze()` callers set `winr` directly in `config`, same as always — the
+auto-apply mechanism is interactive-UI-only, with no headless equivalent
+(matching every other `updateMethodUI()`-driven auto-default, e.g. the LUT
+auto-selection).
+
+**The accept/reject drift gate no longer depends on Fit radius at all.**
+Every fitter (`gaussianFit`, `gaussianFitElliptical`, `gaussianMLEspheric`,
+`gaussianMLEelliptic`, `gaussianMLEellipticangled`) rejects a converged fit
+whose position drifted too far from its seed — previously bounded by `r`
+(Fit radius itself), so widening the window to feed a fit more background
+context also loosened (or, via harder convergence in a busier/crowded
+window, sometimes effectively tightened) how strict that rejection was, a
+real reported confusion: the same visual set of spots gave different
+accepted counts at Fit radius 3 vs 4, with no reliable direction. The bound
+is now `FIT_MAX_DRIFT_SIGMA_MULT` (2) times the *seed* σ_PSF — never the
+fit's own output sx/sy, which would be circular — a physically meaningful
+"did this converge near where it should" test that's independent of window
+size. A shared internal constant, not a live setting, since all 5 fitters
+are stringified into the detect/fit worker and a genuinely tunable value
+would need threading through that worker's own dispatch protocol; could
+become a real `PARAMS` entry later if 2× ever proves wrong for real data.
 
 `fitLastFrame` defaults to `Infinity`, not a finite placeholder: an
 `<input type=number>` sanitizes a non-finite value to a blank field, and a

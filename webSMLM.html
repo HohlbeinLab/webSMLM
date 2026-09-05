@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2427   PARAMS registry, single source of truth for params;
+    params          2446   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3140   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3173   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3439   synthetic stack generator ("Simulate movie")
-    detect          4317   per-frame band-pass + local-maxima detection
-    fit             4594   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3472   synthetic stack generator ("Simulate movie")
+    detect          4350   per-frame band-pass + local-maxima detection
+    fit             4627   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -44,8 +44,13 @@
                            fitting, bit-identical output (verified);
                            pcfoCore() logCmd()-adjacent config.exportPcfoTiles
                            streams pcfo_tiles records via onRecord (already-
-                           in-memory pts, just avoids the CDP return payload)
-    render          5103   accumulate to offscreen buffer; view/colour/blur;
+                           in-memory pts, just avoids the CDP return payload);
+                           FIT_MAX_DRIFT_SIGMA_MULT decouples all 5 fitters'
+                           accept/reject drift gate from Fit radius (winr) —
+                           bounded by seed sigma0 instead; winr2d/winr3d
+                           (MODULE: params) are applyWinrDefault()'s (MODULE:
+                           pipeline) two remembered defaults
+    render          5163   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -67,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6380   frame-parallel detect/fit worker pool; dedicated
+    workers         6440   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6686   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  6978   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6747   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7039   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7395   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7456   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -90,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7901   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7962   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8610   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8671   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9142   single particle tracking, trackpy-inspired;
+    spt             9202   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10643  top-level orchestration, *Core()/wrapper split;
+    pipeline        10703  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11264  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11324  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -193,9 +198,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13129  localizations table, filtering, histograms;
+    table           13222  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13714  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13807  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1887,7 +1892,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2138,7 +2143,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" id="detection_DoG_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_DoG_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
         <label class="row" id="detection_box_thrRow" style="margin-top:8px">Threshold (intensity) <input type="number" id="detection_box_thr" min="0" max="65535" step="1" value="25" class="num"></label>
         <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="5" step="0.1" value="1.3" class="num"></label>
-        <label class="row">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="4" class="num"></label>
+        <label class="row" title="The active fit window half-width — auto-set from Fit radius 2D/3D below whenever you switch between a 2D and a genuinely-3D fit method, unless you've edited it manually since the last auto-set.">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="3" class="num"></label>
+        <label class="row" title="Remembered default for Fit radius above, applied whenever a 2D method (or a 3D-capable method with 3D localisation? unchecked) is active.">Fit radius 2D (px) <input type="number" id="winr2d" min="2" max="10" step="1" value="3" class="num"></label>
+        <label class="row" title="Remembered default for Fit radius above, applied whenever a genuinely 3D fit (real z coming out) is active — wider, since an astigmatic PSF's elongated axis needs more pixels.">Fit radius 3D (px) <input type="number" id="winr3d" min="2" max="10" step="1" value="4" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-detectfit"><span class="pill">module: detect/fit</span>
           <p><b>Fit method</b> — σ_noise below is the spread of the filtered image, not the PSF width.</p>
@@ -2149,6 +2156,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
           </ul>
           <p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Spectral SMLM analysis → Primary angle).</p>
+          <p><b>Fit radius</b> is the active fit window half-width — auto-set from <b>Fit radius 2D</b>/<b>Fit radius 3D</b> whenever you switch between a 2D and a genuinely 3D fit, unless you've edited it by hand since the last auto-set (your own value is never silently overwritten).</p>
           <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
           <ul>
           <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -2465,8 +2473,22 @@ const PARAMS = {
   detection_DoG_exactbp: { type:'bool', id:'detection_DoG_exactbp', label:'Exact band-pass (DoG only)', default:false },
   // psf = σ_PSF, the point-spread-function width in camera pixels; sets filter scale + fit initial guess
   psf: { type:'number', id:'psf', label:'σ_PSF — PSF width (px)', min:0.8, max:5, step:0.1, default:1.3, int:false },
-  // winr = "window radius": half-width of the square fit window, so window size = 2·winr+1
-  winr: { type:'number', id:'winr', label:'Fit radius (px)', min:2, max:10, step:1, default:4, int:true },
+  // winr = "window radius": half-width of the square fit window, so window size = 2·winr+1.
+  // Default matches winr2d below (3), not the old global 4, so the very first
+  // applyWinrDefault() call at page load (2D is the default method) is a
+  // harmless no-op instead of a visible jump — see applyWinrDefault()'s own
+  // comment (MODULE: pipeline) for the full auto-default mechanism.
+  winr: { type:'number', id:'winr', label:'Fit radius (px)', min:2, max:10, step:1, default:3, int:true },
+  // winr2d/winr3d = the two REMEMBERED defaults applyWinrDefault() auto-applies
+  // to winr above when switching between a 2D and a genuinely-3D fit (real z
+  // coming out, not just a 3D-capable method run in 2D mode) — see that
+  // function's own comment for why this needs to be two separate values
+  // rather than overloading winr's own single default: a symmetric 2D PSF at
+  // this codebase's typical σ_PSF (~1.3 px) is well-fit by a narrower window
+  // than an astigmatic 3D PSF, whose elongated axis needs more pixels not to
+  // get truncated/biased near the edges of the calibrated z-range.
+  winr2d: { type:'number', id:'winr2d', label:'Fit radius 2D (px)', min:2, max:10, step:1, default:3, int:true },
+  winr3d: { type:'number', id:'winr3d', label:'Fit radius 3D (px)', min:2, max:10, step:1, default:4, int:true },
 
   // ---- fit ----
   // method = which localization fitter runs: phasor 2D/3D, Gaussian least-squares, or Gaussian MLE 2D/3D
@@ -4604,6 +4626,28 @@ function detectSpots(img,w,h,sigma,exactBP,mode,thr,border){
 /* ===========================================================================
    MODULE: fit
    =========================================================================== */
+// Shared accept/reject drift tolerance for all 5 fitters below: a converged
+// fit is rejected if its position moved more than FIT_MAX_DRIFT_SIGMA_MULT
+// times the SEED σ_PSF (sigma0, never the fitted sx/sy — using the fit's own
+// output here would be circular, deciding whether to trust a result using a
+// number that result itself produced) from the seed position. Deliberately
+// NOT the window radius `r` (which every fitter also uses, unchanged, for
+// the actual pixel-window bounds) — that coupling meant Window radius did
+// double duty as "how much context to fit" AND "how strict the quality
+// gate is", so widening it to get more background context also silently
+// loosened (or, via harder convergence in a busier window, sometimes
+// effectively tightened) the accept/reject gate — a real, reported
+// confusion: the SAME visual set of spots gave different accepted counts at
+// winr=3 vs 4, with no reliable direction (crowding/SNR-dependent). Scaling
+// with σ_PSF instead is a physically meaningful "did this converge near
+// where it should" test, independent of window size. A constant (not a
+// live PARAMS value) because all 5 fitters are stringified into the
+// detect/fit worker (workerSource()) — see WORKER_PRELUDE's own copy of
+// this line — and a genuinely tunable value would need threading through
+// the worker's own dispatch payload at every call site instead of just
+// this one shared declaration; promote it to a real PARAMS entry later if
+// 2x ever proves wrong for real data.
+const FIT_MAX_DRIFT_SIGMA_MULT=2;
 // -- least-squares 2D Gaussian (Gauss-Newton + line search) --
 // Solves the n×n linear system A·x=b by Gauss-Jordan elimination with
 // partial pivoting; returns null if A is singular. Used by gaussianFit()'s
@@ -4646,7 +4690,8 @@ function gaussianFit(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0){
       if(np[0]>0&&sseWin(img,w,cx,cy,r,np,gain,camoffset)<cur){p=np;moved=true;break;} step*=0.5; }
     if(!moved)break; if(Math.hypot(step*dp[1],step*dp[2])<1e-5)break;
   }
-  if(p[0]<=0||Math.abs(p[1]-cx)>r||Math.abs(p[2]-cy)>r||!isFinite(p[1])) return null;
+  const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
+  if(p[0]<=0||Math.abs(p[1]-cx)>maxDrift||Math.abs(p[2]-cy)>maxDrift||!isFinite(p[1])) return null;
   // Residual RMS over the window as the background-noise estimate (bkgstd).
   // The fit already separates signal from background, so `b` is the offset and
   // the integrated Gaussian volume is the background-subtracted intensity.
@@ -4813,7 +4858,8 @@ function gaussianMLEspheric(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.00
   // clamped above — the fit collapsed onto background instead of finding
   // real signal (the "zero intensity" pathology, with correspondingly
   // meaningless bg/uncertainty); (3) out-of-window position.
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
+  const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
+  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
   let lpx=NaN,lpy=NaN;                                                         // CRLB = diagonal of Fisher⁻¹
   const ex=solveLin(fisher,[1,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
@@ -4839,7 +4885,8 @@ function gaussianMLEelliptic(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.0
   const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4];
   const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,mleModelElliptical);
   // See gaussianMLEspheric's comment above — same three rejection criteria.
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
+  const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
+  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
   let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN;
   const ex=solveLin(fisher,[1,0,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
@@ -4898,7 +4945,8 @@ function gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,e
   if(fixedAngle==null){ th.push(0.01); mstep.push(0.2); }
   const modelFn=(px,py,thh,duOut)=>mleModelRotated(px,py,thh,duOut,fixedAngle);
   const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,modelFn);
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
+  const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
+  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
   const unit=i=>{ const v=new Array(n).fill(0); v[i]=1; return v; };
   let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN,lpangle=NaN;
   const ex=solveLin(fisher,unit(0)), ey=solveLin(fisher,unit(1));
@@ -4982,7 +5030,8 @@ function gaussianFitElliptical(img,w,h,cx,cy,win,sigma0){
     if(!moved)break; if(Math.hypot(step*dp[1],step*dp[2])<1e-5)break;
   }
   const [A,x0,y0,sx,sy,b]=p;
-  if(A<=0||Math.abs(x0-cx)>r||Math.abs(y0-cy)>r||!isFinite(x0)||!isFinite(y0)) return null;
+  const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
+  if(A<=0||Math.abs(x0-cx)>maxDrift||Math.abs(y0-cy)>maxDrift||!isFinite(x0)||!isFinite(y0)) return null;
   let e2=0,cnt=0,sig2=0; const sx2=sx*sx, sy2=sy*sy;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const x=cx+dx,y=cy+dy;
     const res=b+A*Math.exp(-((x-x0)**2/(2*sx2)+(y-y0)**2/(2*sy2)))-img[y*w+x]; e2+=res*res; cnt++; sig2+=img[y*w+x]**2; }
@@ -6408,6 +6457,7 @@ const WORKER_PRELUDE=[
   "let _mdCap=0,_mdPos=null,_mdVal=null;",
   "let _pcol=null,_prow=null,_pN=0;",
   "const _SQ2PI=Math.sqrt(2*Math.PI);",   // mleModelSpherical/mleModelElliptical (MODULE: fit) read this
+  "const FIT_MAX_DRIFT_SIGMA_MULT=2;",    // all 5 fitters' own accept/reject drift gate (MODULE: fit) reads this
 ].join('\n');
 
 // Builds the actual worker script: WORKER_PRELUDE's module-level state,
@@ -12132,11 +12182,44 @@ $('gainOffsetFromPcfoBtn').addEventListener('click', async ()=>{
 // calibration is already active, per the "loading box only while there's
 // nothing loaded yet" design — there's no in-page "replace calibration"
 // affordance yet, a new page load (or Load settings) is the reset path.
+// Whether the CURRENT method/localize3D combination is genuinely 3D (real z
+// coming out), not just a 3D-capable method — shared by updateMethodUI() and
+// applyWinrDefault()'s own change listeners so this logic lives in one place.
+function currentIs3d(){
+  const m=paramValue('method'), is3dMethod = m==='mle3d'||m==='gaussmleEll';
+  return m==='phasor3d' || (is3dMethod && paramValue('localize3D'));
+}
+// Tracks the value applyWinrDefault() itself last wrote into #winr — NOT
+// simply "the default", since winr2d/winr3d are themselves user-editable.
+// Initialized to winr's own PARAMS default so the very first real check
+// (page load, 2D method active) is trivially "untouched" and applies
+// cleanly.
+let _winrAutoSetValue=PARAMS.winr.default;
+// Auto-applies Fit radius 2D/3D (winr2d/winr3d) to the ACTIVE Fit radius
+// (winr) field whenever the 2D/3D context changes (called from
+// updateMethodUI(), which already computes `is3d` via currentIs3d()) or
+// when winr2d/winr3d themselves are edited (their own change listeners,
+// below). Deliberately NON-CLOBBERING: only overwrites winr if its current
+// value still equals whatever THIS function itself last wrote there — if
+// the user has typed a different value into Fit radius since then, that
+// manual choice is respected and left alone, unlike e.g. the LUT
+// auto-default in updateMethodUI() below, which always overwrites on every
+// method switch (LUT is a display preference with nothing to protect; Fit
+// radius is a real analysis parameter someone may have deliberately tuned).
+function applyWinrDefault(is3d){
+  const want=is3d?paramValue('winr3d'):paramValue('winr2d');
+  if(+$('winr').value!==_winrAutoSetValue) return;   // manually edited since the last auto-set — leave it
+  $('winr').value=want; $('winr').dispatchEvent(new Event('change'));
+  _winrAutoSetValue=want;
+}
+$('winr2d').addEventListener('change',()=>applyWinrDefault(currentIs3d()));
+$('winr3d').addEventListener('change',()=>applyWinrDefault(currentIs3d()));
 function updateMethodUI(){
   const m=paramValue('method'), is3dMethod = m==='mle3d'||m==='gaussmleEll';
   $('localize3DRow').style.display = is3dMethod ? 'flex' : 'none';
   const localize3D = paramValue('localize3D');
-  const is3d = m==='phasor3d' || (is3dMethod && localize3D);
+  const is3d = currentIs3d();
+  applyWinrDefault(is3d);
   const calibrationPresent = !!(cal3d||cal3dW);
   $('cal3dRow').style.display = (is3d && !calibrationPresent) ? 'block' : 'none';
   // Reveal the depth-colour toggle (ticked) the moment a 3D method is chosen —
@@ -13011,14 +13094,17 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-05a — fixed a real regression from
-the previous build: smFRET's Localise SOI auto-rerun snapped the
-reconstruction panel's zoom/pan back to fit on every threshold/setting
-change (reported), discarding whatever view a user had while hand-tuning
-a faint signal in. Now only refits on an actual frame-size change, same
-"keep zoom while scrubbing" convention the raw panel's own live preview
-already uses — verified a manual zoom/pan survives an auto-rerun intact.
-Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-05b — fixed a reported bug:
+changing Fit radius (winr) used to also change the fit's own accept/reject
+drift tolerance (they shared one value), so widening/narrowing it could
+silently include or exclude localizations with no consistent direction.
+All 5 fitters now bound drift by FIT_MAX_DRIFT_SIGMA_MULT x seed sigma_PSF
+instead, independent of window size. Fit radius is now also two separate,
+remembered defaults — Fit radius 2D (3px) and Fit radius 3D (4px) — auto-
+applied via applyWinrDefault() whenever you switch between a 2D and a
+genuinely 3D fit, but never clobbering a manual edit you've made since the
+last auto-apply. See docs/DOCUMENTATION.md's fit module/PARAMS sections for
+the full story. Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

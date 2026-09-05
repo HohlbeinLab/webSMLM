@@ -214,6 +214,36 @@ relevant one before editing rather than scrolling:
   when fit in photon units, so this is the one place gain/offset actually change a result rather
   than just rescaling it.
 
+  **Accept/reject drift gate decoupled from `winr`** (reported): all 5 fitters (`gaussianFit`,
+  `gaussianFitElliptical`, `gaussianMLEspheric`, `gaussianMLEelliptic`, `gaussianMLEellipticangled`)
+  reject a converged fit whose position drifted too far from its seed — previously bounded by `r`
+  (Fit radius/`winr` itself), so widening the window for more background context also silently
+  loosened (or, via harder convergence in a busier/crowded window, sometimes effectively tightened)
+  that gate, with no reliable direction — the same visual set of spots in real, faint, crowded smFRET
+  data gave different accepted counts at `winr` 3 vs 4. Now bounded by `FIT_MAX_DRIFT_SIGMA_MULT`
+  (2, declared once near MODULE: fit's own banner) times the SEED σ_PSF (`sigma0` — never the fit's
+  own output sx/sy, which would be circular) — a physically meaningful, window-size-independent test.
+  A constant, not a live `PARAMS` value: all 5 fitters are stringified into the detect/fit worker
+  (`workerSource()`), so a tunable value would need threading through that worker's own dispatch
+  protocol at every call site instead of one shared declaration (+ one `WORKER_PRELUDE` line) —
+  promote to a real setting later if 2× ever proves wrong for real data. `sigma0` is already a
+  parameter on every one of these 5 functions, so this needed zero signature or call-site changes.
+
+  **`winr2d`/`winr3d`** (Fit radius 2D/3D) are two remembered defaults `applyWinrDefault()`
+  (MODULE: pipeline, called from `updateMethodUI()`'s own `currentIs3d()`) auto-applies to the
+  ACTIVE `winr` field whenever the 2D/3D context changes — a symmetric 2D PSF at this codebase's
+  typical σ_PSF (~1.3 px) is well-fit by a narrower window (default 3) than an astigmatic 3D PSF's
+  elongated axis (default 4), so one global `winr` default (previously 4, now 3) couldn't serve both.
+  Deliberately NON-CLOBBERING, unlike `updateMethodUI()`'s own LUT auto-default just below (which
+  always overwrites on every method switch, since LUT is a display preference with nothing to
+  protect): `applyWinrDefault()` only overwrites `winr` if its current value still equals
+  `_winrAutoSetValue` (what the mechanism itself last wrote there) — a manual edit to `winr` since
+  then is respected and left alone. `currentIs3d()` means real z coming out, not just a 3D-capable
+  method selected (`mle3d`/`gaussmleEll` with **3D localisation?** unchecked still counts as 2D
+  here) — extracted as its own function so `winr2d`/`winr3d`'s own `change` listeners can reuse the
+  identical logic `updateMethodUI()` already had, rather than a second copy. Headless `analyze()`
+  sets `winr` directly, same as always — this auto-apply is interactive-UI-only.
+
   **Shared MLE accumulator**: `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled`
   all run on ONE Fisher-scoring Newton driver, `mleNewtonFit(n, th, mstep, clampFn, ..., modelFn)` —
   checked directly against Picasso 0.11.0's `picasso/fitting/gaussfit.py`, whose
