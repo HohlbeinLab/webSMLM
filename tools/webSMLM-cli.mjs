@@ -24,7 +24,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --method gaussmle
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --cropX0 100 --cropY0 0 --cropX1 600 --cropY1 400
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --sSmlmDistMin 2200 --sSmlmDistMax 2800
-//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --sptTrack --sptFrameTime 0.05
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --sptTrack --frametime 0.05
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --correctDrift --computeNeNA --computeFRC --exportPlots
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --segmentation mask.tif --segAreaMin 50 --segAreaMax 5000
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --exportHistograms photons,sigma,bg
@@ -88,10 +88,12 @@
 // §8) — the headless equivalent of clicking Track. Unlike --sSmlmPair, runs
 // AFTER --correctDrift/--computeNeNA/--computeFRC (a per-track D benefits
 // from drift-corrected coordinates; pass --correctDrift first if you want
-// that). --sptSearchRange/--sptMemory/--sptFrameTime/--sptLocError/
+// that). --sptSearchRange/--sptMemory/--frametime/--sptLocError/
 // --sptTrackLenMin (ordinary PARAMS overrides) configure it; result.csv
 // gains track_id/D_coeff columns (summary.json's "spt" field records
-// nTracks/nQualify/meanD/medianD).
+// nTracks/nQualify/meanD/medianD). --frametime was --sptFrameTime before
+// v0.12.1-dev — the old flag still works (aliased inside analyze() itself,
+// with a deprecation warning), but use --frametime going forward.
 // --segmentation <mask.tif/.tiff/.nd2> switches --sptTrack to cell-by-cell
 // tracking (MODULE: spt's "Apply segmentation?" + Load segm. image,
 // docs/DOCUMENTATION.md §8) — a track can never cross a cell boundary.

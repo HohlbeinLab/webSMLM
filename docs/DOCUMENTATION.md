@@ -85,16 +85,28 @@ section's first field. A hint only appears for a button that's currently
 enabled or a section currently on screen; the digit each one maps to never
 changes based on that, so it stays predictable across sessions.
 
-### Sidebar — Pixel size (nm)
+### Sidebar — Pixel size (nm) / Frame time (s) {#sidebar-pxnm-frametime}
 
-`pxnm` sits as a plain, always-visible row directly below the action
-buttons/progress bar — deliberately NOT inside any collapsible module. It
-used to live inside **Localisation settings** (collapsed by default)
-alongside Gain/Camera offset; pinned out here instead (v1/first pass,
-expected to be refined further) since it's easy to forget it's there while
-buried in a closed section, despite feeding the scale bar, z, and every
-exported CSV coordinate — see [§3](#export-params) for the full parameter
-entry. Gain/Camera offset stay inside **Localisation settings** for now.
+`pxnm` and `frametime` sit as two plain, always-visible rows directly below
+the action buttons/progress bar — deliberately NOT inside any collapsible
+module. `pxnm` used to live inside **Localisation settings** (collapsed by
+default) alongside Gain/Camera offset; pinned out here instead (v1/first
+pass, expected to be refined further) since it's easy to forget it's there
+while buried in a closed section, despite feeding the scale bar, z, and
+every exported CSV coordinate — see [§3](#render-params) for the full
+parameter entry. Gain/Camera offset stay inside **Localisation settings**
+for now.
+
+`frametime` (labelled **Frame time (s)**, renamed from `sptFrameTime` in
+v0.12.1-dev) joined it for the same reason: a per-dataset acquisition
+property exactly like pixel size, not something specific to **Single
+particle tracking** despite that module being its only current
+consumer — used to live inside `sptBox` (also collapsed by default). See
+[§3](#spt-params) for the full parameter entry and
+[§8](#8-headless-api-window-websmlm) for the temporary `sptFrameTime`
+back-compat alias (headless `config`, saved Settings JSON, and `?autorun=`
+URLs with the old key all still work, with a deprecation warning logged,
+until external scripts/settings have had time to migrate).
 
 ### Sidebar — collapsible modules
 
@@ -792,8 +804,9 @@ paragraph after the next one for the toggle that replaced the second one).
 reference pipeline's own histogram range) constrain the D histogram's
 own display window only — tracks outside it are excluded from the plot
 the same way non-positive D is, but the logged mean/median D always cover
-every qualifying track. Editing **Frame time** or **Localization error**
-after **Track** has run rescales every already-computed D (D is exactly
+every qualifying track. Editing **Frame time** (the pinned sidebar field
+next to **Pixel size (nm)**, not inside this section — see [§1](#sidebar-pxnm-frametime))
+or **Localization error** after **Track** has run rescales every already-computed D (D is exactly
 linear in 1/frame time once the underlying per-track MSD is fixed) —
 including the D shown in the table/CSV and the D histogram if it's
 currently open — without needing to click **Track** again; only
@@ -1809,11 +1822,18 @@ for the first implementation.
 
 *Module:* **spt** — see [§2](#spt).
 
+`frametime` (renamed from `sptFrameTime` in v0.12.1-dev) has no page control
+inside this module any more — it's a pinned, always-visible sidebar row
+next to **Pixel size (nm)**, since it's a per-dataset acquisition property
+like pixel size, not something spt-specific despite being this module's
+only current consumer. See [§1](#sidebar-pxnm-frametime) for the relocation
+and the temporary `sptFrameTime` back-compat alias.
+
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `sptSearchRange` | SPT search range (nm) | number | 10 | 5000 | 10 | 800 |
 | `sptMemory` | SPT memory (frames) | number (int) | 0 | 20 | 1 | 0 |
-| `sptFrameTime` | SPT frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
+| `frametime` | Frame time (s) | number | 0.0001 | 10 | 0.001 | 0.01 |
 | `sptLocError` | SPT localization error (nm) | number | 0 | 500 | 1 | 35 |
 | `sptTrackLenMin` | SPT min track length (locs) | number (int) | 2 | 1000 | 1 | 5 |
 | `sptDPlotMin` | SPT D plot min (µm²/s) | number | 0.0001 | 1000 | 0.001 | 0.004 |
@@ -1830,7 +1850,7 @@ for the first implementation.
 <!-- HINT:spt -->
 <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
 <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
-<p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
+<p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> (pinned in the sidebar next to <b>Pixel size (nm)</b>, not inside this section) or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
 <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
 <p><b>Show tracks</b> plots a subset of tracks as lines directly on the <b>SMLM reconstruction</b> (thickness = one reconstruction pixel's own on-screen size at the current zoom, capped so zooming in a long way can't blow a track up into an oversized shape), a filled circle marking each track's own start point (diameter = 2x the line thickness, same colour as the line), and its track number in white on a semi-transparent grey backing box (matching the scale bar's own) for legibility — growing larger the further you zoom in — legible tracks require zooming in, since real data is usually dense. Only tracks meeting <b>Min track length</b> are eligible (the same threshold Track's own D estimate uses); <b>Show tracks (%)</b> (default 10%) then samples a fixed, reproducible percentage of those, so a dense dataset stays plottable — raising it never reshuffles the tracks already shown, it only reveals more, and the exact same track identities come up every time for a given dataset. <b>Colour tracks by mean D</b> (checked by default) colours each track by its own mean diffusion coefficient (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b>, with a colour-scale legend centred along the panel's right edge while it's checked — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead); uncheck it for plain magenta tracks instead. Click a track (anywhere along its own line) to select it — it highlights magenta in colour-by-D mode, or the same green the raw panel's own ROI boxes use otherwise; click it again, or a different track, to change the selection. Turning the overlay on also switches the reconstruction to the <b>Grey</b> colour map, so the tracks' own colouring doesn't compete with a coloured density map. A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
 <p><b>Show track data</b> opens a sortable, filterable table of the per-track summary — one row per track (<code>track_id</code>, <code>n_locs</code>, <code>D_coeff</code>, mean x/y, first/last frame), the same rows <b>Save track data</b> writes to CSV, not one row per localization (see <b>View data/filtering</b> for that). Click a column header to sort by it; type a filter (e.g. <code>n_locs &gt; 10</code>, joinable with <code>and</code>/<code>or</code>) and press Enter to apply it — cumulative, removable filter chips, same grammar as the main table. A v1 kept deliberately simple for now (no histogram-of-column, no link back to the reconstruction yet).</p>
@@ -1845,7 +1865,7 @@ Defaults are ported from the user's own `sptPALM-Python` pipeline's
 pipeline's µm convention to webSMLM's own nm convention for spatial params
 (0.8 µm → 800 nm, 0.035 µm → 35 nm) — a different setup's own step sizes and
 localization precision will sit elsewhere, so treat these as a starting
-point, not a universal default. `sptFrameTime` is not auto-applied from the
+point, not a universal default. `frametime` is not auto-applied from the
 loaded stack — set it to match your own movie's real acquisition interval.
 A TIFF/ND2 file's own embedded frame interval, when present, is logged on
 load (never auto-applied — see **in/out** in `CLAUDE.md`), which can help;
@@ -1905,6 +1925,11 @@ Written by **Save settings**, read by **Load settings**.
   (`workerBatch*`, `srPreview*`, etc.) is a loaded file like this.
 - On load, unrecognised keys are logged (`"not recognised — ignored"`) and
   skipped rather than erroring — old files stay loadable across versions.
+  One exception: a file with `sptFrameTime` (renamed to the global
+  `frametime` in v0.12.1-dev — see [§1](#sidebar-pxnm-frametime)) has that
+  key aliased to `frametime` before the loop runs, not silently dropped —
+  a TEMPORARY back-compat step, removed once old saved files have had time
+  to migrate (a fresh **Save settings** always writes `frametime`).
 - DOM-backed entries dispatch a real `change` event when set, so any
   existing listener (live preview, "Fix bead x,y" retrigger, …) reacts
   exactly as if the user had edited the control by hand.
@@ -2196,8 +2221,12 @@ const result = await window.webSMLM.analyze({
   localization keeps its own row), so there's no row-count reason to run it
   early the way pairing's own row reduction motivates, but a per-track
   diffusion coefficient benefits from drift-corrected coordinates.
-  `config.sptSearchRange`/`sptMemory`/`sptFrameTime`/`sptLocError`/
-  `sptTrackLenMin` (ordinary `PARAMS` fields) configure it. `result.spt`
+  `config.sptSearchRange`/`sptMemory`/`frametime`/`sptLocError`/
+  `sptTrackLenMin` (ordinary `PARAMS` fields) configure it — `frametime`
+  (renamed from `sptFrameTime` in v0.12.1-dev; the old key is still
+  accepted, aliased with a deprecation warning, see below) is a global
+  `PARAMS` entry, not spt-specific, despite `sptTrack` being its only
+  current consumer. `result.spt`
   records `{nTracks, nQualify, meanD, medianD}` (`null` if `sptTrack` wasn't
   requested) — deliberately a small summary, not `sptCore()`'s own full
   `diffCoeffs`/`trackIds`/`trackLengths` arrays (`trackMSD` in particular is
@@ -2205,6 +2234,17 @@ const result = await window.webSMLM.analyze({
   `JSON.stringify()` if returned as-is); `result.locs`/`result.csvText`
   gain `track_id`/`D_coeff` columns the same way an interactive Track adds
   them to `lastResult.locs`, row count unchanged.
+- `config.sptFrameTime` — **deprecated alias**, TEMPORARY. `sptFrameTime`
+  was renamed to the global `frametime` in v0.12.1-dev ([§1](#sidebar-pxnm-frametime)).
+  `analyze()` still accepts the old key: if `config.sptFrameTime` is set and
+  `config.frametime` isn't, it's applied as `frametime` and a deprecation
+  warning is logged. The same alias covers `tools/webSMLM-cli.mjs`'s
+  `--sptFrameTime` (the CLI forwards raw `--key value` pairs straight into
+  `config`, so no separate CLI-side change was needed) and a bookmarked
+  `?autorun=1&sptFrameTime=...` URL. A saved Settings JSON with the old key
+  gets the same treatment on load ([§4](#4-settings-json-format)). Remove
+  once external scripts/settings have had time to migrate — new Save
+  settings/Save data always write the new `frametime` key.
 - `config.segmentationFile` (v0.11.6) — a `File`, not a `PARAMS` entry. Its
   mere presence switches `sptTrack` (above) from one whole-field-of-view
   tracking pass to cell-by-cell tracking, the headless equivalent of
@@ -2581,8 +2621,11 @@ links localizations into trajectories and computes a per-track diffusion
 coefficient, AFTER `--correctDrift`/`--computeNeNA`/`--computeFRC` (the
 opposite order from `--sSmlmPair` — a per-track D benefits from drift-
 corrected coordinates) — `--sptSearchRange`/`--sptMemory`/
-`--sptFrameTime`/`--sptLocError`/`--sptTrackLenMin` (ordinary `PARAMS`
-overrides) configure it; `result.csv` gains `track_id`/`D_coeff` columns,
+`--frametime`/`--sptLocError`/`--sptTrackLenMin` (ordinary `PARAMS`
+overrides — `--frametime` was `--sptFrameTime` before v0.12.1-dev; the old
+flag still works, aliased with a deprecation warning, see
+[§8](#8-headless-api-window-websmlm)'s `config.sptFrameTime`) configure it;
+`result.csv` gains `track_id`/`D_coeff` columns,
 and `summary.json`'s `spt` field records `nTracks`/`nQualify`/`meanD`/
 `medianD` — see [§8](#8-headless-api-window-websmlm)'s `config.sptTrack`.
 `--segmentation <mask.tif/.tiff/.nd2>` switches `--sptTrack` to cell-by-cell

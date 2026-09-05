@@ -747,6 +747,30 @@ relevant one before editing rather than scrolling:
   **Track**. **Get from NeNA** (`sptLocErrorFromNenaBtn`) writes `sptLocError.value`
   programmatically, which doesn't fire `change`, so its handler calls `recomputeSptD()` explicitly.
 
+  **`frametime`** (Frame time (s), renamed from `sptFrameTime`, v0.12.1-dev) moved OUT of this
+  module's own `sptBox` to a pinned, always-visible sidebar row next to `pxnm` — same precedent and
+  reasoning as `pxnm`'s own earlier relocation (see MODULE: params' comment on it): a per-dataset
+  acquisition property, not something spt-specific, despite spt being its only current consumer.
+  PARAMS registry position follows `pxnm` (both under the `// ---- render ----` comment group) for
+  developer discoverability, but its DOCUMENTATION.md table entry stays under spt's own §3 section
+  — its real functional home — exactly mirroring how `pxnm`'s own table entry stays under
+  "Rendering settings" despite its pinned UI position; §1's sidebar section covers the physical
+  relocation for both fields together. **Renaming, not just relocating** (unlike `pxnm`, which kept
+  its id): a plain relocation would have left an SPT-specific id (`sptFrameTime`) on a control that
+  no longer lives in the SPT section, confusing for anyone reading `PARAMS`/a settings file cold.
+  Three TEMPORARY back-compat aliases cover the old key, each logging one deprecation warning and
+  removable once external scripts/settings have migrated: (1) `analyze()`'s own top-of-function
+  check (`config.sptFrameTime→cfg.frametime`, since `Object.assign(defaultConfig(),config)` would
+  otherwise leave the caller's real value shadowed by `frametime`'s own default, with no error) —
+  this alone also covers `tools/webSMLM-cli.mjs`'s `--sptFrameTime`, since the CLI forwards raw
+  `--key value` pairs straight into `config`; (2) the Load Settings handler's own alias, applied to
+  the parsed JSON's `values` object BEFORE the `for(const id in v)` loop, so an old saved file's
+  `sptFrameTime` isn't silently dropped as an "unknown/legacy key"; (3) `runAutorun()`'s URL-param
+  loop, which needed its own explicit `if(key==='sptFrameTime')` branch since `PARAMS['sptFrameTime']`
+  no longer resolving means the loop's generic `spec`-driven path can't find it either. Fresh Save
+  settings/Save data always write the new `frametime` key — the alias is read-only compatibility,
+  never round-tripped back out.
+
   `drawSptTrackLenHist()` fits an exponential decay (`fitTrackLifetime()`, count(L) ~ A·exp(−L/τ),
   a photobleaching-limited survival model) via WEIGHTED least-squares on ln(count) vs bin centre,
   weight = the bin's own count. **Weighting is required, not cosmetic**: bin counts are

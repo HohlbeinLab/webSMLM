@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2457   PARAMS registry, single source of truth for params;
+    params          2462   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3188   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3199   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3487   synthetic stack generator ("Simulate movie")
-    detect          4365   per-frame band-pass + local-maxima detection
-    fit             4642   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3498   synthetic stack generator ("Simulate movie")
+    detect          4376   per-frame band-pass + local-maxima detection
+    fit             4653   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -50,7 +50,7 @@
                            bounded by seed sigma0 instead; winr2d/winr3d
                            (MODULE: params) are applyWinrDefault()'s (MODULE:
                            pipeline) two remembered defaults
-    render          5178   accumulate to offscreen buffer; view/colour/blur;
+    render          5189   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -72,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6455   frame-parallel detect/fit worker pool; dedicated
+    workers         6466   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6762   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7054   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6773   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7065   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7471   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7482   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7977   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7988   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8686   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8697   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9352   single particle tracking, trackpy-inspired;
+    spt             9363   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10853  top-level orchestration, *Core()/wrapper split;
+    pipeline        10864  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11474  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11485  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,9 +198,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13385  localizations table, filtering, histograms;
+    table           13403  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13970  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13988  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1892,7 +1892,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1972,6 +1972,12 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            question whether they should move too, see CLAUDE.md. -->
       <hr class="sep" style="margin:10px 0 8px">
       <label class="row" style="padding-right:4px" title="Camera pixel size (nm) — physical scale for the scale bar, z, and exported CSV coordinates">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
+      <!-- Pinned alongside pxnm above, same reasoning (v0.12.1-dev): a per-dataset acquisition
+           property, not something specific to Single particle tracking despite only that module
+           currently reading it — used to live inside sptBox (collapsed by default). Renamed from
+           sptFrameTime at the same time (id="frametime" now) — see the PARAMS registry's own
+           comment for the full reasoning and the temporary sptFrameTime back-compat alias. -->
+      <label class="row" style="padding-right:4px" title="Seconds per frame — used by Single particle tracking's diffusion-coefficient calculation">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
         <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="64" step="0.5" class="num"></label>
@@ -2348,7 +2354,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" id="segAreaMaxRow" style="display:none;padding-left:40px">Max. cell area (px) <input type="number" id="segAreaMax" min="0" step="1" class="num" title="Blank = no upper limit"></label>
         <label class="row">Search range (nm) <input type="number" id="sptSearchRange" value="800" min="10" max="5000" step="10" class="num"></label>
         <label class="row">Memory (frames) <input type="number" id="sptMemory" value="0" min="0" max="20" step="1" class="num"></label>
-        <label class="row">Frame time (s) <input type="number" id="sptFrameTime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
         <label class="row">Localization error (nm) <input type="number" id="sptLocError" value="35" min="0" max="500" step="1" class="num"></label>
         <div class="btnrow" style="margin-top:2px">
           <button id="sptLocErrorFromNenaBtn" disabled style="grid-column:2" title="Fill Localization error in from the NeNA precision (runs NeNA first if it hasn't been computed yet)">Get from NeNA</button>
@@ -2373,7 +2378,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-spt"><span class="pill">module: spt</span>
           <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
-          <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
+          <p>One diffusion coefficient (D, µm²/s) is computed per track with at least <b>Min track length</b> localizations, from the gap-corrected mean of ALL of that track's own single-frame squared displacements (an average, not a linear MSD-vs-lag-time fit) — corrected for <b>Localization error</b>: D = MSD/(4·frame time) − error²/frame time. Changing <b>Frame time</b> (pinned in the sidebar next to <b>Pixel size (nm)</b>, not inside this section) or <b>Localization error</b> after <b>Track</b> has run instantly rescales every already-computed D (and the shown histogram) from cached per-track MSDs, no re-tracking needed — only <b>Search range</b>/<b>Memory</b>/<b>Min track length</b> require a fresh <b>Track</b> click, since those change which tracks/steps exist in the first place.</p>
           <p><b>Track</b> immediately plots a histogram of D (log<sub>10</sub>-binned — D commonly spans orders of magnitude between bound/slow and free/fast populations) in the raw panel; a track whose corrected D comes out non-positive (near-immobile/very-short tracks, where MSD can end up below the subtracted error term) is excluded from that histogram rather than pooled into a fake spike, with the excluded count logged. <b>D plot min/max</b> set the histogram's own display range (tracks outside it are likewise excluded from the plot only — the logged mean/median D always reflect every qualifying track, not just the plotted window); defaults match the reference pipeline's own histogram range. <b>Show histograms</b> redraws it later without re-tracking. A toggle next to the raw panel's own title (labelled <b>Diffusion</b> or <b>Track length</b>, whichever it would switch to) swaps to the underlying track-length distribution instead (every linked track, log-scaled count axis since it usually falls off steeply) with an overlaid exponential fit (count ~ e<sup>−L/τ</sup>, a photobleaching-limited survival model) — τ is logged in both locs and seconds (via <b>Frame time</b>); a marker shows the current <b>Min track length</b> and moves live as that field is edited (no re-Track needed — only the marker moves, the bars themselves don't depend on it), so use the histogram to judge whether it's set sensibly for this data. If a fresh <b>Track</b> run has no track meeting <b>Min track length</b> for a D estimate, <b>Show histograms</b> opens on the track-length view instead of an empty D plot.</p>
           <p><b>Show tracks</b> plots a subset of tracks as lines directly on the <b>SMLM reconstruction</b> (thickness = one reconstruction pixel's own on-screen size at the current zoom, capped so zooming in a long way can't blow a track up into an oversized shape), a filled circle marking each track's own start point (diameter = 2x the line thickness, same colour as the line), and its track number in white on a semi-transparent grey backing box (matching the scale bar's own) for legibility — growing larger the further you zoom in — legible tracks require zooming in, since real data is usually dense. Only tracks meeting <b>Min track length</b> are eligible (the same threshold Track's own D estimate uses); <b>Show tracks (%)</b> (default 10%) then samples a fixed, reproducible percentage of those, so a dense dataset stays plottable — raising it never reshuffles the tracks already shown, it only reveals more, and the exact same track identities come up every time for a given dataset. <b>Colour tracks by mean D</b> (checked by default) colours each track by its own mean diffusion coefficient (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b>, with a colour-scale legend centred along the panel's right edge while it's checked — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead); uncheck it for plain magenta tracks instead. Click a track (anywhere along its own line) to select it — it highlights magenta in colour-by-D mode, or the same green the raw panel's own ROI boxes use otherwise; click it again, or a different track, to change the selection. Turning the overlay on also switches the reconstruction to the <b>Grey</b> colour map, so the tracks' own colouring doesn't compete with a coloured density map. A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
           <p><b>Show track data</b> opens a sortable, filterable table of the per-track summary — one row per track (<code>track_id</code>, <code>n_locs</code>, <code>D_coeff</code>, mean x/y, first/last frame), the same rows <b>Save track data</b> writes to CSV, not one row per localization (see <b>View data/filtering</b> for that). Click a column header to sort by it; type a filter (e.g. <code>n_locs &gt; 10</code>, joinable with <code>and</code>/<code>or</code>) and press Enter to apply it — cumulative, removable filter chips, same grammar as the main table. A v1 kept deliberately simple for now (no histogram-of-column, no link back to the reconstruction yet).</p>
@@ -2566,6 +2571,17 @@ const PARAMS = {
   // ---- render ----
   // pxnm = camera pixel size in nanometres; sets the physical scale for the scale bar, z and export
   pxnm: { type:'number', id:'pxnm', label:'Pixel size (nm)', min:1, max:2000, step:1, default:100, int:false },
+  // frametime = per-dataset acquisition timing (seconds/frame), pinned next to pxnm above as a
+  // second always-visible global (v0.12.1-dev — reported: it used to live inside spt's own
+  // collapsible section, easy to miss despite being a fundamental acquisition property exactly
+  // like pxnm, not something spt-specific; only spt actually CONSUMES it today, same as pxnm's own
+  // registry grouping under "render" despite its pinned UI position). Not something webSMLM can
+  // infer from the loaded stack (no embedded interval is read) — set to match your own movie; the
+  // reference sptPALM-Python pipeline's own default is 0.01 s, but e.g. the bundled lactis test
+  // file is 0.05 s (50 ms/frame). Renamed from `sptFrameTime` at the same time — see analyze()'s
+  // own `sptFrameTime` alias (MODULE: headless API) and the Load Settings handler's own alias
+  // (MODULE: pipeline) for the temporary back-compat shim covering both old key names.
+  frametime: { type:'number', id:'frametime', label:'Frame time (s)', min:0.0001, max:10, step:0.001, default:0.01, int:false },
   // mag = reconstruction magnification; render pixel size = pxnm / mag
   mag: { type:'number', id:'mag', label:'Magnification', min:4, max:25, step:1, default:10, int:true },
   // renderMode = 'precision' (default): per-loc Gaussian splat sized by real
@@ -2700,11 +2716,6 @@ const PARAMS = {
   // memory = how many frames a track may go undetected and still be
   // relinked when it reappears (gap-bridging); 0 = no gaps allowed.
   sptMemory: { type:'number', id:'sptMemory', label:'SPT memory (frames)', min:0, max:20, step:1, default:0, int:true },
-  // frametime is per-dataset acquisition timing, not something webSMLM can
-  // infer from the loaded stack (no embedded interval is read) — set to
-  // match your own movie; the reference pipeline's own default is 0.01 s,
-  // but e.g. the bundled lactis test file is 0.05 s (50 ms/frame).
-  sptFrameTime: { type:'number', id:'sptFrameTime', label:'SPT frame time (s)', min:0.0001, max:10, step:0.001, default:0.01, int:false },
   // Static localization-error correction subtracted from the raw MSD-derived
   // D (see trackDiffusionCoeffs()) — "from NeNA" in the sidebar can fill
   // this in from an already-computed NeNA precision instead of guessing.
@@ -9583,7 +9594,7 @@ async function linkTracksPerCell(locs, px, config, segLabels, areaMin, areaMax, 
 // first place, so it can't only show tracks already past that threshold.
 async function trackDiffusionCoeffs(trackedLocs, px, config, onProgress=()=>{}){
   const locsMin=config.sptTrackLenMin;
-  const memory=config.sptMemory|0, frametime=config.sptFrameTime;
+  const memory=config.sptMemory|0, frametime=config.frametime;
   const locErrorUm=config.sptLocError/1000;   // nm -> µm
   const byTrack=new Map();
   for(let i=0;i<trackedLocs.length;i++){
@@ -9731,13 +9742,13 @@ async function sptCore(locs, px, config, hooks={}, segCtx=null){
   if(segCtx){
     const areaLabel = isFinite(segCtx.areaMax) ? segCtx.areaMax : '∞';
     onLog(`\nSPT tracking (per cell): search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), `+
-          `frame time ${config.sptFrameTime} s, cell area ${segCtx.areaMin}–${areaLabel} px…`);
+          `frame time ${config.frametime} s, cell area ${segCtx.areaMin}–${areaLabel} px…`);
     tracked=await linkTracksPerCell(locs, px, config, segCtx.labels, segCtx.areaMin, segCtx.areaMax, onProgress);
     const nIn=tracked.reduce((a,L)=>a+(L.cell_id>0?1:0),0);
     onLog(`${nIn.toLocaleString()}/${tracked.length.toLocaleString()} localization(s) fell inside a qualifying cell; `+
           `the rest are background or in a cell outside the area range and were not tracked.`);
   }else{
-    onLog(`\nSPT tracking: search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), frame time ${config.sptFrameTime} s…`);
+    onLog(`\nSPT tracking: search range ${config.sptSearchRange} nm, memory ${config.sptMemory} frame(s), frame time ${config.frametime} s…`);
     tracked=await linkTracks(locs, px, config, onProgress);
   }
   const {trackIds, diffCoeffs, trackLengths, dOfTrack, trackMSD}=await trackDiffusionCoeffs(tracked, px, config, onProgress);
@@ -9777,7 +9788,7 @@ async function runSptTrack(){
   $('sptTrackBtn').disabled=true;
   try{
     const cfg={ sptSearchRange:paramValue('sptSearchRange'), sptMemory:paramValue('sptMemory'),
-      sptFrameTime:paramValue('sptFrameTime'), sptLocError:paramValue('sptLocError'),
+      frametime:paramValue('frametime'), sptLocError:paramValue('sptLocError'),
       sptTrackLenMin:paramValue('sptTrackLenMin') };
     // Segmentation-aware tracking only kicks in when the checkbox is ticked
     // AND a segmentation image is actually loaded — unchecked (the default)
@@ -9938,7 +9949,7 @@ function commitTrackTableFilter(){
 // tracks/steps exist in the first place and genuinely need a fresh Track.
 function recomputeSptD(){
   if(!lastSpt || !lastSpt.trackMSD || !lastSpt.trackMSD.size || !lastResult) return;
-  const frametime=paramValue('sptFrameTime'), locErrorUm=paramValue('sptLocError')/1000;
+  const frametime=paramValue('frametime'), locErrorUm=paramValue('sptLocError')/1000;
   const errTerm=locErrorUm*locErrorUm;
   const trackIds=[], diffCoeffs=[], dOfTrack=new Map();
   for(const [tid,msd] of lastSpt.trackMSD){
@@ -10051,7 +10062,7 @@ function drawSptTrackLenHist(){
     // track length despite spanning >1 frame); frametime converts it to a
     // physical lifetime for the log/legend, same locs->seconds convention
     // trackDiffusionCoeffs() already uses for D.
-    const frametime=paramValue('sptFrameTime');
+    const frametime=paramValue('frametime');
     histData.curveLabel=`τ = ${fit.tau.toFixed(2)} locs (${(fit.tau*frametime).toFixed(2)} s)`;
     log(`Track-length exponential fit: τ = ${fit.tau.toFixed(2)} locs ≈ ${(fit.tau*frametime).toFixed(3)} s (locs≈frames when SPT memory=0; an approximation once gap-bridging is active).`);
   }else{
@@ -10089,7 +10100,7 @@ let sptMsdData=null, sptMsdView=null;
 function computeSptMsd(){
   sptMsdData=null; sptMsdView=null;
   if(!lastResult || !lastResult.locs.length) return;
-  const sptTrackLenMin=paramValue('sptTrackLenMin'), frametime=paramValue('sptFrameTime');
+  const sptTrackLenMin=paramValue('sptTrackLenMin'), frametime=paramValue('frametime');
   const {points, nTracksUsed}=computeEnsembleMsd(lastResult.locs, lastResult.px, sptTrackLenMin);
   if(!points.length){ log('Not enough qualifying tracks for an MSD-vs-lag plot — widen Min track length, or check Search range/Memory.'); return; }
   const fit=fitMsdLine(points, frametime);
@@ -10242,9 +10253,9 @@ $('sptShowTracksPct').addEventListener('change', refreshTracksOverlayIfShown);
 // Frame time/localization error only rescale an existing D (see
 // recomputeSptD() above) — Search range/Memory/Min track length change
 // which tracks/steps exist and still require a fresh Track click.
-$('sptFrameTime').addEventListener('change', recomputeSptD);
-$('sptFrameTime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
-$('sptFrameTime').addEventListener('change', refreshSptMsdIfShown);   // rescales the x-axis (lag*frametime) and the fitted D
+$('frametime').addEventListener('change', recomputeSptD);
+$('frametime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
+$('frametime').addEventListener('change', refreshSptMsdIfShown);   // rescales the x-axis (lag*frametime) and the fitted D
 $('sptLocError').addEventListener('change', recomputeSptD);
 // Min track length doesn't change trackLengths itself (see drawSptTrackLenHist's
 // own comment) — this only moves the threshold MARKER on an already-shown
@@ -12434,6 +12445,17 @@ $('setFile').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
     const o=JSON.parse(await f.text()), v=o.values||o; let n=0;
+    // TEMPORARY back-compat: sptFrameTime was renamed to the global
+    // `frametime` in v0.12.1-dev (MODULE: params) — an older saved settings
+    // file still has the old key, which `PARAMS['sptFrameTime']` no longer
+    // resolves (the loop below would otherwise just silently ignore it as
+    // an "unknown/legacy key", losing the value entirely). Remove once
+    // existing saved settings files have had time to migrate (Save settings
+    // always writes the new `frametime` key from this point on).
+    if(v.sptFrameTime!==undefined && v.frametime===undefined){
+      v.frametime=v.sptFrameTime; delete v.sptFrameTime;
+      log('⚠ sptFrameTime is deprecated in this settings file — applying it as frametime instead.');
+    }
     log(`Loading settings from ${f.name}:`);
     logParamValues(v);
     for(const id in v){
@@ -13253,13 +13275,17 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-05e — fixed a reported bug: the
-Time trace plot's (smFRET → Get time traces) y-axis tick labels — full
-5-6 digit ADU values — visually collided with the rotated "intensity
-(ADU)" axis title. Now uses the same matplotlib-style offset notation
-drawPcfoPlot() already relies on for its own large-value axis
-(axisScale()): small 1-2 digit ticks plus a single "×10ⁿ" multiplier
-shown once near the axis.
+log(`webSMLM v0.12.1-dev · build 2026-09-05f — Frame time (s) moved out of
+Single particle tracking to a pinned, always-visible sidebar row next to
+Pixel size (nm) — it's a per-dataset acquisition property, not something
+spt-specific, despite being spt's only current consumer. Renamed from
+sptFrameTime to frametime at the same time (a plain relocation would have
+left an SPT-specific id on a control no longer in that section). The old
+name still works everywhere for now — headless config, saved Settings
+JSON, and ?autorun= URLs all alias config.sptFrameTime/a JSON
+"sptFrameTime" key/?sptFrameTime= to frametime with a deprecation warning
+— temporary, remove once external scripts/settings have migrated. Fresh
+Save settings always writes the new key.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -14090,6 +14116,21 @@ async function analyze(config){
   // live progress/log lines via Playwright's console-message channel,
   // instead of only getting the full text back once analyze() resolves.
   const logLines=[], onLog=m=>{ logLines.push(m); if(cfg.onLog) cfg.onLog(m); }, onProgress=cfg.onProgress||(()=>{});
+  // TEMPORARY back-compat: sptFrameTime was renamed to the global `frametime`
+  // in v0.12.1-dev (MODULE: params — it's a per-dataset acquisition property,
+  // not spt-specific, same reasoning as pxnm's own always-visible sidebar
+  // row). Without this, a caller still passing the old key would be
+  // SILENTLY ignored: `cfg` already has `frametime` from defaultConfig()
+  // above, and Object.assign() only adds the unread `sptFrameTime` property
+  // on top — sptCore() would use the DEFAULT frametime instead of the
+  // caller's real value, with no error. Same alias also covers
+  // tools/webSMLM-cli.mjs's `--sptFrameTime` (it forwards raw --key value
+  // pairs straight into config, so no CLI-side change was needed either).
+  // Remove once external scripts/settings have had time to migrate.
+  if(config.sptFrameTime!==undefined && config.frametime===undefined){
+    cfg.frametime=config.sptFrameTime;
+    onLog(`⚠ config.sptFrameTime is deprecated — use frametime instead (same units/effect). Applied frametime=${cfg.frametime}.`);
+  }
 
   let calib=null, cal3d=null, cal3dW=null, calibJsonText=null;
   if(cfg.calibrationFile || cfg.calibrationFiles){
@@ -14370,6 +14411,12 @@ async function runAutorun(){
     if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair'||key==='sptTrack'||key==='exportPlots') config[key]=(val==='1'||val==='true');
     if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
     if(key==='exportHistograms') config[key]=val.split(',').map(s=>s.trim()).filter(Boolean);
+    // TEMPORARY back-compat: sptFrameTime was renamed to `frametime`
+    // (MODULE: params) — PARAMS['sptFrameTime'] no longer exists, so `spec`
+    // above is undefined and a bookmarked ?sptFrameTime=... URL would
+    // otherwise silently drop the value entirely. Remove once old autorun
+    // URLs have had time to migrate.
+    if(key==='sptFrameTime') config.frametime=+val;
   }
   const fileUrl=qp.get('fileUrl');
   if(!fileUrl){ log('autorun=1 but no ?fileUrl= given — nothing to analyze.'); return; }
