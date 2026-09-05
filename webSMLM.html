@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2446   PARAMS registry, single source of truth for params;
+    params          2457   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3173   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3188   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3472   synthetic stack generator ("Simulate movie")
-    detect          4350   per-frame band-pass + local-maxima detection
-    fit             4627   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3487   synthetic stack generator ("Simulate movie")
+    detect          4365   per-frame band-pass + local-maxima detection
+    fit             4642   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -50,7 +50,7 @@
                            bounded by seed sigma0 instead; winr2d/winr3d
                            (MODULE: params) are applyWinrDefault()'s (MODULE:
                            pipeline) two remembered defaults
-    render          5163   accumulate to offscreen buffer; view/colour/blur;
+    render          5178   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -72,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6440   frame-parallel detect/fit worker pool; dedicated
+    workers         6455   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6747   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7039   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6762   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7054   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7456   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7471   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7962   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7977   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8671   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8686   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9202   single particle tracking, trackpy-inspired;
+    spt             9347   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10703  top-level orchestration, *Core()/wrapper split;
+    pipeline        10848  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11324  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11469  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,9 +198,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13222  localizations table, filtering, histograms;
+    table           13376  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13807  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13961  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1892,7 +1892,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2309,14 +2309,18 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <summary>smFRET (experimental)</summary>
         <label class="row">Average frames
           <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
+        <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get time traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix SOI x,y for time traces
+          <input type="checkbox" id="smfretFixSOI"></label>
         <div class="btnrow" style="margin-top:6px">
-          <button id="smfretLocateBtn" type="button" disabled style="grid-column:2" title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localise SOI</button>
+          <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
+          <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, and plot the resulting intensity-vs-frame time traces in the raw (left) panel">Get time traces</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
-          <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
-          <p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
-          <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
+          <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
+          <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites and returns both panels to normal.</p>
+          <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
+          <p><b>Get time traces</b> fits every site at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -2403,6 +2407,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             </span>
           </div>
           <div id="liveStreamScrubNote" style="display:none;margin-top:4px;color:var(--muted);font-size:11px"></div>
+          <div id="smfretTraceScrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+            <span style="color:var(--muted);font-size:12px">Site</span>
+            <input type="range" id="smfretTraceScrub" min="0" max="0" step="1" value="0" style="flex:1">
+            <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
+              <input type="number" id="smfretTraceScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a site number and press Enter to jump to it"><span id="smfretTraceScrubTotal" style="vertical-align:middle"> / 1</span>
+            </span>
+          </div>
           <div id="rawContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
             <span style="color:var(--muted);font-size:12px">Contrast</span>
             <div class="dualrange" style="flex:0 1 55%">
@@ -2672,8 +2683,12 @@ const PARAMS = {
   // smfretAvgFrames = how many frames, from frame 1, to average into one
   // composite before detecting real emitter positions on it — clamped to
   // the loaded stack's own length at use (Math.min(stack.n,...), the same
-  // convention calFirst/calLast already use, not a dynamic max attribute). ----
+  // convention calFirst/calLast already use, not a dynamic max attribute).
+  // smfretFixSOI mirrors calFixedXY's own role (freeze positions instead of
+  // re-detecting) — auto-checked by locateSmfretSOI() itself on every
+  // successful run, not something the user is expected to check by hand. ----
   smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average frames', min:1, max:100000, step:10, default:100, int:true },
+  smfretFixSOI: { type:'bool', id:'smfretFixSOI', label:'Fix SOI x,y for time traces', default:false },
 
   // ---- spt (single particle tracking) ----
   // Defaults ported from the user's own sptPALM-Python pipeline's
@@ -9137,12 +9152,15 @@ $('sSmlmDistMax').addEventListener('change',refreshSSmlmHistIfShown);
 $('sSmlmAngleCenter').addEventListener('change',refreshSSmlmHistIfShown);
 $('sSmlmAngleTol').addEventListener('change',refreshSSmlmHistIfShown);
 
-// smFRET (experimental) — v1 is "sites of interest" (SOI) detection only,
-// per docs/REFACTOR_PLAN.md's own smFRET/ALEX integration sketch ("Determine
-// positions of interest = the existing 'Fix bead x,y' pattern"). Not yet its
-// own MODULE: banner — small enough to live at the sSMLM/spt boundary for
-// now; promote it once it grows, matching liveStreaming's own precedent.
-let smfretSOI=null;   // fitted {x,y} site-of-interest positions from Localise SOI
+// smFRET (experimental) — v1 is "sites of interest" (SOI) detection plus a
+// simple per-site time-trace readout, per docs/REFACTOR_PLAN.md's own
+// smFRET/ALEX integration sketch ("Determine positions of interest = the
+// existing 'Fix bead x,y' pattern"). Not yet its own MODULE: banner — small
+// enough to live at the sSMLM/spt boundary for now; promote it once it
+// grows, matching liveStreaming's own precedent.
+let smfretSOI=null;      // fitted {x,y} site-of-interest positions from Localize SOI
+let smfretTraces=null;   // per-site {x,y,photons:Float64Array(stack.n)} from Get time traces
+let smfretTraceIdx=0;    // which site's trace the raw panel currently shows
 // Averages the first N frames (Average frames, smfretAvgFrames) into one
 // composite, detects real emitter positions on it once, and fits each — same
 // "average, then detect once" approach 3D calibration's own locateBeadsForCalib()
@@ -9151,6 +9169,11 @@ let smfretSOI=null;   // fitted {x,y} site-of-interest positions from Localise S
 // auto-rerunning on every settings change.
 async function locateSmfretSOI(){
   if(!stack) return;
+  // A fresh Localize SOI run invalidates any time traces already computed
+  // from the OLD positions — reclaim the raw panel from the site scrubber
+  // back to the ordinary frame one before rebuilding the composite below.
+  if(smfretTraces){ smfretTraces=null; $('smfretTraceScrubRow').style.display='none';
+    if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
   const n=Math.min(stack.n, Math.max(1, +$('smfretAvgFrames').value|0));
   const {w,h}=stack, sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1,
         exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter'), border=(win-1)/2+1;
@@ -9184,19 +9207,141 @@ async function locateSmfretSOI(){
     $('srTitle').textContent='SOI composite';
     $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
     syncSaveImg();
-    log(`smFRET: Localise SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest.`);
-  }catch(err){ log(`⚠ Localise SOI failed: ${err.name}: ${err.message}`); }
+    // "Fix SOI x,y for time traces" is a STATUS flag, not a user-facing toggle
+    // (see its own change listener below) — every successful Localize SOI
+    // run (explicit click or an auto-rerun below) marks the current positions
+    // as the fixed reference Get time traces will use. No 'change' dispatch:
+    // this is a plain state readout, not something that should re-trigger
+    // its own listener.
+    $('smfretFixSOI').checked=true;
+    $('smfretTimeTracesBtn').disabled = !fitted.length;
+    log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest.`);
+  }catch(err){ log(`⚠ Localize SOI failed: ${err.name}: ${err.message}`); }
 }
 $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
 // Many SOI signals are faint, so the threshold/σ_PSF/window etc. often need
 // hand-tuning to find them at all — re-run automatically once an SOI
 // composite is already showing, same "reflects the current settings without
 // a separate manual step" convention locateBeadsForCalib()'s own listeners
-// (search calFixedXY below) use, gated on smfretSOI!==null instead of a
-// checkbox (smFRET has no on/off toggle, just the button).
+// (search calFixedXY below) use, gated on smfretSOI!==null rather than the
+// Fix SOI x,y checkbox — that checkbox is a status readout of this same
+// state, not an independent on/off switch (see its own change listener).
 ['smfretAvgFrames','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
   $(id).addEventListener('change',()=>{ if(stack && smfretSOI!==null) locateSmfretSOI(); });
 });
+// Unchecking "Fix SOI x,y for time traces" discards the current sites (and
+// any time traces built from them) and returns both panels to normal —
+// checking it back on does nothing by itself (it's set as a SIDE EFFECT of
+// Localize SOI, above, not an independent trigger like calFixedXY's own
+// checkbox); a bare click can't tell "just got auto-checked" from "user
+// checked it", but only the uncheck direction needs a real action here.
+$('smfretFixSOI').addEventListener('change',()=>{
+  if(paramValue('smfretFixSOI')) return;
+  smfretSOI=null; smfretTraces=null;
+  $('smfretTraceScrubRow').style.display='none';
+  $('smfretTimeTracesBtn').disabled=true;
+  if(srSpots||srLocs){   // was showing our SOI composite — clear it and restore the general overview
+    srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
+    if(stack) showStackProjection();
+  }
+  if(stack && stack.n>1) $('scrubRow').style.display='flex';
+  if(stack) showFrame(+$('scrub').value);   // drop any stale trace view from the raw panel immediately
+});
+// "Get time traces": fits each Localize SOI site at its OWN fixed x,y
+// position (gaussianFitEllipticalFixedXY — same fixed-position fitter 3D
+// calibration's own "Fix bead x,y" mode uses, MODULE: fit) in EVERY frame of
+// the loaded movie, never re-detecting per frame, then plots one site's
+// resulting intensity-vs-frame curve in the raw (left) panel. v1 "simple
+// check" only: no gain/offset conversion (matching gaussianFitEllipticalFixedXY's
+// own raw-ADU convention — it takes no gain/camoffset at all, unlike the 5
+// mainline fitters) and no donor/acceptor/FRET channel sorting yet — see
+// docs/REFACTOR_PLAN.md.
+async function getSmfretTimeTraces(){
+  if(!stack || !smfretSOI || !smfretSOI.length) return;
+  const {w,h}=stack, sigma=paramValue('psf'), win=2*paramValue('winr')+1, border=(win-1)/2+1;
+  const n=stack.n, sites=smfretSOI;
+  const traces=sites.map(s=>({x:s.x,y:s.y,photons:new Float64Array(n).fill(NaN)}));
+  log(`smFRET: Get time traces — fitting ${sites.length} site(s) across ${n} frames…`);
+  let lastYield=performance.now();
+  for(let fi=0; fi<n; fi++){
+    const img=(await stack.getFrames(fi,fi+1))[0];
+    for(let j=0;j<sites.length;j++){
+      const s=sites[j], cx=Math.round(s.x), cy=Math.round(s.y);
+      if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // site too close to THIS frame's edge
+      const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,s.x,s.y,win,sigma);
+      if(L) traces[j].photons[fi]=L.photons;
+    }
+    if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now(); }
+  }
+  smfretTraces=traces; smfretTraceIdx=0;
+  $('scrubRow').style.display='none';
+  $('smfretTraceScrubRow').style.display='flex';
+  $('smfretTraceScrub').max=traces.length-1;
+  $('smfretTraceScrubNum').max=traces.length;
+  drawSmfretTrace(0);
+  log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
+}
+$('smfretTimeTracesBtn').addEventListener('click', getSmfretTimeTraces);
+// True while the raw panel is owned by the smFRET site scrubber rather than
+// the ordinary loaded-stack Frame one — same role liveStreamOwnsRawPanel()
+// plays for its own scrubber, checked by the same wheel-scrub routing (MODULE:
+// pipeline, search scrubByWheel).
+function smfretOwnsRawPanel(){ return smfretTraces!==null; }
+// Time-trace view: plots one site's intensity-vs-frame curve in the raw
+// (left) panel, replacing the ordinary raw-frame display exactly the same
+// way drift/NeNA/FRC's own plots do (rawFull=null, setRawPlot(true) — see
+// "Left/right panel plot pattern", CLAUDE.md). v1 is a single curve, no
+// donor/acceptor/FRET channel colouring yet (see docs/REFACTOR_PLAN.md).
+function drawSmfretTrace(idx){
+  if(!smfretTraces || !smfretTraces.length) return;
+  smfretTraceIdx=idx=Math.max(0,Math.min(smfretTraces.length-1,idx));
+  $('smfretTraceScrub').value=idx; $('smfretTraceScrubNum').value=idx+1;
+  $('smfretTraceScrubTotal').textContent=` / ${smfretTraces.length}`;
+  const site=smfretTraces[idx], ys=site.photons, n=ys.length;
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  rawFull=null; setRawPlot(true); rawPlotName='smfretTrace';
+  hideOtherRawToggleBtns(null);   // no raw-panel toggle button of our own
+  $('rawTitle').textContent='Time trace';
+  const C=plotColors();
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+  const mL=60,mR=16,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
+  let lo=Infinity,hi=-Infinity; for(let f=0;f<n;f++){ const v=ys[f]; if(isFinite(v)){ if(v<lo)lo=v; if(v>hi)hi=v; } }
+  if(!isFinite(lo)){ lo=0; hi=1; }   // every frame missed this site — still draw empty axes, not a NaN-driven crash
+  const pad=(hi-lo)*0.1||1; lo=Math.min(0,lo-pad); hi+=pad;
+  const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
+  ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const v of niceTicks(lo,hi,6)){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
+    ctx.fillText(v.toFixed(0),mL-9,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const f of niceTicks(0,n-1,6)){ const x=X(f);
+    ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
+    ctx.fillText((f+1).toFixed(0),x,mT+ph+9); }
+  // Break the line at any NaN (a frame this site's fit missed — too close to
+  // that frame's own edge, or a degenerate fit) instead of interpolating
+  // across the gap or drawing to a non-finite coordinate.
+  ctx.strokeStyle='#c81cc8'; ctx.lineWidth=1.6; ctx.beginPath();
+  let started=false;
+  for(let f=0;f<n;f++){ const v=ys[f];
+    if(!isFinite(v)){ started=false; continue; }
+    const x=X(f), y=Y(v);
+    if(started) ctx.lineTo(x,y); else { ctx.moveTo(x,y); started=true; } }
+  ctx.stroke();
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curve
+  ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('frame', mL+pw/2, mT+ph+28);
+  ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (ADU)',0,0); ctx.restore();
+  const nGaps=ys.reduce((c,v)=>c+(isFinite(v)?0:1),0);
+  $('rawInfo').textContent = `— site ${idx+1}/${smfretTraces.length} at (${site.x.toFixed(1)}, ${site.y.toFixed(1)}) px`
+    + (nGaps ? ` · ${nGaps} frame(s) not fit` : '');
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
+    fmt:(vx,vy)=>`frame ${(vx+1).toFixed(0)} · ${vy.toFixed(0)} ADU`});
+  _replotRaw=()=>drawSmfretTrace(smfretTraceIdx);
+  syncSaveImg();
+}
+$('smfretTraceScrub').addEventListener('input',e=>drawSmfretTrace(+e.target.value));
+$('smfretTraceScrubNum').addEventListener('change',e=>{ if(!smfretTraces) return; drawSmfretTrace((+e.target.value||1)-1); });
 
 /* ===========================================================================
    MODULE: spt — single particle tracking. Links per-frame localizations into
@@ -11925,7 +12070,7 @@ async function showStackProjection(){
 }
 $('genBtn').addEventListener('click',async()=>{
   log('Simulating movie…');
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
@@ -11956,7 +12101,7 @@ $('genBtn').addEventListener('click',async()=>{
 async function loadMovieFiles(fs){
   if(!fs.length) return;
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -12120,7 +12265,8 @@ function initScrub(){
     calFixedPts=null; _projCache=null;      // a new stack invalidates any previously fixed positions/projection
     $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
     const st=$('calLocateStatus'); if(st) st.style.display='none';
-    smfretSOI=null; }                       // same reasoning — SOI positions are scoped to one loaded stack, not sticky
+    smfretSOI=null; $('smfretFixSOI').checked=false;   // same reasoning — SOI positions are scoped to one loaded stack, not sticky
+    smfretTraces=null; $('smfretTraceScrubRow').style.display='none'; $('smfretTimeTracesBtn').disabled=true; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
@@ -12674,12 +12820,20 @@ makeNavigator($('sr'),  {full:()=>srFull,  view,    fitZoom, fit:fitView, clamp:
       liveStreamState.followLive=(nx>=liveStreamState.frameOffset-1); liveStreamShowRawFrame(nx);
       return;
     }
+    // smFRET's own site scrubber (#smfretTraceScrubRow) — same "another
+    // feature owns the raw panel" pattern as liveStreaming's above.
+    if(smfretOwnsRawPanel()){
+      const nx=Math.max(0,Math.min(smfretTraces.length-1,(+$('smfretTraceScrub').value)+dir));
+      drawSmfretTrace(nx);
+      return;
+    }
     if(!stack) return;
     const nx=Math.max(0,Math.min(stack.n-1,(+$('scrub').value)+dir));
     $('scrub').value=nx; showFrame(nx); };
   makeNavigator($('raw'), {full:()=>rawFull, view:rawView, fitZoom:fitRawZoom, fit:fitRawView, clamp:clampRawView, draw:drawRawView, maxZoom:40, scrub:scrubByWheel});
   $('scrub').addEventListener('wheel',e=>{ if(!stack) return; e.preventDefault(); scrubByWheel(e.deltaY); },{passive:false});
   $('liveStreamScrub').addEventListener('wheel',e=>{ if(!liveStreamOwnsRawPanel()) return; e.preventDefault(); scrubByWheel(e.deltaY); },{passive:false});
+  $('smfretTraceScrub').addEventListener('wheel',e=>{ if(!smfretOwnsRawPanel()) return; e.preventDefault(); scrubByWheel(e.deltaY); },{passive:false});
 })();
 
 // Shared by the line-profile and crop tools: SR-panel click → srFull-pixel
@@ -13094,13 +13248,17 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-05c — reported: the sidebar's
-"Fit radius (px)" field looked like a redundant third copy of whatever
-Fit radius 2D/3D already showed (since it always mirrored one of them).
-Its row is now hidden — edit Fit radius 2D / Fit radius 3D directly, they
-double as the active value for that mode. winr itself is unchanged
-internally (still the value every fitter reads, still auto-synced by
-applyWinrDefault()); this only removes the redundant visible field.
+log(`webSMLM v0.12.1-dev · build 2026-09-05d — smFRET: "Localise SOI" is now
+"Localize SOI" (moved to the left) with a new "Get time traces" button
+beside it. A new "Fix SOI x,y for time traces" checkbox auto-checks once
+sites are found — it's a status flag, not something to click by hand;
+unchecking it discards the sites and any time traces. "Get time traces"
+fits every site at its own fixed x,y position in every frame of the movie
+and plots one site's intensity-vs-frame curve in the raw (left) panel,
+4:3 letterboxed; while it's showing, the Frame scrubber is replaced by a
+Site scrubber — mouse wheel or the bar below the panel scrolls through
+sites instead of frames. Simple diagnostic only for now: raw ADU (no
+gain/offset correction), no donor/acceptor/FRET channel sorting yet.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

@@ -634,11 +634,11 @@ relevant one before editing rather than scrolling:
   and the result's `sSmlmPair` field records `nPairs`/`nInput`/`meanDistance`/`stdDistance`.
   `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and `?autorun=`'s `sSmlmPair=1` both forward to it.
 
-- **smFRET** (v0.12.1-dev) — Marked **experimental**, v1 only: "sites of interest" (SOI) detection,
-  the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX integration sketch. Not squeezed into
-  sSMLM (a genuinely different optical setup motivating this — a prism + polychroic beam-splitter,
-  not sSMLM's own diffraction grating) or 3D calibration, though **Localise SOI**
-  (`locateSmfretSOI()`) reuses that module's own `averageFrames()`/`detectSpots()`/
+- **smFRET** (v0.12.1-dev) — Marked **experimental**, v1: "sites of interest" (SOI) detection plus a
+  simple per-site time-trace readout, the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX
+  integration sketch. Not squeezed into sSMLM (a genuinely different optical setup motivating this —
+  a prism + polychroic beam-splitter, not sSMLM's own diffraction grating) or 3D calibration, though
+  **Localize SOI** (`locateSmfretSOI()`) reuses that module's own `averageFrames()`/`detectSpots()`/
   `gaussianFitElliptical()` chain verbatim — averages the first `smfretAvgFrames` frames (clamped to
   the stack's own length, `Math.min(stack.n,...)`) into one composite, detects once, fits each
   maximum, same "average, then detect once" reasoning `locateBeadsForCalib()` already uses (real
@@ -654,6 +654,45 @@ relevant one before editing rather than scrolling:
   Real motivating dataset: a prism/polychroic-split immobile DNA-FRET sample
   (`experimental_data/Donor-1b …prisms9393…tif`) — donor-heavy, so most detected SOI likely have
   little/no acceptor signal; not yet established whether real pairs are even present in it.
+
+  **`smfretFixSOI`** ("Fix SOI x,y for time traces", default unchecked) is a STATUS flag, not an
+  independent on/off switch like 3D calibration's own `calFixedXY` — `locateSmfretSOI()` itself
+  checks it (no `change` dispatch) on every successful run, explicit click or auto-rerun alike;
+  there's no way to distinguish "just auto-checked" from "user clicked it", so only the UNCHECK
+  direction has a real handler: it clears `smfretSOI`/`smfretTraces`, restores the reconstruction
+  panel's general overview, and hides the site scrubber (below) in favour of the ordinary Frame one
+  — same "uncheck to discard and restore" shape as `calFixedXY`'s own uncheck branch, just without
+  its check-to-trigger direction. `initScrub()` resets it to unchecked on every fresh stack load,
+  same reasoning as `smfretSOI` itself (scoped to one loaded stack, not sticky).
+
+  **Get time traces** (`getSmfretTimeTraces()`) fits every `smfretSOI` site at its OWN fixed x,y
+  position — never re-detected — in EVERY frame of the loaded movie, via
+  `gaussianFitEllipticalFixedXY()` (MODULE: fit; the exact fixed-position fitter 3D calibration's
+  own `calFixedXY` mode already uses). A site too close to a given frame's own edge, or a
+  non-converging fit, leaves a `NaN` gap at that frame rather than aborting the whole trace.
+  Sequential over frames (`await stack.getFrames(fi,fi+1)` per frame, `await tick()` every ~50ms) —
+  not worker-parallelized, matching the "simple check" scope of this feature; a real performance
+  concern only once dataset sizes grow past what prompted this. Deliberately NOT gain/offset
+  corrected: `gaussianFitEllipticalFixedXY` takes no `gain`/`camoffset` at all (unlike the 5
+  mainline fitters — MODULE: fit's own gain/offset paragraph), so `smfretTraces`' own `photons`
+  field is raw ADU, matching 3D calibration's own precedent of never gain-correcting its
+  fixed-position fits either (they only ever needed σx/σy ratios, not absolute counts).
+
+  **`drawSmfretTrace(idx)`** plots one site's intensity-vs-frame curve in the raw (left) panel,
+  following the exact "left panel doubles as a plot surface" pattern drift/NeNA/FRC already use
+  (`rawFull=null; setRawPlot(true); rawPlotName='smfretTrace'`, `setupPlot()` for the 4:3
+  letterbox, `_replotRaw` for resize/theme redraws, `registerPlotHover()` for the hover readout) —
+  structurally a simplified `drawDriftCurveVsFrame()` (one curve, no drift-specific dashed-stop
+  marker), breaking the line at any `NaN` sample instead of interpolating across a gap or drawing
+  to a non-finite coordinate. **`smfretOwnsRawPanel()`** (`smfretTraces!==null`) is the same
+  "another feature owns the raw panel" pattern `liveStreamOwnsRawPanel()` established for its own
+  scrubber — checked by the SAME shared `scrubByWheel` routing (MODULE: pipeline) that already
+  branches on `liveStreamOwnsRawPanel()`, redirecting shift+wheel/slider-wheel to the dedicated
+  `#smfretTraceScrubRow` (mirroring `#liveStreamScrubRow`'s own structure: a range input + a
+  number+total pair) instead of the ordinary `#scrubRow`. A fresh `locateSmfretSOI()` run
+  invalidates any trace view already showing (positions may have shifted) — reclaims the panel back
+  to the ordinary Frame scrubber the same way unchecking `smfretFixSOI` does (hide
+  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`).
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
