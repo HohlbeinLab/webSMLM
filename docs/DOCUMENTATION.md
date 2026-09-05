@@ -676,6 +676,12 @@ a bead composite is: the composite image fills the reconstruction (right)
 panel as `srFull`, with `srSpots`/`srLocs` driving the ROI-box/fit-
 crosshair overlay (`drawSpotOverlays()`, MODULE: render) — a reference
 view, not a real per-localization reconstruction (`setSrRecon(false)`).
+The panel's own zoom/pan is only reset on an actual frame-size change —
+each auto-rerun keeps whatever view a user already zoomed/panned to,
+the same "keep zoom while scrubbing" behaviour the raw (left) panel's
+own live preview already has, so hand-tuning a threshold while zoomed
+in on one faint candidate doesn't keep snapping back out to the full
+field of view.
 **Average frames** is clamped to the loaded movie's own frame count at
 use (`Math.min(stack.n,...)`), the same convention `calFirst`/`calLast`
 already use, rather than a dynamic HTML `max` attribute.
@@ -1690,7 +1696,7 @@ for the first implementation.
 <!-- HINT:smfret -->
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
 <p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
-<p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try.</p>
+<p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
 <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 

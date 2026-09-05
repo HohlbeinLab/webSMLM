@@ -99,7 +99,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9134   single particle tracking, trackpy-inspired;
+    spt             9142   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -130,7 +130,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10635  top-level orchestration, *Core()/wrapper split;
+    pipeline        10643  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -139,7 +139,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11256  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11264  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -193,9 +193,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13120  localizations table, filtering, histograms;
+    table           13129  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    13705  window.webSMLM.analyze()/analyzeBatch();
+    headless API    13714  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1887,7 +1887,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-04c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2308,7 +2308,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is just the first step: finding real emitter positions to analyse.</p>
           <p><b>Localise SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction.</p>
-          <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try.</p>
+          <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localise SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -9115,6 +9115,13 @@ async function locateSmfretSOI(){
     // Same composite-canvas + ROI/crosshair-overlay display locateBeadsForCalib()
     // uses (srSpots/srLocs, MODULE: render) — a reference view in the SR (right)
     // panel, not a real reconstruction.
+    // sizeChanged: same "refit only on a new frame size; keep zoom otherwise"
+    // convention drawRaw() already uses for the raw panel's own live preview
+    // (search sizeChanged there) — without this, every threshold-triggered
+    // auto-rerun (see the listeners above) snapped the view back to fit,
+    // undoing any zoom/pan the user had while tuning a faint signal in
+    // (reported).
+    const sizeChanged = !srFull || srFull.width!==w || srFull.height!==h;
     const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
     const cctx=cv.getContext('2d'), im=cctx.createImageData(w,h);
     let mn=Infinity,mx=-Infinity; for(const v of proj){ if(v<mn)mn=v; if(v>mx)mx=v; }
@@ -9122,7 +9129,8 @@ async function locateSmfretSOI(){
       im.data[idx*4]=g; im.data[idx*4+1]=g; im.data[idx*4+2]=g; im.data[idx*4+3]=255; }
     cctx.putImageData(im,0,0);
     srFull=cv; srIsPlot=false; srSpots=maxima; srLocs=fitted; setSrRecon(false);
-    fitView(); clampView(); drawView();
+    if(sizeChanged || !view.zoom) fitView();
+    clampView(); drawView();
     $('srTitle').textContent='SOI composite';
     $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
     syncSaveImg();
@@ -13003,13 +13011,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-04c — smFRET's Localise SOI now
-live-updates: once a composite is showing, changing Average frames or any
-detection/fit setting (Threshold, σ_PSF, Window radius, filter) re-runs
-it automatically, no re-click needed — real SOI signals are commonly
-faint, so this matters for hand-tuning the threshold down until they
-actually show up (verified: 248 → 2358 sites found after only lowering
-Threshold, no button click). Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-05a — fixed a real regression from
+the previous build: smFRET's Localise SOI auto-rerun snapped the
+reconstruction panel's zoom/pan back to fit on every threshold/setting
+change (reported), discarding whatever view a user had while hand-tuning
+a faint signal in. Now only refits on an actual frame-size change, same
+"keep zoom while scrubbing" convention the raw panel's own live preview
+already uses — verified a manual zoom/pan survives an auto-rerun intact.
+Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
