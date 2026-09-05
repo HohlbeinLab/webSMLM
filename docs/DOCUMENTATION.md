@@ -723,7 +723,12 @@ loaded movie, via `gaussianFitEllipticalFixedXY()` (MODULE: fit; the same
 fixed-position fitter 3D calibration's own **Fix bead x,y** mode already
 uses for its width-vs-z curves). A site too close to a given frame's own
 edge, or whose fit doesn't converge, leaves a gap (`NaN`) at that frame
-rather than aborting the whole trace. Results land in `smfretTraces`
+rather than aborting the whole trace. Many sites × many frames — most of
+which won't contain a real localization for a given faint site, since a
+fixed-position fit still runs there regardless — can take a while, so this
+reports real progress on the shared progress bar rather than leaving it
+static for the whole run, the same convention **Track**/**Pair**/**Correct
+drift**/**Calibrate** already use. Results land in `smfretTraces`
 (`{x,y,photons:Float64Array(stack.n)}` per site) and replace the raw (left)
 panel's live frame display with a plot of one site's own intensity-vs-frame
 curve (`drawSmfretTrace()`) — the same "left panel doubles as a plot

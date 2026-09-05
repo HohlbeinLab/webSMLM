@@ -672,7 +672,14 @@ relevant one before editing rather than scrolling:
   non-converging fit, leaves a `NaN` gap at that frame rather than aborting the whole trace.
   Sequential over frames (`await stack.getFrames(fi,fi+1)` per frame, `await tick()` every ~50ms) —
   not worker-parallelized, matching the "simple check" scope of this feature; a real performance
-  concern only once dataset sizes grow past what prompted this. Deliberately NOT gain/offset
+  concern only once dataset sizes grow past what prompted this. Wired to the shared progress bar
+  (`setProg(100*(fi+1)/n)`, `setProg(null)` in a `finally`) — reported: many sites × many frames,
+  most of which won't contain a real localization for a given faint site (a fixed-position fit
+  still runs there regardless, same cost either way), can take a while with zero visual feedback
+  otherwise, the same `onProgress`→`setProg` convention `sptCore()`/`pairCore()`/`driftCore()`/
+  `calibrationCore()` already use. `smfretTimeTracesBtn` disables for the duration (re-enabled in
+  the same `finally`, gated on `smfretSOI` still being non-empty — mirrors `runSptTrack()`'s own
+  disable/`finally`-re-enable shape). Deliberately NOT gain/offset
   corrected: `gaussianFitEllipticalFixedXY` takes no `gain`/`camoffset` at all (unlike the 5
   mainline fitters — MODULE: fit's own gain/offset paragraph), so `smfretTraces`' own `photons`
   field is raw ADU, matching 3D calibration's own precedent of never gain-correcting its
@@ -696,7 +703,14 @@ relevant one before editing rather than scrolling:
   number+total pair) instead of the ordinary `#scrubRow`. A fresh `locateSmfretSOI()` run
   invalidates any trace view already showing (positions may have shifted) — reclaims the panel back
   to the ordinary Frame scrubber the same way unchecking `smfretFixSOI` does (hide
-  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`).
+  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`). **`#smfretTraceScrub` must be added to
+  every one of the 5 CSS rules styling `#scrub`/`#liveStreamScrub`'s custom thumb/track** (the
+  `-webkit-appearance:none`/`::-webkit-slider-thumb`/`::-moz-range-thumb`/etc. rules right after the
+  navigator comment, MODULE: params) — those rules are a hardcoded id list, not a shared class, so a
+  new slider copying the same HTML structure still renders with the browser's plain native thumb
+  until its id is added there too (reported: looked like "a new, different-looking scrubber" instead
+  of the same slider style used everywhere else, even though the markup itself already matched
+  `#liveStreamScrubRow`'s own).
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
