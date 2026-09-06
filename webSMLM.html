@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13660  localizations table, filtering, histograms;
+    table           13656  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14298  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14294  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13210,8 +13210,11 @@ async function applyCropToRaw(x0,y0,x1,y1){
   // computeNeNA's/computeFRC's bare logCmd() calls; the crop bounds are
   // ALSO merged into run()/estimateGainOffset()/runCalibration()'s own
   // recorded commands (via stack.cropX0 etc., see makeCroppedStack()) so
-  // THOSE stay self-sufficient/faithful to what's actually running.
-  logCmd({cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1, pxnm:paramValue('pxnm')});
+  // THOSE stay self-sufficient/faithful to what's actually running. pxnm/
+  // frametime are pure context here (neither affects the crop itself) —
+  // frametime was reported missing here too, same gap loadMovieFiles()/
+  // loadCsvFile() already had fixed.
+  logCmd({cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1, pxnm:paramValue('pxnm'), frametime:paramValue('frametime')});
   originalStack = originalStack || stack;   // only ever set from the TRUE original, so re-cropping while still in crop mode keeps chaining off it, not an intermediate crop
   const ow=originalStack.w, oh=originalStack.h;
   stack = makeCroppedStack(originalStack, x0, y0, x1, y1);
@@ -13529,16 +13532,9 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06g — crop-tool bug fix:
-dragging to pan a zoomed-in view while the raw crop tool (or the SR
-panel's own crop/measure tool) was armed used to plant a stray crop
-corner/point wherever the drag ended — browsers still fire a click
-event after a pointerdown/drag/pointerup sequence, no matter how far
-the pointer moved. Repeated drags on the raw crop tool in particular
-could crop the stack down to a tiny sliver with no way back short of
-reloading. Fixed by measuring the actual on-screen drag distance and
-ignoring a click past a small threshold; an ordinary two-click crop/
-measure still works exactly as before.
+log(`webSMLM v0.12.1-dev · build 2026-09-06h — the raw-panel crop tool's
+recorded command was missing frametime alongside pxnm, the same gap
+loadMovieFiles()/loadCsvFile() already had fixed.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
