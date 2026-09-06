@@ -647,13 +647,44 @@ relevant one before editing rather than scrolling:
   `smfretAvgFrames` or any detection/fit field also wired to `locateBeadsForCalib()`'s own listeners
   re-runs it automatically too — real SOI signals are commonly faint, so hand-tuning the threshold
   with live feedback matters here in practice, unlike a bright/well-separated bead calibration.
-  Results (`smfretSOI`, `{x,y}` per site) display the same way a bead composite does: `srFull`/`srSpots`/
+  Results (`smfretSOI`, `{x,y,sx,sy,sigma,photons,bg,bgstd,frame:0}` per site — the fitter's own full
+  output, not just position) display the same way a bead composite does: `srFull`/`srSpots`/
   `srLocs` in the reconstruction (right) panel, `setSrRecon(false)` (reference view, not a real
   reconstruction). Not yet its own `MODULE:` banner — lives at the sSMLM/spt physical boundary,
   small enough for now; promote it once it grows (matching **liveStreaming**'s own precedent).
   Real motivating dataset: a prism/polychroic-split immobile DNA-FRET sample
   (`experimental_data/Donor-1b …prisms9393…tif`) — donor-heavy, so most detected SOI likely have
   little/no acceptor signal; not yet established whether real pairs are even present in it.
+
+  **Every successful `locateSmfretSOI()` run also writes `lastResult`** (`{locs:smfretSOI, w, h,
+  px:paramValue('pxnm'), mag:paramValue('mag'), det:null, fromSmfretSOI:true}`, reported — SOI data
+  had no way into the table/export/sSMLM pairing machinery otherwise) — the same minimal shape
+  `loadCsvFile()` uses for locs with no real per-frame Run behind them (`det:null`, so `showFrame()`'s
+  own frame-overlay logic correctly skips trying to match it against the stack). This is what makes
+  **Spectral SMLM analysis**'s existing **Preview pairs**/**Pair** usable on SOI data with ZERO
+  changes to `pairCore()`/`sSmlmCandidates()` themselves — exactly the `docs/REFACTOR_PLAN.md`
+  smFRET/ALEX sketch's own "linking a DD candidate to its DA partner = sSMLM's own pairing" idea,
+  now wired rather than just proposed. Every SOI site gets the SAME `frame:0` (an arbitrary shared
+  constant, not a real per-frame index) specifically because `sSmlmCandidates()` groups candidates
+  by `loc.frame` and only ever compares within one group — giving them all the same value collapses
+  the WHOLE SOI set into one group, so every candidate is compared against every other one, correct
+  for a position set with no real temporal structure. `fromSmfretSOI:true` is a marker tag on the
+  `lastResult` object itself (not a `PARAMS` field) letting `smfretFixSOI`'s own uncheck handler
+  (below) tell "this lastResult is SOI's own" from "this happens to be a real Localize/CSV result
+  that predates SOI" — only the former gets discarded on uncheck. `pairCore()`'s own guards (real z
+  / already-`dist`-paired input) both pass trivially on fresh SOI locs, needing no special-casing.
+  **REPLACES whatever `lastResult` held before** (a real Run, a loaded CSV, an earlier SOI pass) —
+  no confirmation, same "no prompt, but name what's about to go" convention `run()`'s own pre-Localize
+  reset already uses (mirrored here: warns once when clobbering a REAL prior result, but not on every
+  routine auto-rerun re-clearing its own previous SOI pass, checked via `!lastResult.fromSmfretSOI`).
+  Deliberately does NOT call `rerender()` — the SR panel keeps showing the composite/ROI overlay
+  untouched; only an actual **Pair** (if the user gets that far) switches it to a real reconstruction,
+  exactly as it already does for an ordinary Localize result. Verified via Playwright against the
+  real prism/polychroic dataset: `lastResult.locs` matches `smfretSOI` 1:1, `View data/filtering`
+  shows all sites with `sigma_x`/`sigma_y` columns (free, since every SOI loc carries real `sx`/`sy`
+  — the same optional-column convention `mle3d`/`gaussmleEll` results already trigger), **Preview
+  pairs** runs to completion against them, and unchecking `smfretFixSOI` tears the whole thing back
+  down (`lastResult=null`, table/save/sSMLM buttons disabled again).
 
   **`smfretFixSOI`** ("Fix SOI x,y for time traces", default unchecked) is a STATUS flag, not an
   independent on/off switch like 3D calibration's own `calFixedXY` — `locateSmfretSOI()` itself

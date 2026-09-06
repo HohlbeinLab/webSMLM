@@ -112,17 +112,22 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     image. Composite-averaging keeps a real, distinct advantage — it can find sites too faint to
     cross the per-frame detection threshold in any single frame, which per-frame-Localize-then-
     cluster can never recover — so this isn't a strict replacement; usable manually today via the
-    table's own filter box, with no smFRET-specific code. Revisit whether **Localise SOI** should
+    table's own filter box, with no smFRET-specific code. Revisit whether **Localize SOI** should
     gain this as a second mode once someone's actually compared the two on real smFRET data.
-  - **Linking a DD candidate to its DA partner = sSMLM's own pairing.** `pairCore()`'s directional
-    distance+bearing-angle matching (built for 0th/1st-order diffraction-grating pairs) assumes a
-    roughly CONSTANT offset vector between two related spots — exactly what a well-aligned dual-view
-    image splitter gives between donor and acceptor sub-images (translation-dominated, unlike a
-    diffraction grating's dispersion, but the same "search a fixed distance/angle window" math).
-    Reusing it sidesteps needing a full affine channel-registration transform for a first pass —
-    IF channel misalignment really is translation-dominated on real data. Working assumption (per
-    discussion): translation (distance + angle, sSMLM's own pairing as-is) is likely sufficient for
-    the hardware in question — but this is a guess, not a measurement, and needs checking against
+  - **Linking a DD candidate to its DA partner = sSMLM's own pairing — wired.** `pairCore()`'s
+    directional distance+bearing-angle matching (built for 0th/1st-order diffraction-grating pairs)
+    assumes a roughly CONSTANT offset vector between two related spots — exactly what a well-aligned
+    dual-view image splitter gives between donor and acceptor sub-images (translation-dominated,
+    unlike a diffraction grating's dispersion, but the same "search a fixed distance/angle window"
+    math). **Localize SOI now writes its results into `lastResult`** (shipped) specifically so
+    **Preview pairs**/**Pair** can be run on them directly — zero changes needed to `pairCore()`/
+    `sSmlmCandidates()` themselves, every SOI site sharing one constant `frame:0` is enough for the
+    existing per-frame candidate grouping to compare the whole set against itself. Still open: this
+    only gives raw MECHANICAL access to the pairing UI — nobody's yet run it against real dual-view/
+    polychroic data to see whether a genuine, physically-meaningful DD/DA pair distance+bearing
+    window even exists on real hardware. Working assumption (per discussion): translation (distance +
+    angle, sSMLM's own pairing as-is) is likely sufficient for the hardware in question — but this is
+    a guess, not a measurement, and needs checking against
     real dual-channel raw data before committing to it; a splitter/setup with meaningful rotation or
     magnification mismatch between channels would need a proper affine map instead (fit from a
     bead/fiducial image visible in both channels).

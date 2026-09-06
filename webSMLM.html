@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2468   PARAMS registry, single source of truth for params;
+    params          2470   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3205   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3207   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3504   synthetic stack generator ("Simulate movie")
-    detect          4382   per-frame band-pass + local-maxima detection
-    fit             4659   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3506   synthetic stack generator ("Simulate movie")
+    detect          4384   per-frame band-pass + local-maxima detection
+    fit             4661   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -50,7 +50,7 @@
                            bounded by seed sigma0 instead; winr2d/winr3d
                            (MODULE: params) are applyWinrDefault()'s (MODULE:
                            pipeline) two remembered defaults
-    render          5195   accumulate to offscreen buffer; view/colour/blur;
+    render          5197   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -72,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6472   frame-parallel detect/fit worker pool; dedicated
+    workers         6474   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6779   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7071   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6781   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7073   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7488   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7490   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7994   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7996   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8703   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8705   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9380   single particle tracking, trackpy-inspired;
+    spt             9440   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10881  top-level orchestration, *Core()/wrapper split;
+    pipeline        10941  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11502  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11562  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13421  localizations table, filtering, histograms;
+    table           13483  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14056  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14116  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2332,7 +2332,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
-          <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites and returns both panels to normal.</p>
+          <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
           <p><b>Get time traces</b> fits every site at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
@@ -9202,7 +9202,16 @@ async function locateSmfretSOI(){
     const {img:proj,used}=r;
     const {maxima}=detectSpots(proj,w,h,sigma,exactBP,mode,k,border);
     const fitted=[];
-    for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma); if(L) fitted.push({x:L.x,y:L.y}); }
+    // Keep the FULL fit, not just x,y (previously discarded) — frame:0 for
+    // every site (a shared, arbitrary constant, not a real per-frame index)
+    // is what makes these usable as sSMLM pairing input below: sSmlmCandidates()
+    // groups candidates by loc.frame, comparing only within the same group —
+    // giving every SOI site the SAME frame collapses the whole set into that
+    // one group, so every donor/acceptor SOI candidate gets compared against
+    // every other one, exactly as intended for a position set with no real
+    // temporal structure of its own.
+    for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma);
+      if(L) fitted.push({x:L.x, y:L.y, sx:L.sx, sy:L.sy, sigma:(L.sx+L.sy)/2, photons:L.photons, bg:L.bg, bgstd:L.bgstd, frame:0}); }
     smfretSOI=fitted;
     // Same composite-canvas + ROI/crosshair-overlay display locateBeadsForCalib()
     // uses (srSpots/srLocs, MODULE: render) — a reference view in the SR (right)
@@ -9234,7 +9243,40 @@ async function locateSmfretSOI(){
     // its own listener.
     $('smfretFixSOI').checked=true;
     $('smfretTimeTracesBtn').disabled = !fitted.length;
-    log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest.`);
+    // Also write the SOI positions into `lastResult` — the ONE place the
+    // data table, export, and sSMLM's own Preview/Pair pairing all read
+    // from — so a user can pair donor/acceptor SOI candidates using the
+    // existing sSMLM machinery (built for a diffraction grating's 0th/1st
+    // order, but its distance+bearing-angle matching is exactly what a
+    // dual-view/polychroic-split donor/acceptor pair needs too — see
+    // docs/REFACTOR_PLAN.md's own smFRET/ALEX sketch). Same minimal shape
+    // loadCsvFile() uses for locs with no real per-frame Run behind them
+    // (det:null — showFrame()'s own frame-overlay logic requires a real
+    // det match, correctly skipping it here). REPLACES any current
+    // lastResult, same as clicking Localize or loading a CSV would — no
+    // special confirmation, matching this app's convention elsewhere.
+    // Deliberately does NOT call rerender(): the SR panel keeps showing
+    // the composite/ROI overlay above untouched; only Pair (if the user
+    // gets that far) switches it to a real reconstruction, same as it
+    // already does for an ordinary Localize result.
+    // Same "no confirmation, but name what's about to go" convention run()'s
+    // own pre-run reset uses — only for a REAL prior result (a normal
+    // Localize/CSV load), not every auto-rerun re-clearing its own previous
+    // SOI pass (fromSmfretSOI already true — nothing genuinely new is lost).
+    if(lastResult && !lastResult.fromSmfretSOI && lastResult.locs && lastResult.locs.length){
+      const cleared=['previous localizations'];
+      if(sSmlmPairedLocs) cleared.push('sSMLM pairing');
+      log(`⚠ Localize SOI — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
+    }
+    lastResult={locs:fitted, w, h, px:paramValue('pxnm'), mag:paramValue('mag'), det:null, fromSmfretSOI:true};
+    renderLocs=null; _tableFilters=[];
+    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a fresh SOI result invalidates any prior pairing state
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
+    $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
+    $('tableBtn').disabled=!fitted.length; $('saveBtn').disabled=!fitted.length;
+    $('sSmlmPreviewBtn').disabled=!fitted.length; $('sSmlmPairBtn').disabled=!fitted.length;
+    log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest `+
+        `— available in View data/filtering and Spectral SMLM analysis (Preview pairs/Pair) for donor/acceptor pairing.`);
   }catch(err){ log(`⚠ Localize SOI failed: ${err.name}: ${err.message}`); }
 }
 $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
@@ -9265,6 +9307,22 @@ $('smfretFixSOI').addEventListener('change',()=>{
   }
   if(stack && stack.n>1) $('scrubRow').style.display='flex';
   if(stack) showFrame(+$('scrub').value);   // drop any stale trace view from the raw panel immediately
+  // lastResult (and everything reading it — table, export, sSMLM pairing)
+  // was only ever the SOI positions in the first place (locateSmfretSOI()'s
+  // own write, tagged fromSmfretSOI so this can tell it apart from a real
+  // Localize/CSV-load result that happened to still be current) — discard
+  // it the same way discarding the sites themselves does; no snapshot of
+  // whatever lastResult held BEFORE SOI first ran (already gone the moment
+  // it overwrote it, same as clicking Localize/loading a CSV over an
+  // existing result would do).
+  if(lastResult && lastResult.fromSmfretSOI){
+    lastResult=null; renderLocs=null; _tableFilters=[];
+    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
+    $('tableBtn').disabled=true; $('saveBtn').disabled=true;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true;
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
+    $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
+  }
 });
 // "Get time traces": fits each Localize SOI site at its OWN fixed x,y
 // position (gaussianFitEllipticalFixedXY — same fixed-position fitter 3D
@@ -13294,16 +13352,18 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06b — table filtering:
-tempClusteringMemory is implemented (was planned, not yet shipped).
-Type "tempClusteringMemory <= N" (frames) or "tempClusteringMemory <=
-inf" into View data/filtering's filter box alongside
-tempClusteringXY/Z — lets a chain skip up to N frames with no
-detection and still be extended when the molecule reappears, instead
-of always breaking the chain at the first missed frame. Default 0
-(unset) reproduces the exact original behaviour. Best applied after
-Correct drift when using a large/unlimited memory — matching a chain's
-old average position gets less reliable the longer it's gone unseen.
+log(`webSMLM v0.12.1-dev · build 2026-09-06c — smFRET: Localize SOI now
+writes its results into the current result (lastResult) too, not just
+the reconstruction-panel composite — so View data/filtering, Save
+data, and Spectral SMLM analysis's own Preview pairs/Pair all work on
+SOI positions directly. Every SOI site shares one frame:0 so sSMLM's
+existing distance+bearing pairing (built for a diffraction grating's
+0th/1st order) can be used to pair a donor/acceptor SOI candidate the
+same way, no new pairing code needed. Replaces whatever result was
+current before (a real Localize, a loaded CSV, an earlier SOI pass) —
+no confirmation, but warns once when clobbering a real prior result.
+Unchecking "Fix SOI x,y for time traces" now also discards this result
+(and any pairing built from it) along with the sites themselves.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

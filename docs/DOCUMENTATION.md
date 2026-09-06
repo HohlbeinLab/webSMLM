@@ -688,11 +688,36 @@ the same "always reflects the current settings" convention
 Real SOI signals are commonly faint, so this live feedback matters in
 practice — finding them at all often needs the threshold hand-tuned down
 from whatever a bright, well-separated dataset's default would suggest.
-Results land in `smfretSOI` (`{x,y}` per site) and are shown the same way
-a bead composite is: the composite image fills the reconstruction (right)
-panel as `srFull`, with `srSpots`/`srLocs` driving the ROI-box/fit-
-crosshair overlay (`drawSpotOverlays()`, MODULE: render) — a reference
-view, not a real per-localization reconstruction (`setSrRecon(false)`).
+Results land in `smfretSOI` (`{x,y,sx,sy,sigma,photons,bg,bgstd,frame:0}`
+per site — the fitter's own full output, not just position) and are shown
+the same way a bead composite is: the composite image fills the
+reconstruction (right) panel as `srFull`, with `srSpots`/`srLocs` driving
+the ROI-box/fit-crosshair overlay (`drawSpotOverlays()`, MODULE: render) —
+a reference view, not a real per-localization reconstruction
+(`setSrRecon(false)`).
+
+Every successful run — the first click, or a later auto-rerun — also
+writes `smfretSOI` into `lastResult` (`{locs:smfretSOI, w, h, px, mag,
+det:null}`, the same minimal shape a loaded CSV uses for locs with no real
+per-frame Run behind them), enabling **View data/filtering**, **Save
+data**, and — the actual point — **Spectral SMLM analysis**'s own
+**Preview pairs**/**Pair**: sSMLM's directional distance+bearing-angle
+matching (built for a diffraction grating's 0th/1st order) works just as
+well for a dual-view/polychroic-split donor/acceptor pair, which is
+translation-dominated the same way (see `docs/REFACTOR_PLAN.md`'s own
+smFRET/ALEX sketch) — no separate pairing implementation needed. Every SOI
+site shares the SAME `frame:0` (an arbitrary constant, not a real per-frame
+index) specifically so `sSmlmCandidates()`'s own per-frame grouping treats
+the WHOLE SOI set as one pool, comparing every candidate against every
+other one — correct for a position set with no real temporal structure of
+its own. This replaces whatever `lastResult` held before (a real Localize
+run, a loaded CSV, or an earlier SOI pass) with no confirmation prompt,
+same convention `run()`'s own pre-Localize reset uses — but it does warn
+(naming what's being cleared) the first time it overwrites a REAL prior
+result, not on every routine auto-rerun re-clearing its own previous SOI
+pass. Unchecking **Fix SOI x,y for time traces** (below) discards this
+`lastResult` (and any sSMLM pairing built from it) the same way it
+discards the sites themselves.
 The panel's own zoom/pan is only reset on an actual frame-size change —
 each auto-rerun keeps whatever view a user already zoomed/panned to,
 the same "keep zoom while scrubbing" behaviour the raw (left) panel's
@@ -715,7 +740,11 @@ reconstruction panel's general overview, and hides the site scrubber (see
 below) in favour of the ordinary Frame one — the same "uncheck to discard
 and restore the general view" convention 3D calibration's own **Fix bead
 x,y** checkbox already uses, just without that checkbox's own
-check-to-trigger direction.
+check-to-trigger direction. It also discards `lastResult` itself (and any
+sSMLM pairing built from it, above) whenever `lastResult` is still the SOI
+result this module wrote — never a real Localize/CSV-loaded result that
+happened to still be current, which SOI already claimed the moment it
+first ran.
 
 **Get time traces** (`getSmfretTimeTraces()`) fits every `smfretSOI` site
 at its OWN fixed x,y position — never re-detected — in EVERY frame of the
@@ -1817,7 +1846,7 @@ for the first implementation.
 
 <!-- HINT:smfret -->
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
-<p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites and returns both panels to normal.</p>
+<p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
 <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
 <p><b>Get time traces</b> fits every site at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
 <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
