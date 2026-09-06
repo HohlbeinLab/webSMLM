@@ -97,14 +97,14 @@
                            guarded) — speed vs. estimation precision
     locprecision    8028   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8739   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8742   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9525   single particle tracking, trackpy-inspired;
+    spt             9557   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11026  top-level orchestration, *Core()/wrapper split;
+    pipeline        11058  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11647  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11679  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13656  localizations table, filtering, histograms;
+    table           13688  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14294  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14326  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06h</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2325,6 +2325,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
         <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get time traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix SOI x,y for time traces
           <input type="checkbox" id="smfretFixSOI"></label>
+        <label class="row" title="Get time traces below: extract each frame's intensity by summing the fit window box and subtracting a local background from its own outer ring, instead of fitting a Gaussian at the fixed position. No iterative fit to diverge — avoids spurious spikes the fit can produce on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
+          <input type="checkbox" id="smfretApertureMode"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
           <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, and plot the resulting intensity-vs-frame time traces in the raw (left) panel">Get time traces</button>
@@ -2334,7 +2336,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
           <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-          <p><b>Get time traces</b> fits every site at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
+          <p><b>Get time traces</b> extracts every site's intensity at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a Gaussian at the fixed position; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace shows implausible single-frame spikes (a real risk on faint sites, where a single frame's own window can be close to background noise). While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -2713,6 +2715,7 @@ const PARAMS = {
   // successful run, not something the user is expected to check by hand. ----
   smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average frames', min:1, max:100000, step:10, default:100, int:true },
   smfretFixSOI: { type:'bool', id:'smfretFixSOI', label:'Fix SOI x,y for time traces', default:false },
+  smfretApertureMode: { type:'bool', id:'smfretApertureMode', label:'Aperture photometry (no fit)', default:false },
 
   // ---- spt (single particle tracking) ----
   // Defaults ported from the user's own sptPALM-Python pipeline's
@@ -9395,21 +9398,49 @@ $('smfretFixSOI').addEventListener('change',()=>{
     $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
   }
 });
-// "Get time traces": fits each Localize SOI site at its OWN fixed x,y
-// position (gaussianFitEllipticalFixedXY — same fixed-position fitter 3D
-// calibration's own "Fix bead x,y" mode uses, MODULE: fit) in EVERY frame of
-// the loaded movie, never re-detecting per frame, then plots one site's
-// resulting intensity-vs-frame curve in the raw (left) panel. v1 "simple
-// check" only: no gain/offset conversion (matching gaussianFitEllipticalFixedXY's
+// Aperture photometry (v0.12.1-dev): a model-free alternative to
+// gaussianFitEllipticalFixedXY() for extracting one site's intensity at a
+// FIXED, already-known position — sums the win×win box and subtracts a
+// local background estimated from the box's own outer ring (same idea
+// phasorFit()'s own background ring uses), no iterative fit involved.
+// Added because the fit is demonstrably unstable at the SNR real smFRET
+// candidate sites are often at: a single-frame window there is close to
+// flat background noise (the sites only became detectable at all because
+// Localize SOI averages many frames first), and an UNWEIGHTED least-squares
+// Gaussian fit to that is ill-posed — verified against a real dataset that
+// isolated single-frame "spikes" the fit produced (amplitude blowing up,
+// σ shrinking toward its floor) had no corresponding brightness in the raw
+// pixels at all, while a plain box-sum stayed flat across the same frames.
+// Trades away a per-frame width estimate (the fit's sx/sy) for a result
+// that can't diverge — a linear sum has no local minimum to get stuck in.
+function apertureIntensity(img,w,h,cx,cy,win){
+  const r=(win-1)/2;
+  let sum=0,boxN=0,ringSum=0,ringN=0;
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+    const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue;
+    const v=img[y*w+x]; sum+=v; boxN++;
+    if(Math.abs(dx)===r||Math.abs(dy)===r){ ringSum+=v; ringN++; }
+  }
+  return sum - (ringN?ringSum/ringN:0)*boxN;
+}
+// "Get time traces": extracts each Localize SOI site's intensity at its OWN
+// fixed x,y position (never re-detected) in EVERY frame of the loaded movie,
+// then plots one site's resulting intensity-vs-frame curve in the raw (left)
+// panel. Two extraction methods, chosen by smfretApertureMode: the default
+// is gaussianFitEllipticalFixedXY (same fixed-position fitter 3D calibration's
+// own "Fix bead x,y" mode uses, MODULE: fit); checked, apertureIntensity()
+// above runs instead (see its own comment for why). v1 "simple check" only:
+// no gain/offset conversion either way (matching gaussianFitEllipticalFixedXY's
 // own raw-ADU convention — it takes no gain/camoffset at all, unlike the 5
 // mainline fitters) and no donor/acceptor/FRET channel sorting yet — see
 // docs/REFACTOR_PLAN.md.
 async function getSmfretTimeTraces(){
   if(!stack || !smfretSOI || !smfretSOI.length) return;
   const {w,h}=stack, sigma=paramValue('psf'), win=2*paramValue('winr')+1, border=(win-1)/2+1;
+  const useAperture=paramValue('smfretApertureMode');
   const n=stack.n, sites=smfretSOI;
   const traces=sites.map(s=>({x:s.x,y:s.y,photons:new Float64Array(n).fill(NaN)}));
-  log(`smFRET: Get time traces — fitting ${sites.length} site(s) across ${n} frames…`);
+  log(`smFRET: Get time traces — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s) across ${n} frames…`);
   $('smfretTimeTracesBtn').disabled=true;
   try{
     let lastYield=performance.now();
@@ -9418,6 +9449,7 @@ async function getSmfretTimeTraces(){
       for(let j=0;j<sites.length;j++){
         const s=sites[j], cx=Math.round(s.x), cy=Math.round(s.y);
         if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // site too close to THIS frame's edge
+        if(useAperture){ traces[j].photons[fi]=apertureIntensity(img,w,h,cx,cy,win); continue; }
         const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,s.x,s.y,win,sigma);
         if(L) traces[j].photons[fi]=L.photons;
       }
@@ -13532,9 +13564,15 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06h — the raw-panel crop tool's
-recorded command was missing frametime alongside pxnm, the same gap
-loadMovieFiles()/loadCsvFile() already had fixed.
+log(`webSMLM v0.12.1-dev · build 2026-09-06i — smFRET: Get time traces
+gains "Aperture photometry (no fit)" (smfretApertureMode). Diagnosed on
+real data: the default fixed-position Gaussian fit can spike to 10-100x
+on a single frame with no corresponding brightness in the raw pixels at
+all — an unweighted least-squares fit is unstable when a site's own
+per-frame signal is close to background noise (common here, since sites
+are only detectable at all after averaging many frames). The new option
+sums the fit window and subtracts a local ring background instead — no
+iterative fit, so it cannot diverge the same way.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

@@ -131,12 +131,17 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     real dual-channel raw data before committing to it; a splitter/setup with meaningful rotation or
     magnification mismatch between channels would need a proper affine map instead (fit from a
     bead/fiducial image visible in both channels).
-  - **Building the DD(t)/DA(t)/(AA(t)) trace = the calibration module's own "fit at fixed x,y."**
-    Once a molecule's position is fixed (composite + link step above), the 3D calibration module
-    already fits amplitude/σx/σy/background PER FRAME at a fixed x,y without re-detecting — the same
-    operation needed here, just reading out amplitude/photons over time instead of width over a
-    z-scan. **Run smFRET** would do this for every linked position across every frame (bucketed into
-    DD/DA/AA by ALEX frame role), building one row per molecule per frame.
+  - **Building the DD(t)/DA(t)/(AA(t)) trace — "Get time traces" v1 shipped, two extraction methods
+    now available.** Once a molecule's position is fixed (composite + link step above), reading out
+    intensity per frame at a fixed x,y without re-detecting is already shipped
+    (`getSmfretTimeTraces()`) via either `gaussianFitEllipticalFixedXY` (the calibration module's own
+    fixed-x,y fitter) or, now, `apertureIntensity()` (box-sum minus local-ring background, no fit) —
+    checked against real data, the fit is genuinely unstable on faint smFRET sites (spurious
+    single-frame spikes with no real signal behind them), while aperture photometry cannot diverge
+    the same way; see **smFRET** in `CLAUDE.md` for the full writeup. **Run smFRET** would extend
+    this same per-frame extraction to every linked position across every frame, bucketed into
+    DD/DA/AA by ALEX frame role, building one row per molecule per frame — likely wanting APERTURE
+    photometry as ITS default too, given the same low-SNR regime, though this hasn't been decided.
   - **Output = the existing streaming-NDJSON precedent**, not a new mechanism — `spt_tracks.ndjson`
     (`makeRecordEmitter()`, v0.11.10) is the same shape of problem (many molecules × many
     frames, too large for `analyze()`'s own return value), so a `smfret_traces.ndjson` stream (one

@@ -779,6 +779,34 @@ relevant one before editing rather than scrolling:
   field is raw ADU, matching 3D calibration's own precedent of never gain-correcting its
   fixed-position fits either (they only ever needed σx/σy ratios, not absolute counts).
 
+  **`smfretApertureMode`** ("Aperture photometry (no fit)", default unchecked, v0.12.1-dev) is a
+  second extraction method for `getSmfretTimeTraces()`, alongside (not replacing)
+  `gaussianFitEllipticalFixedXY` — reported/diagnosed: on a real donor-heavy prism/polychroic
+  dataset, several sites' time traces showed isolated single-frame "spikes" (amplitude 10-100x the
+  surrounding frames) with NO corresponding brightness in the raw pixels at all (checked directly —
+  the raw ADU values under the fit window on a spike frame looked identical to calm neighbouring
+  frames). Root cause: `gaussianFitEllipticalFixedXY` is an UNWEIGHTED nonlinear least-squares fit,
+  fine for `calFixedXY`'s own bright, well-isolated calibration beads, but real smFRET candidate
+  sites are often only detectable at all because **Localize SOI** averages many frames first — a
+  SINGLE frame's own fit window can be close to flat background noise, and fitting a Gaussian PSF
+  shape to that is ill-posed; the optimizer occasionally converges to a spurious narrow/high-
+  amplitude "fake" peak (σ shrinking toward its 0.5 px floor) that happens to fit one frame's random
+  noise pattern unusually well. `apertureIntensity(img,w,h,cx,cy,win)` (right above
+  `getSmfretTimeTraces()`) is the fix: sums the same `win×win` box and subtracts a local background
+  estimated from the box's own OUTER RING (same idea `phasorFit()`'s own background ring already
+  uses) — a linear operation with no iterative optimizer, so it cannot diverge the way the fit can.
+  Verified against the same real dataset: the fit's max/median ratio for the worst site was 117x;
+  aperture photometry on the identical site/frames came down to ~11x — still non-trivial (background-
+  subtracting a small signal against a large, noisy background inflates the RELATIVE fluctuation,
+  since the ring-based per-frame background estimate is itself noisy over just ~24 pixels), but a
+  fundamentally different failure mode: genuine shot-noise scatter around a small mean, not an
+  isolated divergent spike surrounded by near-zero. Trades away a per-frame width estimate (the fit's
+  own `sx`/`sy`, already unused by the plot) for a result that structurally cannot blow up. Neither
+  extraction method is gain/offset-corrected (same reasoning as the fit's own paragraph above) — both
+  report raw ADU. Registered as an ordinary `PARAMS` bool entry (`type:'bool'`), so it's automatically
+  part of Save/Load Settings like every other `PARAMS` field — `getSmfretTimeTraces()` itself still
+  has no headless equivalent (unaffected by this).
+
   **`drawSmfretTrace(idx)`** plots one site's intensity-vs-frame curve in the raw (left) panel,
   following the exact "left panel doubles as a plot surface" pattern drift/NeNA/FRC already use
   (`rawFull=null; setRawPlot(true); rawPlotName='smfretTrace'`, `setupPlot()` for the 4:3
