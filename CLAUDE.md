@@ -229,6 +229,48 @@ relevant one before editing rather than scrolling:
   promote to a real setting later if 2× ever proves wrong for real data. `sigma0` is already a
   parameter on every one of these 5 functions, so this needed zero signature or call-site changes.
 
+  **`apertureGeometry(win)`/`percentile(sortedVals,p)`** (v0.12.1-dev, right before `phasorFit()`) are
+  a shared aperture-photometry helper — a CIRCULAR signal disk (`distance from centre <= r`,
+  `r=(win-1)/2`, the same half-width every fitter here already uses) plus a SEPARATE, non-overlapping
+  background annulus just outside it (`r < distance <= r+2.5`), background estimated via that
+  annulus's 56th PERCENTILE (not mean or median) — published, previously-validated method (Martens et
+  al., *J. Chem. Phys.* 148, 123311 (2018), Supplementary Information §S11 "Aperture photometry to
+  assess intensity and background levels," itself adapting Preus, Hildebrandt & Birkedal, *Biophys.
+  J.* 111, 1278 (2016), "Optimal Background Estimators in Single-Molecule FRET Microscopy" — directly
+  on-topic for the smFRET use case below). **Reverse-engineered pixel-exact from the SI's own Figure
+  S11 reference maps, not its prose formula** — the SI's own text names a "ROI radius" that turned out
+  to be consistently 2px LARGER than the window's actual half-width `r`, for reasons the SI itself
+  never explains; rendered the SI's PDF at 600 DPI (`pdftoppm`) and counted signal/background pixels
+  exactly against the 7×7 and 9×9 reference maps (both independently confirming the `r`/`r+2.5`
+  boundary) and the 15×15 map's own excluded corners (confirming the exclusion cutoff) before trusting
+  the geometry — the prose alone would have produced a signal disk far too small to match the
+  published figures. `apertureGeometry(win)` caches the `(dx,dy)` offset lists per window size (same
+  `win` reused across every call in one Localize run or one smFRET Get time traces run);
+  `percentile()` is the standard linear-interpolation convention (numpy's/MATLAB's default). **A real
+  bug caught before shipping**: the background annulus reaches `r+2.5`, WIDER than the `win×win` box
+  itself — the first draft only scanned `dx,dy` in `[-r,r]` (carried over by habit from an earlier
+  box-based version's own loop bounds), silently never visiting the outer part of the annulus at all;
+  fixed by scanning out to `Math.ceil(r+2.5)` instead.
+
+  Used by **two** callers, consolidated into ONE implementation on request ("best to not have too many
+  different methods") rather than two independently-evolved ad-hoc ones:
+  - `phasorFit()` (below) — its own `photons`/`bg`/`bgstd` now come from this geometry instead of its
+    PREVIOUS approach (a square `win×win` box's own outermost ring, background = plain MEAN) — see
+    `phasorFit()`'s own comment for the re-verified synthetic accuracy number (a genuine improvement,
+    not just "comparable," since a real, separate annulus removes most of the old ring's own
+    real-signal leakage bias). Position/phasor-magnitude math (`col`/`row`/`tot`, the Fourier
+    transform of the FULL box) is completely unrelated and untouched.
+  - `apertureIntensity()` (MODULE: smFRET) — smFRET's own fit-free "Aperture photometry (no fit)"
+    option for Get time traces; see that module's own paragraph for how it got here (a square-box
+    ring-MEAN first, then a ring-MEDIAN that empirically made things WORSE before this literature
+    version replaced both).
+
+  Both stringified into the detect/fit worker (`apertureGeometry.toString()`/`percentile.toString()`
+  added to `workerSource()`'s function list, `_apWin`/`_apSignal`/`_apBackground` added to
+  `WORKER_PRELUDE` — the Web Worker gotcha: `phasorFit` is itself worker-dispatched for a Phasor
+  2D/3D Localize run, so anything it newly depends on must reach the worker too, or it throws
+  `ReferenceError` the first time a worker-pool Run actually exercises it).
+
   **`winr2d`/`winr3d`** (Fit radius 2D/3D) are the two fields actually shown in the sidebar;
   `applyWinrDefault()` (MODULE: pipeline, called from `updateMethodUI()`'s own `currentIs3d()`)
   keeps the underlying `winr` field mirroring whichever one is relevant as the 2D/3D context
@@ -840,13 +882,15 @@ relevant one before editing rather than scrolling:
   divergent spikes.
 
   **`smfretApertureMode`** checked runs `apertureIntensity(img,w,h,cx,cy,win,gain)` (right above
-  `getSmfretTimeTraces()`) instead: sums the same `win×win` box and subtracts a local background
-  estimated from the box's own OUTER RING (same idea `phasorFit()`'s own background ring already
-  uses) — a linear operation with no iterative optimizer, so it structurally cannot diverge the way
-  either fit can, at the cost of not reporting a per-frame width. `camoffset` cancels out exactly in
-  a background-SUBTRACTED linear sum (no need to pass it separately) — only `gain` remains, applied
-  as a final multiplicative scale so both methods report the same true-photon-unit convention.
-  Registered as an ordinary `PARAMS` bool entry (`type:'bool'`), so it's automatically part of
+  `getSmfretTimeTraces()`) instead: a linear operation with no iterative optimizer, so it structurally
+  cannot diverge the way either fit can, at the cost of not reporting a per-frame width. `camoffset`
+  cancels out exactly in a background-SUBTRACTED linear sum (no need to pass it separately) — only
+  `gain` remains, applied as a final multiplicative scale so both methods report the same
+  true-photon-unit convention. As of the aperture-photometry consolidation below (see **fit**'s own
+  `apertureGeometry()`/`percentile()` paragraph), this calls the SAME shared circular-disk +
+  background-annulus + 56th-percentile geometry `phasorFit()` itself now uses — not the square-box
+  ring-mean version this paragraph originally described, superseded on request ("best to not have too
+  many different methods"). Registered as an ordinary `PARAMS` bool entry (`type:'bool'`), so it's automatically part of
   Save/Load Settings like every other `PARAMS` field — `getSmfretTimeTraces()` itself still has no
   headless equivalent (unaffected by this).
 
@@ -867,8 +911,8 @@ relevant one before editing rather than scrolling:
   guarded by `smfretOwnsRawPanel()`, same gating convention `liveStreamOwnsRawPanel()` already
   established for its own scrubber redraws.
 
-  **`apertureIntensity()` rewritten on a published, previously-validated method** (v0.12.1-dev,
-  same round) — the ORIGINAL version (square `win×win` box, background = MEAN of that same box's own
+  **`apertureIntensity()` rewritten on a published, previously-validated method** (v0.12.1-dev, same
+  round) — the ORIGINAL version (square `win×win` box, background = MEAN of that same box's own
   outermost ring) was ad-hoc, and its background ring sitting flush against the signal region's own
   edge meant real PSF tail could leak into it, biasing background high (occasionally producing a
   negative "intensity" before the floor above was added). Switching that ring's estimator from mean
@@ -877,33 +921,12 @@ relevant one before editing rather than scrolling:
   drastically (ratio 92x → 3313x), because the ring is only ~24 pixels for `win=7`, and a median's
   own sampling variance for that few samples (~1.57x a mean's, for the same N — a standard result)
   outweighs whatever real-signal-contamination bias it was meant to fix; a noisier estimator on a
-  small sample is the wrong fix for a geometry problem. The user pointed to the RIGHT fix instead:
-  `apertureIntensity()` now ports the exact method from the same pSMLM-3D paper's own Supplementary
-  Information, §S11 "Aperture photometry to assess intensity and background levels" (itself adapting
-  Preus, Hildebrandt & Birkedal, *Biophys. J.* 111, 1278 (2016), "Optimal Background Estimators in
-  Single-Molecule FRET Microscopy" — directly on-topic for this exact use case). A CIRCULAR signal
-  disk (`distance from centre <= r`, `r=(win-1)/2` — the SAME half-width every fitter in this file
-  already uses) is summed directly; a SEPARATE, non-overlapping annulus just outside it
-  (`r < distance <= r+2.5`) estimates background via its 56th PERCENTILE, not mean or median.
-  **Reverse-engineered pixel-exact from the SI's own Figure S11 reference maps, not its prose
-  formula** — the SI's own text names a "ROI radius" that reverse-engineering showed is consistently
-  2px LARGER than the window's actual half-width `r`, for reasons the SI itself never explains;
-  rendered the SI's PDF at 600 DPI (`pdftoppm`) and counted signal/background pixels exactly against
-  the 7×7 and 9×9 reference maps (both independently confirming the `r`/`r+2.5` boundary) and the
-  15×15 map's own excluded corners (confirming the `r+2.5` exclusion cutoff) before trusting the
-  geometry — the prose alone would have produced a signal disk far too small to match the published
-  figures. `apertureGeometry(win)` caches the `(dx,dy)` offset lists per window size (same win reused
-  across every site/frame of one Get time traces run); `percentile(sortedVals,p)` is the standard
-  linear-interpolation convention (numpy's/MATLAB's default). **A real bug caught before shipping**:
-  the background annulus reaches `r+2.5`, WIDER than the `win×win` box itself — the first draft's
-  `apertureGeometry()` only scanned `dx,dy` in `[-r,r]` (matching the old box-based version's own
-  loop bounds, carried over by habit), silently never visiting the outer part of the annulus at all;
-  fixed by scanning out to `Math.ceil(r+2.5)` instead. Verified end-to-end against the real dataset
-  after the fix: geometry pixel-counted correct at `win=7` (29 signal / 68 background pixels,
-  matching independent hand-calculation), zero negative raw results across all 14 real sites (vs.
-  the old version needing the floor above to ever fire), and per-site max/median ratios mostly in the
-  1.4–5.5x range (two sites showed a much higher ratio purely because their median is exactly 0 — an
-  artifact of that ratio metric on a mostly-off molecule, not a sign of a bad fit).
+  small sample is the wrong fix for a geometry problem. The user pointed to the RIGHT fix instead —
+  and then, on a follow-up request to avoid maintaining two different aperture-photometry
+  implementations, `apertureIntensity()`'s own geometry/percentile logic was further consolidated
+  with `phasorFit()`'s own (below) into ONE shared `apertureGeometry()`/`percentile()` pair — see
+  **fit**'s own paragraph on them above for the full method, citations, reverse-engineering story,
+  and the worker-stringification bug that needed catching along the way.
 
   **`drawSmfretTrace(idx)`** plots one site's intensity-vs-frame curve in the raw (left) panel,
   following the exact "left panel doubles as a plot surface" pattern drift/NeNA/FRC already use

@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2477   PARAMS registry, single source of truth for params;
+    params          2482   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3215   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3220   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3514   synthetic stack generator ("Simulate movie")
-    detect          4392   per-frame band-pass + local-maxima detection
-    fit             4669   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3519   synthetic stack generator ("Simulate movie")
+    detect          4397   per-frame band-pass + local-maxima detection
+    fit             4674   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -54,8 +54,13 @@
                            now symmetric with the LSQ fitters' [0.5,6]) also
                            reject a result with σ PINNED at either bound, not
                            just clamp it — smFRET's Get time traces surfaced
-                           the missing ceiling as a real bug
-    render          5250   accumulate to offscreen buffer; view/colour/blur;
+                           the missing ceiling as a real bug; apertureGeometry()/
+                           percentile() (circular disk + background-annulus +
+                           56th-percentile, Martens 2018 SI S11 / Preus 2016)
+                           shared by phasorFit()'s own intensity/background and
+                           smFRET's apertureIntensity() — one implementation,
+                           not two
+    render          5313   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -77,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6549   frame-parallel detect/fit worker pool; dedicated
+    workers         6612   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6858   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7150   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6922   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7214   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7577   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7641   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -100,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8083   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8147   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8794   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8858   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9728   single particle tracking, trackpy-inspired;
+    spt             9755   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -140,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11237  top-level orchestration, *Core()/wrapper split;
+    pipeline        11264  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -149,7 +154,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11858  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11885  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -203,11 +208,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13873  localizations table, filtering, histograms;
+    table           13903  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14511  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14541  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1905,7 +1910,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06l</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5193,18 +5198,68 @@ function fitVertexQuad(zs,ys){
   return {A,B,C,a:A,c:-B/(2*A),b:C-B*B/(4*A),at:z=>A*z*z+B*z+C};
 }
 
-/* -- phasor localization (Martens 2018): first Fourier coefficient, no iteration --
-   Also estimates background from the ROI perimeter ring (the outermost pixels of
-   the fit window, which are dominated by background rather than the PSF) so that
-   `photons` is a background-SUBTRACTED intensity rather than a raw ROI sum.
-   Without this there is no meaningful `intensity [photon]` to export.
+// Aperture photometry: shared circular signal-disk + background-annulus
+// geometry (Martens et al., J. Chem. Phys. 148, 123311 (2018), Supplementary
+// Information §S11 "Aperture photometry to assess intensity and background
+// levels" — itself adapting Preus, Hildebrandt & Birkedal, Biophys. J. 111,
+// 1278 (2016)). Used below by phasorFit() for its own intensity/background —
+// bringing it in line with the very paper phasorFit() already cites for its
+// position/phasor-magnitude math, on request, consolidating what had briefly
+// become two slightly different ad-hoc aperture-photometry implementations
+// into one — AND by smFRET's own apertureIntensity() (MODULE: smFRET) as a
+// genuinely fit-free alternative to a per-frame Gaussian fit. A pixel at
+// distance d from the aperture centre is SIGNAL if d<=r (r=(win-1)/2, the
+// same half-width every fitter in this file already uses), BACKGROUND if
+// r<d<=r+2.5, and EXCLUDED beyond that. Reverse-engineered pixel-exact from
+// the SI's own Figure S11 reference maps, not its prose formula — rendered
+// the SI's PDF at 600 DPI and counted signal/background pixels directly
+// against the 7×7, 9×9, and 15×15 reference maps: the prose names a "ROI
+// radius" that is consistently 2px LARGER than the window's own actual
+// half-width r, for reasons the SI text itself never explains, and would
+// produce a signal disk far too small to match the published figures if
+// taken literally. apertureGeometry(win) caches the (dx,dy) offset lists per
+// window size, rebuilt only when win itself changes.
+let _apWin=-1, _apSignal=null, _apBackground=null;
+function apertureGeometry(win){
+  if(win===_apWin) return;
+  // The background annulus reaches r+2.5 — WIDER than the win×win box
+  // itself (r alone) — so the scan range must extend to rMax, not r, or
+  // the outer part of the annulus is silently never visited (a real bug
+  // caught before this shipped).
+  const r=(win-1)/2, rMax=Math.ceil(r+2.5), sig=[], bg=[];
+  for(let dy=-rMax;dy<=rMax;dy++)for(let dx=-rMax;dx<=rMax;dx++){
+    const d=Math.hypot(dx,dy);
+    if(d<=r) sig.push([dx,dy]); else if(d<=r+2.5) bg.push([dx,dy]);
+  }
+  _apWin=win; _apSignal=sig; _apBackground=bg;
+}
+// Standard "linear-interpolation" percentile (numpy's/MATLAB's default
+// convention): index = p*(n-1) into the SORTED array, interpolated between
+// the two bracketing entries.
+function percentile(sortedVals,p){
+  const n=sortedVals.length; if(!n) return 0; if(n===1) return sortedVals[0];
+  const idx=p*(n-1), lo=Math.floor(idx), hi=Math.ceil(idx);
+  return lo===hi ? sortedVals[lo] : sortedVals[lo]+(sortedVals[hi]-sortedVals[lo])*(idx-lo);
+}
 
-   Known bias: the PSF tail still leaks into the perimeter ring, so the
-   background is slightly over-estimated and the intensity correspondingly
-   under-estimated. On a synthetic σ=1.3 px spot in a 9×9 window the recovered
-   intensity is ~972 of 1000 photons (~2% from window truncation, ~1% from ring
-   leakage). Widening the fit window reduces both. The Gaussian fitter does not
-   have this bias — it separates signal and background by construction.
+/* -- phasor localization (Martens 2018): first Fourier coefficient, no iteration --
+   Position (x,y) and the width proxies (pmagX,pmagY) come from the phasor/
+   Fourier transform of the FULL win×win box (col/row/tot below) — unrelated
+   to how intensity/background are estimated, and unchanged by the aperture
+   photometry rewrite just above. `photons`/`bg`/`bgstd` are now computed via
+   apertureGeometry()'s circular signal disk + background annulus (its own
+   comment above has the full method/citation) instead of a square-box outer-
+   ring mean, its own PREVIOUS ad-hoc approach — re-verified (not assumed) on
+   the exact same synthetic σ=1.3 px, 1000-photon spot, 9×9 window the OLD
+   ~972/1000 number came from: the new method recovers ~988/1000 — a genuine
+   improvement, not just "comparable" — since a real, separate background
+   annulus removes most of the old ring's own leakage bias, outweighing the
+   circular signal disk's own (smaller) window-truncation loss.
+   Floored at 0 (`Math.max(0,...)`, new) — same reasoning as smFRET's own
+   apertureIntensity(): a negative photon count has no physical meaning;
+   several existing downstream call sites already defensively floored a
+   phasor result's own `.photons` on the consuming side, so this only moves
+   an already-assumed invariant to where it's actually decided.
 
    gain,camoffset convert ADU -> photons (same as gaussianFit/gaussianMLEspheric) so
    `photons`/`pmagX`/`pmagY` come out in true photon units. x,y (phase angles
@@ -5217,16 +5272,24 @@ function phasorFit(img,w,h,cx,cy,win,gain=1,camoffset=0){
   const N=win, r=(N-1)/2;
   if(N!==_pN){ _pcol=new Float64Array(N); _prow=new Float64Array(N); _pN=N; }
   const col=_pcol, row=_prow; col.fill(0); row.fill(0);
-  let bgSum=0,bgSq=0,bgN=0,tot=0;
+  let tot=0;
   for(let dy=0;dy<N;dy++){
-    const base=(cy-r+dy)*w+cx-r, edgeY = (dy===0||dy===N-1);
+    const base=(cy-r+dy)*w+cx-r;
     for(let dx=0;dx<N;dx++){
       const v=(img[base+dx]-camoffset)*gain;
       col[dx]+=v; row[dy]+=v; tot+=v;
-      if(edgeY||dx===0||dx===N-1){ bgSum+=v; bgSq+=v*v; bgN++; }
     }
   }
-  const bg=bgSum/bgN, bgstd=Math.sqrt(Math.max(0,bgSq/bgN-bg*bg));
+  apertureGeometry(win);
+  let sigSum=0; const bgVals=[];
+  for(const [dx,dy] of _apSignal){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; sigSum+=(img[y*w+x]-camoffset)*gain; }
+  for(const [dx,dy] of _apBackground){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; bgVals.push((img[y*w+x]-camoffset)*gain); }
+  bgVals.sort((a,b)=>a-b);
+  const bg=percentile(bgVals,0.56);
+  let bgSum=0,bgSq=0; for(const v of bgVals){ bgSum+=v; bgSq+=v*v; }
+  const bgMean=bgVals.length?bgSum/bgVals.length:0;
+  const bgstd=Math.sqrt(Math.max(0,(bgVals.length?bgSq/bgVals.length:0)-bgMean*bgMean));
+  const photons=Math.max(0, sigSum-bg*_apSignal.length);
   let reX=0,imX=0,reY=0,imY=0;
   for(let k=0;k<N;k++){ const a=2*Math.PI*k/N,c=Math.cos(a),s=Math.sin(a);
     reX+=col[k]*c; imX-=col[k]*s; reY+=row[k]*c; imY-=row[k]*s; }
@@ -5242,7 +5305,7 @@ function phasorFit(img,w,h,cx,cy,win,gain=1,camoffset=0){
   // across beads. magX,magY track σx,σy.
   const magX=Math.hypot(reX,imX)/Math.max(1,tot), magY=Math.hypot(reY,imY)/Math.max(1,tot);
   return { x: cx-r+Math.abs(ax)/(2*Math.PI/N), y: cy-r+Math.abs(ay)/(2*Math.PI/N),
-           photons: tot-bg*N*N, bg, bgstd, sigma:0,   // sigma:0 = "not fitted"
+           photons, bg, bgstd, sigma:0,   // sigma:0 = "not fitted"
            pmagX:magX, pmagY:magY, pratio:magY/Math.max(1e-9,magX) };
 }
 
@@ -6565,6 +6628,7 @@ const WORKER_PRELUDE=[
   "let _ufW=0,_ufH=0,_ufDil=null,_ufTmp=null;",
   "let _mdCap=0,_mdPos=null,_mdVal=null;",
   "let _pcol=null,_prow=null,_pN=0;",
+  "let _apWin=-1,_apSignal=null,_apBackground=null;",   // phasorFit()'s own aperture-photometry geometry cache (MODULE: fit)
   "const _SQ2PI=Math.sqrt(2*Math.PI);",   // mleModelSpherical/mleModelElliptical (MODULE: fit) read this
   "const FIT_MAX_DRIFT_SIGMA_MULT=2;",    // all 5 fitters' own accept/reject drift gate (MODULE: fit) reads this
   "const MLE_MIN_SIGMA=0.5;",             // the 3 MLE fitters' own σ-floor clamp + pinned-at-floor reject (MODULE: fit) reads this
@@ -6586,7 +6650,7 @@ function workerSource(){
     mleErf.toString(), mleGInt.toString(), mleModelSpherical.toString(), mleModelElliptical.toString(),
     mleClampSpherical.toString(), mleClampElliptical.toString(), mleNewtonFit.toString(),
     gaussianMLEspheric.toString(), gaussianMLEelliptic.toString(), mleModelRotated.toString(), gaussianMLEellipticangled.toString(),
-    zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
+    zFromWidths.toString(), apertureGeometry.toString(), percentile.toString(), phasorFit.toString(), polyEval.toString(),
     ftmSeriesGlobal.toString(),
     `onmessage=function(e){
       const d=e.data;
@@ -9451,28 +9515,12 @@ $('smfretFixSOI').addEventListener('change',()=>{
   }
 });
 // Aperture photometry (v0.12.1-dev): a model-free alternative to fitting for
-// extracting one site's intensity at a KNOWN, already-located position — a
-// published, previously-validated method (Martens et al., J. Chem. Phys.
-// 148, 123311 (2018), Supplementary Information §S11 "Aperture photometry to
-// assess intensity and background levels" — itself adapting Preus,
-// Hildebrandt & Birkedal, Biophys. J. 111, 1278 (2016)), not invented here.
-// A CIRCULAR signal disk (distance from centre <= r, r=(win-1)/2, the same
-// half-width every fitter in this file already uses) is summed directly;
-// a SEPARATE, non-overlapping annulus just outside it (r < distance <= r+2.5)
-// estimates the background via its 56th PERCENTILE, not a mean or median —
-// reverse-engineered pixel-exact from the SI's own Figure S11 reference maps
-// (7x7/9x9/15x15 checked directly against a full-resolution render) rather
-// than the SI's prose formula taken literally, which names a "ROI radius"
-// that is consistently 2px LARGER than the actual window half-width r for
-// reasons the SI text itself never explains — the geometry below is the
-// verified GROUND TRUTH the SI's own figure shows, not a guess. Excluded
-// pixels (distance > r+2.5) are ignored entirely; this only ever removes
-// anything once a window's own CORNER distance exceeds r+2.5 (first true at
-// 15x15 in the SI's reference figures — a 7x7 window, this codebase's own
-// default, never excludes any pixel). apertureGeometry(win) caches the
-// (dx,dy) offset lists for the signal disk/background annulus, rebuilt only
-// when win itself changes (same win reused across every site/frame of a
-// whole Get time traces run).
+// extracting one site's intensity at a KNOWN, already-located position, via
+// the SAME published circular-disk/background-annulus/56th-percentile method
+// phasorFit() now also uses for its own intensity/background (MODULE: fit,
+// apertureGeometry()/percentile() — see that comment for the full method,
+// citations, and the reverse-engineering-from-Figure-S11 story; consolidated
+// there on request rather than keeping two separate implementations).
 //
 // This DELIBERATELY replaces an earlier, ad-hoc version of this function
 // that used a SQUARE box + the box's own outermost ring (mean, not
@@ -9483,30 +9531,9 @@ $('smfretFixSOI').addEventListener('change',()=>{
 // robust statistic should help) actually made several sites' spikiness
 // WORSE, not better, since a ~24-pixel ring's own sampling noise for a
 // single order statistic outweighs whatever real-signal-contamination bias
-// it was meant to fix. The literature version above fixes the ROOT cause
-// instead — a background region genuinely separate from the signal disk,
-// not fixing the estimator on top of geometry that guarantees contamination.
-let _apWin=-1, _apSignal=null, _apBackground=null;
-function apertureGeometry(win){
-  if(win===_apWin) return;
-  // The background annulus reaches r+2.5 — WIDER than the win×win box
-  // itself (r alone) — so the scan range must extend to rMax, not r, or
-  // the outer part of the annulus is silently never visited.
-  const r=(win-1)/2, rMax=Math.ceil(r+2.5), sig=[], bg=[];
-  for(let dy=-rMax;dy<=rMax;dy++)for(let dx=-rMax;dx<=rMax;dx++){
-    const d=Math.hypot(dx,dy);
-    if(d<=r) sig.push([dx,dy]); else if(d<=r+2.5) bg.push([dx,dy]);
-  }
-  _apWin=win; _apSignal=sig; _apBackground=bg;
-}
-// Standard "linear-interpolation" percentile (numpy's/MATLAB's default
-// convention): index = p*(n-1) into the SORTED array, interpolated between
-// the two bracketing entries.
-function percentile(sortedVals,p){
-  const n=sortedVals.length; if(!n) return 0; if(n===1) return sortedVals[0];
-  const idx=p*(n-1), lo=Math.floor(idx), hi=Math.ceil(idx);
-  return lo===hi ? sortedVals[lo] : sortedVals[lo]+(sortedVals[hi]-sortedVals[lo])*(idx-lo);
-}
+// it was meant to fix. The literature version fixes the ROOT cause instead —
+// a background region genuinely separate from the signal disk, not fixing
+// the estimator on top of geometry that guarantees contamination.
 function apertureIntensity(img,w,h,cx,cy,win,gain=1){
   apertureGeometry(win);
   let sigSum=0,sigN=0; const bgVals=[];
@@ -13743,18 +13770,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06l — smFRET Aperture photometry
-rewritten on a published method (pSMLM-3D's own SI §S11, adapting Preus
-et al. 2016): a circular signal disk plus a SEPARATE background annulus
-(56th percentile), reverse-engineered pixel-exact from the paper's own
-reference figure. Replaces the earlier ad-hoc square-box + same-box-edge
--ring-mean version, whose ring sitting flush against the signal region
-let real PSF tail bias the background high — occasionally into negative
-"intensity" territory. Median was tried as a quick fix for that and
-made things WORSE (a ~24-pixel ring's own sampling noise dominates);
-the real fix was giving background a genuinely separate region instead.
-Verified against real data: 0 negative results across all 14 real
-sites, geometry pixel-counted correct against the paper's figure.
+log(`webSMLM v0.12.1-dev · build 2026-09-06m — the new aperture-photometry
+method (circular signal disk + separate background annulus + 56th
+percentile) is now used by Phasor 2D/3D's own intensity/background too,
+not just smFRET — consolidated into one shared implementation instead
+of keeping two. phasorFit()'s previous square-box ring-mean approach is
+gone; re-verified on the same synthetic test its old ~972/1000-photon
+accuracy number came from — the new method actually recovers ~988/1000,
+an improvement, not a regression. Position/z math is unaffected.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
