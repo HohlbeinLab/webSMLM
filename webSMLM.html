@@ -114,7 +114,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9755   single particle tracking, trackpy-inspired;
+    spt             9790   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11264  top-level orchestration, *Core()/wrapper split;
+    pipeline        11299  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -154,7 +154,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11885  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11920  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -208,11 +208,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13903  localizations table, filtering, histograms;
+    table           13935  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14541  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14573  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1910,7 +1910,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06m</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06n</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2346,7 +2346,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
           <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
+          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -2414,7 +2414,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="rawTitle">Raw frame</span><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="smfretTraceModeBtn" class="logbtn" style="display:none" title="Toggle between the time trace plot and the live raw frame — sites of interest stay fixed either way">Show raw frame</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
@@ -9339,6 +9339,16 @@ $('sSmlmAngleTol').addEventListener('change',refreshSSmlmHistIfShown);
 let smfretSOI=null;      // fitted {x,y} site-of-interest positions from Localize SOI
 let smfretTraces=null;   // per-site {x,y,photons:Float64Array(stack.n)} from Get time traces
 let smfretTraceIdx=0;    // which site's trace the raw panel currently shows
+// While smfretTraces exists, the raw panel can show EITHER the time-trace
+// plot (default, false) OR the live raw frame with its own ordinary Frame
+// scrubber (true) — toggled by smfretTraceModeBtn (reported: the trace plot
+// permanently occupying the panel, with no way back to browsing raw frames
+// short of discarding the whole SOI/trace state, made it hard to visually
+// cross-check a trace against the frame it came from). Reset to false every
+// time a fresh Get time traces run completes, same "fresh action reopens on
+// its own default view" convention driftPlotMode/sSmlmHistMode/sptHistMode
+// already use.
+let smfretShowRawFrame=false;
 // Pure, DOM-free averaging+detect+fit — the *Core() half of Localize SOI
 // (MODULE: pipeline's own *Core()/wrapper split, reused here so the same
 // logic backs both the interactive button and analyze()'s own
@@ -9382,7 +9392,8 @@ async function locateSmfretSOI(){
   // A fresh Localize SOI run invalidates any time traces already computed
   // from the OLD positions — reclaim the raw panel from the site scrubber
   // back to the ordinary frame one before rebuilding the composite below.
-  if(smfretTraces){ smfretTraces=null; $('smfretTraceScrubRow').style.display='none';
+  if(smfretTraces){ smfretTraces=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
+    $('smfretTraceModeBtn').style.display='none';
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
   const cfg={ smfretAvgFrames:paramValue('smfretAvgFrames'), psf:paramValue('psf'), winr:paramValue('winr'),
     detFilter:paramValue('detFilter'), detection_wavelet_thr:paramValue('detection_wavelet_thr'),
@@ -9488,8 +9499,9 @@ $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
 // checked it", but only the uncheck direction needs a real action here.
 $('smfretFixSOI').addEventListener('change',()=>{
   if(paramValue('smfretFixSOI')) return;
-  smfretSOI=null; smfretTraces=null;
+  smfretSOI=null; smfretTraces=null; smfretShowRawFrame=false;
   $('smfretTraceScrubRow').style.display='none';
+  $('smfretTraceModeBtn').style.display='none';
   $('smfretTimeTracesBtn').disabled=true;
   if(srSpots||srLocs){   // was showing our SOI composite — clear it and restore the general overview
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
@@ -9657,11 +9669,12 @@ async function getSmfretTimeTraces(){
       setProg(100*(fi+1)/n);
       if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now(); }
     }
-    smfretTraces=traces; smfretTraceIdx=0;
+    smfretTraces=traces; smfretTraceIdx=0; smfretShowRawFrame=false;
     $('scrubRow').style.display='none';
     $('smfretTraceScrubRow').style.display='flex';
     $('smfretTraceScrub').max=traces.length-1;
     $('smfretTraceScrubNum').max=traces.length;
+    $('smfretTraceModeBtn').style.display=''; $('smfretTraceModeBtn').textContent='Show raw frame';
     drawSmfretTrace(0);
     log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
   }catch(err){ log(`⚠ Get time traces failed: ${err.name}: ${err.message}`); }
@@ -9671,8 +9684,30 @@ $('smfretTimeTracesBtn').addEventListener('click', getSmfretTimeTraces);
 // True while the raw panel is owned by the smFRET site scrubber rather than
 // the ordinary loaded-stack Frame one — same role liveStreamOwnsRawPanel()
 // plays for its own scrubber, checked by the same wheel-scrub routing (MODULE:
-// pipeline, search scrubByWheel).
-function smfretOwnsRawPanel(){ return smfretTraces!==null; }
+// pipeline, search scrubByWheel). Only while the TRACE sub-view is actually
+// showing (smfretShowRawFrame false) — toggled to the raw-frame sub-view, the
+// ordinary Frame scrubber/wheel-scrub behaviour applies instead, same as if
+// smfretTraces didn't exist at all.
+function smfretOwnsRawPanel(){ return smfretTraces!==null && !smfretShowRawFrame; }
+// smfretTraceModeBtn: flip between the two sub-views above without discarding
+// smfretTraces/smfretTraceIdx — showFrame()'s own drawRaw() reclaims the panel
+// for the raw-frame sub-view (hideOtherRawToggleBtns() etc.), but leaves THIS
+// button alone (it's independent of that mutual-exclusion set, same precedent
+// as rawFtmBtn — both toggle between two views of "this same feature's own
+// content", not between different features entirely).
+$('smfretTraceModeBtn').addEventListener('click', ()=>{
+  smfretShowRawFrame=!smfretShowRawFrame;
+  $('smfretTraceModeBtn').textContent = smfretShowRawFrame ? 'Show time trace' : 'Show raw frame';
+  if(smfretShowRawFrame){
+    $('smfretTraceScrubRow').style.display='none';
+    if(stack.n>1) $('scrubRow').style.display='flex';
+    showFrame(+$('scrub').value);
+  } else {
+    $('scrubRow').style.display='none';
+    $('smfretTraceScrubRow').style.display='flex';
+    drawSmfretTrace(smfretTraceIdx);
+  }
+});
 // Time-trace view: plots one site's intensity-vs-frame curve in the raw
 // (left) panel, replacing the ordinary raw-frame display exactly the same
 // way drift/NeNA/FRC's own plots do (rawFull=null, setRawPlot(true) — see
@@ -9686,7 +9721,7 @@ function drawSmfretTrace(idx){
   const site=smfretTraces[idx], ys=site.photons, n=ys.length;
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; setRawPlot(true); rawPlotName='smfretTrace';
-  hideOtherRawToggleBtns(null);   // no raw-panel toggle button of our own
+  hideOtherRawToggleBtns(null);   // smfretTraceModeBtn isn't in that mutual-exclusion list (see its own comment) — untouched by this call
   $('rawTitle').textContent='Time trace';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -12687,7 +12722,8 @@ function initScrub(){
     $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
     const st=$('calLocateStatus'); if(st) st.style.display='none';
     smfretSOI=null; $('smfretFixSOI').checked=false;   // same reasoning — SOI positions are scoped to one loaded stack, not sticky
-    smfretTraces=null; $('smfretTraceScrubRow').style.display='none'; $('smfretTimeTracesBtn').disabled=true; }
+    smfretTraces=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
+    $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
@@ -13770,14 +13806,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06m — the new aperture-photometry
-method (circular signal disk + separate background annulus + 56th
-percentile) is now used by Phasor 2D/3D's own intensity/background too,
-not just smFRET — consolidated into one shared implementation instead
-of keeping two. phasorFit()'s previous square-box ring-mean approach is
-gone; re-verified on the same synthetic test its old ~972/1000-photon
-accuracy number came from — the new method actually recovers ~988/1000,
-an improvement, not a regression. Position/z math is unaffected.
+log(`webSMLM v0.12.1-dev · build 2026-09-06n — smFRET Time trace: a new
+"Show raw frame"/"Show time trace" toggle next to the panel title
+switches between the trace plot and the live raw frame (with its own
+ordinary Frame scrubber) without discarding the computed traces —
+reported: once a trace was showing, there was no way back to browsing
+raw frames short of discarding the whole SOI/trace state, making it
+hard to cross-check a trace against the actual frame it came from.
+Switching back to the trace returns to whichever site was showing.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

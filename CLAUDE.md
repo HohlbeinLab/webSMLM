@@ -938,7 +938,7 @@ relevant one before editing rather than scrolling:
   values visually collided with the rotated "intensity (ADU)" axis title, the exact same failure
   `drawPcfoPlot()`'s own large-value axis already needed `axisScale()` for): small 1-2 digit ticks
   plus one `×10ⁿ` multiplier drawn once near the axis, same placement convention (`mL, mT-8`).
-  **`smfretOwnsRawPanel()`** (`smfretTraces!==null`) is the same
+  **`smfretOwnsRawPanel()`** (`smfretTraces!==null && !smfretShowRawFrame`) is the same
   "another feature owns the raw panel" pattern `liveStreamOwnsRawPanel()` established for its own
   scrubber — checked by the SAME shared `scrubByWheel` routing (MODULE: pipeline) that already
   branches on `liveStreamOwnsRawPanel()`, redirecting shift+wheel/slider-wheel to the dedicated
@@ -946,7 +946,31 @@ relevant one before editing rather than scrolling:
   number+total pair) instead of the ordinary `#scrubRow`. A fresh `locateSmfretSOI()` run
   invalidates any trace view already showing (positions may have shifted) — reclaims the panel back
   to the ordinary Frame scrubber the same way unchecking `smfretFixSOI` does (hide
-  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`). **`.scrubslider`** (MODULE: params, the
+  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`).
+
+  **`smfretTraceModeBtn`** ("Show raw frame"/"Show time trace", v0.12.1-dev) toggles the raw panel
+  between the trace plot and the live raw frame WITHOUT discarding `smfretTraces`/`smfretTraceIdx` —
+  reported: once a trace was showing, there was no way back to browsing raw frames short of
+  discarding the whole SOI/trace state (unchecking `smfretFixSOI` or re-running Localize SOI), making
+  it hard to visually cross-check a trace against the frame it actually came from. `smfretShowRawFrame`
+  (module-level bool, default `false`, reset to `false` every time a fresh Get time traces run
+  completes — same "fresh action reopens on its own default view" convention `driftPlotMode`/
+  `sSmlmHistMode`/`sptHistMode` already use) is the switch `smfretOwnsRawPanel()` itself now also
+  checks. The button's own click handler mirrors the exact show/hide pairs `locateSmfretSOI()`'s own
+  trace-invalidation branch and the `smfretFixSOI` uncheck handler already use (swap
+  `#scrubRow`/`#smfretTraceScrubRow` visibility, call `showFrame()` or `drawSmfretTrace()`) — just
+  without nulling `smfretTraces` itself. **Deliberately NOT added to `hideOtherRawToggleBtns()`'s
+  mutual-exclusion list** — that list is for buttons that switch BETWEEN DIFFERENT raw-panel
+  features (drift/spt/sSMLM/segmentation); `smfretTraceModeBtn` instead toggles between two views of
+  THIS SAME feature's own content, the same precedent `rawFtmBtn` (raw/FTM-corrected) already
+  established, so it must survive `drawRaw()`'s own `hideOtherRawToggleBtns(null)` call when the
+  raw-frame sub-view is showing. Shown (`style.display=''`) only in `getSmfretTimeTraces()`'s own
+  success branch, right alongside `#smfretTraceScrubRow`; hidden at the same three places that null
+  `smfretTraces` (the `locateSmfretSOI()` invalidation branch, the `smfretFixSOI` uncheck handler, and
+  `initScrub()`'s fresh-stack-load reset) — `drawSmfretTrace()`'s own `hideOtherRawToggleBtns(null)`
+  call correctly leaves it alone either way, per the paragraph above.
+
+  **`.scrubslider`** (MODULE: params, the
   5 CSS rules right after the navigator comment) is the shared class giving every single-handle
   scrubber (`#scrub`/`#liveStreamScrub`/`#smfretTraceScrub`) its custom themed thumb/track — reported:
   this used to be a hardcoded id list instead of a class, so `#smfretTraceScrub`, despite copying
