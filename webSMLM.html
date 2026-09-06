@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2462   PARAMS registry, single source of truth for params;
+    params          2468   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3199   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3205   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3498   synthetic stack generator ("Simulate movie")
-    detect          4376   per-frame band-pass + local-maxima detection
-    fit             4653   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3504   synthetic stack generator ("Simulate movie")
+    detect          4382   per-frame band-pass + local-maxima detection
+    fit             4659   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -50,7 +50,7 @@
                            bounded by seed sigma0 instead; winr2d/winr3d
                            (MODULE: params) are applyWinrDefault()'s (MODULE:
                            pipeline) two remembered defaults
-    render          5189   accumulate to offscreen buffer; view/colour/blur;
+    render          5195   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -72,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6466   frame-parallel detect/fit worker pool; dedicated
+    workers         6472   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6773   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7065   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6779   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7071   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7482   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7488   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7988   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    7994   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8697   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8703   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9374   single particle tracking, trackpy-inspired;
+    spt             9380   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10875  top-level orchestration, *Core()/wrapper split;
+    pipeline        10881  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11496  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11502  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,9 +198,9 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13418  localizations table, filtering, histograms;
+    table           13421  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    14003  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14006  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1578,17 +1578,23 @@ X.B(E,Y);return E}return J}())
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
   label.row span.val{color:var(--accent);font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
   input[type=range]{width:100%}
-  /* Frame scrubber: styled to match the Contrast slider below it (same
-     track colour/thickness, same thumb) — plain native rendering left the
-     two visually inconsistent (different track and thumb colour/style).
-     Unlike .dualrange below, click-anywhere-on-the-track-to-jump stays
-     native browser behaviour here (no pointer-events split needed — only
-     one handle, no second thumb to protect the drag from). */
-  #scrub,#liveStreamScrub,#smfretTraceScrub{-webkit-appearance:none;appearance:none;background:transparent;height:20px}
-  #scrub::-webkit-slider-runnable-track,#liveStreamScrub::-webkit-slider-runnable-track,#smfretTraceScrub::-webkit-slider-runnable-track{background:var(--line);height:4px;border-radius:2px}
-  #scrub::-moz-range-track,#liveStreamScrub::-moz-range-track,#smfretTraceScrub::-moz-range-track{background:var(--line);height:4px;border-radius:2px}
-  #scrub::-webkit-slider-thumb,#liveStreamScrub::-webkit-slider-thumb,#smfretTraceScrub::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:-5px}
-  #scrub::-moz-range-thumb,#liveStreamScrub::-moz-range-thumb,#smfretTraceScrub::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
+  /* Frame scrubber (and every other single-handle scrubber sharing this
+     look — #liveStreamScrub, #smfretTraceScrub, any future one): styled to
+     match the Contrast slider below it (same track colour/thickness, same
+     thumb) — plain native rendering left them visually inconsistent
+     (different track and thumb colour/style). A shared CLASS, not a
+     hardcoded id list (reported — a new scrubber copying the same HTML
+     structure still rendered with the browser's plain native thumb until
+     its id was separately added to all 5 rules here; add the class instead
+     and a new scrubber just works, no CSS change needed). Unlike .dualrange
+     below, click-anywhere-on-the-track-to-jump stays native browser
+     behaviour here (no pointer-events split needed — only one handle, no
+     second thumb to protect the drag from). */
+  .scrubslider{-webkit-appearance:none;appearance:none;background:transparent;height:20px}
+  .scrubslider::-webkit-slider-runnable-track{background:var(--line);height:4px;border-radius:2px}
+  .scrubslider::-moz-range-track{background:var(--line);height:4px;border-radius:2px}
+  .scrubslider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:-5px}
+  .scrubslider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
   /* Dual-handle range (raw-frame Contrast, Picasso-style Black/White slider):
      no native two-thumb <input>, so two ordinary range inputs are stacked on
      the same track — each fully transparent except its own thumb (pointer-
@@ -1892,7 +1898,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-05g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2399,14 +2405,14 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <canvas id="raw"></canvas>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span style="color:var(--muted);font-size:12px">Frame</span>
-            <input type="range" id="scrub" min="0" max="0" step="1" value="0" style="flex:1">
+            <input type="range" id="scrub" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
             <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
               <input type="number" id="scrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a frame number and press Enter to jump to it"><span id="scrubTotal" style="vertical-align:middle"> / 1</span>
             </span>
           </div>
           <div id="liveStreamScrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span style="color:var(--muted);font-size:12px">Frame</span>
-            <input type="range" id="liveStreamScrub" min="0" max="0" step="1" value="0" style="flex:1">
+            <input type="range" id="liveStreamScrub" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
             <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
               <input type="number" id="liveStreamScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a frame number and press Enter to jump to it"><span id="liveStreamScrubTotal" style="vertical-align:middle"> / 1</span>
             </span>
@@ -2414,7 +2420,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <div id="liveStreamScrubNote" style="display:none;margin-top:4px;color:var(--muted);font-size:11px"></div>
           <div id="smfretTraceScrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span style="color:var(--muted);font-size:12px">Site</span>
-            <input type="range" id="smfretTraceScrub" min="0" max="0" step="1" value="0" style="flex:1">
+            <input type="range" id="smfretTraceScrub" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
             <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
               <input type="number" id="smfretTraceScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a site number and press Enter to jump to it"><span id="smfretTraceScrubTotal" style="vertical-align:middle"> / 1</span>
             </span>
@@ -13286,14 +13292,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-05g — smFRET's Get time traces
-fixes: (1) wired to the shared progress bar — many sites x many frames,
-most without a real localization for a given faint site, can take a
-while with zero visual feedback otherwise; (2) the new Site scrubber
-now uses the app's own themed slider (blue accent thumb/track and the
-usual +/- number steppers) instead of the browser's plain native
-slider — its id was missing from the CSS rules styling #scrub/
-#liveStreamScrub, a hardcoded id list, not a shared class.
+log(`webSMLM v0.12.1-dev · build 2026-09-06a — refactor: the themed
+scrubber-slider look (blue accent thumb/track) is now a shared
+.scrubslider CSS class instead of a hardcoded #scrub/#liveStreamScrub/
+#smfretTraceScrub id list — that list was the actual root cause of the
+previous build's "Site scrubber renders with the browser's plain
+native slider" bug (a copy-pasted new scrubber's id just wasn't in it
+yet). Any future scrubber now only needs class="scrubslider" to get
+the right look, no CSS change required. No behaviour change.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

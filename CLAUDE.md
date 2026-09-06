@@ -703,14 +703,13 @@ relevant one before editing rather than scrolling:
   number+total pair) instead of the ordinary `#scrubRow`. A fresh `locateSmfretSOI()` run
   invalidates any trace view already showing (positions may have shifted) — reclaims the panel back
   to the ordinary Frame scrubber the same way unchecking `smfretFixSOI` does (hide
-  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`). **`#smfretTraceScrub` must be added to
-  every one of the 5 CSS rules styling `#scrub`/`#liveStreamScrub`'s custom thumb/track** (the
-  `-webkit-appearance:none`/`::-webkit-slider-thumb`/`::-moz-range-thumb`/etc. rules right after the
-  navigator comment, MODULE: params) — those rules are a hardcoded id list, not a shared class, so a
-  new slider copying the same HTML structure still renders with the browser's plain native thumb
-  until its id is added there too (reported: looked like "a new, different-looking scrubber" instead
-  of the same slider style used everywhere else, even though the markup itself already matched
-  `#liveStreamScrubRow`'s own).
+  `#smfretTraceScrubRow`, show `#scrubRow`, `showFrame()`). **`.scrubslider`** (MODULE: params, the
+  5 CSS rules right after the navigator comment) is the shared class giving every single-handle
+  scrubber (`#scrub`/`#liveStreamScrub`/`#smfretTraceScrub`) its custom themed thumb/track — reported:
+  this used to be a hardcoded id list instead of a class, so `#smfretTraceScrub`, despite copying
+  `#liveStreamScrubRow`'s own markup exactly, still rendered with the browser's plain native thumb
+  until its id was separately added to all 5 rules; a shared class means a FUTURE scrubber just
+  needs `class="scrubslider"` to get the right look with no CSS change required at all.
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
