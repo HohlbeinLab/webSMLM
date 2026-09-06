@@ -600,6 +600,30 @@ relevant one before editing rather than scrolling:
   window as markers (`computeHist()`'s optional 4th `markers` param), refreshed live on field edits
   and after a fit via `refreshSSmlmHistIfShown()`.
 
+  **The distance histogram's own min/max markers are directly draggable** (requested) — a dedicated
+  IIFE (MODULE: table, physically right before the existing "Column-histogram X-axis zoom" IIFE)
+  hit-tests a `pointerdown` against both marker's current on-screen position (`valueToPx()`,
+  correctly folding in `setupPlot()`'s own 4:3 letterbox offset `_plotLetterboxOx` the same way
+  `registerPlotHover()` does — the OTHER zoom/pan IIFE's own `dataX()` doesn't bother, fine for a
+  symmetric pan but would silently misplace an absolute hit-test like this one). **Must be
+  registered BEFORE that other IIFE, not just given `{capture:true}`**: for a pointerdown dispatched
+  directly ON the target element (not a descendant), listeners fire in REGISTRATION order regardless
+  of the capture flag — there's no real capture-vs-bubble distinction once
+  `target===currentTarget`. Registering this block first is what lets its own
+  `e.stopImmediatePropagation()` actually pre-empt the other IIFE's pointerdown when a press starts
+  on a marker; capture-phase-but-registered-after was tried first and silently lost the race (caught
+  by an explicit regression check: the OTHER histogram types' own zoom stopped responding once
+  verified against a real page — Playwright's synthesized pointer events couldn't validate plain
+  drag-to-pan at all, even on a completely unmodified baseline, so wheel-zoom was the actual
+  regression signal used). During a drag, only a cheap `drawSSmlmHist()` redraw runs per
+  pointermove (it re-reads the live field value directly, no event needed) — the real `change`
+  event fires exactly once, on release, so whatever else reacts to `sSmlmDistMin`/`Max`
+  (`syncSSmlmZRangeFromDist()`'s possible `rerender()` if already paired) doesn't run on every
+  pointer tick. Clamped so one marker can't cross the other (`MIN_SEPARATION_NM`) or leave
+  `PARAMS.sSmlmDistMin`/`Max`'s own bounds. Hovering near a marker (no press) sets
+  `cv.style.cursor='ew-resize'` as a grabbability affordance a canvas-drawn line doesn't get for
+  free otherwise.
+
   **`sSmlmHistBtn`** ("Show histograms") is one button covering both the distance and angle
   histograms, with `sSmlmHistModeBtn` toggling which mode `drawSSmlmHist()` draws — `sSmlmHistMode`
   `'dist'`/`'angle'` — labelled `"Distances"`/`"Angles"` (the OTHER mode's name, `driftPlotModeBtn`'s

@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13483  localizations table, filtering, histograms;
+    table           13545  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14116  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14178  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2313,7 +2313,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-sSMLM"><span class="pill">module: sSMLM</span>
           <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
           <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-          <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or an angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak, then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+          <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or an angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the two vertical lines directly on the <b>Distances</b> plot — then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
           <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -13196,6 +13196,66 @@ $('raw').addEventListener('click',async e=>{
   cv.addEventListener('dblclick',()=>{ if(!active()) return; profileView={x0:0,x1:profileData.totalNm}; renderProfile(); });
 })();
 
+// sSMLM pair-distance histogram: drag the min/max marker lines directly on
+// the plot, instead of only through the Distance min/max fields (requested).
+// A genuinely separate IIFE from the zoom/pan one below, not a modification
+// of it — REGISTERED FIRST, deliberately, right before it: for a pointerdown
+// dispatched directly ON the target element (not a descendant), listeners
+// fire in REGISTRATION order regardless of any capture flag (there's no real
+// capture-vs-bubble distinction once target===currentTarget) — so being
+// first in the file is what lets stopImmediatePropagation() here actually
+// pre-empt the zoom/pan IIFE's own pointerdown below when a press starts ON
+// a marker. A capture-phase listener registered AFTER it does NOT reliably
+// win instead — tried first, caught by a real regression check: the OTHER
+// histogram types' own pan silently stopped working. A press anywhere else
+// on the plot falls through untouched. Correctly accounts for setupPlot()'s
+// own 4:3 letterbox offset (_plotLetterboxOx) the same way registerPlotHover()
+// does — the zoom/pan IIFE's own dataX() below doesn't, which is fine for
+// THAT feature (a symmetric pan is offset-invariant either way) but would
+// silently misplace an absolute hit-test like this one.
+(function(){ const cv=$('raw');
+  const MARKER_HIT_PX=10, MIN_SEPARATION_NM=1;
+  const markerActive=()=>rawIsPlot&&rawPlotName==='histogram'&&!!histData&&!!histView&&histData.col==='sSMLM pair distance';
+  const toCssPx=clientX=>{ const r=cv.getBoundingClientRect(); return (clientX-r.left)*(cv.clientWidth||cv.width)/r.width; };
+  const valueToPx=v=>{ const pw=(cv.clientWidth||cv.width)-HIST_ML-HIST_MR, xr=histView.x1-histView.x0;
+    return _plotLetterboxOx+HIST_ML+pw*(v-histView.x0)/Math.max(1e-9,xr); };
+  const pxToValue=clientX=>{ const px=toCssPx(clientX)-_plotLetterboxOx, pw=(cv.clientWidth||cv.width)-HIST_ML-HIST_MR, xr=histView.x1-histView.x0;
+    return histView.x0+(px-HIST_ML)/Math.max(1,pw)*xr; };
+  const hitMarker=clientX=>{ if(!markerActive()) return null;
+    const px=toCssPx(clientX);
+    if(Math.abs(px-valueToPx(paramValue('sSmlmDistMin')))<=MARKER_HIT_PX) return 'sSmlmDistMin';
+    if(Math.abs(px-valueToPx(paramValue('sSmlmDistMax')))<=MARKER_HIT_PX) return 'sSmlmDistMax';
+    return null; };
+  let draggingId=null;
+  cv.addEventListener('pointerdown',e=>{
+    const hit=hitMarker(e.clientX); if(!hit) return;
+    draggingId=hit; cv.setPointerCapture(e.pointerId); e.stopImmediatePropagation(); e.preventDefault();
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(!markerActive()) return;
+    // Hover feedback even before a press — same "this is grabbable" affordance a native
+    // range-slider thumb gives for free, which a canvas-drawn line otherwise wouldn't.
+    if(!draggingId){ cv.style.cursor=hitMarker(e.clientX)?'ew-resize':''; return; }
+    e.preventDefault();
+    const spec=PARAMS[draggingId];
+    const otherId=draggingId==='sSmlmDistMin'?'sSmlmDistMax':'sSmlmDistMin', other=paramValue(otherId);
+    let nv=pxToValue(e.clientX);
+    nv = draggingId==='sSmlmDistMin' ? Math.min(nv,other-MIN_SEPARATION_NM) : Math.max(nv,other+MIN_SEPARATION_NM);
+    nv = Math.max(spec.min,Math.min(spec.max,nv));
+    $(draggingId).value=Math.round(nv);
+    // Cheap redraw only during the drag itself — drawSSmlmHist() recomputes
+    // its markers from the live field value directly, no event needed for
+    // that. The real 'change' event (below, on release) is what everything
+    // ELSE downstream (z-range sync, a possible rerender() if already
+    // paired) reacts to — firing that on every pointermove tick would be
+    // needlessly expensive on a large, already-paired dataset.
+    drawSSmlmHist();
+  },{passive:false});
+  const release=e=>{ if(!draggingId) return; const id=draggingId; draggingId=null;
+    $(id).dispatchEvent(new Event('change',{bubbles:true})); };
+  cv.addEventListener('pointerup',release); cv.addEventListener('pointercancel',release);
+})();
+
 // Column-histogram X-axis zoom (wheel / trackpad + touch pinch) and pan; Y fixed.
 // Active only while the histogram is shown — otherwise the raw navigator handles it.
 (function(){ const cv=$('raw');
@@ -13352,18 +13412,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06c — smFRET: Localize SOI now
-writes its results into the current result (lastResult) too, not just
-the reconstruction-panel composite — so View data/filtering, Save
-data, and Spectral SMLM analysis's own Preview pairs/Pair all work on
-SOI positions directly. Every SOI site shares one frame:0 so sSMLM's
-existing distance+bearing pairing (built for a diffraction grating's
-0th/1st order) can be used to pair a donor/acceptor SOI candidate the
-same way, no new pairing code needed. Replaces whatever result was
-current before (a real Localize, a loaded CSV, an earlier SOI pass) —
-no confirmation, but warns once when clobbering a real prior result.
-Unchecking "Fix SOI x,y for time traces" now also discards this result
-(and any pairing built from it) along with the sites themselves.
+log(`webSMLM v0.12.1-dev · build 2026-09-06d — Spectral SMLM analysis:
+the pair-distance histogram's min/max marker lines are now draggable
+directly on the plot (requested), not just editable through the
+Distance min/max fields. Hover turns the cursor into a resize arrow;
+dragging live-updates the field and the plot, clamped so one marker
+can't cross the other. Zoom/pan on every OTHER histogram type is
+unaffected — dragging only intercepts a press that starts ON a marker
+of the sSMLM pair-distance histogram specifically.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
