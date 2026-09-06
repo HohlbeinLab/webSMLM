@@ -114,7 +114,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9790   single particle tracking, trackpy-inspired;
+    spt             9798   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11299  top-level orchestration, *Core()/wrapper split;
+    pipeline        11307  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -154,7 +154,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11920  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11928  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -208,11 +208,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13935  localizations table, filtering, histograms;
+    table           13943  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14573  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14581  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1910,7 +1910,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06n</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06o</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9681,6 +9681,14 @@ async function getSmfretTimeTraces(){
   finally{ $('smfretTimeTracesBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
 }
 $('smfretTimeTracesBtn').addEventListener('click', getSmfretTimeTraces);
+// Auto-rerun Get time traces when the extraction METHOD itself changes, same
+// "refresh an already-shown result, don't auto-START a fresh one" convention
+// Localize SOI's own settings-change listeners use (gated on smfretTraces
+// already existing, not just smfretSOI) — reported: switching Aperture
+// photometry on/off while a trace was already showing had no visible effect
+// until "Get time traces" was clicked again, easy to miss since the checkbox
+// itself gives no other feedback that anything changed.
+$('smfretApertureMode').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(); });
 // True while the raw panel is owned by the smFRET site scrubber rather than
 // the ordinary loaded-stack Frame one — same role liveStreamOwnsRawPanel()
 // plays for its own scrubber, checked by the same wheel-scrub routing (MODULE:
@@ -13806,14 +13814,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06n — smFRET Time trace: a new
-"Show raw frame"/"Show time trace" toggle next to the panel title
-switches between the trace plot and the live raw frame (with its own
-ordinary Frame scrubber) without discarding the computed traces —
-reported: once a trace was showing, there was no way back to browsing
-raw frames short of discarding the whole SOI/trace state, making it
-hard to cross-check a trace against the actual frame it came from.
-Switching back to the trace returns to whichever site was showing.
+log(`webSMLM v0.12.1-dev · build 2026-09-06o — toggling "Aperture
+photometry (no fit)" now auto-reruns Get time traces when a trace is
+already showing, matching Localize SOI's own "refresh an existing
+result" convention — previously the checkbox had no visible effect
+until the button was clicked again, easy to miss since it gives no
+other feedback. Only refreshes an EXISTING trace; doesn't auto-start
+one before Get time traces has ever been clicked.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

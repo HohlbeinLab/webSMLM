@@ -892,7 +892,13 @@ relevant one before editing rather than scrolling:
   ring-mean version this paragraph originally described, superseded on request ("best to not have too
   many different methods"). Registered as an ordinary `PARAMS` bool entry (`type:'bool'`), so it's automatically part of
   Save/Load Settings like every other `PARAMS` field — `getSmfretTimeTraces()` itself still has no
-  headless equivalent (unaffected by this).
+  headless equivalent (unaffected by this). Its own `change` listener auto-reruns `getSmfretTimeTraces()`
+  when traces are ALREADY showing (`if(smfretTraces) getSmfretTimeTraces();`) — reported: toggling
+  the checkbox while a trace was on screen had no visible effect until "Get time traces" was clicked
+  again, easy to miss since the checkbox itself gives no other feedback. Gated on `smfretTraces`
+  specifically (not merely `smfretSOI`), matching Localize SOI's own settings-change listeners'
+  "refresh an existing result, don't auto-START a fresh one" convention — checked and confirmed via
+  Playwright NOT to auto-start a run before Get time traces has ever been clicked once.
 
   **Three more reported fixes, same round.** (1) A REJECTED/non-converged `gaussianMLEspheric` fit
   now writes `0` into `traces[j].photons[fi]`, not the array's `NaN` fill default — the reject logic
