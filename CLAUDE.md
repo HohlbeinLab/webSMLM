@@ -858,16 +858,52 @@ relevant one before editing rather than scrolling:
   attempt a fit on). `drawSmfretTrace()`'s NaN-breaks-the-line logic and its own `nGaps` counter both
   benefit for free — a rejected fit no longer shows as a break in the curve, and "N frame(s) not fit"
   now means exactly that, not "fit ran and said no." (2) `apertureIntensity()` is now floored at 0
-  (`Math.max(0, ...)`) — its own background-ring estimate sits at the aperture's own edge, not a
-  separate non-overlapping annulus further out, so a real, dim emitter's PSF tail leaking into that
-  ring inflates the background estimate and can legitimately drive the raw arithmetic negative; a
-  negative photon count has no physical meaning regardless of where the bias came from. (3) Editing
-  **Frame time (s)** while a Time trace was showing left the plot's own x-axis stale (it reads
-  `frametime` fresh on every draw, per `drawSmfretTrace()`'s own comment, but nothing previously
+  (`Math.max(0, ...)`) — a negative photon count has no physical meaning regardless of where a
+  negative raw result might come from (see the geometry rewrite below for what actually caused it).
+  (3) Editing **Frame time (s)** while a Time trace was showing left the plot's own x-axis stale (it
+  reads `frametime` fresh on every draw, per `drawSmfretTrace()`'s own comment, but nothing previously
   triggered that redraw when `frametime` itself changed — spt's own `frametime` listeners only ever
   refreshed spt's own displays). Fixed with one more `$('frametime').addEventListener('change', ...)`
   guarded by `smfretOwnsRawPanel()`, same gating convention `liveStreamOwnsRawPanel()` already
   established for its own scrubber redraws.
+
+  **`apertureIntensity()` rewritten on a published, previously-validated method** (v0.12.1-dev,
+  same round) — the ORIGINAL version (square `win×win` box, background = MEAN of that same box's own
+  outermost ring) was ad-hoc, and its background ring sitting flush against the signal region's own
+  edge meant real PSF tail could leak into it, biasing background high (occasionally producing a
+  negative "intensity" before the floor above was added). Switching that ring's estimator from mean
+  to MEDIAN was tried first (median seems like the more "robust" choice) and made things WORSE, not
+  better — empirically checked against the real dataset: several sites' spikiness increased, one
+  drastically (ratio 92x → 3313x), because the ring is only ~24 pixels for `win=7`, and a median's
+  own sampling variance for that few samples (~1.57x a mean's, for the same N — a standard result)
+  outweighs whatever real-signal-contamination bias it was meant to fix; a noisier estimator on a
+  small sample is the wrong fix for a geometry problem. The user pointed to the RIGHT fix instead:
+  `apertureIntensity()` now ports the exact method from the same pSMLM-3D paper's own Supplementary
+  Information, §S11 "Aperture photometry to assess intensity and background levels" (itself adapting
+  Preus, Hildebrandt & Birkedal, *Biophys. J.* 111, 1278 (2016), "Optimal Background Estimators in
+  Single-Molecule FRET Microscopy" — directly on-topic for this exact use case). A CIRCULAR signal
+  disk (`distance from centre <= r`, `r=(win-1)/2` — the SAME half-width every fitter in this file
+  already uses) is summed directly; a SEPARATE, non-overlapping annulus just outside it
+  (`r < distance <= r+2.5`) estimates background via its 56th PERCENTILE, not mean or median.
+  **Reverse-engineered pixel-exact from the SI's own Figure S11 reference maps, not its prose
+  formula** — the SI's own text names a "ROI radius" that reverse-engineering showed is consistently
+  2px LARGER than the window's actual half-width `r`, for reasons the SI itself never explains;
+  rendered the SI's PDF at 600 DPI (`pdftoppm`) and counted signal/background pixels exactly against
+  the 7×7 and 9×9 reference maps (both independently confirming the `r`/`r+2.5` boundary) and the
+  15×15 map's own excluded corners (confirming the `r+2.5` exclusion cutoff) before trusting the
+  geometry — the prose alone would have produced a signal disk far too small to match the published
+  figures. `apertureGeometry(win)` caches the `(dx,dy)` offset lists per window size (same win reused
+  across every site/frame of one Get time traces run); `percentile(sortedVals,p)` is the standard
+  linear-interpolation convention (numpy's/MATLAB's default). **A real bug caught before shipping**:
+  the background annulus reaches `r+2.5`, WIDER than the `win×win` box itself — the first draft's
+  `apertureGeometry()` only scanned `dx,dy` in `[-r,r]` (matching the old box-based version's own
+  loop bounds, carried over by habit), silently never visiting the outer part of the annulus at all;
+  fixed by scanning out to `Math.ceil(r+2.5)` instead. Verified end-to-end against the real dataset
+  after the fix: geometry pixel-counted correct at `win=7` (29 signal / 68 background pixels,
+  matching independent hand-calculation), zero negative raw results across all 14 real sites (vs.
+  the old version needing the floor above to ever fire), and per-site max/median ratios mostly in the
+  1.4–5.5x range (two sites showed a much higher ratio purely because their median is exactly 0 — an
+  artifact of that ratio metric on a mostly-off molecule, not a sign of a bad fit).
 
   **`drawSmfretTrace(idx)`** plots one site's intensity-vs-frame curve in the raw (left) panel,
   following the exact "left panel doubles as a plot surface" pattern drift/NeNA/FRC already use

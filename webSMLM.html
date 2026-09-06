@@ -109,7 +109,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9687   single particle tracking, trackpy-inspired;
+    spt             9728   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -140,7 +140,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11196  top-level orchestration, *Core()/wrapper split;
+    pipeline        11237  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -149,7 +149,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11817  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11858  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -203,11 +203,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13836  localizations table, filtering, histograms;
+    table           13873  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14474  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14511  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1905,7 +1905,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06k</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06l</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2330,7 +2330,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
         <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get time traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix SOI x,y for time traces
           <input type="checkbox" id="smfretFixSOI"></label>
-        <label class="row" title="Get time traces below: extract each frame's intensity by summing the fit window box and subtracting a local background from its own outer ring, instead of fitting a standard 2D Gaussian MLE at each frame (seeded at the site, position free). No iterative fit to diverge — avoids the rare remaining case where the fit still produces an implausible result on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
+        <label class="row" title="Get time traces below: use a published aperture-photometry method (circular signal disk + a separate background annulus, background from its 56th percentile) instead of fitting a standard 2D Gaussian MLE at each frame (seeded at the site, position free). No iterative fit to diverge — avoids the rare remaining case where the fit still produces an implausible result on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
           <input type="checkbox" id="smfretApertureMode"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
@@ -2341,7 +2341,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
           <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
+          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -9451,35 +9451,76 @@ $('smfretFixSOI').addEventListener('change',()=>{
   }
 });
 // Aperture photometry (v0.12.1-dev): a model-free alternative to fitting for
-// extracting one site's intensity at a KNOWN, already-located position — sums
-// the SAME win×win box the fit would use (win=2*winr+1, centred on the
-// site's rounded x,y — not independently configurable) and subtracts a local
-// background estimated from that SAME box's own OUTERMOST RING of pixels
-// (|dx|===r or |dy|===r — same idea phasorFit()'s own background ring uses),
-// no iterative fit involved. Note this ring sits AT the aperture's own edge,
-// not a separate, non-overlapping annulus further out — a real, accepted
-// bias for a real emitter whose PSF tail still has non-negligible amplitude
-// out at the edge of a typical win=7 (r=3, ~2.3σ for the default σ_PSF=1.3)
-// box: some genuine signal leaks into the "background" ring, inflating the
-// background estimate and correspondingly UNDER-estimating intensity — this
-// is exactly why a real, dim molecule can occasionally come out negative
-// here (floored below), not a sign of a coding bug. gain (camoffset cancels
-// exactly in a background-SUBTRACTED linear sum — no need to pass it
-// separately) converts the result to the same true-photon-unit convention
-// gaussianMLEspheric() below uses, so the two methods' outputs stay
-// comparable. Floored at 0 — a negative estimate has no physical meaning
-// (there is no such thing as negative photon count) even though the ring-
-// contamination bias above can legitimately drive the raw arithmetic below
-// zero for a real, dim emitter.
-function apertureIntensity(img,w,h,cx,cy,win,gain=1){
-  const r=(win-1)/2;
-  let sum=0,boxN=0,ringSum=0,ringN=0;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-    const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue;
-    const v=img[y*w+x]; sum+=v; boxN++;
-    if(Math.abs(dx)===r||Math.abs(dy)===r){ ringSum+=v; ringN++; }
+// extracting one site's intensity at a KNOWN, already-located position — a
+// published, previously-validated method (Martens et al., J. Chem. Phys.
+// 148, 123311 (2018), Supplementary Information §S11 "Aperture photometry to
+// assess intensity and background levels" — itself adapting Preus,
+// Hildebrandt & Birkedal, Biophys. J. 111, 1278 (2016)), not invented here.
+// A CIRCULAR signal disk (distance from centre <= r, r=(win-1)/2, the same
+// half-width every fitter in this file already uses) is summed directly;
+// a SEPARATE, non-overlapping annulus just outside it (r < distance <= r+2.5)
+// estimates the background via its 56th PERCENTILE, not a mean or median —
+// reverse-engineered pixel-exact from the SI's own Figure S11 reference maps
+// (7x7/9x9/15x15 checked directly against a full-resolution render) rather
+// than the SI's prose formula taken literally, which names a "ROI radius"
+// that is consistently 2px LARGER than the actual window half-width r for
+// reasons the SI text itself never explains — the geometry below is the
+// verified GROUND TRUTH the SI's own figure shows, not a guess. Excluded
+// pixels (distance > r+2.5) are ignored entirely; this only ever removes
+// anything once a window's own CORNER distance exceeds r+2.5 (first true at
+// 15x15 in the SI's reference figures — a 7x7 window, this codebase's own
+// default, never excludes any pixel). apertureGeometry(win) caches the
+// (dx,dy) offset lists for the signal disk/background annulus, rebuilt only
+// when win itself changes (same win reused across every site/frame of a
+// whole Get time traces run).
+//
+// This DELIBERATELY replaces an earlier, ad-hoc version of this function
+// that used a SQUARE box + the box's own outermost ring (mean, not
+// percentile) as background — reported as suspect (real signal can leak
+// into a ring sitting flush against the signal region's own edge, biasing
+// background high) and confirmed worse empirically: switching that ring's
+// estimator from mean to median (tried first, on the reasoning that a
+// robust statistic should help) actually made several sites' spikiness
+// WORSE, not better, since a ~24-pixel ring's own sampling noise for a
+// single order statistic outweighs whatever real-signal-contamination bias
+// it was meant to fix. The literature version above fixes the ROOT cause
+// instead — a background region genuinely separate from the signal disk,
+// not fixing the estimator on top of geometry that guarantees contamination.
+let _apWin=-1, _apSignal=null, _apBackground=null;
+function apertureGeometry(win){
+  if(win===_apWin) return;
+  // The background annulus reaches r+2.5 — WIDER than the win×win box
+  // itself (r alone) — so the scan range must extend to rMax, not r, or
+  // the outer part of the annulus is silently never visited.
+  const r=(win-1)/2, rMax=Math.ceil(r+2.5), sig=[], bg=[];
+  for(let dy=-rMax;dy<=rMax;dy++)for(let dx=-rMax;dx<=rMax;dx++){
+    const d=Math.hypot(dx,dy);
+    if(d<=r) sig.push([dx,dy]); else if(d<=r+2.5) bg.push([dx,dy]);
   }
-  return Math.max(0, gain*(sum - (ringN?ringSum/ringN:0)*boxN));
+  _apWin=win; _apSignal=sig; _apBackground=bg;
+}
+// Standard "linear-interpolation" percentile (numpy's/MATLAB's default
+// convention): index = p*(n-1) into the SORTED array, interpolated between
+// the two bracketing entries.
+function percentile(sortedVals,p){
+  const n=sortedVals.length; if(!n) return 0; if(n===1) return sortedVals[0];
+  const idx=p*(n-1), lo=Math.floor(idx), hi=Math.ceil(idx);
+  return lo===hi ? sortedVals[lo] : sortedVals[lo]+(sortedVals[hi]-sortedVals[lo])*(idx-lo);
+}
+function apertureIntensity(img,w,h,cx,cy,win,gain=1){
+  apertureGeometry(win);
+  let sigSum=0,sigN=0; const bgVals=[];
+  for(const [dx,dy] of _apSignal){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; sigSum+=img[y*w+x]; sigN++; }
+  for(const [dx,dy] of _apBackground){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; bgVals.push(img[y*w+x]); }
+  bgVals.sort((a,b)=>a-b);
+  const bg=percentile(bgVals,0.56);
+  // gain converts to the same true-photon-unit convention gaussianMLEspheric()
+  // below uses (camoffset cancels exactly in a background-SUBTRACTED linear
+  // sum, same as before — no need to pass it separately). Floored at 0 — a
+  // negative photon count has no physical meaning, though the underlying
+  // geometry fix above should make hitting this floor considerably rarer
+  // than the earlier square-ring-mean version did.
+  return Math.max(0, gain*(sigSum - bg*sigN));
 }
 // "Get time traces": extracts each Localize SOI site's intensity in EVERY
 // frame of the loaded movie, re-using its known x,y only to pick which
@@ -13702,15 +13743,18 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06k — three more smFRET Get time
-traces fixes: (1) a rejected/non-converged fit now reports zero intensity,
-not a NaN gap — the reject logic already IS a real judgement that no
-molecule was on, not missing data; (2) Aperture photometry is now floored
-at 0 — its background-ring estimate sits at the aperture's own edge, so a
-real, dim emitter's PSF tail can legitimately drive the raw arithmetic
-negative, which has no physical meaning regardless of where the bias came
-from; (3) editing Frame time (s) while a trace was showing left its x-axis
-stale until an unrelated redraw happened to fire — now refreshes live.
+log(`webSMLM v0.12.1-dev · build 2026-09-06l — smFRET Aperture photometry
+rewritten on a published method (pSMLM-3D's own SI §S11, adapting Preus
+et al. 2016): a circular signal disk plus a SEPARATE background annulus
+(56th percentile), reverse-engineered pixel-exact from the paper's own
+reference figure. Replaces the earlier ad-hoc square-box + same-box-edge
+-ring-mean version, whose ring sitting flush against the signal region
+let real PSF tail bias the background high — occasionally into negative
+"intensity" territory. Median was tried as a quick fix for that and
+made things WORSE (a ~24-pixel ring's own sampling noise dominates);
+the real fix was giving background a genuinely separate region instead.
+Verified against real data: 0 negative results across all 14 real
+sites, geometry pixel-counted correct against the paper's figure.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

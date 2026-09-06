@@ -781,17 +781,17 @@ judgement that no molecule was on, not missing data. Only a site too close to
 a given frame's own edge (no window to even attempt a fit on) leaves a genuine
 gap (`NaN`) rather than aborting the whole trace.
 
-Checked: `apertureIntensity()` sums the fit window box (the same size the fit
-would use, centred on the site's rounded position — not independently
-configurable) and subtracts a local background estimated from that SAME box's
-own outermost ring of pixels — not a separate, non-overlapping ring further
-out. That ring sits close enough to a real emitter's own PSF tail that some
-genuine signal can leak into it, inflating the background estimate and
-occasionally driving the raw result negative for a real, dim emitter — floored
-at 0 (no iterative fit at all, so it always succeeds once a site is far enough
-from the edge; there's no convergence to fail), at the cost of not reporting a
-per-frame width. Recommended if a trace from the default method still shows an
-implausible spike.
+Checked: `apertureIntensity()` uses a published, previously-validated method
+(pSMLM-3D's own Supplementary Information §S11, itself adapting Preus,
+Hildebrandt & Birkedal 2016 — see [§9](#9-references-further-reading)) rather
+than an ad-hoc box sum: a CIRCULAR signal disk (distance from the site's
+rounded position ≤ `r=(win-1)/2`, the same half-width the fit would use) is
+summed directly, and a separate, non-overlapping annulus just outside it
+(`r` to `r+2.5` px) estimates the background via its 56th percentile (not a
+mean or median). No iterative fit at all, so it always succeeds once a site
+is far enough from the edge — there's no convergence to fail — at the cost of
+not reporting a per-frame width. Recommended if a trace from the default
+method still shows an implausible spike.
 
 Both methods report properly gain/camoffset-corrected true photon units.
 Many sites × many frames — most of
@@ -1906,7 +1906,7 @@ for the first implementation.
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
 <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
 <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-<p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
+<p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
 <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 
@@ -2850,6 +2850,10 @@ What this tool borrows from, and where to read more.
 **Phasor localization**
 - "Phasor based single-molecule localization microscopy in 3D (pSMLM-3D): an algorithm for MHz localization rates using standard CPUs," K. J. A. Martens, A. N. Bader, S. Baas, B. Rieger, J. Hohlbein, *J. Chem. Phys.* **148**, 123311 (2018). [doi:10.1063/1.5005899](https://doi.org/10.1063/1.5005899)
 - "Integrating engineered point spread functions into the phasor-based SMLM framework," K. J. A. Martens et al., *Methods* (2020).
+
+**Aperture photometry (smFRET)**
+- The above pSMLM-3D paper's own Supplementary Information §S11 "Aperture photometry to assess intensity and background levels" describes the circular signal-disk + background-annulus + percentile-background method `apertureIntensity()` (MODULE: smFRET) ports.
+- "Optimal Background Estimators in Single-Molecule FRET Microscopy," S. Preus, L. L. Hildebrandt, V. Birkedal, *Biophys. J.* **111**(6), 1278–1286 (2016). [doi:10.1016/j.bpj.2016.07.047](https://doi.org/10.1016/j.bpj.2016.07.047) — the original source the pSMLM-3D SI's own method adapts from.
 
 **Spot detection & thresholding**
 - "ThunderSTORM: a comprehensive ImageJ plug-in for PALM and STORM data analysis and super-resolution imaging," M. Ovesný, P. Křížek, J. Borkovec, Z. Švindrych, G. M. Hagen, *Bioinformatics* **30**(16), 2389–2390 (2014). [doi:10.1093/bioinformatics/btu202](https://doi.org/10.1093/bioinformatics/btu202)

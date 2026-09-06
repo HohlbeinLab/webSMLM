@@ -138,8 +138,9 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     MLE fit, seeded at the known position but free to move — the calibration module's own
     FIXED-position fitter, `gaussianFitEllipticalFixedXY`, was tried first and rejected: real
     smFRET candidate sites have none of a bright bead's known-precise position, so an unweighted
-    fixed-position fit was genuinely unstable on faint sites) or `apertureIntensity()` (box-sum minus
-    local-ring background, no fit at all) — checked directly against LS (least-squares) as an
+    fixed-position fit was genuinely unstable on faint sites) or `apertureIntensity()` (a published
+    circular-aperture + percentile-background method, pSMLM-3D's own SI §S11 adapting Preus et al.
+    2016 — see **smFRET** in `CLAUDE.md`, no fit at all) — checked directly against LS (least-squares) as an
     alternative to MLE too: a free-position LS fit shows the SAME (often worse) spurious-spike
     vulnerability on the same real data, since the instability comes from LS's unweighted residuals
     treating a noisy pixel as trustworthy as a real one, not from anything related to position being
