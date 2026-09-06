@@ -104,6 +104,16 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     reimplementation. Still open: letting the user pick WHICH frames feed that average — DD, DA, or
     DD+DA (and, if ALEX is on, scoping to donor-excitation frames only, vs. also including
     AA/acceptor-excitation frames) — v1 only ever averages from frame 1, no frame-role selection yet.
+    A genuinely different alternative worth evaluating once real data is in hand: an ordinary
+    Localize over the same frame range, then `tempClusteringXY < N` with `tempClusteringMemory <=
+    inf` (table module, shipped) — every recurrence of the same physical site across the whole
+    window collapses into one event with a real photon-weighted position, inverse-variance-combined
+    precision, and an `nMerged` blink count, instead of a heuristic centroid on a smoothed average
+    image. Composite-averaging keeps a real, distinct advantage — it can find sites too faint to
+    cross the per-frame detection threshold in any single frame, which per-frame-Localize-then-
+    cluster can never recover — so this isn't a strict replacement; usable manually today via the
+    table's own filter box, with no smFRET-specific code. Revisit whether **Localise SOI** should
+    gain this as a second mode once someone's actually compared the two on real smFRET data.
   - **Linking a DD candidate to its DA partner = sSMLM's own pairing.** `pairCore()`'s directional
     distance+bearing-angle matching (built for 0th/1st-order diffraction-grating pairs) assumes a
     roughly CONSTANT offset vector between two related spots — exactly what a well-aligned dual-view
@@ -165,15 +175,6 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     `HUNGARIAN_MAX` (120 points) fall back to greedy nearest-neighbor rather than trackpy's own
     recursive exact-subnetwork solver — real single-molecule (PALM-style, sparse) SPT data isn't
     expected to produce components that large; no reports of it mattering yet.
-
-- **`tempClusteringMemory`** — gap-frame tolerance for temporal clustering. `clusterEvents()`
-  (table module) currently requires strictly consecutive frame numbers to chain detections into
-  one event (memory=0, hardcoded) — a molecule that blinks off for even one frame starts a new
-  chain instead of extending the old one. `tempClusteringMemory = N` would allow up to N missed
-  frames between detections of the same chain. Needs a decision on how a gap should weight into the
-  position average (still "on" for the photon-weighted mean, or purely bridge the chain without
-  contributing) before implementing. Already flagged in-app as "planned" (see `webSMLM.html` near
-  `clusterEvents()`).
 
 - **Let a settings JSON override a parameter's `min`/`max`/`step`, not just its value.** Today
   Save/Load Settings only round-trips `{id: value}` pairs — the bounds themselves live solely in

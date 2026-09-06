@@ -1976,18 +1976,30 @@ not available for Phasor 3D), `sigma1st` (sSMLM paired results only — the
 Enter commits a clause; clauses stack cumulatively (ANDed as a whole).
 Typing `reset` clears all of them. An autocomplete dropdown suggests
 matching field names as you type (↑/↓ to move, Enter/Tab to accept),
-sourced from the current table's own columns plus the two clustering
+sourced from the current table's own columns plus the three clustering
 pseudo-fields below.
 
-**Clustering pseudo-fields** — `tempClusteringXY < N` (nm) and
-`tempClusteringZ < N` (nm) are recognised specially *before* the normal
-column grammar: rather than selecting a subset of existing rows, they change
-the base row set itself, merging consecutive-frame detections of the same
-blinking molecule into higher-precision "events" (photon-weighted position,
-summed photons, inverse-variance-combined uncertainty). One threshold per
-axis — a new value replaces the old, doesn't stack. `tempClusteringMemory`
-(gap-frame tolerance) is not implemented yet (`docs/REFACTOR_PLAN.md`); a
-gap frame always breaks the chain today.
+**Clustering pseudo-fields** — `tempClusteringXY < N` (nm),
+`tempClusteringZ < N` (nm), and `tempClusteringMemory <= N` (frames, or
+`tempClusteringMemory <= inf` for no limit) are recognised specially
+*before* the normal column grammar: rather than selecting a subset of
+existing rows, they change the base row set itself, merging a blinking
+molecule's own detections into higher-precision "events" (photon-weighted
+position, summed photons, inverse-variance-combined uncertainty). One
+value per pseudo-field — a new value replaces the old, doesn't stack.
+`tempClusteringMemory` is the gap-frame tolerance: a chain may skip up to
+that many frames with no detection and still be extended when the
+molecule reappears (default 0 — strictly consecutive frames only, the
+original behavior); it has no effect on its own — it only changes anything
+once `tempClusteringXY` and/or `tempClusteringZ` is also set, since those
+are what actually turn clustering on. A gap frame contributes nothing to
+the position average (there's no detection there to weight in); a
+long-gapped chain still matches a new candidate against its full
+photon-weighted position history, unchanged from the no-gap case — apply
+**Correct drift** first if using a large or unlimited memory on data with
+real stage drift, since matching against a stale average gets less
+reliable the longer a chain has gone unseen. `clusterEvents()` (table
+module) has the full implementation notes.
 
 **Crop tool** (SR panel, next to the line-profile tool) — click two corners
 to push an x/y-range clause into the *same* `_tableFilters` array a typed

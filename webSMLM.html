@@ -199,8 +199,10 @@
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
     table           13421  localizations table, filtering, histograms;
-                           renderHistogramPlotHeadless() (config.exportHistograms)
-    headless API    14006  window.webSMLM.analyze()/analyzeBatch();
+                           renderHistogramPlotHeadless() (config.exportHistograms);
+                           tempClusteringMemory (gap-frame tolerance, incl.
+                           unlimited/"inf") in clusterEvents()
+    headless API    14056  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1898,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13292,14 +13294,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06a — refactor: the themed
-scrubber-slider look (blue accent thumb/track) is now a shared
-.scrubslider CSS class instead of a hardcoded #scrub/#liveStreamScrub/
-#smfretTraceScrub id list — that list was the actual root cause of the
-previous build's "Site scrubber renders with the browser's plain
-native slider" bug (a copy-pasted new scrubber's id just wasn't in it
-yet). Any future scrubber now only needs class="scrubslider" to get
-the right look, no CSS change required. No behaviour change.
+log(`webSMLM v0.12.1-dev · build 2026-09-06b — table filtering:
+tempClusteringMemory is implemented (was planned, not yet shipped).
+Type "tempClusteringMemory <= N" (frames) or "tempClusteringMemory <=
+inf" into View data/filtering's filter box alongside
+tempClusteringXY/Z — lets a chain skip up to N frames with no
+detection and still be extended when the molecule reappears, instead
+of always breaking the chain at the first missed frame. Default 0
+(unset) reproduces the exact original behaviour. Best applied after
+Correct drift when using a large/unlimited memory — matching a chain's
+old average position gets less reliable the longer it's gone unseen.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -13429,12 +13433,28 @@ let histData=null, histView=null;         // column histogram: fixed bins over t
 const HIST_ML=58, HIST_MR=16;             // plot margins (shared by drawHistogram and its x zoom/pan handlers)
 // Temporal clustering ("merging"): the same blinking molecule is often "on"
 // for several consecutive frames, detected separately each time. Chains
-// consecutive-frame detections whose merged position stays within xyNm (and
-// zNm, if given) into one higher-precision "event" — closest-pairs-first
-// (greedy) each frame, so one chain can't absorb two different nearby
-// molecules landing in the same frame. tempClusteringMemory (gap-frame
-// tolerance) is NOT implemented yet — every chain requires strictly adjacent
-// frame numbers (see docs/REFACTOR_PLAN.md).
+// detections whose merged position stays within xyNm (and zNm, if given)
+// into one higher-precision "event" — closest-pairs-first (greedy) each
+// frame, so one chain can't absorb two different nearby molecules landing
+// in the same frame. memoryFrames (tempClusteringMemory) is the gap-frame
+// tolerance: a chain may skip up to memoryFrames frames with no detection
+// and still be extended when the molecule reappears — 0 (default) requires
+// strictly adjacent frame numbers, matching the original hardcoded
+// behaviour exactly; Infinity never expires a chain from a gap at all, only
+// ever closing it via a real merge (see getBaseLocs()'s own caller). Same
+// "skip up to N frames and still relink" semantics as spt's own sptMemory
+// (MODULE: spt) — deliberately not shared code, since spt links whole
+// trajectories frame-to-frame while this only ever needs each chain's own
+// running position, not a full bipartite assignment graph per frame.
+// A gap frame has no localization at all (that's what makes it a gap) —
+// nothing to add into the running sums either way; the only real design
+// choice was whether a long-gapped chain should match a new candidate
+// against its full photon-weighted history or something more
+// recency-weighted. Kept as the full running mean (unchanged from the
+// memoryFrames=0 behaviour) — this app already has a dedicated drift-
+// correction step (AIM) that's the intended place to handle real stage
+// drift before clustering with a large/unlimited memory, rather than
+// re-solving that problem here too.
 //   position  = photon-weighted mean (brighter frames count more)
 //   photons   = summed (same molecule's photons accumulating over its ON
 //               time — not independent measurements of the same brightness)
@@ -13450,8 +13470,15 @@ const HIST_ML=58, HIST_MR=16;             // plot margins (shared by drawHistogr
 // O(open-chains × current-frame locs) per frame — fine at typical sparse
 // blinking densities (tens to ~100 locs/frame); would want a spatial grid
 // (like gridNN, used elsewhere for NeNA/AIM) if ever fed a pathologically
-// dense frame.
-function clusterEvents(locs, xyNm, zNm, px){
+// dense frame. A large/unlimited memoryFrames makes this much more likely
+// to actually matter in practice: at memoryFrames=0, `open` self-prunes
+// every frame (nothing survives a single missed frame), but with real gap
+// tolerance `open` only shrinks via merges, so it can grow to the full
+// number of distinct physical sites over the whole clustered range —
+// ship the simple, correct version first (same "don't optimize for a
+// scale nobody's hit yet" precedent as SPT's own Hungarian-vs-greedy
+// fallback) rather than build the grid pre-emptively.
+function clusterEvents(locs, xyNm, zNm, px, memoryFrames=0){
   const xyPx = xyNm>0 ? xyNm/px : 0, useZ = zNm>0;
   const byFrame=new Map();
   for(const L of locs){ const f=L.frame|0; let a=byFrame.get(f); if(!a){a=[];byFrame.set(f,a);} a.push(L); }
@@ -13484,7 +13511,16 @@ function clusterEvents(locs, xyNm, zNm, px){
   let open=[];
   for(const f of frames){
     const cur=byFrame.get(f), cands=[];
-    for(let ci=0; ci<open.length; ci++){ const c=open[ci]; if(c.lastFrame!==f-1) continue;
+    // Expire chains whose gap has already grown beyond memoryFrames as of
+    // THIS frame — they can never be extended again (every later frame's
+    // gap can only be larger), so close them now rather than carrying dead
+    // weight through the rest of the candidate search. At memoryFrames=0
+    // this keeps exactly the chains with lastFrame===f-1 (gap 0), the
+    // original hardcoded check.
+    const stillViable=[];
+    for(const c of open){ if(f-c.lastFrame-1>memoryFrames) finalize(c); else stillViable.push(c); }
+    open=stillViable;
+    for(let ci=0; ci<open.length; ci++){ const c=open[ci];
       const cx=c.x/c.sumW, cy=c.y/c.sumW, cz=c.wZ>0?c.z/c.wZ:NaN;
       for(let li=0; li<cur.length; li++){ const L=cur[li];
         const d=Math.hypot(L.x-cx, L.y-cy);
@@ -13494,30 +13530,35 @@ function clusterEvents(locs, xyNm, zNm, px){
     cands.sort((a,b)=>a.d-b.d);
     const usedC=new Set(), usedL=new Set();
     for(const {ci,li} of cands){ if(usedC.has(ci)||usedL.has(li)) continue; usedC.add(ci); usedL.add(li); extend(open[ci],cur[li]); }
-    const stillOpen=[];
-    for(let ci=0; ci<open.length; ci++){ if(open[ci].lastFrame===f) stillOpen.push(open[ci]); else finalize(open[ci]); }
+    // Every still-viable chain stays open regardless of whether it matched
+    // THIS frame — unlike the original hardcoded (memory=0) version, a miss
+    // no longer closes it immediately; the gap check above decides that,
+    // the next time this chain is reconsidered.
+    const stillOpen=open.slice();
     for(let li=0; li<cur.length; li++){ if(!usedL.has(li)) stillOpen.push(newChain(cur[li])); }
     open=stillOpen;
   }
   for(const c of open) finalize(c);
   return events;
 }
-// {locsRef, xy, z, events} — avoid recomputing clustering on every unrelated filter edit
+// {locsRef, xy, z, memory, events} — avoid recomputing clustering on every unrelated filter edit
 let _clusterCache=null;
-// Reads the active tempClusteringXY/Z filter clause values (0 if none) out
-// of _tableFilters.
-function getClusterParams(){ let xy=0,z=0; for(const f of _tableFilters){ if(f.cluster==='xy')xy=f.maxNm; else if(f.cluster==='z')z=f.maxNm; } return {xy,z}; }
+// Reads the active tempClusteringXY/Z/Memory filter clause values (0 if
+// none) out of _tableFilters. memory alone (with no xy/z) does nothing —
+// getBaseLocs() only enters clustering mode at all once xy or z is set —
+// same as before this field existed.
+function getClusterParams(){ let xy=0,z=0,memory=0; for(const f of _tableFilters){ if(f.cluster==='xy')xy=f.maxNm; else if(f.cluster==='z')z=f.maxNm; else if(f.cluster==='memory')memory=f.maxFrames; } return {xy,z,memory}; }
 // The base locs everything else (table, render, export, NeNA, FRC) works from:
 // raw per-frame localizations, or — if a tempClusteringXY/Z filter is active —
 // the merged events. Same array reference every call unless the underlying
 // Run or the clustering parameters actually changed (cheap identity check).
 function getBaseLocs(){
   if(!lastResult) return [];
-  const {xy,z}=getClusterParams();
+  const {xy,z,memory}=getClusterParams();
   if(!xy && !z) return lastResult.locs;
-  if(_clusterCache && _clusterCache.locsRef===lastResult.locs && _clusterCache.xy===xy && _clusterCache.z===z) return _clusterCache.events;
-  const events=clusterEvents(lastResult.locs, xy, z, lastResult.px);
-  _clusterCache={locsRef:lastResult.locs, xy, z, events};
+  if(_clusterCache && _clusterCache.locsRef===lastResult.locs && _clusterCache.xy===xy && _clusterCache.z===z && _clusterCache.memory===memory) return _clusterCache.events;
+  const events=clusterEvents(lastResult.locs, xy, z, lastResult.px, memory);
+  _clusterCache={locsRef:lastResult.locs, xy, z, memory, events};
   return events;
 }
 // Rebuild _tableData from the current base (clustered or raw) and reapply
@@ -13628,9 +13669,10 @@ function openTable(){
   $('tableModal').classList.add('open');
 }
 // Commit the current input as a cumulative filter clause (called on Enter).
-// "reset" clears all clauses; tempClusteringXY/Z < value are recognised
-// specially (they change the BASE row set, not just which rows pass — see
-// clusterEvents above); a valid ordinary clause is pushed and the box cleared.
+// "reset" clears all clauses; tempClusteringXY/Z/Memory < value are
+// recognised specially (they change the BASE row set, not just which rows
+// pass — see clusterEvents above); a valid ordinary clause is pushed and
+// the box cleared.
 function commitFilter(){
   const raw=$('tableFilter').value.trim();
   if(raw.toLowerCase()==='reset'){ resetFilters(); return; }
@@ -13645,14 +13687,24 @@ function commitFilter(){
     log('⚠ Filtering is unavailable while Live streaming is active (it would freeze the reconstruction on today\'s data) — Stop first, or browse/sort/histogram the table unfiltered.');
     return;
   }
-  const cm=raw.match(/^tempClustering(XY|Z)\s*(<|<=)\s*([0-9.]+)\s*$/i);
+  // "inf"/"infinity" (case-insensitive) alongside a plain number — mainly
+  // for tempClusteringMemory (an unlimited gap tolerance is a real, useful
+  // value, see clusterEvents()'s own comment), but accepted for XY/Z too
+  // rather than special-cased away: Infinity already degrades correctly
+  // through the existing `d>xyPx`/`Math.abs(...)>zNm` checks (never true),
+  // so an "unbounded distance merge" just falls out for free.
+  const cm=raw.match(/^tempClustering(XY|Z|Memory)\s*(<|<=)\s*(inf(?:inity)?|[0-9.]+)\s*$/i);
   if(cm){
-    const axis=cm[1].toLowerCase(), maxNm=parseFloat(cm[3]);
+    const axis=cm[1].toLowerCase(), val=/^inf/i.test(cm[3])?Infinity:parseFloat(cm[3]);
     _tableFilters=_tableFilters.filter(f=>f.cluster!==axis);   // one active threshold per axis — replace, don't stack
-    _tableFilters.push({expr:raw, cluster:axis, maxNm, fn:()=>true});
+    _tableFilters.push(axis==='memory'
+      ? {expr:raw, cluster:'memory', maxFrames:val, fn:()=>true}
+      : {expr:raw, cluster:axis, maxNm:val, fn:()=>true});
     $('tableFilter').value=''; $('tableFilter').classList.remove('bad');
     rebuildTableData();
-    log(`Temporal clustering: ${raw} — ${_tableData.rows.length.toLocaleString()} events from ${lastResult.locs.length.toLocaleString()} localizations.`);
+    const {xy,z}=getClusterParams();
+    if(axis==='memory' && !xy && !z) log(`⚠ ${raw} has no effect yet — set tempClusteringXY or tempClusteringZ too (memory only extends an already-active clustering chain).`);
+    else log(`Temporal clustering: ${raw} — ${_tableData.rows.length.toLocaleString()} events from ${lastResult.locs.length.toLocaleString()} localizations.`);
     return;
   }
   const pf=parseFilter(raw,_tableData.cols);
@@ -13972,11 +14024,11 @@ function wireHelp(){
     // above so #trackTableFilter below can share it): every field the box
     // actually accepts — the CURRENT table's own columns (_tableData.cols, so
     // it tracks whatever 3D / clustering / MLE-3D state adds or removes) PLUS
-    // the two clustering pseudo-fields (tempClusteringXY/Z) that
+    // the three clustering pseudo-fields (tempClusteringXY/Z/Memory) that
     // commitFilter() special-cases before the normal column grammar — they're
     // typed in the same box with the same "field op value" shape, so they
     // belong in the same list.
-    const FILTER_KEYWORDS=['tempClusteringXY','tempClusteringZ'];
+    const FILTER_KEYWORDS=['tempClusteringXY','tempClusteringZ','tempClusteringMemory'];
     wireFilterAutocomplete($('tableFilter'), $('tableFilterAC'),
       ()=>(_tableData?_tableData.cols:[]).concat(FILTER_KEYWORDS), commitFilter);
     $('tableResetBtn').addEventListener('click',resetFilters);
@@ -14548,16 +14600,21 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
             found z — not a full joint fit (z isn't a parameter of the pixel-level fit, σx/σy are), but the
             best estimate available from what the fit reports. Not available for Phasor 3D.</li>
           <li><b>Temporal clustering</b> — <code>tempClusteringXY &lt; 10</code> (nm) merges the same molecule's
-            detections across consecutive frames into one higher-precision "event" (photon-weighted position,
-            summed intensity, properly combined uncertainty); <code>tempClusteringZ &lt; value</code> adds the same
-            in z. One threshold per axis (a new value replaces the old). Once active, counts switch from
-            localizations to <b>events</b> and the table gains an <b>nmerged</b> column. A gap frame always breaks
-            the chain for now (planned: <code>tempClusteringMemory</code>). <b>FRC resolution can get coarser after
-            clustering</b>, not finer — counter-intuitive, but FRC measures achieved image resolution, which depends
-            on point <i>density</i> as well as per-point precision; merging improves the latter but sharply reduces
-            the former (far fewer points), and if that density loss outweighs the precision gain, FRC's number gets
-            worse even though individual events really are more precise. Check the <b>uncertainty</b> column's
-            histogram (not FRC) to see the precision improvement in isolation.</li>
+            detections into one higher-precision "event" (photon-weighted position, summed intensity, properly
+            combined uncertainty); <code>tempClusteringZ &lt; value</code> adds the same in z. One threshold per
+            axis (a new value replaces the old). Once active, counts switch from localizations to <b>events</b> and
+            the table gains an <b>nmerged</b> column. <code>tempClusteringMemory &lt;= N</code> (frames, or
+            <code>tempClusteringMemory &lt;= inf</code> for no limit) lets a chain skip up to N frames with no
+            detection and still be extended when the molecule reappears — 0 (default, if never set) requires
+            strictly consecutive frames; it only takes effect once XY or Z is also set. A long or unlimited memory
+            works best on already drift-corrected data (<b>Correct drift</b> first) — matching against a chain's
+            older average position gets less reliable the more real stage drift has accumulated since it was last
+            seen. <b>FRC resolution can get coarser after clustering</b>, not finer — counter-intuitive, but FRC
+            measures achieved image resolution, which depends on point <i>density</i> as well as per-point
+            precision; merging improves the latter but sharply reduces the former (far fewer points), and if that
+            density loss outweighs the precision gain, FRC's number gets worse even though individual events really
+            are more precise. Check the <b>uncertainty</b> column's histogram (not FRC) to see the precision
+            improvement in isolation.</li>
           <li><b>Plot histogram of</b> — draws the chosen column's distribution in the raw (left) panel, over
             whatever rows currently pass the filters above; the crop tool and typed filters affect it the same way.</li>
         </ul></div></details>

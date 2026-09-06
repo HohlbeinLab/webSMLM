@@ -1121,11 +1121,38 @@ relevant one before editing rather than scrolling:
   pushes an x/y-range clause into the same `_tableFilters` array a typed filter would, so
   reconstruction, export, NeNA and FRC all see a crop identically to any other filter. Typing
   `tempClusteringXY < 10` (nm) into the filter box is different in kind from an ordinary clause —
-  it doesn't select a subset, it *merges* consecutive-frame detections of the same blinking
-  molecule into fewer, higher-precision "events" (`clusterEvents()`), changing the BASE row set
-  rather than which rows currently pass. `getBaseLocs()` is the single place deciding whether the
-  base is raw `lastResult.locs` or clustered events; everything else consumes whichever it gets,
-  the same loc-shape either way. `checkTableSize()` guards `locTableData()` the same way
+  it doesn't select a subset, it *merges* a blinking molecule's own detections into fewer,
+  higher-precision "events" (`clusterEvents()`), changing the BASE row set rather than which rows
+  currently pass. `getBaseLocs()` is the single place deciding whether the base is raw
+  `lastResult.locs` or clustered events; everything else consumes whichever it gets, the same
+  loc-shape either way.
+
+  **`tempClusteringMemory <= N`** (frames, or `<= inf`, shipped — was the one remaining planned
+  pseudo-field) is `clusterEvents()`'s new `memoryFrames` parameter (default 0, preserving the
+  original hardcoded strict-adjacency behavior bit-for-bit — verified via Playwright: 0 produces the
+  exact same event SET, by position/photons/frame/nMerged, as a frozen copy of the pre-memory
+  algorithm on a real dataset). Restructured the per-frame loop so a chain's eligibility is a
+  computed check (`f - c.lastFrame - 1 <= memoryFrames`) against the CURRENT frame, evaluated at the
+  TOP of each frame's processing, rather than an immediate close-if-not-extended decision at the
+  tail of the frame it failed to extend at — a chain surviving the check just gets another chance to
+  match; one that's exceeded its gap tolerance is finalized before any distance search runs. Same
+  reasoning resolves the design question `docs/REFACTOR_PLAN.md` had flagged as blocking this (how a
+  gap should weight into the position average): a gap frame has no localization at all, so there's
+  nothing to add into the running sums either way — the only real choice was whether matching should
+  use the chain's full photon-weighted history or something more recency-weighted, and it stays the
+  full history unchanged, since this app already has a dedicated drift-correction step (AIM) that's
+  the intended place to handle real stage drift before clustering with a large/unlimited memory.
+  Parsed by `commitFilter()`'s own regex, extended to accept `inf`/`infinity` (case-insensitive) as a
+  value token for all three clustering pseudo-fields, not just Memory — it degrades correctly through
+  the existing `d>xyPx`/`Math.abs(...)>zNm` checks (never true) for XY/Z too, so no special-casing
+  was needed there. Memory alone (no XY/Z clause) does nothing — `getBaseLocs()` still gates on
+  `xy||z` — `commitFilter()` warns rather than silently no-opping when a user sets Memory first.
+  **Unlimited memory changes the performance profile for real**: at `memoryFrames=0`, `open` (the
+  in-progress chains) self-prunes every frame; with real gap tolerance it only shrinks via merges, so
+  it can grow to the total number of distinct physical sites over the whole clustered range — the
+  existing "would want a spatial grid… if ever fed a pathologically dense frame" comment is now much
+  more likely to actually matter, but the grid wasn't built pre-emptively (same "don't optimize for a
+  scale nobody's hit yet" precedent as SPT's own Hungarian-vs-greedy fallback). `checkTableSize()` guards `locTableData()` the same way
   `checkRenderSize()` guards **render**'s buffers — each row estimated at ~200 bytes (V8 per-object
   overhead) against `memgb`; throws if over budget, caught at all three build sites so a too-large
   table fails with a log message and leaves whatever was on screen before.
