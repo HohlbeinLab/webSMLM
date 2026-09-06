@@ -1121,6 +1121,27 @@ relevant one before editing rather than scrolling:
   `docs/DOCUMENTATION.md` §8 for the full headless API and `docs/REFACTOR_PLAN.md` for the design
   rationale (three-layer split: in-page API, CLI driver, URL-param autorun).
 
+  **`makeNavigator(cv, nav)`** is the shared pan/zoom (drag/wheel/pinch/double-tap-to-fit) wiring
+  for both the raw and SR canvases (Pointer Events, one code path for mouse/trackpad/pen/touch).
+  **`trackDragDistance(cv)`** (v0.12.1-dev, right after `makeNavigator()`'s own definition) fixes a
+  real, reported bug in every click-based multi-point tool riding the SAME canvas — raw-panel crop
+  (`rawCropBtn`), and the SR panel's crop/measure/track-select (MODULE: table's own `cropBtn`/
+  `measureBtn`/tracks-overlay click handlers): a browser still fires a native `click` event after a
+  `pointerdown`→`pointermove`(drag)→`pointerup` sequence on the same element, no matter how far the
+  pointer travelled in between — `makeNavigator()`'s own drag-to-pan does exactly that sequence.
+  Without this, dragging to pan a zoomed-in view while one of those tools was armed silently planted
+  a stray corner/point wherever the drag happened to end; repeated drags on the raw crop tool in
+  particular could crop the stack down to a tiny sliver with each new "corner" chaining off the
+  previous accidental one, with no way back short of reloading — the crop tool deliberately stays
+  armed after a completed crop (see **in/out**'s own `makeCroppedStack()` paragraph), so a user
+  reaching for a plain pan-drag next had no reason to expect this. `trackDragDistance(cv)` wires a
+  SEPARATE, passive `pointerdown`/`pointermove` pair (alongside, not replacing, `makeNavigator()`'s
+  own) purely to measure total on-screen movement since the last press; the returned `wasDrag()`
+  (true past `CLICK_DRAG_PX`, 5 CSS px) lets each tool's own `click` handler bail out instead of
+  treating the event as a genuine single-point click. `srWasDrag`/`rawWasDrag` are the two instances,
+  checked at the very top of `$('sr')`/`$('raw')`'s own `click` listeners — a near-stationary press
+  still measures near-zero distance, so an ordinary two-click crop/measure is unaffected.
+
   **Keyboard hotkeys** (`wireHotkeys()`, v0.11.9): holding **Alt** (Option on Mac) shows numbered
   hint badges over the 10 always-visible top-level action buttons (`HOTKEY_BUTTONS`, on-screen
   order); tapping the matching digit clicks that button. Adding **Shift** switches the hint set to

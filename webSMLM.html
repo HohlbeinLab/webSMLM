@@ -72,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6497   frame-parallel detect/fit worker pool; dedicated
+    workers         6496   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6804   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7096   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6803   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7095   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7523   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7522   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8029   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8028   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8740   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8739   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9526   single particle tracking, trackpy-inspired;
+    spt             9525   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11027  top-level orchestration, *Core()/wrapper split;
+    pipeline        11026  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11648  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11647  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13635  localizations table, filtering, histograms;
+    table           13660  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14273  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14298  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06f</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12957,6 +12957,29 @@ function makeNavigator(cv, nav){
   cv.addEventListener('pointerup',endPtr); cv.addEventListener('pointercancel',endPtr);
   cv.addEventListener('dblclick',()=>{ if(nav.full()){ nav.fit(); nav.draw(); } });
 }
+// A browser still fires a native 'click' event after a pointerdown/pointermove
+// (drag)/pointerup sequence on the same element, regardless of how far the
+// pointer travelled in between — makeNavigator()'s own drag-to-pan above does
+// exactly that. Every click-based multi-point tool on these two canvases (raw
+// crop; SR crop/measure/track-select, wired further below) must ignore a click
+// that was really the tail end of a pan-drag, or dragging a zoomed-in view
+// silently drops a new tool corner/point wherever the drag happened to end —
+// a real, reported bug (dragging a zoomed raw-panel view while the crop tool
+// was armed planted a stray crop corner on release, eventually cropping the
+// stack down to a tiny sliver with no way back short of reloading). Wires a
+// SEPARATE, passive pointerdown/pointermove pair (alongside, not replacing,
+// makeNavigator()'s own) purely to measure total movement since the last
+// press; the returned wasDrag() lets a click handler bail out instead of
+// treating the event as a genuine single-point click. CLICK_DRAG_PX is CSS
+// pixels, generous enough to still treat a near-stationary press as a click.
+const CLICK_DRAG_PX=5;
+function trackDragDistance(cv){
+  let downPt=null, dist=0;
+  cv.addEventListener('pointerdown', e=>{ downPt={x:e.clientX,y:e.clientY}; dist=0; });
+  cv.addEventListener('pointermove', e=>{ if(downPt) dist=Math.max(dist, Math.hypot(e.clientX-downPt.x, e.clientY-downPt.y)); });
+  return ()=>dist>CLICK_DRAG_PX;
+}
+const srWasDrag=trackDragDistance($('sr')), rawWasDrag=trackDragDistance($('raw'));
 // draw also refreshes the raw panel, so panning/zooming the SR reconstruction
 // keeps drawSrViewportRoi()'s dotted ROI box in sync live (no-op extra call
 // when there's no raw frame loaded at all).
@@ -13071,7 +13094,7 @@ $('cropBtn').addEventListener('click',()=>{
   drawView();
 });
 $('sr').addEventListener('click',e=>{
-  if(!srFull||(!measureMode&&!cropMode&&!srTracksOverlayOn)) return;
+  if(!srFull||(!measureMode&&!cropMode&&!srTracksOverlayOn)||srWasDrag()) return;
   const {fx,fy}=srClickToFull(e);
   if(!measureMode&&!cropMode&&srTracksOverlayOn){
     // Track click-to-select — measure/crop take priority above (both are
@@ -13247,12 +13270,15 @@ $('raw').addEventListener('click',async e=>{
   // can still be true long after the crop itself, e.g. once a histogram or
   // other plot (rawIsPlot) has since taken over the SAME #raw canvas —
   // setRawPlot(true) disables rawCropBtn itself while a plot shows, but that
-  // doesn't touch rawCropMode or stop THIS listener from still firing. A
-  // real, reported bug without this check: panning/zooming a histogram (a
-  // click-drag on #raw) got silently reinterpreted as a crop-corner click,
-  // applying an unwanted second crop of the ALREADY-cropped stack from
-  // whatever arbitrary pixel the plot interaction happened to land on.
-  if(!rawCropMode || !stack || rawIsPlot) return;
+  // doesn't touch rawCropMode or stop THIS listener from still firing.
+  // rawWasDrag() (see trackDragDistance()'s own comment) covers the SAME
+  // click-after-drag failure mode for a genuine loaded frame too, not just a
+  // plot: dragging to PAN a zoomed-in raw frame while the crop tool was armed
+  // used to plant a stray crop corner on release (a real, reported bug —
+  // repeated drags eventually cropped the stack down to a tiny sliver, with
+  // no way back short of reloading, since each new "corner" kept chaining
+  // off wherever the previous accidental drag had left off).
+  if(!rawCropMode || !stack || rawIsPlot || rawWasDrag()) return;
   const {nx,ny}=rawClickToNative(e);
   if(!rawCropPt0){ rawCropPt0={x:nx,y:ny}; drawRawView(); return; }
   const x0=Math.max(0,Math.floor(Math.min(rawCropPt0.x,nx)));
@@ -13503,16 +13529,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06f — smFRET plot/overlay fixes:
-(1) the Time trace plot's x-axis is now time (s), from Frame time (s)
-starting at 0, instead of a raw frame number (hover still shows the
-underlying frame too); (2) its top-left ×10ⁿ exponent label now matches
-the 12px size of the tick labels/axis titles it sits beside (same fix
-also applied to the PCFO plot and the shared histogram plot, which had
-the identical undersized label); (3) the SOI composite now numbers each
-site next to its ROI box, same visual style as the single particle
-tracking module's own track numbers — 3D calibration's own bead
-composite, which shares the same overlay code, is unaffected.
+log(`webSMLM v0.12.1-dev · build 2026-09-06g — crop-tool bug fix:
+dragging to pan a zoomed-in view while the raw crop tool (or the SR
+panel's own crop/measure tool) was armed used to plant a stray crop
+corner/point wherever the drag ended — browsers still fire a click
+event after a pointerdown/drag/pointerup sequence, no matter how far
+the pointer moved. Repeated drags on the raw crop tool in particular
+could crop the stack down to a tiny sliver with no way back short of
+reloading. Fixed by measuring the actual on-screen drag distance and
+ignoring a click past a small threshold; an ordinary two-click crop/
+measure still works exactly as before.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
