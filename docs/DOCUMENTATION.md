@@ -775,15 +775,23 @@ converges to an implausibly narrow OR implausibly wide σ, or drifts too far
 from its seed — precisely "no real molecule in this frame's window" —
 instead of forcing a shape onto flat noise the way the fixed-position
 least-squares fit did (diagnosed against real data: isolated single-frame
-spikes with no corresponding brightness in the raw pixels at all). A site
-too close to a given frame's own edge, or a rejected fit, leaves a gap
-(`NaN`) at that frame rather than aborting the whole trace.
+spikes with no corresponding brightness in the raw pixels at all). A REJECTED
+fit reports **zero** intensity at that frame — a real, physically meaningful
+judgement that no molecule was on, not missing data. Only a site too close to
+a given frame's own edge (no window to even attempt a fit on) leaves a genuine
+gap (`NaN`) rather than aborting the whole trace.
 
-Checked: `apertureIntensity()` sums the fit window box and subtracts a local
-background from its own outer ring — no iterative fit at all, so it always
-succeeds once a site is far enough from the edge (there's no convergence to
-fail), at the cost of not reporting a per-frame width. Recommended if a
-trace from the default method still shows an implausible spike.
+Checked: `apertureIntensity()` sums the fit window box (the same size the fit
+would use, centred on the site's rounded position — not independently
+configurable) and subtracts a local background estimated from that SAME box's
+own outermost ring of pixels — not a separate, non-overlapping ring further
+out. That ring sits close enough to a real emitter's own PSF tail that some
+genuine signal can leak into it, inflating the background estimate and
+occasionally driving the raw result negative for a real, dim emitter — floored
+at 0 (no iterative fit at all, so it always succeeds once a site is far enough
+from the edge; there's no convergence to fail), at the cost of not reporting a
+per-frame width. Recommended if a trace from the default method still shows an
+implausible spike.
 
 Both methods report properly gain/camoffset-corrected true photon units.
 Many sites × many frames — most of

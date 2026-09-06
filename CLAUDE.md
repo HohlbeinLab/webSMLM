@@ -850,6 +850,25 @@ relevant one before editing rather than scrolling:
   Save/Load Settings like every other `PARAMS` field — `getSmfretTimeTraces()` itself still has no
   headless equivalent (unaffected by this).
 
+  **Three more reported fixes, same round.** (1) A REJECTED/non-converged `gaussianMLEspheric` fit
+  now writes `0` into `traces[j].photons[fi]`, not the array's `NaN` fill default — the reject logic
+  already IS the best-available judgement that no real molecule was on at that site that frame, a
+  real, physically meaningful ZERO intensity, not missing data; `NaN` is now reserved for the
+  genuinely different "too close to THIS frame's own edge" case just above it (no window to even
+  attempt a fit on). `drawSmfretTrace()`'s NaN-breaks-the-line logic and its own `nGaps` counter both
+  benefit for free — a rejected fit no longer shows as a break in the curve, and "N frame(s) not fit"
+  now means exactly that, not "fit ran and said no." (2) `apertureIntensity()` is now floored at 0
+  (`Math.max(0, ...)`) — its own background-ring estimate sits at the aperture's own edge, not a
+  separate non-overlapping annulus further out, so a real, dim emitter's PSF tail leaking into that
+  ring inflates the background estimate and can legitimately drive the raw arithmetic negative; a
+  negative photon count has no physical meaning regardless of where the bias came from. (3) Editing
+  **Frame time (s)** while a Time trace was showing left the plot's own x-axis stale (it reads
+  `frametime` fresh on every draw, per `drawSmfretTrace()`'s own comment, but nothing previously
+  triggered that redraw when `frametime` itself changed — spt's own `frametime` listeners only ever
+  refreshed spt's own displays). Fixed with one more `$('frametime').addEventListener('change', ...)`
+  guarded by `smfretOwnsRawPanel()`, same gating convention `liveStreamOwnsRawPanel()` already
+  established for its own scrubber redraws.
+
   **`drawSmfretTrace(idx)`** plots one site's intensity-vs-frame curve in the raw (left) panel,
   following the exact "left panel doubles as a plot surface" pattern drift/NeNA/FRC already use
   (`rawFull=null; setRawPlot(true); rawPlotName='smfretTrace'`, `setupPlot()` for the 4:3

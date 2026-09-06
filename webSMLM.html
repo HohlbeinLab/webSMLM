@@ -109,7 +109,7 @@
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9662   single particle tracking, trackpy-inspired;
+    spt             9687   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -140,7 +140,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11163  top-level orchestration, *Core()/wrapper split;
+    pipeline        11196  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -149,7 +149,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11784  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11817  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -203,11 +203,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13799  localizations table, filtering, histograms;
+    table           13836  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14437  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14474  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1905,7 +1905,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9452,12 +9452,25 @@ $('smfretFixSOI').addEventListener('change',()=>{
 });
 // Aperture photometry (v0.12.1-dev): a model-free alternative to fitting for
 // extracting one site's intensity at a KNOWN, already-located position — sums
-// the win×win box and subtracts a local background estimated from the box's
-// own outer ring (same idea phasorFit()'s own background ring uses), no
-// iterative fit involved. gain (camoffset cancels exactly in a background-
-// SUBTRACTED linear sum — no need to pass it separately) converts the result
-// to the same true-photon-unit convention gaussianMLEspheric() below uses, so
-// the two methods' outputs stay comparable.
+// the SAME win×win box the fit would use (win=2*winr+1, centred on the
+// site's rounded x,y — not independently configurable) and subtracts a local
+// background estimated from that SAME box's own OUTERMOST RING of pixels
+// (|dx|===r or |dy|===r — same idea phasorFit()'s own background ring uses),
+// no iterative fit involved. Note this ring sits AT the aperture's own edge,
+// not a separate, non-overlapping annulus further out — a real, accepted
+// bias for a real emitter whose PSF tail still has non-negligible amplitude
+// out at the edge of a typical win=7 (r=3, ~2.3σ for the default σ_PSF=1.3)
+// box: some genuine signal leaks into the "background" ring, inflating the
+// background estimate and correspondingly UNDER-estimating intensity — this
+// is exactly why a real, dim molecule can occasionally come out negative
+// here (floored below), not a sign of a coding bug. gain (camoffset cancels
+// exactly in a background-SUBTRACTED linear sum — no need to pass it
+// separately) converts the result to the same true-photon-unit convention
+// gaussianMLEspheric() below uses, so the two methods' outputs stay
+// comparable. Floored at 0 — a negative estimate has no physical meaning
+// (there is no such thing as negative photon count) even though the ring-
+// contamination bias above can legitimately drive the raw arithmetic below
+// zero for a real, dim emitter.
 function apertureIntensity(img,w,h,cx,cy,win,gain=1){
   const r=(win-1)/2;
   let sum=0,boxN=0,ringSum=0,ringN=0;
@@ -9466,7 +9479,7 @@ function apertureIntensity(img,w,h,cx,cy,win,gain=1){
     const v=img[y*w+x]; sum+=v; boxN++;
     if(Math.abs(dx)===r||Math.abs(dy)===r){ ringSum+=v; ringN++; }
   }
-  return gain*(sum - (ringN?ringSum/ringN:0)*boxN);
+  return Math.max(0, gain*(sum - (ringN?ringSum/ringN:0)*boxN));
 }
 // "Get time traces": extracts each Localize SOI site's intensity in EVERY
 // frame of the loaded movie, re-using its known x,y only to pick which
@@ -9556,7 +9569,16 @@ async function getSmfretTimeTraces(){
         // reject logic — 3D calibration's astigmatic fits legitimately need
         // σ to range far more widely away from focus, so tightening the
         // shared ceiling itself would risk breaking that unrelated path.
-        if(L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) traces[j].photons[fi]=L.photons;
+        // A REJECTED fit (didn't converge, or failed any of the plausibility
+        // checks above) reports ZERO here, not a NaN gap — reported: a NaN
+        // gap reads as "unknown", but this reject logic already IS the
+        // best-available judgement that no real molecule was on at this
+        // site this frame, which is a real, physically meaningful ZERO
+        // intensity, not missing data. NaN is reserved for the genuinely
+        // different case just above (site too close to THIS frame's own
+        // edge — no window to even attempt a fit on, an actual gap in the
+        // data itself, not a judgement about the molecule's state).
+        traces[j].photons[fi] = (L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) ? L.photons : 0;
       }
       // Many sites × many frames, most of which won't even contain a real
       // localization for a given faint site (a fixed-position fit still runs
@@ -9630,9 +9652,12 @@ function drawSmfretTrace(idx){
   for(const t of niceTicks(0,tMax,6)){ const x=X(t/frametime);
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
     ctx.fillText(t.toFixed(decT),x,mT+ph+9); }
-  // Break the line at any NaN (a frame this site's fit missed — too close to
-  // that frame's own edge, or a degenerate fit) instead of interpolating
-  // across the gap or drawing to a non-finite coordinate.
+  // Break the line at any NaN (a frame where the site's own window was too
+  // close to THAT frame's edge to attempt anything at all — a genuine gap in
+  // the data itself) instead of interpolating across it or drawing to a
+  // non-finite coordinate. A rejected/non-converged fit is NOT a gap here —
+  // it reports 0 (see getSmfretTimeTraces()'s own comment), a real judgement
+  // that no molecule was on, not missing data.
   ctx.strokeStyle='#c81cc8'; ctx.lineWidth=1.6; ctx.beginPath();
   let started=false;
   for(let f=0;f<n;f++){ const v=ys[f];
@@ -10555,6 +10580,14 @@ $('sptShowTracksPct').addEventListener('change', refreshTracksOverlayIfShown);
 $('frametime').addEventListener('change', recomputeSptD);
 $('frametime').addEventListener('change', refreshSptTrackLenHistIfShown);   // only the locs->seconds tau label changes, not the histogram's own bins
 $('frametime').addEventListener('change', refreshSptMsdIfShown);   // rescales the x-axis (lag*frametime) and the fitted D
+// smFRET's own Time trace plot reads frametime fresh on every draw (its
+// x-axis IS time, not frame index — see drawSmfretTrace()'s own comment),
+// but nothing previously triggered that redraw when frametime itself
+// changed — reported: editing Frame time (s) while a trace was showing left
+// its x-axis stale (wrong scale) until some UNRELATED redraw (e.g. a window
+// resize) happened to fire _replotRaw. smfretOwnsRawPanel() guards this the
+// same way liveStreamOwnsRawPanel() gates its own scrubber's redraws.
+$('frametime').addEventListener('change', ()=>{ if(smfretOwnsRawPanel()) drawSmfretTrace(smfretTraceIdx); });
 $('sptLocError').addEventListener('change', recomputeSptD);
 // Min track length doesn't change trackLengths itself (see drawSptTrackLenHist's
 // own comment) — this only moves the threshold MARKER on an already-shown
@@ -13669,20 +13702,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06j — smFRET Get time traces now
-defaults to a standard 2D MLE fit (seeded at each site, position free),
-not a fixed-position least-squares fit — real feedback: fixing x,y never
-made sense here, unlike bright calibration beads. This surfaced a real,
-app-wide gap: the 3 MLE fitters' own σ clamp had no upper bound at all
-(unlike their LSQ siblings), letting a fit on background-only signal
-converge to a wide diffuse "blob" with a spuriously huge integrated
-photon count. Fixed with MLE_MAX_SIGMA=6 (MODULE: fit, shared) plus a
-tighter smFRET-local check on top, empirically verified against real
-data (564 accepted fits, only 13 genuine outliers, cleanly separated).
-Checked LS as an alternative too — same or worse instability, since the
-issue is LS's unweighted residuals, unrelated to position being fixed.
-"Aperture photometry (no fit)" remains available as a second, fit-free
-option. Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-06k — three more smFRET Get time
+traces fixes: (1) a rejected/non-converged fit now reports zero intensity,
+not a NaN gap — the reject logic already IS a real judgement that no
+molecule was on, not missing data; (2) Aperture photometry is now floored
+at 0 — its background-ring estimate sits at the aperture's own edge, so a
+real, dim emitter's PSF tail can legitimately drive the raw arithmetic
+negative, which has no physical meaning regardless of where the bias came
+from; (3) editing Frame time (s) while a trace was showing left its x-axis
+stale until an unrelated redraw happened to fire — now refreshes live.
+Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
