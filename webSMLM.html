@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2482   PARAMS registry, single source of truth for params;
+    params          2491   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3220   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3229   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3519   synthetic stack generator ("Simulate movie")
-    detect          4397   per-frame band-pass + local-maxima detection
-    fit             4674   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3528   synthetic stack generator ("Simulate movie")
+    detect          4406   per-frame band-pass + local-maxima detection
+    fit             4683   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5313   accumulate to offscreen buffer; view/colour/blur;
+    render          5322   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6612   frame-parallel detect/fit worker pool; dedicated
+    workers         6621   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6922   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7214   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6931   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7223   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7641   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7650   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8147   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8156   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8858   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8867   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9798   single particle tracking, trackpy-inspired;
+    spt             9807   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11307  top-level orchestration, *Core()/wrapper split;
+    pipeline        11316  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -154,7 +154,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11928  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11937  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -208,11 +208,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13943  localizations table, filtering, histograms;
+    table           13951  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14581  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14589  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1813,6 +1813,15 @@ X.B(E,Y);return E}return J}())
   #locTable th,#locTable td,#trackTable th,#trackTable td{padding:3px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
   #locTable th,#trackTable th{position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none;color:var(--fg);z-index:1}
   #locTable th:hover,#trackTable th:hover{color:var(--accent)}
+  /* Unit suffix ("[nm]" etc.) on its own line below the column name, not
+     appended inline — reported: with many optional columns (sigma_x/sigma_y,
+     angle, track_id, ...) all-on-one-line headers made the table wide enough
+     to push later columns (nmerged in particular) out of view without
+     scrolling; the table's own default auto-layout sizes each column to its
+     widest line, so splitting the unit onto its own (shorter) line lets a
+     column shrink to whichever is narrower — the bare name or the bracketed
+     unit — instead of always needing room for both together. */
+  .col-unit{font-weight:normal;font-size:10px;color:var(--muted)}
   #locTable tbody tr:nth-child(even),#trackTable tbody tr:nth-child(even){background:var(--row-stripe)}
   #locTable tbody tr:hover,#trackTable tbody tr:hover{background:var(--panel)}
   #tableFilter.bad,#trackTableFilter.bad{border-color:var(--danger)}
@@ -1910,7 +1919,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06o</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -10355,7 +10364,7 @@ function renderTrackTable(){
   filtered.sort((a,b)=>{ const x=a[sc],y=b[sc]; if(!isFinite(x))return 1; if(!isFinite(y))return -1; return (x-y)*sd; });
   _trackTableFiltered=filtered;
   const shown=filtered.slice(0,TABLE_CAP);
-  const head='<thead><tr>'+cols.map(c=>`<th data-c="${c}">${c}${unit[c]?` [${unit[c]}]`:''}${c===sc?(sd>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead>';
+  const head='<thead><tr>'+cols.map(c=>`<th data-c="${c}">${c}${c===sc?(sd>0?' ▲':' ▼'):''}${unit[c]?`<br><span class="col-unit">[${unit[c]}]</span>`:''}</th>`).join('')+'</tr></thead>';
   const body='<tbody>'+shown.map(r=>'<tr>'+cols.map(c=>`<td>${isFinite(r[c])?r[c].toFixed(dec[c]):''}</td>`).join('')+'</tr>').join('')+'</tbody>';
   $('trackTable').innerHTML=head+body;
   $('trackTableFilters').innerHTML=_trackTableFilters.map((f,i)=>`<span class="fchip">${f.expr.replace(/</g,'&lt;').replace(/>/g,'&gt;')} <b data-i="${i}" title="remove">×</b></span>`).join('');
@@ -13814,13 +13823,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06o — toggling "Aperture
-photometry (no fit)" now auto-reruns Get time traces when a trace is
-already showing, matching Localize SOI's own "refresh an existing
-result" convention — previously the checkbox had no visible effect
-until the button was clicked again, easy to miss since it gives no
-other feedback. Only refreshes an EXISTING trace; doesn't auto-start
-one before Get time traces has ever been clicked.
+log(`webSMLM v0.12.1-dev · build 2026-09-06p — table headers (View
+data/filtering, Show track data): the unit suffix ("[nm]" etc.) now
+sits on its own line below the column name instead of appended inline
+— reported: with many optional columns active at once, one-line
+"name [unit]" headers made the table wide enough that later columns
+(nmerged in particular) needed horizontal scrolling to see at all.
+Verified all columns now fit with no scrolling even at a cramped
+900px width.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -14255,7 +14265,7 @@ function renderTable(){
   filtered.sort((a,b)=>{ const x=a[sc],y=b[sc]; if(!isFinite(x))return 1; if(!isFinite(y))return -1; return (x-y)*sd; });
   _tableFiltered=filtered;
   const shown=filtered.slice(0,TABLE_CAP);
-  const head='<thead><tr>'+cols.map(c=>`<th data-c="${c}">${c}${unit[c]?` [${unit[c]}]`:''}${c===sc?(sd>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead>';
+  const head='<thead><tr>'+cols.map(c=>`<th data-c="${c}">${c}${c===sc?(sd>0?' ▲':' ▼'):''}${unit[c]?`<br><span class="col-unit">[${unit[c]}]</span>`:''}</th>`).join('')+'</tr></thead>';
   const body='<tbody>'+shown.map(r=>'<tr>'+cols.map(c=>`<td>${isFinite(r[c])?r[c].toFixed(dec[c]):''}</td>`).join('')+'</tr>').join('')+'</tbody>';
   $('locTable').innerHTML=head+body;
   // active-filter chips (each removable) — cumulative clauses

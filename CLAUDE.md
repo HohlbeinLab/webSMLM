@@ -1459,6 +1459,20 @@ relevant one before editing rather than scrolling:
   `lastResult.locs` or clustered events; everything else consumes whichever it gets, the same
   loc-shape either way.
 
+  **Column headers put a unit suffix ("[nm]" etc.) on its OWN line, not appended inline**
+  (`<br><span class="col-unit">[...]</span>` in the shared `<th>` template both `#locTable` and
+  `#trackTable` build — see the CSS comment right above `.col-unit`) — reported: with many optional
+  columns active at once (sigma_x/sigma_y, angle, track_id, `nmerged` once clustering is on, ...),
+  every header reading "name [unit]" on one line made the table wide enough that later columns
+  (`nmerged` in particular) needed horizontal scrolling to see at all. The table's own default
+  auto-layout sizes each column to its widest LINE of content, so splitting the unit onto its own
+  (usually shorter) line lets a column shrink to whichever is narrower — the bare name or the
+  bracketed unit — instead of always needing room for both on one line; verified via Playwright at a
+  cramped 900px viewport that all 10 columns of a `tempClusteringXY`-filtered table (including
+  `nmerged`) now fit with no scrolling, and separately that `#trackTable` (sharing this exact
+  template) renders the same way. The sort arrow (▲/▼) moved to sit right after the column NAME
+  (previously after the unit) so it stays on the same line as the text people actually scan first.
+
   **`tempClusteringMemory <= N`** (frames, or `<= inf`, shipped — was the one remaining planned
   pseudo-field) is `clusterEvents()`'s new `memoryFrames` parameter (default 0, preserving the
   original hardcoded strict-adjacency behavior bit-for-bit — verified via Playwright: 0 produces the
