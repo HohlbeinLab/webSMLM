@@ -1459,6 +1459,45 @@ relevant one before editing rather than scrolling:
   `lastResult.locs` or clustered events; everything else consumes whichever it gets, the same
   loc-shape either way.
 
+  **Filtering is now CLI/JS-loggable** (v0.12.1-dev, on request — "repeat filtering steps"). Every
+  successful `_tableFilters.push()` — the ordinary-clause branch and the tempClustering branch in
+  `commitFilter()`, and the crop tool's own push — now calls `logCmd({tableFilters:
+  tableFilterExprList()})`, where `tableFilterExprList()` maps `_tableFilters` to
+  `f.exprCLI||f.expr`: the FULL cumulative array every time, so the most recently logged line
+  always reproduces the exact current filter state (same "curated snapshot, not a diff" convention
+  `run()`'s own `logCmd()` already uses). An ordinary or tempClustering entry's own `.expr` is
+  already valid, replayable filter syntax (it's literally what was typed); the crop tool's own
+  `.expr` is a pretty DISPLAY string ("crop: x 1234–5678 nm, y ...") `parseFilter()` can't parse, so
+  it gained a second `.exprCLI` field — the equivalent `x >= .. and x <= .. and y >= .. and y <= ..`
+  clause, built from the same `x0/x1/y0/y1` the crop tool already computes — used only for
+  logging/replay; the chip's own on-screen display still reads the pretty `.expr`, unchanged.
+  `resetFilters()` deliberately does NOT log anything — clearing filters isn't itself "a step to
+  repeat," and an absent `tableFilters` key is already the headless default.
+
+  **`tableFiltersCore(locs, px, exprList)`** (right after `commitFilter()`) is the pure, DOM-free
+  half — `config.tableFilters` (MODULE: headless API) calls it with the exact array `logCmd()`
+  above records, so an entire interactive filtering session (typed clauses, crop, temporal
+  clustering, in whatever order they were committed) replays headlessly. Walks `exprList` in order:
+  a `tempClustering(XY|Z|Memory)` entry updates local `{xy,z,memory}` state (replace, not stack, per
+  axis — same semantics `commitFilter()`'s own `_tableFilters=_tableFilters.filter(f=>f.cluster
+  !==axis)` line has) and rebuilds the base via the already-pure `clusterEvents()`; everything else
+  parses via the already-pure `parseFilter(expr, cols)` against the CURRENT base's columns and ANDs
+  into a running predicate; throws a plain `Error` on an unparseable clause (same "config
+  validation propagates immediately" convention `analyze()` uses elsewhere). Deliberately NOT
+  called FROM `commitFilter()` itself — the interactive path's own incremental one-clause-at-a-time
+  UI updates (chips, live count, rebuilding `_tableData` only when the base actually changes) don't
+  collapse into a single batch call cleanly; this is the "`*Core()`" DOM-free half existing
+  *alongside* the interactive one, not a replacement for it. Verified end-to-end: replaying a real
+  interactive session's own logged `tableFilters` array (an ordinary clause + a tempClustering
+  clause, and separately a crop) through a fresh headless `analyze()` reproduces the EXACT same
+  filtered row count as the interactive session's own `_tableFiltered.length` — 442/442 and 112/112
+  on a real test file — and a real `tools/webSMLM-cli.mjs --tableFilters "..."` run matches too.
+
+  **`locTableData(baseLocs, isClustered, px)`** gained an optional 3rd `px` parameter (default
+  `px??lastResult.px`) so `tableFiltersCore()` above can call it with no `lastResult`/interactive
+  session at all — all 3 existing interactive call sites (`rebuildTableData()`, `openTable()`, the
+  crop tool) omit the 3rd argument and are completely unaffected.
+
   **Column headers put a unit suffix ("[nm]" etc.) on its OWN line, not appended inline**
   (`<br><span class="col-unit">[...]</span>` in the shared `<th>` template both `#locTable` and
   `#trackTable` build — see the CSS comment right above `.col-unit`) — reported: with many optional

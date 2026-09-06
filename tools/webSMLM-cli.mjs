@@ -150,6 +150,14 @@
 // Deliberately independent of --exportPlots: usable with or without it.
 // An unknown/all-non-finite column logs a warning inside analyze() itself
 // and is silently skipped, not a hard error.
+// --tableFilters "intensity > 1000,tempClusteringXY < 150" (comma-separated
+// clauses — no commas WITHIN a clause, since the filter grammar itself never
+// needs one) replays the "View data/filtering" table's own committed filters
+// (typed clauses, the crop tool, temporal clustering) headlessly, in order —
+// the exact array a real interactive session's own logCmd() already records
+// each time a filter is committed. Applied last, after any drift/pairing/
+// tracking, so it reshapes the CSV/reconstruction/exportHistograms output
+// but not the drift/NeNA/FRC numbers (computed on the full result earlier).
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync, createWriteStream } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
@@ -338,7 +346,7 @@ try {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
-      } else if (key === 'exportHistograms') {
+      } else if (key === 'exportHistograms' || key === 'tableFilters') {
         config[key] = String(raw).split(',').map(s => s.trim()).filter(Boolean);
       }
     }

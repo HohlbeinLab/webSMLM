@@ -2071,6 +2071,13 @@ matching field names as you type (↑/↓ to move, Enter/Tab to accept),
 sourced from the current table's own columns plus the three clustering
 pseudo-fields below.
 
+Every committed clause — a typed filter, the reconstruction panel's own crop
+tool (below), or a clustering pseudo-field — logs a directly-replayable
+command: the log window's most recent line always reads the FULL cumulative
+list as `analyze({..., tableFilters:[...]})`/`--tableFilters "..."`, so an
+entire filtering session can be reproduced headlessly in one call (see
+[§8](#8-headless-api-window-websmlm)'s `config.tableFilters`).
+
 **Clustering pseudo-fields** — `tempClusteringXY < N` (nm),
 `tempClusteringZ < N` (nm), and `tempClusteringMemory <= N` (frames, or
 `tempClusteringMemory <= inf` for no limit) are recognised specially
@@ -2440,6 +2447,23 @@ const result = await window.webSMLM.analyze({
   `sigma_x`/`sigma_y` are converted to nm before histogramming, matching the
   CSV/table's own convention (they're stored in raw pixel units internally);
   every other column is histogrammed as-is.
+- `config.tableFilters` — an array of filter-grammar strings (e.g.
+  `['intensity > 1000', 'tempClusteringXY < 150']`), not a `PARAMS` entry.
+  The headless equivalent of the **View data/filtering** table's own
+  committed filters — typed clauses, the SR-panel crop tool, and
+  `tempClusteringXY`/`Z`/`Memory` (see [§5](#5-table-filter-grammar) for the
+  grammar) — applied in order, exactly as if each had been typed and
+  committed interactively one at a time. Every interactive filter commit
+  (including a crop) already logs a directly-replayable `tableFilters` array
+  via `logCmd()` — copy the most recent one from the log to reproduce an
+  entire filtering session headlessly, in whatever order it was built up.
+  Applied LAST in the pipeline (after `sSmlmPair`/`correctDrift`/`sptTrack`),
+  reshaping `result.locs` itself — so the CSV, the reconstruction PNG, and
+  `exportHistograms` all see the filtered set, but `drift`/`nena`/`frc`
+  above still reflect the FULL, unfiltered result (matching the typical
+  interactive order: measure/correct/pair/track on everything, filter
+  afterward for the final output). An unparseable clause throws, same as any
+  other invalid config value.
 - `config.exportTrackData`/`config.exportSSmlmCandidates`/
   `config.exportCalibrationPoints`/`config.exportPcfoTiles` — booleans, not
   `PARAMS` entries. Each streams a per-record dataset (per-track MSD curves,

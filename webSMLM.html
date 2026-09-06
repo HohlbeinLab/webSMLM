@@ -208,11 +208,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13951  localizations table, filtering, histograms;
+    table           13960  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
-                           unlimited/"inf") in clusterEvents()
-    headless API    14589  window.webSMLM.analyze()/analyzeBatch();
+                           unlimited/"inf") in clusterEvents(); tableFiltersCore()
+                           (config.tableFilters) replays a whole committed-filter
+                           session (typed clauses/crop/clustering) headlessly —
+                           every commitFilter()/crop logCmd()s the full array
+    headless API    14646  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1919,7 +1922,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06p</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06q</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13425,9 +13428,17 @@ $('sr').addEventListener('click',e=>{
   const base=getBaseLocs();
   try{ _tableData=locTableData(base, base!==lastResult.locs); }
   catch(err){ log(`⚠ Crop filter not applied: ${err.message}`); return; }   // stay in crop mode — the user can try a smaller region
+  // .expr is a pretty DISPLAY string (shown in the filter chip) — not valid
+  // filter syntax parseFilter() could re-parse, unlike an ordinary or
+  // tempClustering entry's own .expr. .exprCLI is the equivalent REPLAYABLE
+  // clause tableFilterExprList()/tableFiltersCore() (below) use instead, so
+  // logCmd() below and a headless config.tableFilters replay both see valid
+  // filter syntax, while the chip keeps its own nicer wording.
   _tableFilters.push({expr:`crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm`,
+    exprCLI:`x >= ${x0.toFixed(1)} and x <= ${x1.toFixed(1)} and y >= ${y0.toFixed(1)} and y <= ${y1.toFixed(1)}`,
     fn:r=>r.x>=x0&&r.x<=x1&&r.y>=y0&&r.y<=y1});
   renderTable(); applyFilterToReconstruction();
+  logCmd({tableFilters: tableFilterExprList()});
   // Zoom/pan the SR view to fit the cropped rect, so the crop is immediately
   // shown at its own scale instead of still sitting at the old (whole-image)
   // zoom with most of the visible area now empty. Same "fit within" math as
@@ -13823,14 +13834,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06p — table headers (View
-data/filtering, Show track data): the unit suffix ("[nm]" etc.) now
-sits on its own line below the column name instead of appended inline
-— reported: with many optional columns active at once, one-line
-"name [unit]" headers made the table wide enough that later columns
-(nmerged in particular) needed horizontal scrolling to see at all.
-Verified all columns now fit with no scrolling even at a cramped
-900px width.
+log(`webSMLM v0.12.1-dev · build 2026-09-06q — table filtering (View
+data/filtering: typed clauses, the crop tool, temporal clustering) is
+now CLI/JS-loggable. Every committed filter logs the full cumulative
+list as analyze({tableFilters:[...]}) — copy the most recent line to
+replay an entire filtering session headlessly. New config.tableFilters
+applies last (after drift/pairing/tracking), reshaping the CSV/
+reconstruction/histograms the same way the crop tool already reshapes
+them interactively. Verified: replaying a real session's own logged
+array through a fresh headless run reproduces the exact same filtered
+row count, for both typed filters and a crop.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -14113,8 +14126,11 @@ function checkTableSize(n){
 // Builds the {cols,dec,unit,rows} shape the locs table renders from —
 // column list adapts to what's actually present (z, sSMLM dist, sx/sy,
 // track_id/D_coeff, cell_id, …), each an optional column like the CSV export.
-function locTableData(baseLocs, isClustered){
-  const locs=baseLocs||lastResult.locs, {px}=lastResult;
+// `px` defaults to lastResult.px (every existing interactive call site omits
+// it) — the explicit override lets tableFiltersCore() (below) call this
+// headlessly, with no lastResult/interactive session at all.
+function locTableData(baseLocs, isClustered, px){
+  const locs=baseLocs||lastResult.locs; px=px??lastResult.px;
   checkTableSize(locs.length);
   const sigPSF=paramValue('psf');   // gain/offset are applied inside the fit itself now, not here
   const hasZ=locs.some(L=>isFinite(L.z));
@@ -14232,12 +14248,54 @@ function commitFilter(){
     const {xy,z}=getClusterParams();
     if(axis==='memory' && !xy && !z) log(`⚠ ${raw} has no effect yet — set tempClusteringXY or tempClusteringZ too (memory only extends an already-active clustering chain).`);
     else log(`Temporal clustering: ${raw} — ${_tableData.rows.length.toLocaleString()} events from ${lastResult.locs.length.toLocaleString()} localizations.`);
+    logCmd({tableFilters: tableFilterExprList()});
     return;
   }
   const pf=parseFilter(raw,_tableData.cols);
   if(!pf.ok){ $('tableFilter').classList.add('bad'); $('tableCount').textContent=`⚠ ${pf.err}`; return; }
   _tableFilters.push({expr:raw, fn:pf.fn}); $('tableFilter').value=''; $('tableFilter').classList.remove('bad'); renderTable(); applyFilterToReconstruction();
   log(`Filter added: ${raw} — ${_tableFiltered.length.toLocaleString()} of ${_tableData.rows.length.toLocaleString()} pass (${_tableFilters.length} filter${_tableFilters.length>1?'s':''} active).`);
+  logCmd({tableFilters: tableFilterExprList()});
+}
+// _tableFilters entries in REPLAYABLE filter-syntax form, for logCmd()/the
+// headless config.tableFilters equivalent below — an ordinary or
+// tempClustering entry's own .expr already IS valid filter syntax (it's
+// literally what the user typed), but the crop tool's own .expr (below) is a
+// pretty display string ("crop: x 1234–5678 nm, ...") that parseFilter()
+// can't parse, hence the .exprCLI fallback.
+function tableFilterExprList(){ return _tableFilters.map(f=>f.exprCLI||f.expr); }
+// Pure, DOM-free equivalent of commitFilter()'s own cumulative loop above —
+// applies every expression in exprList IN ORDER (a tempClustering directive
+// changes the BASE row set; everything else ANDs into a running predicate),
+// returning the FINAL filtered locs array. Used by analyze()'s own
+// config.tableFilters (MODULE: headless API) so an entire interactive
+// filtering session — typed clauses, the crop tool, temporal clustering, in
+// whatever order they were committed — can be replayed headlessly from the
+// exact array logCmd() above records. Deliberately NOT called from
+// commitFilter() itself: the interactive path's own incremental
+// one-clause-at-a-time UI updates (chips, live count, only rebuilding
+// _tableData when the base actually changes) don't collapse into a single
+// batch call cleanly — this is the "*Core()" DOM-free half existing
+// alongside the interactive one, not a replacement for it.
+function tableFiltersCore(locs, px, exprList){
+  let cluster={xy:0, z:0, memory:0}, base=locs, cols=locTableData(locs,false,px).cols;
+  const ordinary=[];
+  for(const raw of exprList){
+    const cm=raw.match(/^tempClustering(XY|Z|Memory)\s*(<|<=)\s*(inf(?:inity)?|[0-9.]+)\s*$/i);
+    if(cm){
+      const axis=cm[1].toLowerCase(), val=/^inf/i.test(cm[3])?Infinity:parseFloat(cm[3]);
+      cluster[axis]=val;   // one active threshold per axis — replace, don't stack, same as commitFilter()
+      base = (cluster.xy||cluster.z) ? clusterEvents(locs, cluster.xy, cluster.z, px, cluster.memory) : locs;
+      cols = locTableData(base, base!==locs, px).cols;
+      continue;
+    }
+    const pf=parseFilter(raw, cols);
+    if(!pf.ok) throw new Error(`analyze(): tableFilters — ${pf.err} (in "${raw}")`);
+    ordinary.push(pf.fn);
+  }
+  if(!ordinary.length) return base;
+  const rows=locTableData(base, base!==locs, px).rows;
+  return base.filter((L,i)=>ordinary.every(fn=>fn(rows[i])));
 }
 // Clears every committed filter clause (including clustering) and rebuilds.
 function resetFilters(){ const had=_tableFilters.length; _tableFilters=[]; $('tableFilter').value=''; rebuildTableData();
@@ -14693,6 +14751,17 @@ function calibFromJson(o){
 //                          channel onLog/onProgress already use
 //   onProgress            — optional (0..100) callback for a driving script's
 //                          own progress reporting
+//   tableFilters          — string[], the headless equivalent of the "View
+//                          data/filtering" table's own committed filters
+//                          (typed clauses, the crop tool, tempClusteringXY/
+//                          Z/Memory — MODULE: table) via the SAME pure
+//                          tableFiltersCore() commitFilter()'s own logCmd()
+//                          calls already record a replayable array for.
+//                          Applied LAST (after correctDrift/sSmlmPair/
+//                          sptTrack), reassigning `locs` itself so CSV
+//                          export/the reconstruction PNG/exportHistograms
+//                          all see the filtered set — drift/NeNA/FRC above
+//                          still reflect the FULL dataset either way.
 // Returns {locs, csvText, logText, settingsText, timings, reconstructionPng,
 // drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, plots} — every
 // text/PNG/SVG field is ready to write straight to disk, no further
@@ -14917,6 +14986,24 @@ async function analyze(config){
     const sr = await sptCore(locs, cfg.pxnm, cfg, {onLog, onProgress, onRecord:cfg.onRecord}, segCtx);
     locs = sr.locs;
     spt = {nTracks:sr.nTracks, nQualify:sr.diffCoeffs.length, meanD:sr.meanD, medianD:sr.medianD};
+  }
+  // config.tableFilters — the headless equivalent of the "View data/filtering"
+  // table's own committed filters (typed clauses, the SR-panel crop tool, and
+  // tempClusteringXY/Z/Memory — MODULE: table), applied via the SAME pure
+  // tableFiltersCore() commitFilter()'s own logCmd() calls record replays
+  // through. Deliberately LAST in the pipeline, after sSmlmPair/correctDrift/
+  // sptTrack — matches the typical interactive order (measure/pair/track/
+  // drift-correct on the FULL result, filter afterward for the final table/
+  // export), so drift/NeNA/FRC above still reflect the whole dataset even
+  // when a caller also filters. Reassigns `locs` itself (not a separate
+  // renderLocs-style side-channel, unlike the interactive globals) so CSV
+  // export, the reconstruction PNG, and exportHistograms below all see the
+  // filtered set for free — the identical "everything downstream sees a
+  // filter the same way" contract the interactive `renderLocs` provides.
+  if(cfg.tableFilters && cfg.tableFilters.length && locs.length){
+    const nBefore=locs.length;
+    locs = tableFiltersCore(locs, cfg.pxnm, cfg.tableFilters);
+    onLog(`Table filters (${cfg.tableFilters.join(' | ')}): ${nBefore.toLocaleString()} -> ${locs.length.toLocaleString()} rows.`);
   }
   const {parts} = buildCsvText(locs, cfg.pxnm, cfg.psf);
   // Same check exportCSV()'s wrapper does interactively (only reachable
