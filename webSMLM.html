@@ -72,20 +72,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6474   frame-parallel detect/fit worker pool; dedicated
+    workers         6497   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6781   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7073   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6804   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7096   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7500   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7523   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8006   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8029   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8715   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8740   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9487   single particle tracking, trackpy-inspired;
+    spt             9526   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10988  top-level orchestration, *Core()/wrapper split;
+    pipeline        11027  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11609  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11648  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13594  localizations table, filtering, histograms;
+    table           13635  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14230  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14273  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5894,7 +5894,7 @@ function drawView(){
   } else {
     ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
   }
-  if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH);   // bead-composite view only
+  if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI);   // bead-composite view only; numbered only for smFRET's own SOI composite, not 3D calibration's bead composite sharing this same path
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
   // Cache the drawn rect (or null when not shown) for the depth-bar drag
   // hit-test (see depthBarPos's own comment) — this is the only call site
@@ -6358,18 +6358,40 @@ function drawRawView(){
 // bead-composite mode), in display coords — NOT baked into the frame buffer,
 // so they stay a fixed on-screen size and keep sub-pixel position at any zoom
 // (a pixel centre is native i+0.5). Shared by both panels' render and the PNG
-// export (which calls it under a scale()).
-function drawSpotOverlays(ctx,v,spots,locs,DW,DH){
+// export (which calls it under a scale()). numbered (default false) draws
+// each loc's 1-based index next to its crosshair, SAME visual style
+// drawTracksOverlay() uses for its own track numbers (dark semi-transparent
+// backing box, white text, font size scaling with view.zoom/fitZoom()) — by
+// request, for the smFRET SOI composite specifically (its own call site
+// below is the only one that ever passes true; every other caller of this
+// shared function — the raw-panel calibration/live-detect overlays — is
+// unaffected).
+function drawSpotOverlays(ctx,v,spots,locs,DW,DH,numbered=false){
   const z=v.zoom, sw=DW/z, sh=DH/z, sx=v.cx-sw/2, sy=v.cy-sh/2;
   const TX=nx=>(nx-sx)*z, TY=ny=>(ny-sy)*z;
   if(spots&&spots.length){ ctx.strokeStyle='#3fb950'; ctx.lineWidth=1;
     const r=Math.max(2, paramValue('winr')*z);   // ROI box = actual fit window half-width
     for(const [x,y] of spots) ctx.strokeRect(TX(x+0.5)-r, TY(y+0.5)-r, 2*r, 2*r); }
   if(locs&&locs.length){ ctx.strokeStyle='#ff3bff'; ctx.lineWidth=1.4;
+    // Same fontPx formula as drawTracksOverlay()'s own track numbers — "how
+    // much more zoomed in than the default fit" rather than an absolute
+    // view.zoom (dataset/mag-independent), same [9,14]px clamp.
+    const fitZ=numbered?fitZoom():0, fontPx=Math.max(9, Math.min(14, 5.5*(fitZ>0?v.zoom/fitZ:1)));
+    if(numbered){ ctx.font=fontPx+'px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='bottom'; }
+    let i=0;
     for(const L of locs){ const dx=TX(L.x+0.5), dy=TY(L.y+0.5); ctx.beginPath();  // sub-pixel crosshair
       ctx.moveTo(dx-6,dy); ctx.lineTo(dx-2,dy); ctx.moveTo(dx+2,dy); ctx.lineTo(dx+6,dy);
       ctx.moveTo(dx,dy-6); ctx.lineTo(dx,dy-2); ctx.moveTo(dx,dy+2); ctx.lineTo(dx,dy+6);
-      ctx.stroke(); } }
+      ctx.stroke();
+      if(numbered){
+        const label=String(++i), tx=dx+7, ty=dy-7;
+        const m=ctx.measureText(label);
+        const asc=m.actualBoundingBoxAscent||fontPx*0.8, desc=m.actualBoundingBoxDescent||fontPx*0.2, pad=3;
+        ctx.fillStyle='rgba(0,0,0,.6)';
+        ctx.fillRect(tx-pad, ty-asc-pad, m.width+pad*2, asc+desc+pad*2);
+        ctx.fillStyle='#fff';
+        ctx.fillText(label, tx, ty);
+      } } }
 }
 // Once the user has zoomed into the SR reconstruction panel, draw a dotted
 // rectangle on the raw-frame panel marking which part of the camera FOV that
@@ -6997,7 +7019,7 @@ async function exportPanel(which){
   ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
   ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
   ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
-  if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
+  if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
   else drawRawOverlays(ctx,DW,DH);
   ctx.restore();
   const note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
@@ -8609,7 +8631,9 @@ function drawPcfoPlot(){
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText(`image signal (ADU)${xScale.label?' ('+xScale.label+')':''}`, mL+pw/2, mT+ph+26);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('noise variance (ADU²)',0,0); ctx.restore();
-  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='11px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
+  // Same 12px as the tick labels/axis titles above — reported as reading
+  // too small next to them at the previous 11px.
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
   ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT;
   ctx.fillStyle=C.axis; ctx.fillText(`gain = ${(1/fit.gain).toFixed(3)} photons/ADU · offset = ${fit.offset.toFixed(1)} ADU · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
   $('rawInfo').textContent='— PCFO: image signal vs. noise variance per tile · slope→gain, intercept→offset · scrub a frame to return';
@@ -9443,6 +9467,12 @@ function drawSmfretTrace(idx){
   let lo=Infinity,hi=-Infinity; for(let f=0;f<n;f++){ const v=ys[f]; if(isFinite(v)){ if(v<lo)lo=v; if(v>hi)hi=v; } }
   if(!isFinite(lo)){ lo=0; hi=1; }   // every frame missed this site — still draw empty axes, not a NaN-driven crash
   const pad=(hi-lo)*0.1||1; lo=Math.min(0,lo-pad); hi+=pad;
+  // X is still indexed by FRAME (the data itself, ys[f], has no other axis) —
+  // frametime only rescales what the TICKS show (time, not frame number);
+  // time is exactly linear in frame index, so X(f) itself is unchanged
+  // either way (X(f) = mL+pw*(f*frametime)/((n-1)*frametime), which cancels
+  // to the same plain mL+pw*f/(n-1) — no separate time->pixel map needed).
+  const frametime=paramValue('frametime'), tMax=(n-1)*frametime;
   const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
   // Full 5-6 digit ADU tick labels visually collide with the rotated axis-name
   // text at this margin (same "offset notation" fix drawPcfoPlot() already
@@ -9454,9 +9484,15 @@ function drawSmfretTrace(idx){
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
     ctx.fillText((v/yScale.scale).toFixed(yScale.decimals),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const f of niceTicks(0,n-1,6)){ const x=X(f);
+  // Tick VALUES are chosen in time (seconds, "nice" round times, e.g. 0/1/2 s)
+  // rather than translating frame-based ticks — with a real frametime those
+  // read far better than whatever odd seconds value a "nice" frame number
+  // happens to land on. decT: more decimals for a short (sub-10 s) trace,
+  // where whole seconds alone would collapse most ticks to "0".
+  const decT = tMax<10 ? 2 : tMax<100 ? 1 : 0;
+  for(const t of niceTicks(0,tMax,6)){ const x=X(t/frametime);
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
-    ctx.fillText((f+1).toFixed(0),x,mT+ph+9); }
+    ctx.fillText(t.toFixed(decT),x,mT+ph+9); }
   // Break the line at any NaN (a frame this site's fit missed — too close to
   // that frame's own edge, or a degenerate fit) instead of interpolating
   // across the gap or drawing to a non-finite coordinate.
@@ -9469,14 +9505,16 @@ function drawSmfretTrace(idx){
   ctx.stroke();
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curve
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.fillText('frame', mL+pw/2, mT+ph+28);
+  ctx.fillText('time (s)', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (ADU)',0,0); ctx.restore();
-  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='11px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
+  // Same 12px as the tick labels/axis titles above — was 11px, reported as
+  // reading too small next to them.
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
   const nGaps=ys.reduce((c,v)=>c+(isFinite(v)?0:1),0);
   $('rawInfo').textContent = `— site ${idx+1}/${smfretTraces.length} at (${site.x.toFixed(1)}, ${site.y.toFixed(1)}) px`
     + (nGaps ? ` · ${nGaps} frame(s) not fit` : '');
   registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
-    fmt:(vx,vy)=>`frame ${(vx+1).toFixed(0)} · ${vy.toFixed(0)} ADU`});
+    fmt:(vx,vy)=>`t = ${(vx*frametime).toFixed(decT)} s (frame ${(vx+1).toFixed(0)}) · ${vy.toFixed(0)} ADU`});
   _replotRaw=()=>drawSmfretTrace(smfretTraceIdx);
   syncSaveImg();
 }
@@ -13465,16 +13503,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06e — logging/headless fixes:
-(1) a loaded movie's recorded command was missing frametime alongside
-pxnm; (2) "Localize SOI" and "Preview pairs" now log a real, replayable
-command each time they run, backed by two genuinely new headless flags
-— config.smfretLocateSOI and config.sSmlmPreview (+ CLI --smfretLocateSOI/
---sSmlmPreview) — not just a cosmetic log line; exportPlots also
-renders the Preview pairs distance histogram headlessly now. Along the
-way, fixed a real bug this surfaced: averageFrames() (used by Localize
-SOI) checked a global that's always unset in a headless page, so it
-silently aborted on every single headless call before this fix.
+log(`webSMLM v0.12.1-dev · build 2026-09-06f — smFRET plot/overlay fixes:
+(1) the Time trace plot's x-axis is now time (s), from Frame time (s)
+starting at 0, instead of a raw frame number (hover still shows the
+underlying frame too); (2) its top-left ×10ⁿ exponent label now matches
+the 12px size of the tick labels/axis titles it sits beside (same fix
+also applied to the PCFO plot and the shared histogram plot, which had
+the identical undersized label); (3) the SOI composite now numbers each
+site next to its ROI box, same visual style as the single particle
+tracking module's own track numbers — 3D calibration's own bead
+composite, which shares the same overlay code, is unaffected.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -13980,7 +14018,9 @@ function drawHistogram(){
   for(const c of yticks){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
     ctx.fillText(logY?c.toFixed(0):(c/yScale.scale).toFixed(yScale.decimals),mL-9,y); }
-  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='11px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
+  // Same 12px as the tick labels/axis titles above — reported as reading
+  // too small next to them at the previous 11px.
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
   ctx.textAlign='center'; ctx.textBaseline='top';
   for(const v of niceTicks(x0,x1,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward

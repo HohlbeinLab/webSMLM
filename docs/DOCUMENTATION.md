@@ -695,7 +695,12 @@ the same way a bead composite is: the composite image fills the
 reconstruction (right) panel as `srFull`, with `srSpots`/`srLocs` driving
 the ROI-box/fit-crosshair overlay (`drawSpotOverlays()`, MODULE: render) —
 a reference view, not a real per-localization reconstruction
-(`setSrRecon(false)`).
+(`setSrRecon(false)`). Each site's 1-based index is drawn next to its ROI
+box (v0.12.1-dev), same visual style as the **single particle tracking**
+module's own track numbers (dark backing box, white text, size scaling
+with zoom) — this numbering appears only on the SOI composite, not on 3D
+calibration's own bead composite even though both share the same
+`drawSpotOverlays()` call.
 
 Every successful run — the first click, or a later auto-rerun — also
 writes `smfretSOI` into `lastResult` (`{locs:smfretSOI, w, h, px, mag,
@@ -768,7 +773,11 @@ y-axis uses the same matplotlib-style offset notation (`axisScale()`) the
 PCFO plot already relies on for its own large-value axis — full 5-6 digit
 ADU tick labels otherwise visually collide with the rotated "intensity
 (ADU)" axis title; ticks instead show small 1-2 digit numbers plus a single
-`×10ⁿ` multiplier drawn once near the axis. While a
+`×10ⁿ` multiplier drawn once near the axis, at the same font size as the
+tick labels/axis titles themselves. The x-axis is **time (s)**, computed
+from **Frame time (s)** (`frametime`, starting from 0), not a raw frame
+number — hovering the plot shows both the time and the underlying frame
+index. While a
 trace is showing, the raw panel's own Frame scrubber (`#scrubRow`) is
 replaced by a dedicated **site** scrubber (`#smfretTraceScrubRow`) — mouse
 wheel over its slider, or dragging the slider itself, steps through SITES

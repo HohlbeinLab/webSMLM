@@ -805,6 +805,44 @@ relevant one before editing rather than scrolling:
   until its id was separately added to all 5 rules; a shared class means a FUTURE scrubber just
   needs `class="scrubslider"` to get the right look with no CSS change required at all.
 
+  **`drawSmfretTrace()`'s x-axis is TIME (s), not frame index** (reported — a raw frame-number axis
+  is meaningless without knowing the acquisition's own frame time). Exploits that
+  `time = frame_index × frametime` is exactly linear: the existing per-frame pixel-mapping function
+  `X(f)` needed NO change at all (it still maps a frame index to an x pixel) — only the TICK
+  generation changed, from iterating frame-based `niceTicks` to iterating time-based `niceTicks(0,
+  (n-1)*frametime, 6)` and converting each "nice" time value back to an equivalent (possibly
+  fractional) frame index via `t/frametime` before handing it to the unchanged `X()`. `frametime`
+  (`paramValue('frametime')`, "Frame time (s)") is read fresh on every draw, so editing it live
+  redraws the trace in the new units via the usual `_replotRaw` mechanism. Tick VALUES are chosen in
+  time directly (not translated from "nice" frame numbers) so they land on round seconds rather than
+  whatever odd time a nice frame number happens to produce; `decT` (tick decimal places) scales up
+  for short (<10s) traces, where whole seconds alone would collapse most ticks to "0". The hover
+  tooltip shows both (`t = X.XX s (frame N)`) so the underlying frame is still recoverable.
+  **`yScale.label`'s font (the `axisScale()` `×10ⁿ` multiplier, top-left)** was 11px against the
+  12px tick labels/axis titles it sits beside — reported as reading too small next to them; bumped to
+  match at 12px. The identical `axisScale()`-multiplier font-size fix was also applied to
+  `drawPcfoPlot()` and the shared `drawHistogram()` (table/spt/sSMLM histograms) for the same
+  app-wide consistency, not just this one plot.
+
+  **The SOI composite draws each site's 1-based index next to its ROI box** (v0.12.1-dev, requested
+  — "same visual style as plotting tracks in the single particle tracking module"), via a new
+  `numbered` parameter on the shared `drawSpotOverlays(ctx,v,spots,locs,DW,DH,numbered=false)`
+  (MODULE: render) — the SAME function that also draws 3D calibration's own bead-composite overlay
+  and the raw-panel live-detect overlay, at 3 call sites total. Reuses `drawTracksOverlay()`'s
+  (MODULE: spt) EXACT label style: font size `Math.max(9,Math.min(14,5.5*(fitZ>0?v.zoom/fitZ:1)))`
+  (scales with how far zoomed in past `fitZoom()`, clamped [9,14]px, dataset/mag-independent), white
+  text on an `rgba(0,0,0,.6)` backing box sized via `ctx.measureText()`'s bounding-box metrics, offset
+  from the crosshair centre (`+7,-7` here vs. tracks' own `+3,-3` — SOI's crosshair itself, unlike a
+  track's start-point dot, has no filled marker to clear, so a slightly larger offset reads better
+  against the crosshair's own arms). Only the SR-panel call site passes `numbered:true`, and only
+  conditionally: `srLocs===smfretSOI` — an OBJECT-IDENTITY check, not a bare `smfretSOI!==null` one,
+  because `smfretSOI` is a session-scoped global that is never cleared when 3D calibration's own bead
+  composite is later shown for the same loaded stack (`locateBeadsForCalib()` sets its own, DIFFERENT
+  `fitted` array into `srLocs`) — a bare non-null check would have kept numbering calibration's own
+  beads too, stale, after an earlier smFRET run in the same session. Applied identically at both
+  `drawView()`'s own SR-panel draw and the PNG-export code path (`isSR` branch) so a saved composite
+  image matches what's on screen.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
   `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
