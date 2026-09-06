@@ -753,26 +753,40 @@ happened to still be current, which SOI already claimed the moment it
 first ran.
 
 **Get time traces** (`getSmfretTimeTraces()`) extracts every `smfretSOI`
-site's intensity at its OWN fixed x,y position — never re-detected — in
-EVERY frame of the loaded movie, by one of two methods selected by
-**Aperture photometry (no fit)** (`smfretApertureMode`, default unchecked):
-unchecked (default), `gaussianFitEllipticalFixedXY()` (MODULE: fit; the same
-fixed-position fitter 3D calibration's own **Fix bead x,y** mode already
-uses for its width-vs-z curves); checked, `apertureIntensity()` sums the fit
-window box and subtracts a local background from its own outer ring — no
-iterative fit at all. The fit can be genuinely unstable on real smFRET
-candidate sites, which are often only detectable at all because **Localize
-SOI** averages many frames first — a single frame's own window can be close
-to flat background noise, and an unweighted least-squares Gaussian fit to
-that occasionally produces a spurious single-frame spike (amplitude blowing
-up, width collapsing toward its floor) with no corresponding brightness in
-the actual pixels; aperture photometry has no such failure mode since a sum
-has no local minimum to get stuck in, at the cost of not reporting a
-per-frame width. A site too close to a given frame's own edge, or whose fit
-doesn't converge, leaves a gap (`NaN`) at that frame rather than aborting
-the whole trace (aperture photometry itself always succeeds once a site is
-far enough from the edge — there's no convergence to fail). Many sites ×
-many frames — most of
+site's intensity — using its known x,y only to pick which window to look
+at, never re-detected by scanning the whole frame — in EVERY frame of the
+loaded movie, by one of two methods selected by **Aperture photometry (no
+fit)** (`smfretApertureMode`, default unchecked):
+
+Unchecked (default): the standard 2D spherical Gauss MLE fitter,
+`gaussianMLEspheric()` (MODULE: fit — the same fitter an ordinary Localize
+run uses), **seeded** at the site's own rounded position but with x,y left
+**free** to fit, not held fixed. An earlier version held x,y fixed
+(`gaussianFitEllipticalFixedXY()`, still used unmodified by 3D calibration's
+own **Fix bead x,y** mode) — changed on reported feedback: fixing position
+only makes sense for calibration's own bright, well-isolated beads, where
+the position is already known precisely; a faint smFRET candidate has no
+such guarantee, since **Localize SOI**'s own position is only a
+composite-image estimate, and on a frame where the molecule is genuinely OFF
+there is no real PSF there to fit no matter where x,y starts. Seeding (not
+fixing) x,y lets the fitter's own accept/reject logic do the right thing:
+it rejects a fit that doesn't converge, collapses onto pure background,
+converges to an implausibly narrow OR implausibly wide σ, or drifts too far
+from its seed — precisely "no real molecule in this frame's window" —
+instead of forcing a shape onto flat noise the way the fixed-position
+least-squares fit did (diagnosed against real data: isolated single-frame
+spikes with no corresponding brightness in the raw pixels at all). A site
+too close to a given frame's own edge, or a rejected fit, leaves a gap
+(`NaN`) at that frame rather than aborting the whole trace.
+
+Checked: `apertureIntensity()` sums the fit window box and subtracts a local
+background from its own outer ring — no iterative fit at all, so it always
+succeeds once a site is far enough from the edge (there's no convergence to
+fail), at the cost of not reporting a per-frame width. Recommended if a
+trace from the default method still shows an implausible spike.
+
+Both methods report properly gain/camoffset-corrected true photon units.
+Many sites × many frames — most of
 which won't contain a real localization for a given faint site, since
 extraction still runs there regardless — can take a while, so this
 reports real progress on the shared progress bar rather than leaving it
@@ -798,12 +812,8 @@ wheel over its slider, or dragging the slider itself, steps through SITES
 instead of frames, the same "another feature owns the raw panel" pattern
 `liveStreamOwnsRawPanel()` already established for its own scrubber
 (`smfretOwnsRawPanel()`, checked by the shared `scrubByWheel` routing).
-Deliberately a "simple check" only for now: `gaussianFitEllipticalFixedXY`
-takes no `gain`/`camoffset` at all (unlike the 5 mainline fitters), so the
-plotted intensity is in raw ADU, not true photon counts — matching 3D
-calibration's own precedent of not gain-correcting its fixed-position fits
-either; and there is no donor/acceptor/FRET channel assignment yet, just
-one curve per site.
+Deliberately a "simple check" only for now: there is no donor/acceptor/FRET
+channel assignment yet, just one curve per site.
 
 **Headless**: `config.smfretLocateSOI` (v0.12.1-dev) runs the same
 `smfretSOICore()` the interactive button calls — see [§8](#8-headless-api-window-websmlm)
@@ -1888,7 +1898,7 @@ for the first implementation.
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
 <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
 <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-<p><b>Get time traces</b> extracts every site's intensity at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a Gaussian at the fixed position; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace shows implausible single-frame spikes (a real risk on faint sites, where a single frame's own window can be close to background noise). While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
+<p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
 <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 

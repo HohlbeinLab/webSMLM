@@ -759,53 +759,96 @@ relevant one before editing rather than scrolling:
   its check-to-trigger direction. `initScrub()` resets it to unchecked on every fresh stack load,
   same reasoning as `smfretSOI` itself (scoped to one loaded stack, not sticky).
 
-  **Get time traces** (`getSmfretTimeTraces()`) fits every `smfretSOI` site at its OWN fixed x,y
-  position — never re-detected — in EVERY frame of the loaded movie, via
-  `gaussianFitEllipticalFixedXY()` (MODULE: fit; the exact fixed-position fitter 3D calibration's
-  own `calFixedXY` mode already uses). A site too close to a given frame's own edge, or a
-  non-converging fit, leaves a `NaN` gap at that frame rather than aborting the whole trace.
-  Sequential over frames (`await stack.getFrames(fi,fi+1)` per frame, `await tick()` every ~50ms) —
-  not worker-parallelized, matching the "simple check" scope of this feature; a real performance
-  concern only once dataset sizes grow past what prompted this. Wired to the shared progress bar
-  (`setProg(100*(fi+1)/n)`, `setProg(null)` in a `finally`) — reported: many sites × many frames,
-  most of which won't contain a real localization for a given faint site (a fixed-position fit
-  still runs there regardless, same cost either way), can take a while with zero visual feedback
-  otherwise, the same `onProgress`→`setProg` convention `sptCore()`/`pairCore()`/`driftCore()`/
-  `calibrationCore()` already use. `smfretTimeTracesBtn` disables for the duration (re-enabled in
-  the same `finally`, gated on `smfretSOI` still being non-empty — mirrors `runSptTrack()`'s own
-  disable/`finally`-re-enable shape). Deliberately NOT gain/offset
-  corrected: `gaussianFitEllipticalFixedXY` takes no `gain`/`camoffset` at all (unlike the 5
-  mainline fitters — MODULE: fit's own gain/offset paragraph), so `smfretTraces`' own `photons`
-  field is raw ADU, matching 3D calibration's own precedent of never gain-correcting its
-  fixed-position fits either (they only ever needed σx/σy ratios, not absolute counts).
+  **Get time traces** (`getSmfretTimeTraces()`) extracts every `smfretSOI` site's intensity — its
+  known x,y only picks which `win×win` window to look at, never re-detected by scanning the whole
+  frame — in EVERY frame of the loaded movie. Sequential over frames (`await stack.getFrames(fi,
+  fi+1)` per frame, `await tick()` every ~50ms) — not worker-parallelized, matching the "simple
+  check" scope of this feature; a real performance concern only once dataset sizes grow past what
+  prompted this. Wired to the shared progress bar (`setProg(100*(fi+1)/n)`, `setProg(null)` in a
+  `finally`) — reported: many sites × many frames, most of which won't contain a real localization
+  for a given faint site (extraction still runs there regardless, same cost either way), can take a
+  while with zero visual feedback otherwise, the same `onProgress`→`setProg` convention `sptCore()`/
+  `pairCore()`/`driftCore()`/`calibrationCore()` already use. `smfretTimeTracesBtn` disables for the
+  duration (re-enabled in the same `finally`, gated on `smfretSOI` still being non-empty — mirrors
+  `runSptTrack()`'s own disable/`finally`-re-enable shape).
 
-  **`smfretApertureMode`** ("Aperture photometry (no fit)", default unchecked, v0.12.1-dev) is a
-  second extraction method for `getSmfretTimeTraces()`, alongside (not replacing)
-  `gaussianFitEllipticalFixedXY` — reported/diagnosed: on a real donor-heavy prism/polychroic
-  dataset, several sites' time traces showed isolated single-frame "spikes" (amplitude 10-100x the
-  surrounding frames) with NO corresponding brightness in the raw pixels at all (checked directly —
-  the raw ADU values under the fit window on a spike frame looked identical to calm neighbouring
-  frames). Root cause: `gaussianFitEllipticalFixedXY` is an UNWEIGHTED nonlinear least-squares fit,
-  fine for `calFixedXY`'s own bright, well-isolated calibration beads, but real smFRET candidate
-  sites are often only detectable at all because **Localize SOI** averages many frames first — a
-  SINGLE frame's own fit window can be close to flat background noise, and fitting a Gaussian PSF
-  shape to that is ill-posed; the optimizer occasionally converges to a spurious narrow/high-
-  amplitude "fake" peak (σ shrinking toward its 0.5 px floor) that happens to fit one frame's random
-  noise pattern unusually well. `apertureIntensity(img,w,h,cx,cy,win)` (right above
-  `getSmfretTimeTraces()`) is the fix: sums the same `win×win` box and subtracts a local background
+  **Two extraction methods, chosen by `smfretApertureMode`** ("Aperture photometry (no fit)",
+  default unchecked, v0.12.1-dev). This went through THREE iterations while diagnosing a real,
+  reported bug: on a real donor-heavy prism/polychroic dataset, several sites' time traces showed
+  isolated single-frame "spikes" (amplitude 10-120x the surrounding frames) with NO corresponding
+  brightness in the raw pixels at all (checked directly — the raw ADU values under the fit window on
+  a spike frame looked identical to calm neighbouring frames).
+
+  1. **Originally**: `gaussianFitEllipticalFixedXY()` (MODULE: fit — the exact fixed-position fitter
+     3D calibration's own `calFixedXY` mode still uses, unmodified). Root cause of the spikes: an
+     UNWEIGHTED nonlinear least-squares fit, fine for `calFixedXY`'s own bright, well-isolated
+     calibration beads, but real smFRET candidate sites are often only detectable at all because
+     **Localize SOI** averages many frames first — a SINGLE frame's own fit window can be close to
+     flat background noise, and fitting a Gaussian PSF shape to that is ill-posed; the optimizer
+     occasionally converged to a spurious narrow/high-amplitude "fake" peak (σ shrinking toward its
+     0.5 px floor) that happened to fit one frame's random noise pattern unusually well.
+  2. **Then**: reported feedback — there is no reason to FIX x,y at all here, unlike calibration's
+     own bright/well-isolated beads; a standard 2D MLE fit with x,y merely SEEDED at the known
+     position (free to move) should simply fail to converge, or get rejected, on a frame with no
+     real molecule — that IS the desired behaviour, not something to special-case around. Switched
+     the default to `gaussianMLEspheric()` (MODULE: fit — the exact same fitter an ordinary Localize
+     run uses) seeded at the site's rounded position, x,y left free. This alone cut the worst site's
+     max/median ratio from 117x to ~25x and correctly turned most of the remaining bad frames into
+     NaN gaps (the fitter's own existing accept/reject logic — non-convergence, amplitude pinned at
+     its floor, position drifted too far from the seed) — but not all the way: gain/camoffset are now
+     applied (`paramValue('gain')`/`paramValue('camoffset')`), so `smfretTraces`' `photons` field is
+     now true photon units, no longer the deliberately-uncorrected raw ADU the fixed-position fitter
+     produced.
+  3. **Then**: direct pixel inspection of a remaining spike (site 5, frame 23: fitted photons=27,326,
+     raw 7×7 box sum barely moving between frames) revealed the fitted σ was 5.95 px — essentially
+     UNBOUNDED, since `mleClampSpherical()`/`mleClampElliptical()` (right above `gaussianMLEspheric`)
+     previously had NO ceiling on σ at all, unlike their LSQ siblings which already clamp to [0.5,6].
+     A wide, dim, diffuse "blob" spread across the whole window integrates to a large total photon
+     count from pure noise, with no localized bright pixel needed at all — a real, different failure
+     mode from the floor-pinned one. Fixed at TWO levels:
+     - **Shared, app-wide** (affects every caller of the 3 MLE fitters — `gaussianMLEspheric`/
+       `gaussianMLEelliptic`/`gaussianMLEellipticangled`): added `MLE_MAX_SIGMA=6` (MODULE: fit, right
+       after `MLE_MIN_SIGMA=0.5` — the SAME ceiling value the LSQ fitters already use, not a new
+       number invented here) to both clamp functions, and extended all three fitters' own
+       accept/reject line to also reject a result with σ (or σx/σy) pinned at EITHER `MLE_MIN_SIGMA`
+       or `MLE_MAX_SIGMA` — symmetric with the existing amplitude-floor reject already there.
+       `MLE_MAX_SIGMA` added to `WORKER_PRELUDE` alongside `MLE_MIN_SIGMA`/`FIT_MAX_DRIFT_SIGMA_MULT`
+       (the Web Worker gotcha — a module-level `const` a stringified fitter reads must be re-declared
+       there too). Deliberately conservative: reuses an EXISTING, already-shipped bound rather than
+       picking a new one, and only rejects a result already pinned exactly at a floor/ceiling — a
+       genuinely well-converged fit essentially never lands there by chance.
+     - **smFRET-specific, on top** (`getSmfretTimeTraces()` itself, not the shared fitter): the
+       shared 6px ceiling alone still wasn't tight enough — checked against the real dataset, a σ of
+       3-4px (comfortably under 6, against a 1.3px seed) is ALREADY wide enough, relative to the fit
+       window's own half-width, that a large fraction of the model's Gaussian mass extrapolates past
+       the window edge, so the reported total "photons" stops being meaningfully constrained by the
+       actually-observed pixels. Added `if(L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) traces[j]
+       .photons[fi]=L.photons;` — reusing `FIT_MAX_DRIFT_SIGMA_MULT`'s (2) own "how far can a trusted
+       result differ from its seed" reasoning, generalized from position to width. Empirically
+       checked, not guessed: of 564 accepted fits across all 14 real sites, only 13 (2.3%) exceed
+       2×σ_PSF, and EVERY one of those 13 is a clear photon-count outlier (median 8686 vs. the kept
+       population's 2112) — a clean separation, not a borderline cutoff. Deliberately scoped to
+       smFRET's OWN code, not folded into the shared fitter — 3D calibration's own astigmatic fits
+       legitimately need σ to range far more widely away from focus, so tightening the SHARED ceiling
+       to 2×σ_PSF would risk rejecting valid calibration data; this narrower check only applies where
+       x,y is merely seeded (not genuinely being scanned across a real z-range).
+
+  End-to-end result on the same real dataset: max/median ratios that were 1.4-120x with the original
+  fixed-position LSQ fit are now 1.2-9.1x with the final free-position MLE + both sigma-plausibility
+  gates — most sites' remaining variation now looks like genuine single-molecule blinking (extended
+  ON stretches, then a NaN-gap-heavy tail consistent with photobleaching) rather than isolated
+  divergent spikes.
+
+  **`smfretApertureMode`** checked runs `apertureIntensity(img,w,h,cx,cy,win,gain)` (right above
+  `getSmfretTimeTraces()`) instead: sums the same `win×win` box and subtracts a local background
   estimated from the box's own OUTER RING (same idea `phasorFit()`'s own background ring already
-  uses) — a linear operation with no iterative optimizer, so it cannot diverge the way the fit can.
-  Verified against the same real dataset: the fit's max/median ratio for the worst site was 117x;
-  aperture photometry on the identical site/frames came down to ~11x — still non-trivial (background-
-  subtracting a small signal against a large, noisy background inflates the RELATIVE fluctuation,
-  since the ring-based per-frame background estimate is itself noisy over just ~24 pixels), but a
-  fundamentally different failure mode: genuine shot-noise scatter around a small mean, not an
-  isolated divergent spike surrounded by near-zero. Trades away a per-frame width estimate (the fit's
-  own `sx`/`sy`, already unused by the plot) for a result that structurally cannot blow up. Neither
-  extraction method is gain/offset-corrected (same reasoning as the fit's own paragraph above) — both
-  report raw ADU. Registered as an ordinary `PARAMS` bool entry (`type:'bool'`), so it's automatically
-  part of Save/Load Settings like every other `PARAMS` field — `getSmfretTimeTraces()` itself still
-  has no headless equivalent (unaffected by this).
+  uses) — a linear operation with no iterative optimizer, so it structurally cannot diverge the way
+  either fit can, at the cost of not reporting a per-frame width. `camoffset` cancels out exactly in
+  a background-SUBTRACTED linear sum (no need to pass it separately) — only `gain` remains, applied
+  as a final multiplicative scale so both methods report the same true-photon-unit convention.
+  Registered as an ordinary `PARAMS` bool entry (`type:'bool'`), so it's automatically part of
+  Save/Load Settings like every other `PARAMS` field — `getSmfretTimeTraces()` itself still has no
+  headless equivalent (unaffected by this).
 
   **`drawSmfretTrace(idx)`** plots one site's intensity-vs-frame curve in the raw (left) panel,
   following the exact "left panel doubles as a plot surface" pattern drift/NeNA/FRC already use

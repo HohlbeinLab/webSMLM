@@ -132,16 +132,24 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     magnification mismatch between channels would need a proper affine map instead (fit from a
     bead/fiducial image visible in both channels).
   - **Building the DD(t)/DA(t)/(AA(t)) trace — "Get time traces" v1 shipped, two extraction methods
-    now available.** Once a molecule's position is fixed (composite + link step above), reading out
-    intensity per frame at a fixed x,y without re-detecting is already shipped
-    (`getSmfretTimeTraces()`) via either `gaussianFitEllipticalFixedXY` (the calibration module's own
-    fixed-x,y fitter) or, now, `apertureIntensity()` (box-sum minus local-ring background, no fit) —
-    checked against real data, the fit is genuinely unstable on faint smFRET sites (spurious
-    single-frame spikes with no real signal behind them), while aperture photometry cannot diverge
-    the same way; see **smFRET** in `CLAUDE.md` for the full writeup. **Run smFRET** would extend
-    this same per-frame extraction to every linked position across every frame, bucketed into
-    DD/DA/AA by ALEX frame role, building one row per molecule per frame — likely wanting APERTURE
-    photometry as ITS default too, given the same low-SNR regime, though this hasn't been decided.
+    now available.** Once a molecule's position is known (composite + link step above), reading out
+    intensity per frame — using that position only to pick which window to look at, never re-fixing
+    it — is already shipped (`getSmfretTimeTraces()`) via either `gaussianMLEspheric` (a standard 2D
+    MLE fit, seeded at the known position but free to move — the calibration module's own
+    FIXED-position fitter, `gaussianFitEllipticalFixedXY`, was tried first and rejected: real
+    smFRET candidate sites have none of a bright bead's known-precise position, so an unweighted
+    fixed-position fit was genuinely unstable on faint sites) or `apertureIntensity()` (box-sum minus
+    local-ring background, no fit at all) — checked directly against LS (least-squares) as an
+    alternative to MLE too: a free-position LS fit shows the SAME (often worse) spurious-spike
+    vulnerability on the same real data, since the instability comes from LS's unweighted residuals
+    treating a noisy pixel as trustworthy as a real one, not from anything related to position being
+    fixed or free — Poisson MLE's own inverse-variance weighting is what actually fixes it, and
+    that's orthogonal to whether centroid precision itself is needed here. See **smFRET** in
+    `CLAUDE.md` for the full writeup, including the two-part σ-plausibility fix this surfaced
+    (`MLE_MIN_SIGMA`/`MLE_MAX_SIGMA`, MODULE: fit — a shared, app-wide fix — plus a smFRET-local
+    tighter check on top). **Run smFRET** would extend this same per-frame extraction to every
+    linked position across every frame, bucketed into DD/DA/AA by ALEX frame role, building one row
+    per molecule per frame.
   - **Output = the existing streaming-NDJSON precedent**, not a new mechanism — `spt_tracks.ndjson`
     (`makeRecordEmitter()`, v0.11.10) is the same shape of problem (many molecules × many
     frames, too large for `analyze()`'s own return value), so a `smfret_traces.ndjson` stream (one

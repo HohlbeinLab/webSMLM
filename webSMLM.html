@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2470   PARAMS registry, single source of truth for params;
+    params          2477   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3207   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3215   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3506   synthetic stack generator ("Simulate movie")
-    detect          4384   per-frame band-pass + local-maxima detection
-    fit             4661   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3514   synthetic stack generator ("Simulate movie")
+    detect          4392   per-frame band-pass + local-maxima detection
+    fit             4669   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -49,8 +49,13 @@
                            accept/reject drift gate from Fit radius (winr) —
                            bounded by seed sigma0 instead; winr2d/winr3d
                            (MODULE: params) are applyWinrDefault()'s (MODULE:
-                           pipeline) two remembered defaults
-    render          5197   accumulate to offscreen buffer; view/colour/blur;
+                           pipeline) two remembered defaults; MLE_MIN_SIGMA/
+                           MLE_MAX_SIGMA (the 3 MLE fitters' own σ clamp,
+                           now symmetric with the LSQ fitters' [0.5,6]) also
+                           reject a result with σ PINNED at either bound, not
+                           just clamp it — smFRET's Get time traces surfaced
+                           the missing ceiling as a real bug
+    render          5250   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -72,20 +77,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6496   frame-parallel detect/fit worker pool; dedicated
+    workers         6549   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6803   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7095   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6858   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7150   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7522   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7577   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +100,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8028   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8083   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8742   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8794   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9557   single particle tracking, trackpy-inspired;
+    spt             9662   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +140,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11058  top-level orchestration, *Core()/wrapper split;
+    pipeline        11163  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +149,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11679  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11784  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,11 +203,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13688  localizations table, filtering, histograms;
+    table           13799  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14326  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14437  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1905,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2325,7 +2330,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
         <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get time traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix SOI x,y for time traces
           <input type="checkbox" id="smfretFixSOI"></label>
-        <label class="row" title="Get time traces below: extract each frame's intensity by summing the fit window box and subtracting a local background from its own outer ring, instead of fitting a Gaussian at the fixed position. No iterative fit to diverge — avoids spurious spikes the fit can produce on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
+        <label class="row" title="Get time traces below: extract each frame's intensity by summing the fit window box and subtracting a local background from its own outer ring, instead of fitting a standard 2D Gaussian MLE at each frame (seeded at the site, position free). No iterative fit to diverge — avoids the rare remaining case where the fit still produces an implausible result on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
           <input type="checkbox" id="smfretApertureMode"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
@@ -2336,7 +2341,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
           <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-          <p><b>Get time traces</b> extracts every site's intensity at its own fixed x,y position (never re-detected) in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a Gaussian at the fixed position; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace shows implausible single-frame spikes (a real risk on faint sites, where a single frame's own window can be close to background noise). While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no gain/offset correction (intensity is in raw ADU) and no donor/acceptor/FRET channel sorting yet.</p>
+          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead sum the fit window and subtract a local background ring — no fit to diverge, recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -4685,6 +4690,43 @@ function detectSpots(img,w,h,sigma,exactBP,mode,thr,border){
 // this one shared declaration; promote it to a real PARAMS entry later if
 // 2x ever proves wrong for real data.
 const FIT_MAX_DRIFT_SIGMA_MULT=2;
+// Floor applied to a fitted σ by mleClampSpherical()/mleClampElliptical()
+// during Newton iteration (prevents a genuinely singular/zero-width model
+// mid-iteration) — checked against Picasso 0.11.0's own gaussmle.py, which
+// floors at 0.01 px (`np.maximum(theta[4], 0.01)`), i.e. LOWER than this
+// value, not higher; Picasso relies on other machinery (a stricter LM
+// step-damping scheme in its newer/CUDA fitters) to keep that permissive
+// floor from causing trouble, which this codebase's simpler clamped-Newton
+// driver does not have. 0.5 was already more conservative than Picasso's
+// own number before this comment was written. The three MLE fitters below
+// additionally REJECT a converged result whose σ (or σx/σy) is pinned AT
+// this floor (see their own `th[4]<=MLE_MIN_SIGMA+1e-9` reject clauses) —
+// added after real data showed the OLDER, unweighted-least-squares
+// gaussianFitEllipticalFixedXY() (MODULE: smFRET) could converge to a
+// spuriously narrow, high-amplitude "fake" peak on a background-only
+// window; the amplitude-floor reject already below (`th[2]<=1+1e-9`) alone
+// doesn't catch that shape of failure, since amplitude there is NOT at its
+// own floor. Poisson MLE weighting makes the same pathology far less likely
+// than unweighted LSQ, but not impossible at very low true signal, so the
+// explicit reject stays cheap insurance. Deliberately NOT itself a proposal
+// to raise the floor value app-wide — that's a separate, bigger, shared-
+// numerical-constant decision spanning all 6 fitters (LSQ and MLE alike),
+// not something this reject-if-pinned check requires.
+const MLE_MIN_SIGMA=0.5;
+// Ceiling applied alongside MLE_MIN_SIGMA above — the 3 MLE fitters'
+// mleClampSpherical()/mleClampElliptical() previously had NO upper bound on
+// σ at all, unlike their LSQ siblings (gaussianFit/gaussianFitElliptical/
+// gaussianFitEllipticalFixedXY), which already clamp to [0.5,6] — 6 is that
+// SAME existing, already-shipped value, not a new one invented here. Added
+// after real smFRET data surfaced the missing ceiling as a real, DIFFERENT
+// failure mode from the floor one above: a fixed-position MLE fit on a
+// background-only window converged to σ≈5.95 (a broad, dim, diffuse "blob"
+// spread across the whole fit window) integrating to a spurious 27,326
+// photons from a raw ROI that barely fluctuated at all between frames — no
+// localized bright pixel needed, since the same total photon count spreads
+// arbitrarily thin over an arbitrarily wide σ once nothing constrains it.
+// Same reject-if-pinned treatment as the floor: `th[4]>=MLE_MAX_SIGMA-1e-9`.
+const MLE_MAX_SIGMA=6;
 // -- least-squares 2D Gaussian (Gauss-Newton + line search) --
 // Solves the n×n linear system A·x=b by Gauss-Jordan elimination with
 // partial pivoting; returns null if A is singular. Used by gaussianFit()'s
@@ -4791,8 +4833,8 @@ function mleModelElliptical(px,py,th,duOut){
 // Per-iteration parameter clamps (photon count >=1, background >=0, sigma
 // >=0.5px) keeping mleNewtonFit()'s Newton step in a physically valid
 // region — spherical (one sigma) and elliptical (sigma_x/sigma_y) variants.
-function mleClampSpherical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<0.5)th[4]=0.5; }
-function mleClampElliptical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<0.5)th[4]=0.5; if(th[5]<0.5)th[5]=0.5; }
+function mleClampSpherical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<MLE_MIN_SIGMA)th[4]=MLE_MIN_SIGMA; if(th[4]>MLE_MAX_SIGMA)th[4]=MLE_MAX_SIGMA; }
+function mleClampElliptical(th){ if(th[2]<1)th[2]=1; if(th[3]<0)th[3]=0; if(th[4]<MLE_MIN_SIGMA)th[4]=MLE_MIN_SIGMA; if(th[5]<MLE_MIN_SIGMA)th[5]=MLE_MIN_SIGMA; if(th[4]>MLE_MAX_SIGMA)th[4]=MLE_MAX_SIGMA; if(th[5]>MLE_MAX_SIGMA)th[5]=MLE_MAX_SIGMA; }
 // The Newton-with-per-parameter-step-clamp driver itself: identical to what
 // gaussianMLEspheric/gaussianMLEelliptic each hand-rolled before this refactor,
 // generalised over `n` (parameter count) and `modelFn` (which model —
@@ -4894,9 +4936,15 @@ function gaussianMLEspheric(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.00
   // slow-but-fine one; (2) amplitude pinned at the `Math.max(1,...)` floor
   // clamped above — the fit collapsed onto background instead of finding
   // real signal (the "zero intensity" pathology, with correspondingly
-  // meaningless bg/uncertainty); (3) out-of-window position.
+  // meaningless bg/uncertainty); (3) σ pinned at MLE_MIN_SIGMA or
+  // MLE_MAX_SIGMA — two OTHER shapes a degenerate collapse can take:
+  // narrow-and-tall (a spurious "fake" peak fit to one noisy pixel) or
+  // wide-and-diffuse (a huge integrated photon count spread arbitrarily thin
+  // over the whole window, needing no real localized brightness at all) —
+  // see MLE_MIN_SIGMA's/MLE_MAX_SIGMA's own comments; (4) out-of-window
+  // position.
   const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
+  if(!converged || th[2]<=1+1e-9 || th[4]<=MLE_MIN_SIGMA+1e-9 || th[4]>=MLE_MAX_SIGMA-1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
   let lpx=NaN,lpy=NaN;                                                         // CRLB = diagonal of Fisher⁻¹
   const ex=solveLin(fisher,[1,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
@@ -4921,9 +4969,10 @@ function gaussianMLEelliptic(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.0
   const npix=win*win, th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn), sigma0, sigma0 ];
   const mstep=[1,1,Math.max(100,0.3*th[2]),Math.max(2,th[3]),0.4,0.4];
   const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,mleModelElliptical);
-  // See gaussianMLEspheric's comment above — same three rejection criteria.
+  // See gaussianMLEspheric's comment above — same five rejection criteria
+  // (both σx/σy checked against the floor AND the ceiling, not just one).
   const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
+  if(!converged || th[2]<=1+1e-9 || th[4]<=MLE_MIN_SIGMA+1e-9 || th[5]<=MLE_MIN_SIGMA+1e-9 || th[4]>=MLE_MAX_SIGMA-1e-9 || th[5]>=MLE_MAX_SIGMA-1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
   let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN;
   const ex=solveLin(fisher,[1,0,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
@@ -4983,7 +5032,8 @@ function gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,e
   const modelFn=(px,py,thh,duOut)=>mleModelRotated(px,py,thh,duOut,fixedAngle);
   const {converged,fisher}=mleNewtonFit(n,th,mstep,mleClampElliptical,r,cx,cy,img,w,gain,camoffset,eps,25,modelFn);
   const maxDrift=FIT_MAX_DRIFT_SIGMA_MULT*sigma0;
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
+  // See gaussianMLEspheric's comment above — same five rejection criteria.
+  if(!converged || th[2]<=1+1e-9 || th[4]<=MLE_MIN_SIGMA+1e-9 || th[5]<=MLE_MIN_SIGMA+1e-9 || th[4]>=MLE_MAX_SIGMA-1e-9 || th[5]>=MLE_MAX_SIGMA-1e-9 || Math.abs(th[0]-cx)>maxDrift || Math.abs(th[1]-cy)>maxDrift || !isFinite(th[0])) return null;
   const unit=i=>{ const v=new Array(n).fill(0); v[i]=1; return v; };
   let lpx=NaN,lpy=NaN,lpsx=NaN,lpsy=NaN,lpangle=NaN;
   const ex=solveLin(fisher,unit(0)), ey=solveLin(fisher,unit(1));
@@ -6517,6 +6567,8 @@ const WORKER_PRELUDE=[
   "let _pcol=null,_prow=null,_pN=0;",
   "const _SQ2PI=Math.sqrt(2*Math.PI);",   // mleModelSpherical/mleModelElliptical (MODULE: fit) read this
   "const FIT_MAX_DRIFT_SIGMA_MULT=2;",    // all 5 fitters' own accept/reject drift gate (MODULE: fit) reads this
+  "const MLE_MIN_SIGMA=0.5;",             // the 3 MLE fitters' own σ-floor clamp + pinned-at-floor reject (MODULE: fit) reads this
+  "const MLE_MAX_SIGMA=6;",               // same, σ-ceiling half of the pair (MODULE: fit) reads this
 ].join('\n');
 
 // Builds the actual worker script: WORKER_PRELUDE's module-level state,
@@ -9398,22 +9450,15 @@ $('smfretFixSOI').addEventListener('change',()=>{
     $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
   }
 });
-// Aperture photometry (v0.12.1-dev): a model-free alternative to
-// gaussianFitEllipticalFixedXY() for extracting one site's intensity at a
-// FIXED, already-known position — sums the win×win box and subtracts a
-// local background estimated from the box's own outer ring (same idea
-// phasorFit()'s own background ring uses), no iterative fit involved.
-// Added because the fit is demonstrably unstable at the SNR real smFRET
-// candidate sites are often at: a single-frame window there is close to
-// flat background noise (the sites only became detectable at all because
-// Localize SOI averages many frames first), and an UNWEIGHTED least-squares
-// Gaussian fit to that is ill-posed — verified against a real dataset that
-// isolated single-frame "spikes" the fit produced (amplitude blowing up,
-// σ shrinking toward its floor) had no corresponding brightness in the raw
-// pixels at all, while a plain box-sum stayed flat across the same frames.
-// Trades away a per-frame width estimate (the fit's sx/sy) for a result
-// that can't diverge — a linear sum has no local minimum to get stuck in.
-function apertureIntensity(img,w,h,cx,cy,win){
+// Aperture photometry (v0.12.1-dev): a model-free alternative to fitting for
+// extracting one site's intensity at a KNOWN, already-located position — sums
+// the win×win box and subtracts a local background estimated from the box's
+// own outer ring (same idea phasorFit()'s own background ring uses), no
+// iterative fit involved. gain (camoffset cancels exactly in a background-
+// SUBTRACTED linear sum — no need to pass it separately) converts the result
+// to the same true-photon-unit convention gaussianMLEspheric() below uses, so
+// the two methods' outputs stay comparable.
+function apertureIntensity(img,w,h,cx,cy,win,gain=1){
   const r=(win-1)/2;
   let sum=0,boxN=0,ringSum=0,ringN=0;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
@@ -9421,22 +9466,61 @@ function apertureIntensity(img,w,h,cx,cy,win){
     const v=img[y*w+x]; sum+=v; boxN++;
     if(Math.abs(dx)===r||Math.abs(dy)===r){ ringSum+=v; ringN++; }
   }
-  return sum - (ringN?ringSum/ringN:0)*boxN;
+  return gain*(sum - (ringN?ringSum/ringN:0)*boxN);
 }
-// "Get time traces": extracts each Localize SOI site's intensity at its OWN
-// fixed x,y position (never re-detected) in EVERY frame of the loaded movie,
+// "Get time traces": extracts each Localize SOI site's intensity in EVERY
+// frame of the loaded movie, re-using its known x,y only to pick which
+// win×win window to look at (never re-detected by scanning the whole frame),
 // then plots one site's resulting intensity-vs-frame curve in the raw (left)
-// panel. Two extraction methods, chosen by smfretApertureMode: the default
-// is gaussianFitEllipticalFixedXY (same fixed-position fitter 3D calibration's
-// own "Fix bead x,y" mode uses, MODULE: fit); checked, apertureIntensity()
-// above runs instead (see its own comment for why). v1 "simple check" only:
-// no gain/offset conversion either way (matching gaussianFitEllipticalFixedXY's
-// own raw-ADU convention — it takes no gain/camoffset at all, unlike the 5
-// mainline fitters) and no donor/acceptor/FRET channel sorting yet — see
-// docs/REFACTOR_PLAN.md.
+// panel. Two extraction methods, chosen by smfretApertureMode:
+//
+// Default (unchecked): the STANDARD 2D spherical Gauss MLE fitter,
+// gaussianMLEspheric() (MODULE: fit — the exact same function a normal
+// Localize run uses), seeded at the site's own (rounded) position but with
+// x,y left FREE to fit, not held fixed. Originally this called
+// gaussianFitEllipticalFixedXY() instead (still used, unmodified, by 3D
+// calibration's own "Fix bead x,y" mode) — changed on reported feedback:
+// holding x,y fixed only ever made sense for calibration's own bright,
+// well-isolated beads, where the position is genuinely known in advance and
+// letting it float would just add unneeded noise. A faint smFRET candidate
+// site has no such guarantee — Localize SOI's own position is only a
+// COMPOSITE-image estimate, and on a frame where the molecule is actually
+// OFF there is no real PSF there to fit no matter where x,y starts. Seeding
+// (not fixing) x,y and letting gaussianMLEspheric()'s already-shipped
+// accept/reject logic run is the right tool for exactly that: it already
+// rejects a fit that doesn't converge, collapses onto pure background (no
+// real signal), pins σ at either MLE_MIN_SIGMA or MLE_MAX_SIGMA (see their
+// own comments — a narrow spurious spike and a wide diffuse "blob" are two
+// DIFFERENT degenerate shapes the same collapse can take), or drifts too
+// far from its seed (FIT_MAX_DRIFT_SIGMA_MULT × σ_PSF) — precisely "no real
+// molecule in this frame's window", instead of forcing a shape fit onto
+// flat noise the way the fixed-position LSQ fit did (diagnosed against real
+// data: isolated single-frame amplitude spikes with no corresponding
+// brightness in the raw pixels at all). A rejected fit leaves the existing
+// NaN gap, same convention as before. ONE MORE smFRET-specific check below
+// (`L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma`) on top of the shared fitter's
+// own — MLE_MAX_SIGMA (6px) alone still let through real cases where σ
+// comfortably under that ceiling (checked: 3-4px against a 1.3px seed) is
+// already wide enough, relative to the fit window's own half-width, that
+// the model's Gaussian mass extrapolates substantially past the window
+// edge — the reported total "photons" stops being meaningfully constrained
+// by the actually-observed pixels once that happens. This narrower check is
+// scoped to smFRET's OWN trace extraction, not the shared fitter, precisely
+// because 3D calibration's astigmatic fits legitimately need σ to range far
+// more widely away from focus — tightening the shared MLE_MAX_SIGMA itself
+// would risk rejecting valid calibration data.
+//
+// Checked: apertureIntensity() above runs instead (see its own comment).
+//
+// Both methods are now properly gain/camoffset-corrected true photon units
+// (previously deliberately raw ADU, matching gaussianFitEllipticalFixedXY's
+// own no-gain-correction convention — no longer applicable once that
+// function isn't the one being called by default). No donor/acceptor/FRET
+// channel sorting yet — see docs/REFACTOR_PLAN.md.
 async function getSmfretTimeTraces(){
   if(!stack || !smfretSOI || !smfretSOI.length) return;
   const {w,h}=stack, sigma=paramValue('psf'), win=2*paramValue('winr')+1, border=(win-1)/2+1;
+  const gain=paramValue('gain'), camoffset=paramValue('camoffset');
   const useAperture=paramValue('smfretApertureMode');
   const n=stack.n, sites=smfretSOI;
   const traces=sites.map(s=>({x:s.x,y:s.y,photons:new Float64Array(n).fill(NaN)}));
@@ -9449,9 +9533,30 @@ async function getSmfretTimeTraces(){
       for(let j=0;j<sites.length;j++){
         const s=sites[j], cx=Math.round(s.x), cy=Math.round(s.y);
         if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // site too close to THIS frame's edge
-        if(useAperture){ traces[j].photons[fi]=apertureIntensity(img,w,h,cx,cy,win); continue; }
-        const L=gaussianFitEllipticalFixedXY(img,w,h,cx,cy,s.x,s.y,win,sigma);
-        if(L) traces[j].photons[fi]=L.photons;
+        if(useAperture){ traces[j].photons[fi]=apertureIntensity(img,w,h,cx,cy,win,gain); continue; }
+        const L=gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset);
+        // gaussianMLEspheric()'s own MLE_MAX_SIGMA ceiling (6px, shared with
+        // every other caller) is far too loose a plausibility check HERE
+        // specifically: verified against the real dataset that motivated
+        // this whole method switch, a fitted σ anywhere near that ceiling
+        // (but still comfortably under it, e.g. 3-4px against a 1.3px seed)
+        // still produced a spurious, implausibly large "photons" value —
+        // once σ approaches the fit window's own half-width, a large chunk
+        // of the model's Gaussian mass extrapolates PAST the window edge,
+        // so the reported total integrated photon count stops being
+        // meaningfully constrained by the actually-observed pixels. Reuses
+        // FIT_MAX_DRIFT_SIGMA_MULT's own "how far can a trusted result
+        // differ from its seed" reasoning, generalized from position to
+        // width — empirically checked against the real dataset: of 564
+        // accepted fits across all 14 sites, only 13 (2.3%) exceed 2×σ_PSF,
+        // and EVERY one of those 13 is a clear photon-count outlier (median
+        // 8686 vs. the kept population's 2112) — a clean separation, not a
+        // borderline cutoff. Deliberately scoped to smFRET's OWN trace
+        // extraction, not folded into gaussianMLEspheric()'s own shared
+        // reject logic — 3D calibration's astigmatic fits legitimately need
+        // σ to range far more widely away from focus, so tightening the
+        // shared ceiling itself would risk breaking that unrelated path.
+        if(L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) traces[j].photons[fi]=L.photons;
       }
       // Many sites × many frames, most of which won't even contain a real
       // localization for a given faint site (a fixed-position fit still runs
@@ -13564,16 +13669,20 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06i — smFRET: Get time traces
-gains "Aperture photometry (no fit)" (smfretApertureMode). Diagnosed on
-real data: the default fixed-position Gaussian fit can spike to 10-100x
-on a single frame with no corresponding brightness in the raw pixels at
-all — an unweighted least-squares fit is unstable when a site's own
-per-frame signal is close to background noise (common here, since sites
-are only detectable at all after averaging many frames). The new option
-sums the fit window and subtracts a local ring background instead — no
-iterative fit, so it cannot diverge the same way.
-Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-06j — smFRET Get time traces now
+defaults to a standard 2D MLE fit (seeded at each site, position free),
+not a fixed-position least-squares fit — real feedback: fixing x,y never
+made sense here, unlike bright calibration beads. This surfaced a real,
+app-wide gap: the 3 MLE fitters' own σ clamp had no upper bound at all
+(unlike their LSQ siblings), letting a fit on background-only signal
+converge to a wide diffuse "blob" with a spuriously huge integrated
+photon count. Fixed with MLE_MAX_SIGMA=6 (MODULE: fit, shared) plus a
+tighter smFRET-local check on top, empirically verified against real
+data (564 accepted fits, only 13 genuine outliers, cleanly separated).
+Checked LS as an alternative too — same or worse instability, since the
+issue is LS's unweighted residuals, unrelated to position being fixed.
+"Aperture photometry (no fit)" remains available as a second, fit-free
+option. Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
