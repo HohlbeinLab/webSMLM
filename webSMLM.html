@@ -85,7 +85,7 @@
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7490   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7500   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -95,16 +95,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    7996   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8006   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8705   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8715   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9440   single particle tracking, trackpy-inspired;
+    spt             9487   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -135,7 +135,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        10941  top-level orchestration, *Core()/wrapper split;
+    pipeline        10988  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -144,7 +144,7 @@
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
                            PARAMS registry) on success — see MODULE: params
-    liveStreaming   11562  Micro-Manager/pycromanager camera bridge
+    liveStreaming   11609  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -198,11 +198,11 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13545  localizations table, filtering, histograms;
+    table           13594  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents()
-    headless API    14178  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14230  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1900,7 +1900,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -7102,17 +7102,27 @@ function robustQuad(zs,ys){
 }
 
 // Shared by the auto data-projection (whole stack, painted on load — see
-// showStackProjection, further down) and "Fix bead x,y" (a specific
-// calibration range): averages up to `cap` frames, evenly sampled across
-// [first,last) rather than every single one, so this stays fast regardless of
-// how large the range is. Returns null if the global `stack` is replaced by a
-// different one while this is running (abandoned, not applied). `cap` is
-// PARAMS.stackProjCap at both call sites, below.
-async function averageFrames(st,first,last,cap){
+// showStackProjection, further down), "Fix bead x,y" (a specific calibration
+// range), and smFRET's own Localize SOI (MODULE: smFRET — including its
+// headless config.smfretLocateSOI): averages up to `cap` frames, evenly
+// sampled across [first,last) rather than every single one, so this stays
+// fast regardless of how large the range is. checkStack (default true)
+// returns null if the module-level `stack` global is replaced by a
+// different one while this is running (abandoned, not applied) — every
+// INTERACTIVE call site wants this (a user can swap stacks mid-average).
+// A headless caller must pass false: `stack` is a plain module-level `let`,
+// invisible to analyze()'s own separate, function-local `stack` variable of
+// the same name — comparing against it there is always a mismatch (global
+// stays null), so averageFrames() returned null on its very first iteration
+// every time, 100% of the time, for any headless caller — a real bug caught
+// by smfretSOICore() being the first one (same "global invisible until
+// called headlessly" lesson as MODULE: spt's own segmentedImageData one).
+// `cap` is PARAMS.stackProjCap at both interactive call sites, below.
+async function averageFrames(st,first,last,cap,checkStack=true){
   const {w,h}=st, n=last-first, take=Math.min(n,cap), step=Math.max(1,Math.floor(n/take));
   const acc=new Float64Array(w*h); let used=0, lastYield=performance.now();
   for(let fi=first; fi<last; fi+=step){
-    if(stack!==st) return null;
+    if(checkStack && stack!==st) return null;
     const img=(await st.getFrames(fi,fi+1))[0];
     for(let k=0;k<acc.length;k++) acc[k]+=img[k];
     used++;
@@ -9051,6 +9061,12 @@ async function previewSSmlmPairs(){
   const scanMax=Math.max(6000,paramValue('sSmlmDistMax'));
   $('sSmlmPreviewBtn').disabled=true;
   try{
+    // Reported — Preview pairs computed a real, displayable/exportable
+    // histogram ("Save plot/image" already works on it) but never logged a
+    // command; config.sSmlmDistMin is deliberately NOT logged here — the
+    // wide scan ignores it entirely (see this function's own header
+    // comment), so logging it would misleadingly suggest it mattered.
+    logCmd({sSmlmPreview:true, sSmlmDistMax:paramValue('sSmlmDistMax'), pxnm:lastResult.px});
     sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, 0, scanMax, 0, 90, setProg);
     log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
     $('sSmlmHistBtn').disabled=false; $('sSmlmFitAngleBtn').disabled=false;
@@ -9180,12 +9196,44 @@ $('sSmlmAngleTol').addEventListener('change',refreshSSmlmHistIfShown);
 let smfretSOI=null;      // fitted {x,y} site-of-interest positions from Localize SOI
 let smfretTraces=null;   // per-site {x,y,photons:Float64Array(stack.n)} from Get time traces
 let smfretTraceIdx=0;    // which site's trace the raw panel currently shows
-// Averages the first N frames (Average frames, smfretAvgFrames) into one
-// composite, detects real emitter positions on it once, and fits each — same
-// "average, then detect once" approach 3D calibration's own locateBeadsForCalib()
-// uses (reuses averageFrames()/detectSpots()/gaussianFitElliptical() directly,
-// not a reimplementation), triggered by an explicit button here rather than
-// auto-rerunning on every settings change.
+// Pure, DOM-free averaging+detect+fit — the *Core() half of Localize SOI
+// (MODULE: pipeline's own *Core()/wrapper split, reused here so the same
+// logic backs both the interactive button and analyze()'s own
+// config.smfretLocateSOI). config = {smfretAvgFrames, psf, winr, detFilter,
+// detection_wavelet_thr/detection_DoG_thr/detection_box_thr,
+// detection_DoG_exactbp, stackProjCap} — the same PARAMS ids
+// buildConfigFromParams()/defaultConfig() already produce, so a headless
+// caller needs no smFRET-specific config shape beyond what config.file
+// loading already gives it. checkStack must be false for a headless caller
+// (see averageFrames()'s own comment on why) — true (default) for the
+// interactive wrapper below, matching every other averageFrames() call site.
+async function smfretSOICore(config, stack, checkStack=true){
+  const n=Math.min(stack.n, Math.max(1, config.smfretAvgFrames|0));
+  const {w,h}=stack, sigma=config.psf, win=2*config.winr+1,
+        exactBP=config.detection_DoG_exactbp, mode=config.detFilter, border=(win-1)/2+1;
+  const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[mode];
+  const r=await averageFrames(stack, 0, n, config.stackProjCap, checkStack);
+  if(!r) return null;                                 // stack changed underneath us (interactive only)
+  const {img:proj,used}=r;
+  const {maxima}=detectSpots(proj,w,h,sigma,exactBP,mode,k,border);
+  const fitted=[];
+  // Keep the FULL fit, not just x,y (previously discarded) — frame:0 for
+  // every site (a shared, arbitrary constant, not a real per-frame index)
+  // is what makes these usable as sSMLM pairing input below: sSmlmCandidates()
+  // groups candidates by loc.frame, comparing only within the same group —
+  // giving every SOI site the SAME frame collapses the whole set into that
+  // one group, so every donor/acceptor SOI candidate gets compared against
+  // every other one, exactly as intended for a position set with no real
+  // temporal structure of its own.
+  for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma);
+    if(L) fitted.push({x:L.x, y:L.y, sx:L.sx, sy:L.sy, sigma:(L.sx+L.sy)/2, photons:L.photons, bg:L.bg, bgstd:L.bgstd, frame:0}); }
+  return {fitted, used, maxima, proj, w, h};
+}
+// Interactive wrapper: resolves DOM state into a config, calls smfretSOICore(),
+// then does everything DOM-specific — the composite canvas, SR-panel
+// overlay, lastResult, and button states — triggered by an explicit button
+// click, or auto-rerun on every settings change once a composite is shown
+// (see the listeners below).
 async function locateSmfretSOI(){
   if(!stack) return;
   // A fresh Localize SOI run invalidates any time traces already computed
@@ -9193,25 +9241,24 @@ async function locateSmfretSOI(){
   // back to the ordinary frame one before rebuilding the composite below.
   if(smfretTraces){ smfretTraces=null; $('smfretTraceScrubRow').style.display='none';
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
-  const n=Math.min(stack.n, Math.max(1, +$('smfretAvgFrames').value|0));
-  const {w,h}=stack, sigma=paramValue('psf'), k=currentThr(), win=2*paramValue('winr')+1,
-        exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter'), border=(win-1)/2+1;
+  const cfg={ smfretAvgFrames:paramValue('smfretAvgFrames'), psf:paramValue('psf'), winr:paramValue('winr'),
+    detFilter:paramValue('detFilter'), detection_wavelet_thr:paramValue('detection_wavelet_thr'),
+    detection_DoG_thr:paramValue('detection_DoG_thr'), detection_box_thr:paramValue('detection_box_thr'),
+    detection_DoG_exactbp:paramValue('detection_DoG_exactbp'), stackProjCap:paramValue('stackProjCap') };
   try{
-    const r=await averageFrames(stack, 0, n, paramValue('stackProjCap'));
-    if(!r) return;                                  // stack changed underneath us
-    const {img:proj,used}=r;
-    const {maxima}=detectSpots(proj,w,h,sigma,exactBP,mode,k,border);
-    const fitted=[];
-    // Keep the FULL fit, not just x,y (previously discarded) — frame:0 for
-    // every site (a shared, arbitrary constant, not a real per-frame index)
-    // is what makes these usable as sSMLM pairing input below: sSmlmCandidates()
-    // groups candidates by loc.frame, comparing only within the same group —
-    // giving every SOI site the SAME frame collapses the whole set into that
-    // one group, so every donor/acceptor SOI candidate gets compared against
-    // every other one, exactly as intended for a position set with no real
-    // temporal structure of its own.
-    for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma);
-      if(L) fitted.push({x:L.x, y:L.y, sx:L.sx, sy:L.sy, sigma:(L.sx+L.sy)/2, photons:L.photons, bg:L.bg, bgstd:L.bgstd, frame:0}); }
+    const core=await smfretSOICore(cfg, stack);
+    if(!core) return;                               // stack changed underneath us
+    const {fitted, used, maxima, proj, w, h}=core;
+    // Logged BEFORE the DOM-writing below, matching run()'s/loadMovieFiles()'s
+    // own "announce, then narrate" ordering — safe since cfg is already fully
+    // resolved and doesn't depend on the DOM-writing's own outcome. Only the
+    // ACTIVE detection filter's own threshold field is included (matching
+    // smfretSOICore()'s own k lookup) — the other two thresholds are inert
+    // for whichever filter isn't selected, so logging all three would be
+    // noise, not signal.
+    const thrKey={wave:'detection_wavelet_thr',dog:'detection_DoG_thr',box:'detection_box_thr'}[cfg.detFilter];
+    logCmd({smfretLocateSOI:true, smfretAvgFrames:cfg.smfretAvgFrames, psf:cfg.psf, winr:cfg.winr,
+      detFilter:cfg.detFilter, [thrKey]:cfg[thrKey], pxnm:paramValue('pxnm')});
     smfretSOI=fitted;
     // Same composite-canvas + ROI/crosshair-overlay display locateBeadsForCalib()
     // uses (srSpots/srLocs, MODULE: render) — a reference view in the SR (right)
@@ -12215,8 +12262,13 @@ async function loadMovieFiles(fs){
   // never a full filesystem path, so — same caveat as any macro recorder —
   // this reproduces correctly only when re-run from the same folder (CLI
   // mode) or with a real File substituted in (JS mode's own `file` key needs
-  // an actual File/Blob object, not the string logged here).
-  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm')});
+  // an actual File/Blob object, not the string logged here). frametime
+  // (renamed from sptFrameTime, v0.12.1-dev) is included alongside pxnm for
+  // the same reason: a global, pinned physical-calibration setting a fresh
+  // load implicitly assumes the current value of — reported, this was
+  // missing even after frametime itself was promoted out of spt's own
+  // section, since this call site predates that change.
+  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm'), frametime: paramValue('frametime')});
   // Leading "\n" only when logCmd() just ran (!multi) — opens the same
   // second blank line every other recorded-command call site gets between
   // the command and its following prose; a multi-file combine has no
@@ -12667,8 +12719,9 @@ async function loadCsvFile(f){
   // loadMovieFiles() uses (see its own comment) — analyze()/the CLI's own
   // config.file now dispatches a .csv the same way this function does
   // (MODULE: headless API), so this is a genuinely runnable recorded command,
-  // not just a movie-load lookalike.
-  logCmd({file: f.name, pxnm: paramValue('pxnm')});
+  // not just a movie-load lookalike. frametime alongside pxnm for the same
+  // reason loadMovieFiles() includes it — see that call site's own comment.
+  logCmd({file: f.name, pxnm: paramValue('pxnm'), frametime: paramValue('frametime')});
   try{
     const {locs,w,h,px}=parseCsvLocs(await f.text());
     if(!locs.length) throw new Error('no data rows');
@@ -13412,14 +13465,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06d — Spectral SMLM analysis:
-the pair-distance histogram's min/max marker lines are now draggable
-directly on the plot (requested), not just editable through the
-Distance min/max fields. Hover turns the cursor into a resize arrow;
-dragging live-updates the field and the plot, clamped so one marker
-can't cross the other. Zoom/pan on every OTHER histogram type is
-unaffected — dragging only intercepts a press that starts ON a marker
-of the sSMLM pair-distance histogram specifically.
+log(`webSMLM v0.12.1-dev · build 2026-09-06e — logging/headless fixes:
+(1) a loaded movie's recorded command was missing frametime alongside
+pxnm; (2) "Localize SOI" and "Preview pairs" now log a real, replayable
+command each time they run, backed by two genuinely new headless flags
+— config.smfretLocateSOI and config.sSmlmPreview (+ CLI --smfretLocateSOI/
+--sSmlmPreview) — not just a cosmetic log line; exportPlots also
+renders the Preview pairs distance histogram headlessly now. Along the
+way, fixed a real bug this surfaced: averageFrames() (used by Localize
+SOI) checked a global that's always unset in a headless page, so it
+silently aborted on every single headless call before this fix.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -13973,9 +14028,12 @@ function drawHistogram(){
 // concern if this ever ran mid-interactive-session rather than in a fresh
 // headless page — computes the requested one, renders it, then restores the
 // previous state so a headless render can never clobber a real open plot.
-function renderHistogramPlotHeadless(col, vals, unit){
+// markers is optional (config.exportHistograms never needs it — a plain
+// column has no configured window to overlay — but config.sSmlmPreview's own
+// distance histogram does, same {x,label} shape computeHist() already takes).
+function renderHistogramPlotHeadless(col, vals, unit, markers){
   const prevHistData=histData, prevHistView=histView;
-  computeHist(col, vals, unit);
+  computeHist(col, vals, unit, markers);
   try{ return renderPlotBothFormats(drawHistogram); }
   finally{ histData=prevHistData; histView=prevHistView; }
 }
@@ -14392,19 +14450,59 @@ async function analyze(config){
         cfg.gain=pcfo.gain; cfg.camoffset=Math.round(pcfo.offset);
       }
     }
-    // Mirrors run()'s needCal guard, self-contained since there's no calMethods
-    // global reflecting an interactive session's loaded calibration headlessly
-    // — without this, a 3D method silently falls back to z=NaN for every loc
-    // rather than a clear error when the calibration doesn't match the method.
-    // mle3d/gaussmleEll only need it when cfg.localize3D is set (default true
-    // — see PARAMS.localize3D); unchecked, both just run their own elliptical
-    // fit with no z lookup.
-    const needCal = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') ? (cfg.localize3D?ALGO_CALIB_METHOD[cfg.method]:null) : ALGO_CALIB_METHOD[cfg.method];
-    if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
-    if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
-    const wcalForRun = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') && cfg.localize3D ? cal3dW : null;
-    r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun}, {onLog, onProgress});
-    locs=r.locs;
+    // config.smfretLocateSOI — the headless equivalent of clicking Localize
+    // SOI (MODULE: smFRET, physically at the sSMLM/spt boundary): averages
+    // config.smfretAvgFrames frames into one composite, detects once, fits
+    // each maximum, same smfretSOICore() the interactive button calls.
+    // Mutually exclusive with the normal per-frame Localize below, matching
+    // the interactive behaviour (Localize SOI replaces the current result,
+    // it doesn't run alongside a normal Run) — a stack is still required
+    // (unlike the CSV branch above), since SOI needs real pixel data to
+    // average. Every SOI site shares frame:0 (see smfretSOICore()'s own
+    // comment) so a headless caller can pipe straight into config.sSmlmPair
+    // below, same as the interactive Preview pairs/Pair can.
+    if(cfg.smfretLocateSOI){
+      const soi = await smfretSOICore(cfg, stack, false);   // checkStack=false — see averageFrames()'s own comment
+      if(!soi) throw new Error('analyze(): smfretLocateSOI — stack unavailable');
+      r = {w:stack.w, h:stack.h, timings:null};
+      locs = soi.fitted;
+      onLog(`smFRET: Localize SOI — averaged ${soi.used} frame${soi.used>1?'s':''}, found ${locs.length} site(s) of interest.`);
+    } else {
+      // Mirrors run()'s needCal guard, self-contained since there's no calMethods
+      // global reflecting an interactive session's loaded calibration headlessly
+      // — without this, a 3D method silently falls back to z=NaN for every loc
+      // rather than a clear error when the calibration doesn't match the method.
+      // mle3d/gaussmleEll only need it when cfg.localize3D is set (default true
+      // — see PARAMS.localize3D); unchecked, both just run their own elliptical
+      // fit with no z lookup.
+      const needCal = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') ? (cfg.localize3D?ALGO_CALIB_METHOD[cfg.method]:null) : ALGO_CALIB_METHOD[cfg.method];
+      if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
+      if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
+      const wcalForRun = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') && cfg.localize3D ? cal3dW : null;
+      r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun}, {onLog, onProgress});
+      locs=r.locs;
+    }
+  }
+  // config.sSmlmPreview — the headless equivalent of clicking Preview pairs
+  // (MODULE: sSMLM): a WIDE, FIXED diagnostic scan (distance 0–6000 nm, or
+  // wider still if cfg.sSmlmDistMax already exceeds that — angle 0±90°,
+  // same as the interactive button), ignoring cfg.sSmlmDistMin/AngleCenter/
+  // AngleTol entirely, computed on the SAME raw/unpaired locs config.sSmlmPair
+  // below would use. Reported: previously had no headless form at all, so
+  // clicking Preview pairs interactively had nothing to logCmd() — a real
+  // command now exists for it. Not mutually exclusive with config.sSmlmPair:
+  // a caller can request either, both, or neither, matching how Preview and
+  // Pair are independent interactive actions. cfg.exportPlots (below, once
+  // `plots` exists) additionally renders the same distance-histogram image
+  // "Save plot/image" would — Preview pairs is followed by a genuinely
+  // exportable figure interactively, so a headless caller should get that
+  // too, not just the numeric summary.
+  let sSmlmPreview=null, sSmlmPreviewCands=null;
+  if(cfg.sSmlmPreview && locs.length){
+    const scanMax=Math.max(6000,cfg.sSmlmDistMax);
+    sSmlmPreviewCands=await sSmlmCandidates(locs, cfg.pxnm, 0, scanMax, 0, 90, onProgress);
+    sSmlmPreview={nCandidates:sSmlmPreviewCands.length, scanMax};
+    onLog(`sSMLM preview: ${sSmlmPreviewCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle).`);
   }
   // config.sSmlmPair — the headless equivalent of clicking Pair (MODULE:
   // sSMLM): pairCore() itself throws (real z present, or the input is
@@ -14499,6 +14597,13 @@ async function analyze(config){
     if(frc && !frc.err) plots.frc = renderPlotBothFormats(()=>drawFrcPlot(frc));
     if(pcfo) plots.pcfo = renderPcfoPlotHeadless(pcfo.pts, pcfo.fit, pcfo.r2);
     if((cfg.calibrationFile||cfg.calibrationFiles) && calib) plots.calibration = renderCalibrationPlotHeadless(calib);
+    // Same distance histogram "Save plot/image" renders interactively once
+    // Preview pairs has run — the configured Distance min/max drawn as
+    // markers, exactly like drawSSmlmHist() does (MODULE: sSMLM), just built
+    // from sSmlmPreviewCands directly instead of the sSmlmLastCands global.
+    if(sSmlmPreviewCands) plots.sSmlmPreviewDist = renderHistogramPlotHeadless(
+      'sSMLM pair distance', sSmlmPreviewCands.map(c=>c.dist), 'nm',
+      [{x:cfg.sSmlmDistMin,label:'min'},{x:cfg.sSmlmDistMax,label:'max'}]);
   }
   // config.exportHistograms: [column, ...] — the shared column histogram
   // (interactively "Plot histogram of:" in the table, MODULE: table) IS
@@ -14528,7 +14633,7 @@ async function analyze(config){
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng:cv.toDataURL('image/png'),
            drift, nena, frc, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
-           calib, calibJsonText, pcfo, sSmlmPair, spt, plots };
+           calib, calibJsonText, pcfo, sSmlmPreview, sSmlmPair, spt, plots };
 }
 // Loops analyze() over multiple files with the same config (per-file
 // overrides via configs[i] are not needed yet — add if a real use case

@@ -32,6 +32,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --exportSSmlmCandidates
 //   node webSMLM-cli.mjs --calibration beadstack.tif --calibrationOnly --exportCalibrationPoints
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --exportPcfoTiles
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --smfretLocateSOI --smfretAvgFrames 100 --sSmlmPreview --exportPlots
 //
 // --exportTrackData/--exportSSmlmCandidates/--exportCalibrationPoints/
 // --exportPcfoTiles each write a companion .ndjson file (newline-delimited
@@ -75,7 +76,25 @@
 // (docs/DOCUMENTATION.md §2) — e.g. --winr=6 --gain=0.5. Bare flags (no
 // value) become `true` — useful for --correctDrift/--computeNeNA/
 // --computeFRC/--calibrationOnly/--estimateGainOffset/--sSmlmPair/
-// --sptTrack and any PARAMS bool.
+// --sSmlmPreview/--smfretLocateSOI/--sptTrack and any PARAMS bool.
+// --smfretLocateSOI (MODULE: smFRET, docs/DOCUMENTATION.md §8, experimental)
+// averages the first --smfretAvgFrames frames (a PARAMS override, default
+// 100) into one composite, detects real emitter positions on it once, and
+// fits each — the headless equivalent of clicking Localize SOI. Mutually
+// exclusive with the normal per-frame Localize (replaces it, same as the
+// interactive button replaces whatever the current result was) — every
+// resulting site shares one frame:0, so piping straight into --sSmlmPair
+// below works the same way Preview pairs/Pair does on real SOI data
+// interactively.
+// --sSmlmPreview (MODULE: sSMLM, docs/DOCUMENTATION.md §8) runs the same
+// WIDE, fixed diagnostic scan (distance 0–6000 nm, or wider still if
+// --sSmlmDistMax already exceeds that, at any angle) clicking Preview pairs
+// does, ignoring --sSmlmDistMin/--sSmlmAngleCenter/--sSmlmAngleTol entirely
+// — summary.json's "sSmlmPreview" field records {nCandidates, scanMax}.
+// Not mutually exclusive with --sSmlmPair — request either, both, or
+// neither. --exportPlots (below) additionally renders the same distance-
+// histogram image "Save plot/image" would, with the configured
+// --sSmlmDistMin/--sSmlmDistMax drawn as markers.
 // --sSmlmPair pairs 0th/1st-order spectral SMLM localizations after
 // Localize (MODULE: sSMLM, docs/DOCUMENTATION.md §8) — the headless
 // equivalent of clicking Pair. --sSmlmDistMin/--sSmlmDistMax/
@@ -315,7 +334,7 @@ try {
       if (spec) {
         config[key] = spec.type === 'bool' ? (raw === '1' || raw === 'true' || raw === true)
                      : spec.type === 'enum' ? String(raw) : +raw;
-      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sptTrack' || key === 'exportPlots' || key === 'exportTrackData' || key === 'exportSSmlmCandidates' || key === 'exportCalibrationPoints' || key === 'exportPcfoTiles') {
+      } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sSmlmPreview' || key === 'smfretLocateSOI' || key === 'sptTrack' || key === 'exportPlots' || key === 'exportTrackData' || key === 'exportSSmlmCandidates' || key === 'exportCalibrationPoints' || key === 'exportPcfoTiles') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
@@ -367,6 +386,10 @@ try {
       // itself only returns {nTracks, nQualify, meanD, medianD}, so unlike
       // sSmlmPair/pcfo above there's nothing further to trim here.
       spt: r.spt,
+      // sSmlmPreview is already a small summary too ({nCandidates, scanMax}
+      // — analyze() never returns the raw candidate array itself), nothing
+      // further to trim.
+      sSmlmPreview: r.sSmlmPreview,
       plots: r.plots,
     };
   }, { rawConfig: configOverrides, calibrationJson, calibIsTiff, hasSeg: !!segPath, fileInputId: 'analyzeFileInput', calFileInputId: 'calibrationFileInput', segFileInputId: 'segmentationFileInput', progressTag: PROGRESS_TAG, logTag: LOG_TAG, recordTag: RECORD_TAG });
@@ -413,7 +436,7 @@ try {
     writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
       nLocalizations: result.nLocalizations, timings: result.timings,
       drift: result.drift, nena: result.nena, frc: result.frc, pcfo: result.pcfo,
-      sSmlmPair: result.sSmlmPair, spt: result.spt,
+      sSmlmPair: result.sSmlmPair, sSmlmPreview: result.sSmlmPreview, spt: result.spt,
     }, null, 2));
 
     const extra = [...plotFiles, ...recordFiles];

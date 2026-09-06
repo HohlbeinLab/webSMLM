@@ -657,7 +657,8 @@ so toggling back to "Show spectral" is instant. Paired locs are already
 `lastResult.locs` while shown, so the top-level **View data/filtering**
 button works on them directly — no separate table for sSMLM. **Headless**
 (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before
-drift/NeNA/FRC — see §8.
+drift/NeNA/FRC; `config.sSmlmPreview` (v0.12.1-dev) runs Preview pairs' own
+wide diagnostic scan independently of it — see §8 for both.
 
 ### smFRET (experimental) (`smFRET`) {#smfret}
 
@@ -781,11 +782,21 @@ calibration's own precedent of not gain-correcting its fixed-position fits
 either; and there is no donor/acceptor/FRET channel assignment yet, just
 one curve per site.
 
+**Headless**: `config.smfretLocateSOI` (v0.12.1-dev) runs the same
+`smfretSOICore()` the interactive button calls — see [§8](#8-headless-api-window-websmlm)
+for the full config/result shape. **Get time traces** has no headless
+equivalent yet.
+
 Not yet implemented (see `docs/REFACTOR_PLAN.md` for the full sketch):
-donor/acceptor/FRET channel sorting of the extracted traces; pairing an
-SOI's donor candidate to its acceptor partner; E_raw/S_raw computation;
-ALEX frame-role bookkeeping; gain/offset-corrected photon units for the
-traces themselves.
+donor/acceptor/FRET channel sorting of the extracted traces; E_raw/S_raw
+computation; ALEX frame-role bookkeeping; gain/offset-corrected photon
+units for the traces themselves. **Mechanically** pairing an SOI's donor
+candidate to its acceptor partner now works — `config.smfretLocateSOI`
+piped into sSMLM's own `config.sSmlmPreview`/`config.sSmlmPair` reuses that
+module's existing distance+bearing-angle pairing with zero new pairing
+code (see **sSMLM**'s own write-up below) — but nobody's yet run it
+against real dual-view/polychroic data to confirm a genuine, physically-
+meaningful pair distance+bearing window actually exists on real hardware.
 
 ### Single particle tracking (`spt`) {#spt}
 
@@ -2251,6 +2262,38 @@ const result = await window.webSMLM.analyze({
   result field is omitted).
 - `config.correctDrift` / `config.computeNeNA` / `config.computeFRC` —
   booleans, not `PARAMS` entries, gating optional pipeline stages.
+- `config.smfretLocateSOI` (v0.12.1-dev, **experimental**) — boolean, not a
+  `PARAMS` entry. The headless equivalent of clicking **Localize SOI**
+  (smFRET module, see **smFRET** in `CLAUDE.md`): averages the first
+  `config.smfretAvgFrames` frames (an ordinary `PARAMS` field, default 100)
+  into one composite, detects real emitter positions on it once, and fits
+  each — `smfretSOICore()`, the same DOM-free core the interactive button
+  calls. **Mutually exclusive with the normal per-frame Localize** — set,
+  it REPLACES that step entirely (same as clicking the interactive button
+  replaces whatever the current result was); requires `config.file`/
+  `config.files` (a real stack — unlike a `.csv` input, there's no raw pixel
+  data to average without one). Every resulting site shares one `frame:0`
+  (an arbitrary shared constant, not a real per-frame index) specifically so
+  `config.sSmlmPreview`/`config.sSmlmPair` below can be piped straight after
+  it, comparing every site against every other one — the same mechanism
+  that lets a donor/acceptor SOI pair be found with sSMLM's own existing
+  pairing, no new pairing code needed (`docs/REFACTOR_PLAN.md`'s smFRET/ALEX
+  sketch). `result.locs` (and therefore `result.csvText`/
+  `result.reconstructionPng`) are the SOI positions; `result.timings` is
+  `null` (no per-frame Run to time, same as a `.csv` input).
+- `config.sSmlmPreview` (v0.12.1-dev) — boolean, not a `PARAMS` entry. The
+  headless equivalent of clicking **Preview pairs** (MODULE: sSMLM): the
+  same WIDE, fixed diagnostic scan (distance 0–6000 nm, or wider still if
+  `config.sSmlmDistMax` already exceeds that, at any angle) the interactive
+  button runs, ignoring `config.sSmlmDistMin`/`sSmlmAngleCenter`/
+  `sSmlmAngleTol` entirely. Not mutually exclusive with `config.sSmlmPair`
+  below — request either, both, or neither; computed on the same raw
+  (pre-pairing) locs `sSmlmPair` would use. `result.sSmlmPreview` records
+  `{nCandidates, scanMax}` (`null` if not requested). `config.exportPlots`
+  (below) additionally renders the same distance-histogram image "Save
+  plot/image" would once Preview pairs has run interactively — the
+  configured `sSmlmDistMin`/`sSmlmDistMax` drawn as markers — into
+  `result.plots.sSmlmPreviewDist`.
 - `config.sSmlmPair` (v0.11.1) — boolean, not a `PARAMS` entry. Runs
   `pairCore()` (spectral SMLM pairing, see **sSMLM** in `CLAUDE.md`) right
   after Localize, before drift/NeNA/FRC — the headless equivalent of
@@ -2321,11 +2364,11 @@ const result = await window.webSMLM.analyze({
   untouched on failure. Not available in `config.calibrationOnly` mode (no
   stack is loaded there).
 - `config.exportPlots` — boolean, not a `PARAMS` entry. Renders whichever of
-  drift/NeNA/FRC/PCFO/calibration were actually computed this call (i.e.
-  `correctDrift`/`computeNeNA`/`computeFRC`/`estimateGainOffset`/
-  `calibrationFile`(`s`) were also set) as BOTH a PNG and an SVG, returned in
-  `result.plots` — one flag for everything available this run, not a toggle
-  per plot. No visible browser window is needed (same headless-safe
+  drift/NeNA/FRC/PCFO/calibration/sSMLM-preview-distance were actually
+  computed this call (i.e. `correctDrift`/`computeNeNA`/`computeFRC`/
+  `estimateGainOffset`/`calibrationFile`(`s`)/`sSmlmPreview` were also set)
+  as BOTH a PNG and an SVG, returned in `result.plots` — one flag for
+  everything available this run, not a toggle per plot. No visible browser window is needed (same headless-safe
   rendering `reconstructionPng` already uses, via a detached `<canvas>`/an
   SVG recorder — see **render** in `CLAUDE.md`). The raw frame/reconstruction
   are never included (no vector form at real localization counts, same

@@ -658,6 +658,21 @@ relevant one before editing rather than scrolling:
   and the result's `sSmlmPair` field records `nPairs`/`nInput`/`meanDistance`/`stdDistance`.
   `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and `?autorun=`'s `sSmlmPair=1` both forward to it.
 
+  **`previewSSmlmPairs()` now calls `logCmd()`** too (v0.12.1-dev, reported — Preview pairs computed
+  a real, `sSmlmLastCands`-backed histogram that "Save plot/image" already exports, but never
+  recorded a command for it) — deliberately does NOT log `sSmlmDistMin`: the wide diagnostic scan
+  ignores it entirely, so including it would misleadingly suggest it mattered to what just ran.
+  **Headless**: `config.sSmlmPreview` runs the identical wide scan (`sSmlmCandidates()` directly,
+  0–6000 nm or wider, any angle) independently of `config.sSmlmPair` — either, both, or neither can
+  be requested — recording `result.sSmlmPreview={nCandidates,scanMax}`; `config.exportPlots` (once
+  `plots` exists, later in `analyze()`) additionally renders the SAME distance-histogram PNG/SVG
+  "Save plot/image" would, markers included (`renderHistogramPlotHeadless()` gained an optional 4th
+  `markers` param for exactly this — `computeHist()` already took one, `config.exportHistograms`'s
+  own plain-column case just never needed it before). `sSmlmPreviewCands` (the raw candidate array)
+  is stashed in a local var between where it's computed (alongside `sSmlmPair`, before drift/NeNA/
+  FRC) and where `plots` is actually built (near the end) — the same "compute early, render late"
+  shape `drift`/`nena`/`frc`/`pcfo` already use for their own `exportPlots` entries.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**, v1: "sites of interest" (SOI) detection plus a
   simple per-site time-trace readout, the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX
   integration sketch. Not squeezed into sSMLM (a genuinely different optical setup motivating this —
@@ -709,6 +724,30 @@ relevant one before editing rather than scrolling:
   — the same optional-column convention `mle3d`/`gaussmleEll` results already trigger), **Preview
   pairs** runs to completion against them, and unchecking `smfretFixSOI` tears the whole thing back
   down (`lastResult=null`, table/save/sSMLM buttons disabled again).
+
+  **`locateSmfretSOI()` now calls `logCmd()`** (reported — clicking it produced no recorded command
+  at all, unlike every other action that writes `lastResult`) — logs `{smfretLocateSOI:true,
+  smfretAvgFrames, psf, winr, detFilter, <active threshold field>, pxnm}`, genuinely replayable now
+  that `config.smfretLocateSOI` exists (see below), not a cosmetic-only log line.
+
+  **`smfretSOICore(config, stack, checkStack=true)`** (v0.12.1-dev) is the pure, DOM-free half of
+  `locateSmfretSOI()` — the averaging+detect+fit loop, extracted so `analyze()`'s own
+  `config.smfretLocateSOI` can call the identical logic (MODULE: pipeline's own `*Core()`/wrapper
+  split). Mutually exclusive with the normal per-frame `runCore()` path in `analyze()` — set, it
+  REPLACES the whole Localize step (matching the interactive button's own "replaces whatever the
+  current result was" behavior), producing `r={w,h,timings:null}` the same minimal shape a `.csv`
+  input already uses. **`checkStack` surfaced a real, previously-latent bug**: `averageFrames()`
+  (its own inner loop, called by `smfretSOICore()`) aborts early if the module-level `stack` global
+  no longer matches the one it was given — correct for the INTERACTIVE case (a user can swap stacks
+  mid-average), but `analyze()`'s own `stack` is a separate, function-local variable of the same
+  name that SHADOWS the module-level one — the global stays `null` in a fresh headless page, so the
+  check was `null!==<real stack>` on every single call, 100% of the time, returning `null`
+  immediately. `smfretSOICore()` never worked headlessly until this was caught (same "a module-level
+  global populated before every interactive call site is invisible until something calls the same
+  function headlessly" lesson as **spt**'s own `segmentedImageData` bug). Fixed by adding an explicit
+  `checkStack` parameter to `averageFrames()` itself (default `true`, so every existing interactive
+  call site — this one, `locateBeadsForCalib()`, `showStackProjection()` — is untouched), threaded
+  through as `false` only from `analyze()`'s own call site.
 
   **`smfretFixSOI`** ("Fix SOI x,y for time traces", default unchecked) is a STATUS flag, not an
   independent on/off switch like 3D calibration's own `calFixedXY` — `locateSmfretSOI()` itself
