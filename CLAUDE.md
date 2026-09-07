@@ -1456,7 +1456,7 @@ relevant one before editing rather than scrolling:
   each has its own global + redraw function + button-enable logic, and wiring all of them is a
   separably bigger follow-up; the full `result` is still inspectable from the terminal itself.
 
-  **`_terminalFileRegistry`/`registerTerminalFile()`/`resolveTerminalConfigFiles()`** (reported —
+  **`_terminalFileRegistry`/`registerTerminalFile()`/`resolveTerminalConfig()`** (reported —
   the single most obvious recall-and-edit workflow, "Localize again with a different pxnm," failed
   outright) fix a real gap the terminal's own file-bearing recall otherwise always hits: a logged
   `file:`/`calibrationFile:`/`segmentationFile:`/`files:`/`calibrationFiles:` value is always a bare
@@ -1468,7 +1468,7 @@ relevant one before editing rather than scrolling:
   `registerTerminalFile(f)` is called at every point a real File actually enters the app —
   `loadMovieFiles()` (all selected files, not just `fs[0]`), `segFile`'s change handler, and
   `loadCsvFile()` — building a session-scoped filename→File map. `runTerminalStatement()` declares a
-  LOCAL `const analyze = cfg => window.webSMLM.analyze(resolveTerminalConfigFiles(cfg))` right before
+  LOCAL `const analyze = cfg => window.webSMLM.analyze(resolveTerminalConfig(cfg))` right before
   its own `eval()` call, so — by the same direct-`eval()`-sees-the-enclosing-scope mechanism the
   function's own comment already explains — the evaluated text's free `analyze` reference resolves to
   this shadowed version instead of the real top-level one, transparently substituting a matching
@@ -1488,30 +1488,48 @@ relevant one before editing rather than scrolling:
   string-substitution mechanism above doesn't fire when the key is simply missing. A plain
   last-write-wins variable, not "last entry in `_terminalFileRegistry`'s iteration order" — `Map.set()`
   on an EXISTING key does not move it, so the map alone can't answer "most recently used."
-  `resolveTerminalConfigFiles()` falls back to it whenever `file`/`files` is absent entirely (and
+  `resolveTerminalConfig()` falls back to it whenever `file`/`files` is absent entirely (and
   `config.calibrationOnly` isn't set, since a calibration-only run legitimately has no movie file),
   so re-running "just a crop" or "just a filter" from the terminal now acts on whatever's currently
   loaded — the same behavior the interactive crop tool/filter box already have, no file re-selection
   needed. Verified via Playwright: `analyze({cropX0,cropY0,cropX1,cropY1,pxnm})` with no `file:` key,
   run right after loading a real file interactively, now succeeds and redraws instead of throwing.
 
-  **`loadMovieFiles()`'s own `logCmd({file:...})` no longer includes `pxnm`/`frametime`** (reported —
-  "why does load bake in pxnm/frametime? if I correct pixel size by hand afterward, recalling this
-  later would reset it"). Correct concern: this call used to snapshot whatever `pxnm`/`frametime`
-  happened to be set to AT LOAD TIME — i.e., before the "check the file's own metadata, then correct
-  Pixel size (nm)/Frame time (s) by hand" step the app's own load-time advisory message walks a user
-  through. That was harmless as pure documentation/CLI-reproduction text (nothing depended on it being
-  current), but became a real trap once a logged command became directly re-runnable: recalling this
-  exact line AFTER manually correcting `pxnm` would silently reset it back to the stale, pre-correction
-  value. `run()`'s own `logCmd()` already records the `pxnm` actually used, read fresh at RUN time
-  (`px=config.pxnm`) — the one value that matters for reproducing an analysis — so nothing downstream
-  lost real capability; add `pxnm:`/`frametime:` back in by hand if building a genuine load-only script
-  from this specific line.
+  **`pxnm`/`frametime` now live in exactly ONE logged command — "Load movie/data"** (reported;
+  reworked twice — a first attempt removed them from the Load command specifically, which was
+  backwards, then corrected). `loadMovieFiles()`'s own `logCmd({file:fs[0].name, pxnm, frametime})`
+  is the session-establishing declaration of what this file's own pixel size/frame time actually
+  are — exactly what a CLI/`analyze()` user reproducing the load from scratch needs — so it KEEPS
+  both fields (`loadCsvFile()`'s equivalent Load-shaped command keeps them too). Every OTHER logged
+  action was changed to drop them instead: `correctDrift()`, `computeNeNA()`/`computeFRC()`,
+  `estimateGainOffset()` (PCFO), `runCalibration()`, `locateSmfretSOI()`, `runSSmlmPair()`/its
+  preview, `runSptTrack()`, the SR-panel crop tool, and — yes, this one too — `run()`'s own Localize
+  command. Restating a session-wide constant on every single derived action was pure redundancy, and
+  each restatement was its own separate stale-snapshot risk if `pxnm` was corrected in between two
+  actions.
+
+  This alone would have reintroduced the ORIGINAL staleness bug for every one of those OTHER
+  commands (a pxnm-less Localize/crop/etc. command, recalled and run standalone via the terminal,
+  would otherwise fall through to `analyze()`'s own fixed `PARAMS.pxnm` default — 100nm — not
+  whatever's actually set right now). Fixed at the terminal layer instead of by re-adding `pxnm` to
+  every action: **`resolveTerminalConfig()`** (renamed from `resolveTerminalConfigFiles()`, since it
+  now does more than files) backfills `config.pxnm`/`config.frametime` from the LIVE
+  `paramValue('pxnm')`/`paramValue('frametime')` whenever a terminal-run statement's own config
+  omits them — never from the PARAMS default — so recalling any of those now-pxnm-less commands
+  still uses whatever's actually set in the sidebar at the moment you press Enter, not a frozen
+  value from whenever that command was first logged. An explicit `pxnm:200` typed into the terminal
+  still wins (the backfill only fills a key the statement itself left out). This is deliberately
+  terminal-only — the CLI/a fresh headless `analyze()` call has no "current session" to fall back
+  on, so `pxnm`/`frametime` still need to be explicit there, same as always. Verified via Playwright:
+  load a file (Load command logs `pxnm:100`), correct pxnm to 160 interactively, run Localize
+  (its own logged command has no `pxnm`, `lastResult.px===160`), recall that exact command in the
+  terminal and press Enter with no edits (`lastResult.px` stays `160`, not reset to 100), then edit
+  in an explicit `pxnm:200` (`lastResult.px` becomes `200`).
 
   Documented, deliberate v1 scope boundaries: the terminal executes **JS only** (a CLI-style logged
   line won't run here — switch `logCmdStyleBtn` to JS first if pasting from an exported log); pasting
   a whole multi-command block runs each call independently in sequence, so an early bare command that
-  references a real File `resolveTerminalConfigFiles()` genuinely can't resolve (a filename no longer
+  references a real File `resolveTerminalConfig()` genuinely can't resolve (a filename no longer
   registered this session, or a calibration/segmentation file never loaded at all) throws and stops
   the block there — the intended per-command workflow is arrow-up → recall → edit → run one statement
   at a time, not a batch replay; and running arbitrary code via `eval()` in the page's own scope is

@@ -311,6 +311,18 @@ need to re-select anything. If the referenced file genuinely isn't loaded
 this session anymore, you'll get a clear error naming it rather than a
 cryptic one.
 
+**Pixel size (nm)/Frame time (s) work the same way.** Only the "Load
+movie/data" command itself logs `pxnm`/`frametime` explicitly — every other
+logged command (Localize, a crop, drift correction, NeNA/FRC, sSMLM, spt, …)
+assumes whatever those two fields are currently set to in the sidebar, so
+recalling one and running it uses the LIVE value at the moment you press
+Enter, not whatever it happened to be when that command was first logged.
+This is what makes correcting Pixel size (nm) against a file's own metadata
+*after* loading, then recalling and rerunning an earlier command, safe: the
+rerun picks up your correction automatically. Type an explicit `pxnm:160`
+(or `frametime:`) into the terminal yourself and it overrides this, same as
+any other field.
+
 A few things to know: the terminal only runs **JavaScript** — a line logged
 in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the
 log to JS style first if you're copying from an exported log. A result run
