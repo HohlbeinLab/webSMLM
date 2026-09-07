@@ -1599,27 +1599,62 @@ relevant one before editing rather than scrolling:
 
   **`logCmd(config, jsOverride)`** (follow-up, same round, reported — the raw-panel crop tool's own
   logged `analyze({cropX0,...})` command, recalled and run from the terminal, re-ran a full Localize
-  instead of reproducing the crop-only action `applyCropToRaw()` itself actually took). Every OTHER
-  logged command is faithful when wrapped in `analyze({...})` — `analyze()` has a matching
-  `config.<flag>` handler that calls the SAME `*Core()` function the interactive action does, just as
-  part of a bigger one-shot call — but crop is the one exception: `analyze()`'s own `cropX0`/etc.
-  handling is ALWAYS a preprocessing step before Localize (§8), with no "just crop" mode at all, so
-  wrapping `applyCropToRaw()`'s own crop-only action in `analyze({cropX0,...})` was never actually
-  faithful to begin with. `logCmd()` gained an optional second `jsOverride` argument — literal JS text
-  shown/recalled/run instead of `jsCommandFor(config)` in JS style (`formatLogEntry()`'s `'cmd'`
-  branch and `terminalHistoryList()` both check it); CLI style always falls back to the ordinary
-  `config`-as-flags rendering regardless, since the CLI only ever drives one-shot `analyze()` calls —
-  a true "just crop" replay isn't expressible there at all. `applyCropToRaw()`'s own `logCmd()` call
-  is the only one using it so far (`` `applyCropToRaw(${x0}, ${y0}, ${x1}, ${y1})` ``); `commitSrCrop()`'s
-  own `logCmd({tableFilters:...})` call deliberately does NOT get one, despite superficially the same
-  shape of problem — its config is the FULL CUMULATIVE filter list (by design, see MODULE: table), and
-  a `commitSrCrop(...)` override would only know about its own single rectangle, silently dropping any
-  other active filter; re-running via `analyze({tableFilters:[...]})` is slower (a redundant re-
-  Localize) but not actually WRONG the way the raw crop's mismatch was — a genuinely different failure
-  mode, not the same bug. Verified via Playwright: a real two-click GUI crop now logs
-  `applyCropToRaw(x0,y0,x1,y1)` in JS style (confirmed via `formatLogEntry()`) and the OLD
-  `--cropX0 ... --cropY0 ...` flags unchanged in CLI style; recalling and running the JS form from the
-  terminal reproduces the crop with no Localize attached, matching the interactive action exactly.
+  instead of reproducing the crop-only action `applyCropToRaw()` itself actually took). `logCmd()`
+  gained an optional second `jsOverride` argument — literal JS text shown/recalled/run instead of
+  `jsCommandFor(config)` in JS style (`formatLogEntry()`'s `'cmd'` branch and `terminalHistoryList()`
+  both check it); CLI style always falls back to the ordinary `config`-as-flags rendering regardless,
+  since the CLI only ever drives one-shot `analyze()` calls with no equivalent to fall back to either
+  way. `applyCropToRaw()`'s own call was the first to use it.
+
+  **The underlying pattern, once actually audited (reported again — "gain & offset estimation still
+  in analyze?", after the user noticed the exact same smell in a DIFFERENT logged command): crop
+  wasn't the only exception, it just happened to be the one first reported.** `analyze()`'s per-frame
+  Localize step is UNCONDITIONAL — it always runs (the main branch, `else` from `smfretLocateSOI`'s
+  own exclusive branch, itself only skipped for a `.csv`/`calibrationOnly` input) — and every one of
+  `config.estimateGainOffset`/`correctDrift`/`computeNeNA`/`computeFRC`/`sSmlmPair`/`sSmlmPreview`/
+  `sptTrack` is evaluated either right before it (PCFO, overriding gain/offset for the Localize that
+  follows) or right after it (everything else, operating on whatever `locs` that same call's own
+  Localize just produced) — `analyze()` has NO way to run any of them in isolation. But the
+  INTERACTIVE buttons for every one of these — `estimateGainOffset()`, `correctDrift()`,
+  `computeNeNA()`, `computeFRC()`, `runSSmlmPair()`, `previewSSmlmPairs()`, `runSptTrack()` — all
+  REQUIRE an existing `lastResult` and never Localize anything themselves. Recalling any of their
+  own logged `analyze({...})` commands from the terminal was silently ALSO re-Localizing the whole
+  stack — for PCFO specifically (a single click that only ever estimates and plots, never applies
+  the estimate or Localizes on its own) this wasn't just wasteful, it was a completely different,
+  much slower, surprising outcome. All seven gained the same `jsOverride` fix, pointing at their own
+  already-terminal-callable, no-arg, reads-live-state function (`estimateGainOffset()`,
+  `correctDrift()`, `computeNeNA()`, `computeFRC()`, `runSSmlmPair()`, `previewSSmlmPairs()`,
+  `runSptTrack()`) — the same "plain top-level function reads live session state" shape every one of
+  these already had, from the earlier full-parity audit; only the LOGGED command needed fixing, not
+  the functions themselves.
+
+  `commitSrCrop()`'s own `logCmd({tableFilters:...})` call deliberately does NOT get one, despite
+  superficially the same shape of problem — its config is the FULL CUMULATIVE filter list (by design,
+  see MODULE: table), and a `commitSrCrop(...)` override would only know about its own single
+  rectangle, silently dropping any other active filter; re-running via `analyze({tableFilters:[...]})`
+  is slower (a redundant re-Localize) but not actually WRONG the way the other eight mismatches were —
+  a genuinely different failure mode, not the same bug.
+
+  **Also deliberately NOT extended to `loadMovieFiles()`/`loadCsvFile()`/`runSimulation()`**, despite
+  their own interactive actions (Load movie/data, Load data, Simulate movie) ALSO never Localizing by
+  themselves — unlike the seven fixed above, the natural override target (`loadFiles(fileList)`, the
+  already-exposed parity function) takes a real `File`/`FileList`, and calling it directly from the
+  terminal does NOT go through `resolveTerminalConfig()`'s own file-string-resolution (that wrapper
+  only intercepts calls made through the shadowed `analyze` identifier inside `runTerminalStatement()`,
+  not arbitrary bare function calls) — giving these a naive string-based `jsOverride` would silently
+  reintroduce the EXACT "bare filename can't be read from disk by browser JS" bug
+  `resolveTerminalConfigFiles()` was built to fix in the first place, just for a different call site.
+  Properly supporting this would mean generalizing that file-resolution machinery to intercept
+  arbitrary shadowed function calls, not just `analyze` — a real, bigger follow-up, not attempted
+  here. `analyze({file:...})` recalled alone still ALSO Localizes with default/backfilled settings for
+  these three actions — a real difference from their own interactive buttons, but a strictly less
+  severe one (you get a genuine, usable reconstruction using your current live settings, not "nothing
+  useful happened and it took far longer than expected") than PCFO's own case was.
+
+  Verified via Playwright for all seven newly-fixed actions: recalling each one's own logged command
+  from the terminal after an initial Localize leaves `lastResult.locs.length` UNCHANGED (confirming no
+  redundant re-Localize happened) and correctly re-runs just that one action. The original crop case
+  (`applyCropToRaw(x0,y0,x1,y1)` in JS style, unchanged `--cropX0 ...` flags in CLI style) still holds.
 
   Documented as an actual reference table in `docs/DOCUMENTATION.md` §1 (right after the terminal's
   own paragraphs) — GUI label → terminal function → notes, covering these 9 plus the ~25 actions that

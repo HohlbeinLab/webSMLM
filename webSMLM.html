@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8335   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8344   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9048   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9077   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             10018   single particle tracking, trackpy-inspired;
+    spt             10057   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11532  top-level orchestration, *Core()/wrapper split;
+    pipeline        11579  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -186,7 +186,7 @@
                            disabled interactively, so a still-in-flight
                            Localize could otherwise clobber a crop that
                            already completed after it started
-    liveStreaming   12167  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12214  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -240,14 +240,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14534  localizations table, filtering, histograms;
+    table           14589  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15236  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15291  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1976,7 +1976,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07h</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -8145,7 +8145,16 @@ async function correctDrift(){
     // Logged BEFORE driftCore() starts — see run()'s own comment on this
     // ordering (command announces what's about to run, prose narrates what
     // happened) — safe this early since config is already fully resolved.
-    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct});
+    //
+    // jsOverride (reported — same bug class as applyCropToRaw()/
+    // estimateGainOffset()'s own fix): analyze({correctDrift:true,...})
+    // always ALSO runs a full Localize first (config.correctDrift only ever
+    // applies AFTER analyze()'s own normal per-frame Localize step, never
+    // standalone), but this button requires an EXISTING lastResult and only
+    // ever corrects ITS drift — it never re-Localizes anything itself.
+    // correctDrift() is a no-arg, reads-live-state function, same override
+    // shape as applyCropToRaw()'s own.
+    logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct}, 'correctDrift()');
     const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg, shouldStop:()=>stopRequested});
     // A newer action superseded this one while driftCore() was still
     // running — `lastResult` may now be a DIFFERENT object than the one
@@ -8514,7 +8523,12 @@ async function computeNeNA(){
     // Logged BEFORE nenaPrecision() runs — see run()'s own comment on this
     // ordering. No config to speak of (NeNA takes none), so this is just the
     // bare flag, same as the CLI's own --computeNeNA.
-    logCmd({computeNeNA:true});
+    //
+    // jsOverride (reported — same bug class as applyCropToRaw()'s own fix):
+    // analyze({computeNeNA:true}) always ALSO runs a full Localize first;
+    // this button requires an EXISTING lastResult and never Localizes
+    // itself. computeNeNA() is a no-arg, reads-live-state function.
+    logCmd({computeNeNA:true}, 'computeNeNA()');
     // Leading "\n" opens a second blank line after the command logCmd() just
     // wrote — same convention *Core() functions use on their own first
     // onLog message (see logCmd()'s own comment), even though this function
@@ -8735,7 +8749,9 @@ async function computeFRC(){
     // bare flag, same as the CLI's own --computeFRC — one call covers both
     // outcome branches below (previously duplicated at each, now moot since
     // logging happens before either is reached).
-    logCmd({computeFRC:true});
+    //
+    // jsOverride — same bug class as computeNeNA()'s own fix, see its comment.
+    logCmd({computeFRC:true}, 'computeFRC()');
     // Leading "\n" — same reasoning as computeNeNA()'s own comment.
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
@@ -9021,7 +9037,20 @@ async function estimateGainOffset(){
     const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
     // Logged BEFORE pcfoCore() starts — see run()'s own comment on this
     // ordering — safe this early since cfg is already fully resolved.
-    logCmd({estimateGainOffset:true, ...cfg, ...cropCmdFields()});
+    //
+    // jsOverride (reported — same bug class as applyCropToRaw()'s own fix,
+    // missed at the time): analyze({estimateGainOffset:true,...}) ALWAYS
+    // falls through to a full Localize afterward too (config.estimateGainOffset
+    // is documented as "the headless equivalent of clicking Estimate, then
+    // Get estimate, then Localize" — a deliberately bundled 3-step sequence),
+    // but THIS button — a single click — only ever estimates and plots,
+    // never applies the estimate or localizes (transferPcfoEstimate()/
+    // Localize are separate, explicit steps). Recalling the logged command
+    // from the terminal would silently ALSO re-Localize the whole stack —
+    // surprising and slow for "just re-check the gain/offset estimate".
+    // estimateGainOffset() itself is a no-arg, reads-live-state function
+    // (stack/paramValue()), same shape as applyCropToRaw()'s own override.
+    logCmd({estimateGainOffset:true, ...cfg, ...cropCmdFields()}, 'estimateGainOffset()');
     const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
     if(!r) return;
     if(staleEpoch(myEpoch)) return;   // superseded while pcfoCore() was running — see newEpoch()'s own comment
@@ -9399,7 +9428,13 @@ async function previewSSmlmPairs(){
     // command; config.sSmlmDistMin is deliberately NOT logged here — the
     // wide scan ignores it entirely (see this function's own header
     // comment), so logging it would misleadingly suggest it mattered.
-    logCmd({sSmlmPreview:true, sSmlmDistMax:paramValue('sSmlmDistMax')});
+    //
+    // jsOverride — same bug class as computeNeNA()'s own fix, see its
+    // comment: analyze({sSmlmPreview:true,...}) only scans AFTER its own
+    // Localize step already ran (config.sSmlmPreview is checked once `locs`
+    // already exists), always ALSO Localizing; this button only ever scans
+    // the EXISTING lastResult.
+    logCmd({sSmlmPreview:true, sSmlmDistMax:paramValue('sSmlmDistMax')}, 'previewSSmlmPairs()');
     sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, 0, scanMax, 0, 90, setProg);
     log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
     $('sSmlmHistBtn').disabled=false; $('sSmlmFitAngleBtn').disabled=false;
@@ -9423,7 +9458,11 @@ async function runSSmlmPair(){
       sSmlmRequireNarrower:paramValue('sSmlmRequireNarrower') };
     // Logged BEFORE pairCore() starts — see run()'s own comment on this
     // ordering — safe this early since cfg is already fully resolved.
-    logCmd({sSmlmPair:true, ...cfg});
+    //
+    // jsOverride — same bug class as computeNeNA()'s own fix, see its
+    // comment: analyze({sSmlmPair:true,...}) always ALSO Localizes first;
+    // this button only ever pairs the EXISTING lastResult.
+    logCmd({sSmlmPair:true, ...cfg}, 'runSSmlmPair()');
     const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
     if(!r.nPairs){ log('no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
     // Superseded while pairCore() was running — `lastResult` below may now
@@ -10460,7 +10499,15 @@ async function runSptTrack(){
     // mask file doesn't fit a readable one-line command; this only records
     // the plain whole-FOV tracking parameters, same "curated, not
     // exhaustive" scope as calibration's own calFixedPts omission.
-    logCmd({sptTrack:true, ...cfg});
+    //
+    // jsOverride — same bug class as computeNeNA()'s own fix, see its
+    // comment: analyze({sptTrack:true,...}) always ALSO Localizes first;
+    // this button only ever tracks the EXISTING lastResult.locs. Also more
+    // faithful than the config form for segmentation-aware tracking —
+    // runSptTrack() re-reads the live #applySegmentation checkbox/
+    // segmentedImageLabels itself, which the bare config above can't
+    // express at all (see the comment just above).
+    logCmd({sptTrack:true, ...cfg}, 'runSptTrack()');
     const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
     // Superseded while sptCore() was running — `lastResult` may now be a
     // DIFFERENT object; see newEpoch()'s own comment.
@@ -14405,22 +14452,23 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07h — as bulletproof as possible:
-the terminal lets you call a GUI-equivalent function (e.g.
-applyCropToRaw()) while its own button would normally be DISABLED —
-interactively you can't click Crop mid-Localize, but the terminal
-bypasses that DOM-only guard. Confirmed this could actually corrupt the
-session: fire Localize, immediately crop from the terminal before it
-finishes, and the still-running Localize's own delayed completion
-silently overwrote the crop's result once it finally landed. Every
-long-running action (Localize, drift, calibration, Track, Pair,
-Localize SOI, Get time traces, PCFO, Load movie/data, Load data,
-Simulate movie, the raw-panel crop tool) now checks a shared "session
-epoch" before writing back — discarding its own result if a NEWER
-action has superseded it in the meantime, the same principle rerender()
-already used for stale renders, generalized to everything. Along the
-way, fixed two separate pre-existing bugs: a failed Load or Simulate
-movie left buttons stuck disabled forever, with no cleanup path at all.
+log(`webSMLM v0.12.1-dev · build 2026-09-07i — the crop tool's own fix
+(build 07g: its logged command recalls as applyCropToRaw(), not
+analyze({cropX0,...}), so it no longer also re-Localizes) turned out to
+have SIX more siblings (reported: "gain & offset estimation still in
+analyze?"): PCFO, Correct drift, Compute NeNA, Compute FRC, Preview
+pairs, Pair, and Track ALL had the same mismatch — each button only
+ever acts on the EXISTING result and never Localizes, but their own
+logged analyze({...}) commands always ALSO ran a full Localize when
+recalled, since analyze()'s per-frame Localize step is unconditional.
+Worst for PCFO specifically: a single click that only ever estimates
+and plots became, when recalled, a much slower, surprising full
+reconstruction. All seven now log/recall their own real function
+(estimateGainOffset(), correctDrift(), computeNeNA(), computeFRC(),
+runSSmlmPair(), previewSSmlmPairs(), runSptTrack()) instead. Deliberately
+NOT extended to Load movie/data, Load data, or Simulate movie — see
+docs/DOCUMENTATION.md's own terminal section for why those three still
+recall as analyze() and what that means.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
