@@ -1597,6 +1597,30 @@ relevant one before editing rather than scrolling:
   paragraph), `toggleSSmlmColorView()`, `clearSmfretFixSOI()`, `toggleSmfretTraceMode()`. No naming
   collisions with anything already in the file.
 
+  **`logCmd(config, jsOverride)`** (follow-up, same round, reported — the raw-panel crop tool's own
+  logged `analyze({cropX0,...})` command, recalled and run from the terminal, re-ran a full Localize
+  instead of reproducing the crop-only action `applyCropToRaw()` itself actually took). Every OTHER
+  logged command is faithful when wrapped in `analyze({...})` — `analyze()` has a matching
+  `config.<flag>` handler that calls the SAME `*Core()` function the interactive action does, just as
+  part of a bigger one-shot call — but crop is the one exception: `analyze()`'s own `cropX0`/etc.
+  handling is ALWAYS a preprocessing step before Localize (§8), with no "just crop" mode at all, so
+  wrapping `applyCropToRaw()`'s own crop-only action in `analyze({cropX0,...})` was never actually
+  faithful to begin with. `logCmd()` gained an optional second `jsOverride` argument — literal JS text
+  shown/recalled/run instead of `jsCommandFor(config)` in JS style (`formatLogEntry()`'s `'cmd'`
+  branch and `terminalHistoryList()` both check it); CLI style always falls back to the ordinary
+  `config`-as-flags rendering regardless, since the CLI only ever drives one-shot `analyze()` calls —
+  a true "just crop" replay isn't expressible there at all. `applyCropToRaw()`'s own `logCmd()` call
+  is the only one using it so far (`` `applyCropToRaw(${x0}, ${y0}, ${x1}, ${y1})` ``); `commitSrCrop()`'s
+  own `logCmd({tableFilters:...})` call deliberately does NOT get one, despite superficially the same
+  shape of problem — its config is the FULL CUMULATIVE filter list (by design, see MODULE: table), and
+  a `commitSrCrop(...)` override would only know about its own single rectangle, silently dropping any
+  other active filter; re-running via `analyze({tableFilters:[...]})` is slower (a redundant re-
+  Localize) but not actually WRONG the way the raw crop's mismatch was — a genuinely different failure
+  mode, not the same bug. Verified via Playwright: a real two-click GUI crop now logs
+  `applyCropToRaw(x0,y0,x1,y1)` in JS style (confirmed via `formatLogEntry()`) and the OLD
+  `--cropX0 ... --cropY0 ...` flags unchanged in CLI style; recalling and running the JS form from the
+  terminal reproduces the crop with no Localize attached, matching the interactive action exactly.
+
   Documented as an actual reference table in `docs/DOCUMENTATION.md` §1 (right after the terminal's
   own paragraphs) — GUI label → terminal function → notes, covering these 9 plus the ~25 actions that
   were already clean (`run()`, `correctDrift()`, `runCalibration()`, `computeNeNA()`/`computeFRC()`,

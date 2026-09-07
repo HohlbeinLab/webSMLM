@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3316   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3333   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3615   synthetic stack generator ("Simulate movie")
-    detect          4493   per-frame band-pass + local-maxima detection
-    fit             4770   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3632   synthetic stack generator ("Simulate movie")
+    detect          4510   per-frame band-pass + local-maxima detection
+    fit             4787   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5409   accumulate to offscreen buffer; view/colour/blur;
+    render          5426   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6726   frame-parallel detect/fit worker pool; dedicated
+    workers         6743   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7036   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7328   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7053   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7345   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7755   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7772   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8261   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8278   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8972   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8989   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9925   single particle tracking, trackpy-inspired;
+    spt             9942   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11435  top-level orchestration, *Core()/wrapper split;
+    pipeline        11452  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -178,7 +178,7 @@
                            control now has one, a standing convention (see
                            CLAUDE.md); docs/DOCUMENTATION.md §1 has the full
                            GUI-action → terminal-function reference table
-    liveStreaming   12056  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12073  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -232,14 +232,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14371  localizations table, filtering, histograms;
+    table           14392  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15073  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15094  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1968,7 +1968,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07f</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3150,7 +3150,12 @@ function wrapCommentLine(line, marker, width=80){
 // logCmd()'s own comment on that convention), is untouched.
 function formatLogEntry(e, isFirst){
   if(e.type==='cmd'){
-    const line = logCmdStyle==='cli' ? cliCommandFor(e.config) : jsCommandFor(e.config);
+    // e.jsOverride (see logCmd()'s own comment) wins in JS style — CLI has
+    // no equivalent (tools/webSMLM-cli.mjs only ever drives analyze(), one
+    // shot, no interactive-session functions to call directly), so CLI
+    // style always falls through to the ordinary config-as-flags rendering
+    // regardless of jsOverride.
+    const line = logCmdStyle==='cli' ? cliCommandFor(e.config) : (e.jsOverride || jsCommandFor(e.config));
     return (isFirst?'':'\n\n')+line;
   }
   // A terminal-run statement is always JS (the log terminal only ever
@@ -3220,8 +3225,20 @@ function jsCommandFor(config){
 // (needed either way, for headless callers that skip logCmd() entirely)
 // then opens a second blank line of its own, so the command and the prose
 // that follows it read as two visually distinct lines, not one run-on block.
-function logCmd(config){
-  logHistory.push({type:'cmd', config});
+//
+// `jsOverride` (optional, reported — recalling the raw-panel crop tool's
+// own logged analyze({cropX0,...}) command re-ran a FULL Localize instead
+// of reproducing the crop-only action the tool itself took): for the rare
+// action whose analyze()-equivalent config genuinely does something
+// DIFFERENT from what happened interactively — not just "the same thing,
+// wrapped in a bigger one-shot call," which is fine (Localize/drift/NeNA/
+// etc. are all faithful that way) — this is the literal JS text to show/
+// recall/run instead, e.g. `applyCropToRaw(x0,y0,x1,y1)`. CLI style has no
+// equivalent (the CLI only ever drives one-shot analyze() calls, so a true
+// "just crop, no analyze" replay isn't expressible there at all) and always
+// falls back to the ordinary config rendering regardless.
+function logCmd(config, jsOverride){
+  logHistory.push({type:'cmd', config, jsOverride});
   $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1);
   const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
 }
@@ -13294,7 +13311,7 @@ function applyHeadlessResultToSession(result){
 // zero separate bookkeeping to keep in sync.
 function terminalHistoryList(){
   return logHistory.filter(e=>e.type==='cmd'||e.type==='term')
-    .map(e=>e.type==='cmd' ? jsCommandFor(e.config) : e.text);
+    .map(e=>e.type==='cmd' ? (e.jsOverride || jsCommandFor(e.config)) : e.text);
 }
 // A logged `file:`/`calibrationFile:`/`segmentationFile:`/`files:`/
 // `calibrationFiles:` value is always a bare display STRING (browsers never
@@ -13911,17 +13928,17 @@ function resetAfterCropChange(){
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
   // Logged BEFORE the crop actually swaps `stack` — see run()'s own comment
-  // on this ordering. cropX0/Y0/X1/Y1 are the same headless-equivalent keys
-  // analyze()/the CLI already accept (MODULE: headless API) — this alone
-  // isn't a runnable command on its own (no file:), same convention as
-  // computeNeNA's/computeFRC's bare logCmd() calls; the crop bounds are
-  // ALSO merged into run()/estimateGainOffset()/runCalibration()'s own
-  // recorded commands (via stack.cropX0 etc., see makeCroppedStack()) so
-  // THOSE stay self-sufficient/faithful to what's actually running. pxnm/
-  // frametime are pure context here (neither affects the crop itself) —
-  // frametime was reported missing here too, same gap loadMovieFiles()/
-  // loadCsvFile() already had fixed.
-  logCmd({cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1});
+  // on this ordering. cropX0/Y0/X1/Y1 are still the config keys recorded
+  // (also merged into run()/estimateGainOffset()/runCalibration()'s own
+  // commands via stack.cropX0 etc., see makeCroppedStack(), so THOSE stay
+  // self-sufficient/faithful to what's actually running) — but the JS
+  // form now overrides to a literal applyCropToRaw(x0,y0,x1,y1) call
+  // (reported: recalling analyze({cropX0,...}) from the terminal always
+  // ALSO ran a full Localize, unlike what this function itself just did —
+  // crop only, see logCmd()'s own comment on jsOverride). CLI style still
+  // has no better option than --cropX0/etc. (implicitly followed by
+  // Localize), so it keeps rendering from `config` as before.
+  logCmd({cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1}, `applyCropToRaw(${x0}, ${y0}, ${x1}, ${y1})`);
   originalStack = originalStack || stack;   // only ever set from the TRUE original, so re-cropping while still in crop mode keeps chaining off it, not an intermediate crop
   const ow=originalStack.w, oh=originalStack.h;
   stack = makeCroppedStack(originalStack, x0, y0, x1, y1);
@@ -14239,21 +14256,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07f — full GUI/terminal parity:
-nearly every button/checkbox now has a plain, directly-callable function
-behind it — the exact one its own click/change handler calls — so typing
-it into the log terminal reproduces that action precisely (e.g.
-applyCropToRaw(x0,y0,x1,y1) crops WITHOUT localizing, unlike
-analyze({cropX0,...})'s always-full-pipeline design). Most already
-worked this way; this build extracts the last 9 holdouts (Load
-calibration/settings, Simulate movie, Fix bead x,y, the reconstruction-
-panel crop tool, sSMLM's spectral/standard toggle, smFRET's Fix SOI/
-trace-mode toggle) into named functions too. See the new GUI-action ->
-terminal-function reference table in the docs for the full list.
-Also fixed a real, pre-existing race this same testing surfaced: firing
-Localize immediately followed by a crop back-to-back from the terminal
-(no human reaction time in between) could crash the reconstruction
-redraw — lastResult could go null mid-render, not just before it.
+log(`webSMLM v0.12.1-dev · build 2026-09-07g — the raw-panel crop tool's
+own logged command was still lying to you (reported): recalling it from
+the terminal showed/ran analyze({cropX0,...}), which always ALSO
+Localizes — not what the crop tool itself actually does (crop only).
+logCmd() now takes an optional literal-JS override for exactly this
+mismatch; the crop tool's own command now logs and recalls as the real
+applyCropToRaw(x0,y0,x1,y1) call. CLI-style logging is unaffected (the
+CLI has no "just crop" equivalent to fall back to either way).
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
