@@ -1635,21 +1635,39 @@ relevant one before editing rather than scrolling:
   is slower (a redundant re-Localize) but not actually WRONG the way the other eight mismatches were —
   a genuinely different failure mode, not the same bug.
 
-  **Also deliberately NOT extended to `loadMovieFiles()`/`loadCsvFile()`/`runSimulation()`**, despite
-  their own interactive actions (Load movie/data, Load data, Simulate movie) ALSO never Localizing by
-  themselves — unlike the seven fixed above, the natural override target (`loadFiles(fileList)`, the
-  already-exposed parity function) takes a real `File`/`FileList`, and calling it directly from the
-  terminal does NOT go through `resolveTerminalConfig()`'s own file-string-resolution (that wrapper
-  only intercepts calls made through the shadowed `analyze` identifier inside `runTerminalStatement()`,
-  not arbitrary bare function calls) — giving these a naive string-based `jsOverride` would silently
-  reintroduce the EXACT "bare filename can't be read from disk by browser JS" bug
-  `resolveTerminalConfigFiles()` was built to fix in the first place, just for a different call site.
-  Properly supporting this would mean generalizing that file-resolution machinery to intercept
-  arbitrary shadowed function calls, not just `analyze` — a real, bigger follow-up, not attempted
-  here. `analyze({file:...})` recalled alone still ALSO Localizes with default/backfilled settings for
-  these three actions — a real difference from their own interactive buttons, but a strictly less
-  severe one (you get a genuine, usable reconstruction using your current live settings, not "nothing
-  useful happened and it took far longer than expected") than PCFO's own case was.
+  **Of the three "does the interactive action Localize?" siblings that come to mind here, only ONE
+  actually has this bug** — corrected after initially over-claiming all three did (reported: "I don't
+  understand, loadCsvFile()/runSimulation() never Localize"):
+  - **`loadCsvFile()`** — NOT affected, full stop. `analyze()` branches on the file extension
+    (`isCsv`) BEFORE the Localize code is even reached: a `.csv` input parses locs directly and
+    returns, never calling `runCore()` at all (see §8: "method/crop/estimateGainOffset/calibration
+    options don't apply to a CSV input"). Recalling `loadCsvFile()`'s own logged
+    `analyze({file:"x.csv",...})` command is already exactly faithful — nothing to fix.
+  - **`runSimulation()`** — not applicable at all: it has no `logCmd()` call (Simulate movie logs
+    nothing) and `analyze()` has no `config.simulate`-equivalent flag in the first place, so there's
+    no recalled command for this mismatch to even apply to.
+  - **`loadMovieFiles()`** — the one real case: a genuine TIFF/ND2 `config.file` DOES take the `else`
+    branch, which unconditionally Localizes after loading. And to be precise about HOW MUCH it
+    Localizes (asked directly, reported): NOT just the first frame — `fitFirstFrame`/`fitLastFrame`
+    default to `1`/`Infinity` (§3), so a bare recalled `analyze({file:"movie.tif"})` Localizes the
+    ENTIRE stack, exactly as much work as a full interactive Localize click. "Dynamic" loading only
+    means frames are decoded on demand as the stack is read (in/out module) — it has no bearing on
+    how much of the stack a SUBSEQUENT Localize step touches.
+
+  **Still deliberately NOT extended to `loadMovieFiles()`** despite being the one real case: unlike
+  the seven fixed above, the natural override target (`loadFiles(fileList)`, the already-exposed
+  parity function) takes a real `File`/`FileList`, and calling it directly from the terminal does NOT
+  go through `resolveTerminalConfig()`'s own file-string-resolution (that wrapper only intercepts
+  calls made through the shadowed `analyze` identifier inside `runTerminalStatement()`, not arbitrary
+  bare function calls) — giving it a naive string-based `jsOverride` would silently reintroduce the
+  EXACT "bare filename can't be read from disk by browser JS" bug `resolveTerminalConfigFiles()` was
+  built to fix in the first place, just at a different call site. Properly supporting this would mean
+  generalizing that file-resolution machinery to intercept arbitrary shadowed function calls, not just
+  `analyze` — a real, bigger follow-up, not attempted here. `analyze({file:...})` recalled alone still
+  ALSO Localizes the whole stack with default/backfilled settings for this one action — a real
+  difference from Load movie/data's own interactive button, but a strictly less severe one (you get a
+  genuine, usable reconstruction using your current live settings, just redone unnecessarily) than
+  PCFO's own case was.
 
   Verified via Playwright for all seven newly-fixed actions: recalling each one's own logged command
   from the terminal after an initial Localize leaves `lastResult.locs.length` UNCHANGED (confirming no

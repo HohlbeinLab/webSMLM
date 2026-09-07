@@ -240,14 +240,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14589  localizations table, filtering, histograms;
+    table           14604  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15291  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15306  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1976,7 +1976,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -14469,6 +14469,20 @@ runSSmlmPair(), previewSSmlmPairs(), runSptTrack()) instead. Deliberately
 NOT extended to Load movie/data, Load data, or Simulate movie — see
 docs/DOCUMENTATION.md's own terminal section for why those three still
 recall as analyze() and what that means.
+Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-07j — correction to build 07i's
+own claim (reported: "loadCsvFile()/runSimulation() never Localize"),
+which over-generalized. Only Load movie/data actually has the mismatch:
+analyze() branches on file extension BEFORE Localize is even reached,
+so a .csv input (Load data) never runs Localize at all — recalling its
+own logged command was already exactly faithful, nothing was wrong.
+Simulate movie logs no command at all (no analyze() equivalent exists
+for it), so there was never anything to recall in the first place. Load
+movie/data alone still recalls as analyze({file:...}), which re-
+Localizes the ENTIRE stack (fitFirstFrame/fitLastFrame default to
+1/Infinity) — not just the first frame; decoding frames on demand while
+loading has no bearing on how much of the stack a later Localize
+touches.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

@@ -327,10 +327,10 @@ in between. Type a field explicitly into the terminal yourself (`pxnm:160`,
 `psf:1.6`, …) and it overrides this, same as any other key in the command.
 
 One thing to know about `analyze({...})` itself, if you type it fresh rather
-than recall a logged line: it always runs the complete load → detect/fit
-pipeline in one call — there's no "just crop," "just correct drift," or
-"just estimate gain/offset" mode, since it's a one-shot, no-interactive-
-session convenience built for CLI/pure scripting use. Typing
+than recall a logged line: for a movie file, it always runs the complete
+load → detect/fit pipeline in one call — there's no "just crop," "just
+correct drift," or "just estimate gain/offset" mode, since it's a one-shot,
+no-interactive-session convenience built for CLI/pure scripting use. Typing
 `analyze({cropX0:...})` yourself, for instance, will always ALSO run a full
 Localize afterward. You mostly don't need to think about this, though: the
 handful of actions where the button itself never Localizes anything — the
@@ -338,14 +338,23 @@ raw-panel crop tool, PCFO gain/offset estimation, drift correction, NeNA,
 FRC, sSMLM preview/pairing, spt tracking — already log the RIGHT thing to
 recall (e.g. `applyCropToRaw(x0,y0,x1,y1)`, `correctDrift()`, not an
 `analyze({...})` line), so arrow-up after any of those just works, no
-substitution needed. The exception is a Load movie/data, Load data, or
-Simulate movie command: those still log/recall as `analyze({file:...})`,
-which — unlike the button that produced it — also runs a fresh Localize
-using your current settings when you rerun it. That's usually harmless (you
-get a real, usable reconstruction, just slower than "only reload the file"
-would have been); call `loadFiles([...])`/`loadCsvFile(...)` yourself,
-passing a real `File`, for a genuine load-only replay. This is the general
-pattern covered next.
+substitution needed.
+
+The one remaining exception is a Load movie/data command specifically: it
+still logs/recalls as `analyze({file:"movie.tif",...})`, which — unlike
+Load movie/data itself — also runs a fresh Localize across the *entire*
+stack using your current settings when you rerun it (not just the first
+frame; a movie being decoded on demand as it loads has no bearing on how
+much of it a subsequent Localize touches). That's usually harmless (you get
+a real, usable reconstruction, just redone when you only wanted to reload
+the file); call `loadFiles([...])` yourself, passing a real `File`, for a
+genuine load-only replay. **Load data (a `.csv`) and Simulate movie don't
+have this issue at all**: a `.csv` file takes a completely separate path
+inside `analyze()` that never reaches the Localize step, so recalling a
+Load data command is already exactly faithful; Simulate movie logs no
+command in the first place (there's no `analyze()` equivalent for it), so
+there's nothing to recall via the terminal for it either way — just call
+`runSimulation()` directly. This is the general pattern covered next.
 
 ### Every GUI action has a matching terminal function
 
