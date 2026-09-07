@@ -254,14 +254,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14653  localizations table, filtering, histograms;
+    table           14684  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15355  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15386  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1990,7 +1990,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07k</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07l</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -14039,6 +14039,16 @@ $('cropBtn').addEventListener('click',()=>{
 // (this function only ever runs once both corners are known) and converts
 // its own srFull-px click coordinates to nm before calling this.
 function commitSrCrop(x0, y0, x1, y1){
+  // Same "the click handler always hands in correctly-ordered corners, but
+  // the terminal can pass anything" gap applyCropToRaw() itself just got
+  // fixed for — here an inverted region wouldn't crash or misreport itself,
+  // it would just silently commit a filter matching zero rows (`r.x>=x0 &&
+  // r.x<=x1` can never both be true if x1<x0), which is its own confusing
+  // way to fail. Caught explicitly instead.
+  if(x1<=x0 || y1<=y0){
+    log(`⚠ Invalid crop region: x1 (${x1}) must be greater than x0 (${x0}), and y1 (${y1}) greater than y0 (${y0}).`);
+    return;
+  }
   // Rebuild fresh rather than reusing a possibly-stale _tableData from an
   // earlier Run (it's only otherwise rebuilt when the table is opened) — and
   // from the current base (clustered events if tempClusteringXY/Z is active,
@@ -14160,6 +14170,27 @@ function resetAfterCropChange(){
 // Applies the raw-panel crop tool's selected rectangle: swaps `stack` for a
 // makeCroppedStack() wrapper and resets everything derived from the old FOV.
 async function applyCropToRaw(x0,y0,x1,y1){
+  // Bounds validated here, not left to makeCroppedStack() (which does none
+  // at all — a negative width there just produces garbage or a confusing
+  // low-level error deep inside frame decoding): the raw-panel click
+  // handler always hands in correctly-ordered, in-bounds corners (a click
+  // maps to a real canvas pixel, and it takes the min/max of the two
+  // clicks itself), so this never mattered until the terminal made it
+  // possible to pass ARBITRARY numbers directly (reported — `applyCropToRaw
+  // (4000, 397, 667, 596)`, x1<x0, was reported as "region too small",
+  // which was true of the literal x1-x0 arithmetic but nothing to do with
+  // the REAL problem: an inverted/out-of-bounds region, not a small one).
+  // Three genuinely different failure modes get three distinct messages.
+  const base=originalStack||stack;
+  if(!base){ log('⚠ No movie loaded to crop.'); return; }
+  if(x1<=x0 || y1<=y0){
+    log(`⚠ Invalid crop region: x1 (${x1}) must be greater than x0 (${x0}), and y1 (${y1}) greater than y0 (${y0}).`);
+    drawRawView(); return;
+  }
+  if(x0<0 || y0<0 || x1>base.w || y1>base.h){
+    log(`⚠ Crop region x ${x0}–${x1}, y ${y0}–${y1} is out of bounds for the ${base.w}×${base.h} stack.`);
+    drawRawView(); return;
+  }
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out) — the crop itself below is synchronous/atomic; this only guards the trailing display refresh after the awaits
   // Logged BEFORE the crop actually swaps `stack` — see run()'s own comment
@@ -14532,6 +14563,20 @@ same resolution — Load movie/data's own logged command now recalls as
 loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
 single-digit milliseconds, not minutes). Load data (.csv) and Simulate
 movie never needed this — see build 07j's own message for why.
+Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-07l — applyCropToRaw()/
+commitSrCrop() now validate their own bounds properly (reported:
+applyCropToRaw(4000,397,667,596) said "region too small", which was
+technically true of the raw x1-x0 arithmetic but had nothing to do
+with the real problem — an INVERTED region, not a small one). Both
+click handlers already hand in correctly-ordered, in-bounds corners by
+construction, so this only ever mattered once the terminal made it
+possible to pass arbitrary numbers directly. applyCropToRaw() now
+distinguishes three failure modes with three distinct messages:
+inverted (x1<=x0 or y1<=y0), out of bounds for the actual stack, and
+genuinely too small (min 8x8) — checked in that order, so each one
+gets the message that actually explains what went wrong.
+commitSrCrop() gets the matching inverted-region check.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

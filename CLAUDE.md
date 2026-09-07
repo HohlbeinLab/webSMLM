@@ -1750,6 +1750,29 @@ relevant one before editing rather than scrolling:
   function's own `catch` block (not a shared `finally` with the new staleness bail-outs above — an
   ERROR means nothing else is going to fix this, so it must always run; a STALE-but-successful return
   correctly defers cleanup to whatever superseded it, per the paragraph above).
+
+  **`applyCropToRaw()`/`commitSrCrop()` gained real input validation** (follow-up, same round,
+  reported — `applyCropToRaw(4000, 397, 667, 596)` was reported as "Crop region too small (min 8×8
+  px)", which is technically true of the raw `x1-x0` arithmetic (`667-4000=-3333<8`) but has nothing
+  to do with the REAL problem: an INVERTED region (`x1<x0`), not a small one). Both functions'
+  interactive callers (the raw-panel/reconstruction-panel click handlers) always hand in correctly-
+  ordered, in-bounds corners by construction (a click maps to a real canvas pixel; both handlers
+  already take the min/max of the two clicks themselves) — this validation gap was invisible until the
+  terminal made it possible to pass ARBITRARY numbers directly. `applyCropToRaw()` now checks three
+  genuinely different failure modes with three distinct messages, in order: (1) `x1<=x0||y1<=y0` —
+  "Invalid crop region: x1 (…) must be greater than x0 (…), …"; (2) out of bounds against
+  `originalStack||stack` (the TRUE original the crop coordinates are always relative to, not a
+  possibly-already-cropped `stack`) — "Crop region … is out of bounds for the W×H stack"; (3) the
+  pre-existing, still-valid "too small (min 8×8 px)" check, now only reachable once (1) and (2) have
+  already ruled out the other two causes. `commitSrCrop()` gets the matching `x1<=x0||y1<=y0` guard —
+  its own failure mode without one is milder (no crash, `r.x>=x0&&r.x<=x1` for an inverted region can
+  never be true, so it would just silently commit a filter matching zero rows) but just as confusing,
+  so it's caught explicitly too rather than left to fail silently. No out-of-bounds check added there
+  — `commitSrCrop()` takes nm bounds against `lastResult`'s own reconstruction, a softer failure mode
+  (an out-of-range filter just matches fewer/zero rows, not a crash) not worth the added complexity of
+  converting nm to native px via `lastResult.px/lastResult.mag` just to bounds-check it. Verified via
+  Playwright: the exact reported inverted-x case, a genuinely out-of-bounds region, a genuinely
+  too-small region, and a valid crop all produce the correct distinct outcome.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
