@@ -975,7 +975,7 @@ equivalent yet.
 **Alternating laser excitation (ALEX)** — step one of the "ALEX frame-role
 bookkeeping" prerequisite `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX sketch
 calls out as needed before any DD/DA/AA/AD sorting can happen: just which
-frames are donor- vs. acceptor-excitation, nothing more yet. **Alternating
+frames get direct donor- vs. direct acceptor-excitation, nothing more yet. **Alternating
 laser excitation?** (default unchecked) reveals **1st frame is** — Direct
 donor excitation or Direct acceptor excitation, i.e. which physical laser
 the loaded movie's own first frame corresponds to. It only affects the
@@ -2060,7 +2060,7 @@ for the first implementation.
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `alexEnabled` | Alternating laser excitation? | bool | — | — | — | false |
-| `alexFirstFrame` | 1st frame is | enum (`donor`, `acceptor`) | — | — | — | `donor` |
+| `alexFirstFrame` | 1st frame is | enum (`dirDonorExc`, `dirAcceptorExc`) | — | — | — | `dirDonorExc` |
 | `smfretAvgFrames` | Average frames | number (int) | 1 | 100000 | 10 | 100 |
 | `smfretFixSOI` | Fix SOI x,y for time traces | bool | — | — | — | false |
 | `smfretApertureMode` | Aperture photometry (no fit) | bool | — | — | — | false |
