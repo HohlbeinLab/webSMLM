@@ -1987,7 +1987,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 <!-- HINT:sSMLM -->
 <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
 <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-<p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or an angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the two vertical lines directly on the <b>Distances</b> plot — then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+<p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the two vertical lines directly on the <b>Distances</b> plot — then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
 <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
 <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
 <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -2001,9 +2001,13 @@ the deposited reference dataset's own grating dispersion
 sits elsewhere, so don't trust these blind. **Preview pairs** fetches
 candidates over a WIDE, fixed scan — distance 0–6000 nm (wider still if
 Distance max is already past that) at any angle — ignoring the
-Distance/Angle fields entirely, reusing the table module's own
-`computeHist()`/`drawHistogram()` (fed candidate values instead of a table
-column). **Show histograms** (one button, merging what used to be two —
+Distance/Angle fields entirely. The **Distances** view reuses the table
+module's own `computeHist()`/`drawHistogram()` (fed candidate values
+instead of a table column); the **Angles** view renders as a dedicated
+polar (rose) plot, `drawSSmlmAnglePolar()`, not that shared cartesian
+histogram — angle data wraps at 360°, which a linear x-axis handles
+poorly (see below). **Show histograms** (one button, merging what used to
+be two —
 a toggle next to the raw panel's own title, labelled **Distances** or
 **Angles**, switches between the two views; **Distances** shown first)
 plots the full wide scan with the *currently configured* Distance min/max
@@ -2017,18 +2021,24 @@ max field and redraws the histogram continuously, only firing the field's
 own `change` event (and whatever else reacts to it) once on release, not
 on every pointer move. The
 **Angles** view, by contrast, *does* restrict to the currently configured
-distance window (also read
-live) — the angle signal is only sharp within the real peak, so pooling
-in the wide scan's off-peak distances would just dilute it with
-background — and plots each candidate's bearing AND its exact reverse
-(`rawAngle`/`rawAngle+180`, both wrapped into a 360°-window centred 90°
-away from `sSmlmAngleCenter` so neither the forward nor the backward peak
-sits at the plot's own seam): a candidate's *raw* single bearing depends
-on which of its two points happens to have the smaller array index, an
-accident of row order that (verified against the real reference CSV) is
-not evenly split and would otherwise make the two peaks look wildly,
-misleadingly unequal; plotting both directions makes them come out equal,
-as an undirected diagnostic should. Both histograms accumulate same-frame
+distance window (also read live) — the angle signal is only sharp within
+the real peak, so pooling in the wide scan's off-peak distances would just
+dilute it with background — and renders as a **polar (rose) histogram**
+instead of a cartesian bar chart: fixed 2° bins around the full circle,
+0°=right/90°=top, increasing counterclockwise (standard math convention),
+each bin's own outer radius scaled by its count, drawn as one continuous
+stepped outline rather than individual pie-slice wedges. It plots each
+candidate's bearing AND its exact reverse (`rawAngle`/`rawAngle+180`, both
+taken mod 360°): a candidate's *raw* single bearing depends on which of
+its two points happens to have the smaller array index, an accident of
+row order that (verified against the real reference CSV) is not evenly
+split and would otherwise make the two peaks look wildly, misleadingly
+unequal; plotting both directions makes them come out equal, as an
+undirected diagnostic should — the two resulting peaks land opposite each
+other on the circle (180° apart) rather than being awkwardly split across
+a wrap point the way a linear axis would show them. (This plot has no
+interactive hover or draggable markers, unlike the Distances view — a
+deliberate v1 scope limit.) Both histograms accumulate same-frame
 candidates across every frame in the stack (never cross-frame pairs) —
 one pooled plot, not one frame's worth. **Fit angle & tol.** estimates
 Primary angle/Angle tolerance directly from that same distance-windowed,
@@ -2039,9 +2049,11 @@ hand), then fills both fields in — a simple, defensible estimate (not a
 full Gaussian fit, matching the bar this app's other auxiliary estimates
 like PCFO/NeNA set), still usually conservative, meant as a starting point
 you can widen further by hand rather than a final answer. Both histograms
-also overlay the currently configured window as vertical marker lines —
-distance min/max on the distance histogram, primary angle ± tolerance
-(mirrored onto both plotted peaks) on the angle one — and refresh live as
+also overlay the currently configured window: the distance histogram
+draws vertical Distance min/max marker lines; the angle plot draws two
+dashed lines through the origin at Primary angle ± Angle tolerance — each
+a full diameter, so together they bound the accepted wedge on both sides
+of the circle by construction. Both refresh live as
 you edit any of the four fields while that histogram is on screen (or
 immediately after clicking **Fit angle & tol.**), no manual re-click
 needed. Narrow these fields (by hand or via the fit) to the real peak,

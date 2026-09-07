@@ -732,6 +732,59 @@ relevant one before editing rather than scrolling:
   FRC) and where `plots` is actually built (near the end) — the same "compute early, render late"
   shape `drift`/`nena`/`frc`/`pcfo` already use for their own `exportPlots` entries.
 
+  **Angle histogram is a polar (rose) plot, not the shared cartesian bar chart** (requested — the
+  cartesian version, per its own now-removed windowing trick, split a true peak straddling the axis's
+  wrap point into two edge bars, illegible; a follow-up reference image settled the exact convention
+  after the request's own wording — "0° top, 90° left" — turned out to be the OPPOSITE of the
+  picture's own axis labels). `drawSSmlmAnglePolar(vals, angleCenter, tol)` (right after
+  `drawSSmlmHist()`) replaces `computeHist()`/`drawHistogram()` for angle mode only — the distance
+  histogram is completely untouched. Convention: **0°=right, 90°=top, increasing
+  COUNTERCLOCKWISE** — standard math convention, confirmed against the reference image, not the
+  reversed orientation first typed in words. Fixed `SSMLM_POLAR_BIN_DEG=2`° bins across
+  `SSMLM_POLAR_NB=180` bins spanning the full circle (not `computeHist()`'s data-driven
+  `sqrt(n)`-bin heuristic — angular data wants a fixed, interpretable resolution regardless of n).
+  The doubled `rawAngle`/`rawAngle+180` fairness fix (row-order bias, see above) is unchanged; only
+  the windowing origin changed, `wrap360(...,-90)` → `wrap360(...,0)` — a full circle has no "centre
+  the peak away from the seam" need a linear axis had.
+
+  Rendered as ONE continuous stepped outline (two points per bin, chained bin to bin, closed back to
+  the start) rather than individual pie-slice wedges — filled with the theme's own `plotColors().bar`
+  and stroked with `C.axis`, reusing the app's existing colour convention rather than copying the
+  reference image's own literal red/grey. Radial gridlines (dotted concentric rings at `niceTicks(0,
+  cmax,4)` count ticks) and the histogram outline itself are both built from plain `moveTo`/`lineTo`
+  polygons via a shared `toXY(deg,r)` helper — **deliberately never `ctx.arc()`** for anything that
+  needs a STROKE: `SvgRecordingContext.arc()` only ever feeds its own `fill()` (used elsewhere purely
+  for full-circle point markers) — its `stroke()` only ever consumes a built path (`_d`), never the
+  `_arc` state `arc()` sets, so a stroke-only circle would silently render nothing in "Save
+  plot/image"'s SVG export. A 72-segment polygon per ring is visually indistinguishable from a true
+  circle at any real canvas size, and guarantees the SVG export is pixel-identical geometry to the
+  on-screen canvas (same code, same math, no `_plotTarget`-conditional branch). **Also caught the
+  same way**: `SvgRecordingContext` has no `closePath()` at all (confirmed via the exact same
+  Playwright SVG-content check that caught the arc/stroke gap) — the outline's own closing segment is
+  built with an explicit trailing `lineTo(startX,startY)` instead, which closes correctly on both
+  backends rather than relying on `fill()`'s own implicit-close behaviour (real Canvas2D auto-closes
+  an open subpath for fill, but not for stroke, and the recorder doesn't auto-close for either).
+  Selection markers ("two crossed lines through the origin", requested) are exactly two full
+  diameters at `wrap360(angleCenter∓tol,0)`, dashed `#d9534f` (the same red the cartesian markers
+  already use) — each line's own opposite endpoint (`deg+180`) is what makes it a full diameter, not
+  a ray, so the two together bound the accepted wedge on BOTH sides of the circle by construction; no
+  separate centre-bearing line was added (the request specified exactly two). Verified via Playwright
+  by independently recomputing both marker lines' expected endpoint coordinates from the same
+  `toXY()` formula and diffing them pixel-for-pixel against the actual recorded SVG path data — exact
+  match. **No interactive hover, no draggable markers** — deliberate v1 scope limits: the shared
+  `registerPlotHover()`/`drawPlotHover()` do a rectangular hit-test + linear interpolation,
+  fundamentally Cartesian and not reusable for a circular hit-test without real new code nobody
+  asked for; the distance histogram's own draggable-marker IIFE stays fully inert here regardless
+  (already gated on `histData.col==='sSMLM pair distance'`, which this plot never sets).
+
+  **`_replotRaw=drawSSmlmHist`** is now set unconditionally at the top of `drawSSmlmHist()` itself
+  (a real, previously-latent bug this surfaced) — before this, `_replotRaw` was only ever set
+  *inside* `drawHistogram()`, correct for distance mode but leaving it either stale or unset for
+  angle mode once that stopped calling `drawHistogram()` at all; a resize/theme-change while viewing
+  the polar plot would have redrawn the WRONG thing (or nothing). Harmless for distance mode too —
+  `drawHistogram()`'s own internal `_replotRaw=drawHistogram` assignment runs right after and simply
+  overwrites this one back to the (already-correct) simpler target for that mode.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**, v1: "sites of interest" (SOI) detection plus a
   simple per-site time-trace readout, the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX
   integration sketch. Not squeezed into sSMLM (a genuinely different optical setup motivating this —
