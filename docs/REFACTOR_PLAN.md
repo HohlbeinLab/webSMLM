@@ -169,9 +169,13 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     raw-panel crop tool's `makeCroppedStack()`, but producing TWO frame-synchronised sub-stacks
     from one crop step instead of one. A two-camera setup (separate donor/acceptor cameras) needs
     genuinely new frame-synchronised dual-stack loading — no existing precedent to lean on there.
-  - **ALEX frame-role bookkeeping.** Which frames are donor-excitation vs. acceptor-excitation is
-    new state nothing in webSMLM tracks today (a period/pattern control, or explicit frame-index
-    lists) — needed before any DD/DA/AA/AD sorting can happen.
+  - **ALEX frame-role bookkeeping — first piece shipped.** `alexEnabled`/`alexFirstFrame` (smFRET
+    module) record which frames are donor- vs. acceptor-excitation for a simple even/odd
+    alternation (1st frame + a fixed period of 2), surfaced only as a donor-only/acceptor-only
+    toggle on the **Data projection** preview (`averageFramesByParity()`) — no per-localization
+    frame-role tagging, no DD/DA/AA/AD sorting, no dual-channel/multi-camera support yet. Still
+    open: a genuine period/pattern control for >2-frame ALEX cycles or explicit frame-index lists,
+    and everything DD/DA/AA/AD sorting actually needs downstream of just knowing the pattern.
 
   Not scoped: whether this becomes its own sidebar module (most likely, given the size — a new
   "smFRET (ALEX)" section, not squeezed into sSMLM or 3D calibration) vs. a mode of an existing one;

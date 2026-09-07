@@ -972,10 +972,31 @@ channel assignment yet, just one curve per site.
 for the full config/result shape. **Get time traces** has no headless
 equivalent yet.
 
+**Alternating laser excitation (ALEX)** — step one of the "ALEX frame-role
+bookkeeping" prerequisite `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX sketch
+calls out as needed before any DD/DA/AA/AD sorting can happen: just which
+frames are donor- vs. acceptor-excitation, nothing more yet. **Alternating
+laser excitation?** (default unchecked) reveals **1st frame is** — Direct
+donor excitation or Direct acceptor excitation, i.e. which physical laser
+the loaded movie's own first frame corresponds to. It only affects the
+**Data projection** view shown in the reconstruction panel before any
+Localize/Calibration result exists (`showStackProjection()`): checked, the
+panel title gains a toggle button (labelled with whichever state clicking
+it switches TO — **Donor dir. exc.**/**Acceptor dir. exc.**) that averages
+only the even- or only the odd-indexed frames (`averageFramesByParity()`,
+MODULE: in/out — a parity-strict sibling of `averageFrames()`, which can't
+be reused directly since its own evenly-spaced subsampling doesn't respect
+frame parity) instead of the whole stack, so the two excitation channels
+can be inspected separately before running any real analysis. The raw
+(left) panel and every other analysis path (Localize, Localize SOI, Get
+time traces, …) are completely untouched — this is a projection-preview
+control only, not a channel-sorting pipeline.
+
 Not yet implemented (see `docs/REFACTOR_PLAN.md` for the full sketch):
-donor/acceptor/FRET channel sorting of the extracted traces; E_raw/S_raw
-computation; ALEX frame-role bookkeeping; gain/offset-corrected photon
-units for the traces themselves. **Mechanically** pairing an SOI's donor
+donor/acceptor/FRET channel sorting of the extracted traces (Get time
+traces' own per-frame data); E_raw/S_raw computation; per-localization ALEX
+frame-role tagging (DD/DA/AA/AD); gain/offset-corrected photon units for
+the traces themselves. **Mechanically** pairing an SOI's donor
 candidate to its acceptor partner now works — `config.smfretLocateSOI`
 piped into sSMLM's own `config.sSmlmPreview`/`config.sSmlmPair` reuses that
 module's existing distance+bearing-angle pairing with zero new pairing
@@ -2038,6 +2059,8 @@ for the first implementation.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
+| `alexEnabled` | Alternating laser excitation? | bool | — | — | — | false |
+| `alexFirstFrame` | 1st frame is | enum (`donor`, `acceptor`) | — | — | — | `donor` |
 | `smfretAvgFrames` | Average frames | number (int) | 1 | 100000 | 10 | 100 |
 | `smfretFixSOI` | Fix SOI x,y for time traces | bool | — | — | — | false |
 | `smfretApertureMode` | Aperture photometry (no fit) | bool | — | — | — | false |
@@ -2048,6 +2071,7 @@ for the first implementation.
 
 <!-- HINT:smfret -->
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
+<p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>1st frame is</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This only affects the <b>Data projection</b> view shown before any Localize/Calibration result exists: a toggle appears next to its title (<b>Donor dir. exc.</b>/<b>Acceptor dir. exc.</b>, named for whichever it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected separately. The raw (left) panel and every other analysis step are untouched — no donor/acceptor channel sorting elsewhere yet.</p>
 <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
 <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
 <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>

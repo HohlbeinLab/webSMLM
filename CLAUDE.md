@@ -1039,6 +1039,55 @@ relevant one before editing rather than scrolling:
   `drawView()`'s own SR-panel draw and the PNG-export code path (`isSR` branch) so a saved composite
   image matches what's on screen.
 
+  **ALEX frame-role bookkeeping — first piece** (`alexEnabled`/`alexFirstFrame`, step one of
+  `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX sketch: *"which frames are donor-excitation vs.
+  acceptor-excitation is new state nothing in webSMLM tracks today... needed before any
+  DD/DA/AA/AD sorting can happen"*). **Alternating laser excitation?** (default unchecked) reveals
+  **1st frame is** (Direct donor excitation/Direct acceptor excitation) — which physical laser the
+  movie's own first frame corresponds to. 1st frame = 0-based index 0 = "even" parity; the other
+  physical excitation is the opposite parity. Deliberately scoped to a fixed period-2 alternation
+  only (no general period/pattern control, no explicit frame-index lists, no per-localization
+  frame-role tagging, no DD/DA/AA/AD sorting) — just enough to unblock the ONE thing asked for.
+
+  The only consumer is `showStackProjection()`'s existing **Data projection** view (shown in the
+  reconstruction panel before any Localize/Calibration result exists) — checked, it averages only
+  one parity via the new `averageFramesByParity(st,first,last,parity,cap,checkStack=true)`
+  (MODULE: in/out, right after `averageFrames()`) instead of the whole stack, and the panel title
+  gains a toggle button (`alexProjToggleBtn`, same `.logbtn`/default-hidden convention as
+  `sSmlmColorBtn`/`srSegOverlayBtn`/`srTracksOverlayBtn`, labelled with whichever state clicking it
+  switches TO — **Donor dir. exc.**/**Acceptor dir. exc.**) flipping module-level `alexProjChannel`
+  between the two. **`averageFramesByParity()` is a genuinely separate function, not a
+  parameterised `averageFrames()` call** — that function's own evenly-spaced `step` subsampling
+  (for staying fast over a huge range) has no relationship to 2, so it would land on the wrong
+  parity about as often as the right one; the new function instead steps by exactly 2 from the
+  first in-range index of the requested parity. The raw (left) panel and every other analysis path
+  (Localize, Localize SOI, Get time traces, sSMLM pairing, …) are completely untouched — this is a
+  projection-preview control only.
+
+  **A parity-restricted average must never be cached in `_projCache`** — that cache exists so
+  `locateBeadsForCalib()` ("Fix bead x,y") can reuse the whole-stack overview instead of
+  re-averaging when the calibration range matches it; a half-frame-count ALEX average landing
+  there would silently corrupt a calibration bead fit run afterward. `showStackProjection()` sets
+  `_projCache=null` whenever `alexEnabled` is on, leaving the real cache untouched for the
+  non-ALEX path. **Re-showing the projection after a checkbox/selector/toggle change hits
+  `showStackProjection()`'s own re-entry guard** (`if(stack!==st || srFull || ...) return;` — meant
+  to stop it clobbering a real result that claimed the panel while it was awaiting frame data) —
+  but that guard can't tell "someone else's content" from "my own prior projection, about to be
+  redrawn with the other parity," since `srFull` is the very state the FIRST call left behind. Each
+  of the three listeners (`toggleAlexEnabled`/`refreshAlexProjectionIfShown` on `#alexFirstFrame`'s
+  own `change`/`toggleAlexProjChannel`) funnels through `refreshAlexProjectionIfShown()`, which
+  checks `$('srTitle').textContent==='Data projection'` first (only refresh if a projection is
+  actually showing — avoids a wasted whole-stack average otherwise) and explicitly resets
+  `srFull=null; srIsPlot=false; srSpots=null; srLocs=null;` before calling `showStackProjection()`
+  again — a real bug caught via Playwright before this fix (toggling the checkbox showed the
+  selector row but `srInfo`/the toggle button never updated at all, silently no-op every time).
+  Verified end-to-end with the real ALEX sample
+  (`experimental_data/Donor-1b …ALEX60fr…tif`, 60 frames): donor/acceptor toggle reports 30/60
+  frames each way, and a pixel-checksum of the SR canvas confirms flipping **1st frame is** while
+  the toggle stays on **acceptor** correctly swaps which physical 30 frames get averaged (matches
+  the checksum of the ORIGINAL donor view, not the acceptor one) — the parity math, not just the
+  on-screen label, was checked.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
   `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
@@ -2255,10 +2304,10 @@ in the repo.
   never hand-edit a `.hint` div directly, it'll be overwritten on the next sync. `--check` exits 1
   without writing if `webSMLM.html` would change, for a pre-commit/CI-style drift check. The
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is NOT part of the
-  synced content (kept as fixed markup in `webSMLM.html`). All 12 `.hint` divs
+  synced content (kept as fixed markup in `webSMLM.html`). All 13 `.hint` divs
   (`hint-memory`/`hint-liveStreaming`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
   `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-locprecision`/`hint-sSMLM`/
-  `hint-spt`) use this mechanism. Each
+  `hint-smfret`/`hint-spt`) use this mechanism. Each
   marker is placed as the INTRO to its DOCUMENTATION.md section, right after the PARAMS table — the
   surrounding prose picks up only where the popup leaves off, not restating it.
 - **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the
