@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2516   PARAMS registry, single source of truth for params;
+    params          2529   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3276   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3302   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3575   synthetic stack generator ("Simulate movie")
-    detect          4453   per-frame band-pass + local-maxima detection
-    fit             4730   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3601   synthetic stack generator ("Simulate movie")
+    detect          4479   per-frame band-pass + local-maxima detection
+    fit             4756   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5369   accumulate to offscreen buffer; view/colour/blur;
+    render          5395   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6668   frame-parallel detect/fit worker pool; dedicated
+    workers         6694   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6978   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7270   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7004   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7296   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7697   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7723   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8203   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8229   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8914   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8940   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9854   single particle tracking, trackpy-inspired;
+    spt             9880   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11364  top-level orchestration, *Core()/wrapper split;
+    pipeline        11390  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -164,7 +164,7 @@
                            logged command's own file: is always a display
                            string (browsers expose no real path), so without
                            this every recalled Localize/etc. command threw
-    liveStreaming   11985  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12011  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -218,14 +218,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14200  localizations table, filtering, histograms;
+    table           14240  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    14883  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14942  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1783,8 +1783,15 @@ X.B(E,Y);return E}return J}())
      across the whole panel) without shrinking the box drawn around it. 80ch —
      not the originally-shipped 100ch — matches a standard terminal's own width,
      by explicit request. */
+  /* height fixed at 12 text lines (reported — the previous clamp(...,32vh,460px)
+     rendered ~25 lines on a normal desktop viewport, most of it scrolled-past
+     history rather than what just happened): 12 lines * 18px line-height (12px
+     font * 1.5) + 20px padding (10px top+bottom, border-box) = 236px. A plain
+     fixed height, not viewport-relative, since "12 lines" was the explicit ask
+     regardless of screen size — #log's own overflow:auto still scrolls to
+     whatever's beyond that. */
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
-    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
+    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:236px;overflow:auto;white-space:pre-wrap}
   /* log() itself now hard-wraps prose at real newlines (see wrapCommentLine(),
      MODULE: params, next to log()) rather than leaving it to CSS — every
      visible row is a genuine "\n"-separated line with its own "// "/"# "
@@ -1947,7 +1954,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3084,8 +3091,21 @@ let logHistory=[];
 // resolveTerminalConfigFiles() substitutes a match back in by name at
 // terminal run time, so "recall, tweak a parameter, rerun" works for a file
 // already loaded earlier this session, without needing to re-pick it.
+// _lastTerminalFile (a plain last-write-wins var, NOT "last in Map iteration
+// order" — Map.set() on an EXISTING key does not move it, so the map alone
+// can't answer "most recent") backs the OTHER recall gap this same bug
+// report surfaced: most logCmd()'d actions (a committed filter, a crop, a
+// Localize run) never include `file:` at all — by design, a curated
+// snapshot of just what THAT action changed, same convention documented at
+// every one of those call sites — so recalling one of THOSE alone, with no
+// file: key present to substitute into, threw exactly like a missing string
+// match would. resolveTerminalConfigFiles() falls back to this whenever
+// `file`/`files` is absent entirely, so re-running "just a crop" or "just a
+// filter" against whatever's currently loaded works the same way the
+// interactive crop tool/filter box already do — no file re-selection needed.
 const _terminalFileRegistry = new Map();
-function registerTerminalFile(f){ if(f && f.name) _terminalFileRegistry.set(f.name, f); }
+let _lastTerminalFile = null;
+function registerTerminalFile(f){ if(f && f.name){ _terminalFileRegistry.set(f.name, f); _lastTerminalFile=f; } }
 // Word-wraps one line of prose to `width`, prefixing EVERY resulting row
 // with `marker` (real "\n"s, not CSS soft-wrap) — so every visible row in
 // the log is a genuine "// "/"# "-marked line, and selecting any stretch of
@@ -12634,24 +12654,30 @@ async function loadMovieFiles(fs){
   // Logged BEFORE loading starts, not after it succeeds — a recorded command
   // announces what's about to run, with the prose narrating what actually
   // happened following it, same order a real macro recorder reads in. Safe
-  // to log this early since the config doesn't depend on the load's own
-  // outcome: pxnm is the CURRENT setting either way ("Pixel size (nm)...NOT
-  // auto-updated" — see loadTiffFile()'s own metadata-advisory comment), so
-  // reading it via paramValue() here vs. stack.px after loading is the same
-  // value. A multi-file combine (Ctrl/Cmd+click several files) has no CLI/
+  // to log this early since `file` doesn't depend on the load's own outcome.
+  // A multi-file combine (Ctrl/Cmd+click several files) has no CLI/
   // analyze() equivalent — tools/webSMLM-cli.mjs only ever takes one --file,
   // so a faithful recorded command isn't possible there; single-file loads
   // record cleanly. Browsers only ever expose the bare filename (File.name),
   // never a full filesystem path, so — same caveat as any macro recorder —
   // this reproduces correctly only when re-run from the same folder (CLI
   // mode) or with a real File substituted in (JS mode's own `file` key needs
-  // an actual File/Blob object, not the string logged here). frametime
-  // (renamed from sptFrameTime, v0.12.1-dev) is included alongside pxnm for
-  // the same reason: a global, pinned physical-calibration setting a fresh
-  // load implicitly assumes the current value of — reported, this was
-  // missing even after frametime itself was promoted out of spt's own
-  // section, since this call site predates that change.
-  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm'), frametime: paramValue('frametime')});
+  // an actual File/Blob object, not the string logged here — the log
+  // terminal's own resolveTerminalConfigFiles() does this automatically for
+  // a file still loaded this session, see MODULE: pipeline).
+  //
+  // pxnm/frametime DELIBERATELY excluded (reported) — this used to snapshot
+  // whatever they were set to AT LOAD TIME, before the "check the file's own
+  // metadata, then correct Pixel size (nm)/Frame time (s) by hand" step this
+  // app's own advisory message walks a user through. Now that a logged
+  // command is directly re-runnable from the log terminal, keeping that
+  // stale snapshot baked in was a real trap: recalling this exact line AFTER
+  // manually correcting pxnm would silently reset it back to the pre-
+  // correction value. run()'s own logCmd() (below) already records the pxnm
+  // actually used, read fresh at RUN time — the one value that matters for
+  // reproducing an analysis; add pxnm/frametime here by hand if building a
+  // real load-only script from this line.
+  if(!multi) logCmd({file: fs[0].name});
   // Leading "\n" only when logCmd() just ran (!multi) — opens the same
   // second blank line every other recorded-command call site gets between
   // the command and its following prose; a multi-file combine has no
@@ -13221,6 +13247,17 @@ function resolveTerminalFileValue(v, key){
 }
 function resolveTerminalConfigFiles(config){
   const out={...config};
+  // A logCmd()'d filter/crop/Localize/drift/etc. command never carries
+  // file:/files: at all (curated snapshot of just what that action changed
+  // — see e.g. commitFilter()/the crop tool/run()'s own comments), so
+  // recalling one alone has nothing for the loop below to substitute into.
+  // Falls back to whatever was most recently loaded this session — same
+  // "act on what's currently loaded" behaviour the interactive crop tool/
+  // filter box already have — UNLESS this is a calibration-only run
+  // (config.calibrationOnly), which legitimately has no movie file at all.
+  if(!out.calibrationOnly && !out.file && !out.files && _lastTerminalFile){
+    out.file=_lastTerminalFile;
+  }
   for(const k of ['file','calibrationFile','segmentationFile']){
     if(k in out) out[k]=resolveTerminalFileValue(out[k], k);
   }
@@ -14073,15 +14110,18 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07b — fixed a real gap in the new
-Log-window terminal (build 07a): recalling a logged Localize/CSV/
-segmentation command (↑) and pressing Enter always threw, because a
-logged file: is just a display STRING (browsers expose no real path),
-while analyze() needs an actual File. Recalling one now transparently
-substitutes the real, still-loaded File back in by name — the single
-most obvious "tweak a parameter, rerun" workflow now actually works —
-with a clear, actionable error if that exact file isn't loaded this
-session anymore, instead of a confusing low-level TypeError.
+log(`webSMLM v0.12.1-dev · build 2026-09-07c — four more log-terminal fixes
+(reported): (1) recalling a file:-LESS command (a crop, a filter — these
+never carried a file: to begin with) now reuses whatever you most
+recently loaded/ran, instead of throwing "config.file is required";
+(2) the plain "Load movie/data" log line no longer bakes in pxnm/
+frametime — that snapshot went stale the moment you corrected Pixel
+size (nm) by hand afterward, and recalling it later would have quietly
+reset it back; Localize's own logged command already records the pxnm
+actually used. (3) Alt+T (either Shift state) now jumps straight to the
+terminal, alongside the existing Alt+1-0 action-button hotkeys.
+(4) The log box is a fixed 12 lines tall now (was ~25) — enough to see
+what just happened without the box dominating the sidebar.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -14756,7 +14796,8 @@ function wireFilterAutocomplete(inp, box, getCols, onCommit){
 }
 // Alt+1..0 shows numbered hints over the 10 top-level action buttons
 // (Vimium-style); Alt+Shift+1..0 does the same for the 10 collapsible
-// module sections. Alt (Option on Mac), not Ctrl — Ctrl+1..9 is already
+// module sections; Alt+T (either Shift state, reported) focuses the log
+// terminal directly. Alt (Option on Mac), not Ctrl — Ctrl+1..9 is already
 // browser tab-switching on Windows/Linux — and being modifier-gated means
 // no focused-input guard is needed against this app's many numeric fields.
 // Both digit/button lists are FIXED to on-screen position (never renumber
@@ -14774,28 +14815,46 @@ const HOTKEY_SECTIONS=['memBox','simBox','pcfoBox','calibBox','locBox','renderBo
 function wireHotkeys(){
   let hints=[];
   const clearHints=()=>{ hints.forEach(el=>el.remove()); hints=[]; };
-  // Positions each numbered badge over the SUMMARY specifically for a
-  // <details> target (not the whole element — that's the full expanded
-  // box once open, which would put the badge far below the actual
-  // clickable header) via position:fixed + a live getBoundingClientRect(),
-  // so it needs no layout coupling with whatever it's overlaying.
+  // Positions a badge over any target element via position:fixed + a live
+  // getBoundingClientRect(), so it needs no layout coupling with whatever
+  // it's overlaying.
+  const addHint=(target,label)=>{
+    if(!target) return;
+    const r=target.getBoundingClientRect(); if(!r.width||!r.height) return;   // not on screen right now
+    const b=document.createElement('div'); b.className='hotkeyHint'; b.textContent=label;
+    b.style.left=r.left+'px'; b.style.top=(r.top-10)+'px';
+    document.body.appendChild(b); hints.push(b);
+  };
+  // Numbered badges over the SUMMARY specifically for a <details> target
+  // (not the whole element — that's the full expanded box once open, which
+  // would put the badge far below the actual clickable header). Alt+T's own
+  // badge (below, reported — "link the terminal to the shortcut harness")
+  // is shown alongside EITHER digit set, not one more numbered entry in
+  // HOTKEY_BUTTONS/SECTIONS — it's a single fixed binding (focus the log
+  // terminal), not a 10-item, on-screen-position-indexed list like those.
   const showHints=ids=>{
     clearHints();
     ids.forEach((id,i)=>{
       const target=$(id); if(!target) return;
       const anchor = target.tagName==='DETAILS' ? (target.querySelector('summary')||target) : target;
       if(anchor.disabled) return;
-      const r=anchor.getBoundingClientRect(); if(!r.width||!r.height) return;   // not on screen right now
-      const b=document.createElement('div'); b.className='hotkeyHint'; b.textContent=HOTKEY_DIGITS[i];
-      b.style.left=r.left+'px'; b.style.top=(r.top-10)+'px';
-      document.body.appendChild(b); hints.push(b);
+      addHint(anchor, HOTKEY_DIGITS[i]);
     });
+    addHint($('logTerminal'), 'T');
   };
   const refresh=(altOn,shiftOn)=>{ if(!altOn){ clearHints(); return; } showHints(shiftOn?HOTKEY_SECTIONS:HOTKEY_BUTTONS); };
   window.addEventListener('keydown',e=>{
     if(e.key==='Alt'){ refresh(true,e.shiftKey); return; }
     if(e.key==='Shift'&&e.altKey){ refresh(true,true); return; }
     if(!e.altKey) return;
+    // Alt+T (either Shift state) focuses the log terminal directly — its
+    // own hint badge above isn't part of the numbered lists, so it's
+    // checked before the digit lookup rather than through HOTKEY_CODES.
+    if(e.code==='KeyT'){
+      e.preventDefault();
+      const ta=$('logTerminal'); ta.scrollIntoView({behavior:'smooth',block:'center'}); ta.focus();
+      return;
+    }
     const i=HOTKEY_CODES.indexOf(e.code); if(i<0) return;
     e.preventDefault();
     const id=(e.shiftKey?HOTKEY_SECTIONS:HOTKEY_BUTTONS)[i], el=$(id); if(!el) return;

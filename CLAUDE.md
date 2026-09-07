@@ -1341,6 +1341,13 @@ relevant one before editing rather than scrolling:
   default), Alt+Shift+N still opens the target `<details>` underneath, just invisibly until the
   drawer itself is shown.
 
+  **Alt+T** (reported — "link the terminal to the shortcut harness", either Shift state) focuses
+  `#logTerminal` directly, checked via `e.code==='KeyT'` BEFORE the digit lookup rather than through
+  `HOTKEY_CODES`/`HOTKEY_BUTTONS`/`HOTKEY_SECTIONS` — it's one fixed binding (focus the terminal), not
+  a 10-item, on-screen-position-indexed list like those two. Gets its own hint badge too (`addHint()`,
+  factored out of `showHints()`'s per-target loop so both call sites share it), shown alongside
+  EITHER digit set since Alt+T isn't itself Shift-gated.
+
   **Load movie/data** (`loadBtn`) is one button over ONE hidden `#file` input whose `accept` lists
   `.tif,.tiff,.nd2,.csv` together. Dispatch is by file EXTENSION alone (`/\.csv$/i`) — real content
   sniffing for the movie side (`isTiffFile()`/`isNd2File()`) still happens downstream, inside
@@ -1472,16 +1479,45 @@ relevant one before editing rather than scrolling:
   real file interactively, arrow-up in the terminal to recall its logged `analyze({file:"…",...})`
   command, edit `pxnm`, press Enter — now runs and updates `lastResult.px`, where it previously threw.
 
+  **`_lastTerminalFile`** (reported — recalling and re-running a crop-only command threw
+  `config.file (or config.files) is required`) covers the OTHER recall gap the same bug report
+  surfaced: most `logCmd()`'d actions — a committed filter, the crop tool, a Localize run — never
+  include `file:` at all, by design (a curated snapshot of just what THAT action changed, the same
+  convention documented at every one of those call sites), so recalling one of THOSE alone has no
+  `file:` key present for `resolveTerminalFileValue()` to substitute into in the first place — the
+  string-substitution mechanism above doesn't fire when the key is simply missing. A plain
+  last-write-wins variable, not "last entry in `_terminalFileRegistry`'s iteration order" — `Map.set()`
+  on an EXISTING key does not move it, so the map alone can't answer "most recently used."
+  `resolveTerminalConfigFiles()` falls back to it whenever `file`/`files` is absent entirely (and
+  `config.calibrationOnly` isn't set, since a calibration-only run legitimately has no movie file),
+  so re-running "just a crop" or "just a filter" from the terminal now acts on whatever's currently
+  loaded — the same behavior the interactive crop tool/filter box already have, no file re-selection
+  needed. Verified via Playwright: `analyze({cropX0,cropY0,cropX1,cropY1,pxnm})` with no `file:` key,
+  run right after loading a real file interactively, now succeeds and redraws instead of throwing.
+
+  **`loadMovieFiles()`'s own `logCmd({file:...})` no longer includes `pxnm`/`frametime`** (reported —
+  "why does load bake in pxnm/frametime? if I correct pixel size by hand afterward, recalling this
+  later would reset it"). Correct concern: this call used to snapshot whatever `pxnm`/`frametime`
+  happened to be set to AT LOAD TIME — i.e., before the "check the file's own metadata, then correct
+  Pixel size (nm)/Frame time (s) by hand" step the app's own load-time advisory message walks a user
+  through. That was harmless as pure documentation/CLI-reproduction text (nothing depended on it being
+  current), but became a real trap once a logged command became directly re-runnable: recalling this
+  exact line AFTER manually correcting `pxnm` would silently reset it back to the stale, pre-correction
+  value. `run()`'s own `logCmd()` already records the `pxnm` actually used, read fresh at RUN time
+  (`px=config.pxnm`) — the one value that matters for reproducing an analysis — so nothing downstream
+  lost real capability; add `pxnm:`/`frametime:` back in by hand if building a genuine load-only script
+  from this specific line.
+
   Documented, deliberate v1 scope boundaries: the terminal executes **JS only** (a CLI-style logged
   line won't run here — switch `logCmdStyleBtn` to JS first if pasting from an exported log); pasting
-  a whole multi-command block runs each call independently in sequence, so an early bare command
-  that isn't self-sufficient on its own (e.g. a `tableFilters`-only entry with no `file:` — the
-  established "curated snapshot, not a diff" logging convention) throws and stops the block there —
-  the intended per-command workflow is arrow-up → recall → edit → run one statement at a time, not a
-  batch replay; and running arbitrary code via `eval()` in the page's own scope is consistent with
-  this project's own established threat model (a trusted, single-file, fully client-side tool with no
-  server, no other users, no credentials at stake) — the same reasoning already backing the CLI/
-  headless `analyze()` surface itself.
+  a whole multi-command block runs each call independently in sequence, so an early bare command that
+  references a real File `resolveTerminalConfigFiles()` genuinely can't resolve (a filename no longer
+  registered this session, or a calibration/segmentation file never loaded at all) throws and stops
+  the block there — the intended per-command workflow is arrow-up → recall → edit → run one statement
+  at a time, not a batch replay; and running arbitrary code via `eval()` in the page's own scope is
+  consistent with this project's own established threat model (a trusted, single-file, fully
+  client-side tool with no server, no other users, no credentials at stake) — the same reasoning
+  already backing the CLI/headless `analyze()` surface itself.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
@@ -1796,6 +1832,13 @@ width cap) wrapping a plain child `#logText` (`max-width:80ch`, matching a stand
 that holds the actual text. `log()`/`clearLogBtn`/`exportLogBtn` all read/write `#logText`'s
 `.textContent` now; `#log.scrollTop` (the outer box) is still what `log()` sets to autoscroll,
 since `#logText` has no scrollbar of its own.
+
+**`#log`'s height is a fixed 236px** (reported — the previous `height:clamp(180px,32vh,460px)`
+rendered ~25 lines on a normal desktop viewport, mostly scrolled-past history rather than what just
+happened), sized for exactly 12 text lines: `12 * 18px` (12px font × 1.5 line-height) + `20px`
+padding (10px top+bottom, global `box-sizing:border-box`). A plain fixed height, not viewport-
+relative — "12 lines" was the explicit ask regardless of screen size; `#log`'s own `overflow:auto`
+still scrolls to whatever's beyond that.
 
 ## Validating changes (no test framework)
 

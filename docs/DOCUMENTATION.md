@@ -278,22 +278,38 @@ recorded, no message. Ignores the `-dev`/build-letter suffix, so this only
 fires on a genuine release change, not routine local development reloads.
 
 **The log doubles as an interactive JavaScript terminal.** Directly below the
-log text is a one-line, auto-growing input with a `>` prompt. Because almost
-every action already logs a directly-runnable `analyze({...})` call, you can
-type or paste a statement there and press **Enter** to run it live, in the
-page's own context — including a line copied out of an exported `.txt` log
-from a previous session. If what you ran returns a fresh set of
-localizations (the same shape `analyze()` itself returns), the
-reconstruction, table, export, drift/NeNA/FRC, and sSMLM/spt buttons all
-update immediately, exactly as if you'd loaded that result interactively —
-this is what makes editing and re-running a logged command actually useful,
-rather than just a curiosity. **↑/↓** (only when the cursor sits on the
-input's first/last line, so moving around inside a multi-line paste is
-unaffected) recalls previous statements to edit before re-running — both
-ones typed here and every action's own logged command, so arrow-up after a
-Localize or a committed filter brings back that exact call, ready to tweak a
-parameter and rerun. **Shift+Enter** inserts a newline for a genuinely
-multi-line statement instead of running early.
+log text (now a fixed 12 lines tall, with its own scrollbar for anything
+older) is a one-line, auto-growing input with a `>` prompt — **Alt+T**
+(either Shift state) jumps straight to it from anywhere on the page, the
+same way Alt+1–0 reaches the top-level action buttons. Because almost every
+action already logs a directly-runnable `analyze({...})` call, you can type
+or paste a statement there and press **Enter** to run it live, in the page's
+own context — including a line copied out of an exported `.txt` log from a
+previous session. If what you ran returns a fresh set of localizations (the
+same shape `analyze()` itself returns), the reconstruction, table, export,
+drift/NeNA/FRC, and sSMLM/spt buttons all update immediately, exactly as if
+you'd loaded that result interactively — this is what makes editing and
+re-running a logged command actually useful, rather than just a curiosity.
+**↑/↓** (only when the cursor sits on the input's first/last line, so moving
+around inside a multi-line paste is unaffected) recalls previous statements
+to edit before re-running — both ones typed here and every action's own
+logged command, so arrow-up after a Localize or a committed filter brings
+back that exact call, ready to tweak a parameter and rerun. **Shift+Enter**
+inserts a newline for a genuinely multi-line statement instead of running
+early.
+
+Most logged commands describe only what ONE action changed, not a full,
+self-sufficient re-run — a committed filter or a crop, for instance, never
+carries `file:` at all, since interactively they just act on whatever movie
+is already loaded. Recalling one of those alone still works: the terminal
+automatically fills in the file you most recently loaded or ran (and, if a
+`file:`/`calibrationFile:`/`segmentationFile:` value refers to a file that's
+still loaded this session by name, substitutes the real file back in for
+it) — so "recall a crop or a filter, tweak a value, rerun" acts on your
+current data the same way the crop tool or filter box already do, with no
+need to re-select anything. If the referenced file genuinely isn't loaded
+this session anymore, you'll get a clear error naming it rather than a
+cryptic one.
 
 A few things to know: the terminal only runs **JavaScript** — a line logged
 in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the
@@ -301,13 +317,13 @@ log to JS style first if you're copying from an exported log. A result run
 this way has no live movie behind it, so raw-frame scrubbing stays
 unavailable afterward — the same limitation a loaded CSV already has.
 Pasting a whole block of several logged commands runs each one in sequence,
-so an early line that only makes sense as a follow-up to an earlier one
-(e.g. a filter-only command with no `file:`) will stop the block with an
-error rather than skip ahead — recalling and running one statement at a
-time is the intended way to use it. And because this runs real code with
-full access to the page, treat it the same way you'd treat any browser
-DevTools console: it's exactly as powerful, and exactly as much your own
-responsibility.
+so an early line referencing a file that truly can't be resolved (a name no
+longer loaded this session, or a calibration/segmentation file never loaded
+at all) will stop the block with an error rather than skip ahead —
+recalling and running one statement at a time is the intended way to use
+it. And because this runs real code with full access to the page, treat it
+the same way you'd treat any browser DevTools console: it's exactly as
+powerful, and exactly as much your own responsibility.
 
 ---
 
