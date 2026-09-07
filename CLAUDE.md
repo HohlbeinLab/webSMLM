@@ -1515,16 +1515,37 @@ relevant one before editing rather than scrolling:
   every action: **`resolveTerminalConfig()`** (renamed from `resolveTerminalConfigFiles()`, since it
   now does more than files) backfills `config.pxnm`/`config.frametime` from the LIVE
   `paramValue('pxnm')`/`paramValue('frametime')` whenever a terminal-run statement's own config
-  omits them — never from the PARAMS default — so recalling any of those now-pxnm-less commands
-  still uses whatever's actually set in the sidebar at the moment you press Enter, not a frozen
-  value from whenever that command was first logged. An explicit `pxnm:200` typed into the terminal
-  still wins (the backfill only fills a key the statement itself left out). This is deliberately
+  omits them — never from the PARAMS default. An explicit `pxnm:200` typed into the terminal still
+  wins (the backfill only fills a key the statement itself left out). This is deliberately
   terminal-only — the CLI/a fresh headless `analyze()` call has no "current session" to fall back
   on, so `pxnm`/`frametime` still need to be explicit there, same as always. Verified via Playwright:
   load a file (Load command logs `pxnm:100`), correct pxnm to 160 interactively, run Localize
   (its own logged command has no `pxnm`, `lastResult.px===160`), recall that exact command in the
   terminal and press Enter with no edits (`lastResult.px` stays `160`, not reset to 100), then edit
   in an explicit `pxnm:200` (`lastResult.px` becomes `200`).
+
+  **Generalized to EVERY `PARAMS` field, not just `pxnm`/`frametime`** (reported, same round — a
+  crop-only command recalled from the terminal, per the paragraph above, still ran a full Localize
+  since `analyze()` always does load→detect/fit→… in one shot; the crop tool's own `logCmd()` never
+  carried `method`/`psf`/threshold/etc. either, so that Localize silently used GENERIC `PARAMS`
+  defaults — a wavelet/phasor mismatch, wrong `psf`, wrong threshold — producing a confusing,
+  unrepresentative result instead of an error). `resolveTerminalConfig()`'s pxnm/frametime-specific
+  lines were replaced by one loop, `for(const id in PARAMS){ if(out[id]===undefined) out[id]=
+  paramValue(id); }` — since `pxnm`/`frametime` are themselves `PARAMS` entries, this single loop
+  subsumes the earlier special case rather than sitting alongside it. Every action's own curated
+  `logCmd()` (crop, drift, NeNA/FRC, PCFO, calibration, sSMLM, spt) only ever records the handful of
+  fields THAT action changed — by design, see `logCmd()`'s own comment — precisely because each was
+  meant to run alongside whatever the rest of the session is already configured to; the terminal is
+  what actually exercises that assumption now that these are directly runnable standalone. Non-PARAMS
+  directive keys (`cropX0`, `calibrationOnly`, `tableFilters`, `correctDrift`, …) are untouched, since
+  they were never in `PARAMS` to begin with. **A crop-only command still always re-runs Localize —
+  this doesn't change**: `analyze()` has no "crop only, skip detect/fit" mode headlessly, by design;
+  use the interactive raw-panel crop tool (`rawCropBtn`) directly for a crop with no analysis attached.
+  What changed is that when a recalled/typed command DOES trigger a Localize, it now uses the real,
+  currently-configured method/psf/threshold/etc., not arbitrary defaults. Verified via Playwright:
+  configured `method:'phasor'`, `psf:2.1` interactively, ran a crop-only `analyze({cropX0,...})` from
+  the terminal, confirmed the actual resolved config (`result.settingsText`) has `method:"phasor"`,
+  `psf:2.1` — not the registry's own defaults.
 
   Documented, deliberate v1 scope boundaries: the terminal executes **JS only** (a CLI-style logged
   line won't run here — switch `logCmdStyleBtn` to JS first if pasting from an exported log); pasting

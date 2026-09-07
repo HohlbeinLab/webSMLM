@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2533   PARAMS registry, single source of truth for params;
+    params          2534   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3306   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3307   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3605   synthetic stack generator ("Simulate movie")
-    detect          4483   per-frame band-pass + local-maxima detection
-    fit             4760   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3606   synthetic stack generator ("Simulate movie")
+    detect          4484   per-frame band-pass + local-maxima detection
+    fit             4761   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5399   accumulate to offscreen buffer; view/colour/blur;
+    render          5400   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6698   frame-parallel detect/fit worker pool; dedicated
+    workers         6699   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7008   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7300   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7009   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7301   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7727   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7728   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8233   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8234   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8944   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8945   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9884   single particle tracking, trackpy-inspired;
+    spt             9885   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11394  top-level orchestration, *Core()/wrapper split;
+    pipeline        11395  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -163,12 +163,13 @@
                            calibrationFile(s):/segmentationFile: string (a
                            logged command's own file: is always a display
                            string, browsers expose no real path) and backfill
-                           pxnm/frametime from the LIVE sidebar value on any
-                           command but Load movie/data, which is the one
-                           place they're still logged explicitly — every
-                           other action assumes the currently-set value
-                           instead of restating a stale snapshot
-    liveStreaming   12015  Micro-Manager/pycromanager camera bridge
+                           ANY missing PARAMS field (method/psf/pxnm/etc.)
+                           from the LIVE sidebar value — most action-specific
+                           logCmd()s (crop, drift, NeNA/FRC, …) only ever
+                           record what THAT action changed, so a recalled
+                           partial command still runs against the currently-
+                           configured session, not registry defaults
+    liveStreaming   12016  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -222,14 +223,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14270  localizations table, filtering, histograms;
+    table           14281  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    14972  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14983  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1958,7 +1959,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13279,17 +13280,28 @@ function resolveTerminalConfig(config){
   for(const k of ['files','calibrationFiles']){
     if(Array.isArray(out[k])) out[k]=out[k].map(v=>resolveTerminalFileValue(v, k));
   }
-  // pxnm/frametime are deliberately absent from every logged command EXCEPT
-  // "Load movie/data" (see loadMovieFiles()'s own comment on why) — so a
-  // recalled crop/drift/NeNA/Localize/etc. command backfills them from the
-  // LIVE sidebar value (paramValue(), reflecting whatever's actually set
-  // right now — e.g. after correcting Pixel size (nm) against the file's
-  // own metadata) rather than falling through to analyze()'s own fixed
-  // PARAMS default, which would silently use the wrong value the moment
-  // pxnm has ever been changed since the page loaded. Only fills a key the
-  // statement itself left out — typing an explicit `pxnm:160` still wins.
-  if(out.pxnm===undefined) out.pxnm=paramValue('pxnm');
-  if(out.frametime===undefined) out.frametime=paramValue('frametime');
+  // ANY PARAMS-registered field the statement itself omits backfills from
+  // the LIVE sidebar value (paramValue()) rather than analyze()'s own fixed
+  // PARAMS[id].default — generalized (reported: a recalled crop-only
+  // command, with no method/psf/etc. of its own — the crop tool's own
+  // logCmd() never carried them — silently ran a full Localize with
+  // GENERIC defaults instead of whatever's actually configured, producing
+  // a confusing, low-quality result nobody asked for) from what started as
+  // a pxnm/frametime-only special case. Most logged commands (crop, drift,
+  // NeNA/FRC, PCFO, calibration, sSMLM, spt) only ever record the handful
+  // of fields THAT action changed — never the whole PARAMS registry, see
+  // logCmd()'s own comment — precisely because they're meant to run
+  // alongside whatever the session is otherwise already configured to; the
+  // terminal is what actually exercises that assumption now that these are
+  // directly runnable on their own. `config.pxnm`/`frametime` are PARAMS
+  // entries themselves, so this single loop covers the earlier pxnm-
+  // specific case too. Only fills a key the statement left out — typing an
+  // explicit `psf:1.6` (or `pxnm:160`) in the terminal always wins; crop-
+  // only/non-PARAMS directive keys (cropX0, calibrationOnly, tableFilters,
+  // correctDrift, …) are untouched, since they aren't in PARAMS at all.
+  for(const id in PARAMS){
+    if(out[id]===undefined) out[id]=paramValue(id);
+  }
   return out;
 }
 // Executes one JS statement typed/pasted into the log terminal. Two-attempt
@@ -14137,17 +14149,16 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07d — corrected build 07c's own
-pxnm/frametime change (reported: had it backwards). "Load movie/data" is
-now the ONLY logged command carrying pxnm/frametime again — it's the
-right place, a session-establishing declaration of this file's own
-calibration. Every OTHER logged command (Localize, crop, drift, NeNA/
-FRC, sSMLM, spt, PCFO, calibration) had them REMOVED instead — restating
-a session-wide constant on every action was redundant and its own
-staleness risk. The terminal itself closes the gap this would otherwise
-reopen: recalling any of those now-pxnm-less commands backfills pxnm/
-frametime from whatever's actually set in the sidebar right now, not a
-frozen snapshot — type an explicit pxnm: yourself and it still wins.
+log(`webSMLM v0.12.1-dev · build 2026-09-07e — the terminal's own
+"backfill from the live session" (build 07d, for pxnm/frametime) is now
+GENERAL: recalling a crop-only/drift-only/etc. command that carries none
+of the analysis settings (method, PSF, thresholds, gain/offset, ...) no
+longer silently re-Localizes with generic registry defaults — every
+missing field now inherits whatever's actually configured in the
+sidebar right now. A crop-only command still always re-runs Localize
+too — analyze() has no "just crop" mode — but it now does so with your
+real settings, not arbitrary ones. Use the raw-panel crop tool directly
+for a crop with no analysis attached.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

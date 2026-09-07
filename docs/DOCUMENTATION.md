@@ -311,17 +311,26 @@ need to re-select anything. If the referenced file genuinely isn't loaded
 this session anymore, you'll get a clear error naming it rather than a
 cryptic one.
 
-**Pixel size (nm)/Frame time (s) work the same way.** Only the "Load
-movie/data" command itself logs `pxnm`/`frametime` explicitly — every other
-logged command (Localize, a crop, drift correction, NeNA/FRC, sSMLM, spt, …)
-assumes whatever those two fields are currently set to in the sidebar, so
-recalling one and running it uses the LIVE value at the moment you press
-Enter, not whatever it happened to be when that command was first logged.
-This is what makes correcting Pixel size (nm) against a file's own metadata
-*after* loading, then recalling and rerunning an earlier command, safe: the
-rerun picks up your correction automatically. Type an explicit `pxnm:160`
-(or `frametime:`) into the terminal yourself and it overrides this, same as
-any other field.
+**Any sidebar setting a recalled command doesn't mention works the same
+way.** Only the "Load movie/data" command itself logs `pxnm`/`frametime`
+explicitly, and most other commands (a crop, drift correction, NeNA/FRC,
+sSMLM, spt, …) only ever log the handful of fields that ONE action actually
+changed — never the whole settings panel. Recalling one of those from the
+terminal still uses every OTHER setting exactly as currently configured
+(method, PSF, thresholds, gain/offset, pixel size, frame time, and so on),
+read live at the moment you press Enter, not whatever happened to be set
+when that command was first logged. This is what makes correcting Pixel
+size (nm) against a file's own metadata *after* loading, then recalling and
+rerunning an earlier command, safe — the rerun picks up your correction
+automatically, and likewise for switching fit method or any other setting
+in between. Type a field explicitly into the terminal yourself (`pxnm:160`,
+`psf:1.6`, …) and it overrides this, same as any other key in the command.
+
+One thing this does NOT change: a crop-only recalled command still triggers
+a full Localize, using whatever's currently configured — `analyze()` has no
+"just crop" mode, since it always runs the complete load → detect/fit
+pipeline in one call. If you want to crop without analyzing anything, use
+the raw panel's own crop tool directly rather than the terminal.
 
 A few things to know: the terminal only runs **JavaScript** — a line logged
 in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the
