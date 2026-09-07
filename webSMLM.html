@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2543   PARAMS registry, single source of truth for params;
+    params          2551   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3333   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3371   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3632   synthetic stack generator ("Simulate movie")
-    detect          4510   per-frame band-pass + local-maxima detection
-    fit             4787   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3670   synthetic stack generator ("Simulate movie")
+    detect          4548   per-frame band-pass + local-maxima detection
+    fit             4825   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5426   accumulate to offscreen buffer; view/colour/blur;
+    render          5464   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6743   frame-parallel detect/fit worker pool; dedicated
+    workers         6781   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7053   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7345   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7091   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7383   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7772   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7815   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8278   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8335   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8989   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9048   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9942   single particle tracking, trackpy-inspired;
+    spt             10018   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11452  top-level orchestration, *Core()/wrapper split;
+    pipeline        11532  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -177,8 +177,16 @@
                            toggleSmfretTraceMode()) — every actionable
                            control now has one, a standing convention (see
                            CLAUDE.md); docs/DOCUMENTATION.md §1 has the full
-                           GUI-action → terminal-function reference table
-    liveStreaming   12073  Micro-Manager/pycromanager camera bridge
+                           GUI-action → terminal-function reference table;
+                           newEpoch()/staleEpoch() (declared next to
+                           lastResult, MODULE: in/out) guard EVERY long-
+                           running action's own writes against a NEWER one
+                           superseding it before it finishes — the terminal
+                           lets a function run while its own button would be
+                           disabled interactively, so a still-in-flight
+                           Localize could otherwise clobber a crop that
+                           already completed after it started
+    liveStreaming   12167  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -232,14 +240,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14392  localizations table, filtering, histograms;
+    table           14534  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15094  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15236  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1968,7 +1976,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3318,6 +3326,36 @@ document.addEventListener('paste', e=>{
 // (former slider value-labels removed — those controls are now number inputs)
 
 let stack=null, groundTruth=null, lastResult=null, stackName='webSMLM';
+// Monotonic "session epoch" — bumped by newEpoch() at the START of every
+// long-running action that eventually writes back into shared session
+// state (lastResult, calib, smfretSOI, lastSpt, stack, …): Localize,
+// Correct drift, Calibrate, Track, Pair, Localize SOI, Get time traces,
+// PCFO, Load movie/data, Load data (CSV), Simulate movie, the raw-panel
+// crop/uncrop tool. Each captures its OWN returned value (`myEpoch`) right
+// after bumping, then checks staleEpoch(myEpoch) before every later write —
+// especially the first thing after an `await` — bailing out (discarding
+// its own result) if a NEWER action has bumped the epoch again in the
+// meantime, rather than clobbering whatever that newer action already put
+// in place. Generalizes the exact "detect and discard a stale async
+// completion" principle rerender()'s own _srRenderSeq/mySeq already uses
+// (MODULE: render) across every long-running action, not just renders —
+// reported: calling a GUI-equivalent function from the log terminal WHILE
+// an earlier one was still running (impossible interactively, since the
+// corresponding button is disabled for the duration — but the terminal
+// bypasses that DOM-only guard) let the OLDER one's own delayed completion
+// silently overwrite the newer, valid state once it finally finished.
+// Deliberately does NOT also try to force the older operation to stop
+// early (no wiring through the existing `stopRequested` flag) — that would
+// need a fragile, timing-sensitive dance (toggle true then back to false,
+// with a yielded tick in between so the older run's own already-scheduled
+// continuation actually observes it) to reliably interrupt something that
+// might already be past its next `shouldStop()` check. Letting a
+// superseded action keep computing in the background and simply discarding
+// its result is simpler and just as correct for the actual concern
+// (data-integrity, not wasted CPU on an abandoned run).
+let _sessionEpoch=0;
+function newEpoch(){ return ++_sessionEpoch; }
+function staleEpoch(myEpoch){ return myEpoch!==_sessionEpoch; }
 // The pre-crop stack, kept only so the raw-panel crop tool (below) can restore
 // it on "uncrop" — null whenever no crop is active. See makeCroppedStack().
 let originalStack=null;
@@ -7598,6 +7636,7 @@ async function runCalibration(){
   const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
   const fixedXY=paramValue('calFixedXY');
   stopRequested=false;
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('calBtn').disabled=true; $('runBtn').disabled=true; $('calSaveBtn').disabled=true; $('stopBtn').disabled=false; calib=null;
   try{
     const config=Object.assign(buildConfigFromParams(),
@@ -7620,6 +7659,10 @@ async function runCalibration(){
         $('rawInfo').textContent=`calibrating frame ${fi+1}/${last} — ${maxima.length} spot(s), ${frameLocs.length} fit(s)`; },
     });
     if(r.stopped) return;   // already logged by calibrationCore(); nothing to apply
+    // A newer action superseded this one while calibrationCore() was still
+    // running — discard rather than clobber whatever it already put in
+    // place. See newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
     calib=r.calib; cal3d=r.cal3d; cal3dW=r.cal3dW; calMethods=r.calMethods;
     updateCalStatus();
     srFull=null; srIsPlot=true; srSpots=null; srLocs=null; setSrRecon(false); syncSaveImg();  // hand the SR panel over to the plot
@@ -8095,6 +8138,7 @@ async function correctDrift(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
   const {locs,px}=lastResult;
   stopRequested=false;
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
     const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), driftSamplePct:paramValue('driftSamplePct')};
@@ -8103,6 +8147,12 @@ async function correctDrift(){
     // happened) — safe this early since config is already fully resolved.
     logCmd({correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct});
     const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg, shouldStop:()=>stopRequested});
+    // A newer action superseded this one while driftCore() was still
+    // running — `lastResult` may now be a DIFFERENT object than the one
+    // `locs`/`px` above were captured from; writing lastDrift or mutating
+    // lastResult.byFrame/.zr below would silently corrupt whatever that
+    // newer action already put in place. See newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
     // A Stop mid-run (see driftCore()'s own comment): show whatever curve
     // was actually estimated so far — useful for judging Segment/Search
     // radius on a run that's taking too long — but locs were never touched,
@@ -8133,6 +8183,13 @@ async function correctDrift(){
     driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
   }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
+  // NOT epoch-guarded, unlike the data writes above — always re-enable
+  // driftBtn/stopBtn regardless of staleness. A superseding action (a crop,
+  // a fresh load, …) doesn't necessarily manage THIS function's own button
+  // set, so suppressing this on staleness could leave driftBtn stuck
+  // disabled forever instead. A button re-enabled a moment "early" relative
+  // to some unrelated newer action is a far smaller issue than a
+  // permanently stuck control.
   finally{ $('driftBtn').disabled=false; $('stopBtn').disabled=true; stopRequested=false; setProg(null); }
 }
 // Plot the estimated drift (nm) vs frame on the RAW (left) canvas (measured drift = −correction).
@@ -8958,6 +9015,7 @@ async function pcfoCore(config, stack, hooks={}){
 // the signal-vs-noise-variance fit.
 async function estimateGainOffset(){
   if(!stack){ log('Load a stack first.'); return; }
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true;
   try{
     const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
@@ -8966,6 +9024,7 @@ async function estimateGainOffset(){
     logCmd({estimateGainOffset:true, ...cfg, ...cropCmdFields()});
     const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
     if(!r) return;
+    if(staleEpoch(myEpoch)) return;   // superseded while pcfoCore() was running — see newEpoch()'s own comment
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
     drawPcfoPlot();
   }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
@@ -9356,6 +9415,7 @@ async function runSSmlmPair(){
   const rawLocs = sSmlmOriginalLocs || lastResult.locs;   // always the raw input, see block comment above — re-Pairing must not pair an already-paired subset
   // pairCore() itself throws on real-3D or already-paired input (see its own
   // guards) — caught below, same as any other pairing failure.
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('sSmlmPairBtn').disabled=true;
   try{
     const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
@@ -9366,6 +9426,10 @@ async function runSSmlmPair(){
     logCmd({sSmlmPair:true, ...cfg});
     const r=await pairCore(rawLocs, lastResult.px, cfg, {onLog:log, onProgress:setProg});
     if(!r.nPairs){ log('no pairs found — widen the distance/angle window (see Preview pairs) and try again.'); return; }
+    // Superseded while pairCore() was running — `lastResult` below may now
+    // be a DIFFERENT object than the one `rawLocs`/px were captured from;
+    // see newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
     sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;
     lastResult.locs = sSmlmPairedLocs;
     renderLocs=null; _tableFilters=[];
@@ -9524,6 +9588,7 @@ async function smfretSOICore(config, stack, checkStack=true){
 // (see the listeners below).
 async function locateSmfretSOI(){
   if(!stack) return;
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   // A fresh Localize SOI run invalidates any time traces already computed
   // from the OLD positions — reclaim the raw panel from the site scrubber
   // back to the ordinary frame one before rebuilding the composite below.
@@ -9537,6 +9602,10 @@ async function locateSmfretSOI(){
   try{
     const core=await smfretSOICore(cfg, stack);
     if(!core) return;                               // stack changed underneath us
+    // Superseded while smfretSOICore() was running (a broader check than
+    // the stack-identity one above — this also catches a fresh CSV load,
+    // which doesn't touch `stack` at all). See newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
     const {fitted, used, maxima, proj, w, h}=core;
     // Logged BEFORE the DOM-writing below, matching run()'s/loadMovieFiles()'s
     // own "announce, then narrate" ordering — safe since cfg is already fully
@@ -9752,6 +9821,7 @@ function apertureIntensity(img,w,h,cx,cy,win,gain=1){
 // channel sorting yet — see docs/REFACTOR_PLAN.md.
 async function getSmfretTimeTraces(){
   if(!stack || !smfretSOI || !smfretSOI.length) return;
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out) — this loop runs long enough to check it INSIDE the loop too, not just at the end
   const {w,h}=stack, sigma=paramValue('psf'), win=2*paramValue('winr')+1, border=(win-1)/2+1;
   const gain=paramValue('gain'), camoffset=paramValue('camoffset');
   const useAperture=paramValue('smfretApertureMode');
@@ -9807,8 +9877,14 @@ async function getSmfretTimeTraces(){
       // static for the whole run, same convention sptCore()/pairCore()/etc.
       // already use via their own onProgress hook.
       setProg(100*(fi+1)/n);
-      if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now(); }
+      if(performance.now()-lastYield>50){ await tick(); lastYield=performance.now();
+        // Superseded (a fresh Localize SOI, a crop, a new load, …) while
+        // this per-frame loop was still running — stop early rather than
+        // keep computing toward a result that's about to be discarded
+        // anyway. See newEpoch()'s own comment.
+        if(staleEpoch(myEpoch)) return; }
     }
+    if(staleEpoch(myEpoch)) return;   // superseded between the last yield and here
     smfretTraces=traces; smfretTraceIdx=0; smfretShowRawFrame=false;
     $('scrubRow').style.display='none';
     $('smfretTraceScrubRow').style.display='flex';
@@ -10364,6 +10440,7 @@ let lastSpt=null;
 // the result in lastSpt, and shows the default (MSD-vs-lag) histogram.
 async function runSptTrack(){
   if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('sptTrackBtn').disabled=true;
   try{
     const cfg={ sptSearchRange:paramValue('sptSearchRange'), sptMemory:paramValue('sptMemory'),
@@ -10385,6 +10462,9 @@ async function runSptTrack(){
     // exhaustive" scope as calibration's own calFixedPts omission.
     logCmd({sptTrack:true, ...cfg});
     const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
+    // Superseded while sptCore() was running — `lastResult` may now be a
+    // DIFFERENT object; see newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
     lastResult.locs=r.locs; lastSpt=r;
     renderLocs=null; _tableFilters=[];   // track_id/D_coeff are new columns — a stale filter referencing neither is harmless, but reset for consistency with every other locs-replacing action
     // sptHistMode resets to 'msd' on every fresh Track (on request — the
@@ -11983,6 +12063,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 async function run(){
   if(!stack){ log('No data loaded.'); return; }
   stopRequested=false;
+  const myEpoch=newEpoch();   // see its own declaration (MODULE: in/out) — guards the writes below against a newer action superseding this one before it finishes
   // Everything below unconditionally discards any previous result and
   // whatever was derived from it (drift correction, SPT tracking, sSMLM
   // pairing) — no confirmation prompt. A user relying on the log to notice
@@ -12047,8 +12128,14 @@ async function run(){
       // preview has ACTUALLY finished, not just been kicked off; without the
       // return here that guard would resolve almost immediately regardless
       // (rerender() is async now), defeating the whole guard.
-      onSrPreview: (plocs,pw,ph,ppx,pdet) => { lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; return rerender(true,true); },
+      onSrPreview: (plocs,pw,ph,ppx,pdet) => { if(staleEpoch(myEpoch)) return; lastResult={locs:plocs,w:pw,h:ph,px:ppx,mag:paramValue('mag'),det:pdet}; return rerender(true,true); },
     });
+    // A newer action (another Localize, a crop, a fresh load, …) started
+    // and finished its OWN precedence-taking work while this run() was
+    // still awaiting runCore() above — its result is real, but stale;
+    // discard rather than clobber whatever the newer action already put in
+    // place. See newEpoch()'s own comment (MODULE: in/out).
+    if(staleEpoch(myEpoch)) return;
     lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det,firstIdx:r.firstIdx,lastIdx:r.lastIdx};
     rerender(true);
     // refresh the raw panel with the accepted localizations (magenta) overlaid,
@@ -12062,6 +12149,13 @@ async function run(){
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
     log(`⚠ Run failed: ${err.name}: ${err.message}`);
+  // NOT epoch-guarded, unlike the data writes above — always re-enable
+  // these buttons regardless of staleness. A superseding action (a crop, a
+  // fresh load, …) doesn't necessarily manage THIS function's own button
+  // set, so suppressing this on staleness could leave them stuck disabled
+  // forever instead. A button re-enabled a moment "early" relative to some
+  // unrelated newer action is a far smaller issue than a permanently stuck
+  // control.
   }finally{
     $('runBtn').disabled=false;                    // always re-enable, even on error
     $('loadBtn').disabled=false; $('genBtn').disabled=false;
@@ -12679,9 +12773,14 @@ async function showStackProjection(){
 // around it (mirrors loadMovieFiles()'s own reset block).
 async function runSimulation(){
   log('Simulating movie…');
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
-    stack=await generateSynthetic(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
+    const generated=await generateSynthetic();
+    // Superseded (a load, a crop, another Simulate, …) while generateSynthetic()
+    // was running — see newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
+    stack=generated; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -12698,6 +12797,14 @@ async function runSimulation(){
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
     log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProg(null);
+    // Pre-existing gap, found alongside the epoch work above (not caused by
+    // it) — same as loadMovieFiles()'s own matching fix: a failed
+    // generateSynthetic() left every button this function disabled at its
+    // own top stuck, aside from genBtn/loadBtn below. Re-enabling here
+    // rather than in a shared `finally` for the same reason: an ERROR means
+    // nothing else is going to fix this, while a STALE-but-successful
+    // return defers to whatever superseded it.
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
   }finally{
     $('genBtn').disabled=false; $('loadBtn').disabled=false;
   }
@@ -12711,6 +12818,7 @@ $('genBtn').addEventListener('click',runSimulation);
 async function loadMovieFiles(fs){
   if(!fs.length) return;
   fs.forEach(registerTerminalFile);   // makes this exact selection recallable-by-name in the log terminal, see registerTerminalFile()'s own comment
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
@@ -12759,16 +12867,35 @@ async function loadMovieFiles(fs){
   // comment on why multi-file has no CLI/analyze() equivalent).
   log(multi ? `Loading ${fs.length} selected files…` : `\nLoading ${fs[0].name}…`);
   try{
-    stack = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
+    const loaded = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
+    // Superseded (another load, a crop, Simulate movie, …) while THIS
+    // decode was still running — the decoded data is real, but assigning
+    // it to `stack` now would silently undo whatever the newer action
+    // already put in place. See newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
+    stack = loaded;
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     initScrub();
     await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
+    if(staleEpoch(myEpoch)) return;   // superseded during the await just above
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
     showStackProjection();      // background fill of the SR panel — not awaited
     await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
+    if(staleEpoch(myEpoch)) return;   // superseded during the await just above
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
-  }catch(err){ log('TIFF load failed: '+err.message); }
+  }catch(err){
+    log('TIFF load failed: '+err.message);
+    // Pre-existing gap, found alongside the epoch work above (not caused by
+    // it): a genuinely failed load never re-enabled the buttons disabled at
+    // this function's own top, unlike every other action's own catch/finally
+    // — a bad/corrupt file left the whole UI stuck. Deliberately only in the
+    // catch, not a shared finally with the try body's own staleness bail-
+    // outs above: an ERROR here means nothing else is going to fix this, so
+    // it must always re-enable; a STALE-but-successful return defers to
+    // whatever superseded it, same reasoning as every other *Core() wrapper.
+    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
+  }
 }
 
 $('runBtn').addEventListener('click',run);
@@ -13219,6 +13346,7 @@ function parseCsvLocs(text){
 async function loadCsvFile(f){
   if(!f) return;
   registerTerminalFile(f);
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   // Logged before parsing starts, same "announce, then narrate" convention
   // loadMovieFiles() uses (see its own comment) — analyze()/the CLI's own
   // config.file now dispatches a .csv the same way this function does
@@ -13229,6 +13357,9 @@ async function loadCsvFile(f){
   try{
     const {locs,w,h,px}=parseCsvLocs(await f.text());
     if(!locs.length) throw new Error('no data rows');
+    // Superseded (another load, a Localize, a crop, …) while this file was
+    // being read/parsed — see newEpoch()'s own comment.
+    if(staleEpoch(myEpoch)) return;
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
     setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null;
     lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
@@ -13513,9 +13644,16 @@ $('exportLogBtn').addEventListener('click',async()=>{
       logHistory.push({type:'term', text});
       $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1);
       { const l=$('log'); l.scrollTop=l.scrollHeight; } $('exportLogBtn').disabled=false;
+      // A terminal statement (typically analyze({...})) can run for a while,
+      // just like any other action — bumped BEFORE running it so a second
+      // statement (or any other action) fired before this one finishes
+      // correctly makes ITS OWN result the one applied below. See
+      // newEpoch()'s own comment (MODULE: in/out).
+      const myEpoch=newEpoch();
       let result;
       try{ result=await runTerminalStatement(text); }
       catch(err){ log(`⚠ ${err.name||'Error'}: ${err.message}`); return; }
+      if(staleEpoch(myEpoch)) return;   // superseded while the statement above was running
       if(result && Array.isArray(result.locs)){
         applyHeadlessResultToSession(result);
         log(`→ ${result.locs.length.toLocaleString()} locs — reconstruction updated.`);
@@ -13927,6 +14065,7 @@ function resetAfterCropChange(){
 // makeCroppedStack() wrapper and resets everything derived from the old FOV.
 async function applyCropToRaw(x0,y0,x1,y1){
   if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out) — the crop itself below is synchronous/atomic; this only guards the trailing display refresh after the awaits
   // Logged BEFORE the crop actually swaps `stack` — see run()'s own comment
   // on this ordering. cropX0/Y0/X1/Y1 are still the config keys recorded
   // (also merged into run()/estimateGainOffset()/runCalibration()'s own
@@ -13954,13 +14093,21 @@ async function applyCropToRaw(x0,y0,x1,y1){
   // different file. Re-estimate against the NEW (cropped) stack, same call
   // the load handlers make on a fresh load.
   await estimateRawContrastRange(stack);
+  // Superseded (another crop, a fresh load, …) while the contrast-range
+  // estimate above was running — `stack` may already be something else;
+  // the crop itself already happened correctly (synchronous, above), this
+  // only prevents a stale, misleading redraw/log line on top of whatever
+  // the newer action already put on screen. See newEpoch()'s own comment.
+  if(staleEpoch(myEpoch)) return;
   showStackProjection();      // background fill of the SR panel — not awaited
   await showFrame(0);
+  if(staleEpoch(myEpoch)) return;   // superseded during the await just above
   log(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${ow}×${oh}) — Localize will only see this region. Deselect the crop tool to restore the full frame.`);
 }
 // Restores `stack` to originalStack (undoes applyCropToRaw()).
 async function uncropRaw(){
   if(!originalStack) return;
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out) — same "atomic swap, guard only the trailing redraw" reasoning as applyCropToRaw()
   const cw=stack.w, ch=stack.h;
   stack=originalStack; originalStack=null;
   resetAfterCropChange();
@@ -13968,8 +14115,10 @@ async function uncropRaw(){
   syncSaveImg();
   initScrub();
   await estimateRawContrastRange(stack);   // restore the full frame's own contrast range — see applyCropToRaw()'s matching comment
+  if(staleEpoch(myEpoch)) return;   // see applyCropToRaw()'s own matching comment
   showStackProjection();
   await showFrame(0);
+  if(staleEpoch(myEpoch)) return;
   log(`Uncropped — restored the original ${stack.w}×${stack.h} stack (was cropped to ${cw}×${ch}).`);
 }
 $('rawCropBtn').addEventListener('click',async()=>{
@@ -14256,14 +14405,22 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07g — the raw-panel crop tool's
-own logged command was still lying to you (reported): recalling it from
-the terminal showed/ran analyze({cropX0,...}), which always ALSO
-Localizes — not what the crop tool itself actually does (crop only).
-logCmd() now takes an optional literal-JS override for exactly this
-mismatch; the crop tool's own command now logs and recalls as the real
-applyCropToRaw(x0,y0,x1,y1) call. CLI-style logging is unaffected (the
-CLI has no "just crop" equivalent to fall back to either way).
+log(`webSMLM v0.12.1-dev · build 2026-09-07h — as bulletproof as possible:
+the terminal lets you call a GUI-equivalent function (e.g.
+applyCropToRaw()) while its own button would normally be DISABLED —
+interactively you can't click Crop mid-Localize, but the terminal
+bypasses that DOM-only guard. Confirmed this could actually corrupt the
+session: fire Localize, immediately crop from the terminal before it
+finishes, and the still-running Localize's own delayed completion
+silently overwrote the crop's result once it finally landed. Every
+long-running action (Localize, drift, calibration, Track, Pair,
+Localize SOI, Get time traces, PCFO, Load movie/data, Load data,
+Simulate movie, the raw-panel crop tool) now checks a shared "session
+epoch" before writing back — discarding its own result if a NEWER
+action has superseded it in the meantime, the same principle rerender()
+already used for stale renders, generalized to everything. Along the
+way, fixed two separate pre-existing bugs: a failed Load or Simulate
+movie left buttons stuck disabled forever, with no cleanup path at all.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

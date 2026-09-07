@@ -1633,6 +1633,56 @@ relevant one before editing rather than scrolling:
   terminal-callable with no separate "make it scriptable" step, ever again. This is the actual answer
   to "GUI and commandline support should be interchangeable": not a parallel API surface to keep in
   sync by hand, but a rule that guarantees there's only ever one implementation per action.
+
+  **`_sessionEpoch`/`newEpoch()`/`staleEpoch()`** (follow-up, same round, requested: "everything
+  should be as bulletproof as possible") — a real async race the parity work above made newly easy
+  to hit: interactively, `applyCropToRaw()`'s own button is disabled for the whole duration of an
+  in-flight Localize/drift/etc. (a DOM attribute, not a real reentrancy guard), so a user physically
+  cannot click Crop mid-Run — but the terminal calls the SAME function directly, bypassing that
+  DOM-only protection entirely. Confirmed via Playwright: fire Localize, wait only for its FIRST
+  mid-run preview (`lastResult.locs.length` truthy — not the same as the run actually finishing),
+  then call `applyCropToRaw()` from the terminal — the crop correctly nulls `lastResult`, but the
+  STILL-RUNNING original `run()` later reaches its own completion and silently overwrites
+  `lastResult` right back with the stale, pre-crop full-dataset result. Generalizes the exact
+  "detect and discard a stale async completion" principle `rerender()`'s own `_srRenderSeq`/`mySeq`
+  already uses (MODULE: render) into one shared, monotonic epoch counter (declared next to
+  `lastResult` itself, MODULE: in/out) that EVERY long-running, state-writing action now
+  participates in: `run()`, `correctDrift()`, `runCalibration()`, `runSptTrack()`, `runSSmlmPair()`,
+  `locateSmfretSOI()`, `getSmfretTimeTraces()`, `estimateGainOffset()`, `loadMovieFiles()`,
+  `loadCsvFile()`, `runSimulation()`, `applyCropToRaw()`, `uncropRaw()`, and the log terminal's own
+  `analyze()`-result bridge. Each captures `const myEpoch=newEpoch()` right after its own
+  preconditions, then checks `staleEpoch(myEpoch)` immediately before every later write to shared
+  state — especially the first thing after an `await` — bailing out (discarding its own result
+  entirely) if a NEWER action has bumped the epoch again in the meantime. `getSmfretTimeTraces()`'s
+  own per-frame loop (previously the only one of these with no cancellation of any kind) also checks
+  it INSIDE the loop at its existing yield point, stopping early rather than continuing to compute
+  toward a result that's about to be discarded.
+
+  **Deliberately does NOT try to force the superseded operation to stop early** — no wiring through
+  the existing `stopRequested` flag (`shouldStop()`, the Stop button's own signal). That would need a
+  fragile, timing-sensitive dance (toggle true then back to false, with a yielded tick in between so
+  the older run's own already-scheduled continuation actually observes it before it flips back) to
+  reliably interrupt something that might already be past its next check — and even then wouldn't be
+  guaranteed. Letting a superseded action keep computing in the background and simply discarding its
+  result is simpler and just as correct for the actual concern (data-integrity, not wasted CPU on an
+  abandoned run).
+
+  **Deliberately does NOT epoch-guard each function's own button-enable/`finally` cleanup** either —
+  tried first for `run()`/`correctDrift()`, then reverted: a superseding action doesn't necessarily
+  manage the SAME button set as the one it superseded (a crop doesn't touch `driftBtn`, for
+  instance), so suppressing a stale operation's own re-enable on top of an already-stale-guarded data
+  write would leave that button stuck disabled forever instead — a worse failure mode than a button
+  re-enabled a moment "early" relative to some unrelated newer action. `finally` blocks (or their
+  equivalent) stay unconditional, exactly as before this change.
+
+  Fixed two genuinely separate, PRE-EXISTING bugs found while doing this (not caused by the epoch
+  work, just adjacent to it): `loadMovieFiles()` and `runSimulation()` each had no error-path cleanup
+  at all — a load or a simulation that flat-out FAILED (a corrupt file; `generateSynthetic()`
+  throwing) left every button either function disables at its own top stuck disabled forever, since
+  neither had a `catch`/`finally` that re-enabled them. Fixed by re-enabling directly in each
+  function's own `catch` block (not a shared `finally` with the new staleness bail-outs above — an
+  ERROR means nothing else is going to fix this, so it must always run; a STALE-but-successful return
+  correctly defers cleanup to whatever superseded it, per the paragraph above).
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
