@@ -124,7 +124,7 @@
                            SvgRecordingContext has neither stroke-arc nor
                            closePath(), both worked around via toXY()-built
                            polygons + an explicit closing lineTo()
-    spt             10224   single particle tracking, trackpy-inspired;
+    spt             10235   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -155,7 +155,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11746  top-level orchestration, *Core()/wrapper split;
+    pipeline        11757  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -210,7 +210,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12381  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12392  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -264,14 +264,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14874  localizations table, filtering, histograms;
+    table           14885  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15576  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15587  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2000,7 +2000,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07o</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9453,6 +9453,17 @@ const SSMLM_POLAR_BIN_DEG=2, SSMLM_POLAR_NB=180;
 function drawSSmlmAnglePolar(vals, angleCenter, tol){
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; setRawPlot(true); rawPlotName='sSmlmAnglePolar';
+  // No interactive hover for this plot (v1 scope) — but a PRIOR raw-panel
+  // draw (most commonly the cartesian distance histogram, which DOES
+  // register one) can leave a stale hover snapshot behind in _plotHover.raw.
+  // The shared mousemove listener (registerPlotHover()'s own, MODULE:
+  // table) doesn't know this plot took over the panel, so without clearing
+  // it here, the very next mouse movement over the panel silently repaints
+  // that stale snapshot straight over this one — a real, reported bug that
+  // looked like "the plot closes and reverts to the distance plot" the
+  // instant the cursor moved. Same fix drawRaw() already applies when a
+  // live frame reclaims the panel from any plot.
+  _plotHover.raw=null;
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const hist=new Float64Array(SSMLM_POLAR_NB);
@@ -14740,7 +14751,7 @@ loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
 single-digit milliseconds, not minutes). Load data (.csv) and Simulate
 movie never needed this — see build 07j's own message for why.
 Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-07o — applyCropToRaw()/
+log(`webSMLM v0.12.1-dev · build 2026-09-07p — applyCropToRaw()/
 commitSrCrop() now validate their own bounds properly (reported:
 applyCropToRaw(4000,397,667,596) said "region too small", which was
 technically true of the raw x1-x0 arithmetic but had nothing to do

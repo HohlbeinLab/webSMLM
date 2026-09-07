@@ -777,6 +777,18 @@ relevant one before editing rather than scrolling:
   asked for; the distance histogram's own draggable-marker IIFE stays fully inert here regardless
   (already gated on `histData.col==='sSMLM pair distance'`, which this plot never sets).
 
+  **`_plotHover.raw` must be explicitly cleared, not just left unregistered** — a real, reported bug
+  ("the plot closes and reverts to the distance plot" the instant the cursor moved): the DISTANCE
+  view (still `drawHistogram()`) DOES call `registerPlotHover()`, caching a clean-plot snapshot plus
+  a mousemove listener already wired once, globally, at page load (`MODULE: table`, for both
+  `raw`/`sr`). Switching to Angles calls `drawSSmlmAnglePolar()` instead, which registers no hover of
+  its own — but simply not calling `registerPlotHover()` again does NOT unregister the PREVIOUS
+  mode's own entry in `_plotHover.raw`; the global mousemove listener still fires on it regardless of
+  which draw function most recently ran, blindly repainting that stale DISTANCE-mode snapshot straight
+  over the polar plot on the very next pointer move. Fixed with one line, `_plotHover.raw=null;`, right
+  at the top of `drawSSmlmAnglePolar()` — the exact same fix `drawRaw()` already applies for the same
+  reason when a live frame reclaims the panel from any plot (see that call site's own comment).
+
   **`_replotRaw=drawSSmlmHist`** is now set unconditionally at the top of `drawSSmlmHist()` itself
   (a real, previously-latent bug this surfaced) — before this, `_replotRaw` was only ever set
   *inside* `drawHistogram()`, correct for distance mode but leaving it either stale or unset for
