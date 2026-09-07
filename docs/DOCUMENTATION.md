@@ -335,26 +335,19 @@ no-interactive-session convenience built for CLI/pure scripting use. Typing
 Localize afterward. You mostly don't need to think about this, though: the
 handful of actions where the button itself never Localizes anything — the
 raw-panel crop tool, PCFO gain/offset estimation, drift correction, NeNA,
-FRC, sSMLM preview/pairing, spt tracking — already log the RIGHT thing to
-recall (e.g. `applyCropToRaw(x0,y0,x1,y1)`, `correctDrift()`, not an
-`analyze({...})` line), so arrow-up after any of those just works, no
-substitution needed.
+FRC, sSMLM preview/pairing, spt tracking, and **Load movie/data itself** —
+already log the RIGHT thing to recall (e.g. `applyCropToRaw(x0,y0,x1,y1)`,
+`correctDrift()`, `loadFiles(["movie.tif"])`, not an `analyze({...})`
+line), so arrow-up after any of those just works, no substitution needed
+and no surprise multi-minute re-Localize on a large stack.
 
-The one remaining exception is a Load movie/data command specifically: it
-still logs/recalls as `analyze({file:"movie.tif",...})`, which — unlike
-Load movie/data itself — also runs a fresh Localize across the *entire*
-stack using your current settings when you rerun it (not just the first
-frame; a movie being decoded on demand as it loads has no bearing on how
-much of it a subsequent Localize touches). That's usually harmless (you get
-a real, usable reconstruction, just redone when you only wanted to reload
-the file); call `loadFiles([...])` yourself, passing a real `File`, for a
-genuine load-only replay. **Load data (a `.csv`) and Simulate movie don't
-have this issue at all**: a `.csv` file takes a completely separate path
-inside `analyze()` that never reaches the Localize step, so recalling a
-Load data command is already exactly faithful; Simulate movie logs no
-command in the first place (there's no `analyze()` equivalent for it), so
-there's nothing to recall via the terminal for it either way — just call
-`runSimulation()` directly. This is the general pattern covered next.
+**Load data (a `.csv`) and Simulate movie never had this issue at all**: a
+`.csv` file takes a completely separate path inside `analyze()` that never
+reaches the Localize step, so recalling a Load data command was always
+exactly faithful; Simulate movie logs no command in the first place (there's
+no `analyze()` equivalent for it), so there's nothing to recall via the
+terminal for it either way — just call `runSimulation()` directly. This is
+the general pattern covered next.
 
 ### Every GUI action has a matching terminal function
 

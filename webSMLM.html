@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2551   PARAMS registry, single source of truth for params;
+    params          2565   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3371   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3385   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3670   synthetic stack generator ("Simulate movie")
-    detect          4548   per-frame band-pass + local-maxima detection
-    fit             4825   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3684   synthetic stack generator ("Simulate movie")
+    detect          4562   per-frame band-pass + local-maxima detection
+    fit             4839   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5464   accumulate to offscreen buffer; view/colour/blur;
+    render          5478   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6781   frame-parallel detect/fit worker pool; dedicated
+    workers         6795   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7091   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7383   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7105   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7397   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7815   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7829   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8344   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8358   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9077   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9091   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             10057   single particle tracking, trackpy-inspired;
+    spt             10071   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11579  top-level orchestration, *Core()/wrapper split;
+    pipeline        11593  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -185,8 +185,22 @@
                            lets a function run while its own button would be
                            disabled interactively, so a still-in-flight
                            Localize could otherwise clobber a crop that
-                           already completed after it started
-    liveStreaming   12214  Micro-Manager/pycromanager camera bridge
+                           already completed after it started; logCmd()'s
+                           optional jsOverride arg fixes 8 actions (crop,
+                           PCFO, drift, NeNA, FRC, sSMLM preview/pair, spt
+                           Track, Load movie/data) whose own logged
+                           analyze({...}) command always ALSO Localized when
+                           recalled — none of these 8 buttons ever Localize
+                           themselves; runTerminalStatement() also shadows
+                           loadFiles()/loadCsvFile()/loadCalibrationJson()/
+                           loadSettingsJson()/loadSegmentedImage() (via
+                           window.<name>, since a later same-named const
+                           TDZs the bare identifier for the whole function)
+                           so THEIR OWN filename-string args resolve too —
+                           Load data (.csv) and Simulate movie never had
+                           this bug (isCsv skips Localize entirely; Simulate
+                           logs no command at all)
+    liveStreaming   12228  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -240,14 +254,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14604  localizations table, filtering, histograms;
+    table           14653  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15306  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15355  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1976,7 +1990,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12906,7 +12920,18 @@ async function loadMovieFiles(fs){
   // other, now pxnm-less commands still uses whatever pxnm is ACTUALLY set
   // right now, not a frozen snapshot from whenever that command was first
   // logged; typing an explicit pxnm: in the terminal still overrides it.
-  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm'), frametime: paramValue('frametime')});
+  //
+  // jsOverride (reported — "that would lead to minutes of time passing for
+  // large files": analyze({file:...}) always ALSO Localizes the ENTIRE
+  // stack, exactly as much work as a full interactive Localize click, not
+  // scoped to the first frame — decoding on demand while loading has no
+  // bearing on how much of it a later Localize touches). loadFiles()'s own
+  // terminal shadow (see runTerminalStatement()'s own comment) resolves the
+  // filename string back to the real File, so this now recalls as a genuine
+  // load-only replay — no pxnm/frametime here, loadFiles() doesn't take
+  // them (they're independent sidebar settings unrelated to loading itself,
+  // still recorded in `config` for the CLI/JS-style config form above).
+  if(!multi) logCmd({file: fs[0].name, pxnm: paramValue('pxnm'), frametime: paramValue('frametime')}, `loadFiles(["${fs[0].name}"])`);
   // Leading "\n" only when logCmd() just ran (!multi) — opens the same
   // second blank line every other recorded-command call site gets between
   // the command and its following prose; a multi-file combine has no
@@ -13506,11 +13531,15 @@ function terminalHistoryList(){
 // mismatched type would produce three call-frames deeper inside analyze().
 // A real File/Blob passed directly (not a recalled string) is registered
 // too, so a file first used FROM the terminal is itself recallable next.
-function resolveTerminalFileValue(v, key){
+// `label` is just the error message's own noun (a bare "file"/"files", not
+// necessarily a config key — see loadFiles()/loadCsvFile()/etc.'s own
+// terminal shadows below, which call this directly on a bare argument,
+// not a config object field).
+function resolveTerminalFileValue(v, label){
   if(v instanceof File || v instanceof Blob){ registerTerminalFile(v); return v; }
   if(typeof v!=='string') return v;
   const f=_terminalFileRegistry.get(v);
-  if(!f) throw new Error(`config.${key}: no in-memory file named "${v}" — `+
+  if(!f) throw new Error(`${label}: no in-memory file named "${v}" — `+
     `a bare filename can't be read from disk by browser JS. Re-select it `+
     `via Load movie/data (or the matching Load… control), or pass a real `+
     `File object (e.g. from a file input's .files[0]) instead of a string.`);
@@ -13535,10 +13564,10 @@ function resolveTerminalConfig(config){
     out.file=_lastTerminalFile;
   }
   for(const k of ['file','calibrationFile','segmentationFile']){
-    if(k in out) out[k]=resolveTerminalFileValue(out[k], k);
+    if(k in out) out[k]=resolveTerminalFileValue(out[k], `config.${k}`);
   }
   for(const k of ['files','calibrationFiles']){
-    if(Array.isArray(out[k])) out[k]=out[k].map(v=>resolveTerminalFileValue(v, k));
+    if(Array.isArray(out[k])) out[k]=out[k].map(v=>resolveTerminalFileValue(v, `config.${k}`));
   }
   // ANY PARAMS-registered field the statement itself omits backfills from
   // the LIVE sidebar value (paramValue()) rather than analyze()'s own fixed
@@ -13597,8 +13626,28 @@ function resolveTerminalConfig(config){
 // session, via resolveTerminalConfig() before delegating to the real
 // window.webSMLM.analyze, so a recalled `analyze({file:"…tif", ...})` line
 // works when that same file is still loaded this session.
+//
+// loadFiles/loadCsvFile/loadCalibrationJson/loadSettingsJson/
+// loadSegmentedImage get the SAME shadow-and-resolve treatment (reported —
+// "loadMovieFiles() recalls as analyze({file:...}), which re-Localizes the
+// WHOLE stack — that would take minutes for a large file"; this is what
+// makes the actual fix — logCmd()ing loadFiles([...]) as the recall target
+// instead — possible at all, since loadFiles() itself has no file-string
+// resolution of its own the way analyze() does). Each real function IS a
+// top-level `function` declaration, so it ALSO exists as `window.<name>` —
+// referencing it that way, not the bare identifier, is what lets these
+// wrappers call the ORIGINAL underneath their own same-named local `const`;
+// referencing the bare identifier here instead would throw ("Cannot access
+// '<name>' before initialization") since a later `const` of the SAME name
+// in this same function scope puts it in the temporal dead zone for the
+// ENTIRE function body, including lines textually before that `const`.
 async function runTerminalStatement(text){
   const analyze = cfg => window.webSMLM.analyze(resolveTerminalConfig(cfg));
+  const loadFiles = fileList => window.loadFiles([...fileList].map(v=>resolveTerminalFileValue(v,'loadFiles()')));
+  const loadCsvFile = f => window.loadCsvFile(resolveTerminalFileValue(f,'loadCsvFile()'));
+  const loadCalibrationJson = f => window.loadCalibrationJson(resolveTerminalFileValue(f,'loadCalibrationJson()'));
+  const loadSettingsJson = f => window.loadSettingsJson(resolveTerminalFileValue(f,'loadSettingsJson()'));
+  const loadSegmentedImage = f => window.loadSegmentedImage(resolveTerminalFileValue(f,'loadSegmentedImage()'));
   let body;
   try{ new Function('return (\n'+text+'\n)'); body='return (\n'+text+'\n)'; }
   catch(_){ body=text; }
@@ -14470,19 +14519,19 @@ NOT extended to Load movie/data, Load data, or Simulate movie — see
 docs/DOCUMENTATION.md's own terminal section for why those three still
 recall as analyze() and what that means.
 Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-07j — correction to build 07i's
-own claim (reported: "loadCsvFile()/runSimulation() never Localize"),
-which over-generalized. Only Load movie/data actually has the mismatch:
-analyze() branches on file extension BEFORE Localize is even reached,
-so a .csv input (Load data) never runs Localize at all — recalling its
-own logged command was already exactly faithful, nothing was wrong.
-Simulate movie logs no command at all (no analyze() equivalent exists
-for it), so there was never anything to recall in the first place. Load
-movie/data alone still recalls as analyze({file:...}), which re-
-Localizes the ENTIRE stack (fitFirstFrame/fitLastFrame default to
-1/Infinity) — not just the first frame; decoding frames on demand while
-loading has no bearing on how much of the stack a later Localize
-touches.
+log(`webSMLM v0.12.1-dev · build 2026-09-07k — Load movie/data's own
+mismatch (build 07j: recalling it re-Localizes the ENTIRE stack, not
+just the first frame — genuinely minutes on a large file, reported as
+a real objection) is now actually fixed, not just documented. The
+earlier obstacle was real: loadFiles() takes a real File/FileList, and
+calling it directly from the terminal didn't resolve a recalled
+filename STRING back to the real File the way analyze() already does.
+runTerminalStatement() now ALSO shadows loadFiles()/loadCsvFile()/
+loadCalibrationJson()/loadSettingsJson()/loadSegmentedImage() with the
+same resolution — Load movie/data's own logged command now recalls as
+loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
+single-digit milliseconds, not minutes). Load data (.csv) and Simulate
+movie never needed this — see build 07j's own message for why.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

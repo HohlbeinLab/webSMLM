@@ -1654,20 +1654,34 @@ relevant one before editing rather than scrolling:
     means frames are decoded on demand as the stack is read (in/out module) — it has no bearing on
     how much of the stack a SUBSEQUENT Localize step touches.
 
-  **Still deliberately NOT extended to `loadMovieFiles()`** despite being the one real case: unlike
-  the seven fixed above, the natural override target (`loadFiles(fileList)`, the already-exposed
-  parity function) takes a real `File`/`FileList`, and calling it directly from the terminal does NOT
-  go through `resolveTerminalConfig()`'s own file-string-resolution (that wrapper only intercepts
-  calls made through the shadowed `analyze` identifier inside `runTerminalStatement()`, not arbitrary
-  bare function calls) — giving it a naive string-based `jsOverride` would silently reintroduce the
-  EXACT "bare filename can't be read from disk by browser JS" bug `resolveTerminalConfigFiles()` was
-  built to fix in the first place, just at a different call site. Properly supporting this would mean
-  generalizing that file-resolution machinery to intercept arbitrary shadowed function calls, not just
-  `analyze` — a real, bigger follow-up, not attempted here. `analyze({file:...})` recalled alone still
-  ALSO Localizes the whole stack with default/backfilled settings for this one action — a real
-  difference from Load movie/data's own interactive button, but a strictly less severe one (you get a
-  genuine, usable reconstruction using your current live settings, just redone unnecessarily) than
-  PCFO's own case was.
+  **`loadMovieFiles()`'s own case is now fixed too** (follow-up, same round — "that would lead to
+  minutes of time passing for large files" was a fair objection to leaving this one unfixed). The
+  earlier obstacle was real: the natural override target (`loadFiles(fileList)`, the already-exposed
+  parity function) takes a real `File`/`FileList`, and calling it directly from the terminal did NOT
+  go through `resolveTerminalConfig()`'s own file-string-resolution (that wrapper only intercepted
+  calls made through the shadowed `analyze` identifier), so a naive string-based `jsOverride` would
+  have reintroduced the exact "bare filename can't be read from disk by browser JS" bug
+  `resolveTerminalConfigFiles()` was built to fix in the first place, just at a different call site.
+  Fixed properly instead of left as a gap: `runTerminalStatement()` now ALSO shadows `loadFiles`,
+  `loadCsvFile`, `loadCalibrationJson`, `loadSettingsJson`, and `loadSegmentedImage` (every remaining
+  terminal-facing function that takes a File/FileList), each wrapped to resolve a filename STRING back
+  to the real File via `resolveTerminalFileValue()` before delegating to the real function underneath.
+  Each real function is a top-level `function` declaration, so it's ALSO reachable as `window.<name>`
+  — the wrappers call it that way, not by its bare identifier, since a `const` of the SAME name later
+  in `runTerminalStatement()`'s own body puts that identifier in the temporal dead zone for the ENTIRE
+  function, including lines textually before the `const` — referencing the bare name to get "the
+  original" wouldn't work, only `window.<name>` reaches it. `resolveTerminalFileValue()`'s own second
+  parameter was renamed `label` (from `key`) and its error message's `config.` prefix dropped, since
+  it's now called both from `resolveTerminalConfig()` (a real config field) and from these bare
+  function wrappers (no config object involved) — each call site now passes whatever `label` actually
+  fits (`config.file` vs. plain `loadFiles()`). `loadMovieFiles()`'s own `logCmd()` gained the matching
+  `jsOverride`: `` `loadFiles(["${fs[0].name}"])` `` — no `pxnm`/`frametime` in the override itself
+  (those aren't `loadFiles()` arguments, just independent sidebar settings, still recorded in the
+  CLI/JS-style `config` form above it for reference). Verified via Playwright: recalling the Load
+  command after a real Localize now completes in single-digit milliseconds and leaves `lastResult`
+  `null` (a genuine load-only replay, not a redundant multi-second-to-multi-minute re-Localize), a
+  subsequent real Localize afterward still works normally, and an unresolvable filename still throws
+  the same clear, actionable error the `analyze()` path already had.
 
   Verified via Playwright for all seven newly-fixed actions: recalling each one's own logged command
   from the terminal after an initial Localize leaves `lastResult.locs.length` UNCHANGED (confirming no
