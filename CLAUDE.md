@@ -535,6 +535,23 @@ relevant one before editing rather than scrolling:
   a crop/uncrop swaps `stack` for a genuinely different pixel population. Deliberately excluded from
   `PARAMS`/Save-Load Settings/the headless `analyze()` config — same "pure display/layout" carve-out
   as UI theme and sidebar state — a display convenience local to one interactive session.
+
+  **`rerender()`/`srNmPerPx()` guard against `lastResult` going null mid-render** — a genuine,
+  pre-existing async race, found (not introduced) while Playwright-testing the terminal's new
+  GUI/terminal parity work (see **pipeline**): `rerender()`'s own EARLY `if(!lastResult) return;`
+  only catches `lastResult` already being null before the call starts; it can just as easily go null
+  DURING the `await renderSuperRes(...)` inside it, since `applyCropToRaw()`'s own
+  `resetAfterCropChange()` (a crop/uncrop/fresh load) nulls it SYNCHRONOUSLY, with no render of its
+  own to wait for. The existing `mySeq!==_srRenderSeq` staleness check right after that await now
+  also bails on `!lastResult` — exactly the same reasoning as its `mySeq` half: if the result this
+  render was FOR is gone, the render itself is moot. `srNmPerPx()` gets the matching guard
+  (`srIsRecon && lastResult`, not `srIsRecon` alone) for the same reason, since `drawView()`'s own
+  call to it can run from that same stale, still-in-flight completion callback. A real click-driven
+  session rarely lands two actions close enough together in time to hit this (confirmed: a genuine
+  two-click raw-panel crop via Playwright never triggered it); the log terminal's own back-to-back
+  scripted calls (Localize immediately followed by a crop, both fired programmatically with no human
+  reaction time in between) reproduced it reliably before this fix, not after — verified by 3 repeated
+  runs with zero page errors post-fix, versus 100% reproduction pre-fix.
 - **workers** — frame-parallel detect/fit (see below).
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units
   by the time they reach export (gain/offset applied inside the fit, see **fit**), so export/the
@@ -1557,6 +1574,41 @@ relevant one before editing rather than scrolling:
   consistent with this project's own established threat model (a trusted, single-file, fully
   client-side tool with no server, no other users, no credentials at stake) — the same reasoning
   already backing the CLI/headless `analyze()` surface itself.
+
+  **Full GUI/terminal parity** (reported — after being pointed at `applyCropToRaw()` as the fix for
+  "why did a crop-only `analyze()` call also run a full Localize", the user's generalized ask: EVERY
+  actionable GUI control should have a plain, terminal-callable function behind it, discoverable, not
+  reverse-engineered). A 3-way parallel codebase audit found this was **already true for the large
+  majority of actions** — the whole `*Core()`/thin-wrapper split this module is built around already
+  means most button handlers are just `addEventListener('click', someTopLevelFunction)`, and the
+  terminal's direct `eval()` sees every one of those names via the shared top-level scope. Only 9 real
+  gaps existed, where a button's actual logic was still inline in an anonymous listener closure with
+  no named equivalent — each extracted into its own top-level function (pure, behavior-preserving
+  refactor, verified via Playwright both for the unchanged interactive path and the new direct
+  terminal call): `loadFiles(fileList)` (the merged `#file` CSV/movie dispatcher), `loadCalibrationJson
+  (file)`/`loadSettingsJson(file)` (same `async function loadX(file)` shape as the pre-existing
+  `loadCsvFile`/`loadSegmentedImage`), `runSimulation()` (Simulate movie's full disable→generate→
+  reset→re-enable sequence around the already-pure `generateSynthetic()`), `clearCalFixedXY()` (Fix
+  bead x,y's uncheck branch — the check branch already called `locateBeadsForCalib()`),
+  `commitSrCrop(x0nm,y0nm,x1nm,y1nm)` (the SR-panel crop tool's crop-commit branch, extracted out of
+  `$('sr')`'s multi-purpose click handler — which keeps its own `cropPt0` two-click bookkeeping and
+  now just converts px→nm before calling this; **nm**, not px, matching what the tool itself logs/
+  displays — a genuinely different mechanism from `applyCropToRaw()`, see this module's own crop-tool
+  paragraph), `toggleSSmlmColorView()`, `clearSmfretFixSOI()`, `toggleSmfretTraceMode()`. No naming
+  collisions with anything already in the file.
+
+  Documented as an actual reference table in `docs/DOCUMENTATION.md` §1 (right after the terminal's
+  own paragraphs) — GUI label → terminal function → notes, covering these 9 plus the ~25 actions that
+  were already clean (`run()`, `correctDrift()`, `runCalibration()`, `computeNeNA()`/`computeFRC()`,
+  `estimateGainOffset()`, `runSptTrack()`, `runSSmlmPair()`, `locateSmfretSOI()`,
+  `getSmfretTimeTraces()`, `applyCropToRaw()`/`uncropRaw()`, `exportCSV()`, `rerender()`, …) —
+  explicitly calling out `analyze({file,...})` as the *separate*, one-shot, no-session CLI/scripting
+  tool, not the "do exactly what one button does" one. **Standing convention going forward** (a new
+  short rule, not just a one-time cleanup): every future actionable GUI control's real logic belongs
+  in a plain top-level named function, never inline in an anonymous listener — so it's automatically
+  terminal-callable with no separate "make it scriptable" step, ever again. This is the actual answer
+  to "GUI and commandline support should be interchangeable": not a parallel API surface to keep in
+  sync by hand, but a rule that guarantees there's only ever one implementation per action.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
@@ -1774,6 +1826,23 @@ too, or changing it won't refresh the scrubbed-frame preview until the next full
 Both paths suppress the fit crosshairs (not the ROI boxes) outside `fitFirstFrame`/`fitLastFrame`
 — `fitFrameRange()` is the single place deciding "in range" for both `showFrame()` and `runCore()`,
 so scrubbing to a frame a Run would never touch can't show a misleading live-fit result there.
+
+### Every actionable GUI control needs a plain top-level function behind it
+
+Standing rule, not a one-time cleanup (established after a full parity audit — see **pipeline**'s
+own "Full GUI/terminal parity" paragraph): a button click, checkbox change, or any other control
+that actually computes or changes data must call ONE plain top-level `function`/`async function` —
+never inline its real logic directly in an anonymous `addEventListener` closure. Reading/writing a
+handful of DOM elements to reflect state (disabling a button, toggling a CSS class) is fine to leave
+inline; anything beyond that (a fetch/parse, a state reset sequence, building a filter, discarding a
+result) belongs in a named function the handler just calls.
+
+**Why**: the log terminal's `eval()` shares this file's own top-level scope, so any plain top-level
+function is automatically callable from the terminal, reproducing the exact GUI action with zero
+extra wiring. An anonymous inline handler is invisible to that — a user (or a future contributor)
+has no way to trigger "what button X does" except by clicking it. Following this rule means GUI and
+terminal/scripted access stay interchangeable by construction, not by remembering to keep a parallel
+API in sync.
 
 ### Button label length
 

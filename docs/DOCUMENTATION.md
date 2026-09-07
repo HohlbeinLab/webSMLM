@@ -326,11 +326,67 @@ automatically, and likewise for switching fit method or any other setting
 in between. Type a field explicitly into the terminal yourself (`pxnm:160`,
 `psf:1.6`, …) and it overrides this, same as any other key in the command.
 
-One thing this does NOT change: a crop-only recalled command still triggers
-a full Localize, using whatever's currently configured — `analyze()` has no
-"just crop" mode, since it always runs the complete load → detect/fit
-pipeline in one call. If you want to crop without analyzing anything, use
-the raw panel's own crop tool directly rather than the terminal.
+One thing `analyze({cropX0, ...})` does NOT do: crop without analyzing
+anything. `analyze()` always runs the complete load → detect/fit pipeline in
+one call — there's no "just crop" mode, since it's a one-shot,
+no-interactive-session convenience for CLI/pure scripting use. For a real
+crop-only action against your *currently loaded* movie, matching exactly
+what the raw panel's own crop tool does with none of the extra Localize,
+call `applyCropToRaw(x0, y0, x1, y1)` (native-pixel bounds) directly from the
+terminal instead. This is the general pattern covered next.
+
+### Every GUI action has a matching terminal function
+
+Nearly every button, checkbox, and control in this app is backed by one
+plain, named JavaScript function — the exact same function the button's own
+click handler calls — reachable from the terminal exactly the way
+`analyze()` is. Typing that function's name reproduces the GUI action
+precisely: same result, same log output, acting on whatever's currently
+loaded. This is genuinely a design rule of the codebase, not a coincidence —
+see the box below.
+
+A representative sample (module order matches [§2](#2-module-reference)):
+
+| GUI action | Terminal function | Notes |
+|---|---|---|
+| Load movie/data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects CSV vs. movie |
+| Load calibration… | `loadCalibrationJson(file)` | |
+| Load settings | `loadSettingsJson(file)` | |
+| Simulate movie | `runSimulation()` | no args — reads the current Simulation settings |
+| **Localize** | `run()` | no args — reads the current sidebar settings live |
+| Raw-panel crop tool | `applyCropToRaw(x0,y0,x1,y1)` / `uncropRaw()` | native-pixel bounds; does NOT localize |
+| Reconstruction-panel crop tool | `commitSrCrop(x0,y0,x1,y1)` | **nm** bounds (not px) — a `_tableFilters` clause, not a stack crop |
+| **Calibrate** | `runCalibration()` | |
+| Fix bead x,y (checked/unchecked) | `locateBeadsForCalib()` / `clearCalFixedXY()` | |
+| **Correct drift** | `correctDrift()` | |
+| Compute NeNA / Compute FRC | `computeNeNA()` / `computeFRC()` | |
+| Estimate gain/offset (PCFO) | `estimateGainOffset()` | |
+| Preview pairs / Pair / Unpair | `previewSSmlmPairs()` / `runSSmlmPair()` / `unpairSSmlm()` | |
+| Fit angle & tol. | `fitSSmlmAngle()` | |
+| Show spectral/standard | `toggleSSmlmColorView()` | |
+| **Track** (spt) | `runSptTrack()` | |
+| Save track data | `exportSptSummary()` | |
+| Show track data | `openTrackTable()` | |
+| Load segm. image | `loadSegmentedImage(file)` | |
+| Localize SOI (smFRET) | `locateSmfretSOI()` | |
+| Get time traces (smFRET) | `getSmfretTimeTraces()` | |
+| Fix SOI x,y (unchecked) | `clearSmfretFixSOI()` | |
+| Show raw frame/time trace (smFRET) | `toggleSmfretTraceMode()` | |
+| Committing a table filter | `commitFilter()` / `resetFilters()` | reads `#tableFilter`'s current text |
+| Save data (CSV) | `exportCSV()` | |
+| Save calibration | `exportCalibration()` | |
+| Save plot/image | `saveImageClicked()` / `exportPanel('sr'\|'raw')` | |
+| Redraw the reconstruction | `rerender(true)` | after changing `mag`/`lut`/`renderMode`/etc. by hand |
+| Connect (live streaming) | `liveStreamWsConnect()` | |
+| Clear localizations (live streaming) | `clearLiveStreamingLocalizations()` | |
+
+Pure display/cosmetic toggles (theme buttons, LUT/colour-map pickers, which
+plot mode is showing, panel layout) are deliberately left out of this table
+— they're one-line flag flips with no analysis behind them, not worth a
+terminal shortcut. Everything that actually computes or changes data has an
+entry here or follows the same `functionName(args)` pattern once you know
+where to look — [§2](#2-module-reference) names the function behind almost
+every control already.
 
 A few things to know: the terminal only runs **JavaScript** — a line logged
 in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the

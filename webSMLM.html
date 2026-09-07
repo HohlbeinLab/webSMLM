@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2534   PARAMS registry, single source of truth for params;
+    params          2543   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3307   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3316   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3606   synthetic stack generator ("Simulate movie")
-    detect          4484   per-frame band-pass + local-maxima detection
-    fit             4761   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3615   synthetic stack generator ("Simulate movie")
+    detect          4493   per-frame band-pass + local-maxima detection
+    fit             4770   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5400   accumulate to offscreen buffer; view/colour/blur;
+    render          5409   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6699   frame-parallel detect/fit worker pool; dedicated
+    workers         6726   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7009   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7301   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7036   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7328   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7728   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7755   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8234   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8261   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8945   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8972   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9885   single particle tracking, trackpy-inspired;
+    spt             9925   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11395  top-level orchestration, *Core()/wrapper split;
+    pipeline        11435  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -168,8 +168,17 @@
                            logCmd()s (crop, drift, NeNA/FRC, …) only ever
                            record what THAT action changed, so a recalled
                            partial command still runs against the currently-
-                           configured session, not registry defaults
-    liveStreaming   12016  Micro-Manager/pycromanager camera bridge
+                           configured session, not registry defaults; full
+                           GUI/terminal parity audit extracted the last 9
+                           inline handlers into plain functions (loadFiles(),
+                           loadCalibrationJson()/loadSettingsJson(),
+                           runSimulation(), clearCalFixedXY(), commitSrCrop(),
+                           toggleSSmlmColorView(), clearSmfretFixSOI(),
+                           toggleSmfretTraceMode()) — every actionable
+                           control now has one, a standing convention (see
+                           CLAUDE.md); docs/DOCUMENTATION.md §1 has the full
+                           GUI-action → terminal-function reference table
+    liveStreaming   12056  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -223,14 +232,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14281  localizations table, filtering, histograms;
+    table           14371  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    14983  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15073  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1959,7 +1968,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5422,7 +5431,16 @@ function setSrRecon(v){ srIsRecon=v;
 // for those undercounts distances by a factor of mag, and previously fell
 // back to nmPerPx=1 (raw pixel count, no physical meaning at all) whenever
 // lastResult was null. Used by the scale bar and the line-profile tool.
-function srNmPerPx(){ return srIsRecon ? lastResult.px/lastResult.mag : paramValue('pxnm'); }
+// `&& lastResult` guard (found via terminal testing, not new to this
+// change — a pre-existing async race): resetAfterCropChange() (crop/
+// uncrop/a fresh load) nulls lastResult synchronously, but an EARLIER
+// rerender() from the Run it's discarding can still be in flight (worker-
+// backed, see MODULE: render) when its own completion callback later calls
+// drawView() — srIsRecon alone doesn't guarantee lastResult is still
+// non-null by the time that stale callback actually runs. A real click-
+// driven session rarely lands two actions close enough together to hit
+// this, but the log terminal's own back-to-back scripted calls can.
+function srNmPerPx(){ return (srIsRecon && lastResult) ? lastResult.px/lastResult.mag : paramValue('pxnm'); }
 let srSpots=null, srLocs=null;         // ROI boxes / fit crosshairs overlay for srFull (bead-composite view only)
 const view={zoom:1,cx:0,cy:0,atFit:true};   // CSS px per srFull px; center in srFull coords; atFit itself no longer gates anything (a window resize always re-fits, see refitCanvases()) — kept as a plain "has the user manually navigated" bookkeeping flag
 // line-profile / distance tool: coords in srFull pixels
@@ -6391,7 +6409,16 @@ async function rerender(keepView,isPreview){
     log(`⚠ Reconstruction not updated: ${err.message}`);
     return;
   }
-  if(mySeq!==_srRenderSeq) return;   // a NEWER rerender() call landed first — discard this stale result
+  // `|| !lastResult` (found via terminal testing — a pre-existing async
+  // race, not new to this change): the EARLY `if(!lastResult) return;` up
+  // top only catches lastResult already being null before this call even
+  // started — it can just as easily go null DURING the await above (a
+  // crop/uncrop/fresh load's own resetAfterCropChange() runs synchronously,
+  // no render of its own to wait for). Reusing the existing staleness
+  // check here is exactly the same reasoning as the mySeq half of it: if
+  // the result this render was FOR is gone, the render itself is moot,
+  // same as a newer rerender() having already superseded it.
+  if(mySeq!==_srRenderSeq || !lastResult) return;   // a NEWER rerender() call landed first, or lastResult was cleared mid-render — discard this stale result
   srFull=newSrFull;
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
@@ -9370,7 +9397,10 @@ function unpairSSmlm(){
 // (sSmlmPairedLocs survives the round trip, so toggling back is instant and
 // re-Pairing/Unpair still see the correct state either way).
 function updateSSmlmColorBtnLabel(){ $('sSmlmColorBtn').textContent = sSmlmShowingRaw ? 'Show spectral' : 'Show standard'; }
-$('sSmlmColorBtn').addEventListener('click',()=>{
+// Extracted from #sSmlmColorBtn's own former click handler for direct
+// terminal callability (toggleSSmlmColorView()) — no-arg, flips between
+// sSmlmOriginalLocs/sSmlmPairedLocs exactly as the button does.
+function toggleSSmlmColorView(){
   if(!lastResult || sSmlmOriginalLocs==null || sSmlmPairedLocs==null) return;
   sSmlmShowingRaw = !sSmlmShowingRaw;
   lastResult.locs = sSmlmShowingRaw ? sSmlmOriginalLocs : sSmlmPairedLocs;
@@ -9378,7 +9408,8 @@ $('sSmlmColorBtn').addEventListener('click',()=>{
   $('zcolor').checked = !sSmlmShowingRaw;   // colour-by-distance only means anything for the paired view
   updateSSmlmColorBtnLabel();
   rerender(true);
-});
+}
+$('sSmlmColorBtn').addEventListener('click',toggleSSmlmColorView);
 $('sSmlmPreviewBtn').addEventListener('click',previewSSmlmPairs);
 // "Show histograms" reopens whichever mode sSmlmHistMode currently is (last
 // viewed, or 'dist' after a fresh Preview) — the toggle button next to the
@@ -9584,7 +9615,11 @@ $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
 // Localize SOI, above, not an independent trigger like calFixedXY's own
 // checkbox); a bare click can't tell "just got auto-checked" from "user
 // checked it", but only the uncheck direction needs a real action here.
-$('smfretFixSOI').addEventListener('change',()=>{
+// Extracted from #smfretFixSOI's own former change handler's UNCHECK
+// branch, for direct terminal callability (clearSmfretFixSOI()). Keeps its
+// own guard (no-op if the checkbox is currently checked) so it's safe to
+// call unconditionally, matching the interactive uncheck-only behavior.
+function clearSmfretFixSOI(){
   if(paramValue('smfretFixSOI')) return;
   smfretSOI=null; smfretTraces=null; smfretShowRawFrame=false;
   $('smfretTraceScrubRow').style.display='none';
@@ -9612,7 +9647,8 @@ $('smfretFixSOI').addEventListener('change',()=>{
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
     $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
   }
-});
+}
+$('smfretFixSOI').addEventListener('change',clearSmfretFixSOI);
 // Aperture photometry (v0.12.1-dev): a model-free alternative to fitting for
 // extracting one site's intensity at a KNOWN, already-located position, via
 // the SAME published circular-disk/background-annulus/56th-percentile method
@@ -9790,7 +9826,10 @@ function smfretOwnsRawPanel(){ return smfretTraces!==null && !smfretShowRawFrame
 // button alone (it's independent of that mutual-exclusion set, same precedent
 // as rawFtmBtn — both toggle between two views of "this same feature's own
 // content", not between different features entirely).
-$('smfretTraceModeBtn').addEventListener('click', ()=>{
+// Extracted from #smfretTraceModeBtn's own former click handler for direct
+// terminal callability (toggleSmfretTraceMode()) — no-arg, flips the raw
+// panel between the live frame and the trace plot exactly as the button does.
+function toggleSmfretTraceMode(){
   smfretShowRawFrame=!smfretShowRawFrame;
   $('smfretTraceModeBtn').textContent = smfretShowRawFrame ? 'Show time trace' : 'Show raw frame';
   if(smfretShowRawFrame){
@@ -9802,7 +9841,8 @@ $('smfretTraceModeBtn').addEventListener('click', ()=>{
     $('smfretTraceScrubRow').style.display='flex';
     drawSmfretTrace(smfretTraceIdx);
   }
-});
+}
+$('smfretTraceModeBtn').addEventListener('click', toggleSmfretTraceMode);
 // Time-trace view: plots one site's intensity-vs-frame curve in the raw
 // (left) panel, replacing the ordinary raw-frame display exactly the same
 // way drift/NeNA/FRC's own plots do (rawFull=null, setRawPlot(true) — see
@@ -12615,7 +12655,12 @@ async function showStackProjection(){
   $('srInfo').textContent=`— average of ${used}/${st.n} frame${used>1?'s':''} · run localisation to reconstruct`;
   syncSaveImg();
 }
-$('genBtn').addEventListener('click',async()=>{
+// Extracted from #genBtn's own former click handler for direct terminal
+// callability (runSimulation()) — same no-arg, reads-live-settings shape as
+// run()/runCalibration(); generateSynthetic() itself stays the pure stack
+// generator, this is the "click Simulate movie" session-reset wrapper
+// around it (mirrors loadMovieFiles()'s own reset block).
+async function runSimulation(){
   log('Simulating movie…');
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
@@ -12639,7 +12684,8 @@ $('genBtn').addEventListener('click',async()=>{
   }finally{
     $('genBtn').disabled=false; $('loadBtn').disabled=false;
   }
-});
+}
+$('genBtn').addEventListener('click',runSimulation);
 
 // Extracted from #file's own former change handler (loadBtn used to open it
 // directly) so the merged Load movie/data button (see loadBtn's own click
@@ -12853,16 +12899,20 @@ $('rawContrastAutoBtn').addEventListener('click',async()=>{
   redrawRawContrast();                     // estimateRawContrastRange() only updates state/slider UI, not the on-screen frame
 });
 $('calBtn').addEventListener('click',runCalibration);
+// Extracted from #calFixedXY's own former change handler's UNCHECK branch,
+// for direct terminal callability (clearCalFixedXY()) — the CHECK branch
+// was already a clean call to locateBeadsForCalib().
+function clearCalFixedXY(){
+  calFixedPts=null; const st=$('calLocateStatus'); if(st) st.style.display='none';
+  if(srSpots||srLocs){   // was showing our bead composite — clear it and restore the general overview
+    srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
+    if(stack) showStackProjection();
+  }
+  if(stack) showFrame(+$('scrub').value);   // drop the fixed-box overlay from the raw panel immediately
+}
 $('calFixedXY').addEventListener('change',()=>{
   if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('Load a bead z-stack first.'); }
-  else {
-    calFixedPts=null; const st=$('calLocateStatus'); if(st) st.style.display='none';
-    if(srSpots||srLocs){   // was showing our bead composite — clear it and restore the general overview
-      srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
-      if(stack) showStackProjection();
-    }
-    if(stack) showFrame(+$('scrub').value);   // drop the fixed-box overlay from the raw panel immediately
-  }
+  else clearCalFixedXY();
 });
 // re-locate the fixed bead positions whenever a setting that changes detection/fit would affect them
 ['calFirst','calLast','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
@@ -12991,8 +13041,11 @@ function logParamValues(values){
 // exactly as if the user had edited it); entries with no control (id:null)
 // go into paramOverrides instead, since there's nothing on the page to set.
 $('loadSetBtn').addEventListener('click',()=>$('setFile').click());
-$('setFile').addEventListener('change',async e=>{
-  const f=e.target.files[0]; if(!f) return;
+// Extracted from #setFile's own former change handler for direct terminal
+// callability (loadSettingsJson(file)), same convention as
+// loadCsvFile(f)/loadCalibrationJson(f).
+async function loadSettingsJson(f){
+  if(!f) return;
   try{
     const o=JSON.parse(await f.text()), v=o.values||o; let n=0;
     // TEMPORARY back-compat: sptFrameTime was renamed to the global
@@ -13022,7 +13075,11 @@ $('setFile').addEventListener('change',async e=>{
     }
     log(`${n} of ${Object.keys(v).length} values applied.`);
   }catch(err){ log('Settings load failed: '+err.message); }
+}
+$('setFile').addEventListener('change',async e=>{
+  const f=e.target.files[0];
   e.target.value='';
+  await loadSettingsJson(f);
 });
 $('saveSetBtn').addEventListener('click',async()=>{
   const values=buildConfigFromParams();
@@ -13033,8 +13090,12 @@ $('saveSetBtn').addEventListener('click',async()=>{
   else log('Save cancelled.');
 });
 $('loadCalBtn').addEventListener('click',()=>$('calFile').click());
-$('calFile').addEventListener('change',async e=>{
-  const f=e.target.files[0]; if(!f) return;
+// Extracted from #calFile's own former change handler for direct terminal
+// callability (loadCalibrationJson(file)), same convention as
+// loadCsvFile(f)/loadSegmentedImage(f) — a plain async function taking the
+// real File.
+async function loadCalibrationJson(f){
+  if(!f) return;
   try{
     const o=JSON.parse(await f.text());
     const z=o.phasor_z_from_ratio;
@@ -13051,7 +13112,11 @@ $('calFile').addEventListener('change',async e=>{
     if(need && !calMethods[need]) log(`⚠ The selected method needs a "${CALIB_METHODS[need]}" calibration, which this file does not contain.`);
     updateCalStatus();
   }catch(err){ log('Calibration load failed: '+err.message); }
+}
+$('calFile').addEventListener('change',async e=>{
+  const f=e.target.files[0];
   e.target.value='';
+  await loadCalibrationJson(f);
 });
 // Load data: the reverse of exportCSV — parses a CSV it previously wrote
 // back into a full working lastResult (table, reconstruction, NeNA/FRC/
@@ -13359,9 +13424,13 @@ async function runTerminalStatement(text){
 // multi-file TIFF combining included. e.target.value='' once here (not
 // inside either extracted function) — lets re-selecting the same filename
 // re-trigger 'change' next time, for either file type.
-$('loadBtn').addEventListener('click',()=>$('file').click());
-$('file').addEventListener('change', async e=>{
-  const fs=[...e.target.files]; e.target.value='';
+// Extracted from #file's own former change handler so it's directly
+// terminal-callable too (loadFiles([...someFileList]), or a single-element
+// array for one file) — same GUI-equivalent-function convention as
+// applyCropToRaw()/run()/etc. (reported: every actionable GUI control
+// should have a plain top-level function behind it, no exceptions).
+async function loadFiles(fs){
+  fs=[...fs];
   if(!fs.length) return;
   const isCsv=f=>/\.csv$/i.test(f.name);
   const csvFiles=fs.filter(isCsv), movieFiles=fs.filter(f=>!isCsv(f));
@@ -13375,6 +13444,11 @@ $('file').addEventListener('change', async e=>{
   }else{
     await loadMovieFiles(movieFiles);
   }
+}
+$('loadBtn').addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change', async e=>{
+  const fs=[...e.target.files]; e.target.value='';
+  await loadFiles(fs);
 });
 $('saveBtn').addEventListener('click',exportCSV);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
@@ -13702,38 +13776,18 @@ $('cropBtn').addEventListener('click',()=>{
   }
   drawView();
 });
-$('sr').addEventListener('click',e=>{
-  if(!srFull||(!measureMode&&!cropMode&&!srTracksOverlayOn)||srWasDrag()) return;
-  const {fx,fy}=srClickToFull(e);
-  if(!measureMode&&!cropMode&&srTracksOverlayOn){
-    // Track click-to-select — measure/crop take priority above (both are
-    // explicit multi-click TOOLS the user turned on; selection is a passive
-    // side-effect of the overlay just being visible, so it must never steal a
-    // click those two are expecting). Clicking the already-selected track (or
-    // empty space near no track) deselects, matching the toggle-off pattern
-    // sSMLM's own colour-mode buttons use elsewhere in this file.
-    const hit=trackHitTest(fx,fy);
-    selectedTrackId = (hit!=null && hit===selectedTrackId) ? null : hit;
-    drawView();
-    return;
-  }
-  if(measureMode){
-    if(!measurePt0){ measurePt0={x:fx,y:fy}; drawView(); }
-    else { measureLine={x0:measurePt0.x,y0:measurePt0.y,x1:fx,y1:fy}; measurePt0=null; drawView(); lineProfile(measureLine); }
-    return;
-  }
-  // Defense in depth — the button is already disabled in both cases
-  // (setSrRecon()); this catches a stale click queued right as either
-  // condition changed.
-  if(!srIsRecon || (liveStreamState && liveStreamState.active)) return;
-  if(!cropPt0){ cropPt0={x:fx,y:fy}; drawView(); return; }
-  // srFull-px rect first (kept for the auto-zoom below), nm second (for the
-  // table filter — srClickToFull already returns srFull px, see its comment).
-  const fx0=Math.min(cropPt0.x,fx), fx1=Math.max(cropPt0.x,fx);
-  const fy0=Math.min(cropPt0.y,fy), fy1=Math.max(cropPt0.y,fy);
-  const nmPerPx = lastResult.px/lastResult.mag;   // srFull px -> nm, same conversion lineProfile() uses
-  const x0=fx0*nmPerPx, x1=fx1*nmPerPx, y0=fy0*nmPerPx, y1=fy1*nmPerPx;
-  cropPt0=null;
+// Extracted from $('sr')'s own click handler's crop-commit branch, for
+// direct terminal callability (commitSrCrop(x0nm,y0nm,x1nm,y1nm)) — the SR/
+// reconstruction-panel crop tool, a deliberately DIFFERENT mechanism from
+// applyCropToRaw() (pushes an nm-bounded _tableFilters clause, never
+// touches `stack` — see this module's own comment on why). Args are nm
+// (matching what this tool itself logs/displays, e.g. the "Crop: x
+// 100–200 nm, ..." line below), so a terminal user can type the same
+// numbers they'd read off a previous crop's own log line. The click
+// handler itself keeps its own cropPt0 first-click/second-click bookkeeping
+// (this function only ever runs once both corners are known) and converts
+// its own srFull-px click coordinates to nm before calling this.
+function commitSrCrop(x0, y0, x1, y1){
   // Rebuild fresh rather than reusing a possibly-stale _tableData from an
   // earlier Run (it's only otherwise rebuilt when the table is opened) — and
   // from the current base (clustered events if tempClusteringXY/Z is active,
@@ -13762,8 +13816,11 @@ $('sr').addEventListener('click',e=>{
   // aspect ratio) ends up flush with that panel edge, the shorter one
   // letterboxed. srFull's own dimensions don't change with a crop filter
   // (rerender() always sizes the buffer from lastResult.w/h/mag, not the
-  // filtered subset), so fx0..fy1 above stay valid after applyFilterToReconstruction().
+  // filtered subset), so converting back to srFull px here stays valid
+  // after applyFilterToReconstruction().
   { const d=$('sr'), cw=d.clientWidth||d.width, ch=d.clientHeight||d.height;
+    const nmPerPx = lastResult.px/lastResult.mag;   // same conversion the click handler used to derive x0..y1
+    const fx0=x0/nmPerPx, fx1=x1/nmPerPx, fy0=y0/nmPerPx, fy1=y1/nmPerPx;
     const rw=fx1-fx0, rh=fy1-fy0;
     if(rw>0 && rh>0){
       const fz=fitZoom();
@@ -13774,6 +13831,39 @@ $('sr').addEventListener('click',e=>{
   drawView();
   log(`Crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm — added as a filter (see View data/filtering; Reset filter to undo).`);
   recomputeIfShown();
+}
+$('sr').addEventListener('click',e=>{
+  if(!srFull||(!measureMode&&!cropMode&&!srTracksOverlayOn)||srWasDrag()) return;
+  const {fx,fy}=srClickToFull(e);
+  if(!measureMode&&!cropMode&&srTracksOverlayOn){
+    // Track click-to-select — measure/crop take priority above (both are
+    // explicit multi-click TOOLS the user turned on; selection is a passive
+    // side-effect of the overlay just being visible, so it must never steal a
+    // click those two are expecting). Clicking the already-selected track (or
+    // empty space near no track) deselects, matching the toggle-off pattern
+    // sSMLM's own colour-mode buttons use elsewhere in this file.
+    const hit=trackHitTest(fx,fy);
+    selectedTrackId = (hit!=null && hit===selectedTrackId) ? null : hit;
+    drawView();
+    return;
+  }
+  if(measureMode){
+    if(!measurePt0){ measurePt0={x:fx,y:fy}; drawView(); }
+    else { measureLine={x0:measurePt0.x,y0:measurePt0.y,x1:fx,y1:fy}; measurePt0=null; drawView(); lineProfile(measureLine); }
+    return;
+  }
+  // Defense in depth — the button is already disabled in both cases
+  // (setSrRecon()); this catches a stale click queued right as either
+  // condition changed.
+  if(!srIsRecon || (liveStreamState && liveStreamState.active)) return;
+  if(!cropPt0){ cropPt0={x:fx,y:fy}; drawView(); return; }
+  // srFull-px rect -> nm (commitSrCrop's own arg unit — srClickToFull
+  // already returns srFull px, see its comment).
+  const fx0=Math.min(cropPt0.x,fx), fx1=Math.max(cropPt0.x,fx);
+  const fy0=Math.min(cropPt0.y,fy), fy1=Math.max(cropPt0.y,fy);
+  const nmPerPx = lastResult.px/lastResult.mag;   // srFull px -> nm, same conversion lineProfile() uses
+  cropPt0=null;
+  commitSrCrop(fx0*nmPerPx, fy0*nmPerPx, fx1*nmPerPx, fy1*nmPerPx);
 });
 // If the raw panel is already showing FRC or NeNA when the crop filter changes
 // (added or removed), recompute in place instead of leaving stale numbers up
@@ -14149,16 +14239,21 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07e — the terminal's own
-"backfill from the live session" (build 07d, for pxnm/frametime) is now
-GENERAL: recalling a crop-only/drift-only/etc. command that carries none
-of the analysis settings (method, PSF, thresholds, gain/offset, ...) no
-longer silently re-Localizes with generic registry defaults — every
-missing field now inherits whatever's actually configured in the
-sidebar right now. A crop-only command still always re-runs Localize
-too — analyze() has no "just crop" mode — but it now does so with your
-real settings, not arbitrary ones. Use the raw-panel crop tool directly
-for a crop with no analysis attached.
+log(`webSMLM v0.12.1-dev · build 2026-09-07f — full GUI/terminal parity:
+nearly every button/checkbox now has a plain, directly-callable function
+behind it — the exact one its own click/change handler calls — so typing
+it into the log terminal reproduces that action precisely (e.g.
+applyCropToRaw(x0,y0,x1,y1) crops WITHOUT localizing, unlike
+analyze({cropX0,...})'s always-full-pipeline design). Most already
+worked this way; this build extracts the last 9 holdouts (Load
+calibration/settings, Simulate movie, Fix bead x,y, the reconstruction-
+panel crop tool, sSMLM's spectral/standard toggle, smFRET's Fix SOI/
+trace-mode toggle) into named functions too. See the new GUI-action ->
+terminal-function reference table in the docs for the full list.
+Also fixed a real, pre-existing race this same testing surfaced: firing
+Localize immediately followed by a crop back-to-back from the terminal
+(no human reaction time in between) could crash the reconstruction
+redraw — lastResult could go null mid-render, not just before it.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
