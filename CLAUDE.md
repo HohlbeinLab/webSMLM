@@ -1449,6 +1449,29 @@ relevant one before editing rather than scrolling:
   each has its own global + redraw function + button-enable logic, and wiring all of them is a
   separably bigger follow-up; the full `result` is still inspectable from the terminal itself.
 
+  **`_terminalFileRegistry`/`registerTerminalFile()`/`resolveTerminalConfigFiles()`** (reported —
+  the single most obvious recall-and-edit workflow, "Localize again with a different pxnm," failed
+  outright) fix a real gap the terminal's own file-bearing recall otherwise always hits: a logged
+  `file:`/`calibrationFile:`/`segmentationFile:`/`files:`/`calibrationFiles:` value is always a bare
+  display STRING (`loadMovieFiles()`'s own comment already documented why — browsers never expose a
+  real filesystem path), but `analyze()` hard-requires an actual `File`/`Blob` for every one of these
+  keys, so recalling a logged Localize/segmentation/CSV command verbatim and pressing Enter threw a
+  confusing low-level error (`f.slice(...).arrayBuffer is not a function`) three call-frames deep
+  inside `analyze()`, not something a user typing into a terminal should ever have to decode.
+  `registerTerminalFile(f)` is called at every point a real File actually enters the app —
+  `loadMovieFiles()` (all selected files, not just `fs[0]`), `segFile`'s change handler, and
+  `loadCsvFile()` — building a session-scoped filename→File map. `runTerminalStatement()` declares a
+  LOCAL `const analyze = cfg => window.webSMLM.analyze(resolveTerminalConfigFiles(cfg))` right before
+  its own `eval()` call, so — by the same direct-`eval()`-sees-the-enclosing-scope mechanism the
+  function's own comment already explains — the evaluated text's free `analyze` reference resolves to
+  this shadowed version instead of the real top-level one, transparently substituting a matching
+  registered File back in by name (and registering any real File/Blob passed directly, so a file
+  first used FROM the terminal is itself recallable next) before delegating to the real `analyze()`.
+  A name with no match throws a clear, actionable error naming the missing filename and how to fix it,
+  rather than the raw type error. Verified via Playwright against the exact reported scenario: load a
+  real file interactively, arrow-up in the terminal to recall its logged `analyze({file:"…",...})`
+  command, edit `pxnm`, press Enter — now runs and updates `lastResult.px`, where it previously threw.
+
   Documented, deliberate v1 scope boundaries: the terminal executes **JS only** (a CLI-style logged
   line won't run here — switch `logCmdStyleBtn` to JS first if pasting from an exported log); pasting
   a whole multi-command block runs each call independently in sequence, so an early bare command

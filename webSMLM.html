@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3264   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3276   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3563   synthetic stack generator ("Simulate movie")
-    detect          4441   per-frame band-pass + local-maxima detection
-    fit             4718   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3575   synthetic stack generator ("Simulate movie")
+    detect          4453   per-frame band-pass + local-maxima detection
+    fit             4730   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5357   accumulate to offscreen buffer; view/colour/blur;
+    render          5369   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6656   frame-parallel detect/fit worker pool; dedicated
+    workers         6668   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6966   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7258   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6978   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7270   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7685   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7697   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8191   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8203   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8902   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8914   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9842   single particle tracking, trackpy-inspired;
+    spt             9854   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11351  top-level orchestration, *Core()/wrapper split;
+    pipeline        11364  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -157,8 +157,14 @@
                            #logTerminal — interactive JS terminal below the
                            log box (runTerminalStatement()/eval(), Up/Down
                            recall via terminalHistoryList(), redraw bridge
-                           applyHeadlessResultToSession())
-    liveStreaming   11972  Micro-Manager/pycromanager camera bridge
+                           applyHeadlessResultToSession()); _terminalFileRegistry/
+                           resolveTerminalConfigFiles() substitute a real File
+                           back in by name for a recalled file:/files:/
+                           calibrationFile(s):/segmentationFile: string — a
+                           logged command's own file: is always a display
+                           string (browsers expose no real path), so without
+                           this every recalled Localize/etc. command threw
+    liveStreaming   11985  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -212,14 +218,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14139  localizations table, filtering, histograms;
+    table           14200  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    14646  window.webSMLM.analyze()/analyzeBatch();
+    headless API    14883  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1941,7 +1947,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3068,6 +3074,18 @@ let logCmdStyle='js';
 // is simpler, cheaper, and can't drift, since there's only ever one
 // rendering FUNCTION, just called with a different logCmdStyle).
 let logHistory=[];
+// filename -> most-recently-seen real File/Blob object, for the log
+// terminal only (see runTerminalStatement()). A logged `file:` value is
+// always a bare display STRING (see loadMovieFiles()'s own comment on why —
+// browsers never expose a real path, and analyze()'s config.file needs an
+// actual File), so recalling a logged Localize/segmentation/CSV command
+// verbatim and pressing Enter would otherwise always throw. Populated at
+// every point a real File actually enters the app (registerTerminalFile());
+// resolveTerminalConfigFiles() substitutes a match back in by name at
+// terminal run time, so "recall, tweak a parameter, rerun" works for a file
+// already loaded earlier this session, without needing to re-pick it.
+const _terminalFileRegistry = new Map();
+function registerTerminalFile(f){ if(f && f.name) _terminalFileRegistry.set(f.name, f); }
 // Word-wraps one line of prose to `width`, prefixing EVERY resulting row
 // with `marker` (real "\n"s, not CSS soft-wrap) — so every visible row in
 // the log is a genuine "// "/"# "-marked line, and selecting any stretch of
@@ -11316,6 +11334,7 @@ $('applySegmentation').addEventListener('change', ()=>{
 $('segLoadBtn').addEventListener('click', ()=>$('segFile').click());
 $('segFile').addEventListener('change', async e=>{
   const f=e.target.files[0]; if(!f) return;
+  registerTerminalFile(f);
   await loadSegmentedImage(f);
   e.target.value='';   // allow re-selecting the same filename later
 });
@@ -12603,6 +12622,7 @@ $('genBtn').addEventListener('click',async()=>{
 // selection by extension — logic is otherwise byte-for-byte unchanged.
 async function loadMovieFiles(fs){
   if(!fs.length) return;
+  fs.forEach(registerTerminalFile);   // makes this exact selection recallable-by-name in the log terminal, see registerTerminalFile()'s own comment
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
@@ -13079,6 +13099,7 @@ function parseCsvLocs(text){
 // by extension — logic is otherwise byte-for-byte unchanged.
 async function loadCsvFile(f){
   if(!f) return;
+  registerTerminalFile(f);
   // Logged before parsing starts, same "announce, then narrate" convention
   // loadMovieFiles() uses (see its own comment) — analyze()/the CLI's own
   // config.file now dispatches a .csv the same way this function does
@@ -13173,6 +13194,41 @@ function terminalHistoryList(){
   return logHistory.filter(e=>e.type==='cmd'||e.type==='term')
     .map(e=>e.type==='cmd' ? jsCommandFor(e.config) : e.text);
 }
+// A logged `file:`/`calibrationFile:`/`segmentationFile:`/`files:`/
+// `calibrationFiles:` value is always a bare display STRING (browsers never
+// expose a real filesystem path — see loadMovieFiles()'s own comment), but
+// analyze() hard-requires an actual File/Blob for every one of these keys
+// (§8 of docs/DOCUMENTATION.md). Recalling a logged command verbatim and
+// pressing Enter would otherwise ALWAYS throw a confusing low-level error
+// (e.g. "f.slice(...).arrayBuffer is not a function") — exactly the case
+// this whole feature exists to make painless. Substitutes a real File back
+// in by name from _terminalFileRegistry (populated wherever a real File
+// actually enters the app — see registerTerminalFile()) when the same file
+// is still loaded/registered this session; throws a clear, actionable error
+// naming the missing filename otherwise, rather than the raw TypeError a
+// mismatched type would produce three call-frames deeper inside analyze().
+// A real File/Blob passed directly (not a recalled string) is registered
+// too, so a file first used FROM the terminal is itself recallable next.
+function resolveTerminalFileValue(v, key){
+  if(v instanceof File || v instanceof Blob){ registerTerminalFile(v); return v; }
+  if(typeof v!=='string') return v;
+  const f=_terminalFileRegistry.get(v);
+  if(!f) throw new Error(`config.${key}: no in-memory file named "${v}" — `+
+    `a bare filename can't be read from disk by browser JS. Re-select it `+
+    `via Load movie/data (or the matching Load… control), or pass a real `+
+    `File object (e.g. from a file input's .files[0]) instead of a string.`);
+  return f;
+}
+function resolveTerminalConfigFiles(config){
+  const out={...config};
+  for(const k of ['file','calibrationFile','segmentationFile']){
+    if(k in out) out[k]=resolveTerminalFileValue(out[k], k);
+  }
+  for(const k of ['files','calibrationFiles']){
+    if(Array.isArray(out[k])) out[k]=out[k].map(v=>resolveTerminalFileValue(v, k));
+  }
+  return out;
+}
 // Executes one JS statement typed/pasted into the log terminal. Two-attempt
 // strategy Node's own REPL uses: first try wrapping `text` as a single
 // RETURNED expression (`new Function` here only COMPILES, never runs — a
@@ -13197,7 +13253,16 @@ function terminalHistoryList(){
 // fully client-side tool: no server, no other users, no credentials at
 // stake), the same reasoning already applied to the CLI/headless analyze()
 // surface itself.
+//
+// `analyze` is declared `const` right here, BEFORE the eval() below, so it
+// shadows the real top-level analyze() for exactly the evaluated text's own
+// free `analyze` references (direct eval sees this function's own local
+// scope first) — resolving any file/files/calibrationFile/calibrationFiles/
+// segmentationFile key via resolveTerminalConfigFiles() before delegating
+// to the real window.webSMLM.analyze, so a recalled `analyze({file:"…tif",
+// ...})` line works when that same file is still loaded this session.
 async function runTerminalStatement(text){
+  const analyze = cfg => window.webSMLM.analyze(resolveTerminalConfigFiles(cfg));
   let body;
   try{ new Function('return (\n'+text+'\n)'); body='return (\n'+text+'\n)'; }
   catch(_){ body=text; }
@@ -14008,18 +14073,15 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07a — the Log window is now also
-an interactive JS terminal: type or paste a statement (e.g. one of the
-analyze({...}) lines this log already prints for you) into the box
-below and press Enter to run it. Recognises an analyze()-shaped result
-and REDRAWS the session with it (reconstruction, Save/Table/drift/NeNA/
-FRC/sSMLM/spt buttons) — this is genuinely new, since analyze() itself
-stays DOM-free for the CLI. ↑/↓ recall previous statements — both what
-you've typed here and every action's own logged command — for editing
-before re-running. Executes real JS in the page's own scope (arbitrary
-code, same trust model as the CLI/headless API); it has no live raw
-stack, so raw-frame scrubbing stays unavailable afterward, same as a
-loaded CSV.
+log(`webSMLM v0.12.1-dev · build 2026-09-07b — fixed a real gap in the new
+Log-window terminal (build 07a): recalling a logged Localize/CSV/
+segmentation command (↑) and pressing Enter always threw, because a
+logged file: is just a display STRING (browsers expose no real path),
+while analyze() needs an actual File. Recalling one now transparently
+substitutes the real, still-loaded File back in by name — the single
+most obvious "tweak a parameter, rerun" workflow now actually works —
+with a clear, actionable error if that exact file isn't loaded this
+session anymore, instead of a confusing low-level TypeError.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
