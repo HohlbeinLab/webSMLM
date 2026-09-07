@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2491   PARAMS registry, single source of truth for params;
+    params          2516   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3229   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3264   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3528   synthetic stack generator ("Simulate movie")
-    detect          4406   per-frame band-pass + local-maxima detection
-    fit             4683   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3563   synthetic stack generator ("Simulate movie")
+    detect          4441   per-frame band-pass + local-maxima detection
+    fit             4718   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5322   accumulate to offscreen buffer; view/colour/blur;
+    render          5357   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,20 +82,20 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6621   frame-parallel detect/fit worker pool; dedicated
+    workers         6656   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          6931   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7223   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          6966   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7258   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
                            point (calibration_beads.ndjson) via onRecord as
                            they're detected, not built up then trimmed
-    drift           7650   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7685   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -105,16 +105,16 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8156   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8191   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           8867   spectrally resolved SMLM pair-finding; merged
+    sSMLM           8902   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject
-    spt             9807   single particle tracking, trackpy-inspired;
+    spt             9842   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -145,7 +145,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11316  top-level orchestration, *Core()/wrapper split;
+    pipeline        11351  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -153,8 +153,12 @@
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit; run()/runSptTrack() each
                            logCmd() a curated config subset (not the whole
-                           PARAMS registry) on success — see MODULE: params
-    liveStreaming   11937  Micro-Manager/pycromanager camera bridge
+                           PARAMS registry) on success — see MODULE: params;
+                           #logTerminal — interactive JS terminal below the
+                           log box (runTerminalStatement()/eval(), Up/Down
+                           recall via terminalHistoryList(), redraw bridge
+                           applyHeadlessResultToSession())
+    liveStreaming   11972  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -208,7 +212,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           13960  localizations table, filtering, histograms;
+    table           14139  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -1784,6 +1788,21 @@ X.B(E,Y);return E}return J}())
      help — a single unbreakable token, e.g. a URL, longer than the wrap
      width, which necessarily stays on one un-split line). */
   .log #logText{max-width:80ch}
+  /* Terminal input row, directly below the log box — same monospace/dark
+     styling so it reads as a continuation of the log rather than an
+     unrelated form control. rows="1" + field-sizing:content lets the
+     textarea grow with pasted/typed multi-line content without JS-driven
+     height math; field-sizing isn't supported everywhere yet, so it just
+     stays a fixed 1-line box there (still fully usable — Shift+Enter still
+     inserts a real newline, just scrolled within the box) rather than
+     failing outright. */
+  .logTerminalRow{display:flex;align-items:flex-start;gap:8px;margin-top:6px;
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .logTerminalPrompt{color:var(--muted);padding-top:6px;user-select:none}
+  #logTerminal{flex:1;resize:none;field-sizing:content;max-height:200px;overflow-y:auto;
+    background:var(--deep);border:1px solid var(--line);border-radius:8px;color:var(--fg);
+    padding:6px 9px;font:inherit}
+  #logTerminal:focus{outline:none;border-color:var(--accent)}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
@@ -1922,7 +1941,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-06q</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-07a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2479,6 +2498,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     <div class="card" style="margin-top:10px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are shown as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Show as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><div id="logText"></div></div>
+      <div class="logTerminalRow" title="Type or paste a JS statement (e.g. a logged analyze({...}) call, edited or as-is) and press Enter to run it. ↑/↓ recalls previous statements — both ones you've run here and every action's own logged command.">
+        <span class="logTerminalPrompt">&gt;</span><textarea id="logTerminal" rows="1" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — Enter to run, ↑/↓ for history"></textarea>
+      </div>
   </main>
 </div>
 
@@ -3078,6 +3100,16 @@ function formatLogEntry(e, isFirst){
   if(e.type==='cmd'){
     const line = logCmdStyle==='cli' ? cliCommandFor(e.config) : jsCommandFor(e.config);
     return (isFirst?'':'\n\n')+line;
+  }
+  // A terminal-run statement is always JS (the log terminal only ever
+  // executes JS — see runTerminalStatement()'s own comment), so it always
+  // renders the same way, independent of logCmdStyle, prefixed with the
+  // SAME "> " prompt glyph the terminal input row itself shows, so a
+  // statement you ran reads visually distinct from one the interactive UI
+  // logged FOR you (a bare, unprefixed `analyze({...})` line).
+  if(e.type==='term'){
+    const withPrompt = String(e.text).split('\n').map((line,i)=>(i===0?'> ':'  ')+line).join('\n');
+    return (isFirst?'':'\n\n')+withPrompt;
   }
   const marker = logCmdStyle==='cli' ? '# ' : '// ';
   const commented = String(e.text).split('\n').map(line => wrapCommentLine(line, marker)).join('\n');
@@ -13087,6 +13119,91 @@ async function loadCsvFile(f){
         `no raw frame data, so re-detection/live preview aren't available for this data.`);
   }catch(err){ log('Load data failed: '+err.message+'.'); }
 }
+// Takes an analyze()-shaped result — however it was produced, but in
+// practice always via the log terminal below — and pushes it into the LIVE
+// interactive session, the same way loadCsvFile() above does for a parsed
+// CSV: same reset list, same minimal lastResult shape, same button
+// re-enabling. analyze() itself stays completely DOM-free (the exact same
+// function the CLI drives) — this is a separate bridge, not a change to it.
+//
+// stack is explicitly cleared (not left at whatever the interactive session
+// already had from an earlier, unrelated Load movie) — analyze()'s own
+// `stack` is a function-local variable that never touches this global (the
+// same shadowing gotcha already documented for averageFrames()/smFRET
+// elsewhere in this file), so leaving a stale one in place would let the
+// raw panel scrub through a movie that may not even match the NEW
+// lastResult at all. Same "no raw frame data" contract a loaded CSV already
+// has — deliberately not fixed by also returning the loaded stack from
+// analyze() itself, which would need to survive being returned across the
+// DevTools Protocol for the CLI's own use of the same function (a stack
+// object, full of TypedArrays and a getFrames() closure, isn't something
+// that can cross that boundary at all).
+//
+// Deliberately does NOT wire result.drift/nena/frc/spt/sSmlmPair into their
+// own dedicated interactive globals/plots — each has its own global + redraw
+// function + button-enable logic, and doing all of that too is a separably
+// bigger follow-up; the full result object stays inspectable from the
+// terminal itself in the meantime (e.g. `let r=await analyze({...}); r.drift`).
+function applyHeadlessResultToSession(result){
+  srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
+  setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null;
+  lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
+  renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  stack=null;
+  lastResult={locs:result.locs, w:result.w, h:result.h, px:result.px, mag:result.mag, det:null};
+  setFrameAspect(result.w, result.h);
+  rerender();
+  $('saveBtn').disabled=false; $('tableBtn').disabled=false; $('driftBtn').disabled=false;
+  $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
+  $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
+  $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
+  $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('rawInfo').textContent='— no raw frame data (result from a log-terminal analyze() call)';
+}
+// Every {type:'cmd'} entry's own logged command (Localize, a committed
+// filter, a crop, …) PLUS every statement already run through the terminal
+// itself, oldest first — the terminal's own Up/Down recall list. Always
+// rendered as JS (jsCommandFor(), never cliCommandFor()) regardless of the
+// CURRENT logCmdStyle display toggle, since the terminal only ever executes
+// JS — see runTerminalStatement()'s own comment for why. Built fresh on
+// every keypress rather than cached: cheap (a handful to a few hundred
+// entries, worst case), and always reflects logHistory's latest state with
+// zero separate bookkeeping to keep in sync.
+function terminalHistoryList(){
+  return logHistory.filter(e=>e.type==='cmd'||e.type==='term')
+    .map(e=>e.type==='cmd' ? jsCommandFor(e.config) : e.text);
+}
+// Executes one JS statement typed/pasted into the log terminal. Two-attempt
+// strategy Node's own REPL uses: first try wrapping `text` as a single
+// RETURNED expression (`new Function` here only COMPILES, never runs — a
+// cheap syntax probe) so a bare `analyze({...})` call's own return value is
+// captured; if that throws (a statement, or several statements — e.g. a
+// pasted multi-line block with its own "// " comment lines), fall back to
+// running `text` as a plain function body with no forced return (only an
+// explicit `return` inside it would then capture a value).
+//
+// The function that actually RUNS is built via eval(), not new Function —
+// deliberately: this whole app is ONE top-level <script>, no modules/IIFEs,
+// so a direct eval() call placed inside a function defined anywhere in it
+// shares that SAME lexical scope, seeing every module-level let/const
+// (lastResult, stack, PARAMS, ...) in addition to window-attached names
+// (analyze, paramValue, ...) — new Function() alone only ever sees the
+// latter. Wrapped in an async IIFE so a bare analyze(...) call (returns a
+// Promise) is auto-awaited without the caller needing to type `await`
+// themselves, though `await` also works if they do.
+//
+// This is arbitrary code execution in the page's own scope — consistent
+// with this project's own established threat model (a trusted, single-file,
+// fully client-side tool: no server, no other users, no credentials at
+// stake), the same reasoning already applied to the CLI/headless analyze()
+// surface itself.
+async function runTerminalStatement(text){
+  let body;
+  try{ new Function('return (\n'+text+'\n)'); body='return (\n'+text+'\n)'; }
+  catch(_){ body=text; }
+  const runner = eval('(async()=>{\n'+body+'\n})');
+  return await runner();
+}
 // "Load movie/data" (loadBtn) merges what used to be two separate buttons
 // (Load movie / Load data) into one hidden input (#file, accept now widened
 // to include .csv) — classified by extension alone (no content-sniffing
@@ -13143,6 +13260,63 @@ $('exportLogBtn').addEventListener('click',async()=>{
   const saved=await saveBlob(new Blob([txt+'\n'],{type:'text/plain;charset=utf-8'}), name, 'Log (text)', 'text/plain', '.txt');
   if(saved) log(`Exported log as ${saved}.`);
 });
+// Log terminal: Enter runs the current text, Shift+Enter inserts a real
+// newline (deliberate multi-line input), Up/Down recall previous statements
+// — bash-style, with a live "draft" slot so an in-progress, not-yet-run
+// edit survives navigating away and back down past the newest entry. Only
+// navigates history when the cursor sits on the textarea's own first line
+// (Up) or last line (Down), so ordinary cursor movement inside a multi-line
+// draft is untouched — a bare Up/Down at any other position just moves the
+// cursor, same as it would in any other textarea.
+(function(){
+  const ta=$('logTerminal');
+  let histIdx=-1, draft='';   // histIdx=-1 means "not currently navigating" (own draft is live)
+  const atFirstLine = ()=> ta.selectionStart<=(ta.value.indexOf('\n')===-1?ta.value.length:ta.value.indexOf('\n'));
+  const atLastLine = ()=> ta.selectionStart>=(ta.value.lastIndexOf('\n')===-1?0:ta.value.lastIndexOf('\n')+1);
+  ta.addEventListener('keydown', async e=>{
+    if(e.key==='Enter' && !e.shiftKey){
+      e.preventDefault();
+      const text=ta.value; if(!text.trim()) return;
+      ta.value=''; ta.style.height='';  histIdx=-1; draft='';
+      logHistory.push({type:'term', text});
+      $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1);
+      { const l=$('log'); l.scrollTop=l.scrollHeight; } $('exportLogBtn').disabled=false;
+      let result;
+      try{ result=await runTerminalStatement(text); }
+      catch(err){ log(`⚠ ${err.name||'Error'}: ${err.message}`); return; }
+      if(result && Array.isArray(result.locs)){
+        applyHeadlessResultToSession(result);
+        log(`→ ${result.locs.length.toLocaleString()} locs — reconstruction updated.`);
+      } else if(result!==undefined){
+        let shown; try{ shown=typeof result==='object'?JSON.stringify(result):String(result); }catch(_){ shown='[object]'; }
+        if(shown && shown.length>500) shown=shown.slice(0,500)+'…';
+        log(`→ ${shown}`);
+      }
+      return;
+    }
+    if(e.key==='ArrowUp' && atFirstLine()){
+      const hist=terminalHistoryList(); if(!hist.length) return;
+      e.preventDefault();
+      if(histIdx===-1) draft=ta.value;
+      histIdx = histIdx===-1 ? hist.length-1 : Math.max(0,histIdx-1);
+      ta.value=hist[histIdx];
+      ta.selectionStart=ta.selectionEnd=ta.value.length;
+    } else if(e.key==='ArrowDown' && atLastLine()){
+      if(histIdx===-1) return;
+      e.preventDefault();
+      const hist=terminalHistoryList();
+      histIdx++;
+      ta.value = histIdx>=hist.length ? (histIdx=-1, draft) : hist[histIdx];
+      ta.selectionStart=ta.selectionEnd=ta.value.length;
+    }
+  });
+  // Reset navigation the moment the user types anything by hand (not via the
+  // Up/Down recall above, which sets ta.value directly without an 'input'
+  // event of its own kind here mattering) — otherwise editing a recalled
+  // line and then pressing Down would confusingly jump forward in history
+  // instead of just moving within the edit.
+  ta.addEventListener('input', ()=>{ histIdx=-1; });
+})();
 $('stopBtn').addEventListener('click',()=>{
   if($('stopBtn').disabled) return;
   // Live streaming also enables this button — checked first so Stop ends a
@@ -13834,16 +14008,18 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-06q — table filtering (View
-data/filtering: typed clauses, the crop tool, temporal clustering) is
-now CLI/JS-loggable. Every committed filter logs the full cumulative
-list as analyze({tableFilters:[...]}) — copy the most recent line to
-replay an entire filtering session headlessly. New config.tableFilters
-applies last (after drift/pairing/tracking), reshaping the CSV/
-reconstruction/histograms the same way the crop tool already reshapes
-them interactively. Verified: replaying a real session's own logged
-array through a fresh headless run reproduces the exact same filtered
-row count, for both typed filters and a crop.
+log(`webSMLM v0.12.1-dev · build 2026-09-07a — the Log window is now also
+an interactive JS terminal: type or paste a statement (e.g. one of the
+analyze({...}) lines this log already prints for you) into the box
+below and press Enter to run it. Recognises an analyze()-shaped result
+and REDRAWS the session with it (reconstruction, Save/Table/drift/NeNA/
+FRC/sSMLM/spt buttons) — this is genuinely new, since analyze() itself
+stays DOM-free for the CLI. ↑/↓ recall previous statements — both what
+you've typed here and every action's own logged command — for editing
+before re-running. Executes real JS in the page's own scope (arbitrary
+code, same trust model as the CLI/headless API); it has no live raw
+stack, so raw-frame scrubbing stays unavailable afterward, same as a
+loaded CSV.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

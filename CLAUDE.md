@@ -1403,6 +1403,62 @@ relevant one before editing rather than scrolling:
   reference consumer: `--exportTrackData`/etc. forward `onRecord` via the SAME live `console.log()`
   channel `onProgress`/`onLog` use, appended to a per-kind `.ndjson` file via
   `fs.createWriteStream()`.
+
+  **The Log window is also an interactive JS terminal** (`#logTerminal`, a `<textarea>` row directly
+  below `#log`) — since every action already logs a directly-runnable `analyze({...})` call, the
+  natural next step is to let one actually be typed, pasted, or recalled and RUN, with the session
+  redrawing as a result. `logHistory` gains a third entry kind, `{type:'term', text}`, rendered by
+  `formatLogEntry()` with a fixed `> ` prompt prefix — always JS, independent of `logCmdStyle`
+  (`{type:'cmd'}`/`{type:'log'}` still switch between JS/CLI style and `//`/`# ` comment markers as
+  before). Enter runs the current text via `runTerminalStatement()`; Shift+Enter inserts a literal
+  newline; ArrowUp/Down — only when the cursor sits on the textarea's own first/last line, so normal
+  cursor movement inside a multi-line draft is untouched — walk `terminalHistoryList()`, which
+  combines every logged `{type:'cmd'}` entry (via the existing `jsCommandFor()`, always JS form
+  regardless of the current `logCmdStyle`) with every past `{type:'term'}` entry, so ANY interactive
+  action's own logged command — a Localize, a committed filter, a crop — is recallable and editable
+  here too, not just prior terminal input; a bash-style live-draft slot is preserved so Down past the
+  newest entry restores whatever was being typed before Up was first pressed.
+
+  `runTerminalStatement(text)` uses the same two-attempt strategy Node's own REPL uses: probe
+  whether `text` parses as a single expression via a `new Function('return (...)')` syntax-only
+  check (never executed); if it compiles, wrap as `return (\n${text}\n)` so the expression's value is
+  captured, else fall back to running `text` as a plain, unwrapped body (only an explicit `return`
+  inside then captures anything). The actual runner is built via `eval()`, not `new Function` —
+  webSMLM is one single top-level `<script>` (no modules/IIFEs wrapping the whole file), so a direct
+  `eval()` call placed inside a function declared there shares that function's full lexical scope
+  chain, seeing every module-level `let`/`const` (`lastResult`, `stack`, `PARAMS`, `_tableFilters`,
+  …) in addition to `window`-attached names (`analyze`, `paramValue`, …) — `new Function` alone would
+  only ever see the latter. Wrapped in an async IIFE so a bare `analyze(...)` call is auto-awaited
+  without the user needing to type `await` themselves. A `{type:'term'}` entry is pushed to
+  `logHistory` regardless of success or failure, so a bad statement stays recallable to fix, same as
+  a real shell.
+
+  **`applyHeadlessResultToSession(result)`** is the actual "redraw" bridge, new because `analyze()`
+  itself is deliberately DOM-free (the exact function the CLI drives) and nothing previously took its
+  result and pushed it into the live UI. Mirrors `loadCsvFile()`'s own reset/set/enable sequence
+  almost line-for-line: resets `srFull`/`srSpots`/`srLocs`/measure/crop/drift/NeNA state and
+  `_tableFilters`, sets `lastResult={locs,w,h,px,mag,det:null}` (the same minimal shape a CSV or
+  smFRET SOI result already uses), calls `setFrameAspect()`+`rerender()`, and re-enables
+  Save/Table/drift/NeNA/FRC/sSMLM/spt buttons. **Explicitly nulls the module-level `stack`** even if
+  an unrelated movie was loaded earlier this session — `analyze()`'s own `stack` is a function-local
+  variable that never touches this global (the same shadowing gotcha `smfretSOICore()`'s
+  `checkStack` fix already ran into elsewhere in this codebase), so leaving a stale one in place could
+  let the raw panel scrub through footage that doesn't even match the new result. Same "no live raw
+  frame data" contract a loaded CSV already has. Deliberately does **not** auto-wire
+  `result.drift`/`nena`/`frc`/`spt`/`sSmlmPair` into their own dedicated interactive globals/plots —
+  each has its own global + redraw function + button-enable logic, and wiring all of them is a
+  separably bigger follow-up; the full `result` is still inspectable from the terminal itself.
+
+  Documented, deliberate v1 scope boundaries: the terminal executes **JS only** (a CLI-style logged
+  line won't run here — switch `logCmdStyleBtn` to JS first if pasting from an exported log); pasting
+  a whole multi-command block runs each call independently in sequence, so an early bare command
+  that isn't self-sufficient on its own (e.g. a `tableFilters`-only entry with no `file:` — the
+  established "curated snapshot, not a diff" logging convention) throws and stops the block there —
+  the intended per-command workflow is arrow-up → recall → edit → run one statement at a time, not a
+  batch replay; and running arbitrary code via `eval()` in the page's own scope is consistent with
+  this project's own established threat model (a trusted, single-file, fully client-side tool with no
+  server, no other users, no credentials at stake) — the same reasoning already backing the CLI/
+  headless `analyze()` surface itself.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs

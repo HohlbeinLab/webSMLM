@@ -277,6 +277,38 @@ changelog; a brand-new visitor just has the current version silently
 recorded, no message. Ignores the `-dev`/build-letter suffix, so this only
 fires on a genuine release change, not routine local development reloads.
 
+**The log doubles as an interactive JavaScript terminal.** Directly below the
+log text is a one-line, auto-growing input with a `>` prompt. Because almost
+every action already logs a directly-runnable `analyze({...})` call, you can
+type or paste a statement there and press **Enter** to run it live, in the
+page's own context — including a line copied out of an exported `.txt` log
+from a previous session. If what you ran returns a fresh set of
+localizations (the same shape `analyze()` itself returns), the
+reconstruction, table, export, drift/NeNA/FRC, and sSMLM/spt buttons all
+update immediately, exactly as if you'd loaded that result interactively —
+this is what makes editing and re-running a logged command actually useful,
+rather than just a curiosity. **↑/↓** (only when the cursor sits on the
+input's first/last line, so moving around inside a multi-line paste is
+unaffected) recalls previous statements to edit before re-running — both
+ones typed here and every action's own logged command, so arrow-up after a
+Localize or a committed filter brings back that exact call, ready to tweak a
+parameter and rerun. **Shift+Enter** inserts a newline for a genuinely
+multi-line statement instead of running early.
+
+A few things to know: the terminal only runs **JavaScript** — a line logged
+in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the
+log to JS style first if you're copying from an exported log. A result run
+this way has no live movie behind it, so raw-frame scrubbing stays
+unavailable afterward — the same limitation a loaded CSV already has.
+Pasting a whole block of several logged commands runs each one in sequence,
+so an early line that only makes sense as a follow-up to an earlier one
+(e.g. a filter-only command with no `file:`) will stop the block with an
+error rather than skip ahead — recalling and running one statement at a
+time is the intended way to use it. And because this runs real code with
+full access to the page, treat it the same way you'd treat any browser
+DevTools console: it's exactly as powerful, and exactly as much your own
+responsibility.
+
 ---
 
 ## 2 · Module reference
