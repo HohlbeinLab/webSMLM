@@ -2029,6 +2029,14 @@ relevant one before editing rather than scrolling:
   worker/CPU-second counts, verified via Playwright against a real, deliberately dense (400 frames,
   density 2) simulated Localize run (a real ~14k-candidate `fit` row, previously guaranteed to wrap,
   now a single unwrapped line) rather than just eyeballing hand-picked numbers.
+
+  **`fit`'s own µs/candidate figure uses adaptive precision** (follow-up, same round, requested): a
+  new `perCandStr(v)` (next to `compactCount()`) shows a whole number with no decimal once the value
+  reaches double digits (`100.2`→`"100"`, a slow iterative fitter like MLE) but keeps one decimal
+  below that (`6.5`, phasor's own much faster per-candidate time) — a fractional µs is noise once the
+  figure itself is already 3 digits, but is the only thing distinguishing two single-digit values.
+  Verified via Playwright with the same real simulated dataset run under both the default (slower)
+  method and Phasor 2D — `32 µs/cand` and `6.5 µs/cand` respectively.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs

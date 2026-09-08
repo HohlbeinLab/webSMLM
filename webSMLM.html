@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12503  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12509  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,14 +268,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15077  localizations table, filtering, histograms;
+    table           15083  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15780  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15786  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12343,6 +12343,12 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // real multi-ten-thousand-candidate Localize to push the "fit" row past
   // the log's own 80ch width and force a mid-row wrap — reported.
   const compactCount=n=> n<1000 ? String(n) : n<1e6 ? (n/1e3).toFixed(1)+'k' : (n/1e6).toFixed(2)+'M';
+  // Adaptive precision for the per-candidate fit time (requested): a slow
+  // iterative fitter (MLE, ~100 µs/candidate) doesn't need a fractional µs
+  // shown — full digits, no decimal — while phasor's own much smaller
+  // per-candidate time (commonly single digits) still wants its one decimal
+  // to stay meaningfully distinguishable.
+  const perCandStr=v=> v>=10 ? v.toFixed(0) : v.toFixed(1);
   if(useWorkers) onLog(`frame I/O   ${sec(tGet)} s        (overlapped with compute, not CPU time)`);
   else           onLog(`frame access${sec(tGet)} s  ${pc(tGet)}`);
   // fetchStack!==stack only when FTM actually ran this Run (see the fetchStack
@@ -12357,7 +12363,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   if(fetchStack!==stack){ const ftmT=useWorkers?ftmWorkMs:fetchStack.ftmMs;
     onLog(`FTM filter  ${sec(ftmT)} s  ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
   onLog(`detect      ${sec(tDetect)} s  ${pc(tDetect)}   (band-pass + maxima)`);
-  onLog(`fit         ${sec(tFit)} s  ${pc(tFit)}   ${compactCount(nCand)}→${compactCount(locs.length)} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/cand`);
+  onLog(`fit         ${sec(tFit)} s  ${pc(tFit)}   ${compactCount(nCand)}→${compactCount(locs.length)} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${perCandStr(tFit*1000/Math.max(1,nCand))} µs/cand`);
   // previewMs (SR/raw refresh during the Run) and the gap between runMs and
   // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
   // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
@@ -14943,7 +14949,7 @@ loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
 single-digit milliseconds, not minutes). Load data (.csv) and Simulate
 movie never needed this — see build 07j's own message for why.
 Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08d — applyCropToRaw()/
+log(`webSMLM v0.12.1-dev · build 2026-09-08e — applyCropToRaw()/
 commitSrCrop() now validate their own bounds properly (reported:
 applyCropToRaw(4000,397,667,596) said "region too small", which was
 technically true of the raw x1-x0 arithmetic but had nothing to do
