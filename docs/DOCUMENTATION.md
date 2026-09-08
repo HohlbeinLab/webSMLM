@@ -389,7 +389,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Committing a table filter | `commitFilter()` / `resetFilters()` | reads `#tableFilter`'s current text |
 | Save data (CSV) | `exportCSV()` | |
 | Save calibration | `exportCalibration()` | |
-| Save plot/image | `saveImageClicked()` / `exportPanel('sr'\|'raw')` | |
+| Save plot/image | `saveImageClicked()` / `exportPanel('sr'\|'raw')` / `saveBothPanels()` | "Both windows" in the picker saves left then right in one call |
 | Redraw the reconstruction | `rerender(true)` | after changing `mag`/`lut`/`renderMode`/etc. by hand |
 | Connect (live streaming) | `liveStreamWsConnect()` | |
 | Clear localizations (live streaming) | `clearLiveStreamingLocalizations()` | |
@@ -401,6 +401,19 @@ terminal shortcut. Everything that actually computes or changes data has an
 entry here or follows the same `functionName(args)` pattern once you know
 where to look — [§2](#2-module-reference) names the function behind almost
 every control already.
+
+A no-arg function like `estimateGainOffset()` reads its parameters straight
+from the sidebar rather than taking them as arguments, so the logged line
+alone doesn't show what values it actually used — that's what a `//`-prefixed
+comment directly above it is for: the same key:value pairs CLI style would
+show as `--flags`, e.g.
+```
+// estimateGainOffset:true, pcfoFrames:200, pcfoK:0.9, pcfoRnstd:2.89
+estimateGainOffset()
+```
+Recalling (↑) only ever inserts the runnable line itself, never the comment
+— it's there purely so you can see what ran and copy a value into a fresh
+call by hand.
 
 A few things to know: the terminal only runs **JavaScript** — a line logged
 in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the

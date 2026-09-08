@@ -1924,6 +1924,66 @@ relevant one before editing rather than scrolling:
   converting nm to native px via `lastResult.px/lastResult.mag` just to bounds-check it. Verified via
   Playwright: the exact reported inverted-x case, a genuinely out-of-bounds region, a genuinely
   too-small region, and a valid crop all produce the correct distinct outcome.
+
+  **Terminal/log parity round 2** (reported: "it would be great if... the submitted parameters are
+  displayed", plus "check all buttons" — a fresh, independent audit). A real gap in the mechanism
+  itself, not a per-action one: a `jsOverride` action (`estimateGainOffset()`, `runSptTrack()`, …) is
+  a bare no-arg call reading live session state, so JS-style log output showed NOTHING of what it
+  actually used — only CLI style ever rendered `config` (as `--flags`). `jsCommandFor()`'s own
+  `key:value` filter/map logic was extracted into a shared `configBody(config)`, and
+  `formatLogEntry()`'s `'cmd'` branch now prepends `configBody(e.config)` as a `//`-comment directly
+  above a `jsOverride` line, JS style only (CLI already shows it, unaffected). **Does NOT filter out
+  a call site's own leading `<action>:true` marker key** — tried first, then reverted: filtering any
+  literal `true` value is wrong, since some configs carry a REAL boolean *setting* (e.g.
+  `smfretApertureMode`) whose true/false value matters and must stay visible, and there's no reliable
+  way to tell "always-true marker" from "happens to be true right now" from the value alone. Showing
+  the marker too (`// estimateGainOffset:true, pcfoFrames:200, pcfoK:0.9, pcfoRnstd:2.89`) is mildly
+  verbose but always correct, and now matches CLI style's own flags exactly — one underlying
+  `config`, two renderings. `terminalHistoryList()` (↑/↓ recall) is untouched — it already reads
+  `e.jsOverride || jsCommandFor(e.config)` straight from the stored entry, never the rendered display
+  string, so only what's SHOWN changed, not what gets inserted on recall.
+
+  This one change improved every existing `jsOverride` site for free. The audit (an Explore agent
+  reading all 84 `click` + 51 `change` listeners, cross-referenced against the 20 `logCmd(` sites,
+  independently spot-verified before acting on it) found the rest genuinely needed fixing at their
+  own call sites: **`runSimulation()`** (Simulate movie) called `logCmd()` nowhere at all — now logs
+  the 11 simulation PARAMS fields with a `jsOverride` (same no-arg/reads-live-state shape as
+  `estimateGainOffset()`, and `analyze()` has no `config.simulate` equivalent to fall back to either
+  way). **`exportPanel()`** (Save plot/image's raw-frame/reconstruction PNG path — the PLOT path
+  inside `exportPlotEither()` already logs for certain plot types) also logged nothing — now logs
+  `` logCmd({}, `exportPanel('${which}')`) `` right after a completed save (not a cancelled one, same
+  placement `exportPlotEither()` itself already uses) — an empty `config` is fine, `which` is already
+  embedded in the override text itself (same convention as `applyCropToRaw(x0,y0,x1,y1)`), and CLI
+  style's resulting empty flag list is an honest "no CLI equivalent" signal, matching that same
+  precedent's own comment. **`locateBeadsForCalib()`** ("Fix bead x,y") and **`getSmfretTimeTraces()`**
+  ("Get time traces") are both real detect/fit computations with real tunable params that never
+  called `logCmd` — fixed the same way, reusing each function's own already-computed local variables
+  (`sigma`/`mode`/`k` for the former, `sigma`/`gain`/`camoffset`/`useAperture` for the latter) rather
+  than re-deriving them via a second `paramValue()` read. `locateBeadsForCalib()` logs on every
+  auto-rerun too (a detection-setting tweak while the checkbox is on), matching `locateSmfretSOI()`'s
+  own already-shipped precedent for the identical "average once, detect once" pattern.
+  **`recomputeSptD()`** genuinely mutates `lastResult.locs[]`'s own `D_coeff` from live
+  `frametime`/`sptLocError` (only on `change`, so this can't spam the log) — same fix. Also fixed a
+  minor, unrelated standing-convention violation the same audit turned up: **`trackTableResetBtn`**
+  had its reset logic inlined in the click listener (unlike its sibling `tableResetBtn`, which
+  correctly calls the named `resetFilters()`) — extracted to `resetTrackTableFilters()`, which
+  `commitTrackTableFilter()`'s own `'reset'`-keyword branch now calls too instead of duplicating it.
+
+  **"Both windows"** (requested — the save-image picker only ever offered either/or): a third button
+  in `saveImgModal` alongside the existing "Left window"/"Right window", wired to a new
+  `saveBothPanels()` (`await exportPanel('raw'); await exportPanel('sr');`) — no `logCmd()` of its
+  own; each `exportPanel()` call already logs its own accurate, independently-replayable command as
+  it completes (two lines, not one opaque wrapper), avoiding a log-suppression flag threaded through
+  `exportPanel()`/`exportPlotEither()` for a rarely-used path. Verified via Playwright: after
+  Simulate movie (both panels already have content — the raw frame and the Data-projection
+  reconstruction), calling `exportPanel('raw')` then `exportPanel('sr')` each produce their own
+  correct `logCmd`, and `saveBothPanels()` runs both without error.
+
+  Everything else the audit checked — spt's own view-refresh listeners, sSMLM histogram/marker
+  listeners, render/theme/contrast settings, table sort/filter-chip removal, live-streaming controls,
+  calibration method/`localize3D` UI-reveal listeners — was confirmed already correct: a pure view
+  toggle, a persisted UI preference, or (live streaming's own Connect/Clear) an interactive-only
+  action with no headless equivalent to record.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs

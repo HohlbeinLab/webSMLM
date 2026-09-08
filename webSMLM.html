@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2578   PARAMS registry, single source of truth for params;
+    params          2587   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3406   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3435   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3705   synthetic stack generator ("Simulate movie")
-    detect          4583   per-frame band-pass + local-maxima detection
-    fit             4860   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3734   synthetic stack generator ("Simulate movie")
+    detect          4612   per-frame band-pass + local-maxima detection
+    fit             4889   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5499   accumulate to offscreen buffer; view/colour/blur;
+    render          5528   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,14 +82,14 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6816   frame-parallel detect/fit worker pool; dedicated
+    workers         6845   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7126   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7418   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7155   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7464   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -100,7 +100,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           7875   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7928   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -110,9 +110,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8404   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8457   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9137   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9190   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10256   single particle tracking, trackpy-inspired;
+    spt             10303   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11778  top-level orchestration, *Core()/wrapper split;
+    pipeline        11838  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12413  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12473  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,14 +268,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           14973  localizations table, filtering, histograms;
+    table           15044  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15675  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15747  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3207,7 +3207,18 @@ function formatLogEntry(e, isFirst){
     // shot, no interactive-session functions to call directly), so CLI
     // style always falls through to the ordinary config-as-flags rendering
     // regardless of jsOverride.
-    const line = logCmdStyle==='cli' ? cliCommandFor(e.config) : (e.jsOverride || jsCommandFor(e.config));
+    if(logCmdStyle==='cli') return (isFirst?'':'\n\n')+cliCommandFor(e.config);
+    let line = e.jsOverride || jsCommandFor(e.config);
+    // A jsOverride is a bare, no-arg call reading live session state — CLI
+    // style already shows e.config's own real values (as --flags), but JS
+    // style previously showed nothing but the override itself, hiding
+    // exactly what was used (reported — "would be great if... the
+    // submitted parameters are displayed"). Show them as a comment right
+    // above, so they're visible/copyable to try a tweak from the terminal.
+    if(e.jsOverride){
+      const body=configBody(e.config);
+      if(body) line = wrapCommentLine(body,'// ')+'\n'+line;
+    }
     return (isFirst?'':'\n\n')+line;
   }
   // A terminal-run statement is always JS (the log terminal only ever
@@ -3261,11 +3272,20 @@ function cliCommandFor(config){
   }
   return `node webSMLM-cli.mjs ${parts.join(' ')}`;
 }
+// The "key:value, key:value" body shared by jsCommandFor()'s analyze({...})
+// wrapper and, for a jsOverride action (see logCmd()'s own comment), by
+// formatLogEntry() showing that action's own actual parameter values as a
+// plain comment above the (bare, no-arg) override — an override reads live
+// session state, so without this the values it used are otherwise
+// completely invisible in JS-style log output (CLI style already shows
+// them, via cliCommandFor(), regardless of jsOverride).
+function configBody(config){
+  return Object.entries(config).filter(([,v])=>v!==null&&v!==undefined&&v!=='')
+    .map(([k,v])=>`${k}:${JSON.stringify(v)}`).join(', ');
+}
 // Same config, rendered as the equivalent window.webSMLM.analyze() call.
 function jsCommandFor(config){
-  const parts=Object.entries(config).filter(([,v])=>v!==null&&v!==undefined&&v!=='')
-    .map(([k,v])=>`${k}:${JSON.stringify(v)}`);
-  return `analyze({${parts.join(', ')}})`;
+  return `analyze({${configBody(config)}})`;
 }
 // Appends a recorded, directly-runnable command line for a config-driven
 // action (Localize, Correct drift, …) — bare, no comment prefix (unlike
@@ -7366,10 +7386,20 @@ async function exportPanel(which){
   // frame has no such output (analyze() processes a whole movie, not one
   // frame to snapshot).
   if(isSR) log('This reconstruction is also written automatically as reconstruction.png by any CLI/analyze() run — no extra flag needed.');
+  // jsOverride — reported: Save plot/image's raw-frame/reconstruction PNG
+  // path (this one; the PLOT path below in exportPlotEither() already logs
+  // for certain plot types) recorded no command at all. No real
+  // "parameters" exist beyond which window, already embedded in the
+  // override text itself (same convention as applyCropToRaw(x0,y0,x1,y1))
+  // — an empty config is fine; CLI style falls back to an empty flag list,
+  // an honest signal there's no CLI equivalent for "re-save whatever's
+  // currently on screen" (same precedent as applyCropToRaw's own comment).
+  // Logged only here, after a completed save — not on a cancelled one.
+  logCmd({}, `exportPanel('${which}')`);
 }
-// The Save-plot/image button: if both windows have content, ask which;
-// otherwise save whichever one is showing. Format (PNG vs SVG, for a plot)
-// is decided further downstream, not here — see exportPanel()/
+// The Save-plot/image button: if both windows have content, ask which (or
+// both); otherwise save whichever one is showing. Format (PNG vs SVG, for
+// a plot) is decided further downstream, not here — see exportPanel()/
 // exportPlotEither().
 function saveImageClicked(){
   const L=windowContent('raw'), R=windowContent('sr');
@@ -7378,6 +7408,13 @@ function saveImageClicked(){
   else if(L) exportPanel('raw');
   else log('Nothing to save yet.');
 }
+// "Both windows" (requested — the save-image modal only ever offered
+// either/or). No logCmd of its own: each exportPanel() call below already
+// logs its own accurate, independently-replayable command as it
+// completes, which is more informative than one opaque wrapper call and
+// avoids threading a log-suppression flag through exportPanel()/
+// exportPlotEither() for this rarely-used path.
+async function saveBothPanels(){ await exportPanel('raw'); await exportPanel('sr'); }
 // Plot export: renders BOTH a PNG (screenshot of the on-screen canvas, same
 // as exportPanel()'s old plot branch) and an SVG (via SvgRecordingContext /
 // _plotTarget, see above — the real canvas is never touched for this one)
@@ -7543,6 +7580,13 @@ async function locateBeadsForCalib(){
     const fitted=[];
     for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma); if(L) fitted.push({x:L.x,y:L.y}); }
     calFixedPts=fitted;
+    // jsOverride — reported gap: a real detect+fit computation (the beads
+    // Calibrate then reads via calFixedPts) that recorded no command at
+    // all. Logs on every auto-rerun too (a detection-setting tweak while
+    // Fix bead x,y is checked), same precedent locateSmfretSOI() already
+    // established for the identical "average once, detect once" pattern.
+    logCmd({calFirst:first, calLast:last, psf:sigma, winr:paramValue('winr'), detFilter:mode,
+      [`detection_${{wave:'wavelet',dog:'DoG',box:'box'}[mode]}_thr`]:k}, 'locateBeadsForCalib()');
     // The composite + detected ROI/fit is a reference view, shown in the SR
     // (right) panel — NOT the raw/left panel, which stays on whatever frame
     // you're scrubbing (see showFrame: it overlays these same fixed positions
@@ -10105,6 +10149,9 @@ async function getSmfretTimeTraces(){
     $('smfretTraceModeBtn').style.display=''; $('smfretTraceModeBtn').textContent='Show raw frame';
     drawSmfretTrace(0);
     log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
+    // jsOverride — reported gap: a real per-frame fit/aperture-photometry
+    // computation over every site with real tunable params, never logged.
+    logCmd({psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture}, 'getSmfretTimeTraces()');
   }catch(err){ log(`⚠ Get time traces failed: ${err.name}: ${err.message}`); }
   finally{ $('smfretTimeTracesBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
 }
@@ -10838,9 +10885,17 @@ function renderTrackTable(){
 }
 // Parses and commits (or resets) the track-table filter box's current text,
 // via the same parseFilter() grammar the main locs table uses.
+// Extracted so trackTableResetBtn's own click handler calls a named
+// function (its sibling tableResetBtn already correctly calls
+// resetFilters() — this one was still inline, a minor standing-convention
+// gap found by a fresh audit) instead of duplicating this same three-
+// statement body; commitTrackTableFilter()'s own 'reset'-keyword branch
+// reuses it too rather than a second inline copy.
+function resetTrackTableFilters(){ const had=_trackTableFilters.length; _trackTableFilters=[]; $('trackTableFilter').value=''; renderTrackTable();
+  if(had) log('Track filters reset — showing all rows.'); }
 function commitTrackTableFilter(){
   const raw=$('trackTableFilter').value.trim();
-  if(raw.toLowerCase()==='reset'){ _trackTableFilters=[]; $('trackTableFilter').value=''; renderTrackTable(); return; }
+  if(raw.toLowerCase()==='reset'){ resetTrackTableFilters(); return; }
   if(!raw || !_trackTableData) return;
   const pf=parseFilter(raw,_trackTableData.cols);
   if(!pf.ok){ $('trackTableFilter').classList.add('bad'); $('trackTableCount').textContent=`⚠ ${pf.err}`; return; }
@@ -10868,6 +10923,11 @@ function recomputeSptD(){
   const sorted=[...diffCoeffs].sort((a,b)=>a-b);
   lastSpt.medianD=n?sorted[Math.floor(n/2)]:NaN;
   log(`SPT frame time/localization error changed — D rescaled from cached MSDs: mean D = ${isFinite(lastSpt.meanD)?lastSpt.meanD.toFixed(3):'n/a'} µm²/s, median D = ${isFinite(lastSpt.medianD)?lastSpt.medianD.toFixed(3):'n/a'} µm²/s.`);
+  // jsOverride — reported gap: this genuinely mutates lastResult.locs'
+  // own D_coeff from live frametime/sptLocError, never logged (only
+  // triggered on 'change', so this won't spam the log the way an 'input'
+  // listener would).
+  logCmd({frametime, sptLocError:paramValue('sptLocError')}, 'recomputeSptD()');
   refreshSptDHistIfShown();
 }
 // D commonly spans orders of magnitude between bound/slow and free/fast
@@ -13042,6 +13102,17 @@ async function showStackProjection(){
 // around it (mirrors loadMovieFiles()'s own reset block).
 async function runSimulation(){
   log('Simulating movie…');
+  // jsOverride — runSimulation() is already a plain, no-arg, terminal-
+  // callable function (reads live PARAMS state directly, same shape as
+  // estimateGainOffset()'s own override); analyze() has no
+  // config.simulate-equivalent flag at all, so there's no CLI/headless
+  // form to fall back to either way. Reported: this action logged nothing
+  // at all before, unlike every other button.
+  logCmd({ frames:paramValue('frames'), dens:paramValue('dens'), phot:paramValue('phot'),
+    simlifetime:paramValue('simlifetime'), simbg:paramValue('simbg'),
+    simulation_gain:paramValue('simulation_gain'), simulation_offset:paramValue('simulation_offset'),
+    simulation_offset_std:paramValue('simulation_offset_std'), simulation_readnoise:paramValue('simulation_readnoise'),
+    simulation_pxnm:paramValue('simulation_pxnm'), driftpx:paramValue('driftpx') }, 'runSimulation()');
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
@@ -14839,7 +14910,7 @@ loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
 single-digit milliseconds, not minutes). Load data (.csv) and Simulate
 movie never needed this — see build 07j's own message for why.
 Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08a — applyCropToRaw()/
+log(`webSMLM v0.12.1-dev · build 2026-09-08b — applyCropToRaw()/
 commitSrCrop() now validate their own bounds properly (reported:
 applyCropToRaw(4000,397,667,596) said "region too small", which was
 technically true of the raw x1-x0 arithmetic but had nothing to do
@@ -15628,6 +15699,7 @@ function wireHelp(){
   if(sm){ const shide=()=>sm.classList.remove('open');
     $('saveImgSR').addEventListener('click',()=>{ shide(); exportPanel('sr'); });
     $('saveImgRaw').addEventListener('click',()=>{ shide(); exportPanel('raw'); });
+    $('saveImgBoth').addEventListener('click',()=>{ shide(); saveBothPanels(); });
     $('saveImgCancel').addEventListener('click',shide);
     sm.addEventListener('click',e=>{ if(e.target===sm) shide(); });
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') shide(); }); }
@@ -15665,7 +15737,7 @@ function wireHelp(){
     ttm.addEventListener('click',e=>{ if(e.target===ttm) tthide(); });
     wireFilterAutocomplete($('trackTableFilter'), $('trackTableFilterAC'),
       ()=>(_trackTableData?_trackTableData.cols:[]), commitTrackTableFilter);
-    $('trackTableResetBtn').addEventListener('click',()=>{ _trackTableFilters=[]; $('trackTableFilter').value=''; renderTrackTable(); });
+    $('trackTableResetBtn').addEventListener('click',resetTrackTableFilters);
     window.addEventListener('keydown',e=>{ if(e.key==='Escape') tthide(); }); }
   // panel captions truncate with an ellipsis when the window is narrow — expose the
   // full text on hover so nothing is lost.
@@ -16248,6 +16320,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
     <div class="btnrow">
       <button id="saveImgRaw">Left window</button>
       <button id="saveImgSR">Right window</button>
+      <button id="saveImgBoth">Both windows</button>
     </div>
     <button id="saveImgCancel" style="margin-top:10px">Cancel</button>
   </div>
