@@ -2051,6 +2051,15 @@ relevant one before editing rather than scrolling:
   side. Verified via Playwright: `saveSettingsJson()` is a real top-level function, and calling it
   directly (native picker stubbed away, matching this app's own `file://` download fallback) produces
   a `logCmd` entry with `jsOverride==='saveSettingsJson()'`.
+
+  **The timing table's own label→number gap was still too wide** (follow-up, same round, reported —
+  no literal tabs anywhere, just plain spaces: each row's label is hardcoded-padded to 12 chars in
+  its own template literal, and `sec()`'s `padStart(7)` right-aligned the number on top of that — a
+  19-char fixed prefix regardless of label length, so a short label like `fit` (3 chars) left a
+  14-space gap before a 1-2 digit value). `sec()`'s own `padStart(7)` → `padStart(4)` — comfortably
+  fits any realistic single-stage duration (up to `"9,999"` s ≈ 2.7h) without reserving 3 unused
+  columns for a scenario (a Localize stage running past ~2.7 hours) this app has no reason to expect.
+  Cuts the same 3 characters off every row uniformly, so column alignment across rows is unaffected.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
