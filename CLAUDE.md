@@ -764,18 +764,55 @@ relevant one before editing rather than scrolling:
   built with an explicit trailing `lineTo(startX,startY)` instead, which closes correctly on both
   backends rather than relying on `fill()`'s own implicit-close behaviour (real Canvas2D auto-closes
   an open subpath for fill, but not for stroke, and the recorder doesn't auto-close for either).
-  Selection markers ("two crossed lines through the origin", requested) are exactly two full
-  diameters at `wrap360(angleCenter∓tol,0)`, dashed `#d9534f` (the same red the cartesian markers
-  already use) — each line's own opposite endpoint (`deg+180`) is what makes it a full diameter, not
-  a ray, so the two together bound the accepted wedge on BOTH sides of the circle by construction; no
-  separate centre-bearing line was added (the request specified exactly two). Verified via Playwright
-  by independently recomputing both marker lines' expected endpoint coordinates from the same
-  `toXY()` formula and diffing them pixel-for-pixel against the actual recorded SVG path data — exact
-  match. **No interactive hover, no draggable markers** — deliberate v1 scope limits: the shared
+  Selection markers were originally just "two crossed lines through the origin" (the two ±tolerance
+  boundaries) — a third, magenta line at Primary angle itself was added on request right after, so
+  the primary bearing has its own genuine reference line rather than being left implicit as the red
+  pair's own midpoint. All three are full diameters at `wrap360(angleCenter[∓tol],0)`, dashed — red
+  `#d9534f` (the same red the cartesian markers already use) for the ±tolerance pair, magenta
+  `#c81cc8` (this project's own established magenta — drift/NeNA/spt's track-length fit all already
+  use it) for Primary angle, drawn last so it stays on top when tolerance is small and the lines sit
+  close together. Each line's own opposite endpoint (`deg+180`) is what makes it a full diameter, not
+  a ray, so the red pair together bound the accepted wedge on BOTH sides of the circle by
+  construction. Verified via Playwright by independently recomputing all marker lines' expected
+  endpoint coordinates from the same `toXY()` formula and diffing them pixel-for-pixel against the
+  actual recorded SVG path data — exact match. **Still no interactive hover** — the shared
   `registerPlotHover()`/`drawPlotHover()` do a rectangular hit-test + linear interpolation,
   fundamentally Cartesian and not reusable for a circular hit-test without real new code nobody
   asked for; the distance histogram's own draggable-marker IIFE stays fully inert here regardless
-  (already gated on `histData.col==='sSMLM pair distance'`, which this plot never sets).
+  (already gated on `histData.col==='sSMLM pair distance'`, which this plot never sets) — but **all
+  three lines are now directly draggable** (requested, see the next paragraph).
+
+  **Dragging the three marker lines** (requested — "similar to the Distances plot") is a genuinely
+  different hit-test/drag model from that Distances-plot precedent, not a copy of it: a polar plot
+  has no single 1D pixel-to-value axis, so hit-testing is PERPENDICULAR DISTANCE from the pointer to
+  the INFINITE line through the circle's centre at a candidate angle (`distToLine()`, a 2D
+  cross-product magnitude) — this naturally covers BOTH ends of a diameter with one test, no separate
+  "near side"/"far side" case needed — and dragging recomputes an ANGLE from the pointer's own
+  bearing around the centre (`pointerAngleDeg()`, `atan2` against the SAME 0°=right/90°=top/CCW
+  convention `toXY()` itself uses), not a 1D value interpolation. Dragging the magenta line sets
+  `sSmlmAngleCenter` directly to the pointer's own angle (wrapped into PARAMS' signed [-180,180)
+  range) — grabbing either end of the diameter works identically, since whichever point you drag TO
+  becomes the new bearing; no "which end did you grab" bookkeeping needed. Dragging EITHER red line
+  recomputes ONE shared `sSmlmAngleTol` from the pointer's own angular distance to the (live) primary
+  angle — since both red lines are always drawn as `angleCenter∓tol` from the SAME field, updating it
+  moves both symmetrically for free; this is what produces the "mirrored" effect requested, with no
+  separate mirroring logic of its own. `MIN_TOL_DEG` (1°) is the "may not cross the magenta line"
+  guard requested: a red line's own recomputed tol is clamped to `[MIN_TOL_DEG, PARAMS.sSmlmAngleTol.max]`
+  every drag tick, so it can get arbitrarily close to the primary-angle line but never reach or pass
+  through it — same purpose (and same shape) as the Distances plot's own `MIN_SEPARATION_NM` clamp
+  preventing its min/max markers from crossing each other. No `stopImmediatePropagation()` fight with
+  a sibling zoom/pan IIFE is needed here the way the Distances plot's own draggable-marker IIFE needs
+  one against the column-histogram zoom/pan IIFE right below it (registration-order gotcha, see that
+  code's own comment) — the raw-panel navigator only ever acts when `rawFull` is set (never true for
+  any plot) and the column-histogram zoom/pan IIFE only ever acts when `rawPlotName==='histogram'`,
+  so nothing else listens for pointer events while `rawPlotName==='sSmlmAnglePolar'`. A cursor hint
+  (`grab`/`grabbing`) mirrors the Distances plot's own `ew-resize` affordance, adapted for rotational
+  rather than linear dragging. Verified via Playwright: computed each line's own on-screen client
+  coordinates from `_sSmlmPolarGeom` (the `{cx,cy,R}` the draw function stashes on every render) and
+  dispatched a real multi-step `mouse.move`/`down`/`move`×N/`up` sequence — dragging magenta to a new
+  angle sets `sSmlmAngleCenter` to that angle exactly; dragging a red line changes `sSmlmAngleTol`
+  exactly and leaves `sSmlmAngleCenter` untouched; dragging a red line toward and past the magenta
+  line clamps at `MIN_TOL_DEG`, never reaching 0 or negative.
 
   **`_plotHover.raw` must be explicitly cleared, not just left unregistered** — a real, reported bug
   ("the plot closes and reverts to the distance plot" the instant the cursor moved): the DISTANCE
