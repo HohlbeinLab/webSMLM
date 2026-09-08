@@ -632,7 +632,13 @@ relevant one before editing rather than scrolling:
   short-range + long-range terms) and magenta (`#c81cc8`, the signal-Rayleigh term alone).
 
 - **sSMLM** — spectrally resolved SMLM: pairs 0th/1st-order localizations from a diffraction
-  grating (ported from [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
+  grating. **The sidebar section label is prefixed "(Caution!)"** (v0.12.1-dev, requested — a
+  plain visual warning, no internal renaming: the id stays `sSmlmBox`, nothing keys off the exact
+  summary text), since the pairing approach implemented here is a specific method with real
+  assumptions (directional role assignment, a single configured bearing/tolerance), not a
+  general-purpose technique — see **smFRET**'s and **spt**'s own module bullets for the same label
+  on the other two experimental/approach-specific sections. Ported from
+  [`HohlbeinLab/sSMLMAnalyzer`](https://github.com/HohlbeinLab/sSMLMAnalyzer);
   Martens et al., *Nano Lett.* 22(21), 8618–8625, 2022). Role assignment (which point of a pair is
   0th vs 1st) is **directional, not brightness-based** — real-data investigation found photon count
   barely correlates with position (≈50/50 even at confident intensity gaps, likely PSF-overlap/
@@ -712,7 +718,28 @@ relevant one before editing rather than scrolling:
   an already-paired subset with no 1st-order companions left to find), `sSmlmPairedLocs` (latest
   Pair result), and `sSmlmShowingRaw`. The reconstruction-panel toggle (`sSmlmColorBtn`, "Show
   spectral"/"Show standard") swaps `lastResult.locs` between them (plus `zcolor`) — a real data
-  swap, without discarding the pairing the way Unpair does. **Headless**: `config.sSmlmPair` runs
+  swap, without discarding the pairing the way Unpair does.
+
+  **Every paired row also keeps the 1st order's own position and the pair's own directed
+  bearing** (`x2,y2,pairAngle`, v0.12.1-dev) — previously `pairCore()` looked up the 1st order
+  internally (`locs[q.down]`) purely to compute `dist`/`dAng` against it, then discarded the
+  position entirely; the actual absolute 0th→1st compass bearing (the same quantity
+  `sSmlmAngleCenter` itself represents, not just its deviation `dAng` from the configured centre)
+  was likewise computed at the candidate stage and then dropped. Fixed as a general sSMLM
+  improvement (not smFRET-specific, even though smFRET's own DD/DA trace-splitting below is what
+  prompted it) — `x2,y2` (the 1st order's own native-px position) and `pairAngle` (the directed
+  bearing, degrees) are threaded through `outEdges`→`qualifying`→`paired` alongside `dist`/`dAng`,
+  present on every pair `pairCore()` produces. **Named `pairAngle`, deliberately not `angle`** — a
+  plain `angle` field already exists on a loc from `gaussianMLEellipticangled`'s own fitted
+  ellipse-rotation output, stored in **radians**; reusing the name for this **degrees**-valued pair
+  bearing would have silently corrupted the "angle [deg]" CSV/table column for any paired result
+  that also carries a real per-loc ellipse angle. Same optional-column precedent as `sigma1st`/
+  `sx1st`/`sy1st`: `buildCsvText()`/`locTableData()` each gained an explicit `hasX2Y2`/
+  `hasPairAngle` check (this app's optional-column wiring is hardcoded per field, not
+  auto-detected — confirmed against `sigma_x`/`sigma_y`'s own handling before adding these), with
+  `x2 [nm]`/`y2 [nm]`/`pairAngle [deg]` CSV columns and matching `parseCsvLocs()` round-trip.
+
+  **Headless**: `config.sSmlmPair` runs
   pairing right after Localize, before drift/NeNA/FRC; `pairCore()`'s throws propagate immediately,
   and the result's `sSmlmPair` field records `nPairs`/`nInput`/`meanDistance`/`stdDistance`.
   `tools/webSMLM-cli.mjs`'s `--sSmlmPair` and `?autorun=`'s `sSmlmPair=1` both forward to it.
@@ -834,7 +861,9 @@ relevant one before editing rather than scrolling:
   `drawHistogram()`'s own internal `_replotRaw=drawHistogram` assignment runs right after and simply
   overwrites this one back to the (already-correct) simpler target for that mode.
 
-- **smFRET** (v0.12.1-dev) — Marked **experimental**, v1: "sites of interest" (SOI) detection plus a
+- **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
+  **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
+  warning only, id stays `smfretBox`). v1: "sites of interest" (SOI) detection plus a
   simple per-site time-trace readout, the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX
   integration sketch. Not squeezed into sSMLM (a genuinely different optical setup motivating this —
   a prism + polychroic beam-splitter, not sSMLM's own diffraction grating) or 3D calibration, though
@@ -1122,6 +1151,77 @@ relevant one before editing rather than scrolling:
   `drawPcfoPlot()` and the shared `drawHistogram()` (table/spt/sSMLM histograms) for the same
   app-wide consistency, not just this one plot.
 
+  **`smfretFloorZero`** ("Floor intensities to 0", default checked, v0.12.1-dev) is a new
+  `PARAMS` bool controlling ONLY `apertureIntensity()`'s own existing `Math.max(0,...)` floor on
+  its computed background-subtracted value — confirmed via grep that this function has exactly one
+  caller (`getSmfretTimeTraces()`), so this can't reach `phasorFit()`, which uses the separate
+  shared `apertureGeometry()`/`percentile()` helpers, not this function. Unticking it lets a
+  genuinely negative value through instead of clamping it — for FITTING an intensity
+  *distribution* afterward (e.g. an OFF-state population centred near zero with a real negative
+  tail from noisy background subtraction), a raw negative value is more informative than an
+  artificial floor at zero. Deliberately scoped to this one function only, per explicit
+  confirmation: the MLE-fit path's own "a rejected/non-converged fit reports 0" convention (see
+  above) is a different concept — a judgement that no molecule was on, not a floored computed
+  value — and stays untouched regardless of this checkbox.
+
+  **DD/AA/AA excitation-channel splitting** (v0.12.1-dev) makes the trace plot ALEX-aware. Each
+  site's trace object grows from one `photons` array to `{photonsDD, photonsAA, photonsDA}` — only
+  `photonsAA`/`photonsDA` when applicable, `photonsDD` always present (so the case with neither
+  ALEX nor pairing active renders pixel-for-pixel identically to the original single-curve
+  behaviour). With **Alternating laser excitation?** checked, `getSmfretTimeTraces()`'s own
+  per-frame loop already knows each frame's parity (`alexFirstFrame`'s existing convention, the
+  same one the Data-projection view uses) — a donor-excitation frame's extracted value goes into
+  `photonsDD`, an acceptor-excitation frame's into `photonsAA`, both read at the SAME (donor/site)
+  position. Pairing the SOI set first (**Spectral SMLM analysis**'s own **Preview pairs**/**Pair**,
+  which already works on Localize SOI's sites unmodified — see that module's own paragraph on why)
+  further splits DD into DD and DA: `getSmfretTimeTraces()` detects a paired result via
+  `lastResult.fromSmfretSOI && isFinite(lastResult.locs[0]?.dist)` (the `fromSmfretSOI` marker
+  survives pairing — confirmed by reading `runSSmlmPair()`, which only ever mutates
+  `lastResult.locs` in place, never rebuilds the object — so this safely tells "smFRET's own
+  paired SOI result" apart from an unrelated Localize-then-Pair workflow that also happens to
+  produce a `dist` field), and when true iterates the paired rows instead of `smfretSOI` directly,
+  reading a THIRD value at each pair's own `x2,y2` (the 1st order's position, see **sSMLM**'s own
+  paragraph on this) into `photonsDA`. DA is sampled only during donor-excitation frames — the
+  same frames as DD, a different spatial channel — regardless of whether ALEX is on (with ALEX
+  off, "every frame" already counts as donor-excitation, matching the non-split behaviour). The
+  per-position extraction logic (aperture-vs-MLE-fit branch) was pulled into a shared
+  `smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero)` helper so
+  it can be called once per channel per frame instead of duplicated three times inline.
+
+  Colours reuse the project's own established palette: DD = `#0a7d32` (the drift-x/NeNA-signal
+  green), AA = `#3572b0` (the drift-z blue), DA = `#c81cc8` (magenta — already this plot's own
+  pre-existing single-curve colour, and the app's established "pairing" colour elsewhere). DD and
+  DA are drawn on the SAME graph per site, overlaid exactly like DD/AA. `drawSmfretTrace()` labels
+  whichever curves exist with small colour-coded text near the plot (`drawDriftCurve()`'s own
+  "drift x"/"drift z" convention) — the plain single-curve case (neither split) stays unlabeled.
+
+  **Real bug caught and fixed the same round: ALEX's own per-frame alternation broke line
+  rendering entirely.** A split channel's array is NaN on every OTHER frame by construction (not a
+  gap — that frame simply isn't this channel's turn), but the original line-drawing loop reset
+  `started=false` on ANY NaN with no way to tell the two cases apart — since a channel's real
+  samples are then never two frames apart, `started` always resets before a second point can ever
+  reach `ctx.lineTo()`, so every "line" rendered as a set of isolated, invisible zero-length
+  `moveTo`s (confirmed via Playwright: labels/axes drew correctly, canvas pixel-colour counts for
+  all three curve colours were exactly zero). Fixed by giving each curve an explicit `parity`
+  (which `frame%2` it actually samples — `null` when every frame belongs, i.e. ALEX off or the
+  unsplit case) and having the draw loop `continue` silently past an off-parity frame (not this
+  channel's frame at all) while still breaking the line on a genuine same-parity NaN gap. The
+  `nGaps`/"N frame(s) not fit" counter in `rawInfo` needed the identical fix — it was counting
+  every off-parity NaN as "not fit" too, which would overstate the gap count by roughly half
+  whenever ALEX is active; now counted only over DD's own applicable frames.
+
+  **X-axis zoom** (`smfretTraceView={x0,x1}`, frame-index units) mirrors the existing SPT
+  MSD-plot/line-profile zoom pattern exactly: wheel/pinch/drag to narrow, double-click to reset.
+  Reset to the full range (`null`, resolved to `{x0:0,x1:n-1}` on next draw) only on a fresh
+  `getSmfretTimeTraces()` run — preserved across scrubbing between sites, so a zoomed-in time
+  window stays put while comparing different sites. Y stays fixed to the full trace's own range
+  regardless of X zoom, same as that existing precedent (not auto-rescaled to the visible window).
+  Tick generation and the hover readout both already read live `[x0,x1]`/`frametime`, so a zoomed
+  view's ticks land on round times for the CURRENT span, not the whole trace's.
+
+  Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA
+  pairs stays an explicitly open, unimplemented item — no action taken on it this round.
+
   **The SOI composite draws each site's 1-based index next to its ROI box** (v0.12.1-dev, requested
   — "same visual style as plotting tracks in the single particle tracking module"), via a new
   `numbered` parameter on the shared `drawSpotOverlays(ctx,v,spots,locs,DW,DH,numbered=false)`
@@ -1191,7 +1291,10 @@ relevant one before editing rather than scrolling:
   on-screen label, was checked.
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
-  computes a per-track diffusion coefficient. A trackpy-**inspired** variant (same
+  computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
+  prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
+  linking/D-estimation approach here (trackpy-inspired, a single-average-per-track D, no MSD-vs-lag
+  fit) is one specific, scope-limited method, not a general SPT solution. A trackpy-**inspired** variant (same
   `search_range`/`memory` terminology and linking philosophy as the Python `trackpy` package), not
   a literal port. Ported from the user's own `sptPALM-Python` pipeline (L. lactis sptPALM, Martens
   et al., *Nat. Commun.* 10, 3552, 2019). `linkTracks()` walks frames in order; each frame's

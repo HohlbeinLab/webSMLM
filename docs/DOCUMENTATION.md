@@ -141,11 +141,15 @@ says.
   drift**. See [§3](#drift-params)/[§2](#drift).
 - **Localization precision (NeNA & FRC)** (`precBox`) — **NeNA**/**FRC**.
   See [§3](#locprecision-params)/[§2](#locprecision).
-- **Spectral SMLM analysis** (`sSmlmBox`) — pairs 0th/1st-order
+- **(Caution!) Spectral SMLM analysis** (`sSmlmBox`) — pairs 0th/1st-order
   localizations from a diffraction grating; enabled as soon as there are
   localizations (Run or **Load data**), not gated on a specific fit method.
+  The sidebar label's "(Caution!)" prefix flags this as one specific,
+  scope-limited method (directional pairing on a single configured
+  bearing/tolerance), not a general-purpose technique — same prefix on
+  **smFRET** and **Single particle tracking** below, for the same reason.
   See [§3](#ssmlm-params)/[§2](#ssmlm).
-- **Single particle tracking** (`sptBox`) — links localizations into
+- **(Caution!) Single particle tracking** (`sptBox`) — links localizations into
   trajectories and computes a per-track diffusion coefficient; enabled as
   soon as there are localizations, same gating as Spectral SMLM analysis.
   See [§3](#spt-params)/[§2](#spt).
@@ -983,9 +987,9 @@ instead of frames, the same "another feature owns the raw panel" pattern
 switches back and forth between the trace plot and the live raw frame (with
 its own ordinary Frame scrubber) without discarding the computed traces —
 useful for checking a trace against the actual frame it came from; switching
-back to the trace returns to whichever site was showing before. Deliberately
-a "simple check" only for now: there is no donor/acceptor/FRET
-channel assignment yet, just one curve per site.
+back to the trace returns to whichever site was showing before. With ALEX
+on and/or the sites paired (see below), the plot splits into DD/AA/DA
+curves instead of one plain curve per site.
 
 **Headless**: `config.smfretLocateSOI` (v0.12.1-dev) runs the same
 `smfretSOICore()` the interactive button calls — see [§8](#8-headless-api-window-websmlm)
@@ -1012,17 +1016,25 @@ can be inspected separately before running any real analysis. The raw
 time traces, …) are completely untouched — this is a projection-preview
 control only, not a channel-sorting pipeline.
 
-Not yet implemented (see `docs/REFACTOR_PLAN.md` for the full sketch):
-donor/acceptor/FRET channel sorting of the extracted traces (Get time
-traces' own per-frame data); E_raw/S_raw computation; per-localization ALEX
-frame-role tagging (DD/DA/AA/AD); gain/offset-corrected photon units for
-the traces themselves. **Mechanically** pairing an SOI's donor
-candidate to its acceptor partner now works — `config.smfretLocateSOI`
-piped into sSMLM's own `config.sSmlmPreview`/`config.sSmlmPair` reuses that
-module's existing distance+bearing-angle pairing with zero new pairing
-code (see **sSMLM**'s own write-up below) — but nobody's yet run it
-against real dual-view/polychroic data to confirm a genuine, physically-
-meaningful pair distance+bearing window actually exists on real hardware.
+**DD/AA/DA channel splitting for Get time traces is now implemented** (see
+above) — ALEX on splits DD/AA by frame parity; pairing the sites (below)
+further splits DD into DD/DA by spatial channel. Still not implemented
+(see `docs/REFACTOR_PLAN.md` for the full sketch): E_raw/S_raw computation;
+per-localization ALEX frame-role tagging on a genuine, non-smFRET
+localization set (DD/DA/AA/AD); and linking a direct-acceptor-excitation
+(AA) composite's own sites to the DD/DA pairs found in the donor channel.
+**Mechanically** pairing an SOI's donor candidate to its acceptor partner
+works — `config.smfretLocateSOI` piped into sSMLM's own
+`config.sSmlmPreview`/`config.sSmlmPair` reuses that module's existing
+distance+bearing-angle pairing with zero new pairing code (see **sSMLM**'s
+own write-up below, which now also keeps each pair's own second position
+and bearing, not just the 0th order's own — see its own paragraph on
+`x2`/`y2`/`pairAngle`) — but nobody's yet run it against real dual-view/
+polychroic data with a properly hand-tuned window to confirm a genuine,
+physically-meaningful pair distance+bearing exists on real hardware (a
+widened, not-yet-tuned window does find real pairs on the real sample data
+this app ships, confirming the mechanism itself, but that isn't the same
+claim).
 
 ### Single particle tracking (`spt`) {#spt}
 
@@ -2005,7 +2017,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 `.hint` div directly):
 
 <!-- HINT:sSMLM -->
-<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
+<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
 <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
 <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
 <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
@@ -2105,6 +2117,7 @@ for the first implementation.
 | `smfretAvgFrames` | Average frames | number (int) | 1 | 100000 | 10 | 100 |
 | `smfretFixSOI` | Fix SOI x,y for time traces | bool | — | — | — | false |
 | `smfretApertureMode` | Aperture photometry (no fit) | bool | — | — | — | false |
+| `smfretFloorZero` | Floor intensities to 0 | bool | — | — | — | true |
 
 **In-app "more info…" popup** (`hint-smfret` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
@@ -2115,7 +2128,8 @@ for the first implementation.
 <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>1st frame is</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This only affects the <b>Data projection</b> view shown before any Localize/Calibration result exists: a toggle appears next to its title (<b>Donor dir. exc.</b>/<b>Acceptor dir. exc.</b>, named for whichever it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected separately. The raw (left) panel and every other analysis step are untouched — no donor/acceptor channel sorting elsewhere yet.</p>
 <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
 <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-<p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
+<p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Floor intensities to 0</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
+<p>With <b>Alternating laser excitation?</b> checked, each site's trace splits into <b>DD</b> (direct-donor-excitation frames, green) and <b>AA</b> (direct-acceptor-excitation frames, blue), overlaid on the same plot. Pairing the sites first (<b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, which works on Localize SOI's sites the same way it pairs an ordinary sSMLM 0th/1st-order candidate) additionally splits DD into <b>DD</b> and <b>DA</b> (FRET) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active — unchanged from before this existed). Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA pairs is not yet implemented.</p>
 <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 
@@ -2328,7 +2342,7 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
@@ -2355,6 +2369,15 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   (see §2 sSMLM) — an INDEPENDENT column from `z [nm]`, never a substitute
   for it; `pairCore()` never sets `z`, so a paired-only export has `dist`
   but not `z`. Round-trips through **Load data** (`parseCsvLocs()`).
+- `x2 [nm]`/`y2 [nm]` (the 1st order's own raw position) and
+  `pairAngle [deg]` (the pair's own directed 0th→1st bearing, same
+  convention as **Primary angle**) are sSMLM-**Pair**-specific, added
+  alongside `dist [nm]` — a pair's own full geometry, not just its distance
+  and the 0th order's own position. `pairAngle` is deliberately a distinct
+  name from the existing `angle [deg]` column above (that one is
+  `gaussianMLEellipticangled`'s own per-loc ellipse rotation — a completely
+  different measurement that can appear on the same paired row). Round-trips
+  through **Load data** (`parseCsvLocs()`).
 - `sigma1st [nm]` is sSMLM-**Pair**-specific: the 1st order's own `sigma`
   (see §2 sSMLM), carried through from `pairCore()` rather than the pair's
   reported `sigma [nm]`, which is still the 0th order's. Not a directional/

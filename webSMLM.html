@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2587   PARAMS registry, single source of truth for params;
+    params          2590   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3449   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3462   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3748   synthetic stack generator ("Simulate movie")
-    detect          4626   per-frame band-pass + local-maxima detection
-    fit             4903   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3761   synthetic stack generator ("Simulate movie")
+    detect          4639   per-frame band-pass + local-maxima detection
+    fit             4916   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5542   accumulate to offscreen buffer; view/colour/blur;
+    render          5555   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,14 +82,14 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6859   frame-parallel detect/fit worker pool; dedicated
+    workers         6872   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7169   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7484   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7182   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7510   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -100,7 +100,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           7950   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7976   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -110,9 +110,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8480   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8506   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9214   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9240   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10330   single particle tracking, trackpy-inspired;
+    spt             10522   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11868  top-level orchestration, *Core()/wrapper split;
+    pipeline        12060  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12524  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12716  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15104  localizations table, filtering, histograms;
+    table           15331  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2396,7 +2396,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="sSmlmBox">
-        <summary>Spectral SMLM analysis</summary>
+        <summary>(Caution!) Spectral SMLM analysis</summary>
         <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Primary angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-180" max="180" step="1" class="num"></label>
@@ -2415,7 +2415,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-sSMLM"><span class="pill">module: sSMLM</span>
-          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
+          <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
           <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
           <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
@@ -2424,7 +2424,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="smfretBox">
-        <summary>smFRET (experimental)</summary>
+        <summary>(Caution!) smFRET (experimental)</summary>
         <label class="row" title="Frames alternate between direct donor and direct acceptor excitation (ALEX). Turns on the 1st-frame-role selector below and a donor/acceptor toggle on the Data projection view.">Alternating laser excitation?
           <input type="checkbox" id="alexEnabled"></label>
         <label class="row" id="alexFirstFrameRow" style="display:none">1st frame is
@@ -2438,6 +2438,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="checkbox" id="smfretFixSOI"></label>
         <label class="row" title="Get time traces below: use a published aperture-photometry method (circular signal disk + a separate background annulus, background from its 56th percentile) instead of fitting a standard 2D Gaussian MLE at each frame (seeded at the site, position free). No iterative fit to diverge — avoids the rare remaining case where the fit still produces an implausible result on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
           <input type="checkbox" id="smfretApertureMode"></label>
+        <label class="row" title="Aperture photometry's own background-subtracted intensity is floored at 0 by default (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Floor intensities to 0
+          <input type="checkbox" id="smfretFloorZero" checked></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
           <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, and plot the resulting intensity-vs-frame time traces in the raw (left) panel">Get time traces</button>
@@ -2448,12 +2450,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>1st frame is</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This only affects the <b>Data projection</b> view shown before any Localize/Calibration result exists: a toggle appears next to its title (<b>Donor dir. exc.</b>/<b>Acceptor dir. exc.</b>, named for whichever it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected separately. The raw (left) panel and every other analysis step are untouched — no donor/acceptor channel sorting elsewhere yet.</p>
           <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots one site's intensity-vs-frame curve in the raw (left) panel, 4:3 letterboxed like every other plot here. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. This is a simple diagnostic for now: no donor/acceptor/FRET channel sorting yet.</p>
+          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Floor intensities to 0</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
+          <p>With <b>Alternating laser excitation?</b> checked, each site's trace splits into <b>DD</b> (direct-donor-excitation frames, green) and <b>AA</b> (direct-acceptor-excitation frames, blue), overlaid on the same plot. Pairing the sites first (<b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, which works on Localize SOI's sites the same way it pairs an ordinary sSMLM 0th/1st-order candidate) additionally splits DD into <b>DD</b> and <b>DA</b> (FRET) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active — unchanged from before this existed). Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA pairs is not yet implemented.</p>
           <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
       <details class="sim" id="sptBox">
-        <summary>Single particle tracking</summary>
+        <summary>(Caution!) Single particle tracking</summary>
         <label class="row">Apply segmentation? <input type="checkbox" id="applySegmentation"></label>
         <div id="segLoadRow" style="display:none">
           <div class="btnrow" style="margin-top:2px">
@@ -2831,6 +2834,16 @@ const PARAMS = {
   smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average frames', min:1, max:100000, step:10, default:100, int:true },
   smfretFixSOI: { type:'bool', id:'smfretFixSOI', label:'Fix SOI x,y for time traces', default:false },
   smfretApertureMode: { type:'bool', id:'smfretApertureMode', label:'Aperture photometry (no fit)', default:false },
+  // Default true (preserves the previous, always-floored behaviour).
+  // Unticking lets apertureIntensity()'s own genuinely negative
+  // background-subtracted result through unfloored — better for fitting
+  // an intensity DISTRIBUTION (an OFF-state population centred near zero
+  // with a real negative tail) than an artificial floor allows. Scoped to
+  // apertureIntensity() alone (its only caller is getSmfretTimeTraces()) —
+  // the separate "a rejected MLE fit reports 0" convention is a different
+  // concept (no molecule this frame, not a floored computed value) and is
+  // untouched by this.
+  smfretFloorZero: { type:'bool', id:'smfretFloorZero', label:'Floor intensities to 0', default:true },
   // alexEnabled/alexFirstFrame are step one of the "ALEX frame-role
   // bookkeeping" prerequisite docs/REFACTOR_PLAN.md's own smFRET/ALEX
   // sketch calls out as needed before any DD/DA/AA/AD sorting — just which
@@ -7246,6 +7259,13 @@ function buildCsvText(locs, px, sigPSF){
   // sSMLM's inter-order distance is its own field, independent of z (see
   // MODULE: sSMLM / pairCore) — its own optional column, not a z alias.
   const hasDist=locs.some(L=>isFinite(L.dist));
+  // x2/y2 (the 1st order's own raw position) and pairAngle (the pair's own
+  // directed 0th->1st bearing) — sSMLM paired output only, see pairCore.
+  // pairAngle is deliberately NOT named "angle" — that name already means
+  // gaussianMLEellipticangled's own per-loc ellipse rotation (radians,
+  // handled by hasAngle/anglec below) — a genuinely different field.
+  const hasX2Y2=locs.some(L=>isFinite(L.x2)&&isFinite(L.y2));
+  const hasPairAngle=locs.some(L=>isFinite(L.pairAngle));
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
   // per-axis width — set by the two elliptical fitters (mle3d/gaussmleEll,
   // MODULE: fit) on every loc, not just an sSMLM-paired subset; independent
@@ -7282,13 +7302,15 @@ function buildCsvText(locs, px, sigPSF){
   const sxsycol=hasSxSy?',"sigma_x [nm]","sigma_y [nm]"':'';
   const anglecol=hasAngle?',"angle [deg]"':'';
   const distcol=hasDist?',"dist [nm]"':'';
+  const x2y2col=hasX2Y2?',"x2 [nm]","y2 [nm]"':'';
+  const pairanglecol=hasPairAngle?',"pairAngle [deg]"':'';
   const s1col=hasSigma1st?',"sigma1st [nm]"':'';
   const ellcol=hasEllSSmlm?',"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"':'';
   const mcol=isClustered?',"n_merged [frames]"':'';
   const tidcol=hasTrackId?',"track_id"':'';
   const dcoeffcol=hasDCoeff?',"D_coeff [um^2/s]"':'';   // ASCII "um^2" — CSV compatibility, matches ThunderSTORM's own ASCII-only header convention
   const cellcol=hasCellId?',"cell_id","cell_area [px]"':'';
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol}${anglecol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}${cellcol}\n`];
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol}${anglecol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${x2y2col}${pairanglecol}${s1col}${ellcol}${mcol}${tidcol}${dcoeffcol}${cellcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -7305,8 +7327,12 @@ function buildCsvText(locs, px, sigPSF){
     const zc=has3d?`${isFinite(L.z)?L.z.toFixed(1):''},`:'';
     const zsc=hasZUnc?`,${isFinite(L.lpz)?L.lpz.toFixed(1):''}`:'';   // already nm — see zFromWidths
     const dc=hasDist?`,${isFinite(L.dist)?L.dist.toFixed(1):''}`:'';   // already nm — see pairCore (sSmlmCandidates converts px->nm itself)
-    const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
     const fnm=v=>isFinite(v)&&v>0?(v*px).toFixed(1):'';
+    // x2/y2 are native px on L (same convention as x/y themselves) — need
+    // the *px conversion here, unlike dist (already nm from pairCore).
+    const x2y2c=hasX2Y2?`,${isFinite(L.x2)?(L.x2*px).toFixed(1):''},${isFinite(L.y2)?(L.y2*px).toFixed(1):''}`:'';
+    const pairanglec=hasPairAngle?`,${isFinite(L.pairAngle)?L.pairAngle.toFixed(1):''}`:'';   // already degrees — see pairCore
+    const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
     const sxsyc=hasSxSy?`,${fnm(L.sx)},${fnm(L.sy)}`:'';
     const anglec=hasAngle?`,${isFinite(L.angle)?(L.angle*180/Math.PI).toFixed(1):''}`:'';
     const ellc=hasEllSSmlm?`,${fnm(L.sx0th)},${fnm(L.sy0th)},${fnm(L.sx1st)},${fnm(L.sy1st)}`:'';
@@ -7315,7 +7341,7 @@ function buildCsvText(locs, px, sigPSF){
     const dcoeffc=hasDCoeff?`,${isFinite(L.D_coeff)?L.D_coeff.toFixed(4):''}`:'';
     const cellc=hasCellId?`,${L.cell_id!==undefined?L.cell_id:''},${L.cell_area!==undefined?L.cell_area:''}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)}${sxsyc}${anglec},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${s1c}${ellc}${mc}${tidc}${dcoeffc}${cellc}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${x2y2c}${pairanglec}${s1c}${ellc}${mc}${tidc}${dcoeffc}${cellc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -9356,8 +9382,19 @@ async function pairCore(locs, px, config, hooks={}){
     const up = fwdDiff<=config.sSmlmAngleTol ? c.i : c.j;     // upstream (0th-candidate)
     const down = up===c.i ? c.j : c.i;                          // downstream (its 1st)
     const dAng = up===c.i ? fwdDiff : angleDiff360((rawNorm+180)%360, acNorm);
+    // The actual directed 0th->1st compass bearing (same convention/units
+    // sSmlmAngleCenter itself is in) — kept alongside dAng (deviation from
+    // that configured centre) so the accepted pair's own real bearing
+    // survives onto the output row below, not just how close it was to the
+    // target. Named pairAngle throughout, NOT angle — L.angle already means
+    // something completely different (gaussianMLEellipticangled's own
+    // per-loc ellipse-rotation output, in RADIANS, consumed as such by both
+    // buildCsvText()/locTableData()'s existing hasAngle/anglec handling) —
+    // reusing that name here would silently corrupt the "angle [deg]" CSV
+    // column for a paired result that also carries a real ellipse angle.
+    const pairAngle = up===c.i ? rawNorm : (rawNorm+180)%360;
     let arr=outEdges.get(up); if(!arr){arr=[]; outEdges.set(up,arr);}
-    arr.push({down, dist:c.dist, dAng});
+    arr.push({down, dist:c.dist, dAng, pairAngle});
     hasIncoming[down]=1;
   }
   const requireNarrower=config.sSmlmRequireNarrower;
@@ -9370,7 +9407,7 @@ async function pairCore(locs, px, config, hooks={}){
       best=edges.find(e=>locs[up].sigma>0 && locs[e.down].sigma>0 && locs[up].sigma<locs[e.down].sigma);
       if(!best) continue;
     }
-    qualifying.push({up, down:best.down, dist:best.dist, dAng:best.dAng});
+    qualifying.push({up, down:best.down, dist:best.dist, dAng:best.dAng, pairAngle:best.pairAngle});
   }
   qualifying.sort((a,b)=>a.dAng-b.dAng);   // closest-to-expected-bearing wins any shared-target conflicts
   const claimed=new Uint8Array(locs.length);
@@ -9395,7 +9432,16 @@ async function pairCore(locs, px, config, hooks={}){
     // overwriting z, so a future 3D-fit+sSMLM combination could carry both
     // without one clobbering the other (L.z is guaranteed absent here
     // anyway — the guard above refuses real-3D input).
-    paired.push({ frame:L.frame, x:L.x, y:L.y, dist:q.dist,
+    // x2/y2 (the 1st order's own raw position) and pairAngle (the actual
+    // directed 0th->1st bearing, same convention as sSmlmAngleCenter) were
+    // both already available here (locs[q.down], q.pairAngle) but previously
+    // discarded once the row was built — added as a general sSMLM
+    // improvement (not smFRET-specific): a pair's own full geometry, not
+    // just distance + the 0th order's own position. Purely additive, same
+    // optional-column precedent as sigma1st/sx1st/sy1st above. Named
+    // pairAngle, NOT angle — see the comment on that name further up.
+    paired.push({ frame:L.frame, x:L.x, y:L.y, dist:q.dist, pairAngle:q.pairAngle,
+      x2:locs[q.down].x, y2:locs[q.down].y,
       photons:L.photons, bg:L.bg, bgstd:L.bgstd, lpx:L.lpx, lpy:L.lpy, sigma:L.sigma,
       sigma1st:locs[q.down].sigma,
       sx0th:L.sx, sy0th:L.sy, sx1st:locs[q.down].sx, sy1st:locs[q.down].sy });
@@ -9818,8 +9864,13 @@ $('sSmlmAngleTol').addEventListener('change',refreshSSmlmHistIfShown);
 // enough to live at the sSMLM/spt boundary for now; promote it once it
 // grows, matching liveStreaming's own precedent.
 let smfretSOI=null;      // fitted {x,y} site-of-interest positions from Localize SOI
-let smfretTraces=null;   // per-site {x,y,photons:Float64Array(stack.n)} from Get time traces
+// per-site {x,y,photonsDD,photonsAA,photonsDA:Float64Array(stack.n)|null}
+// from Get time traces — photonsDD is always present; photonsAA only when
+// ALEX is on; photonsDA only when the current result is a paired one (see
+// getSmfretTimeTraces()'s own comment on the fromSmfretSOI check).
+let smfretTraces=null;
 let smfretTraceIdx=0;    // which site's trace the raw panel currently shows
+let smfretTraceView=null;   // {x0,x1} in FRAME-index units — the trace plot's own x-axis zoom/pan state; null means "show the full range", reset on a fresh Get time traces run
 // While smfretTraces exists, the raw panel can show EITHER the time-trace
 // plot (default, false) OR the live raw frame with its own ordinary Frame
 // scrubber (true) — toggled by smfretTraceModeBtn (reported: the trace plot
@@ -9874,7 +9925,7 @@ async function locateSmfretSOI(){
   // A fresh Localize SOI run invalidates any time traces already computed
   // from the OLD positions — reclaim the raw panel from the site scrubber
   // back to the ordinary frame one before rebuilding the composite below.
-  if(smfretTraces){ smfretTraces=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
+  if(smfretTraces){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
     $('smfretTraceModeBtn').style.display='none';
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
   const cfg={ smfretAvgFrames:paramValue('smfretAvgFrames'), psf:paramValue('psf'), winr:paramValue('winr'),
@@ -9989,7 +10040,7 @@ $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
 // call unconditionally, matching the interactive uncheck-only behavior.
 function clearSmfretFixSOI(){
   if(paramValue('smfretFixSOI')) return;
-  smfretSOI=null; smfretTraces=null; smfretShowRawFrame=false;
+  smfretSOI=null; smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false;
   $('smfretTraceScrubRow').style.display='none';
   $('smfretTraceModeBtn').style.display='none';
   $('smfretTimeTracesBtn').disabled=true;
@@ -10037,7 +10088,7 @@ $('smfretFixSOI').addEventListener('change',clearSmfretFixSOI);
 // it was meant to fix. The literature version fixes the ROOT cause instead —
 // a background region genuinely separate from the signal disk, not fixing
 // the estimator on top of geometry that guarantees contamination.
-function apertureIntensity(img,w,h,cx,cy,win,gain=1){
+function apertureIntensity(img,w,h,cx,cy,win,gain=1,floorZero=true){
   apertureGeometry(win);
   let sigSum=0,sigN=0; const bgVals=[];
   for(const [dx,dy] of _apSignal){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; sigSum+=img[y*w+x]; sigN++; }
@@ -10046,11 +10097,20 @@ function apertureIntensity(img,w,h,cx,cy,win,gain=1){
   const bg=percentile(bgVals,0.56);
   // gain converts to the same true-photon-unit convention gaussianMLEspheric()
   // below uses (camoffset cancels exactly in a background-SUBTRACTED linear
-  // sum, same as before — no need to pass it separately). Floored at 0 — a
-  // negative photon count has no physical meaning, though the underlying
-  // geometry fix above should make hitting this floor considerably rarer
-  // than the earlier square-ring-mean version did.
-  return Math.max(0, gain*(sigSum - bg*sigN));
+  // sum, same as before — no need to pass it separately). Floored at 0 by
+  // DEFAULT — a negative photon count has no physical meaning on its own,
+  // though the aperture geometry fix should make hitting this floor
+  // considerably rarer than the earlier square-ring-mean version did.
+  // floorZero=false (Floor intensities to 0, unticked) lets a genuinely
+  // negative background-subtracted value through instead — requested for
+  // fitting an intensity DISTRIBUTION (an OFF-state population centred
+  // near zero with a real negative tail), where an artificial floor would
+  // bias the fit. This is the ONLY caller of this function, so the flag
+  // can't leak into any other intensity estimate (phasorFit() uses the
+  // separate shared apertureGeometry()/percentile() helpers directly, not
+  // this function).
+  const v=gain*(sigSum - bg*sigN);
+  return floorZero ? Math.max(0,v) : v;
 }
 // "Get time traces": extracts each Localize SOI site's intensity in EVERY
 // frame of the loaded movie, re-using its known x,y only to pick which
@@ -10101,56 +10161,94 @@ function apertureIntensity(img,w,h,cx,cy,win,gain=1){
 // own no-gain-correction convention — no longer applicable once that
 // function isn't the one being called by default). No donor/acceptor/FRET
 // channel sorting yet — see docs/REFACTOR_PLAN.md.
+// Shared per-position, per-frame intensity extraction for Get time traces —
+// factored out of what used to be one single-channel loop, so DD/AA (the
+// site's own, donor position) and DA (the paired 1st-order/acceptor
+// position, see the module banner above) can each call this once per
+// channel per frame instead of duplicating the aperture/fit branch three
+// times inline. Returns NaN if (cx,cy) is too close to THIS frame's own
+// edge for the fit window — a genuine gap in the data, not a judgement
+// about the molecule's state (checked independently per position, since
+// the acceptor position can sit closer to a different frame edge than the
+// donor one).
+//
+// gaussianMLEspheric()'s own MLE_MAX_SIGMA ceiling (6px, shared with every
+// other caller) is far too loose a plausibility check HERE specifically:
+// verified against the real dataset that motivated this whole method
+// switch, a fitted σ anywhere near that ceiling (but still comfortably
+// under it, e.g. 3-4px against a 1.3px seed) still produced a spurious,
+// implausibly large "photons" value — once σ approaches the fit window's
+// own half-width, a large chunk of the model's Gaussian mass extrapolates
+// PAST the window edge, so the reported total integrated photon count
+// stops being meaningfully constrained by the actually-observed pixels.
+// Reuses FIT_MAX_DRIFT_SIGMA_MULT's own "how far can a trusted result
+// differ from its seed" reasoning, generalized from position to width —
+// empirically checked against the real dataset: of 564 accepted fits
+// across all 14 sites, only 13 (2.3%) exceed 2×σ_PSF, and EVERY one of
+// those 13 is a clear photon-count outlier (median 8686 vs. the kept
+// population's 2112) — a clean separation, not a borderline cutoff.
+// Deliberately scoped to smFRET's OWN trace extraction, not folded into
+// gaussianMLEspheric()'s own shared reject logic — 3D calibration's
+// astigmatic fits legitimately need σ to range far more widely away from
+// focus, so tightening the shared ceiling itself would risk breaking that
+// unrelated path. A REJECTED fit (didn't converge, or fails the
+// plausibility check above) reports ZERO, not a NaN gap — reported: a NaN
+// gap reads as "unknown", but this reject logic already IS the
+// best-available judgement that no real molecule was on at this site this
+// frame, a real, physically meaningful ZERO intensity, not missing data.
+function smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero){
+  const border=(win-1)/2+1;
+  if(cx<border||cx>=w-border||cy<border||cy>=h-border) return NaN;
+  if(useAperture) return apertureIntensity(img,w,h,cx,cy,win,gain,floorZero);
+  const L=gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset);
+  return (L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) ? L.photons : 0;
+}
 async function getSmfretTimeTraces(){
   if(!stack || !smfretSOI || !smfretSOI.length) return;
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out) — this loop runs long enough to check it INSIDE the loop too, not just at the end
-  const {w,h}=stack, sigma=paramValue('psf'), win=2*paramValue('winr')+1, border=(win-1)/2+1;
+  const {w,h}=stack, sigma=paramValue('psf'), win=2*paramValue('winr')+1;
   const gain=paramValue('gain'), camoffset=paramValue('camoffset');
   const useAperture=paramValue('smfretApertureMode');
-  const n=stack.n, sites=smfretSOI;
-  const traces=sites.map(s=>({x:s.x,y:s.y,photons:new Float64Array(n).fill(NaN)}));
-  log(`smFRET: Get time traces — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s) across ${n} frames…`);
+  const floorZero=paramValue('smfretFloorZero');
+  const n=stack.n;
+  // DD/DA: use the CURRENT result if it's smFRET's own SOI pairing —
+  // fromSmfretSOI (set by Localize SOI) survives Pair, since Pair only
+  // ever mutates lastResult.locs in place, never rebuilds the object
+  // (confirmed by reading runSSmlmPair()) — this is what safely tells
+  // "smFRET's own paired SOI result" apart from an unrelated
+  // Localize-then-Pair workflow that also happens to produce a dist field.
+  // Falls back to the plain SOI site list (DD only, no DA) otherwise.
+  const paired = !!(lastResult && lastResult.fromSmfretSOI && lastResult.locs
+    && lastResult.locs.length && isFinite(lastResult.locs[0].dist));
+  const sites = paired ? lastResult.locs : smfretSOI;
+  // ALEX: which frames are direct-donor- vs. direct-acceptor-excitation —
+  // same parity convention showStackProjection()'s own ALEX toggle uses
+  // (1st frame = index 0 = "even"). DA is independent of ALEX — a
+  // continuous-donor-excitation setup (no alternating lasers at all, e.g.
+  // this app's own real prism/polychroic dataset) still has every frame
+  // count as "donor excitation" for DA's own purposes.
+  const alex = paramValue('alexEnabled');
+  const donorParity = alex ? (paramValue('alexFirstFrame')==='dirDonorExc' ? 0 : 1) : 0;
+  const traces = sites.map(s=>({ x:s.x, y:s.y,
+    photonsDD: new Float64Array(n).fill(NaN),
+    photonsAA: alex ? new Float64Array(n).fill(NaN) : null,
+    photonsDA: paired ? new Float64Array(n).fill(NaN) : null }));
+  log(`smFRET: Get time traces — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s)`
+    + `${paired?' (DD+DA paired)':''}${alex?' · ALEX':''} across ${n} frames…`);
   $('smfretTimeTracesBtn').disabled=true;
   try{
     let lastYield=performance.now();
     for(let fi=0; fi<n; fi++){
       const img=(await stack.getFrames(fi,fi+1))[0];
+      const isDonorExc = !alex || (fi%2===donorParity);
       for(let j=0;j<sites.length;j++){
         const s=sites[j], cx=Math.round(s.x), cy=Math.round(s.y);
-        if(cx<border||cx>=w-border||cy<border||cy>=h-border) continue;   // site too close to THIS frame's edge
-        if(useAperture){ traces[j].photons[fi]=apertureIntensity(img,w,h,cx,cy,win,gain); continue; }
-        const L=gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset);
-        // gaussianMLEspheric()'s own MLE_MAX_SIGMA ceiling (6px, shared with
-        // every other caller) is far too loose a plausibility check HERE
-        // specifically: verified against the real dataset that motivated
-        // this whole method switch, a fitted σ anywhere near that ceiling
-        // (but still comfortably under it, e.g. 3-4px against a 1.3px seed)
-        // still produced a spurious, implausibly large "photons" value —
-        // once σ approaches the fit window's own half-width, a large chunk
-        // of the model's Gaussian mass extrapolates PAST the window edge,
-        // so the reported total integrated photon count stops being
-        // meaningfully constrained by the actually-observed pixels. Reuses
-        // FIT_MAX_DRIFT_SIGMA_MULT's own "how far can a trusted result
-        // differ from its seed" reasoning, generalized from position to
-        // width — empirically checked against the real dataset: of 564
-        // accepted fits across all 14 sites, only 13 (2.3%) exceed 2×σ_PSF,
-        // and EVERY one of those 13 is a clear photon-count outlier (median
-        // 8686 vs. the kept population's 2112) — a clean separation, not a
-        // borderline cutoff. Deliberately scoped to smFRET's OWN trace
-        // extraction, not folded into gaussianMLEspheric()'s own shared
-        // reject logic — 3D calibration's astigmatic fits legitimately need
-        // σ to range far more widely away from focus, so tightening the
-        // shared ceiling itself would risk breaking that unrelated path.
-        // A REJECTED fit (didn't converge, or failed any of the plausibility
-        // checks above) reports ZERO here, not a NaN gap — reported: a NaN
-        // gap reads as "unknown", but this reject logic already IS the
-        // best-available judgement that no real molecule was on at this
-        // site this frame, which is a real, physically meaningful ZERO
-        // intensity, not missing data. NaN is reserved for the genuinely
-        // different case just above (site too close to THIS frame's own
-        // edge — no window to even attempt a fit on, an actual gap in the
-        // data itself, not a judgement about the molecule's state).
-        traces[j].photons[fi] = (L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) ? L.photons : 0;
+        const val=smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero);
+        if(!alex || isDonorExc) traces[j].photonsDD[fi]=val; else traces[j].photonsAA[fi]=val;
+        if(paired && isDonorExc){
+          const cx2=Math.round(s.x2), cy2=Math.round(s.y2);
+          traces[j].photonsDA[fi]=smfretExtractIntensity(img,w,h,cx2,cy2,win,sigma,gain,camoffset,useAperture,floorZero);
+        }
       }
       // Many sites × many frames, most of which won't even contain a real
       // localization for a given faint site (a fixed-position fit still runs
@@ -10168,6 +10266,7 @@ async function getSmfretTimeTraces(){
     }
     if(staleEpoch(myEpoch)) return;   // superseded between the last yield and here
     smfretTraces=traces; smfretTraceIdx=0; smfretShowRawFrame=false;
+    smfretTraceView=null;   // reset any previous zoom — a fresh run is new data, see drawSmfretTrace()
     $('scrubRow').style.display='none';
     $('smfretTraceScrubRow').style.display='flex';
     $('smfretTraceScrub').max=traces.length-1;
@@ -10177,7 +10276,7 @@ async function getSmfretTimeTraces(){
     log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
     // jsOverride — reported gap: a real per-frame fit/aperture-photometry
     // computation over every site with real tunable params, never logged.
-    const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture};
+    const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture, smfretFloorZero:floorZero};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'getSmfretTimeTraces()'));
   }catch(err){ log(`⚠ Get time traces failed: ${err.name}: ${err.message}`); }
   finally{ $('smfretTimeTracesBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
@@ -10191,6 +10290,7 @@ $('smfretTimeTracesBtn').addEventListener('click', getSmfretTimeTraces);
 // until "Get time traces" was clicked again, easy to miss since the checkbox
 // itself gives no other feedback that anything changed.
 $('smfretApertureMode').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(); });
+$('smfretFloorZero').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(); });
 // ALEX (alternating laser excitation) frame-role bookkeeping — step one of
 // docs/REFACTOR_PLAN.md's own smFRET/ALEX sketch: just which frames are
 // direct donor- vs. direct acceptor-excitation, surfaced via the Data projection view.
@@ -10253,29 +10353,61 @@ $('smfretTraceModeBtn').addEventListener('click', toggleSmfretTraceMode);
 // way drift/NeNA/FRC's own plots do (rawFull=null, setRawPlot(true) — see
 // "Left/right panel plot pattern", CLAUDE.md). v1 is a single curve, no
 // donor/acceptor/FRET channel colouring yet (see docs/REFACTOR_PLAN.md).
+const SMFRET_ML=60, SMFRET_MR=16;   // plot margins (shared by drawSmfretTrace and its own x zoom/pan handlers below)
 function drawSmfretTrace(idx){
   if(!smfretTraces || !smfretTraces.length) return;
   smfretTraceIdx=idx=Math.max(0,Math.min(smfretTraces.length-1,idx));
   $('smfretTraceScrub').value=idx; $('smfretTraceScrubNum').value=idx+1;
   $('smfretTraceScrubTotal').textContent=` / ${smfretTraces.length}`;
-  const site=smfretTraces[idx], ys=site.photons, n=ys.length;
+  const site=smfretTraces[idx], n=site.photonsDD.length;
+  // Which curves to actually draw, and how — with NEITHER AA nor DA
+  // available (today's plain single-channel case, ALEX off and nothing
+  // paired), this is exactly the original single unlabeled magenta curve,
+  // pixel-for-pixel unchanged. Once either exists, DD gets its own colour
+  // (green) and label so it reads as one of several channels rather than
+  // "the" signal.
+  const split = !!(site.photonsAA || site.photonsDA);
+  // ALEX alternates every single frame, so a split channel's own array is
+  // NaN on every OTHER frame by construction (that frame simply isn't this
+  // channel's — see getSmfretTimeTraces()). `parity` (frame%2 this curve
+  // actually samples) lets the draw loop below tell "not this channel's
+  // frame at all" apart from "this channel's own real gap" — conflating
+  // the two (an earlier version did) means a valid sample is never two
+  // frames apart, so `started` resets before any lineTo ever fires and the
+  // line silently renders as nothing. `parity:null` = every frame belongs
+  // (ALEX off, or the plain unsplit single-curve case) — unchanged from
+  // the original behaviour.
+  const alex=paramValue('alexEnabled');
+  const donorParity = alex ? (paramValue('alexFirstFrame')==='dirDonorExc'?0:1) : 0;
+  const acceptorParity = 1-donorParity;
+  const curves=[{ys:site.photonsDD, color:split?'#0a7d32':'#c81cc8', label:split?'DD':null, parity: alex?donorParity:null}];
+  if(site.photonsAA) curves.push({ys:site.photonsAA, color:'#3572b0', label:'AA', parity:acceptorParity});
+  if(site.photonsDA) curves.push({ys:site.photonsDA, color:'#c81cc8', label:'DA', parity: alex?donorParity:null});
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; setRawPlot(true); rawPlotName='smfretTrace';
   hideOtherRawToggleBtns(null);   // smfretTraceModeBtn isn't in that mutual-exclusion list (see its own comment) — untouched by this call
   $('rawTitle').textContent='Time trace';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
-  const mL=60,mR=16,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
-  let lo=Infinity,hi=-Infinity; for(let f=0;f<n;f++){ const v=ys[f]; if(isFinite(v)){ if(v<lo)lo=v; if(v>hi)hi=v; } }
-  if(!isFinite(lo)){ lo=0; hi=1; }   // every frame missed this site — still draw empty axes, not a NaN-driven crash
+  const mL=SMFRET_ML,mR=SMFRET_MR,mT=34,mB=46, pw=W-mL-mR, ph=H-mT-mB;
+  // Y range spans every drawn curve (same isFinite-gaps-don't-count scan as
+  // the original single-curve version), so DD/AA/DA share one Y axis.
+  let lo=Infinity,hi=-Infinity;
+  for(const c of curves) for(let f=0;f<n;f++){ const v=c.ys[f]; if(isFinite(v)){ if(v<lo)lo=v; if(v>hi)hi=v; } }
+  if(!isFinite(lo)){ lo=0; hi=1; }   // every frame missed every curve — still draw empty axes, not a NaN-driven crash
   const pad=(hi-lo)*0.1||1; lo=Math.min(0,lo-pad); hi+=pad;
-  // X is still indexed by FRAME (the data itself, ys[f], has no other axis) —
+  // X view (frame-index domain) — smfretTraceView persists across scrubbing
+  // between sites (comparing the same time window across sites), reset to
+  // the full range only on a fresh Get time traces run (set to null there)
+  // or a double-click here; see the zoom/pan IIFE right after this function.
+  if(!smfretTraceView) smfretTraceView={x0:0,x1:n-1};
+  const {x0,x1}=smfretTraceView;
   // frametime only rescales what the TICKS show (time, not frame number);
-  // time is exactly linear in frame index, so X(f) itself is unchanged
-  // either way (X(f) = mL+pw*(f*frametime)/((n-1)*frametime), which cancels
-  // to the same plain mL+pw*f/(n-1) — no separate time->pixel map needed).
-  const frametime=paramValue('frametime'), tMax=(n-1)*frametime;
-  const X=f=>mL+pw*f/Math.max(1,n-1), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
+  // time is exactly linear in frame index, so X(f) itself needs no separate
+  // time->pixel map — it's still just a linear map over the CURRENT
+  // [x0,x1] view (the full [0,n-1] range before any zoom).
+  const frametime=paramValue('frametime');
+  const X=f=>mL+pw*(f-x0)/Math.max(1e-9,x1-x0), Y=v=>mT+ph*(1-(v-lo)/Math.max(1e-9,hi-lo));
   // Full 5-6 digit ADU tick labels visually collide with the rotated axis-name
   // text at this margin (same "offset notation" fix drawPcfoPlot() already
   // needed for its own large-value axis — see axisScale()'s own comment).
@@ -10286,45 +10418,105 @@ function drawSmfretTrace(idx){
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
     ctx.fillText((v/yScale.scale).toFixed(yScale.decimals),mL-9,y); }
   ctx.textAlign='center'; ctx.textBaseline='top';
-  // Tick VALUES are chosen in time (seconds, "nice" round times, e.g. 0/1/2 s)
-  // rather than translating frame-based ticks — with a real frametime those
-  // read far better than whatever odd seconds value a "nice" frame number
-  // happens to land on. decT: more decimals for a short (sub-10 s) trace,
-  // where whole seconds alone would collapse most ticks to "0".
-  const decT = tMax<10 ? 2 : tMax<100 ? 1 : 0;
-  for(const t of niceTicks(0,tMax,6)){ const x=X(t/frametime);
+  // Tick VALUES are chosen in time (seconds, "nice" round times) over the
+  // CURRENT view's own time span, not the whole trace's — so zooming in
+  // shows finer, still-"nice" ticks instead of the full-range ones spaced
+  // too far apart to read. decT: more decimals for a short (sub-10 s) span.
+  const tMin=x0*frametime, tMaxV=x1*frametime, tSpan=tMaxV-tMin;
+  const decT = tSpan<10 ? 2 : tSpan<100 ? 1 : 0;
+  for(const t of niceTicks(tMin,tMaxV,6)){ const x=X(t/frametime); if(x<mL-0.5||x>mL+pw+0.5) continue;
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();   // major tick, outward
     ctx.fillText(t.toFixed(decT),x,mT+ph+9); }
-  // Break the line at any NaN (a frame where the site's own window was too
-  // close to THAT frame's edge to attempt anything at all — a genuine gap in
-  // the data itself) instead of interpolating across it or drawing to a
-  // non-finite coordinate. A rejected/non-converged fit is NOT a gap here —
-  // it reports 0 (see getSmfretTimeTraces()'s own comment), a real judgement
-  // that no molecule was on, not missing data.
-  ctx.strokeStyle='#c81cc8'; ctx.lineWidth=1.6; ctx.beginPath();
-  let started=false;
-  for(let f=0;f<n;f++){ const v=ys[f];
-    if(!isFinite(v)){ started=false; continue; }
-    const x=X(f), y=Y(v);
-    if(started) ctx.lineTo(x,y); else { ctx.moveTo(x,y); started=true; } }
-  ctx.stroke();
-  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by the curve
+  // Break each line at any NaN on a frame that DOES belong to that channel
+  // (its own window was too close to THAT frame's edge to attempt anything
+  // at all — a genuine gap in the data itself) instead of interpolating
+  // across it or drawing to a non-finite coordinate. A rejected/non-
+  // converged fit is NOT a gap here — it reports 0 (see
+  // getSmfretTimeTraces()'s own comment), a real judgement that no
+  // molecule was on, not missing data. A frame that ISN'T this channel's
+  // own parity (the other half of an ALEX-split pair) is skipped silently
+  // instead — it's not a gap, it just was never this channel's turn — so
+  // consecutive real samples two frames apart still connect with a line
+  // (see the `parity` comment above `curves` for why this matters).
+  // Clipped to the plot rect so a segment outside the current [x0,x1]
+  // view doesn't spill past the axes (same convention drawHistogram()'s
+  // own bars use).
+  ctx.save(); ctx.beginPath(); ctx.rect(mL,mT,pw,ph); ctx.clip();
+  for(const c of curves){
+    ctx.strokeStyle=c.color; ctx.lineWidth=1.6; ctx.beginPath();
+    let started=false;
+    for(let f=0;f<n;f++){ if(c.parity!==null && f%2!==c.parity) continue;
+      const v=c.ys[f];
+      if(!isFinite(v)){ started=false; continue; }
+      const x=X(f), y=Y(v);
+      if(started) ctx.lineTo(x,y); else { ctx.moveTo(x,y); started=true; } }
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();   // axis, drawn last so it's never covered by a curve
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('time (s)', mL+pw/2, mT+ph+28);
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (ADU)',0,0); ctx.restore();
   // Same 12px as the tick labels/axis titles above — was 11px, reported as
   // reading too small next to them.
   if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
-  const nGaps=ys.reduce((c,v)=>c+(isFinite(v)?0:1),0);
+  // Colour-coded labels (same convention drawDriftCurve() already uses for
+  // its own "drift x"/"drift y"/"drift z") — only once there's more than
+  // one curve to tell apart; the plain single-curve case stays unlabeled.
+  if(curves.length>1){
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT;
+    const totalW=curves.length*40;
+    curves.forEach((c,i)=>{ ctx.fillStyle=c.color; ctx.fillText(c.label, mL+pw-totalW+i*40, mT-6); });
+  }
+  // Count gaps only over DD's OWN applicable frames — with ALEX on, every
+  // other frame is NaN by construction (not this channel's turn, see
+  // above), not a real "not fit" gap; counting those too would wildly
+  // overstate the gap count (roughly half the frames, always) whenever
+  // ALEX is active.
+  const ddParity = alex?donorParity:null;
+  let nGaps=0; for(let f=0;f<n;f++){ if(ddParity!==null && f%2!==ddParity) continue; if(!isFinite(site.photonsDD[f])) nGaps++; }
   $('rawInfo').textContent = `— site ${idx+1}/${smfretTraces.length} at (${site.x.toFixed(1)}, ${site.y.toFixed(1)}) px`
-    + (nGaps ? ` · ${nGaps} frame(s) not fit` : '');
-  registerPlotHover('raw',{mL,mT,pw,ph,xA:0,xB:n-1,yTop:hi,yBot:lo,
+    + (nGaps ? ` · ${nGaps} frame(s) not fit` : '')
+    + (x0>0||x1<n-1 ? ` · x ${(x0*frametime).toFixed(decT)}–${(x1*frametime).toFixed(decT)} s (scroll/drag · dbl-click reset)` : ' · scroll/pinch to zoom x');
+  registerPlotHover('raw',{mL,mT,pw,ph,xA:x0,xB:x1,yTop:hi,yBot:lo,
     fmt:(vx,vy)=>`t = ${(vx*frametime).toFixed(decT)} s (frame ${(vx+1).toFixed(0)}) · ${vy.toFixed(0)} ADU`});
   _replotRaw=()=>drawSmfretTrace(smfretTraceIdx);
   syncSaveImg();
 }
 $('smfretTraceScrub').addEventListener('input',e=>drawSmfretTrace(+e.target.value));
 $('smfretTraceScrubNum').addEventListener('change',e=>{ if(!smfretTraces) return; drawSmfretTrace((+e.target.value||1)-1); });
+// smFRET time-trace X-axis zoom (wheel/trackpad + touch pinch) and pan; Y
+// stays fixed — same "horizontal only" convention every other zoomable
+// plot here already uses (line-profile, SPT MSD, column histogram).
+// Requested: "time traces should be zoomable along x-axis with mouse
+// wheel... as implemented in, for example, the line plot." Active only
+// while a time trace is shown — otherwise the raw navigator/other zoom
+// IIFEs handle wheel/pointer events on this same canvas (each gated on
+// its own rawPlotName, so registering here doesn't conflict with them).
+(function(){ const cv=$('raw');
+  const active=()=>rawIsPlot&&rawPlotName==='smfretTrace'&&!!smfretTraces&&!!smfretTraceView;
+  const fullN=()=>smfretTraces[smfretTraceIdx].photonsDD.length;
+  const dataX=clientX=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, px=(clientX-r.left)*Wc/r.width, pw=Wc-SMFRET_ML-SMFRET_MR, xr=smfretTraceView.x1-smfretTraceView.x0;
+    return smfretTraceView.x0+(px-SMFRET_ML)/Math.max(1,pw)*xr; };
+  const clampSet=(c,x0,x1,f)=>{ const lo=0, hi=fullN()-1; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
+    nx0=Math.max(lo,nx0); nx1=Math.min(hi,nx1); if(nx1-nx0>=Math.max(1,(hi-lo)*0.02)){ smfretTraceView={x0:nx0,x1:nx1}; drawSmfretTrace(smfretTraceIdx); } };
+  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=Wc-SMFRET_ML-SMFRET_MR, xr=x1-x0, lo=0, hi=fullN()-1;
+    const dData=(clientDx-d0)*Wc/r.width*xr/Math.max(1,pw); let nx0=x0-dData, nx1=x1-dData;
+    if(nx0<lo){nx0=lo;nx1=lo+xr;} if(nx1>hi){nx1=hi;nx0=hi-xr;} nx0=Math.max(lo,nx0); smfretTraceView={x0:nx0,x1:nx1}; drawSmfretTrace(smfretTraceIdx); };
+  cv.addEventListener('wheel',e=>{ if(!active()) return; e.preventDefault();
+    clampSet(dataX(e.clientX), smfretTraceView.x0, smfretTraceView.x1, Math.exp(e.deltaY*0.0015)); },{passive:false});
+  const ptrs=new Map(); let pinch=null, drag=null;
+  cv.addEventListener('pointerdown',e=>{ if(!active()) return; cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,e.clientX);
+    if(ptrs.size===2){ drag=null; const v=[...ptrs.values()]; pinch={d0:Math.abs(v[0]-v[1])||1, x0:smfretTraceView.x0, x1:smfretTraceView.x1, c:dataX((v[0]+v[1])/2)}; }
+    else if(ptrs.size===1){ pinch=null; drag={d0:e.clientX, x0:smfretTraceView.x0, x1:smfretTraceView.x1}; } });
+  cv.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,e.clientX);
+    if(pinch&&ptrs.size>=2&&active()){ e.preventDefault(); const v=[...ptrs.values()], d=Math.abs(v[0]-v[1]); if(d>0) clampSet(pinch.c, pinch.x0, pinch.x1, pinch.d0/d); }
+    else if(drag&&ptrs.size===1&&active()){ e.preventDefault(); panBy(drag.d0, drag.x0, drag.x1, e.clientX); } });
+  const end=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null;
+    if(ptrs.size===0) drag=null; else if(ptrs.size===1){ const id=[...ptrs.keys()][0]; drag={d0:ptrs.get(id), x0:smfretTraceView.x0, x1:smfretTraceView.x1}; } };
+  cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+  cv.addEventListener('dblclick',()=>{ if(!active()) return; smfretTraceView={x0:0,x1:fullN()-1}; drawSmfretTrace(smfretTraceIdx); });
+})();
 
 /* ===========================================================================
    MODULE: spt — single particle tracking. Links per-frame localizations into
@@ -13425,7 +13617,7 @@ function initScrub(){
     $('calFixedXY').checked=false;          // "Fix bead x,y" is scoped to one calibration session, not sticky across loads
     const st=$('calLocateStatus'); if(st) st.style.display='none';
     smfretSOI=null; $('smfretFixSOI').checked=false;   // same reasoning — SOI positions are scoped to one loaded stack, not sticky
-    smfretTraces=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
+    smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
     $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
@@ -13688,6 +13880,7 @@ function parseCsvLocs(text){
   const iFrame=idx('frame'), iX=idx('x'), iY=idx('y'), iZ=idx('z'), iSigma=idx('sigma'),
         iN=idx('intensity'), iBg=idx('offset'), iBs=idx('bkgstd'), iUnc=idx('uncertainty'),
         iSigZ=idx('sigma_z'), iMerged=idx('n_merged'), iSig1=idx('sigma1st'), iDist=idx('dist'),
+        iX2=idx('x2'), iY2=idx('y2'), iPairAngle=idx('pairAngle'),
         iTrackId=idx('track_id'), iDCoeff=idx('D_coeff'),
         iSx=idx('sigma_x'), iSy=idx('sigma_y'), iAngle=idx('angle'),
         iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st'),
@@ -13708,6 +13901,9 @@ function parseCsvLocs(text){
     if(iUnc>=0 && p[iUnc]!==''){ const u=(+p[iUnc])/px; L.lpx=u; L.lpy=u; }
     if(iSigZ>=0 && p[iSigZ]!=='') L.lpz=+p[iSigZ];
     if(iDist>=0 && p[iDist]!=='') L.dist=+p[iDist];   // already nm, no px conversion — see pairCore
+    if(iX2>=0 && p[iX2]!=='') L.x2=(+p[iX2])/px;
+    if(iY2>=0 && p[iY2]!=='') L.y2=(+p[iY2])/px;
+    if(iPairAngle>=0 && p[iPairAngle]!=='') L.pairAngle=+p[iPairAngle];   // already degrees, no conversion — see pairCore
     if(iSig1>=0 && p[iSig1]!=='') L.sigma1st=(+p[iSig1])/px;
     if(iSx>=0 && p[iSx]!=='') L.sx=(+p[iSx])/px;
     if(iSy>=0 && p[iSy]!=='') L.sy=(+p[iSy])/px;
@@ -14984,6 +15180,37 @@ genuinely too small (min 8x8) — checked in that order, so each one
 gets the message that actually explains what went wrong.
 commitSrCrop() gets the matching inverted-region check.
 Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-08h — smFRET Get time traces:
+new "Floor intensities to 0" checkbox (default on) lets a real negative
+background-subtracted aperture-photometry value through when unticked,
+better fitting an intensity distribution than an artificial floor.
+With ALEX on, the trace plot now splits into DD (donor excitation,
+green) and AA (direct acceptor excitation, blue) curves read at the
+same site position; pairing the SOI set via Spectral SMLM analysis
+further splits DD into DD and DA (FRET, magenta, drawn on the same
+graph) — read at the pair's own 0th/1st-order positions. pairCore()
+itself now keeps every pair's 1st-order x2,y2 and its own directed
+pairAngle (not just dist), a general sSMLM improvement, not
+smFRET-specific — new optional CSV/table columns. The trace plot is
+also now x-axis zoomable (wheel/pinch/drag, dbl-click to reset), same
+pattern as the SPT MSD/line-profile plots. Fixed a real bug caught
+before shipping: ALEX's own per-frame alternation means a split
+channel's array is NaN on every OTHER frame by construction (not a
+gap, just not that channel's turn) — the line-drawing loop originally
+reset on every NaN regardless, so no two real samples were ever two
+frames apart and nothing ever stroked a visible line. Fixed by having
+each curve skip frames outside its own parity without breaking
+continuity, only breaking on a genuine same-parity gap.
+Not yet released to main.`);
+log(`webSMLM v0.12.1-dev · build 2026-09-08i — Spectral SMLM analysis,
+smFRET (experimental) and Single particle tracking's own sidebar section
+labels now carry a "(Caution!)" prefix — a plain visual warning that
+these are specific, scope-limited methods (directional sSMLM pairing on
+one configured bearing, smFRET's v1 SOI/trace approach, spt's trackpy-
+inspired linking), not general-purpose techniques. Visual only — the
+element ids (sSmlmBox/smfretBox/sptBox) and every internal name are
+unchanged.
+Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -15278,6 +15505,12 @@ function locTableData(baseLocs, isClustered, px){
   // deliberately independent of z (see MODULE: sSMLM / pairCore), so both
   // can appear as their own columns rather than one aliasing the other.
   const hasDist=locs.some(L=>isFinite(L.dist));
+  // x2/y2 (1st order's own position) + pairAngle (the pair's own directed
+  // bearing) — sSMLM paired output only, see pairCore. pairAngle is NOT
+  // named "angle" — see buildCsvText's matching comment for why that name
+  // is already taken (gaussianMLEellipticangled's own per-loc rotation).
+  const hasX2Y2=locs.some(L=>isFinite(L.x2)&&isFinite(L.y2));
+  const hasPairAngle=locs.some(L=>isFinite(L.pairAngle));
   // per-axis width — set by the two elliptical fitters (mle3d/gaussmleEll,
   // MODULE: fit) on every loc, not just an sSMLM-paired subset; independent
   // of hasEllSSmlm below (that one's specifically the paired 0th/1st columns).
@@ -15298,9 +15531,9 @@ function locTableData(baseLocs, isClustered, px){
   // buildCsvText's own matching comment for the -1 = "not in a qualifying
   // cell" convention.
   const hasCellId=locs.some(L=>L.cell_id!==undefined);
-  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasAngle?['angle']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]).concat(hasCellId?['cell_id','cell_area']:[]);
-  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,sigma_xy:1,sigma_x:1,sigma_y:1,angle:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4,cell_id:0,cell_area:0};
-  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',angle:'deg',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s',cell_area:'px'};
+  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(hasX2Y2?['x2','y2']:[]).concat(hasPairAngle?['pairAngle']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasAngle?['angle']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]).concat(hasCellId?['cell_id','cell_area']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,x2:1,y2:1,pairAngle:1,sigma_xy:1,sigma_x:1,sigma_y:1,angle:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4,cell_id:0,cell_area:0};
+  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',x2:'nm',y2:'nm',pairAngle:'deg',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',angle:'deg',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s',cell_area:'px'};
   const rows=new Array(locs.length);
   for(let i=0;i<locs.length;i++){ const L=locs[i];
     // gain/offset already applied inside the fit — see exportCSV's comment.
@@ -15310,6 +15543,10 @@ function locTableData(baseLocs, isClustered, px){
     const r={id:i+1, frame:(L.frame|0)+1, x:L.x*px, y:L.y*px, sigma_xy:sNm, intensity:N, offset:bg, bkgstd:bs, uncertainty:unc};
     if(hasZ) r.z=isFinite(L.z)?L.z:NaN;
     if(hasDist) r.dist=isFinite(L.dist)?L.dist:NaN;
+    // x2/y2 native px on L (same convention as x/y) — *px here, unlike dist
+    // (already nm from pairCore); pairAngle is already degrees.
+    if(hasX2Y2){ r.x2=isFinite(L.x2)?L.x2*px:NaN; r.y2=isFinite(L.y2)?L.y2*px:NaN; }
+    if(hasPairAngle) r.pairAngle=isFinite(L.pairAngle)?L.pairAngle:NaN;
     if(hasSxSy){ r.sigma_x=isFinite(L.sx)?L.sx*px:NaN; r.sigma_y=isFinite(L.sy)?L.sy*px:NaN; }
     if(hasAngle) r.angle=isFinite(L.angle)?L.angle*180/Math.PI:NaN;
     if(hasZUnc) r.sigma_z=isFinite(L.lpz)?L.lpz:NaN;   // already nm — see zFromWidths
