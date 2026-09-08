@@ -2037,6 +2037,20 @@ relevant one before editing rather than scrolling:
   figure itself is already 3 digits, but is the only thing distinguishing two single-digit values.
   Verified via Playwright with the same real simulated dataset run under both the default (slower)
   method and Phasor 2D — `32 µs/cand` and `6.5 µs/cand` respectively.
+
+  **Four "save to file" actions recorded no command at all** (reported — "nothing in command line?"
+  after Save settings' own prose-only log — a real gap the earlier "check all buttons" audit itself
+  MISSED, having waved these off as "prose log is appropriate for an export action"): `exportCSV()`
+  (Save data), `exportCalibration()` (Save calibration), `exportSptSummary()` (Save track data), and
+  Save settings' own former inline handler. All four now `logCmd({}, '<name>()')` right after a
+  completed save (not a cancelled one) — an empty config is fine, same precedent `exportPanel()`
+  already established ("no real parameters exist beyond the current result itself, already fully
+  described by the prose above"). Save settings' own logic was ALSO still inline in an anonymous
+  listener — a standing-convention (Q1) gap on top of the missing `logCmd()` (Q2) one — extracted to
+  `saveSettingsJson()`, the same shape `loadSettingsJson(f)` right above it already has for the load
+  side. Verified via Playwright: `saveSettingsJson()` is a real top-level function, and calling it
+  directly (native picker stubbed away, matching this app's own `file://` download fallback) produces
+  a `logCmd` entry with `jsOverride==='saveSettingsJson()'`.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs

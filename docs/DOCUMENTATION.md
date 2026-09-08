@@ -388,6 +388,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Show raw frame/time trace (smFRET) | `toggleSmfretTraceMode()` | |
 | Committing a table filter | `commitFilter()` / `resetFilters()` | reads `#tableFilter`'s current text |
 | Save data (CSV) | `exportCSV()` | |
+| Save settings | `saveSettingsJson()` | |
 | Save calibration | `exportCalibration()` | |
 | Save plot/image | `saveImageClicked()` / `exportPanel('sr'\|'raw')` / `saveBothPanels()` | "Both windows" in the picker saves left then right in one call |
 | Redraw the reconstruction | `rerender(true)` | after changing `mag`/`lut`/`renderMode`/etc. by hand |

@@ -89,7 +89,7 @@
                            fit pool — never shares it, see that code's own
                            comment for why)
     export          7169   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7478   astigmatic sigma_x/sigma_y vs z bead curves;
+    3D calibration  7484   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -100,7 +100,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           7943   AIM drift correction (2D+z); drift-vs-frame or
+    drift           7950   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -110,9 +110,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8473   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8480   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9207   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9214   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10323   single particle tracking, trackpy-inspired;
+    spt             10330   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        11860  top-level orchestration, *Core()/wrapper split;
+    pipeline        11868  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12509  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12517  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,14 +268,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15083  localizations table, filtering, histograms;
+    table           15097  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15786  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15800  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -7341,6 +7341,12 @@ async function exportCSV(){
     log('The uncertainty column scales as 1/√N and is therefore not physically');
     log('meaningful until a real ADU→photon conversion is entered.');
   }
+  // jsOverride — reported gap ("nothing in command line?"): this recorded
+  // no command at all despite completing a real save. No real "parameters"
+  // exist beyond the current result itself (already fully described by the
+  // prose above) — an empty config is fine, same precedent exportPanel()
+  // already established for "no CLI equivalent, that's fine".
+  logCmd({}, 'exportCSV()');
 }
 
 // Save the reconstruction EXACTLY as shown in the SR panel (current zoom/pan,
@@ -7937,6 +7943,7 @@ async function exportCalibration(){
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_calib.json';
   const saved=await saveBlob(blob,name,'JSON calibration','application/json','.json');
   log(saved?`Saved calibration as ${saved}.`:'Save cancelled.');
+  if(saved) logCmd({}, 'exportCalibration()');   // reported gap — same as exportCSV()'s own fix
 }
 
 /* ===========================================================================
@@ -10851,6 +10858,7 @@ async function exportSptSummary(){
   if(!saved){ log('Export cancelled.'); return; }
   const nQualify=rows.filter(r=>isFinite(r.D_coeff)).length;
   log(`Exported ${rows.length.toLocaleString()} track(s) (${nQualify.toLocaleString()} with a D estimate) as ${saved} — one row per track, not per localization (see Save data for that).`);
+  logCmd({}, 'exportSptSummary()');   // reported gap — same as exportCSV()'s own fix
 }
 // "Show track data" — a per-track table (Track's own sptTrackSummary(),
 // the SAME rows "Save track data" writes to CSV) with sortable columns
@@ -13614,14 +13622,20 @@ $('setFile').addEventListener('change',async e=>{
   e.target.value='';
   await loadSettingsJson(f);
 });
-$('saveSetBtn').addEventListener('click',async()=>{
+// Extracted from #saveSetBtn's own former inline click handler (reported —
+// a standing-convention gap the earlier "check all buttons" audit missed:
+// real logic inline in an anonymous listener, and no logCmd() at all
+// despite completing a real save) — same convention as loadSettingsJson(f)
+// right above, its own load-side counterpart.
+async function saveSettingsJson(){
   const values=buildConfigFromParams();
   const obj=buildSettingsJson(values);
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
   const saved=await saveBlob(blob,'webSMLM_settings.json','JSON settings','application/json','.json');
-  if(saved){ log(`Saved settings as ${saved}:`); logParamValues(values); }
+  if(saved){ log(`Saved settings as ${saved}:`); logParamValues(values); logCmd({}, 'saveSettingsJson()'); }
   else log('Save cancelled.');
-});
+}
+$('saveSetBtn').addEventListener('click', saveSettingsJson);
 $('loadCalBtn').addEventListener('click',()=>$('calFile').click());
 // Extracted from #calFile's own former change handler for direct terminal
 // callability (loadCalibrationJson(file)), same convention as
@@ -14949,7 +14963,7 @@ loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
 single-digit milliseconds, not minutes). Load data (.csv) and Simulate
 movie never needed this — see build 07j's own message for why.
 Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08e — applyCropToRaw()/
+log(`webSMLM v0.12.1-dev · build 2026-09-08f — applyCropToRaw()/
 commitSrCrop() now validate their own bounds properly (reported:
 applyCropToRaw(4000,397,667,596) said "region too small", which was
 technically true of the raw x1-x0 arithmetic but had nothing to do
