@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12495  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12503  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,14 +268,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15069  localizations table, filtering, histograms;
+    table           15077  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    15772  window.webSMLM.analyze()/analyzeBatch();
+    headless API    15780  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12335,6 +12335,14 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // the unit (still shown, just coarse — the exact ms value stays in tDetect/
   // tFit/etc. for anything reading these numbers programmatically instead).
   const sec=v=>Math.round(v/1000).toLocaleString().padStart(7);
+  // Compact large counts (42217 -> "42.2k", 1234567 -> "1.23M") — this
+  // fixed-width timing table is meant to stay one line per row (a real
+  // wrapped row breaks the whole table's alignment, and wrapCommentLine()'s
+  // own word-wrap doesn't know these are table columns at all), but
+  // toLocaleString()'s full grouped form ("42,217") ran long enough on a
+  // real multi-ten-thousand-candidate Localize to push the "fit" row past
+  // the log's own 80ch width and force a mid-row wrap — reported.
+  const compactCount=n=> n<1000 ? String(n) : n<1e6 ? (n/1e3).toFixed(1)+'k' : (n/1e6).toFixed(2)+'M';
   if(useWorkers) onLog(`frame I/O   ${sec(tGet)} s        (overlapped with compute, not CPU time)`);
   else           onLog(`frame access${sec(tGet)} s  ${pc(tGet)}`);
   // fetchStack!==stack only when FTM actually ran this Run (see the fetchStack
@@ -12349,7 +12357,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   if(fetchStack!==stack){ const ftmT=useWorkers?ftmWorkMs:fetchStack.ftmMs;
     onLog(`FTM filter  ${sec(ftmT)} s  ${pc(ftmT)}   (temporal median correction, window=${config.ftmWindow})`); }
   onLog(`detect      ${sec(tDetect)} s  ${pc(tDetect)}   (band-pass + maxima)`);
-  onLog(`fit         ${sec(tFit)} s  ${pc(tFit)}   ${nCand.toLocaleString()} candidates → ${locs.length.toLocaleString()} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/candidate`);
+  onLog(`fit         ${sec(tFit)} s  ${pc(tFit)}   ${compactCount(nCand)}→${compactCount(locs.length)} kept (${(100*locs.length/Math.max(1,nCand)).toFixed(0)}%), ${(tFit*1000/Math.max(1,nCand)).toFixed(1)} µs/cand`);
   // previewMs (SR/raw refresh during the Run) and the gap between runMs and
   // dt+previewMs (pool setup + main-thread frame fetch/decode not otherwise
   // broken out) are both wall-clock time OUTSIDE "compute" — surfaced here so
@@ -12357,9 +12365,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // Preview cost scales with the CURRENT locs count each time it fires, so on
   // a long run with millions of localizations it can grow substantially by
   // the end even though early previews were cheap.
-  if(previewMs>50) onLog(`preview     ${sec(previewMs)} s        (SR/raw panel refresh during the Run, not compute; grows with locs found so far)`);
+  if(previewMs>50) onLog(`preview     ${sec(previewMs)} s        (SR/raw refresh, grows with locs)`);
   const otherMs=runMs-dt-previewMs;
-  if(otherMs>50) onLog(`other       ${sec(otherMs)} s        (pool setup, main-thread frame fetch/decode not itemised above)`);
+  if(otherMs>50) onLog(`other       ${sec(otherMs)} s        (pool setup, frame I/O not itemised above)`);
   if(useWorkers){
     // ftmWorkMs is wall time of a SEPARATE barrier-phased pool-parallel stage
     // (row-band FTM correction), not counted in tDetect/tFit — comparing
@@ -12370,7 +12378,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     const ftmT=fetchStack!==stack?ftmWorkMs:0;
     const fitWall=Math.max(dt-ftmT,1e-9);
     const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*fitWall,1e-9);
-    onLog(`↑ ${pool.length} workers · ${util.toFixed(0)}% utilisation on detect/fit (worker CPU ${Math.round(cpu/1000).toLocaleString()} s / ${pool.length}×${Math.round(fitWall/1000).toLocaleString()} s wall${ftmT>50?', excl. the separately barrier-phased FTM stage above':''}).`);
+    onLog(`↑ ${pool.length} workers, ${util.toFixed(0)}% util. — CPU ${Math.round(cpu/1000).toLocaleString()} s vs. ${pool.length}×${Math.round(fitWall/1000).toLocaleString()} s wall${ftmT>50?' (excl. FTM)':''}.`);
     onLog(`Utilisation near 100% means workers stayed fed; low would mean they starved.`);
     onLog(`Note E-cores inflate measured CPU, so this is an upper bound.`);
   }
@@ -14935,7 +14943,7 @@ loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
 single-digit milliseconds, not minutes). Load data (.csv) and Simulate
 movie never needed this — see build 07j's own message for why.
 Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08c — applyCropToRaw()/
+log(`webSMLM v0.12.1-dev · build 2026-09-08d — applyCropToRaw()/
 commitSrCrop() now validate their own bounds properly (reported:
 applyCropToRaw(4000,397,667,596) said "region too small", which was
 technically true of the raw x1-x0 arithmetic but had nothing to do

@@ -169,7 +169,7 @@ relevant one before editing rather than scrolling:
       completion, before the next chunk's FTM phase — never both job types on the pool at once.
       **Required, not just faster**: each worker has exactly one `onmessage` property, not a
       queue, so without the barrier an FTM-correction reply and a detect/fit reply could clobber
-      each other's handler mid-flight. The timing log's `↑ N workers · X% utilisation` line covers
+      each other's handler mid-flight. The timing log's `↑ N workers, X% util.` line covers
       the detect/fit phase only, excluding the separately-reported FTM phase. Each chunk's
       detect/fit phase's `finishChunk()` MUST check `shouldStop()` itself, not just rely on
       `dispatchChunk()`'s own bail-out.
@@ -2010,6 +2010,25 @@ relevant one before editing rather than scrolling:
   calibration method/`localize3D` UI-reveal listeners — was confirmed already correct: a pure view
   toggle, a persisted UI preference, or (live streaming's own Connect/Clear) an interactive-only
   action with no headless equivalent to record.
+
+  **`runCore()`'s own timing-summary log lines are a fixed-width table** (one row per stage — `frame
+  I/O`/`detect`/`fit`/`preview`/`other`, plus the worker-pool `↑ N workers...` utilisation line) —
+  word-wrapping ANY of them mid-row (`wrapCommentLine()`'s own comment-wrap, unaware these are table
+  columns) silently breaks the whole table's alignment, and on a real multi-ten-thousand-candidate
+  Localize a few rows ran long enough to do exactly that (reported — "does not look great", plus a
+  `not` immediately followed by `// compute` with no space, from a wrapped row's own two half-lines
+  landing next to each other). Fixed at the root rather than by widening the wrap width: a new
+  `compactCount(n)` (right next to `sec()`/`pc()`, `runCore()`'s own local helpers) renders large
+  counts as `"42.2k"`/`"1.23M"` instead of `toLocaleString()`'s full grouped form, and the `fit`/
+  `preview`/`other`/worker-utilisation lines' own prose was trimmed (`"kept"` replacing `"candidates
+  → ... kept"`, `"µs/cand"` not `"µs/candidate"`, `"(SR/raw refresh, grows with locs)"` not the
+  original's much longer parenthetical, `"↑ N workers, X% util. — CPU Xs vs. N×Ys wall (excl. FTM)"`
+  not the original's `"X% utilisation on detect/fit (worker CPU ... excl. the separately
+  barrier-phased FTM stage above)"`) — every row now stays comfortably under the `# `/`// ` marker's
+  own 77-char budget (`wrapCommentLine()`'s `width=80` minus the marker) even at unrealistically large
+  worker/CPU-second counts, verified via Playwright against a real, deliberately dense (400 frames,
+  density 2) simulated Localize run (a real ~14k-candidate `fit` row, previously guaranteed to wrap,
+  now a single unwrapped line) rather than just eyeballing hand-picked numbers.
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**: real, but younger and
   less battle-tested than the rest of the app (several real bugs found and fixed via actual
   openframe-rig/Playwright testing this same 0.12.0 cycle — Stop not wired for streaming, the locs
