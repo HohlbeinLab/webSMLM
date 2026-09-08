@@ -1929,19 +1929,45 @@ relevant one before editing rather than scrolling:
   displayed", plus "check all buttons" — a fresh, independent audit). A real gap in the mechanism
   itself, not a per-action one: a `jsOverride` action (`estimateGainOffset()`, `runSptTrack()`, …) is
   a bare no-arg call reading live session state, so JS-style log output showed NOTHING of what it
-  actually used — only CLI style ever rendered `config` (as `--flags`). `jsCommandFor()`'s own
-  `key:value` filter/map logic was extracted into a shared `configBody(config)`, and
-  `formatLogEntry()`'s `'cmd'` branch now prepends `configBody(e.config)` as a `//`-comment directly
-  above a `jsOverride` line, JS style only (CLI already shows it, unaffected). **Does NOT filter out
-  a call site's own leading `<action>:true` marker key** — tried first, then reverted: filtering any
-  literal `true` value is wrong, since some configs carry a REAL boolean *setting* (e.g.
-  `smfretApertureMode`) whose true/false value matters and must stay visible, and there's no reliable
-  way to tell "always-true marker" from "happens to be true right now" from the value alone. Showing
-  the marker too (`// estimateGainOffset:true, pcfoFrames:200, pcfoK:0.9, pcfoRnstd:2.89`) is mildly
-  verbose but always correct, and now matches CLI style's own flags exactly — one underlying
-  `config`, two renderings. `terminalHistoryList()` (↑/↓ recall) is untouched — it already reads
-  `e.jsOverride || jsCommandFor(e.config)` straight from the stored entry, never the rendered display
-  string, so only what's SHOWN changed, not what gets inserted on recall.
+  actually used — only CLI style ever rendered `config` (as `--flags`). **First attempt**: extract
+  `jsCommandFor()`'s own `key:value` filter/map logic into a shared `configBody(config)` and have
+  `formatLogEntry()` prepend it as a `//`-comment above the override. Shipped, then superseded same
+  day on direct follow-up: a separate comment still means copying values BY HAND into a fresh call —
+  the actual ask was "rerun the function from the terminal without much copy paste and just by using
+  the arrow up or down keys to select and edit." **Final design**: `overrideWithFields(config, call)`
+  (next to `configBody()`) makes the override itself self-contained and directly editable — for every
+  `config` key that names a REAL sidebar field, it prefixes `call` with a `$('id').value=...` (or
+  `.checked=...` for a checkbox) assignment, e.g.
+  `` $('pcfoFrames').value=200; $('pcfoK').value=0.9; $('pcfoRnstd').value=2.89; estimateGainOffset() ``
+  — recalling this (↑) loads the WHOLE line into the terminal box already editable; change a number,
+  press Enter, done. A key with no matching element — a bookkeeping marker like
+  `estimateGainOffset:true`, the crop tool's own local `cropX0`/etc. coordinates, a File's `.name` —
+  is silently skipped: `$(k)` simply returns `null` for those, no marker-vs-real-value heuristic
+  needed (the earlier comment-based design's own filtering headache, since a marker is always `true`
+  but so is a legitimate boolean *setting* like `smfretApertureMode` when it's on — that ambiguity
+  doesn't exist here, since the DOM itself is the source of truth for "is this a settable field", not
+  the value). `<input type="file">` is skipped explicitly even though `$('file')` DOES resolve to a
+  real element (the hidden file input shares that id) — browsers block setting a file input's value
+  from script, and `loadFiles()` already takes the filename as a literal call argument instead
+  (resolved via `resolveTerminalFileValue()`). Setting `.value`/`.checked` this way does NOT fire the
+  field's own `change` listeners — exactly what's wanted, since the trailing `call` is what actually
+  runs the action once, with the just-set values already in place, the same "set the field, then call
+  the action" idiom `sptLocErrorFromNenaBtn`'s own programmatic `$('sptLocError').value=...` write
+  already relies on. `formatLogEntry()`'s own comment-injection branch is gone again — now redundant,
+  since the values are already embedded in the runnable line itself; it's back to
+  `` e.jsOverride || jsCommandFor(e.config) `` for JS style, unchanged from before round 2 started.
+  `terminalHistoryList()` (↑/↓ recall) needed no changes at all across either attempt — it already
+  reads `e.jsOverride` straight from the stored entry, so enriching what gets STORED (this round's
+  actual fix) automatically enriches both the log display and the recall for free. Applied to every
+  `jsOverride` call site uniformly (`logCmd(cmdCfg, overrideWithFields(cmdCfg, '...'))`), including
+  ones where it's a provable no-op (`computeNeNA`/`computeFRC`'s marker-only config,
+  `applyCropToRaw`'s own non-field crop coordinates) — cheap, and means a future config field added to
+  any of them starts benefiting automatically with no second "remember to wire this" step.
+  `loadFiles()`'s own override gained a small bonus from this uniform treatment: `pxnm`/`frametime`
+  (real sidebar fields, unlike `file`) now get their own assignment prefix too, previously invisible
+  in JS style entirely. `exportPanel()`'s call site is the one deliberate exception, left unwrapped —
+  its config is a bare `{}` by design (`which` is already the whole story, embedded in the call
+  itself), so wrapping it can never do anything.
 
   This one change improved every existing `jsOverride` site for free. The audit (an Explore agent
   reading all 84 `click` + 51 `change` listeners, cross-referenced against the 20 `logCmd(` sites,

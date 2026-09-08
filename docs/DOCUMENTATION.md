@@ -403,17 +403,23 @@ where to look — [§2](#2-module-reference) names the function behind almost
 every control already.
 
 A no-arg function like `estimateGainOffset()` reads its parameters straight
-from the sidebar rather than taking them as arguments, so the logged line
-alone doesn't show what values it actually used — that's what a `//`-prefixed
-comment directly above it is for: the same key:value pairs CLI style would
-show as `--flags`, e.g.
+from the sidebar rather than taking them as arguments, so the logged command
+sets each field to the value that was actually used, right before the call,
+e.g.
 ```
-// estimateGainOffset:true, pcfoFrames:200, pcfoK:0.9, pcfoRnstd:2.89
-estimateGainOffset()
+$('pcfoFrames').value=200; $('pcfoK').value=0.9; $('pcfoRnstd').value=2.89; estimateGainOffset()
 ```
-Recalling (↑) only ever inserts the runnable line itself, never the comment
-— it's there purely so you can see what ran and copy a value into a fresh
-call by hand.
+Recalling this (↑) loads the WHOLE line — field assignments and all — into
+the terminal box already editable: change any number, press Enter, and it
+sets that field then re-runs the action with it, no separate copy-paste
+step. Setting a field this way doesn't fire its own `change` listeners
+(the trailing call is what actually runs the action) — the same
+"set the field, then call the action" idiom **Get from NeNA** already uses
+for `sptLocError`. A key with no matching sidebar field (a bookkeeping
+flag, a crop tool's own local coordinates, a loaded file's name) is left
+out of the assignments and only affects the call's own arguments if it's
+one already — e.g. `applyCropToRaw(120, 80, 640, 480)` needs no field
+assignments at all, since crop bounds aren't sidebar fields to begin with.
 
 A few things to know: the terminal only runs **JavaScript** — a line logged
 in CLI style (`node webSMLM-cli.mjs --file ...`) won't work here; switch the
