@@ -663,7 +663,17 @@ relevant one before editing rather than scrolling:
   walk, THEN DOUBLED as a safety margin (the raw half-max width alone came out ~1° against real
   data, vs. the ~5° that actually worked by hand). Both histograms draw the currently configured
   window as markers (`computeHist()`'s optional 4th `markers` param), refreshed live on field edits
-  and after a fit via `refreshSSmlmHistIfShown()`.
+  and after a fit via `refreshSSmlmHistIfShown()`. **Its own "is the sSMLM histogram currently
+  showing" check was stale** (reported: Fit angle & tol. updated the log/fields but not the Angles
+  plot) — the polar angle plot (`drawSSmlmAnglePolar()`, below) never sets `rawPlotName`/`histData`
+  at all (only the distance histogram, via `drawHistogram()`, does either), so the old
+  `rawPlotName!=='histogram'||!histData` guard always bailed out whenever the angle view was the one
+  on screen. Fixed by checking `$('rawTitle').textContent==='sSMLM histograms'` instead — the one
+  thing `drawSSmlmHist()` sets unconditionally for BOTH modes — then just calling `drawSSmlmHist()`
+  itself, which already re-dispatches to whichever mode (`sSmlmHistMode`) is current and re-reads the
+  live angle fields; no other change needed. Verified via Playwright: with the Angles plot showing,
+  clicking **Fit angle & tol.** now visibly redraws it at the new center/tolerance (confirmed via a
+  changed canvas checksum), not just the log line and the underlying fields.
 
   **The distance histogram's own min/max markers are directly draggable** (requested) — a dedicated
   IIFE (MODULE: table, physically right before the existing "Column-histogram X-axis zoom" IIFE)

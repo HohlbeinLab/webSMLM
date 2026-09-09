@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10699   single particle tracking, trackpy-inspired;
+    spt             10709   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12237  top-level orchestration, *Core()/wrapper split;
+    pipeline        12247  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12893  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12903  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15456  localizations table, filtering, histograms;
+    table           15455  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9941,9 +9941,19 @@ $('sSmlmDistMax').addEventListener('change',syncSSmlmZRangeFromDist);
 // is already on screen — otherwise the lines go stale until the next manual
 // Show dist./angle hist. click. No-op if a different plot (or no plot, or
 // no candidates yet) is currently showing.
+//
+// Checked via $('rawTitle') rather than rawPlotName/histData — a real,
+// reported bug: the angle mode is now the polar plot (drawSSmlmAnglePolar(),
+// above), which never sets rawPlotName to 'histogram' or touches histData at
+// all (only dist mode, via drawHistogram(), does either) — so this always
+// silently no-op'd whenever the angle/polar view was the one showing,
+// including right after Fit angle & tol.'s own refreshSSmlmHistIfShown()
+// call. drawSSmlmHist() itself sets $('rawTitle') to the same fixed
+// 'sSMLM histograms' text for BOTH modes (see its own comment), and already
+// re-reads sSmlmHistMode/the live angle fields to dispatch to whichever mode
+// is current — exactly what's needed here, so no other change was required.
 function refreshSSmlmHistIfShown(){
-  if(!sSmlmLastCands || !rawIsPlot || rawPlotName!=='histogram' || !histData) return;
-  if(histData.col!=='sSMLM pair distance' && histData.col!=='sSMLM pair angle') return;
+  if(!sSmlmLastCands || $('rawTitle').textContent!=='sSMLM histograms') return;
   drawSSmlmHist();
 }
 $('sSmlmDistMin').addEventListener('change',refreshSSmlmHistIfShown);
@@ -15310,26 +15320,20 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09a — smFRET label renames
-(1st frame is → First frame; Fix SOI x,y for time traces → Fix sites of
-interest (SOI), now default ON; Floor intensities to 0 → Set negative
-intensities to zero; Average frames → Average # of frames, moved to the
-top of the module). SOI composite and Data projection now share ONE
-donor/acceptor toggle (previously Localize SOI always mixed both
-excitation channels together and hid the toggle entirely) — checking
-Alternating laser excitation? after a composite already exists
-recomputes it automatically. A new Contrast slider appears next to the
-reconstruction panel whenever either composite is showing, same fixed
-[black,white] stretch the raw panel's own uses, redrawing without
-re-averaging the stack. New "Channels to show" (DD+DA / DD+DA+AA,
-default DD+DA) stops Get time traces from auto-including AA just
-because ALEX is on. Fixed a real correctness bug found while working
-through the sSMLM/smFRET pairing tangle: AA (direct acceptor
-EXCITATION) was always sampled at the donor's own position even once a
-real, spatially different acceptor position was known from pairing —
-now reads at the acceptor's own paired position, like DA already does,
-falling back to the donor's position only when unpaired. Verified via
-Playwright against the real ALEX dataset throughout.
+log(`webSMLM v0.12.1-dev · build 2026-09-09b — fixed a real bug:
+clicking Fit angle & tol. updated the log line and the Primary
+angle/Angle tolerance fields, but not the Angles plot itself if that's
+what was currently showing (reported). refreshSSmlmHistIfShown()'s own
+"is the sSMLM histogram showing" check was stale — it looked for
+rawPlotName==='histogram' plus histData, which the polar angle plot
+never sets (only the distance histogram does, via drawHistogram()) —
+so the refresh always silently no-op'd in angle mode. Fixed by checking
+$('rawTitle').textContent==='sSMLM histograms' instead, the one thing
+drawSSmlmHist() sets for both modes, then just calling it — it already
+re-dispatches to whichever mode is current. Verified via Playwright:
+Fit angle & tol. with the Angles plot showing now visibly redraws it
+at the new center/tolerance (a changed canvas checksum), not just the
+underlying fields.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
