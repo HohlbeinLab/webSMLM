@@ -1016,19 +1016,18 @@ relevant one before editing rather than scrolling:
   already reset (the ~9 "reclaim the panel" blocks, including the two smFRET-specific ones that
   don't go through the generic reset — `locateSmfretSOI()`'s own invalidation branch and
   `clearSmfretFixSOI()`'s tail block), so a stale stash never leaks into an unrelated later result.
-  (3) `drawDepthBar()` (MODULE: render) now overlays `sSmlmDistFit`'s own curve — the SAME curve
-  the distance histogram shows — directly on the colour-scale bar whenever the reconstruction is
-  showing a paired sSMLM result (gated on `isFinite(lastResult.locs[0].dist)`, the same detection
-  `getSmfretTimeTraces()` already uses), requested ("as in the distances plot, the colour plot
-  should show the fitting function"). Confined entirely WITHIN the bar's own existing `[x,x+bw]`
-  width (right edge = high density, left edge = low, a thin profile line rather than a filled
-  silhouette extending into the margin) rather than drawn in the space around it, since the bar
-  itself is user-draggable (`depthBarPos`) — margin space isn't reliably available wherever it's
-  been dragged to, but the bar's own interior always is. Verified via Playwright against the real
-  ALEX/prism reproduction dataset: Preview alone now sets Distance min/max to `343`/`677` nm (no
-  separate Fit click needed), Pair switches the Colour map to `hsvBlue` and Unpair correctly
-  restores a distinctively different pre-Pair selection (`viridis`, in the test), and the
-  reconstruction's own colour bar shows real, non-zero magenta curve pixels once paired.
+  (3) **First attempt (superseded the same round)**: `drawDepthBar()` (MODULE: render) overlaid
+  `sSmlmDistFit`'s own curve directly on the reconstruction's colour-scale bar, on the reading that
+  "the colour plot" in "as in the distances plot, the colour plot should show the fitting function"
+  meant that bar. **Corrected on direct follow-up** — it meant the Angles polar plot itself, not the
+  colour bar at all; the colour-bar overlay was reverted (`drawDepthBar()` is back to its original,
+  pre-curve form) and the real fit went to `drawSSmlmAnglePolar()` instead (documented in its own
+  module bullet, below, along with a real modelling bug caught while building it — a single-bump
+  model locking onto whichever of the doubled-bearing data's two genuine mirror peaks happened to
+  look marginally taller). Verified via Playwright against the real ALEX/prism reproduction dataset
+  for the two changes that stood: Preview alone now sets Distance min/max to `343`/`677` nm (no
+  separate Fit click needed), and Pair switches the Colour map to `hsvBlue` while Unpair correctly
+  restores a distinctively different pre-Pair selection (`viridis`, in the test).
 
   **Three more requests on the same round.** (1) Changing **Background profile** now re-fits
   outright (`if(sSmlmLastCands && sSmlmLastCands.length) fitSSmlmDistAndAngle();`) instead of just
@@ -1050,6 +1049,40 @@ relevant one before editing rather than scrolling:
   changing Background profile after a fit already exists re-fits with a genuinely different result
   (not just a cached copy — `343→342` nm on Distance min in the test), and dragging a line grabbed
   at `R+20` (past the OLD hit radius, within the new one) successfully changes Primary angle.
+
+  **The Angles plot now overlays its own fitted curve too** (corrected, same round — see the
+  colour-bar paragraph above for the misread this replaces). A flat-background + Gaussian-signal
+  mixture, same `fitSSmlmDist()` engine the distance histogram's own curve uses, with `bgPdf=()=>1`
+  instead of the box/disk PDF (a random unpaired candidate is equally likely at any bearing, so the
+  background contributes no shape parameters at all, only its own linear amplitude). **A real
+  modelling bug caught while building this, not shipped**: fitting a single Gaussian bump directly
+  against the raw 360° angle histogram is wrong, because the doubled-bearing data (every candidate
+  plots BOTH `rawAngle` and `rawAngle+180`, `sSmlmCandidates()`'s own row-order fairness fix) always
+  has TWO genuine, equal-height peaks exactly 180° apart — a single bump can only explain one of
+  them, and risks the fit locking onto whichever mirror happens to look marginally taller (checked
+  directly: it did — the fit converged with `mu` nearly 182° away from the already-known-good
+  half-max estimate, onto the OTHER mirror peak instead). Fixed by FOLDING the histogram to its true
+  180°-periodic domain first — `folded[i]=hist[i]+hist[i+nb/2]` sums each bin with its own mirror,
+  merging the two peaks into one genuine peak — THEN re-centering (same reasoning the distance fit's
+  own domain never needed, since it doesn't wrap at all) and fitting on that folded domain via a new
+  shared `wrap180(x,lo)` (next to `wrap360()`, same idea at period 180 — used by both
+  `fitSSmlmDistAndAngle()`'s own folding and `drawSSmlmAnglePolar()`'s matching curve evaluation, so
+  the two can never disagree on convention). The fitted `p`/`muFoldAbs` are stored in a new
+  `sSmlmAngleFit` (mirroring `sSmlmDistFit`, cleared at the same single point — a fresh Preview —
+  that already invalidates `sSmlmDistFit`, matching that variable's own established "not at every
+  reclaim block, the buttons being disabled already prevents reaching a stale one" precedent).
+  `sSmlmAngleCenter`/`sSmlmAngleTol` themselves are deliberately UNCHANGED by any of this — still set
+  from the original, already-validated (±5° against real data) peak/half-max-width method; the new
+  fit is purely a display overlay, not a replacement estimator, to avoid risking a working, tuned
+  heuristic on an unvalidated new one. **Drawing exploits the fold's own periodicity directly**:
+  `wrap180(deg-muFoldAbs,-90)` maps `deg` and `deg+180` to the IDENTICAL relative offset by
+  construction, so evaluating the folded model (halved, since it was fit against a SUMMED pair of
+  bins) across the full 360° circle automatically traces both real mirror peaks correctly with no
+  separate "which mirror is which" bookkeeping at all. Verified via Playwright: the curve evaluates
+  to the exact same value at the fitted centre and at centre+180° (`579.54` both times in the real
+  test, confirming the periodicity), close to zero (background-only) 90° away from either peak, and
+  `muFoldAbs` lands within 1° of the independent half-max estimate (`-87.95°` vs. `-87°`) — the two
+  methods agreeing despite being computed completely differently.
 
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
