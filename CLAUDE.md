@@ -1290,6 +1290,116 @@ relevant one before editing rather than scrolling:
   the checksum of the ORIGINAL donor view, not the acceptor one) — the parity math, not just the
   on-screen label, was checked.
 
+  **A round of label renames, reordering, and real fixes (v0.12.1-dev, requested).** Four
+  cosmetic-only renames, no id/param-name changes: **1st frame is** → **First frame**;
+  **Fix SOI x,y for time traces** → **Fix sites of interest (SOI)**, default now CHECKED (`true` —
+  only visible before the first stack load or after a Load Settings round-trip that omits it, since
+  `initScrub()` still force-unchecks it on every fresh stack load, unchanged — this checkbox
+  remains a status flag, not a sticky preference); **Floor intensities to 0** → **Set negative
+  intensities to zero** (`apertureIntensity()`'s own behaviour is unchanged, only the label). **Average
+  frames** → **Average # of frames**, moved to the FIRST row of `smfretBox` (previously last of the
+  detection-adjacent settings) — a genuinely more prominent position for the one setting every
+  Localize SOI run actually depends on.
+
+  **SOI composite/Data projection ALEX toggle, unified** (real gap fixed, reported: "we already have
+  the toggle when loading data?! ... the toggle is only present when alternating laser excitation is
+  ticked, which would mean that if data is loaded yet the box is not ticked, the composite should be
+  recalculated"). Previously `smfretSOICore()`'s own average was NEVER parity-aware — Localize SOI
+  always mixed both excitation channels into one composite regardless of ALEX, and `locateSmfretSOI()`
+  unconditionally HID `alexProjToggleBtn` — the exact toggle **Data projection** already uses for its
+  own donor/acceptor split. Fixed by making the two composites share ONE toggle/state
+  (`alexProjChannel`) rather than each having its own, since they're mutually-exclusive views of the
+  same underlying parity-restricted averaging operation, just at different points in a session
+  (before vs. after Localize SOI). `smfretSOICore()` gained two optional config fields —
+  `alexEnabled`/`alexFirstFrame` (already PARAMS ids) plus `smfretSoiChannel` (`'donor'|'acceptor'`,
+  NOT a PARAMS field — mirrors the interactive-only `alexProjChannel` directly, so a headless caller
+  wanting a filtered composite passes it explicitly; omitting it keeps the original whole-range
+  average regardless of `alexEnabled`, so no existing headless caller's behaviour silently changes) —
+  when both are set, it calls `averageFramesByParity()` instead of the plain `averageFrames()`, same
+  parity math `showStackProjection()` already uses. `refreshAlexProjectionIfShown()` was generalized
+  from a single `if($('srTitle').textContent!=='Data projection') return;` check into a dispatcher on
+  that same title text, re-running `locateSmfretSOI()` when it reads `'SOI composite'` (guarded on
+  `smfretSOI!==null`) — this is what makes checking **Alternating laser excitation?** AFTER an SOI
+  composite already exists correctly recompute it (the literal scenario reported), not just Data
+  projection. The composite's own toggle button is labelled with smFRET's own trace vocabulary
+  (**DD+DA**/**AA**, the target channel clicking it switches to) rather than Data projection's
+  **Donor dir. exc.**/**Acceptor dir. exc.** wording, since DD+DA/AA is what these sites actually
+  become once Get time traces runs; `srInfo` gains a matching `"— composite of 30/60 donor-excitation
+  (DD+DA) frames · N site(s) of interest"`-style readout. **Two pre-existing, unrelated bugs caught
+  and fixed along the way**: `locateSmfretSOI()`'s own pairing-state-reset block, and
+  `clearSmfretFixSOI()`'s own tail block, BOTH unconditionally hid `alexProjToggleBtn` regardless of
+  whether Data projection (reachable from either path) had just correctly shown it moments earlier —
+  a real, previously-latent bug (Data projection's own toggle silently disappearing after an SOI
+  pairing was reset, or after unchecking **Fix SOI x,y**, whenever ALEX was on) that this same
+  unification work made newly obvious. Verified via Playwright against the real ALEX dataset: SOI
+  composite correctly reports **286** donor-excitation vs. **283** acceptor-excitation sites (genuinely
+  different averages, not a cached/stale redraw), toggling flips both the label and `srInfo` text, and
+  unchecking then re-checking **Alternating laser excitation?** while the composite is showing
+  correctly reverts to the mixed 60-frame average and then back to the parity-filtered one.
+
+  **SR-panel Contrast slider** (v0.12.1-dev, requested — "add the contrast slider on the same
+  horizontal level" as the raw panel's own, whenever SOI composite/Data projection is shown). Both
+  composites are plain averaged-frame grayscale images built exactly the way a raw frame is, so the
+  same fixed-range `[black,white]` stretch applies: `srBlack`/`srWhite`/`srContrastMax` mirror
+  `rawBlack`/`rawWhite`/`rawContrastMax` exactly, and `renderSrCompositeCanvas(proj,w,h,resetRange)`
+  (next to `redrawRawContrast()`, MODULE: render) reuses the SAME `rawContrastLUT()` — a plain
+  0..65535 grayscale lookup agnostic to which panel's data it's stretching — clamped/truncated the
+  identical way `drawRaw()`'s own hot loop already does. `srCompositeProj` holds the RAW
+  (un-normalized) averaged pixel data behind whichever composite is showing, so a slider drag
+  (`redrawSrContrast()`) redraws without re-averaging the stack; `resetRange=true` (passed by both
+  composite-build call sites, and by **Auto**) re-estimates `[srBlack,srWhite]` from that data's own
+  actual min/max — the exact range the original always-auto-stretch code produced, so this is
+  pixel-for-pixel backward compatible until a user actually touches a slider. `#srContrastRow` sits
+  in the SR panel's own `.panel-body`, shown/hidden via `setSrContrastRowVisible()` at the exact same
+  ~9 call sites `alexProjToggleBtn` itself is shown/hidden at (a plain grep-and-replace over the
+  existing "reclaim the panel" reset blocks) — EXCEPT `showStackProjection()`'s/`locateSmfretSOI()`'s
+  own non-ALEX branches, which must show the contrast row too (a composite is still genuinely up,
+  just without the donor/acceptor toggle) — a real bug from the initial blanket find-and-replace,
+  caught and fixed before shipping by re-reading both call sites individually rather than trusting
+  the bulk edit alone. **`#srContrastSpacer`** (an invisible, `visibility:hidden` — not `display:none`
+  — clone of `#scrubRow`'s own row structure, shown/hidden in lockstep with `#srContrastRow`) is what
+  actually delivers "same horizontal level": the raw panel typically has its ordinary Frame scrubber
+  ABOVE its own Contrast row whenever a composite is being viewed (before any Localize run), so the
+  SR panel needs an equivalently-tall placeholder row of its own or its Contrast row would sit one
+  row higher, at the raw panel's scrubber height instead of its Contrast row's — using the identical
+  DOM structure/CSS classes (not a guessed pixel height) guarantees the same rendered height by
+  construction. Verified via Playwright: `#srContrastRow` reads `flex` display and real, data-derived
+  `srBlack`/`srWhite` values (e.g. `86`/`1301` on the real ALEX dataset, not the `0`/`255` placeholder
+  defaults) the moment either composite shows, and dragging **White** produces a genuinely different
+  canvas pixel checksum without re-fetching any frames.
+
+  **Get time traces channel selector + a real AA-position bug fix** (v0.12.1-dev). New **Channels to
+  show** (`smfretTraceChannels`, `'DD+DA'`/`'DD+DA+AA'`, default `'DD+DA'`) row, shown only when
+  **Alternating laser excitation?** is checked (same visibility gate as **First frame**) — reported:
+  the plot previously auto-included AA the instant ALEX was on, with no way to see just DD+DA even
+  when that's all that was wanted ("I thought I mentioned to plot DD and DA before we figure out the
+  linking with AA"). `getSmfretTimeTraces()`'s own `showAA = alex && paramValue('smfretTraceChannels')
+  ==='DD+DA+AA'` now gates BOTH whether `photonsAA` is even allocated and whether it's populated
+  during the per-frame loop — `drawSmfretTrace()` needed no changes at all, since it already treats
+  `site.photonsAA` truthiness as "does this curve exist." Auto-reruns Get time traces on change, same
+  convention `smfretApertureMode`/`smfretFloorZero` already use.
+
+  Separately, a genuine correctness bug in AA's own EXTRACTION POSITION, found while working through
+  the sSMLM/smFRET "how does AA relate to a spatial donor/acceptor pairing" tangle: AA
+  (direct-acceptor-EXCITATION) was always sampled at the DONOR's own position `(x,y)`, even once a
+  real, spatially-DIFFERENT acceptor position `(x2,y2)` was known from Spectral SMLM analysis pairing
+  — only correct for an unsplit single-channel system. In this app's own real spectrally-split
+  (prism/dichroic) datasets, during a direct-acceptor-excitation frame the acceptor's own emission
+  physically belongs at the ACCEPTOR channel's position, exactly like DA already reads there. Fixed:
+  `getSmfretTimeTraces()`'s per-frame loop now reads AA at `(x2,y2)` whenever `paired`, falling back
+  to `(x,y)` only when there's no known separate acceptor position at all — same fallback shape DA's
+  own `paired` check already has. Verified via Playwright on the real ALEX dataset: for a paired
+  site's own first acceptor-excitation frame with a finite AA sample, the value `getSmfretTimeTraces()`
+  actually stored (`1059.485...`) matches `smfretExtractIntensity()` called directly at `(x2,y2)`
+  exactly, and clearly does NOT match the same call at `(x,y)` (`0` — a real, unambiguous difference,
+  not a rounding coincidence).
+
+  The **"Donor vs acceptor" button** — exposing `pairCore()`'s own existing directional
+  0th/1st-order role classification under smFRET's donor/acceptor terminology, instead of smFRET
+  silently assuming 0th=donor/1st=acceptor is always right — and linking a direct-acceptor-excitation
+  (AA) composite's own sites to these donor-channel DD/DA pairs both stay explicitly open, deliberately
+  deferred follow-ups, not attempted this round.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

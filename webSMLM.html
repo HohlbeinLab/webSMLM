@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2590   PARAMS registry, single source of truth for params;
+    params          2618   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3462   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3491   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3761   synthetic stack generator ("Simulate movie")
-    detect          4639   per-frame band-pass + local-maxima detection
-    fit             4916   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3790   synthetic stack generator ("Simulate movie")
+    detect          4668   per-frame band-pass + local-maxima detection
+    fit             4945   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5555   accumulate to offscreen buffer; view/colour/blur;
+    render          5584   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -82,14 +82,14 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6872   frame-parallel detect/fit worker pool; dedicated
+    workers         6966   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7182   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7510   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7276   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7604   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -100,7 +100,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           7976   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8070   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -110,9 +110,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8506   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8600   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9240   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9334   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit angle & tol./Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10522   single particle tracking, trackpy-inspired;
+    spt             10699   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12060  top-level orchestration, *Core()/wrapper split;
+    pipeline        12237  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   12716  Micro-Manager/pycromanager camera bridge
+    liveStreaming   12893  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15280  localizations table, filtering, histograms;
+    table           15456  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-08i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2425,20 +2425,25 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="smfretBox">
         <summary>(Caution!) smFRET (experimental)</summary>
-        <label class="row" title="Frames alternate between direct donor and direct acceptor excitation (ALEX). Turns on the 1st-frame-role selector below and a donor/acceptor toggle on the Data projection view.">Alternating laser excitation?
+        <label class="row">Average # of frames
+          <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
+        <label class="row" title="Frames alternate between direct donor and direct acceptor excitation (ALEX). Turns on the First-frame-role selector below and a donor/acceptor toggle on the Data projection/SOI composite views.">Alternating laser excitation?
           <input type="checkbox" id="alexEnabled"></label>
-        <label class="row" id="alexFirstFrameRow" style="display:none">1st frame is
+        <label class="row" id="alexFirstFrameRow" style="display:none">First frame
           <select id="alexFirstFrame" class="sel">
             <option value="dirDonorExc">Direct donor excitation</option>
             <option value="dirAcceptorExc">Direct acceptor excitation</option>
           </select></label>
-        <label class="row">Average frames
-          <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
-        <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get time traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix SOI x,y for time traces
-          <input type="checkbox" id="smfretFixSOI"></label>
+        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots. DD+DA only reads donor-excitation frames (at the donor position, and — once sites are paired via Spectral SMLM analysis — at the paired acceptor position too). DD+DA+AA additionally reads direct-acceptor-excitation frames.">Channels to show
+          <select id="smfretTraceChannels" class="sel">
+            <option value="DD+DA">DD+DA</option>
+            <option value="DD+DA+AA">DD+DA+AA</option>
+          </select></label>
+        <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get time traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix sites of interest (SOI)
+          <input type="checkbox" id="smfretFixSOI" checked></label>
         <label class="row" title="Get time traces below: use a published aperture-photometry method (circular signal disk + a separate background annulus, background from its 56th percentile) instead of fitting a standard 2D Gaussian MLE at each frame (seeded at the site, position free). No iterative fit to diverge — avoids the rare remaining case where the fit still produces an implausible result on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
           <input type="checkbox" id="smfretApertureMode"></label>
-        <label class="row" title="Aperture photometry's own background-subtracted intensity is floored at 0 by default (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Floor intensities to 0
+        <label class="row" title="Aperture photometry's own background-subtracted intensity is set to 0 by default when negative (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Set negative intensities to zero
           <input type="checkbox" id="smfretFloorZero" checked></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
@@ -2447,12 +2452,12 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
-          <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>1st frame is</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This only affects the <b>Data projection</b> view shown before any Localize/Calibration result exists: a toggle appears next to its title (<b>Donor dir. exc.</b>/<b>Acceptor dir. exc.</b>, named for whichever it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected separately. The raw (left) panel and every other analysis step are untouched — no donor/acceptor channel sorting elsewhere yet.</p>
-          <p><b>Localize SOI</b> averages the first <b>Average frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix SOI x,y for time traces</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
-          <p>Once an SOI composite is showing, changing <b>Average frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out.</p>
-          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Floor intensities to 0</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
-          <p>With <b>Alternating laser excitation?</b> checked, each site's trace splits into <b>DD</b> (direct-donor-excitation frames, green) and <b>AA</b> (direct-acceptor-excitation frames, blue), overlaid on the same plot. Pairing the sites first (<b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, which works on Localize SOI's sites the same way it pairs an ordinary sSMLM 0th/1st-order candidate) additionally splits DD into <b>DD</b> and <b>DA</b> (FRET) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active — unchanged from before this existed). Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA pairs is not yet implemented.</p>
-          <p><i>If <b>Average frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
+          <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame, and <b>Channels to show</b> (see Get time traces below). This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
+          <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
+          <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
+          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
+          <p>With <b>Alternating laser excitation?</b> checked, <b>Channels to show</b> picks whether the plot includes just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also <b>AA</b> (direct-acceptor-excitation frames, blue). Pairing the sites first (<b>Spectral SMLM analysis</b>'s own <b>Preview pairs</b>/<b>Pair</b>, which works on Localize SOI's sites the same way it pairs an ordinary sSMLM 0th/1st-order candidate) additionally splits DD into <b>DD</b> and <b>DA</b> (FRET, always shown once paired, independent of the Channels setting) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). Once paired, AA is read at the acceptor's own position too, not the donor's — the physically correct channel for direct acceptor excitation. DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active). Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA pairs is not yet implemented.</p>
+          <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
       <details class="sim" id="sptBox">
@@ -2564,6 +2569,29 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <div id="calViewRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span style="color:var(--muted);font-size:12px">Calibration graph</span>
             <button id="calViewBtn" class="logbtn" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button>
+          </div>
+          <!-- Same row structure as #scrubRow (raw panel), but visibility:hidden
+               rather than display:none, purely so it occupies the SAME height —
+               keeps #srContrastRow below at the same horizontal level as the raw
+               panel's own #rawContrastRow when the ordinary Frame scrubber is
+               showing there (the common case while a composite is up: SOI
+               composite/Data projection appear before Localize ever runs). -->
+          <div id="srContrastSpacer" style="display:none;visibility:hidden;margin-top:8px;align-items:center;gap:10px">
+            <span style="font-size:12px">Frame</span>
+            <input type="range" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
+            <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
+              <input type="number" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px">
+            </span>
+          </div>
+          <div id="srContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to this composite">
+            <span style="color:var(--muted);font-size:12px">Contrast</span>
+            <div class="dualrange" style="flex:0 1 55%">
+              <div id="srContrastFill" class="dualrange-fill"></div>
+              <input type="range" id="srBlack" min="0" max="255" step="1" value="0">
+              <input type="range" id="srWhite" min="0" max="255" step="1" value="255">
+            </div>
+            <span class="val" id="srContrastV" style="min-width:110px;text-align:right;font-size:12px;white-space:nowrap">B &amp; W: 0-255</span>
+            <button id="srContrastAutoBtn" class="logbtn" title="Reset Black/White to the full auto-stretched range">Auto</button>
           </div>
         </div>
       </div>
@@ -2831,8 +2859,9 @@ const PARAMS = {
   // smfretFixSOI mirrors calFixedXY's own role (freeze positions instead of
   // re-detecting) — auto-checked by locateSmfretSOI() itself on every
   // successful run, not something the user is expected to check by hand. ----
-  smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average frames', min:1, max:100000, step:10, default:100, int:true },
-  smfretFixSOI: { type:'bool', id:'smfretFixSOI', label:'Fix SOI x,y for time traces', default:false },
+  smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average # of frames', min:1, max:100000, step:10, default:100, int:true },
+  smfretFixSOI: { type:'bool', id:'smfretFixSOI', label:'Fix sites of interest (SOI)', default:true },
+  smfretTraceChannels: { type:'enum', id:'smfretTraceChannels', label:'Channels to show', options:['DD+DA','DD+DA+AA'], default:'DD+DA' },
   smfretApertureMode: { type:'bool', id:'smfretApertureMode', label:'Aperture photometry (no fit)', default:false },
   // Default true (preserves the previous, always-floored behaviour).
   // Unticking lets apertureIntensity()'s own genuinely negative
@@ -2843,7 +2872,7 @@ const PARAMS = {
   // the separate "a rejected MLE fit reports 0" convention is a different
   // concept (no molecule this frame, not a floored computed value) and is
   // untouched by this.
-  smfretFloorZero: { type:'bool', id:'smfretFloorZero', label:'Floor intensities to 0', default:true },
+  smfretFloorZero: { type:'bool', id:'smfretFloorZero', label:'Set negative intensities to zero', default:true },
   // alexEnabled/alexFirstFrame are step one of the "ALEX frame-role
   // bookkeeping" prerequisite docs/REFACTOR_PLAN.md's own smFRET/ALEX
   // sketch calls out as needed before any DD/DA/AA/AD sorting — just which
@@ -2851,7 +2880,7 @@ const PARAMS = {
   // = 0-based index 0 = "even" parity; alexFirstFrame picks which physical
   // excitation that parity means.
   alexEnabled: { type:'bool', id:'alexEnabled', label:'Alternating laser excitation?', default:false },
-  alexFirstFrame: { type:'enum', id:'alexFirstFrame', label:'1st frame is', options:['dirDonorExc','dirAcceptorExc'], default:'dirDonorExc' },
+  alexFirstFrame: { type:'enum', id:'alexFirstFrame', label:'First frame', options:['dirDonorExc','dirAcceptorExc'], default:'dirDonorExc' },
 
   // ---- spt (single particle tracking) ----
   // Defaults ported from the user's own sptPALM-Python pipeline's
@@ -6669,6 +6698,71 @@ function redrawRawContrast(){
   if(!rawPixelData || rawSegView) return;   // segmentation view repurposes rawPixelData for label lookups, not ADU — dragging Contrast while it's shown must no-op, not corrupt it through the grayscale mapping
   drawRaw(rawPixelData.arr, rawPixelData.w, rawPixelData.h, rawSpots, rawLocs);
 }
+// SR-panel Contrast slider (v0.12.2-dev, requested — "when SOI composite or
+// Data projection window is shown, add the contrast slider on the same
+// horizontal level" as the raw panel's own). Both of those views are plain
+// averaged-frame grayscale composites built exactly the way a raw frame is
+// (showStackProjection()/locateSmfretSOI(), MODULE: pipeline/smFRET), so the
+// same fixed-range [black,white] stretch and LUT machinery applies —
+// srBlack/srWhite/srContrastMax mirror rawBlack/rawWhite/rawContrastMax
+// exactly, just for the SR (right) panel. srCompositeProj holds the RAW
+// (un-normalized) averaged pixel data behind whichever composite is
+// currently shown, so a slider drag can redraw without re-averaging the
+// stack; null whenever neither composite is showing (a real reconstruction
+// has no such float data to stretch — export()'s own srFull is already a
+// colourized RGB image, not a single-channel intensity array).
+let srBlack=0, srWhite=255, srContrastMax=255, srCompositeProj=null;
+// Builds (or rebuilds, at new contrast) the composite canvas from its own
+// raw float pixel data. resetRange=true re-estimates [srBlack,srWhite] from
+// this data's own actual min/max first (a fresh average has its own,
+// different natural range) — false (slider-drag redraws) keeps whatever the
+// user last set. Mirrors drawRaw()'s own lut[v<0?0:(v>65535?65535:v)|0]
+// clamp-and-truncate exactly, reusing the SAME rawContrastLUT() (a plain
+// 0..65535 grayscale lookup, agnostic to which panel's data it's stretching).
+function renderSrCompositeCanvas(proj, w, h, resetRange){
+  if(resetRange){
+    let mn=Infinity,mx=-Infinity; for(const v of proj){ if(v<mn)mn=v; if(v>mx)mx=v; }
+    if(!(mx>mn)){ mn=0; mx=1; }
+    srContrastMax=mx; srBlack=mn; srWhite=mx;
+  }
+  srCompositeProj={data:proj, w, h};
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const ctx=cv.getContext('2d'), im=ctx.createImageData(w,h);
+  const lut=rawContrastLUT(srBlack,srWhite);
+  for(let i=0;i<proj.length;i++){ const v=proj[i], g=lut[v<0?0:(v>65535?65535:v)|0];
+    im.data[i*4]=g; im.data[i*4+1]=g; im.data[i*4+2]=g; im.data[i*4+3]=255; }
+  ctx.putImageData(im,0,0);
+  syncSrContrastUI();
+  return cv;
+}
+// Reflects srContrastMax/srBlack/srWhite onto the slider row — same
+// thumb-inset math as syncRawContrastUI()'s own comment explains.
+function syncSrContrastUI(){
+  const bEl=$('srBlack'), wEl=$('srWhite'); if(!bEl||!wEl) return;
+  bEl.max=wEl.max=srContrastMax; bEl.value=srBlack; wEl.value=srWhite;
+  const DUALRANGE_THUMB_PX=14;
+  const frac=v=>srContrastMax>0?v/srContrastMax:0;
+  const fillX=f=>`calc(${f}*(100% - ${DUALRANGE_THUMB_PX}px) + ${DUALRANGE_THUMB_PX/2}px)`;
+  const fB=frac(srBlack), fW=frac(srWhite);
+  $('srContrastFill').style.left=fillX(fB);
+  $('srContrastFill').style.width=`calc(${Math.max(0,fW-fB)}*(100% - ${DUALRANGE_THUMB_PX}px))`;
+  $('srContrastV').textContent=`B & W: ${srBlack.toFixed(0)}-${srWhite.toFixed(0)}`;
+}
+// Re-renders the currently-cached composite at the new contrast without
+// re-averaging the stack — same "redraw from a cached source" shape as
+// redrawRawContrast() above.
+function redrawSrContrast(){
+  if(!srCompositeProj) return;
+  srFull=renderSrCompositeCanvas(srCompositeProj.data, srCompositeProj.w, srCompositeProj.h, false);
+  drawView();
+}
+// Single place setting BOTH #srContrastRow and its own #srContrastSpacer
+// (the invisible scrubRow-shaped placeholder right above it, see that
+// element's own comment) — the two must always show/hide together.
+function setSrContrastRowVisible(v){
+  $('srContrastRow').style.display = v ? 'flex' : 'none';
+  $('srContrastSpacer').style.display = v ? 'flex' : 'none';
+}
 // Each window can also show a direct-drawn vector plot with no *Full source:
 // the LEFT (raw) panel shows the drift curve, the RIGHT (sr) panel the
 // calibration plot. These flags say a plot is up, so "Save image" can snapshot
@@ -9795,7 +9889,7 @@ function unpairSSmlm(){
   renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   rerender(true);
   $('sSmlmUnpairBtn').disabled=true;
-  $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none';
+  $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false);
   log(`Unpaired — restored ${lastResult.locs.length.toLocaleString()} original localizations (was ${nPaired.toLocaleString()} pairs).`);
 }
 // Inline toggle on the reconstruction panel itself — same "button in the
@@ -9892,12 +9986,30 @@ let smfretShowRawFrame=false;
 // loading already gives it. checkStack must be false for a headless caller
 // (see averageFrames()'s own comment on why) — true (default) for the
 // interactive wrapper below, matching every other averageFrames() call site.
+// Two OPTIONAL extra fields (v0.12.2-dev) make the composite ALEX-aware,
+// unifying it with showStackProjection()'s own Data-projection view rather
+// than always mixing both excitation channels into one average the way
+// this always did before: config.alexEnabled/alexFirstFrame (both already
+// PARAMS ids, so a headless caller passes them the same way as any other
+// field) plus config.smfretSoiChannel ('donor'|'acceptor', NOT a PARAMS
+// field — it mirrors the interactive-only alexProjChannel toggle shared
+// with Data projection, so a headless caller wanting a filtered composite
+// passes it directly). Omitting smfretSoiChannel keeps the original
+// whole-range average regardless of alexEnabled — never a silent behaviour
+// change for an existing headless caller that doesn't know about this yet.
 async function smfretSOICore(config, stack, checkStack=true){
   const n=Math.min(stack.n, Math.max(1, config.smfretAvgFrames|0));
   const {w,h}=stack, sigma=config.psf, win=2*config.winr+1,
         exactBP=config.detection_DoG_exactbp, mode=config.detFilter, border=(win-1)/2+1;
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[mode];
-  const r=await averageFrames(stack, 0, n, config.stackProjCap, checkStack);
+  let r;
+  if(config.alexEnabled && config.smfretSoiChannel){
+    const donorParity = config.alexFirstFrame==='dirDonorExc' ? 0 : 1;
+    const parity = config.smfretSoiChannel==='donor' ? donorParity : 1-donorParity;
+    r = await averageFramesByParity(stack, 0, n, parity, config.stackProjCap, checkStack);
+  }else{
+    r = await averageFrames(stack, 0, n, config.stackProjCap, checkStack);
+  }
   if(!r) return null;                                 // stack changed underneath us (interactive only)
   const {img:proj,used}=r;
   const {maxima}=detectSpots(proj,w,h,sigma,exactBP,mode,k,border);
@@ -9928,10 +10040,17 @@ async function locateSmfretSOI(){
   if(smfretTraces){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
     $('smfretTraceModeBtn').style.display='none';
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
+  const alex=paramValue('alexEnabled');
   const cfg={ smfretAvgFrames:paramValue('smfretAvgFrames'), psf:paramValue('psf'), winr:paramValue('winr'),
     detFilter:paramValue('detFilter'), detection_wavelet_thr:paramValue('detection_wavelet_thr'),
     detection_DoG_thr:paramValue('detection_DoG_thr'), detection_box_thr:paramValue('detection_box_thr'),
-    detection_DoG_exactbp:paramValue('detection_DoG_exactbp'), stackProjCap:paramValue('stackProjCap') };
+    detection_DoG_exactbp:paramValue('detection_DoG_exactbp'), stackProjCap:paramValue('stackProjCap'),
+    // Unified with Data projection's own donor/acceptor toggle (see
+    // refreshAlexProjectionIfShown()'s own comment) — alexProjChannel is
+    // the SAME shared state that view uses, since the two composites are
+    // mutually-exclusive views of the same underlying operation.
+    alexEnabled:alex, alexFirstFrame:paramValue('alexFirstFrame'),
+    smfretSoiChannel: alex ? (alexProjChannel==='dirDonorExc'?'donor':'acceptor') : undefined };
   try{
     const core=await smfretSOICore(cfg, stack);
     if(!core) return;                               // stack changed underneath us
@@ -9961,17 +10080,29 @@ async function locateSmfretSOI(){
     // undoing any zoom/pan the user had while tuning a faint signal in
     // (reported).
     const sizeChanged = !srFull || srFull.width!==w || srFull.height!==h;
-    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-    const cctx=cv.getContext('2d'), im=cctx.createImageData(w,h);
-    let mn=Infinity,mx=-Infinity; for(const v of proj){ if(v<mn)mn=v; if(v>mx)mx=v; }
-    for(let idx=0;idx<proj.length;idx++){ const t=mx>mn?(proj[idx]-mn)/(mx-mn):0, g=t*255;
-      im.data[idx*4]=g; im.data[idx*4+1]=g; im.data[idx*4+2]=g; im.data[idx*4+3]=255; }
-    cctx.putImageData(im,0,0);
-    srFull=cv; srIsPlot=false; srSpots=maxima; srLocs=fitted; setSrRecon(false);
+    srFull=renderSrCompositeCanvas(proj, w, h, true);
+    srIsPlot=false; srSpots=maxima; srLocs=fitted; setSrRecon(false);
     if(sizeChanged || !view.zoom) fitView();
     clampView(); drawView();
     $('srTitle').textContent='SOI composite';
-    $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
+    setSrContrastRowVisible(true);
+    // Same donor/acceptor toggle + wording convention showStackProjection()
+    // uses for its own Data-projection view (shared alexProjChannel state,
+    // see refreshAlexProjectionIfShown()'s own comment) — labelled with
+    // smFRET's own trace terminology (DD+DA/AA) rather than that view's
+    // "Donor dir. exc."/"Acceptor dir. exc." wording, since that's the
+    // vocabulary these sites will actually appear under once Get time
+    // traces runs.
+    if(alex){
+      const n=Math.min(stack.n, Math.max(1, cfg.smfretAvgFrames|0));
+      const chLabel = cfg.smfretSoiChannel==='donor' ? 'donor-excitation (DD+DA)' : 'acceptor-excitation (AA)';
+      $('srInfo').textContent=`— composite of ${used}/${n} ${chLabel} frames · ${fitted.length} site(s) of interest`;
+      $('alexProjToggleBtn').style.display='';
+      $('alexProjToggleBtn').textContent = cfg.smfretSoiChannel==='donor' ? 'AA' : 'DD+DA';
+    }else{
+      $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
+      $('alexProjToggleBtn').style.display='none';
+    }
     syncSaveImg();
     // "Fix SOI x,y for time traces" is a STATUS flag, not a user-facing toggle
     // (see its own change listener below) — every successful Localize SOI
@@ -10010,7 +10141,10 @@ async function locateSmfretSOI(){
     renderLocs=null; _tableFilters=[];
     sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a fresh SOI result invalidates any prior pairing state
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
-    $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none';
+    // alexProjToggleBtn is NOT hidden here — its visibility/label were just
+    // set above based on cfg.alexEnabled, unrelated to the sSMLM-pairing
+    // state this block otherwise resets.
+    $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
     $('tableBtn').disabled=!fitted.length; $('saveBtn').disabled=!fitted.length;
     $('sSmlmPreviewBtn').disabled=!fitted.length; $('sSmlmPairBtn').disabled=!fitted.length;
     log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest `+
@@ -10064,7 +10198,13 @@ function clearSmfretFixSOI(){
     $('tableBtn').disabled=true; $('saveBtn').disabled=true;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
-    $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none';
+    // alexProjToggleBtn is NOT force-hidden here (a real, pre-existing gap
+    // caught while unifying it with the SOI composite, see
+    // refreshAlexProjectionIfShown()'s own comment) — showStackProjection()
+    // above already set its correct visibility/label for Data projection;
+    // unconditionally hiding it again right after would incorrectly clobber
+    // that whenever ALEX is on.
+    $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none';
   }
 }
 $('smfretFixSOI').addEventListener('change',clearSmfretFixSOI);
@@ -10229,12 +10369,18 @@ async function getSmfretTimeTraces(){
   // count as "donor excitation" for DA's own purposes.
   const alex = paramValue('alexEnabled');
   const donorParity = alex ? (paramValue('alexFirstFrame')==='dirDonorExc' ? 0 : 1) : 0;
+  // showAA: AA is only ever meaningful with ALEX on (no alternation, no
+  // separate acceptor-excitation frames to read at all) AND only when the
+  // user has explicitly asked for it via Channels to show — reported: the
+  // plot used to auto-include AA the moment ALEX was on, with no way to
+  // see just DD+DA even when that's all that was wanted.
+  const showAA = alex && paramValue('smfretTraceChannels')==='DD+DA+AA';
   const traces = sites.map(s=>({ x:s.x, y:s.y,
     photonsDD: new Float64Array(n).fill(NaN),
-    photonsAA: alex ? new Float64Array(n).fill(NaN) : null,
+    photonsAA: showAA ? new Float64Array(n).fill(NaN) : null,
     photonsDA: paired ? new Float64Array(n).fill(NaN) : null }));
   log(`smFRET: Get time traces — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s)`
-    + `${paired?' (DD+DA paired)':''}${alex?' · ALEX':''} across ${n} frames…`);
+    + `${paired?' (DD+DA paired)':''}${showAA?' · ALEX':''} across ${n} frames…`);
   $('smfretTimeTracesBtn').disabled=true;
   try{
     let lastYield=performance.now();
@@ -10243,11 +10389,26 @@ async function getSmfretTimeTraces(){
       const isDonorExc = !alex || (fi%2===donorParity);
       for(let j=0;j<sites.length;j++){
         const s=sites[j], cx=Math.round(s.x), cy=Math.round(s.y);
-        const val=smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero);
-        if(!alex || isDonorExc) traces[j].photonsDD[fi]=val; else traces[j].photonsAA[fi]=val;
-        if(paired && isDonorExc){
-          const cx2=Math.round(s.x2), cy2=Math.round(s.y2);
-          traces[j].photonsDA[fi]=smfretExtractIntensity(img,w,h,cx2,cy2,win,sigma,gain,camoffset,useAperture,floorZero);
+        if(isDonorExc){
+          traces[j].photonsDD[fi]=smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero);
+          if(paired){
+            const cx2=Math.round(s.x2), cy2=Math.round(s.y2);
+            traces[j].photonsDA[fi]=smfretExtractIntensity(img,w,h,cx2,cy2,win,sigma,gain,camoffset,useAperture,floorZero);
+          }
+        }else if(showAA){
+          // AA is direct-acceptor-EXCITATION, so — once a spatial pairing
+          // exists — its emission physically belongs at the ACCEPTOR's own
+          // channel position (x2,y2), not the donor's, exactly like DA
+          // already reads there. Previously always sampled at (x,y)
+          // regardless of pairing, which was only correct for an unsplit
+          // single-channel system; falls back to (x,y) when there's no
+          // known separate acceptor position at all.
+          if(paired){
+            const cx2=Math.round(s.x2), cy2=Math.round(s.y2);
+            traces[j].photonsAA[fi]=smfretExtractIntensity(img,w,h,cx2,cy2,win,sigma,gain,camoffset,useAperture,floorZero);
+          }else{
+            traces[j].photonsAA[fi]=smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero);
+          }
         }
       }
       // Many sites × many frames, most of which won't even contain a real
@@ -10276,7 +10437,7 @@ async function getSmfretTimeTraces(){
     log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
     // jsOverride — reported gap: a real per-frame fit/aperture-photometry
     // computation over every site with real tunable params, never logged.
-    const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture, smfretFloorZero:floorZero};
+    const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture, smfretFloorZero:floorZero, smfretTraceChannels:paramValue('smfretTraceChannels')};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'getSmfretTimeTraces()'));
   }catch(err){ log(`⚠ Get time traces failed: ${err.name}: ${err.message}`); }
   finally{ $('smfretTimeTracesBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
@@ -10293,21 +10454,33 @@ $('smfretApertureMode').addEventListener('change', ()=>{ if(smfretTraces) getSmf
 $('smfretFloorZero').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(); });
 // ALEX (alternating laser excitation) frame-role bookkeeping — step one of
 // docs/REFACTOR_PLAN.md's own smFRET/ALEX sketch: just which frames are
-// direct donor- vs. direct acceptor-excitation, surfaced via the Data projection view.
-// Re-runs showStackProjection() only if it's the thing currently showing —
-// that function already no-ops harmlessly otherwise, but checking first
-// avoids a wasted whole-stack average when it isn't.
+// direct donor- vs. direct acceptor-excitation, surfaced via the Data
+// projection view AND (v0.12.2-dev, unified on request) smFRET's own SOI
+// composite — both are the SAME parity-restricted averaging operation,
+// just at different points in a session (before vs. after Localize SOI),
+// so they share the one alexProjChannel toggle/state rather than each
+// having its own.
+// Re-runs whichever one is actually showing (checked by its own srTitle
+// text) — each of the two underlying functions already no-ops harmlessly
+// when it isn't the thing on screen, but checking first here avoids a
+// wasted whole-stack average when neither applies.
 function refreshAlexProjectionIfShown(){
-  if($('srTitle').textContent!=='Data projection') return;
-  // showStackProjection() itself refuses to draw over non-empty srFull (a
-  // guard against clobbering a real result that claimed the panel while it
-  // was awaiting frame data) — but that's exactly what's on screen right
-  // now (its OWN prior output), so clear it first to let it redraw.
-  srFull=null; srIsPlot=false; srSpots=null; srLocs=null;
-  showStackProjection();
+  const title=$('srTitle').textContent;
+  if(title==='Data projection'){
+    // showStackProjection() itself refuses to draw over non-empty srFull (a
+    // guard against clobbering a real result that claimed the panel while it
+    // was awaiting frame data) — but that's exactly what's on screen right
+    // now (its OWN prior output), so clear it first to let it redraw.
+    srFull=null; srIsPlot=false; srSpots=null; srLocs=null;
+    showStackProjection();
+  }else if(title==='SOI composite' && smfretSOI!==null){
+    locateSmfretSOI();
+  }
 }
 function toggleAlexEnabled(){
-  $('alexFirstFrameRow').style.display = $('alexEnabled').checked ? '' : 'none';
+  const on=$('alexEnabled').checked;
+  $('alexFirstFrameRow').style.display = on ? '' : 'none';
+  $('smfretTraceChannelsRow').style.display = on ? '' : 'none';
   refreshAlexProjectionIfShown();
 }
 function toggleAlexProjChannel(){
@@ -10317,6 +10490,10 @@ function toggleAlexProjChannel(){
 $('alexEnabled').addEventListener('change', toggleAlexEnabled);
 $('alexFirstFrame').addEventListener('change', refreshAlexProjectionIfShown);
 $('alexProjToggleBtn').addEventListener('click', toggleAlexProjChannel);
+// Auto-rerun Get time traces when the channel selection itself changes,
+// same "refresh an existing result, don't auto-start a fresh one"
+// convention smfretApertureMode/smfretFloorZero already use.
+$('smfretTraceChannels').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(); });
 // True while the raw panel is owned by the smFRET site scrubber rather than
 // the ordinary loaded-stack Frame one — same role liveStreamOwnsRawPanel()
 // plays for its own scrubber, checked by the same wheel-scrub routing (MODULE:
@@ -12630,7 +12807,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   try{
     const method=paramValue('method');
     const localize3D=paramValue('localize3D');
@@ -13319,14 +13496,10 @@ async function showStackProjection(){
   // for it once alexEnabled is unchecked again.
   _projCache = alex ? null : {stack:st, first, last, img:r.img, used:r.used};
   const {w,h}=st, {img:proj,used}=r;
-  let mn=Infinity,mx=-Infinity; for(let k=0;k<proj.length;k++){ const v=proj[k]; if(v<mn)mn=v; if(v>mx)mx=v; }
-  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-  const ctx=cv.getContext('2d'), im=ctx.createImageData(w,h);
-  for(let k=0;k<proj.length;k++){ const t=mx>mn?(proj[k]-mn)/(mx-mn):0, g=t*255;
-    im.data[k*4]=g; im.data[k*4+1]=g; im.data[k*4+2]=g; im.data[k*4+3]=255; }
-  ctx.putImageData(im,0,0);
-  srFull=cv; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); fitView(); clampView(); drawView();
+  srFull=renderSrCompositeCanvas(proj, w, h, true);
+  srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); fitView(); clampView(); drawView();
   $('srTitle').textContent='Data projection';
+  setSrContrastRowVisible(true);
   if(alex){
     const chLabel={dirDonorExc:'direct donor excitation',dirAcceptorExc:'direct acceptor excitation'}[alexProjChannel];
     $('srInfo').textContent=`— average of ${used}/${st.n} ${chLabel} frames · run localisation to reconstruct`;
@@ -13365,7 +13538,7 @@ async function runSimulation(){
     // was running — see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
     stack=generated; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -13405,7 +13578,7 @@ async function loadMovieFiles(fs){
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -13624,6 +13797,9 @@ $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
 $('rawBlack').addEventListener('input',e=>{ rawBlack=Math.min(+e.target.value,rawWhite-1); syncRawContrastUI(); redrawRawContrast(); });
 $('rawWhite').addEventListener('input',e=>{ rawWhite=Math.max(+e.target.value,rawBlack+1); syncRawContrastUI(); redrawRawContrast(); });
+$('srBlack').addEventListener('input',e=>{ srBlack=Math.min(+e.target.value,srWhite-1); syncSrContrastUI(); redrawSrContrast(); });
+$('srWhite').addEventListener('input',e=>{ srWhite=Math.max(+e.target.value,srBlack+1); syncSrContrastUI(); redrawSrContrast(); });
+$('srContrastAutoBtn').addEventListener('click',()=>{ if(!srCompositeProj) return; srFull=renderSrCompositeCanvas(srCompositeProj.data, srCompositeProj.w, srCompositeProj.h, true); drawView(); });
 $('rawContrastAutoBtn').addEventListener('click',async()=>{
   // Streaming has no `stack` at all (see MODULE: pipeline) — while it owns the raw panel
   // (liveStreamOwnsRawPanel()), re-estimate from whatever raw frames are currently cached
@@ -13985,7 +14161,7 @@ async function loadCsvFile(f){
     $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
-    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
     $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the histograms themselves need a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
@@ -14033,7 +14209,7 @@ function applyHeadlessResultToSession(result){
   $('saveBtn').disabled=false; $('tableBtn').disabled=false; $('driftBtn').disabled=false;
   $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
   $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
-  $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
+  $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
   $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   $('rawInfo').textContent='— no raw frame data (result from a log-terminal analyze() call)';
 }
@@ -14699,7 +14875,7 @@ function resetAfterCropChange(){
   // would otherwise try to write lastResult.locs on a null lastResult) — same
   // reset every fresh Run/Load/Simulate already does, needed here for the
   // same reason: a crop/uncrop is just as much "new data" for this state.
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
 }
 // Applies the raw-panel crop tool's selected rectangle: swaps `stack` for a
 // makeCroppedStack() wrapper and resets everything derived from the old FOV.
@@ -15134,31 +15310,26 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-08i — smFRET Get time traces:
-new "Floor intensities to 0" checkbox (default on) lets a real negative
-background-subtracted aperture-photometry value through when unticked,
-better fitting an intensity distribution than an artificial floor.
-With ALEX on, the trace plot now splits into DD (donor excitation,
-green) and AA (direct acceptor excitation, blue) curves read at the
-same site position; pairing the SOI set via Spectral SMLM analysis
-further splits DD into DD and DA (FRET, magenta, drawn on the same
-graph) — read at the pair's own 0th/1st-order positions. pairCore()
-itself now keeps every pair's 1st-order x2,y2 and its own directed
-pairAngle (not just dist), a general sSMLM improvement, not
-smFRET-specific — new optional CSV/table columns. The trace plot is
-also now x-axis zoomable (wheel/pinch/drag, dbl-click to reset), same
-pattern as the SPT MSD/line-profile plots. Fixed a real bug caught
-before shipping: ALEX's own per-frame alternation means a split
-channel's array is NaN on every OTHER frame by construction (not a
-gap, just not that channel's turn) — the line-drawing loop originally
-reset on every NaN regardless, so no two real samples were ever two
-frames apart and nothing ever stroked a visible line. Fixed by having
-each curve skip frames outside its own parity without breaking
-continuity, only breaking on a genuine same-parity gap. Also: Spectral
-SMLM analysis / smFRET (experimental) / Single particle tracking's own
-sidebar section labels now carry a "(Caution!)" prefix — a plain visual
-warning that these are specific, scope-limited methods, not
-general-purpose techniques (visual only, element ids unchanged).
+log(`webSMLM v0.12.1-dev · build 2026-09-09a — smFRET label renames
+(1st frame is → First frame; Fix SOI x,y for time traces → Fix sites of
+interest (SOI), now default ON; Floor intensities to 0 → Set negative
+intensities to zero; Average frames → Average # of frames, moved to the
+top of the module). SOI composite and Data projection now share ONE
+donor/acceptor toggle (previously Localize SOI always mixed both
+excitation channels together and hid the toggle entirely) — checking
+Alternating laser excitation? after a composite already exists
+recomputes it automatically. A new Contrast slider appears next to the
+reconstruction panel whenever either composite is showing, same fixed
+[black,white] stretch the raw panel's own uses, redrawing without
+re-averaging the stack. New "Channels to show" (DD+DA / DD+DA+AA,
+default DD+DA) stops Get time traces from auto-including AA just
+because ALEX is on. Fixed a real correctness bug found while working
+through the sSMLM/smFRET pairing tangle: AA (direct acceptor
+EXCITATION) was always sampled at the donor's own position even once a
+real, spatially different acceptor position was known from pairing —
+now reads at the acceptor's own paired position, like DA already does,
+falling back to the donor's position only when unpaired. Verified via
+Playwright against the real ALEX dataset throughout.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
