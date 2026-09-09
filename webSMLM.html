@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2632   PARAMS registry, single source of truth for params;
+    params          2642   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3513   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3523   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3812   synthetic stack generator ("Simulate movie")
-    detect          4690   per-frame band-pass + local-maxima detection
-    fit             4967   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3822   synthetic stack generator ("Simulate movie")
+    detect          4700   per-frame band-pass + local-maxima detection
+    fit             4977   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5606   accumulate to offscreen buffer; view/colour/blur;
+    render          5616   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -81,15 +81,19 @@
                            otherwise. rerender() is also async now, with a monotonic
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
-                           still never rejects, all fire-and-forget as before)
-    workers         6994   frame-parallel detect/fit worker pool; dedicated
+                           still never rejects, all fire-and-forget as before);
+                           drawAxisScaleLabel() draws a "×10ⁿ" axis label as
+                           two separately-sized pieces (real superscript,
+                           not the tiny Unicode glyph) — one implementation
+                           replacing 3 duplicated fillText() call sites
+    workers         7032   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7304   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7632   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7342   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7670   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -100,7 +104,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8098   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8136   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -110,19 +114,25 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8628   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8666   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9362   spectrally resolved SMLM pair-finding; renamed
-                           "Pairing (spectral SMLM & FRET)"; merged Show
+    sSMLM           9400   spectrally resolved SMLM pair-finding; renamed
+                           "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
                            angle button removed, folded into Preview pairs'
                            own auto-fit); previewSSmlmPairsCore()/
                            pairSSmlm() split out of previewSSmlmPairs()/
                            runSSmlmPair() so smFRET's own Get from pairing
-                           button can preview+pair silently, with no view
-                           switch or LUT/z-range/rerender side effects;
-                           runSSmlmPair() logCmd()s its own cfg on success;
+                           button can preview+pair, redrawing the histogram
+                           but silent toward the reconstruction panel (no
+                           LUT/z-range/rerender), and filter the SOI
+                           composite's own ROI/crosshair overlay down to
+                           just the pairing survivors; red-line drag on the
+                           Angles polar plot folds the offset mod 180 so
+                           either end of the diameter yields the same tol
+                           (real bug: the far end read back a wildly wrong
+                           value); runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject;
@@ -135,7 +145,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             11157   single particle tracking, trackpy-inspired;
+    spt             11236   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -166,7 +176,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12695  top-level orchestration, *Core()/wrapper split;
+    pipeline        12774  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -221,7 +231,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13352  Micro-Manager/pycromanager camera bridge
+    liveStreaming   13431  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -275,14 +285,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15908  localizations table, filtering, histograms;
+    table           16004  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    16621  window.webSMLM.analyze()/analyzeBatch();
+    headless API    16717  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2011,7 +2021,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2280,7 +2290,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Gauss MLE 2D spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
           <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
           </ul>
-          <p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing (spectral SMLM &amp; FRET) → Primary angle).</p>
+          <p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing (sSMLM &amp; FRET) → Primary angle).</p>
           <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation?</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
           <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
           <ul>
@@ -2403,7 +2413,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="sSmlmBox">
-        <summary>(Caution) Pairing (spectral SMLM & FRET)</summary>
+        <summary>(Caution!) Pairing (sSMLM & FRET)</summary>
         <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
         <label class="row" title="The shape assumed for the region the localizations occupy, for the &quot;random unpaired pairs&quot; background model Preview pairs' own automatic distance fit uses — a rectangle (the actual localization bounding box) or a circle (the equivalent-area disk). Real optical setups vary, so this isn't guessed from the data.">Background profile
@@ -2444,7 +2454,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="dirDonorExc">Direct donor excitation</option>
             <option value="dirAcceptorExc">Direct acceptor excitation</option>
           </select></label>
-        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots. DD+DA only reads donor-excitation frames (at the donor position, and — once sites are paired via Get from pairing/Pairing (spectral SMLM &amp; FRET) — at the paired acceptor position too). DD+DA+AA additionally reads direct-acceptor-excitation frames.">Channels to show
+        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots. DD+DA only reads donor-excitation frames (at the donor position, and — once sites are paired via Get from pairing/Pairing (sSMLM &amp; FRET) — at the paired acceptor position too). DD+DA+AA additionally reads direct-acceptor-excitation frames.">Channels to show
           <select id="smfretTraceChannels" class="sel">
             <option value="DD+DA">DD+DA</option>
             <option value="DD+DA+AA">DD+DA+AA</option>
@@ -2457,7 +2467,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="checkbox" id="smfretFloorZero" checked></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
-          <button id="smfretPairingBtn" type="button" disabled title="Pair the sites of interest (donor-excitation channel) using Pairing (spectral SMLM &amp; FRET)'s own settings, silently — fits the candidate window and commits the pairing without switching either panel's view, so a later Get time traces can read the resulting DD/DA positions">Get from pairing</button>
+          <button id="smfretPairingBtn" type="button" disabled title="Pair the sites of interest (donor-excitation channel) using Pairing (sSMLM &amp; FRET)'s own settings — fits the candidate window, shows the resulting Distances/Angles histogram in the raw (left) panel, and commits the pairing without switching the reconstruction (right) panel's view, so a later Get time traces can read the resulting DD/DA positions">Get from pairing</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, and plot the resulting intensity-vs-frame time traces in the raw (left) panel">Get time traces</button>
@@ -2466,11 +2476,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
           <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame, and <b>Channels to show</b> (see Get time traces below). This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
-          <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (spectral SMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Get from pairing</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
+          <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Get from pairing</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal.</p>
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
-          <p><b>Get from pairing</b> runs <b>Pairing (spectral SMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do) directly from here, using the current sites of interest — <b>silently</b>: it fits the distance/angle window and commits the pairing (writing each site's paired acceptor position/distance), but does none of that module's own reconstruction-panel side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace is currently showing here. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites (the channel that gives donor/acceptor, i.e. DD/DA, intensity pairs) — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA, exactly as if <b>Pair &amp; plot sSMLM</b> had been clicked in the other module.</p>
+          <p><b>Get from pairing</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do) directly from here, using the current sites of interest: it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram (the same feedback Preview pairs itself gives), and commits the pairing (writing each site's paired acceptor position/distance) — but skips that module's own RECONSTRUCTION-panel side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites (the channel that gives donor/acceptor, i.e. DD/DA, intensity pairs) — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. If the SOI composite is still showing when this succeeds, its own ROI boxes and numbered crosshairs are also filtered down to just the sites that survived pairing — a site with no partner drops out of the overlay rather than staying shown as if it were still valid. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA, exactly as if <b>Pair &amp; plot sSMLM</b> had been clicked in the other module.</p>
           <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
-          <p>With <b>Alternating laser excitation?</b> checked, <b>Channels to show</b> picks whether the plot includes just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also <b>AA</b> (direct-acceptor-excitation frames, blue). Pairing the sites first (<b>Get from pairing</b> above, or <b>Pairing (spectral SMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) additionally splits DD into <b>DD</b> and <b>DA</b> (FRET, always shown once paired, independent of the Channels setting) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). Once paired, AA is read at the acceptor's own position too, not the donor's — the physically correct channel for direct acceptor excitation. DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active). Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA pairs is not yet implemented.</p>
+          <p>With <b>Alternating laser excitation?</b> checked, <b>Channels to show</b> picks whether the plot includes just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also <b>AA</b> (direct-acceptor-excitation frames, blue). Pairing the sites first (<b>Get from pairing</b> above, or <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) additionally splits DD into <b>DD</b> and <b>DA</b> (FRET, always shown once paired, independent of the Channels setting) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). Once paired, AA is read at the acceptor's own position too, not the donor's — the physically correct channel for direct acceptor excitation. DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active). Linking a direct-acceptor-excitation (AA) composite's own sites to these donor-channel DD/DA pairs is not yet implemented.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -6067,10 +6077,38 @@ const PLOT_FONT='sans-serif';   // one standard font for all in-graph text
 // notation's multiple-of-3 rounding, which would leave 750000 as "750×10³"
 // — three digits, not the "1-2 digit" ticks this is meant to produce).
 function axisScale(maxAbs){
-  if(!isFinite(maxAbs) || maxAbs<1000) return {scale:1, decimals:0, label:''};
+  if(!isFinite(maxAbs) || maxAbs<1000) return {scale:1, decimals:0, exp:0, label:''};
   const exp=Math.floor(Math.log10(maxAbs));
   const sup='⁰¹²³⁴⁵⁶⁷⁸⁹';
-  return {scale:Math.pow(10,exp), decimals:1, label:'×10'+String(exp).split('').map(d=>sup[+d]).join('')};
+  return {scale:Math.pow(10,exp), decimals:1, exp, label:'×10'+String(exp).split('').map(d=>sup[+d]).join('')};
+}
+// Draws an axisScale() label ("×10ⁿ") as two separately-sized pieces rather
+// than relying on Unicode superscript glyphs (⁰¹²³…) for the exponent —
+// reported as reading too small and cramped against "10" (font-dependent:
+// the Unicode superscript block's own glyph metrics run noticeably smaller/
+// tighter than a real superscript would). "×10" draws at the caller's own
+// font size; the exponent draws as a PLAIN digit string at a dedicated,
+// still-smaller-but-clearly-larger-than-the-Unicode-glyph size, raised
+// above the baseline with an explicit gap after "10" — a manual superscript,
+// full control over both size and spacing instead of trusting the font's
+// own (font-dependent) superscript rendering. Replaces the identical
+// `ctx.fillText(scale.label,...)` block previously duplicated at all 3 call
+// sites (drawPcfoPlot()/drawSmfretTrace()/drawHistogram()); `align` matches
+// those sites' own `textAlign` ('right' everywhere so far, but a caller
+// could pass 'left').
+function drawAxisScaleLabel(ctx, scale, x, y, align){
+  if(!scale || !scale.label) return;
+  const baseFont=ctx.font, expFont='10px '+PLOT_FONT, GAP=2, RAISE=4;
+  const base='×10', expStr=String(scale.exp);
+  ctx.font=baseFont; const baseW=ctx.measureText(base).width;
+  ctx.font=expFont; const expW=ctx.measureText(expStr).width;
+  let baseX, expX;
+  if(align==='left'){ baseX=x; expX=x+baseW+GAP; }
+  else { expX=x; baseX=x-expW-GAP-baseW; }   // 'right' (the only other caller convention today): anchor the WHOLE label's right edge at x
+  const prevAlign=ctx.textAlign; ctx.textAlign='left';
+  ctx.font=baseFont; ctx.fillText(base, baseX, y);
+  ctx.font=expFont; ctx.fillText(expStr, expX, y-RAISE);
+  ctx.font=baseFont; ctx.textAlign=prevAlign;
 }
 // Colour palette every plot-draw function reads from. On screen, read LIVE
 // from the active UI theme's own CSS custom properties (--panel/--line/
@@ -6317,7 +6355,7 @@ function drawView(){
   } else {
     ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
   }
-  if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI);   // bead-composite view only; numbered only for smFRET's own SOI composite, not 3D calibration's bead composite sharing this same path
+  if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI || (!!srLocs && !!srLocs.__pairedSOI));   // bead-composite view only; numbered only for smFRET's own SOI composite (or a pairing-filtered subset of it — see getSmfretPairingFromDonor()), not 3D calibration's bead composite sharing this same path
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
   // Cache the drawn rect (or null when not shown) for the depth-bar drag
   // hit-test (see depthBarPos's own comment) — this is the only call site
@@ -7539,7 +7577,7 @@ async function exportPanel(which){
   ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
   ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
   ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
-  if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
+  if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI || (!!srLocs && !!srLocs.__pairedSOI)); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
   else drawRawOverlays(ctx,DW,DH);
   ctx.restore();
   const note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
@@ -9240,7 +9278,7 @@ function drawPcfoPlot(){
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('noise variance (ADU²)',0,0); ctx.restore();
   // Same 12px as the tick labels/axis titles above — reported as reading
   // too small next to them at the previous 11px.
-  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; drawAxisScaleLabel(ctx, yScale, mL, mT-8, 'right'); }
   ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT;
   ctx.fillStyle=C.axis; ctx.fillText(`gain = ${(1/fit.gain).toFixed(3)} photons/ADU · offset = ${fit.offset.toFixed(1)} ADU · R² = ${pcfoLastR2.toFixed(4)}`, mL+pw, mT-4);
   $('rawInfo').textContent='— PCFO: image signal vs. noise variance per tile · slope→gain, intercept→offset · scrub a frame to return';
@@ -10429,7 +10467,14 @@ async function smfretSOICore(config, stack, checkStack=true){
   // every other one, exactly as intended for a position set with no real
   // temporal structure of its own.
   for(const [cx,cy] of maxima){ const L=gaussianFitElliptical(proj,w,h,cx,cy,win,sigma);
-    if(L) fitted.push({x:L.x, y:L.y, sx:L.sx, sy:L.sy, sigma:(L.sx+L.sy)/2, photons:L.photons, bg:L.bg, bgstd:L.bgstd, frame:0}); }
+    // _maxCx/_maxCy: the ORIGINATING detected-maximum position (internal
+    // bookkeeping, not exported/tabled — a leading underscore, same
+    // convention as lastResult._zColorAutoChecked) — lets
+    // getSmfretPairingFromDonor() find which srSpots (maxima) ROI box goes
+    // with a given fitted site after pairing drops some of them, since
+    // srSpots' own integer [cx,cy] pairs have no other link back to the
+    // (sub-pixel, fitted) x,y a paired row actually carries.
+    if(L) fitted.push({x:L.x, y:L.y, sx:L.sx, sy:L.sy, sigma:(L.sx+L.sy)/2, photons:L.photons, bg:L.bg, bgstd:L.bgstd, frame:0, _maxCx:cx, _maxCy:cy}); }
   return {fitted, used, maxima, proj, w, h};
 }
 // Interactive wrapper: resolves DOM state into a config, calls smfretSOICore(),
@@ -10555,16 +10600,19 @@ async function locateSmfretSOI(){
     $('tableBtn').disabled=!fitted.length; $('saveBtn').disabled=!fitted.length;
     $('sSmlmPreviewBtn').disabled=!fitted.length; $('sSmlmPairBtn').disabled=!fitted.length;
     log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest `+
-        `— available in View data/filtering and Pairing (spectral SMLM & FRET) (Preview pairs/Pair & plot sSMLM, or Get from pairing above) for donor/acceptor pairing.`);
+        `— available in View data/filtering and Pairing (sSMLM & FRET) (Preview pairs/Pair & plot sSMLM, or Get from pairing above) for donor/acceptor pairing.`);
   }catch(err){ log(`⚠ Localize SOI failed: ${err.name}: ${err.message}`); }
 }
 $('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
 // "Get from pairing" button handler: a smFRET-side shortcut over Pairing
-// (spectral SMLM & FRET)'s own Preview pairs + Pair & plot sSMLM, run
-// SILENTLY (no raw/SR panel view switch, no LUT/z-range/rerender side
-// effects) so it doesn't disturb whichever SOI composite or time trace is
-// currently showing here — reuses previewSSmlmPairsCore()/pairSSmlm(), the
-// same DOM-light halves that module's own two buttons call.
+// (sSMLM & FRET)'s own Preview pairs + Pair & plot sSMLM, reusing
+// previewSSmlmPairsCore()/pairSSmlm() — the same DOM-light halves that
+// module's own two buttons call. Redraws the raw (left) panel with the
+// resulting Distances/Angles histogram (requested — the same visual
+// feedback Preview pairs itself gives), but is otherwise SILENT toward the
+// RECONSTRUCTION (right) panel: no LUT switch, no z-range change, no
+// rerender, so it doesn't disturb whichever SOI composite or time trace is
+// currently showing there.
 //
 // ALEX: this always pairs the DIRECT DONOR EXCITATION channel's own SOI
 // (the channel that gives donor/acceptor — DD/DA — intensity pairs; the
@@ -10601,10 +10649,41 @@ async function getSmfretPairingFromDonor(){
     await previewSSmlmPairsCore();
     if(staleEpoch(myEpoch)) return;
     if(!sSmlmLastCands || !sSmlmLastCands.length){ log('smFRET: Get from pairing — no sSMLM candidate pairs found among the sites of interest.'); return; }
+    // Redraws the raw (left) panel with the Distances/Angles histogram
+    // built from the SOI's own candidate pool (requested — the same
+    // visual feedback Preview pairs itself gives) — the one deliberate
+    // exception to "silent": only the RECONSTRUCTION (right) panel's own
+    // side effects (LUT switch/z-range/rerender) stay skipped, below.
+    $('sSmlmHistBtn').disabled=false;
+    sSmlmHistMode='dist';
+    drawSSmlmHist();
     const r=await pairSSmlm(cfg, myEpoch);
     if(!r) return;   // superseded while pairCore() was running, see pairSSmlm()'s own comment
-    if(!r.nPairs){ log('smFRET: Get from pairing — no pairs found; widen the Distance/Angle window in Pairing (spectral SMLM & FRET) and try again.'); return; }
+    if(!r.nPairs){ log('smFRET: Get from pairing — no pairs found; widen the Distance/Angle window in Pairing (sSMLM & FRET) and try again.'); return; }
     $('sSmlmUnpairBtn').disabled=false; $('sSmlmHistBtn').disabled=false;
+    // Filter the SOI composite's own ROI overlay (srSpots, green boxes) and
+    // numbered crosshairs (srLocs) down to just the sites that survived
+    // pairing (requested — a dropped site's own ROI/crosshair otherwise kept
+    // showing on the still-visible composite image after this button ran,
+    // misleadingly implying it was still a valid site). Matches a paired
+    // row back to its originating smfretSOI entry by exact x,y VALUE
+    // equality — pairCore()'s own paired.push() copies x:L.x,y:L.y verbatim
+    // from the SAME object this call's own smfretSOI array holds, so this
+    // is a real value match, not a fuzzy one. srSpots itself can't be
+    // matched this way — it holds the coarse, pre-fit INTEGER [cx,cy]
+    // detected maximum, a different value than the fitted x,y — so each
+    // surviving entry's own _maxCx/_maxCy (stashed by smfretSOICore() for
+    // exactly this) rebuilds the matching srSpots subset instead. Guarded on
+    // `srLocs===smfretSOI` — a no-op if the SR panel isn't currently even
+    // showing the (unfiltered) composite this call started from.
+    if(srLocs===smfretSOI){
+      const keep=new Set(r.locs.map(L=>L.x+'|'+L.y));
+      const survivors=smfretSOI.filter(L=>keep.has(L.x+'|'+L.y));
+      survivors.__pairedSOI=true;   // keeps numbered crosshairs on for this filtered subset too — see the drawView()/drawRaw() call sites' own srLocs===smfretSOI check
+      srLocs=survivors;
+      srSpots=survivors.map(L=>[L._maxCx,L._maxCy]);
+      clampView(); drawView();
+    }
     log(`smFRET: Get from pairing — paired ${r.nPairs.toLocaleString()} site(s); Get time traces below will now split DD into DD/DA.`);
   }catch(err){ log(`⚠ Get from pairing failed: ${err.name}: ${err.message}`); }
   finally{ $('smfretPairingBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
@@ -11094,7 +11173,7 @@ function drawSmfretTrace(idx){
   ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (ADU)',0,0); ctx.restore();
   // Same 12px as the tick labels/axis titles above — was 11px, reported as
   // reading too small next to them.
-  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; drawAxisScaleLabel(ctx, yScale, mL, mT-8, 'right'); }
   // Colour-coded labels (same convention drawDriftCurve() already uses for
   // its own "drift x"/"drift y"/"drift z") — only once there's more than
   // one curve to tell apart; the plain single-curve case stays unlabeled.
@@ -15600,8 +15679,24 @@ $('raw').addEventListener('click',async e=>{
       // one recomputes tol from the pointer's own angular distance to the
       // CURRENT centre, so the other line moves too, mirrored, for free;
       // no separate "which side" bookkeeping needed.
+      //
+      // Each red line is drawn as a FULL diameter (both ends grabbable, see
+      // drawDiameter()) but the tolerance itself is only ever a SHORT offset
+      // near the centre — grabbing the diameter's FAR end (180° round from
+      // where the visible tolerance wedge actually is) must compute the
+      // SAME tol as grabbing its near end, since visually it's the same
+      // line. A real, reported bug: without folding, a raw signed offset
+      // near ±180° (the far end) produced a wildly wrong tol instead of the
+      // small near-side value — e.g. a real tol of 6° read back as ~174°
+      // the instant the pointer crossed to the line's other half. Fixed by
+      // folding the signed offset into its OWN near-side representative in
+      // (-90°,90°] first (mod 180 — a diameter's two ends are the same line)
+      // before taking the magnitude, so either end of a red line's diameter
+      // always yields the identical, correct tolerance.
       const ac=paramValue('sSmlmAngleCenter'), spec=PARAMS.sSmlmAngleTol;
-      const newTol=Math.max(MIN_TOL_DEG, Math.min(spec.max, Math.abs(wrap360(ptrDeg-ac,-180))));
+      let diff=wrap360(ptrDeg-ac,-180);   // signed offset in [-180°,180°)
+      if(diff>90) diff-=180; else if(diff<=-90) diff+=180;
+      const newTol=Math.max(MIN_TOL_DEG, Math.min(spec.max, Math.abs(diff)));
       $('sSmlmAngleTol').value=Math.round(newTol);
     }
     // Cheap redraw only during the drag itself — same "no change event until
@@ -15769,25 +15864,25 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09i — renamed/reorganized
-the sSMLM/smFRET pairing modules, on request. "Spectral SMLM analysis"
-is now "Pairing (spectral SMLM & FRET)"; "smFRET (experimental)" is
-now "Single-molecule FRET". "Pair" is now "Pair & plot sSMLM" — split
-internally into a pure pairSSmlm() (pairing only) and the interactive
-wrapper's own "plot" tail (LUT switch, z-range, rerender), same split
-for Preview pairs (previewSSmlmPairsCore()). The standalone "Fit dist.
-& angle" button is gone — Preview pairs already auto-fits internally,
-so it was redundant; Pair & plot sSMLM/Unpair now share one row.
-Unpair now logs a command too, for consistency (nothing to actually
-replay, but every other action here does). smFRET gained a new "Get
-from pairing" button (Localize SOI's own row) that runs the sSMLM
-preview+pair steps SILENTLY on the donor-excitation sites of interest
-— no view switch, no LUT/z-range/rerender side effects — so Get time
-traces (moved one row down) can immediately read the resulting DD/DA
-positions without a trip through the other module. Verified via
-Playwright: Get from pairing on a real ALEX dataset pairs the donor
-SOI set and leaves the SR panel showing the unchanged composite, and a
-subsequent Get time traces correctly reports the paired DD/DA split.
+log(`webSMLM v0.12.1-dev · build 2026-09-09j — five follow-up fixes.
+(1) Sidebar label shortened to "(Caution!) Pairing (sSMLM & FRET)" —
+the longer wording wrapped onto two lines. (2) Fixed a real bug
+dragging the Angles polar plot's red (tolerance) lines: grabbing the
+FAR end of a line's own full diameter (the same visible line, 180deg
+round) produced a wildly wrong tolerance instead of the correct
+near-side value — fixed by folding the drag offset into its near-side
+representative (mod 180) before computing tolerance from it. (3) "Get
+from pairing" now redraws the Distances/Angles histogram in the raw
+(left) panel with the SOI's own candidate data, same feedback Preview
+pairs itself gives — still silent toward the reconstruction (right)
+panel (no LUT/z-range/rerender). (4) The "x10^n" axis-multiplier
+exponent (previously a tiny Unicode superscript character) now draws
+as a real, separately-sized and better-separated raised digit.
+(5) After a successful Get from pairing, the SOI composite's own ROI
+boxes and numbered crosshairs are filtered down to just the sites
+that survived pairing, instead of still showing dropped sites as if
+they were valid. Verified via Playwright against the real ALEX
+dataset and direct math checks for the drag-fold formula.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -16350,7 +16445,7 @@ function drawHistogram(){
     ctx.fillText(logY?c.toFixed(0):(c/yScale.scale).toFixed(yScale.decimals),mL-9,y); }
   // Same 12px as the tick labels/axis titles above — reported as reading
   // too small next to them at the previous 11px.
-  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; ctx.fillText(yScale.label, mL, mT-8); }
+  if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; drawAxisScaleLabel(ctx, yScale, mL, mT-8, 'right'); }
   ctx.textAlign='center'; ctx.textBaseline='top';
   for(const v of niceTicks(x0,x1,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
@@ -17300,7 +17395,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. <b>Phasor</b> is the speed option (no iteration); <b>Gaussian (LS)</b> and <b>Gaussian (MLE)</b> trade speed for precision, with MLE reporting a proper per-localization CRLB uncertainty and covering spherical, elliptical, 3D-astigmatic and rotated-elliptical (sSMLM) variants — see the <b>Fit method</b> popup and the full docs for when to use which. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
       <li><b>Localize.</b> The raw view refreshes live with detected ROIs (green boxes) and accepted localizations as the run progresses; the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
-      <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction</b> removes sample drift (AIM); <b>Localization precision</b> reports NeNA/FRC; <b>Pairing (spectral SMLM &amp; FRET)</b> pairs 0th/1st-order localizations from a diffraction grating (or a prism-split donor/acceptor pair); <b>Single particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients.</li>
+      <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction</b> removes sample drift (AIM); <b>Localization precision</b> reports NeNA/FRC; <b>Pairing (sSMLM &amp; FRET)</b> pairs 0th/1st-order localizations from a diffraction grating (or a prism-split donor/acceptor pair); <b>Single particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients.</li>
     </ol>
 
     <h3>Keyboard hotkeys</h3>

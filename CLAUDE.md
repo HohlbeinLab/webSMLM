@@ -505,6 +505,25 @@ relevant one before editing rather than scrolling:
   `drawPcfoPlot()`, the one plot currently needing it) so any other plot with the same large-number
   problem can reuse it.
 
+  **`drawAxisScaleLabel(ctx,scale,x,y,align)`** (v0.12.1-dev, right after `axisScale()`, reported —
+  the exponent read too small and cramped against "10") replaces relying on `axisScale()`'s own
+  Unicode-superscript `label` string (⁰¹²³…) for the standalone `×10ⁿ` chip each of the 3 call sites
+  (`drawPcfoPlot()`/`drawSmfretTrace()`/`drawHistogram()`) used to draw with one plain `fillText()`.
+  The Unicode superscript block's own glyph metrics run noticeably smaller/tighter than a real
+  superscript in most fonts — no amount of bumping the SHARED font size fixes that, since both "10"
+  and the exponent character share it. Fixed by drawing the label as two separately-sized pieces
+  instead: "×10" at the caller's own font size, then the exponent as a PLAIN digit string (not the
+  Unicode glyph) at a dedicated, clearly-larger-than-the-Unicode-glyph size (10px against a 12px
+  base), raised above the baseline with an explicit gap after "10" — a manual superscript, full
+  control over both size and spacing rather than trusting a font's own superscript rendering.
+  `axisScale()` itself now also returns the raw numeric `exp` (alongside the still-present `label`,
+  which the one EMBEDDED usage — `drawPcfoPlot()`'s own x-axis title, `xScale.label` woven into a
+  bigger `fillText()` call — still reads directly, left as Unicode superscript since splitting THAT
+  usage into pieces would need measuring/positioning around the surrounding text too, out of scope
+  for this round). All 3 standalone call sites' identical `ctx.fillText(yScale.label,...)` line
+  replaced with `drawAxisScaleLabel(ctx,yScale,mL,mT-8,'right')` — one shared implementation instead
+  of the same block duplicated three times.
+
   Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
   outward-facing tick mark at each major tick, on both axes. The border is drawn LAST, after the
   data, so bars/points flush against an axis edge (NeNA in particular) can't be covered by it. Tick
@@ -980,6 +999,21 @@ relevant one before editing rather than scrolling:
   exactly and leaves `sSmlmAngleCenter` untouched; dragging a red line toward and past the magenta
   line clamps at `MIN_TOL_DEG`, never reaching 0 or negative.
 
+  **A real, reported bug in dragging the red (±tolerance) lines specifically** (v0.12.1-dev, not
+  present in the magenta line's own drag): each red line is drawn as a FULL diameter (both ends
+  grabbable, per `drawDiameter()`'s own comment above), but the drag math computed `sSmlmAngleTol`
+  from the pointer's raw signed offset from `sSmlmAngleCenter` with no folding — correct when
+  grabbing the visible tolerance wedge's own NEAR end, but grabbing the SAME line's FAR end (180°
+  around, geometrically the identical line) produced a wildly wrong tol (a real tol of 6° read back
+  as ~174° the instant the pointer crossed to the far half) — "behaves strangely" was the exact
+  symptom reported. Unlike the magenta line (whose own drag deliberately has no such bookkeeping —
+  see its own comment: wherever you drag TO becomes the new bearing, correct regardless of which end
+  was grabbed), the red lines' VALUE is a relative offset to the centre, so grabbing either end of
+  the same diameter must yield the identical result. Fixed by folding the raw signed offset into its
+  own near-side representative in (-90°,90°] first (mod 180 — a diameter's two ends are the same
+  line) before taking the magnitude — `if(diff>90) diff-=180; else if(diff<=-90) diff+=180;` — so
+  either end of a red line's diameter now always produces the same, correct tolerance.
+
   **`_plotHover.raw` must be explicitly cleared, not just left unregistered** — a real, reported bug
   ("the plot closes and reverts to the distance plot" the instant the cursor moved): the DISTANCE
   view (still `drawHistogram()`) DOES call `registerPlotHover()`, caching a clean-plot snapshot plus
@@ -1086,9 +1120,12 @@ relevant one before editing rather than scrolling:
 
   **Renamed and reorganized** (v0.12.1-dev, requested — this module is now also the smFRET
   donor/acceptor pairing path, not just diffraction-grating sSMLM). Sidebar label: "(Caution!)
-  Spectral SMLM analysis" → **"(Caution) Pairing (spectral SMLM & FRET)"** (id stays `sSmlmBox`,
-  matching the existing "label-only, nothing keys off the text" convention above — note the dropped
-  "!"). **Pair** → **"Pair & plot sSMLM"** (clarifies it does two things: commit the pairing AND
+  Spectral SMLM analysis" → **"(Caution!) Pairing (sSMLM & FRET)"** (id stays `sSmlmBox`, matching
+  the existing "label-only, nothing keys off the text" convention above — a first attempt shortened
+  "spectral SMLM" to just "sSMLM" while ALSO dropping the "!", which wrapped onto two lines in the
+  sidebar for the wrong reason and inconsistently lost the caution marker other modules keep;
+  reverted, keeping "!" and using the shorter "sSMLM" form fits one line). **Pair** →
+  **"Pair & plot sSMLM"** (clarifies it does two things: commit the pairing AND
   switch the reconstruction to colour-by-distance). The standalone **Fit dist. & angle** button is
   removed entirely — **Preview pairs** already auto-ran it internally every time (see that
   paragraph above), so a separate click was pure redundancy; the underlying `fitSSmlmDistAndAngle()`
@@ -1178,9 +1215,12 @@ relevant one before editing rather than scrolling:
   Preview pairs + Pair & plot sSMLM, run from right here on the current sites of interest.
   `getSmfretPairingFromDonor()` calls `previewSSmlmPairsCore()` then `pairSSmlm(cfg, myEpoch)` — the
   same DOM-light halves **sSMLM**'s own two buttons call (see that module's own paragraph on the
-  split) — deliberately SKIPPING the "plot" tail either of their interactive wrappers would run (no
-  LUT switch, no z-range change, no rerender), so it doesn't hijack whichever SOI composite or time
-  trace this module's own raw/SR panels currently show. Its only real design question — **which
+  split) — redrawing the raw (left) panel with the resulting Distances/Angles histogram (requested,
+  same round — the visual feedback Preview pairs itself already gives, missing from the first
+  version of this button, which was silent there too) but deliberately SKIPPING the RECONSTRUCTION
+  (right) panel's own "plot" tail either interactive wrapper would run (no LUT switch, no z-range
+  change, no rerender), so it doesn't hijack whichever SOI composite or time trace that panel
+  currently shows. Its only real design question — **which
   channel to pair when ALEX is on** — was resolved directly with the user: there are conceptually
   TWO separate SOI channels once ALEX is ticked (direct-donor-excitation, giving DD/DA intensity
   pairs; direct-acceptor-excitation, giving AA locs/traces), but only ONE is ever held in
@@ -1196,6 +1236,30 @@ relevant one before editing rather than scrolling:
   ALEX/prism dataset: clicking it pairs the 286-site donor SOI set, leaves `srInfo`'s text and the
   Colour map/`zcolor` fields completely untouched (confirming the silent, no-side-effect design),
   and a subsequent **Get time traces** correctly reports both `photonsDD` and `photonsDA`.
+
+  **The SOI composite's own overlay is also filtered down to the pairing survivors** (requested,
+  same round — "after pairing, the SOI composite should filter out all ROIs and locs that do not
+  belong to a pair anymore"): a site with no partner previously kept showing its green ROI box and
+  numbered magenta crosshair on the still-visible composite image after a successful pairing, as if
+  it were still valid. `smfretSOICore()`'s fit loop now stashes `_maxCx`/`_maxCy` (the ORIGINATING
+  detected-maximum's own integer position, an internal bookkeeping field, leading-underscore
+  convention matching `lastResult._zColorAutoChecked`) on every fitted site — needed because
+  `srSpots` (the green-box overlay, `maxima`, coarse pre-fit integer `[cx,cy]` pairs) has no other
+  link back to a fitted site's own sub-pixel x,y once some maxima have been dropped for failing to
+  fit (`fitted.length` can be less than `maxima.length`, and the two are NOT index-aligned). After a
+  successful `pairSSmlm()` call, `getSmfretPairingFromDonor()` matches each surviving paired row
+  back to its originating `smfretSOI` entry by exact `x,y` VALUE equality (`pairCore()`'s own
+  `paired.push()` copies `x:L.x,y:L.y` verbatim from that same object, so this is a real value match,
+  not a fuzzy one — no floating-point drift), then rebuilds `srSpots`/`srLocs` from just the
+  survivors (`srSpots` via each survivor's own `_maxCx`/`_maxCy`) and redraws with a plain
+  `clampView(); drawView();` — no `rerender()`, since `srFull` (the composite image itself) is
+  unchanged, only the overlay list shrinks. Guarded on `srLocs===smfretSOI` (a no-op if the SR panel
+  isn't currently even showing the composite this call started from). The filtered array is tagged
+  `survivors.__pairedSOI=true` so the two `drawSpotOverlays()` call sites' own numbering gate
+  (`srLocs===smfretSOI`, MODULE: render — an object-identity check that's now necessarily false for
+  this NEW filtered array) also accepts `srLocs.__pairedSOI`, keeping numbered crosshairs on for the
+  filtered composite too (renumbered 1.. for the surviving subset, not the original SOI index — an
+  acceptable, undocumented simplification rather than threading the original index through).
 
   **`smfretSOICore(config, stack, checkStack=true)`** (v0.12.1-dev) is the pure, DOM-free half of
   `locateSmfretSOI()` — the averaging+detect+fit loop, extracted so `analyze()`'s own
