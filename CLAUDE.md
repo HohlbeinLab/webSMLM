@@ -1084,9 +1084,39 @@ relevant one before editing rather than scrolling:
   `muFoldAbs` lands within 1° of the independent half-max estimate (`-87.95°` vs. `-87°`) — the two
   methods agreeing despite being computed completely differently.
 
+  **Renamed and reorganized** (v0.12.1-dev, requested — this module is now also the smFRET
+  donor/acceptor pairing path, not just diffraction-grating sSMLM). Sidebar label: "(Caution!)
+  Spectral SMLM analysis" → **"(Caution) Pairing (spectral SMLM & FRET)"** (id stays `sSmlmBox`,
+  matching the existing "label-only, nothing keys off the text" convention above — note the dropped
+  "!"). **Pair** → **"Pair & plot sSMLM"** (clarifies it does two things: commit the pairing AND
+  switch the reconstruction to colour-by-distance). The standalone **Fit dist. & angle** button is
+  removed entirely — **Preview pairs** already auto-ran it internally every time (see that
+  paragraph above), so a separate click was pure redundancy; the underlying `fitSSmlmDistAndAngle()`
+  function is unchanged and still runs automatically from Preview pairs and from a **Background
+  profile** change. **Pair & plot sSMLM**/**Unpair** now share one button row (previously Pair
+  shared a row with the now-removed Fit button, and Unpair sat alone below). **`unpairSSmlm()`
+  now calls `logCmd()` too** (reported gap — the one remaining sSMLM action with no logged command,
+  an edge case since there's nothing meaningful to replay, but kept consistent with every other
+  actionable control here).
+
+  **Internally split into pairing vs. plotting**, so **smFRET**'s own **Get from pairing** button
+  (below) can pair without hijacking whichever view the smFRET raw/SR panels currently show:
+  `pairSSmlm(cfg, myEpoch)` is the pure(ish) pairing step — runs `pairCore()` and applies the result
+  to `sSmlmOriginalLocs`/`sSmlmPairedLocs`/`lastResult.locs`, nothing else (returns `null` if a newer
+  action superseded it while `pairCore()` was running, same `newEpoch()`/`staleEpoch()` convention as
+  everywhere else); `runSSmlmPair()` (the button handler) calls it, then does the "plot" tail —
+  z-range, LUT switch, rerender, button enabling. Likewise `previewSSmlmPairsCore()` is the pure
+  candidate-scan-plus-auto-fit step, with `previewSSmlmPairs()` adding the histogram-view switch on
+  top. Verified via Playwright against the real ALEX/prism dataset: `getSmfretPairingFromDonor()`
+  (below) calling these two directly pairs the donor-channel SOI set with the SR panel's own
+  `srInfo` text staying byte-identical before/after (confirming no rerender/view switch happened)
+  and the LUT/`zcolor` fields left completely untouched.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
-  warning only, id stays `smfretBox`). v1: "sites of interest" (SOI) detection plus a
+  warning only, id stays `smfretBox`). **Sidebar label renamed** "(Caution!) smFRET (experimental)"
+  → **"(Caution!) Single-molecule FRET"** (requested, same round as sSMLM's own rename above — the
+  "(experimental)" suffix was redundant with the "(Caution!)" prefix itself). v1: "sites of interest" (SOI) detection plus a
   simple per-site time-trace readout, the first step of `docs/REFACTOR_PLAN.md`'s own smFRET/ALEX
   integration sketch. Not squeezed into sSMLM (a genuinely different optical setup motivating this —
   a prism + polychroic beam-splitter, not sSMLM's own diffraction grating) or 3D calibration, though
@@ -1142,6 +1172,30 @@ relevant one before editing rather than scrolling:
   at all, unlike every other action that writes `lastResult`) — logs `{smfretLocateSOI:true,
   smfretAvgFrames, psf, winr, detFilter, <active threshold field>, pxnm}`, genuinely replayable now
   that `config.smfretLocateSOI` exists (see below), not a cosmetic-only log line.
+
+  **`smfretPairingBtn` ("Get from pairing")** (v0.12.1-dev, requested — shares Localize SOI's own
+  row; **Get time traces** moved one row down to make room) is a shortcut over **sSMLM**'s own
+  Preview pairs + Pair & plot sSMLM, run from right here on the current sites of interest.
+  `getSmfretPairingFromDonor()` calls `previewSSmlmPairsCore()` then `pairSSmlm(cfg, myEpoch)` — the
+  same DOM-light halves **sSMLM**'s own two buttons call (see that module's own paragraph on the
+  split) — deliberately SKIPPING the "plot" tail either of their interactive wrappers would run (no
+  LUT switch, no z-range change, no rerender), so it doesn't hijack whichever SOI composite or time
+  trace this module's own raw/SR panels currently show. Its only real design question — **which
+  channel to pair when ALEX is on** — was resolved directly with the user: there are conceptually
+  TWO separate SOI channels once ALEX is ticked (direct-donor-excitation, giving DD/DA intensity
+  pairs; direct-acceptor-excitation, giving AA locs/traces), but only ONE is ever held in
+  `smfretSOI`/`lastResult` at a time (`alexProjChannel`, shared with the Data-projection view's own
+  donor/acceptor toggle) — **for now, this button only ever pairs the donor channel**. Rather than
+  silently recomputing/discarding whatever composite is currently showing (a real, surprising side
+  effect for a button whose whole point is to run quietly), it just refuses with a clear log message
+  if `alexProjChannel!=='dirDonorExc'` — the common case regardless, since that's the default and
+  what a fresh stack load/Localize SOI run always resets it to; the acceptor composite is only
+  reached by an explicit toggle click. Once it succeeds, `getSmfretTimeTraces()`'s own existing
+  `fromSmfretSOI && isFinite(lastResult.locs[0].dist)` check (see below) picks up the DD/DA split
+  automatically — no changes needed there at all. Verified via Playwright against the real
+  ALEX/prism dataset: clicking it pairs the 286-site donor SOI set, leaves `srInfo`'s text and the
+  Colour map/`zcolor` fields completely untouched (confirming the silent, no-side-effect design),
+  and a subsequent **Get time traces** correctly reports both `photonsDD` and `photonsDA`.
 
   **`smfretSOICore(config, stack, checkStack=true)`** (v0.12.1-dev) is the pure, DOM-free half of
   `locateSmfretSOI()` — the averaging+detect+fit loop, extracted so `analyze()`'s own
