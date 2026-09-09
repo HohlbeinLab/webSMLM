@@ -150,6 +150,10 @@ says.
   general-purpose technique — same prefix on **Single-molecule FRET** and
   **Single particle tracking** below, for the same reason. See
   [§3](#ssmlm-params)/[§2](#ssmlm).
+- **(Caution!) Single-molecule FRET** (`smfretBox`) — **Localize SOI**/**Pair
+  DD + DA**/**Get time traces**; enabled as soon as a movie is loaded, not
+  gated on any Localize result. Same "(Caution!)" reasoning as **Pairing
+  (sSMLM & FRET)** above. See [§3](#smfret-params)/[§2](#smfret).
 - **(Caution!) Single particle tracking** (`sptBox`) — links localizations into
   trajectories and computes a per-track diffusion coefficient; enabled as
   soon as there are localizations, same gating as Pairing (sSMLM & FRET).
@@ -577,9 +581,9 @@ itself. `mle3d` also respects `localize3D`: unchecked, it runs the same
 axis-aligned elliptical fit with no calibration requirement and no z —
 just a 2D elliptical fit reporting σx/σy directly (see the CSV
 `sigma_x`/`sigma_y [nm]` columns, [§6](#6-csv-export-format)). Either
-way, use **Pair** afterward to get real per-axis widths for both the 0th
-and 1st order of an sSMLM pair, not just the plain symmetric-σ proxy
-every other method reports.
+way, use **Pair & plot sSMLM** afterward to get real per-axis widths for
+both the 0th and 1st order of an sSMLM pair, not just the plain
+symmetric-σ proxy every other method reports.
 `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all share one
 Fisher-scoring Newton driver (`mleNewtonFit()`) rather than three
 independently-coded copies. On the built-in synthetic model at 900
@@ -764,7 +768,21 @@ comparison above, threaded through here instead of discarded), exported as
 a `sigma1st [nm]` CSV column (see §6) and shown as a `sigma1st` table
 column (see §5) whenever present — not a directional/long-axis width, since
 no 2D fit method computes one, but the closest available proxy for how much
-wider the spectrally-smeared 1st order looks vs. the 0th. Pairing stores
+wider the spectrally-smeared 1st order looks vs. the 0th. Every paired row
+also keeps the 1st order's own raw position and the pair's own directed
+compass bearing, as `x2`/`y2`/`pairAngle` — previously computed at the
+candidate stage purely to derive `dist`/the angle deviation, then
+discarded; now threaded through `pairCore()` alongside `dist`. Named
+`pairAngle` and not `angle`, deliberately: a plain `angle` field already
+exists on a loc from `gaussianMLEellipticangled`'s own fitted ellipse
+rotation, in RADIANS — reusing the name for this DEGREES-valued pair
+bearing would silently corrupt that column for any result that also
+carries a real per-loc ellipse angle. `x2 [nm]`/`y2 [nm]`/`pairAngle [deg]`
+are optional CSV/table columns, present whenever any loc carries them (see
+§5/§6) — this is what lets smFRET's own **Get time traces** read a real,
+independently-known acceptor position for **DA**/**AA** once a pairing
+exists (see **Single-molecule FRET** below), rather than only ever having
+the 0th order's own position to work with. Pairing stores
 the inter-order distance in its OWN `dist` field — deliberately **never**
 `z`, an earlier design that aliased `z` was reverted (2026-08-17) so a
 future 3D-fit + sSMLM combination could carry real depth AND spectral
@@ -833,7 +851,7 @@ sSmlmPairedLocs`, plus `zcolor` set to match — not just the colour flag;
 "Show standard" shows the literal unpaired reconstruction (the same data
 Unpair would restore), without discarding the pairing the way Unpair does,
 so toggling back to "Show spectral" is instant. The Colour map switches
-too, the same `sSmlmPrevLut` stash/restore **Pair**/**Unpair** already use:
+too, the same `sSmlmPrevLut` stash/restore **Pair & plot sSMLM**/**Unpair** already use:
 switching to "Show spectral" stashes whatever Colour map Standard was
 using and sets it to `hsvBlue`; switching back to "Show standard" restores
 it — without this, the unpaired (standard) reconstruction, which has no
@@ -847,25 +865,35 @@ wide diagnostic scan independently of it — see §8 for both.
 
 ### Single-molecule FRET (`smFRET`) {#smfret}
 
-Single-molecule FRET (donor/acceptor pair analysis) — new, **experimental**,
-and still v1: "sites of interest" (SOI) detection plus a simple per-site
-time-trace readout, the first step of the broader smFRET/ALEX integration
+Single-molecule FRET (donor/acceptor pair analysis) — **experimental**,
+still v1 in scope (no E_raw/S_raw computation yet, see the end of this
+section), but the actual pairing/read-out workflow — sites of interest
+(SOI) detection, donor/acceptor pairing, ALEX-aware time traces, and a
+cross-channel verification step — is now a complete, real pipeline,
+extensively verified against real prism/polychroic ALEX data. First
 sketched in `docs/REFACTOR_PLAN.md` ("Determine positions of interest = the
 existing 'Fix bead x,y' pattern"). Not squeezed into the sSMLM or 3D
 calibration modules — a genuinely different optical setup from sSMLM's own
 diffraction-grating 0th/1st-order pairs (real data motivating this: a prism
 + polychroic beam-splitter splitting the emission spectrum, giving a pair
 that is NOT a 0th/1st order in sSMLM's sense) and a different purpose from
-3D calibration's own bead-position fixing, even though **Localize SOI**
-reuses the exact same underlying mechanism.
+3D calibration's own bead-position fixing — even though **Localize SOI**
+reuses the exact same underlying mechanism, and pairing itself reuses
+**Pairing (sSMLM & FRET)**'s own directional distance+bearing-angle
+matching directly (see below).
 
-**Localize SOI** (`locateSmfretSOI()`) averages the first **Average
-frames** frames (from frame 1) of the loaded movie into one stable
-composite via `averageFrames()`, runs `detectSpots()` once on that
-composite, and fits each detected maximum via `gaussianFitElliptical()` —
-byte-for-byte the same "average, then detect once" approach
-`locateBeadsForCalib()` (3D calibration module) already implements, not a
-reimplementation. The FIRST run is a manual button click; once an SOI
+**Localize SOI** (`locateSmfretSOI()`, wrapping the pure `smfretSOICore()`)
+averages the first **Average # of frames** frames (from frame 1, or —
+with **Alternating laser excitation?** checked — only the donor- or only
+the acceptor-excitation half, see below) of the loaded movie into one
+stable composite via `averageFrames()`/`averageFramesByParity()`, runs
+`detectSpots()` once on that composite, and fits each detected maximum via
+`gaussianFitElliptical()` — byte-for-byte the same "average, then detect
+once" approach `locateBeadsForCalib()` (3D calibration module) already
+implements, not a reimplementation. `smfretSOICore()` is the pure,
+DOM-free half — reused not just by the headless API but by **Link
+channels** below, which calls it fresh, on demand, against the acceptor
+channel specifically. The FIRST run is a manual button click; once an SOI
 composite is showing, changing **Average # of frames** or any detection/fit
 setting that would affect it (Threshold, σ_PSF, Window radius, detection
 filter/its own threshold field, Exact ±3σ box) re-runs it automatically —
@@ -881,34 +909,44 @@ reconstruction (right) panel as `srFull`, with `srSpots`/`srLocs` driving
 the ROI-box/fit-crosshair overlay (`drawSpotOverlays()`, MODULE: render) —
 a reference view, not a real per-localization reconstruction
 (`setSrRecon(false)`). Each site's 1-based index is drawn next to its ROI
-box (v0.12.1-dev), same visual style as the **single particle tracking**
-module's own track numbers (dark backing box, white text, size scaling
-with zoom) — this numbering appears only on the SOI composite, not on 3D
-calibration's own bead composite even though both share the same
-`drawSpotOverlays()` call.
+box, same visual style as the **single particle tracking** module's own
+track numbers (dark backing box, white text, size scaling with zoom) —
+this numbering appears only on the SOI composite, not on 3D calibration's
+own bead composite even though both share the same `drawSpotOverlays()`
+call. Once a **Pair DD + DA** (or **Pairing (sSMLM & FRET)**'s own
+**Preview pairs**/**Pair & plot sSMLM**) has actually committed a pairing,
+every SOI entry that became part of a pair has its own ROI box/crosshair
+recoloured dark orange instead — see the **Pairing** paragraph below for
+the marking mechanism (`markSmfretSoiPairedKeys()`), which colours rather
+than filters, so an unpaired site's box never simply vanishes.
 
 Every successful run — the first click, or a later auto-rerun — also
 writes `smfretSOI` into `lastResult` (`{locs:smfretSOI, w, h, px, mag,
-det:null}`, the same minimal shape a loaded CSV uses for locs with no real
-per-frame Run behind them), enabling **View data/filtering**, **Save
-data**, and — the actual point — **Spectral SMLM analysis**'s own
-**Preview pairs**/**Pair**: sSMLM's directional distance+bearing-angle
-matching (built for a diffraction grating's 0th/1st order) works just as
-well for a dual-view/polychroic-split donor/acceptor pair, which is
-translation-dominated the same way (see `docs/REFACTOR_PLAN.md`'s own
-smFRET/ALEX sketch) — no separate pairing implementation needed. Every SOI
-site shares the SAME `frame:0` (an arbitrary constant, not a real per-frame
-index) specifically so `sSmlmCandidates()`'s own per-frame grouping treats
-the WHOLE SOI set as one pool, comparing every candidate against every
-other one — correct for a position set with no real temporal structure of
-its own. This replaces whatever `lastResult` held before (a real Localize
-run, a loaded CSV, or an earlier SOI pass) with no confirmation prompt,
-same convention `run()`'s own pre-Localize reset uses — but it does warn
-(naming what's being cleared) the first time it overwrites a REAL prior
-result, not on every routine auto-rerun re-clearing its own previous SOI
-pass. Unchecking **Fix sites of interest (SOI)** (below) discards this
-`lastResult` (and any sSMLM pairing built from it) the same way it
-discards the sites themselves.
+det:null, fromSmfretSOI:true}`, the same minimal shape a loaded CSV uses
+for locs with no real per-frame Run behind them), enabling **View
+data/filtering**, **Save data**, and — the actual point — **Pairing
+(sSMLM & FRET)**'s own **Preview pairs**/**Pair & plot sSMLM** (or the
+**Pair DD + DA** shortcut below, which drives exactly those two
+functions): sSMLM's directional distance+bearing-angle matching (built for
+a diffraction grating's 0th/1st order) works just as well for a
+dual-view/polychroic-split donor/acceptor pair, which is
+translation-dominated the same way — no separate pairing implementation
+needed. Every SOI site shares the SAME `frame:0` (an arbitrary constant,
+not a real per-frame index) specifically so `sSmlmCandidates()`'s own
+per-frame grouping treats the WHOLE SOI set as one pool, comparing every
+candidate against every other one — correct for a position set with no
+real temporal structure of its own. This replaces whatever `lastResult`
+held before (a real Localize run, a loaded CSV, or an earlier SOI pass)
+with no confirmation prompt, same convention `run()`'s own pre-Localize
+reset uses — but it does warn (naming what's being cleared) the first time
+it overwrites a REAL prior result, not on every routine auto-rerun
+re-clearing its own previous SOI pass. Unchecking **Fix sites of interest
+(SOI)** (below) discards this `lastResult` (and any pairing built from it)
+the same way it discards the sites themselves — but loading a *different*
+movie does NOT: only `smfretSOI` itself (positions genuinely scoped to the
+OLD stack's own pixels) is cleared on a fresh load, the checkbox's own
+state is left alone, since a plain load has no consequence for it until
+**Localize SOI** actually runs again.
 The panel's own zoom/pan is only reset on an actual frame-size change —
 each auto-rerun keeps whatever view a user already zoomed/panned to,
 the same "keep zoom while scrubbing" behaviour the raw (left) panel's
@@ -919,23 +957,23 @@ field of view.
 use (`Math.min(stack.n,...)`), the same convention `calFirst`/`calLast`
 already use, rather than a dynamic HTML `max` attribute.
 
-**Fix sites of interest (SOI)** (`smfretFixSOI`) is a STATUS flag, not an
-independent on/off switch — every successful `locateSmfretSOI()` run
-(explicit click or an auto-rerun above) checks it, marking the current
-positions as the fixed reference **Get time traces** below will fit.
-Checking it by hand does nothing on its own (there's no way to tell "just
-auto-checked" from "user clicked it", and the only state worth reacting to
-is losing the positions, not gaining them); unchecking it discards
-`smfretSOI` and any `smfretTraces` already built from it, restores the
-reconstruction panel's general overview, and hides the site scrubber (see
-below) in favour of the ordinary Frame one — the same "uncheck to discard
-and restore the general view" convention 3D calibration's own **Fix bead
-x,y** checkbox already uses, just without that checkbox's own
-check-to-trigger direction. It also discards `lastResult` itself (and any
-sSMLM pairing built from it, above) whenever `lastResult` is still the SOI
-result this module wrote — never a real Localize/CSV-loaded result that
-happened to still be current, which SOI already claimed the moment it
-first ran.
+**Fix sites of interest (SOI)** (`smfretFixSOI`, default checked) is a
+STATUS flag, not an independent on/off switch — every successful
+`locateSmfretSOI()` run (explicit click or an auto-rerun above) checks it,
+marking the current positions as the fixed reference **Get time traces**
+below will fit. Checking it by hand does nothing on its own (there's no
+way to tell "just auto-checked" from "user clicked it", and the only state
+worth reacting to is losing the positions, not gaining them); unchecking
+it discards `smfretSOI` and any `smfretTraces` already built from it,
+restores the reconstruction panel's general overview, and hides the site
+scrubber (see below) in favour of the ordinary Frame one — the same
+"uncheck to discard and restore the general view" convention 3D
+calibration's own **Fix bead x,y** checkbox already uses, just without
+that checkbox's own check-to-trigger direction. It also discards
+`lastResult` itself (and any pairing built from it, above) whenever
+`lastResult` is still the SOI result this module wrote — never a real
+Localize/CSV-loaded result that happened to still be current, which SOI
+already claimed the moment it first ran.
 
 **Get time traces** (`getSmfretTimeTraces()`) extracts every `smfretSOI`
 site's intensity — using its known x,y only to pick which window to look
@@ -983,8 +1021,8 @@ Many sites × many frames — most of
 which won't contain a real localization for a given faint site, since
 extraction still runs there regardless — can take a while, so this
 reports real progress on the shared progress bar rather than leaving it
-static for the whole run, the same convention **Track**/**Pair**/**Correct
-drift**/**Calibrate** already use. Results land in `smfretTraces`
+static for the whole run, the same convention **Track**/**Pair & plot
+sSMLM**/**Correct drift**/**Calibrate** already use. Results land in `smfretTraces`
 (`{x,y,photonsDD,photonsAA,photonsDA}` per site, each a `Float64Array(stack.n)`
 or `null` when that channel doesn't apply — `photonsDD` is always present)
 and replace the raw (left)
@@ -1011,15 +1049,46 @@ instead of frames, the same "another feature owns the raw panel" pattern
 switches back and forth between the trace plot and the live raw frame (with
 its own ordinary Frame scrubber) without discarding the computed traces —
 useful for checking a trace against the actual frame it came from; switching
-back to the trace returns to whichever site was showing before. With ALEX
-on, **Filter SOIs** (`smfretTraceChannels`, default `DD+DA`) picks
-whether **AA** joins the plot alongside **DD** — the plot no longer
-auto-includes AA the moment ALEX is on. Pairing the sites (see below)
-always adds **DA** regardless of this setting. Once paired, **AA** is read
-at the acceptor's own paired position rather than the donor's — the
-physically correct channel for direct acceptor excitation in a
-spectrally-split system — falling back to the donor's position only when
-there's no pairing at all.
+back to the trace returns to whichever site was showing before.
+
+With ALEX on, **Filter SOIs** (`smfretTraceChannels`, default `DD+DA`)
+picks whether an UNPAIRED site's own trace also samples a rougher **AA**
+guess at the SOI's own position (`DD+DA+AA`) — there's no independently
+known acceptor position yet at that stage, so this stays opt-in. Once a
+site IS paired (**Pair DD + DA** below, or **Pairing (sSMLM & FRET)**'s
+own **Preview pairs**/**Pair & plot sSMLM**), its real acceptor position
+is already known from the pairing itself, so **DA** and a real **AA** are
+both sampled there regardless of the Filter SOIs setting — **DD** splits
+into **DD** (at the donor position) and **DA** (at the paired acceptor
+position, both read during donor-excitation frames — DA needs no ALEX at
+all, a continuous single-laser setup still has every frame count as donor
+excitation), and **AA** is read at that SAME acceptor position but during
+direct-acceptor-excitation frames, the physically correct channel/timing
+for direct acceptor excitation. `showAA` (`getSmfretTimeTraces()`'s own
+gate on whether `photonsAA` is even computed) is therefore
+`alex && (paired || smfretTraceChannels==='DD+DA+AA')` — Filter SOIs is a
+strict requirement only for the weaker, unpaired guess.
+
+The Time trace plot insets small **ROI** thumbnails (DD/DA/AA, only the
+ones that exist for the current site) directly into its own top-right
+corner, on a semi-opaque backing panel so they stay legible over whatever
+curve data sits underneath — a contrast-stretched crop of the real camera
+pixels around each channel's own extraction position, one FIXED
+representative frame per channel (the first donor-excitation frame for
+DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the
+main Frame slider. Each crop carries a magenta crosshair at the EXACT
+fitted sub-pixel position used for that channel's own extraction (not just
+the crop's rough centre), so a quick look answers both "does this sit on a
+real molecule" and "did the fit actually land where it should." Drawn
+directly onto the real raw-panel canvas (never through the SVG-recording
+redirection **Save plot/image** uses for the seven genuinely vector-shaped
+plots — a raster crop has no meaningful vector form, same reasoning the
+raw frame/reconstruction are already excluded from SVG export for) by an
+async, fire-and-forget `drawSmfretRoiThumbnails()`, called at the end of
+every `drawSmfretTrace()`; it guards against a scrub-away or a mode switch
+happening while its own frame fetches are still in flight, so a slow
+fetch can't paint stale insets over whatever the panel has moved on to.
+Update automatically when scrubbing between sites.
 
 **Headless**: `config.smfretLocateSOI` (v0.12.1-dev) runs the same
 `smfretSOICore()` the interactive button calls — see [§8](#8-headless-api-window-websmlm)
@@ -1057,27 +1126,101 @@ Localize run, Get time traces' own extraction, …) are untouched — this
 family of controls only ever affects which frames get averaged into a
 preview/detection composite, not per-localization channel sorting.
 
-**DD/AA/DA channel splitting for Get time traces is now implemented** (see
-above) — ALEX on splits DD/AA by frame parity, gated by **Channels to
-show** so AA isn't forced on just because ALEX is; pairing the sites
-(below) further splits DD into DD/DA by spatial channel, and once paired,
-AA is read at the acceptor's own paired position too. Still not implemented
-(see `docs/REFACTOR_PLAN.md` for the full sketch): E_raw/S_raw computation;
-per-localization ALEX frame-role tagging on a genuine, non-smFRET
-localization set (DD/DA/AA/AD); and linking a direct-acceptor-excitation
-(AA) composite's own sites to the DD/DA pairs found in the donor channel.
-**Mechanically** pairing an SOI's donor candidate to its acceptor partner
-works — `config.smfretLocateSOI` piped into sSMLM's own
-`config.sSmlmPreview`/`config.sSmlmPair` reuses that module's existing
-distance+bearing-angle pairing with zero new pairing code (see **sSMLM**'s
-own write-up below, which now also keeps each pair's own second position
-and bearing, not just the 0th order's own — see its own paragraph on
-`x2`/`y2`/`pairAngle`) — but nobody's yet run it against real dual-view/
-polychroic data with a properly hand-tuned window to confirm a genuine,
-physically-meaningful pair distance+bearing exists on real hardware (a
-widened, not-yet-tuned window does find real pairs on the real sample data
-this app ships, confirming the mechanism itself, but that isn't the same
-claim).
+Toggling the SOI-composite channel view alone (**DD+DA**/**AA**) never
+discards an already-committed pairing or an already-applied **Link
+channels** result — `locateSmfretSOI()` takes a `preservePairing` flag,
+set only from this toggle's own call site, that bails out right after
+refreshing the composite/overlay but BEFORE resetting any pairing state;
+re-detecting the SAME channel on the SAME frames with the SAME settings is
+deterministic, so the existing dark-orange marking still matches the fresh
+composite by value with no extra work. Toggling back and forth is
+therefore a free, non-destructive way to compare the two channels without
+losing anything already computed — a real, explicit **Localize SOI**
+click is the only thing that genuinely starts over.
+
+**Pairing a donor candidate to its acceptor partner** reuses **Pairing
+(sSMLM & FRET)**'s own directional distance+bearing-angle matching
+directly — `pairCore()`'s translation-dominated dual-view/polychroic case
+is exactly the same math as sSMLM's own diffraction-grating case, just a
+different physical origin for the offset — with zero pairing-specific code
+of its own. **Pair DD + DA** (`getSmfretPairingFromDonor()`) is a
+smFRET-side shortcut over that module's **Preview pairs** +
+**Pair & plot sSMLM**, run directly against the current sites of interest:
+it fits the distance/angle window (the SAME auto-fit **Preview pairs**
+itself runs — see **Pairing (sSMLM & FRET)** above), redraws the raw
+(left) panel with the resulting Distances/Angles histogram, and commits
+the pairing (writing each site's paired acceptor position/distance into
+`lastResult.locs`) — but skips that module's own RECONSTRUCTION-panel side
+effects entirely (no colour-map switch, no z-range change, no re-render),
+so it never disturbs whichever composite or time trace the reconstruction
+(right) panel currently shows. With ALEX ticked, it always pairs the
+**direct donor excitation** channel's own sites, refusing with a log
+message if the SOI composite currently showing is the acceptor-excitation
+one instead. The window it pairs with is always read AFTER its own
+internal fit has actually run, not before — an earlier version captured it
+first, so a first click always paired against a stale/default window and a
+second click (now benefiting from the first click's own fit) produced far
+more pairs; fixed by reordering, verified against the real reference
+dataset. If the SOI composite is still showing when pairing succeeds,
+every site that became part of a pair has its own ROI box/crosshair
+recoloured dark orange (`markSmfretSoiPairedKeys()`, shared by this
+button, **Link channels**, and the live re-pair below so all three colour
+the overlay identically) — every site stays visible regardless, so it's
+easy to see how many (and which) actually paired, rather than the unpaired
+majority disappearing. Once it succeeds, **Get time traces** above
+automatically reads the resulting paired positions and splits DD into
+DD/DA, exactly as if **Pair & plot sSMLM** had been clicked in the other
+module.
+
+**Position donor?** (`smfretDonorAngle`, shown once ALEX is checked)
+answers what the doubled-bearing pairing data can't answer on its own:
+which of the two candidate bearings — always exactly 180° apart — actually
+points from donor toward acceptor (role assignment in `pairCore()` is
+directional, see **Pairing (sSMLM & FRET)** above; nothing in the geometry
+alone can tell which direction is physically "toward the acceptor").
+Greyed out until a real angle fit has actually run at least once (from
+**Preview pairs** or **Pair DD + DA**) — its two options are frozen at
+that fit (`refreshSmfretDonorAngleOptions()`) and stay fixed while
+toggling between them, so picking one never shifts to a moving target.
+Picking an option sets **Pairing (sSMLM & FRET)**'s own **Primary angle**
+directly and re-pairs live — there's no automatic way to tell which of the
+two is physically correct, so this still needs checking against a known
+FRET pair or the optical setup's own geometry.
+
+**Link channels** (`linkSmfretChannels()`, only enabled with ALEX checked
+and a real DD+DA pairing already committed) closes what used to be an
+open gap: validating each already-paired site against an INDEPENDENT
+direct-acceptor-excitation localization, rather than trusting the pairing
+geometry's own acceptor position blindly. It runs a fresh, on-demand
+`smfretSOICore()` pass on the direct-acceptor-excitation channel (the same
+Average # of frames/detection/fit settings **Localize SOI** itself uses,
+but never persisted — a one-off comparison, re-computed fresh every
+click), then discards any pair whose own DA position has no real
+localization from that pass within 2 px of it — independent of the Filter
+SOIs setting, which it never reads (it always runs its own acceptor-channel
+check regardless of what that dropdown shows). Whenever the pairing window
+changes afterward — typically via **Position donor?**, but any Distance/
+Angle field works — the live re-pair this triggers (see **Pairing (sSMLM &
+FRET)**'s own `refreshSmfretPairingLive()`) automatically re-applies
+**Link channels** to the fresh pairing if it had already succeeded once,
+so a verified, channel-linked result doesn't silently revert to the
+unverified full pair set the moment the window moves.
+
+Genuinely still open (see `docs/REFACTOR_PLAN.md` for the full sketch):
+E_raw/S_raw computation and the later accurate-FRET correction step
+(leakage/crosstalk, direct excitation, γ-factor); per-localization ALEX
+frame-role tagging on a GENERAL, non-smFRET-SOI localization set (today's
+DD/DA/AA splitting only applies to `smfretSOI` sites via **Get time
+traces**); a genuine period/pattern control for >2-frame ALEX cycles
+(today's is a fixed 1st-frame + period-2 alternation only); a "Donor vs
+acceptor" control exposing `pairCore()`'s own directional 0th/1st-order
+role classification under smFRET's own donor/acceptor terminology, instead
+of quietly assuming the convention `pairCore()` already uses is the right
+one; and a headless/NDJSON equivalent for **Get time traces** itself
+(`config.smfretLocateSOI` alone doesn't cover it). The core donor/acceptor
+pairing pipeline described above, by contrast, is no longer a mechanical-
+only proof of concept — it has been run and verified end to end against
+real prism/polychroic ALEX acquisition data throughout its development.
 
 ### Single particle tracking (`spt`) {#spt}
 
@@ -1897,8 +2040,8 @@ speed matters more than per-render grain. The random offsets are seeded
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
 matching a colour scheme used in the sSMLM paper's own figures — the only
 cyclic map here, so the two ends of the mapped range deliberately land on
-the same hue rather than two different ones; **Pair** (see **sSMLM**)
-auto-selects it. The on-canvas colour-scale strip (`drawDepthBar()`) anchors
+the same hue rather than two different ones; **Pair & plot sSMLM** (see
+**sSMLM**) auto-selects it. The on-canvas colour-scale strip (`drawDepthBar()`) anchors
 to the actual DATA's own right edge and vertical centre rather than a fixed
 canvas corner — sSMLM's paired result usually only plots a sparse subset of
 the full field of view, so a fixed corner could leave the bar floating in
@@ -2124,8 +2267,10 @@ unexplained). (This plot has no
 interactive hover the way the Distances view does — a deliberate v1 scope
 limit — but its own three marker lines ARE draggable, see below.) Both histograms accumulate same-frame
 candidates across every frame in the stack (never cross-frame pairs) —
-one pooled plot, not one frame's worth. **Fit dist. & angle** fits BOTH
-windows in one click. Distance min/max come from a two-component mixture
+one pooled plot, not one frame's worth. **Preview pairs**' own automatic
+fit (there is no separate "Fit" button — see the hint above) sets BOTH
+windows the moment it runs, and re-runs whenever **Background profile**
+changes too. Distance min/max come from a two-component mixture
 fit against the (always-wide) distance histogram: a theoretical
 **background** term — the closed-form PDF of the distance between two
 independent, uniformly random, unpaired points confined to the region the
@@ -2163,9 +2308,9 @@ mirrored, since both are always drawn at the same distance from centre;
 a red line can be dragged arbitrarily close to the magenta one but never
 past or onto it. Both refresh live as
 you edit any of the four fields while that histogram is on screen (or
-immediately after clicking **Fit dist. & angle**), no manual re-click
-needed. Narrow these fields (by hand or via the fit) to the real peak,
-then commit with **Pair**. See
+immediately after **Preview pairs**' own automatic fit runs), no manual
+re-click needed. Narrow these fields (by hand or via the fit) to the real
+peak, then commit with **Pair & plot sSMLM**. See
 [§2](#2-module-reference)'s **sSMLM** entry for the full pairing algorithm
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
@@ -2658,7 +2803,7 @@ const result = await window.webSMLM.analyze({
 - `config.sSmlmPair` (v0.11.1) — boolean, not a `PARAMS` entry. Runs
   `pairCore()` (spectral SMLM pairing, see **sSMLM** in `CLAUDE.md`) right
   after Localize, before drift/NeNA/FRC — the headless equivalent of
-  clicking **Pair**. `config.sSmlmDistMin`/`sSmlmDistMax`/`sSmlmAngleCenter`/
+  clicking **Pair & plot sSMLM**. `config.sSmlmDistMin`/`sSmlmDistMax`/`sSmlmAngleCenter`/
   `sSmlmAngleTol`/`sSmlmRequireNarrower` (ordinary `PARAMS` fields) configure
   the window. `pairCore()` itself throws — propagating as a rejected
   `analyze()` promise, same "throws immediately" precedent as this API's

@@ -2093,6 +2093,42 @@ relevant one before editing rather than scrolling:
   different site updates correctly, and toggling to **Show raw frame** mid-flight (`rawIsPlot`
   becomes `false`) causes no crash and no stray inset drawn over the live frame.
 
+  **Documentation staleness/consistency pass** (requested — "check documentation and code for
+  staleness and consistency especially as we went back and forth with ssmlm and smFRET... maybe
+  renaming some parts is in place"). Cross-checked every current sSMLM/smFRET button id and label in
+  `webSMLM.html` against `docs/DOCUMENTATION.md`/`README.md`/`docs/REFACTOR_PLAN.md` — the actual
+  live UI naming turned out already consistent (Filter SOIs, Pair DD + DA, Pair & plot sSMLM,
+  Position donor?, Link channels — no lingering "Get from pairing"/"Channels to show"/"Linking
+  SOIs"/"Fit dist. & angle" in current-facing text anywhere in the app itself), so no code-level
+  renaming was warranted; the staleness was entirely in the PROSE, not the names. Fixed in
+  `docs/DOCUMENTATION.md`: (1) §3's own sSMLM prose (below the already-current `.hint` marker) still
+  described a removed **Fit dist. & angle** button as something to click — 2 spots, rewritten to
+  describe **Preview pairs**' own automatic fit instead; 6 more spots said bare **Pair** instead of
+  the actual **Pair & plot sSMLM** label. (2) §2's **Single-molecule FRET** section (848 onward) had
+  fallen well behind the shipped feature set — no mention of **Pair DD + DA**, **Position donor?**,
+  **Link channels**, the dark-orange pairing marks, or the ROI-thumbnail insets at all, one lingering
+  "**Spectral SMLM analysis**" old-name reference, a stale **Filter SOIs** description that hadn't
+  caught up with AA/pairing decoupling, and — worst — a "Still not implemented... linking a
+  direct-acceptor-excitation (AA) composite's own sites to the DD/DA pairs" claim that was flatly
+  wrong (**Link channels** does exactly this, and has for a while); rewrote the section end to end,
+  and closed a genuine content gap where the sSMLM section promised an `x2`/`y2`/`pairAngle`
+  write-up "below" that was never actually written. (3) §1's own sidebar-module list promised a
+  "**Single-molecule FRET** below" cross-reference that flat-out didn't exist — the whole bullet was
+  missing from the list; added it. `docs/REFACTOR_PLAN.md`'s smFRET/ALEX section was similarly
+  behind — it read as a half-finished sketch ("nobody's yet run it against real dual-view/polychroic
+  data," "Still open: letting the user pick which frames feed the average") describing things that
+  are now shipped, verified features; trimmed to keep only what's genuinely still open (E_raw/S_raw,
+  the "Donor vs acceptor" terminology control, general non-SOI ALEX frame-role tagging, headless
+  export for Get time traces, image-splitter/two-camera infrastructure), per this file's own "shipped
+  history lives in CHANGELOG.md, not here" convention — REFACTOR_PLAN.md had drifted into narrating
+  history it wasn't meant to hold. `README.md`'s own "Guided workflow" step 5 still named the module
+  "Spectral SMLM analysis" — the in-app Quick guide modal's own copy had already been updated to
+  "Pairing (sSMLM & FRET)" at some earlier point without the required "update both together" (see
+  this file's own **Reference material** section) actually happening; synced verbatim. Verified: RTD
+  strict build passes, `tools/sync_hints.mjs --check` reports in sync (no `.hint` content touched,
+  only surrounding prose), and every current sSMLM/smFRET button id/label cross-checked directly
+  against the live HTML via a grep sweep rather than assumed from memory.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

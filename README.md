@@ -54,10 +54,11 @@ in-app, plus acknowledgements and licence.
    add-on, opened as needed: **Gain & offset estimation** calibrates real
    camera photon units; **3D calibration** fits an astigmatic width-vs-z
    curve for 3D localization; **Drift correction** removes sample drift
-   (AIM); **Localization precision** reports NeNA/FRC; **Spectral SMLM
-   analysis** pairs 0th/1st-order localizations from a diffraction grating;
-   **Single particle tracking** links per-frame localizations into
-   trajectories and estimates diffusion coefficients.
+   (AIM); **Localization precision** reports NeNA/FRC; **Pairing (sSMLM &
+   FRET)** pairs 0th/1st-order localizations from a diffraction grating (or
+   a prism-split donor/acceptor pair); **Single particle tracking** links
+   per-frame localizations into trajectories and estimates diffusion
+   coefficients.
 
 ## Live streaming (experimental)
 
