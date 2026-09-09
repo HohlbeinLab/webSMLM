@@ -554,6 +554,12 @@ relevant one before editing rather than scrolling:
   latter reads as an ordinary "×10⁴" the way a textbook would set it, the former as "×10 ⁴" with a
   visible gap.
 
+  **`GAP` corrected AGAIN, to `-2`** — even `0` still read as too far apart (reported a second
+  time). A real superscript glyph commonly overlaps the preceding character's own right-side
+  bearing slightly, which `GAP=0` (flush advance-width positioning, no overlap) doesn't reproduce —
+  `-2` does. Re-verified the same way (offscreen canvas, 6x-8x device scale close-up): the exponent
+  now visibly sits tucked against/over the "0", matching a textbook's own tight scientific notation.
+
   Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
   outward-facing tick mark at each major tick, on both axes. The border is drawn LAST, after the
   data, so bars/points flush against an axis edge (NeNA in particular) can't be covered by it. Tick
@@ -1212,17 +1218,20 @@ relevant one before editing rather than scrolling:
   every other draggable marker's own convention — not continuously mid-drag, confirmed with the
   user directly rather than assumed), re-runs `pairSSmlm()` with the NEW window (deliberately
   skipping `previewSSmlmPairsCore()`'s own auto-fit, which would silently undo a manual edit) then
-  re-filters the SOI composite's own overlay via a newly-extracted `filterSmfretSoiOverlayToPairs
-  (pairedLocs)` (the exact filtering logic `getSmfretPairingFromDonor()`'s own tail used to inline,
-  now shared by both). Always filters from the FULL `smfretSOI` array (never from whatever `srLocs`
-  currently holds) — widening the window on a later refresh must be able to bring back a site an
-  earlier, narrower window had excluded. An empty window (0 pairs) correctly empties the overlay
-  too via `r.nPairs ? r.locs : []`, rather than leaving the previous window's survivors stuck on
-  screen. Verified via Playwright against the real ALEX/prism dataset: narrowing Distance max via a
-  field change while in the smfret context re-pairs and the SR panel's `srSpots`/`srLocs` length
-  changes to match the new count; picking the *other* candidate bearing on smFRET's own "Position
-  donor?" (below) — which sets Primary angle then dispatches `change` — triggers the identical
-  live re-pair/re-filter path for free, no separate wiring needed.
+  re-marks the SOI composite's own overlay via `markSmfretSoiPairedKeys(pairedLocs)` (the exact
+  marking logic `getSmfretPairingFromDonor()`'s own tail also calls, see **smFRET**'s own paragraph
+  below for the full mechanism — colours a paired entry dark orange, never removes an unpaired
+  one's box/crosshair). Always rebuilds `smfretPairedSoiKeys` from the FULL `smfretSOI` array
+  (never from a previously-filtered subset — there isn't one any more) — widening the window on a
+  later refresh must be able to bring a site back into the marked set that an earlier, narrower
+  window had excluded. An empty window (0 pairs) correctly clears the marking entirely via
+  `r.nPairs ? r.locs : []`, rather than leaving the previous window's marks stuck on screen.
+  Verified via Playwright against the real ALEX/prism dataset: narrowing Distance max via a field
+  change while in the smfret context re-pairs and `smfretPairedSoiKeys`' own size changes to match
+  the new pair count (`srSpots`/`srLocs` themselves stay the same full length throughout, by
+  design); picking the *other* candidate bearing on smFRET's own "Position donor?" (below) — which
+  sets Primary angle then dispatches `change` — triggers the identical live re-pair/re-mark path
+  for free, no separate wiring needed.
 
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
@@ -1312,33 +1321,35 @@ relevant one before editing rather than scrolling:
   Colour map/`zcolor` fields completely untouched (confirming the silent, no-side-effect design),
   and a subsequent **Get time traces** correctly reports both `photonsDD` and `photonsDA`.
 
-  **The SOI composite's own overlay is also filtered down to the pairing survivors** (requested,
-  same round — "after pairing, the SOI composite should filter out all ROIs and locs that do not
-  belong to a pair anymore"): a site with no partner previously kept showing its green ROI box and
-  numbered magenta crosshair on the still-visible composite image after a successful pairing, as if
-  it were still valid. `smfretSOICore()`'s fit loop now stashes `_maxCx`/`_maxCy` (the ORIGINATING
-  detected-maximum's own integer position, an internal bookkeeping field, leading-underscore
-  convention matching `lastResult._zColorAutoChecked`) on every fitted site — needed because
-  `srSpots` (the green-box overlay, `maxima`, coarse pre-fit integer `[cx,cy]` pairs) has no other
-  link back to a fitted site's own sub-pixel x,y once some maxima have been dropped for failing to
-  fit (`fitted.length` can be less than `maxima.length`, and the two are NOT index-aligned). After a
-  successful `pairSSmlm()` call, `getSmfretPairingFromDonor()` matches each surviving paired row
-  back to its originating `smfretSOI` entry by exact `x,y` VALUE equality (`pairCore()`'s own
-  `paired.push()` copies `x:L.x,y:L.y` verbatim from that same object, so this is a real value match,
-  not a fuzzy one — no floating-point drift), then rebuilds `srSpots`/`srLocs` from just the
-  survivors (`srSpots` via each survivor's own `_maxCx`/`_maxCy`) and redraws with a plain
-  `clampView(); drawView();` — no `rerender()`, since `srFull` (the composite image itself) is
-  unchanged, only the overlay list shrinks. Guarded on `srLocs===smfretSOI` (a no-op if the SR panel
-  isn't currently even showing the composite this call started from). The filtered array is tagged
-  `survivors.__pairedSOI=true` so the two `drawSpotOverlays()` call sites' own numbering gate
-  (`srLocs===smfretSOI`, MODULE: render — an object-identity check that's now necessarily false for
-  this NEW filtered array) also accepts `srLocs.__pairedSOI`, keeping numbered crosshairs on for the
-  filtered composite too (renumbered 1.. for the surviving subset, not the original SOI index — an
-  acceptable, undocumented simplification rather than threading the original index through).
-  **Extracted into `filterSmfretSoiOverlayToPairs(pairedLocs)`** the same round `sSmlmPairContext`
-  shipped (see **sSMLM**'s own paragraph above) — the logic itself is unchanged, just shared with
-  `refreshSmfretPairingLive()` and `linkSmfretChannels()` (below) so all three re-filtering call
-  sites can never implement this differently.
+  **The SOI composite's own overlay marks (not filters) pairing survivors — reverted from an
+  earlier, stricter design on direct follow-up.** The FIRST version of this feature (requested that
+  round: "after pairing, the SOI composite should filter out all ROIs and locs that do not belong
+  to a pair anymore") actually REMOVED an unpaired site's own green ROI box/magenta crosshair from
+  `srSpots`/`srLocs` — reverted the very next round, reported: "most all DA and locs boxes vanish...
+  How about changing the colour of ROI boxes for the DAs to dark orange to see that they became
+  part of a pair?" `srSpots`/`srLocs` now ALWAYS stay the full, unfiltered `maxima`/`smfretSOI` once
+  a composite is showing — no more object replacement, no more identity-check workarounds (the
+  earlier version's own `__pairedSOI` tag hack, needed only because `srLocs` used to become a
+  DIFFERENT filtered array, is gone entirely — `srLocs===smfretSOI` alone is sufficient again once
+  it never changes). Instead, `markSmfretSoiPairedKeys(pairedLocs)` (renamed from
+  `filterSmfretSoiOverlayToPairs()`) builds `smfretPairedSoiKeys` — `{spotKeys, locKeys}`, two
+  `Set`s keyed differently — and `drawSpotOverlays()` (MODULE: render) consults it to recolour a
+  matching entry `PAIRED_SPOT_COLOR` (`#d2691e`, dark orange) instead of the usual green (spots) or
+  magenta (locs). Two different keys are needed because `spots`/`srSpots` (the green-box overlay,
+  `maxima`, coarse pre-fit INTEGER `[cx,cy]` pairs) has no direct link to a fitted site's own
+  sub-pixel x,y once some maxima have been dropped for failing to fit (`fitted.length` can be less
+  than `maxima.length`, and the two are NOT index-aligned) — `smfretSOICore()`'s fit loop stashes
+  `_maxCx`/`_maxCy` (the ORIGINATING detected-maximum's own integer position, an internal
+  bookkeeping field, leading-underscore convention matching `lastResult._zColorAutoChecked`) on
+  every fitted site for exactly this, so `spotKeys` can be built from a paired entry's own
+  `_maxCx|_maxCy` while `locKeys` matches the fitted `x|y` directly. Shared by
+  `getSmfretPairingFromDonor()`, `refreshSmfretPairingLive()`, and `linkSmfretChannels()` (below) so
+  the three re-marking call sites can never implement this differently — each just calls
+  `markSmfretSoiPairedKeys()` with whatever `lastResult.locs` currently holds after its own action,
+  and a plain `clampView(); drawView();` (no `rerender()`, since `srFull`, the composite image
+  itself, never changes — only the overlay's own colouring does) repaints it. Reset to `null`
+  (clearing any stale marking) at the same points `sSmlmOriginalLocs` itself resets: a fresh
+  Localize SOI run, `unpairSSmlm()`, and `clearSmfretFixSOI()`.
 
   **"Channels to show" renamed "Filter SOIs"** (requested — the field now also gates a NEW
   action, **Link channels** below, not just Get time traces' own display). **"Position donor?"**
@@ -1370,10 +1381,11 @@ relevant one before editing rather than scrolling:
   re-localizes from scratch every time) — then, for every already-paired row, checks whether ANY
   resulting AA site sits within `LINK_RADIUS_PX` (2, a plain Euclidean `Math.hypot`) of that row's
   own `x2,y2` (the DA/acceptor-channel position from pairing); a pair with no such AA site is
-  dropped. `lastResult.locs` is replaced with the surviving subset, and
-  `filterSmfretSoiOverlayToPairs()` re-filters the SOI composite's own overlay to match — reusable
-  as-is here since a surviving row's own `x,y` (the DONOR position) is untouched by this step,
-  still matching the original `smfretSOI` entry by value exactly like the pairing-stage filter does.
+  dropped. `lastResult.locs` is genuinely REPLACED with the surviving subset (a real data
+  reduction, unlike the composite's own display-only marking below), and
+  `markSmfretSoiPairedKeys()` re-marks the SOI composite's own overlay to match — reusable as-is
+  here since a surviving row's own `x,y` (the DONOR position) is untouched by this step, still
+  matching the original `smfretSOI` entry by value exactly like the pairing-stage marking does.
   Idempotent — re-clicking re-localizes the acceptor channel fresh and re-applies the same 2 px
   test to whatever `lastResult.locs` currently holds. Verified via Playwright against the real
   ALEX/prism dataset: 50 DD+DA pairs → Link channels localizes 283 independent AA sites → keeps
@@ -1428,6 +1440,41 @@ relevant one before editing rather than scrolling:
 
   **"Channels to show" → "Linking SOIs" → "Filter SOIs"** — renamed twice in two rounds (the first
   rename, to "Linking SOIs", was itself superseded on direct follow-up the very next round).
+
+  **"Fix sites of interest (SOI)" default confirmed already on** (asked about directly — "set
+  default to on") — its own PARAMS entry (`default:true`) and the HTML checkbox's own `checked`
+  attribute already agree; re-verified via Playwright on a completely fresh page load with no data
+  at all. The likely source of the confusion: `initScrub()` force-UNCHECKS it on every fresh STACK
+  load (`smfretSOI=null; $('smfretFixSOI').checked=false;`) — a deliberate, already-documented
+  design (a status flag scoped to one loaded dataset, not a sticky preference, same reasoning
+  `calFixedXY` already established) rather than a wrong default — left unchanged, since changing it
+  would contradict that established, still-correct design rather than fix an actual default.
+
+  **Three small ROI thumbnails below the Time trace plot** (`smfretRoiThumbsRow`, requested) — DD/
+  DA/AA (only the ones that actually exist for the current site, matching `photonsDA`/`photonsAA`'s
+  own presence), each a small contrast-stretched crop of the real camera pixels around that
+  channel's own extraction position, purely as a quick visual sanity check that a position genuinely
+  sits on a molecule rather than background — the SAME motivation as the dark-orange composite
+  marking above, one level more zoomed in. `drawSmfretRoiThumbnails(idx)`, called fire-and-forget
+  (not awaited) from the end of `drawSmfretTrace(idx)` — a genuinely async frame fetch
+  (`stack.getFrames()`) inside an otherwise-synchronous plot draw, so it populates a moment after
+  the main plot rather than blocking it. Deliberately NOT scrubbed with the main Frame slider — each
+  channel uses one FIXED representative frame (the first frame of its own relevant parity: donor-
+  excitation for DD/DA, acceptor-excitation for AA — `firstFrameOfParity()`), since this view exists
+  to confirm the position, not to browse every frame. `smfretTraces[idx]` itself gained `x2`/`y2`
+  fields (previously only ever read locally inside `getSmfretTimeTraces()`'s own per-frame loop from
+  the SOURCE `sites` array, then discarded — never carried onto the trace object) so this function
+  has DA/AA's own extraction position to crop around. `_smfretRoiGen` (a plain incrementing counter,
+  the same shape as this codebase's own `newEpoch()`/`staleEpoch()` convention elsewhere, just
+  scoped locally to this one feature rather than the shared session-wide epoch) guards against
+  scrubbing sites quickly leaving an OLDER site's still-in-flight frame fetch draw over a NEWER
+  selection's canvas. Each crop is contrast-stretched against its OWN local min/max (not the raw
+  panel's shared fixed Contrast slider range, tuned for a whole frame, not a `2×winr+1` px crop) and
+  rendered at native crop resolution with `image-rendering:pixelated` CSS scaling it up crisply
+  (`48px` display size) rather than blurring. Hidden at the same points the site scrubber itself
+  (`smfretTraceScrubRow`) hides — a fresh Localize SOI, `clearSmfretFixSOI()`, switching to "Show
+  raw frame", or a fresh stack load — so a stale thumbnail never lingers once the underlying trace
+  data it was showing is gone.
 
   **`smfretSOICore(config, stack, checkStack=true)`** (v0.12.1-dev) is the pure, DOM-free half of
   `locateSmfretSOI()` — the averaging+detect+fit loop, extracted so `analyze()`'s own
