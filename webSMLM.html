@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15331  localizations table, filtering, histograms;
+    table           15280  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -15134,53 +15134,7 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-07i — the crop tool's own fix
-(build 07g: its logged command recalls as applyCropToRaw(), not
-analyze({cropX0,...}), so it no longer also re-Localizes) turned out to
-have SIX more siblings (reported: "gain & offset estimation still in
-analyze?"): PCFO, Correct drift, Compute NeNA, Compute FRC, Preview
-pairs, Pair, and Track ALL had the same mismatch — each button only
-ever acts on the EXISTING result and never Localizes, but their own
-logged analyze({...}) commands always ALSO ran a full Localize when
-recalled, since analyze()'s per-frame Localize step is unconditional.
-Worst for PCFO specifically: a single click that only ever estimates
-and plots became, when recalled, a much slower, surprising full
-reconstruction. All seven now log/recall their own real function
-(estimateGainOffset(), correctDrift(), computeNeNA(), computeFRC(),
-runSSmlmPair(), previewSSmlmPairs(), runSptTrack()) instead. Deliberately
-NOT extended to Load movie/data, Load data, or Simulate movie — see
-docs/DOCUMENTATION.md's own terminal section for why those three still
-recall as analyze() and what that means.
-Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-07k — Load movie/data's own
-mismatch (build 07j: recalling it re-Localizes the ENTIRE stack, not
-just the first frame — genuinely minutes on a large file, reported as
-a real objection) is now actually fixed, not just documented. The
-earlier obstacle was real: loadFiles() takes a real File/FileList, and
-calling it directly from the terminal didn't resolve a recalled
-filename STRING back to the real File the way analyze() already does.
-runTerminalStatement() now ALSO shadows loadFiles()/loadCsvFile()/
-loadCalibrationJson()/loadSettingsJson()/loadSegmentedImage() with the
-same resolution — Load movie/data's own logged command now recalls as
-loadFiles(["file.tif"]), a genuine load-only replay (confirmed:
-single-digit milliseconds, not minutes). Load data (.csv) and Simulate
-movie never needed this — see build 07j's own message for why.
-Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08g — applyCropToRaw()/
-commitSrCrop() now validate their own bounds properly (reported:
-applyCropToRaw(4000,397,667,596) said "region too small", which was
-technically true of the raw x1-x0 arithmetic but had nothing to do
-with the real problem — an INVERTED region, not a small one). Both
-click handlers already hand in correctly-ordered, in-bounds corners by
-construction, so this only ever mattered once the terminal made it
-possible to pass arbitrary numbers directly. applyCropToRaw() now
-distinguishes three failure modes with three distinct messages:
-inverted (x1<=x0 or y1<=y0), out of bounds for the actual stack, and
-genuinely too small (min 8x8) — checked in that order, so each one
-gets the message that actually explains what went wrong.
-commitSrCrop() gets the matching inverted-region check.
-Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08h — smFRET Get time traces:
+log(`webSMLM v0.12.1-dev · build 2026-09-08i — smFRET Get time traces:
 new "Floor intensities to 0" checkbox (default on) lets a real negative
 background-subtracted aperture-photometry value through when unticked,
 better fitting an intensity distribution than an artificial floor.
@@ -15200,16 +15154,11 @@ gap, just not that channel's turn) — the line-drawing loop originally
 reset on every NaN regardless, so no two real samples were ever two
 frames apart and nothing ever stroked a visible line. Fixed by having
 each curve skip frames outside its own parity without breaking
-continuity, only breaking on a genuine same-parity gap.
-Not yet released to main.`);
-log(`webSMLM v0.12.1-dev · build 2026-09-08i — Spectral SMLM analysis,
-smFRET (experimental) and Single particle tracking's own sidebar section
-labels now carry a "(Caution!)" prefix — a plain visual warning that
-these are specific, scope-limited methods (directional sSMLM pairing on
-one configured bearing, smFRET's v1 SOI/trace approach, spt's trackpy-
-inspired linking), not general-purpose techniques. Visual only — the
-element ids (sSmlmBox/smfretBox/sptBox) and every internal name are
-unchanged.
+continuity, only breaking on a genuine same-parity gap. Also: Spectral
+SMLM analysis / smFRET (experimental) / Single particle tracking's own
+sidebar section labels now carry a "(Caution!)" prefix — a plain visual
+warning that these are specific, scope-limited methods, not
+general-purpose techniques (visual only, element ids unchanged).
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
