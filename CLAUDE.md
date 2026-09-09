@@ -1956,6 +1956,46 @@ relevant one before editing rather than scrolling:
   (AA) composite's own sites to these donor-channel DD/DA pairs both stay explicitly open, deliberately
   deferred follow-ups, not attempted this round.
 
+  **Three more usability fixes, same round.** (1) `initScrub()` no longer force-unchecks
+  **Fix sites of interest (SOI)** on a fresh movie load (requested: "Do not force uncheck ... There
+  is no reason, as only 'Localize SOI' will have consequences") — `smfretSOI` itself is still reset
+  to `null` (those positions genuinely belong to the OLD stack's own pixels), but the checkbox's own
+  state is left alone; `clearSmfretFixSOI()` (its own uncheck handler) still runs the real teardown
+  whenever a user (or a subsequent Localize SOI mismatch) actually unchecks it. (2) Toggling the
+  SOI-composite channel view (`alexProjToggleBtn`, **DD+DA**/**AA**) used to silently discard an
+  already-committed pairing — a real, reported UX trap: `toggleAlexProjChannel()` →
+  `refreshAlexProjectionIfShown()` → `locateSmfretSOI()` had no way to tell "just peeking at the
+  other channel's composite" from "the user explicitly wants a fresh SOI pass with real
+  consequences," and the latter's own reset block always nulled the pairing/marking state, which
+  also disabled **Link channels** and made the dark-orange paired boxes vanish. Fixed with a new
+  `preservePairing` boolean threaded `toggleAlexProjChannel()` → `refreshAlexProjectionIfShown()` →
+  `locateSmfretSOI()` (`true` only from the channel-toggle call site; every other caller, including
+  the explicit **Localize SOI** button and `refreshAlexProjectionIfShown()`'s own no-arg
+  `toggleAlexEnabled()` path, stays `false`) — when set AND `smfretHasDDDAPairing()` is true,
+  `locateSmfretSOI()` bails out right after refreshing `smfretSOI`/`srFull`/`srSpots`/`srLocs`/
+  `srInfo`/the toggle button's own label, but BEFORE overwriting `lastResult` or resetting any
+  pairing state. This relies on detection being deterministic: re-averaging/detecting/fitting the
+  SAME channel on the SAME frames with the SAME settings reproduces numerically identical
+  x,y/`_maxCx`/`_maxCy` values every time, so the OLD (never-nulled) `smfretPairedSoiKeys` Sets
+  still match the FRESH `smfretSOI` array by VALUE — toggling back to the donor channel correctly
+  re-shows the same dark-orange marks with no extra bookkeeping needed. Verified via Playwright on
+  the real ALEX dataset through a full round trip (donor → AA → back to donor): `nPairs` (79) and
+  `smfretPairedSoiKeys.locKeys.size` (79) stayed identical throughout, **Link channels** stayed
+  enabled the whole time, the dark-orange pixel count reappeared on toggling back (540 px), and a
+  subsequent **Link channels** re-run against the restored state still completed correctly (71
+  pairs). (3) **Position donor?** (`smfretDonorAngle`) is now `disabled` by default in the HTML and
+  only enabled once a real angle fit has actually run — requested: "Position donor should grayed
+  out and deactive until 'Pair DD + DA' was checked providing guesses for the angles," since its two
+  options are meaningless placeholders (the `PARAMS` default bearing and its +180°) before any real
+  data has been fit. `refreshSmfretDonorAngleOptions()` gained an `enable=true` parameter
+  controlling `sel.disabled=!enable`; the one page-load seed call (populating the dropdown before
+  any stack is even loaded, so it's never left empty) passes `refreshSmfretDonorAngleOptions(false)`
+  explicitly, while every real call from `previewSSmlmPairsCore()`'s own auto-fit and
+  `fitSSmlmDistAndAngle()` keeps the default `true`. Verified via Playwright: the select reads
+  `disabled===true` immediately after page load and after loading a movie with no fit yet, and
+  `disabled===false` immediately after **Preview pairs**/**Pair DD + DA** completes its own
+  auto-fit.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
