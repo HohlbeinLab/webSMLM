@@ -339,7 +339,7 @@ relevant one before editing rather than scrolling:
   inside `gaussianMLEellipticangled`. **Chicken-and-egg gap**: the angle can only be FIT from an
   already-localized dataset's own pair geometry (position-only, any method works for that first
   pass), so unchecking `localize3D` for `'gaussmleEll'` is only meaningful as a SECOND Localize,
-  after a first pass with a symmetric method feeds **Preview pairs**/**Fit dist. and angles**.
+  after a first pass with a symmetric method feeds **Preview pairs**/**Fit dist. & angle**.
   `sSmlmAngleCenter` defaults to 0°, and unlike `mle3d` there's no calibration file to hard-gate on
   — a genuinely unset angle is indistinguishable from a real 0° bearing, so `runCore()` can only
   warn (`onLog`, once per Run, gated on `!config.localize3D`), not refuse, when
@@ -659,7 +659,7 @@ relevant one before editing rather than scrolling:
   points gets the smaller array index (and so which direction `rawAngle` reports) is a row-order
   accident, not evenly split in real data, so plotting only the raw bearing looks wildly asymmetric;
   doubling it makes the two peaks equal. The angle-fitting half of `fitSSmlmDistAndAngle()`
-  (**Fit dist. and angles**, see below for the distance-fitting half added in the same round)
+  (**Fit dist. & angle**, see below for the distance-fitting half added in the same round)
   estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same data — 2°-bin peak detection +
   half-max-width walk, THEN DOUBLED as a safety margin (the raw half-max width alone came out ~1°
   against real data, vs. the ~5° that actually worked by hand). Both histograms draw the currently
@@ -674,11 +674,11 @@ relevant one before editing rather than scrolling:
   thing `drawSSmlmHist()` sets unconditionally for BOTH modes — then just calling `drawSSmlmHist()`
   itself, which already re-dispatches to whichever mode (`sSmlmHistMode`) is current and re-reads the
   live angle fields; no other change needed. Verified via Playwright: with the Angles plot showing,
-  clicking **Fit dist. and angles** now visibly redraws it at the new center/tolerance (confirmed via
+  clicking **Fit dist. & angle** now visibly redraws it at the new center/tolerance (confirmed via
   a changed canvas checksum), not just the log line and the underlying fields.
 
   **`fitSSmlmDistAndAngle()` also fits the DISTANCE histogram now** (renamed from `fitSSmlmAngle()`;
-  button relabelled **Fit angle & tol.** → **Fit dist. and angles**, requested — previously
+  button relabelled **Fit angle & tol.** → **Fit dist. & angle**, requested — previously
   `sSmlmDistMin`/`sSmlmDistMax` had to be set by eye, with no fit at all). A two-component mixture:
   a theoretical **background** term — the PDF of the distance between two independent, uniformly
   random, UNPAIRED points confined to the region the localizations actually occupy — plus a
@@ -727,16 +727,35 @@ relevant one before editing rather than scrolling:
   (computed from data, not fit) — the background term's only free parameter is its own linear
   amplitude (`∂/∂A_bg = bgPdf(x)`, trivial); the signal term's own amplitude/mu/sigma derivatives are
   the same standard Gaussian ones `fitNeNA()`'s own `dSds`-adjacent code already shows the pattern
-  for. Seeds: `mu0` from the histogram's own peak bin, `sigma0` from a plain half-max-width walk
-  around it (FWHM→σ via the standard `2.3548` conversion), `A_bg0` from the MEDIAN of
-  `y/bgPdf(x)` over bins more than `3·sigma0` from the peak (excludes signal-contaminated bins near
-  it — same "median ≈ flat background" reasoning the angle fit's own background estimate already
-  uses), `A_sig0` from the peak height minus the background's own predicted contribution there.
-  Verified on synthetic data (rejection-sampled uniform points in a real rectangle/disk, plus a
+  for. Verified on synthetic data (rejection-sampled uniform points in a real rectangle/disk, plus a
   known Gaussian signal mixed in) via `osascript -l JavaScript`: recovered `mu`/`sigma` within ~2%
   of ground truth for the rectangle case, ~10% for the disk case (a smaller synthetic
   signal-to-background ratio in that test, not a flaw in the disk formula itself, which passed its
   own independent integration/mean checks above).
+
+  **Seeding is TWO-STAGE, not "tallest bin = signal"** — a real, reported bug on real data: the
+  ORIGINAL seed (`mu0` = the histogram's own tallest raw-count bin, `A_bg0` = the median of
+  `y/bgPdf(x)` over bins far from that bin) worked on every dataset tested during development
+  (small synthetic mixtures, the smFRET SOI dataset), but broke on a real, denser Localize run on
+  the ALEX/prism dataset (733 localizations → 61,358 wide-scan candidates — reproduced exactly,
+  down to the candidate count, once pointed at it): the background itself keeps RISING across the
+  whole scanned range (Preview only scans out to 6000 nm, well short of the box's own diagonal), so
+  the histogram's own GLOBAL maximum is just the background's own rising front at the domain's far
+  edge — nothing to do with the real, much smaller signal peak. Seeding `mu0` there sent LM into a
+  degenerate fit (`sigma` collapsing toward its floor near the WRONG end of the domain), which then
+  set Distance min/max to a near-empty window — and since the angle fit's own candidate filter
+  reads THAT window, the Angles histogram came back completely empty (`n=0`), not just a bad
+  distance fit. Fixed with a proper two-stage seed that needs no prior guess at `mu`/`sigma` at all:
+  (1) estimate `A_bg0` FIRST from the 20th PERCENTILE (not the median — a signal peak spanning many
+  bins can still bias a median upward) of `y[i]/bgPdf(d[i])` across ALL bins — bins with extra
+  signal only ever push this ratio UP, never down, so the low end of the ratio distribution is
+  background-dominated regardless of where the real signal sits; (2) subtract that estimate off
+  every bin (`resid[i]=max(0,y[i]-A_bg0·bgPdf(d[i]))`) and seed `mu0`/`sigma0` from the PEAK OF THE
+  RESIDUAL, not the raw counts — this directly targets "excess over background" instead of
+  whichever end of the domain the background's own shape happens to be largest at. Verified via
+  Playwright against the real reproduction case: Distance min/max now land on a real, narrow window
+  (343–677 nm, `mu≈510`, `sigma≈56`) instead of a near-empty one, and the subsequent Angles
+  histogram shows a real, non-empty peak (4,096 values, previously 0).
 
   `sSmlmGaussBump(x,mu,s)` (an UNNORMALIZED peak-height-1 Gaussian, same convention `fitNeNA()`'s own
   `G()` uses for its correction term) is shared between `fitSSmlmDist()`'s model/Jacobian and
@@ -797,7 +816,7 @@ relevant one before editing rather than scrolling:
   `previewSSmlmPairs()` resets `sSmlmHistMode='dist'` before its own first draw — a fresh Preview
   always opens on Distances, same precedent `driftPlotMode`/`sptHistMode` follow.
 
-  **Fit dist. and angles** and **Pair** share one button row; **Unpair** sits alone in the row below. An
+  **Fit dist. & angle** and **Pair** share one button row; **Unpair** sits alone in the row below. An
   unpaired localization is dropped from the result. A pair's reported position is the 0th order's
   OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's offset
   varies per emitter with wavelength, so averaging would blur position.
@@ -2611,7 +2630,7 @@ API in sync.
 
 Sidebar/panel-title buttons must fit on one line at the sidebar's normal width — a label that
 wraps reads as broken layout, not a design choice. Abbreviate rather than let a label wrap:
-"Fit dist. and angles" not "Fit distances and angles" (see **sSMLM**). Favour standard, unambiguous
+"Fit dist. & angle" not "Fit distances and angles" (see **sSMLM**). Favour standard, unambiguous
 abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that could be misread.
 
 Two-word-joined-by-punctuation labels read `Word/word` with no surrounding spaces (**Save

@@ -114,7 +114,7 @@
                            {computeFRC:true} on success (no other config)
     sSMLM           9348   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
-                           Fit angle & tol./Pair share a row, Unpair alone;
+                           Fit dist. & angle/Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10909   single particle tracking, trackpy-inspired;
+    spt             10925   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12447  top-level orchestration, *Core()/wrapper split;
+    pipeline        12463  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13103  Micro-Manager/pycromanager camera bridge
+    liveStreaming   13119  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15661  localizations table, filtering, histograms;
+    table           15680  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2399,7 +2399,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <summary>(Caution!) Spectral SMLM analysis</summary>
         <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
         <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
-        <label class="row" title="The shape assumed for the region the localizations occupy, for the &quot;random unpaired pairs&quot; background model Fit dist. and angles fits against — a rectangle (the actual localization bounding box) or a circle (the equivalent-area disk). Real optical setups vary, so this isn't guessed from the data.">Background profile
+        <label class="row" title="The shape assumed for the region the localizations occupy, for the &quot;random unpaired pairs&quot; background model Fit dist. &amp; angle fits against — a rectangle (the actual localization bounding box) or a circle (the equivalent-area disk). Real optical setups vary, so this isn't guessed from the data.">Background profile
           <select id="sSmlmBgProfile" class="sel">
             <option value="rect">Rectangle</option>
             <option value="circle">Circle</option>
@@ -2412,7 +2412,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <button id="sSmlmHistBtn" disabled title="Show the candidate distance/angle histograms (Distances shown first; toggle next to the raw panel title switches between the two)">Show histograms</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
-          <button id="sSmlmFitAngleBtn" disabled title="Fit the distance histogram (background model + Gaussian signal) to estimate Distance min/max, and the angle histogram's peak (half-max width) to estimate Primary angle/Angle tolerance — fills in all four fields below">Fit dist. and angles</button>
+          <button id="sSmlmFitAngleBtn" disabled title="Fit the distance histogram (background model + Gaussian signal) to estimate Distance min/max, and the angle histogram's peak (half-max width) to estimate Primary angle/Angle tolerance — fills in all four fields below">Fit dist. &amp; angle</button>
           <button id="sSmlmPairBtn" disabled title="Pair 0th/1st-order localizations using the settings above">Pair</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
@@ -2422,8 +2422,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-sSMLM"><span class="pill">module: sSMLM</span>
           <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
           <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-          <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit dist. and angles</b> to fill all four fields in automatically: Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — both starting points you can widen by hand.</p>
-          <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape <b>Fit dist. and angles</b>' own distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
+          <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit dist. & angle</b> to fill all four fields in automatically: Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — both starting points you can widen by hand.</p>
+          <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape <b>Fit dist. & angle</b>' own distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
           <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
           <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -9862,26 +9862,42 @@ function fitSSmlmDist(d, y, bgPdf){
   const cost=p=>{ let c=0; for(let i=0;i<n;i++){ const e=f(d[i],p)-y[i]; c+=e*e; } return c; };
   const jac=(x,p)=>{ const g=sSmlmGaussBump(x,p[2],p[3]);
     return [bgPdf(x), g, p[1]*g*((x-p[2])/(p[3]*p[3])), p[1]*g*(((x-p[2])**2)/(p[3]**3))]; };
-  // Seeds: peak bin → mu0 (the signal bump dominates the histogram's own
-  // tallest bin on real data); a plain (not background-subtracted) half-max
-  // walk around it → sigma0 via the standard FWHM=2.3548·σ conversion — fine
-  // as a SEED even with a non-negligible background, since LM refines it.
-  // Background amplitude seeded from the MEDIAN of y/bgPdf(x) over bins more
-  // than 3·sigma0 from the peak (excludes signal-contaminated bins near it,
-  // same "median ~= flat background, peaks are narrow" reasoning the angle
-  // fit inside fitSSmlmDistAndAngle() below already uses for its own
-  // background estimate).
-  let pk=0,pkVal=-1; for(let i=0;i<n;i++) if(y[i]>pkVal){pkVal=y[i];pk=i;}
-  const mu0=d[pk], bw=n>1?(d[1]-d[0]):1;
-  let leftW=0,rightW=0; const halfMax=pkVal/2;
-  while(pk-leftW-1>=0 && y[pk-leftW-1]>=halfMax) leftW++;
-  while(pk+rightW+1<n && y[pk+rightW+1]>=halfMax) rightW++;
-  const sigma0=Math.max(bw*0.5, Math.max(bw,(leftW+rightW)*bw)/2.3548);
-  const ratios=[];
-  for(let i=0;i<n;i++){ if(Math.abs(d[i]-mu0)>3*sigma0){ const bp=bgPdf(d[i]); if(bp>1e-12) ratios.push(y[i]/bp); } }
+  const bw=n>1?(d[1]-d[0]):1;
+  // Seeding — TWO STAGES, not a single "tallest bin = signal" guess (a real,
+  // reported bug: on real data the background itself commonly keeps RISING
+  // across the whole scanned range — Preview only scans out to 6000 nm (or
+  // the configured max), typically well short of the box's own diagonal, so
+  // the histogram's own global maximum is often just the background's own
+  // rising front, nowhere near the real, much smaller signal peak. Seeding
+  // mu0 there sent LM into a degenerate fit — sigma collapsing toward its
+  // floor near the domain's other end, a near-worthless "spike" fit that
+  // then set Distance min/max to a near-empty window (the Angles histogram
+  // then showing n=0, since ITS OWN candidate filter uses that window).
+  //
+  // Stage 1 — estimate the background amplitude FIRST, robust to the signal
+  // bump: for bins truly background-only, y[i]/bgPdf(d[i]) scatters around
+  // the true amplitude; a bin WITH extra signal only ever pushes that ratio
+  // UP (extra counts on top), never down. Bins near the low end of the RATIO
+  // distribution are therefore background-dominated regardless of where the
+  // signal actually sits — the 20th percentile (not the median, which a
+  // signal peak spanning many bins could still bias upward) is a robust
+  // estimate that needs no prior guess at mu/sigma at all.
+  const ratios=[]; for(let i=0;i<n;i++){ const bp=bgPdf(d[i]); if(bp>1e-12) ratios.push(y[i]/bp); }
   ratios.sort((a,b)=>a-b);
-  const Abg0=ratios.length?ratios[Math.floor(ratios.length/2)]:0;
-  const Asig0=Math.max(1,pkVal-Abg0*bgPdf(mu0));
+  const Abg0=ratios.length?ratios[Math.max(0,Math.floor(ratios.length*0.2))]:0;
+  // Stage 2 — subtract that background estimate off every bin and find the
+  // PEAK OF THE RESIDUAL, not the raw counts — this directly targets "excess
+  // over background", which is what the real signal actually looks like,
+  // regardless of the background's own shape/slope across the domain.
+  const resid=new Float64Array(n);
+  for(let i=0;i<n;i++) resid[i]=Math.max(0, y[i]-Abg0*bgPdf(d[i]));
+  let pk=0,pkVal=-1; for(let i=0;i<n;i++) if(resid[i]>pkVal){ pkVal=resid[i]; pk=i; }
+  const mu0=d[pk];
+  let leftW=0,rightW=0; const halfMax=pkVal/2;
+  while(pk-leftW-1>=0 && resid[pk-leftW-1]>=halfMax) leftW++;
+  while(pk+rightW+1<n && resid[pk+rightW+1]>=halfMax) rightW++;
+  const sigma0=Math.max(bw*0.5, Math.max(bw,(leftW+rightW)*bw)/2.3548);
+  const Asig0=Math.max(1,pkVal);
   let p=[Math.max(0,Abg0), Asig0, mu0, sigma0];
   let lambda=1e-2, cst=cost(p);
   for(let it=0;it<400;it++){
@@ -10147,7 +10163,7 @@ $('sSmlmDistMax').addEventListener('change',syncSSmlmZRangeFromDist);
 // above), which never sets rawPlotName to 'histogram' or touches histData at
 // all (only dist mode, via drawHistogram(), does either) — so this always
 // silently no-op'd whenever the angle/polar view was the one showing,
-// including right after Fit angle & tol.'s own refreshSSmlmHistIfShown()
+// including right after Fit dist. & angle's own refreshSSmlmHistIfShown()
 // call. drawSSmlmHist() itself sets $('rawTitle') to the same fixed
 // 'sSMLM histograms' text for BOTH modes (see its own comment), and already
 // re-reads sSmlmHistMode/the live angle fields to dispatch to whichever mode
@@ -12508,7 +12524,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
   onLog(`\nRun: ${n} frames${rangeNote} · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
   // The FIXED-angle path (localize3D unchecked) needs sSmlmAngleCenter fit
-  // for THIS dataset (Preview pairs -> Fit angle & tol., on a symmetric-
+  // for THIS dataset (Preview pairs -> Fit dist. & angle, on a symmetric-
   // method Run first — position-only bearing, doesn't need this method at
   // all) BEFORE it's meaningful — there's no calibration file to hard-gate
   // on, so a genuinely unset angle can't be told apart from a real 0°. Warn
@@ -12518,7 +12534,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // warning elsewhere. Free-angle mode (localize3D checked) fits its own
   // angle per emitter, so sSmlmAngleCenter is irrelevant there — no warning.
   if(method==='gaussmleEll' && !config.localize3D && !config.sSmlmAngleCenter){
-    onLog(`⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs → Fit angle & tol., on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
+    onLog(`⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs → Fit dist. & angle, on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
   }
   // FTM (temporal median filtering): if enabled, every frame fetch below goes
   // through makeFtmStack() instead of `stack` directly, so detect/fit see
@@ -15520,26 +15536,29 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09c — sSMLM's "Fit angle & tol."
-is now "Fit dist. and angles": it fits the DISTANCE histogram too, not
-just angle. Model: a theoretical background term (the closed-form PDF
-of the distance between two independent, uniformly random, unpaired
-points confined to the actual localization bounding box — rectangle or
-circle, per the new Background profile dropdown) plus a Gaussian
-signal term on top (the real spectrally-split-pair distance), fit via
-Levenberg-Marquardt (mirrors fitNeNA()'s own engine). Sets Distance
-min/max to the fitted peak ±3σ, then fits angle as before using that
-freshly-set window, and overlays the fitted curve on the distance
-histogram. Both background formulas were independently verified
-(Monte Carlo + numerical integration to 1.0) before shipping: Philip
-2007 (TRITA-MAT-07-MA-10) for the rectangle — note this report is
-widely mis-cited as "1991", a mixup with an unrelated AMS
-classification-scheme footnote year on the same page, corrected here
-after reading the primary source directly — and Solomon 1978 (via
-MathWorld) for the disk. A separately-proposed citation for this
-(a Nature Methods DOI) was checked and dropped: that paper's own
-supplement explicitly says a continuous background formula doesn't
-work for real ROIs and uses an empirical one instead.
+log(`webSMLM v0.12.1-dev · build 2026-09-09d — sSMLM's distance fit
+("Fit dist. & angle", renamed again for length from "Fit dist. and
+angles") had a real bug on real data, reported: the distance curve
+went to a degenerate spike and the Angles histogram came back
+completely empty (n=0). Root cause: the seed (mu0 = the histogram's
+own tallest raw-count bin) assumed the signal peak was always the
+biggest thing in the plot — true for a small/simple dataset, but on a
+real, denser dataset (733 localizations -> 61,358 wide-scan
+candidates, reproduced exactly) the background itself keeps rising
+across the whole scanned range, so the tallest bin is just the
+background's own rising front, nowhere near the real signal. Seeding
+there sent the fit to a degenerate solution whose distance window then
+matched zero real candidates, which is why the angle histogram (its
+own candidate filter reads that window) came back empty too. Fixed
+with a proper two-stage seed needing no prior guess at all: estimate
+the background amplitude first from the 20th percentile of
+count/bgPdf(x) across every bin (robust to the signal, since extra
+signal only ever pushes that ratio up, never down), THEN find the
+signal peak in the RESIDUAL (counts minus that background estimate),
+not the raw counts. Verified on the exact reported dataset: Distance
+min/max now lands on a real, narrow window (343-677 nm) instead of a
+near-empty one, and the Angles histogram shows a real peak (4,096
+values, previously 0).
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
