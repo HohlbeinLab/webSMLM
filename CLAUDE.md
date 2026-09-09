@@ -1996,6 +1996,103 @@ relevant one before editing rather than scrolling:
   `disabled===false` immediately after **Preview pairs**/**Pair DD + DA** completes its own
   auto-fit.
 
+  **AA no longer strictly needs the "+AA" filter once paired, and Link channels no longer reads
+  that filter at all** (two requests, same round: "'Filter SOIs' set to DD + DA should take DA
+  position to set center positions of ROIs in the AA channel to fit for ... AA is not a strict
+  requirement anymore" and "make sure that also the 'Link channels' will be handle the new
+  situation" — see below for the second). `getSmfretTimeTraces()`'s own `showAA` gate changed from
+  `alex && smfretTraceChannels==='DD+DA+AA'` to `alex && (paired || smfretTraceChannels
+  ==='DD+DA+AA')` — once a real DD+DA pairing exists, the acceptor's own position (`x2,y2`) is
+  already known from that pairing, so AA is sampled there regardless of the Filter SOIs dropdown;
+  `drawSmfretTrace()` draws the AA curve purely off `photonsAA`'s own presence (unchanged), so it
+  now shows automatically too once paired, no separate opt-in needed. Filter SOIs' only remaining
+  role is the weaker UNPAIRED fallback (no known acceptor position yet, so AA can only be guessed
+  at the SOI's own `(x,y)` — kept opt-in via the explicit `DD+DA+AA` choice rather than sampled by
+  default). `linkSmfretChannels()` ALSO dropped its own `if(smfretTraceChannels!=='DD+DA+AA')
+  return` gate entirely — it never actually depended on that setting in the first place: it always
+  runs its own fresh, independent acceptor-channel detect+fit pass (`smfretSOICore(...,
+  {smfretSoiChannel:'acceptor'})`), completely decoupled from whatever `getSmfretTimeTraces()`
+  itself computed for `photonsAA` — gating it on that dropdown never reflected a real dependency.
+  Verified via Playwright on the real ALEX dataset with Filter SOIs left at its default `DD+DA`
+  (never switched to `+AA`): Get time traces on a paired result reports `hasPhotonsAA:true`, and
+  **Link channels** (previously refused outright at this setting) now runs and correctly narrows 79
+  pairs down to 71.
+
+  **`smfretChannelsLinked` — re-applying Link channels automatically after a live re-pair**
+  (requested, same round: "If the position of the donor is changed, make sure that also the 'Link
+  channels' will be handle the new situation, this is currently not the case and the linkage seems
+  to be lost"). Root cause: `refreshSmfretPairingLive()` (fires on a Distance/Angle field's own
+  `change` event, including the one **Position donor?** dispatches onto `sSmlmAngleCenter`) calls
+  `pairSSmlm(cfg)`, which WHOLESALE OVERWRITES `lastResult.locs` with the fresh, full, unfiltered
+  pair set for the new window — silently discarding whatever narrower subset **Link channels** had
+  previously written there, with no way to tell "just moved the window" from "start over" was ever
+  distinguished. Fixed with a new module-level `smfretChannelsLinked` flag (declared next to
+  `smfretPairedSoiKeys`): set `true` at the end of a successful `linkSmfretChannels()` run; reset
+  `false` wherever a genuinely NEW (as opposed to a live-refreshed EXISTING) pairing starts —
+  `getSmfretPairingFromDonor()`'s own try block, `unpairSSmlm()`, `locateSmfretSOI()`'s fresh-result
+  reset path, and `clearSmfretFixSOI()`'s tail block. `refreshSmfretPairingLive()` captures the flag
+  BEFORE calling `pairSSmlm()` (which is what clobbers `lastResult.locs`), and — if it was `true`
+  and the fresh re-pair produced any pairs — calls `linkSmfretChannels()` again right after marking,
+  which re-runs its own independent acceptor-channel check against the NEW pairing and re-sets the
+  flag itself (idempotent, no double-bookkeeping needed here). Verified via Playwright on the real
+  ALEX dataset: Pair DD + DA (79 pairs) → Link channels (kept 71) → switch **Position donor?** to
+  the other candidate bearing (a genuinely different Primary angle, 91° vs. −89°) → the re-pair at
+  the new bearing (78 raw pairs) is automatically re-linked (`smfretChannelsLinked` stays `true`,
+  `lastResult.locs.length` and `smfretPairedSoiKeys.locKeys.size` both land on 78, matching exactly
+  — meaning every pair at the new bearing happened to pass the AA-proximity check this time — and
+  363 dark-orange pixels are visible on the reconstruction canvas), rather than silently reverting
+  to the full, unlinked 78-pair set.
+
+  **ROI thumbnails moved INTO the Time trace plot itself, with a magenta fit crosshair** (requested,
+  mid-round, with a screenshot of the previous below-the-canvas version: "I like it but put into the
+  Timetrace panel if possible and indicate the fitted localisation with a magenta cross hair"). The
+  separate `#smfretRoiThumbsRow` DOM row (three small named `<canvas>` elements below the plot,
+  shown/hidden via `style.display`) is gone entirely — `drawSmfretRoiThumbnails(idx, geom)` now
+  draws the same contrast-stretched crops as small insets directly onto the REAL `$('raw')` canvas,
+  top-right corner, inside the plotted axes, on a semi-opaque `rgba(0,0,0,.55)` backing panel so
+  they stay legible over whatever curve data happens to sit underneath — same left-to-right order as
+  the curve legend above them (DD, AA, DA). Each crop is scaled up via `ctx.drawImage(...,
+  win,win,...,INSET,INSET)` with `imageSmoothingEnabled=false` (nearest-neighbour, matching the old
+  version's `image-rendering:pixelated` CSS), and now also gets a magenta (`#ff2fd0`) crosshair — the
+  same small-gap-in-the-middle style `drawSpotOverlays()` already uses for a fitted loc elsewhere —
+  marking the EXACT fitted sub-pixel position within the crop, not just "the crop is centred near
+  it": `buildCrop()` returns `{cv, lx, ly}` where `lx=(cx-x0)+0.5, ly=(cy-y0)+0.5` — the same
+  `TX(x+0.5)` pixel-CENTRE convention `drawSpotOverlays()` uses (a fit position of exactly integer
+  `x` sits at that pixel's centre, while canvas image space is corner-based, source pixel index `d`
+  spanning `[d,d+1)`).
+
+  **Deliberately never drawn through `_plotTarget`** (the `SvgRecordingContext` redirection
+  `exportPlotEither()` uses for the 7 genuinely vector-shaped plots) — `drawSmfretRoiThumbnails()`
+  always targets the literal `document.getElementById('raw')` context directly, since it's an async,
+  fire-and-forget function that runs well after `drawSmfretTrace()`'s own synchronous render returns
+  (there's no way for it to participate in a synchronous SVG-serialization pass anyway), and a raster
+  crop has no meaningful vector form regardless — same reasoning the raw frame/reconstruction are
+  already excluded from SVG export for. Explicitly re-applies `ctx.setTransform(dpr,...)` +
+  `ctx.translate(ox,oy)` itself from a `geom` object `drawSmfretTrace()` passes it (`{mL,mT,pw,ph,
+  ox:_plotLetterboxOx,oy:_plotLetterboxOy}`, snapshotted at the exact moment it's valid) rather than
+  trusting whatever transform the shared canvas context happens to still have by the time its own
+  async fetches resolve — `drawPlotHover()`'s own hover-crosshair redraw resets that transform to a
+  plain dpr scale with NO translate in between, so relying on it surviving would silently misposition
+  the insets the next time a hover event fired first.
+
+  **Two new staleness guards, on top of the pre-existing `_smfretRoiGen` one** (needed BECAUSE this
+  now draws onto the real, shared plot canvas instead of separate always-there-but-hidden DOM
+  elements): a final check right before the actual draw — `if(!rawIsPlot || rawPlotName
+  !=='smfretTrace' || smfretTraceIdx!==idx) return;` — bails if the raw panel has moved on to
+  something else entirely (a mode switch to **Show raw frame**, a different plot, or the feature
+  torn down) while the frame fetches above were in flight; drawing stale insets over whatever's
+  showing NOW would be a real, visible glitch the old hidden-row placement never risked. Second: the
+  hover-readout's own clean-plot snapshot (`_plotHover.raw.snap`, captured by `registerPlotHover()`
+  synchronously inside `drawSmfretTrace()`, BEFORE this async draw even starts) is explicitly
+  re-captured (`snap.getContext('2d').drawImage(cv,0,0)`) once the insets are actually drawn — without
+  this, the very next `mousemove` over the plot would call `drawPlotHover()`, which restores that
+  now-stale, inset-free snapshot underneath its own crosshair, making the insets flicker away.
+  Verified via Playwright: the old DOM row/canvases are confirmed gone (`!document.getElementById
+  ('smfretRoiThumbsRow')`), the raw canvas shows real dark-backing-panel pixels plus genuine
+  `#ff2fd0`-matching magenta crosshair pixels once a Get time traces run completes, scrubbing to a
+  different site updates correctly, and toggling to **Show raw frame** mid-flight (`rawIsPlot`
+  becomes `false`) causes no crash and no stray inset drawn over the live frame.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

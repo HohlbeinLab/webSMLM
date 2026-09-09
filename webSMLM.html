@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2691   PARAMS registry, single source of truth for params;
+    params          2677   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3572   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3558   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3871   synthetic stack generator ("Simulate movie")
-    detect          4749   per-frame band-pass + local-maxima detection
-    fit             5026   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3857   synthetic stack generator ("Simulate movie")
+    detect          4735   per-frame band-pass + local-maxima detection
+    fit             5012   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5665   accumulate to offscreen buffer; view/colour/blur;
+    render          5651   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -86,14 +86,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7099   frame-parallel detect/fit worker pool; dedicated
+    workers         7085   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7409   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7737   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7395   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7723   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -104,7 +104,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8203   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8189   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -114,9 +114,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8733   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8719   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9467   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9453   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -168,7 +168,7 @@
                            paired SOI site dark orange instead of removing
                            an unpaired one — srSpots/srLocs stay the full,
                            unfiltered set always, no more __pairedSOI hack
-    spt             11616   single particle tracking, trackpy-inspired;
+    spt             11720   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -199,7 +199,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13154  top-level orchestration, *Core()/wrapper split;
+    pipeline        13258  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -260,7 +260,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13824  Micro-Manager/pycromanager camera bridge
+    liveStreaming   13928  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -314,14 +314,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           16415  localizations table, filtering, histograms;
+    table           16514  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17128  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17227  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2050,7 +2050,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09o</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2483,7 +2483,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="dirDonorExc">Direct donor excitation</option>
             <option value="dirAcceptorExc">Direct acceptor excitation</option>
           </select></label>
-        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots — also read by Link channels below to decide whether AA linking should even be attempted. DD+DA only reads donor-excitation frames (at the donor position, and — once sites are paired via Pair DD + DA/Pairing (sSMLM &amp; FRET) — at the paired acceptor position too). DD+DA+AA additionally reads direct-acceptor-excitation frames.">Filter SOIs
+        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots. DD+DA reads donor-excitation frames at the donor position, and — once sites are paired via Pair DD + DA/Pairing (sSMLM &amp; FRET) — direct-acceptor-excitation frames at the paired acceptor position too (a real position is already known, so AA is sampled either way). DD+DA+AA additionally samples AA at the SOI's own position even before any pairing exists (a rougher guess, with no real acceptor position yet). Link channels doesn't read this setting at all — it always runs its own independent acceptor-channel check regardless.">Filter SOIs
           <select id="smfretTraceChannels" class="sel">
             <option value="DD+DA">DD+DA</option>
             <option value="DD+DA+AA">DD+DA+AA</option>
@@ -2512,10 +2512,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
           <p><b>Pair DD + DA</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do) directly from here, using the current sites of interest: it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram (the same feedback Preview pairs itself gives), and commits the pairing (writing each site's paired acceptor position/distance) — but skips that module's own RECONSTRUCTION-panel side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites (the channel that gives donor/acceptor, i.e. DD/DA, intensity pairs) — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. If the SOI composite is still showing when this succeeds, every site that became part of a pair has its own ROI box and crosshair recoloured dark orange — every site stays visible, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this: the underlying pairing and its dark-orange marking survive a round trip to the other channel's own composite and back. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA, exactly as if <b>Pair &amp; plot sSMLM</b> had been clicked in the other module.</p>
           <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
-          <p>Below the time trace, three small <b>ROI</b> thumbnails (DD/DA/AA, shown only when that channel actually exists for the current site) show a contrast-stretched crop of the real camera pixels around each channel's own extraction position — one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider, purely as a quick visual check that a position genuinely sits on a molecule rather than background. Update automatically when scrubbing between sites.</p>
-          <p>With <b>Alternating laser excitation?</b> checked, <b>Filter SOIs</b> picks whether Get time traces plots just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also <b>AA</b> (direct-acceptor-excitation frames, blue); the same field also decides whether <b>Link channels</b> below even attempts anything. Pairing the sites first (<b>Pair DD + DA</b> above, or <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) splits DD into <b>DD</b> and <b>DA</b> (FRET, always shown once paired, independent of the Filter SOIs setting) — DD at the pair's own donor position, DA at its paired acceptor position, both still read only during donor-excitation frames (DA needs no ALEX at all — a continuous single-laser setup still has every frame count as donor excitation). Once paired and Filter SOIs is <b>DD+DA+AA</b>, AA is read at the paired acceptor position too (not the donor's) but during direct-acceptor-excitation frames — the physically correct channel/timing for direct acceptor excitation. DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active).</p>
-          <p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct — check against a known FRET pair, or your own optical setup's geometry.</p>
-          <p><b>Link channels</b> (only enabled with <b>Alternating laser excitation?</b> checked, and only once a DD+DA pairing exists) validates each already-paired site against an INDEPENDENT direct-acceptor-excitation localization, rather than trusting the pairing geometry's own acceptor position blindly: it runs a fresh, on-demand detect+fit pass on the direct-acceptor-excitation channel (the same Average # of frames/detection/fit settings <b>Localize SOI</b> itself uses, but not saved anywhere — a one-off comparison, re-computed fresh each click), then discards any pair whose own DA position has no real localization from that pass within 2 px of it. Needs <b>Filter SOIs</b> set to <b>DD+DA+AA</b> to actually run (refuses with a log message otherwise, even though the button itself is only gated on ALEX being on).</p>
+          <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) into its top-right corner — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites.</p>
+          <p>With <b>Alternating laser excitation?</b> checked, <b>Filter SOIs</b> picks whether Get time traces plots just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also a rougher <b>AA</b> guess (direct-acceptor-excitation frames, blue) sampled at the SOI's own position for a site that ISN'T yet paired — before pairing there's no independently known acceptor position to sample at all, so this stays opt-in. Pairing the sites first (<b>Pair DD + DA</b> above, or <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) splits DD into <b>DD</b> and <b>DA</b>, AND makes a real <b>AA</b> trace available too — both read at the pair's own known acceptor position, so once paired, AA no longer needs the Filter SOIs "+AA" option at all (DD at the donor position, DA and AA at the paired acceptor position; DD/DA read during donor-excitation frames — DA needs no ALEX at all, a continuous single-laser setup still has every frame count as donor excitation — AA during direct-acceptor-excitation frames, the physically correct channel/timing for direct acceptor excitation). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active).</p>
+          <p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs — <b>Link channels</b> below (see next) automatically re-applies itself to the new pairing if it had already run, so a channel-linked result doesn't silently revert to unlinked. There's no automatic way to tell which of the two is physically correct — check against a known FRET pair, or your own optical setup's geometry.</p>
+          <p><b>Link channels</b> (only enabled with <b>Alternating laser excitation?</b> checked, and only once a DD+DA pairing exists — independent of the Filter SOIs setting, which it doesn't read at all) validates each already-paired site against an INDEPENDENT direct-acceptor-excitation localization, rather than trusting the pairing geometry's own acceptor position blindly: it runs a fresh, on-demand detect+fit pass on the direct-acceptor-excitation channel (the same Average # of frames/detection/fit settings <b>Localize SOI</b> itself uses, but not saved anywhere — a one-off comparison, re-computed fresh each click), then discards any pair whose own DA position has no real localization from that pass within 2 px of it.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -2607,20 +2607,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
               <input type="number" id="smfretTraceScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a site number and press Enter to jump to it"><span id="smfretTraceScrubTotal" style="vertical-align:middle"> / 1</span>
             </span>
-          </div>
-          <div id="smfretRoiThumbsRow" style="display:none;margin-top:8px;gap:14px;align-items:flex-start" title="A quick visual check — one representative frame per channel (donor-excitation for DD/DA, acceptor-excitation for AA), not scrubbed with the main Frame slider">
-            <div id="smfretRoiThumbDD" style="text-align:center">
-              <div style="color:var(--muted);font-size:11px;margin-bottom:2px">DD</div>
-              <canvas id="smfretRoiCanvasDD" width="48" height="48" style="width:48px;height:48px;image-rendering:pixelated;border:1px solid var(--line)"></canvas>
-            </div>
-            <div id="smfretRoiThumbDA" style="display:none;text-align:center">
-              <div style="color:var(--muted);font-size:11px;margin-bottom:2px">DA</div>
-              <canvas id="smfretRoiCanvasDA" width="48" height="48" style="width:48px;height:48px;image-rendering:pixelated;border:1px solid var(--line)"></canvas>
-            </div>
-            <div id="smfretRoiThumbAA" style="display:none;text-align:center">
-              <div style="color:var(--muted);font-size:11px;margin-bottom:2px">AA</div>
-              <canvas id="smfretRoiCanvasAA" width="48" height="48" style="width:48px;height:48px;image-rendering:pixelated;border:1px solid var(--line)"></canvas>
-            </div>
           </div>
           <div id="rawContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
             <span style="color:var(--muted);font-size:12px">Contrast</span>
@@ -10384,7 +10370,7 @@ function unpairSSmlm(){
   const nPaired=sSmlmPairedLocs ? sSmlmPairedLocs.length : lastResult.locs.length;
   lastResult.locs=sSmlmOriginalLocs;
   sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
-  smfretPairedSoiKeys=null; if(srLocs===smfretSOI){ clampView(); drawView(); }   // clears any dark-orange "paired" marking left on the SOI composite
+  smfretPairedSoiKeys=null; smfretChannelsLinked=false; if(srLocs===smfretSOI){ clampView(); drawView(); }   // clears any dark-orange "paired" marking left on the SOI composite
   renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
   // Restore whatever Colour map was selected before Pair auto-switched it to
   // hsvBlue (requested) — before rerender() below, so the very next render
@@ -10521,6 +10507,18 @@ let smfretSOI=null;      // fitted {x,y} site-of-interest positions from Localiz
 // survive pairing, dark orange, so an unpaired site's box never just
 // vanishes.
 let smfretPairedSoiKeys=null;
+// True once "Link channels" has successfully applied its own independent
+// AA-channel proximity check to the CURRENT DD+DA pairing — tracked so a
+// live re-pair (refreshSmfretPairingLive(), triggered by e.g. "Position
+// donor?" changing Primary angle) can transparently re-apply it to the
+// FRESH pairing that replaces lastResult.locs, instead of silently
+// reverting to the unlinked, unfiltered pair set (reported: "make sure
+// that also the 'Link channels' will be handle the new situation ... the
+// linkage seems to be lost"). Reset false wherever a genuinely NEW pairing
+// starts (Pair DD + DA, Unpair, a fresh Localize SOI) — those correctly
+// have no linking applied yet, unlike a live window-refresh of an
+// EXISTING pairing.
+let smfretChannelsLinked=false;
 // per-site {x,y,photonsDD,photonsAA,photonsDA:Float64Array(stack.n)|null}
 // from Get time traces — photonsDD is always present; photonsAA only when
 // ALEX is on; photonsDA only when the current result is a paired one (see
@@ -10616,7 +10614,7 @@ async function locateSmfretSOI(preservePairing=false){
   // A fresh Localize SOI run invalidates any time traces already computed
   // from the OLD positions — reclaim the raw panel from the site scrubber
   // back to the ordinary frame one before rebuilding the composite below.
-  if(smfretTraces){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none'; $('smfretRoiThumbsRow').style.display='none';
+  if(smfretTraces){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
     $('smfretTraceModeBtn').style.display='none';
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
   const alex=paramValue('alexEnabled');
@@ -10733,7 +10731,7 @@ async function locateSmfretSOI(preservePairing=false){
     }
     lastResult={locs:fitted, w, h, px:paramValue('pxnm'), mag:paramValue('mag'), det:null, fromSmfretSOI:true};
     renderLocs=null; _tableFilters=[];
-    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; smfretPairedSoiKeys=null;   // a fresh SOI result invalidates any prior pairing state
+    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; smfretPairedSoiKeys=null; smfretChannelsLinked=false;   // a fresh SOI result invalidates any prior pairing state
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
     // alexProjToggleBtn is NOT hidden here — its visibility/label were just
     // set above based on cfg.alexEnabled, unrelated to the sSMLM-pairing
@@ -10798,9 +10796,18 @@ async function refreshSmfretPairingLive(){
   const cfg={ sSmlmDistMin:paramValue('sSmlmDistMin'), sSmlmDistMax:paramValue('sSmlmDistMax'),
     sSmlmAngleCenter:paramValue('sSmlmAngleCenter'), sSmlmAngleTol:paramValue('sSmlmAngleTol'),
     sSmlmRequireNarrower:paramValue('sSmlmRequireNarrower') };
+  const wasLinked=smfretChannelsLinked;   // capture BEFORE pairSSmlm() below replaces lastResult.locs with the fresh, unfiltered pair set
   const r=await pairSSmlm(cfg, myEpoch);
   if(!r) return;   // superseded while pairCore() was running, see pairSSmlm()'s own comment
   markSmfretSoiPairedKeys(r.nPairs ? r.locs : []);   // an empty window (0 pairs) correctly empties the overlay too, not left showing the previous window's survivors
+  // Re-apply "Link channels" to the FRESH pairing if it was already applied
+  // to the OLD one — pairSSmlm() just overwrote lastResult.locs wholesale
+  // with the new (unfiltered) pair set, which otherwise silently discards
+  // an existing Link channels result the moment any Distance/Angle field
+  // (including "Position donor?", which sets Primary angle) changes.
+  // linkSmfretChannels() re-sets smfretChannelsLinked=true itself, so this
+  // doesn't need to.
+  if(wasLinked && r.nPairs) await linkSmfretChannels();
 }
 $('sSmlmDistMin').addEventListener('change', refreshSmfretPairingLive);
 $('sSmlmDistMax').addEventListener('change', refreshSmfretPairingLive);
@@ -10840,6 +10847,7 @@ async function getSmfretPairingFromDonor(){
   $('smfretPairingBtn').disabled=true;
   try{
     sSmlmPairContext='smfret';   // see its own declaration for what this decides later (refreshSmfretPairingLive())
+    smfretChannelsLinked=false;   // a fresh Pair DD + DA run has no Link channels applied yet
     // previewSSmlmPairsCore() (below) internally auto-fits the Distance/Angle
     // window — a REAL, reported bug lived here: cfg used to be captured
     // BEFORE this call, so the FIRST click always paired using whatever
@@ -10907,7 +10915,7 @@ $('smfretPairingBtn').addEventListener('click', getSmfretPairingFromDonor);
 function clearSmfretFixSOI(){
   if(paramValue('smfretFixSOI')) return;
   smfretSOI=null; smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false;
-  $('smfretTraceScrubRow').style.display='none'; $('smfretRoiThumbsRow').style.display='none';
+  $('smfretTraceScrubRow').style.display='none';
   $('smfretTraceModeBtn').style.display='none';
   $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true;
   if(srSpots||srLocs){   // was showing our SOI composite — clear it and restore the general overview
@@ -10926,7 +10934,7 @@ function clearSmfretFixSOI(){
   // existing result would do).
   if(lastResult && lastResult.fromSmfretSOI){
     lastResult=null; renderLocs=null; _tableFilters=[];
-    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; smfretPairedSoiKeys=null;
+    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; smfretPairedSoiKeys=null; smfretChannelsLinked=false;
     $('tableBtn').disabled=true; $('saveBtn').disabled=true;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
@@ -11102,11 +11110,24 @@ async function getSmfretTimeTraces(){
   const alex = paramValue('alexEnabled');
   const donorParity = alex ? (paramValue('alexFirstFrame')==='dirDonorExc' ? 0 : 1) : 0;
   // showAA: AA is only ever meaningful with ALEX on (no alternation, no
-  // separate acceptor-excitation frames to read at all) AND only when the
-  // user has explicitly asked for it via Filter SOIs — reported: the
-  // plot used to auto-include AA the moment ALEX was on, with no way to
-  // see just DD+DA even when that's all that was wanted.
-  const showAA = alex && paramValue('smfretTraceChannels')==='DD+DA+AA';
+  // separate acceptor-excitation frames to read at all). Once a real DD+DA
+  // pairing exists, the acceptor's own position (x2,y2) is already known
+  // from that pairing — requested: "'Filter SOIs' set to DD+DA should take
+  // DA position to set center positions of ROIs in the AA channel to fit
+  // for ... AA is not a strict requirement anymore" — so AA is now sampled
+  // whenever paired, REGARDLESS of the Filter SOIs setting (and, since
+  // drawSmfretTrace() draws the AA curve purely off photonsAA's own
+  // presence, it now shows automatically too once paired — no separate
+  // "+AA" opt-in needed any more for a paired site). Filter SOIs' only
+  // remaining role is the weaker UNPAIRED fallback just below: with no
+  // known acceptor position yet, AA can only be guessed at the SOI's own
+  // (x,y) — a much rougher single-channel estimate, kept opt-in via the
+  // explicit DD+DA+AA choice rather than sampled by default. (An earlier
+  // round already fixed the OPPOSITE complaint — AA auto-showing the
+  // moment ALEX was merely on, with no pairing at all, and no way back to
+  // a plain DD+DA-only view; this change doesn't reopen that, since it's
+  // conditioned on a real pairing, not just ALEX being on.)
+  const showAA = alex && (paired || paramValue('smfretTraceChannels')==='DD+DA+AA');
   // x2/y2 carried over here too (undefined when !paired, matching sites'
   // own shape) — previously only read locally during the per-frame loop
   // below and then discarded; drawSmfretRoiThumbnails() (MODULE: smFRET)
@@ -11295,11 +11316,17 @@ function refreshSmfretLinkChannelsBtn(){
 // DA position) as if it were confirmed to actually contain acceptor
 // emission — discards a pair whose own DA position has no real AA
 // localization within LINK_RADIUS_PX of it. Only meaningful with ALEX on
-// AND Filter SOIs set to DD+DA+AA (checked here, not just at the button's
-// own enable gate — see refreshSmfretLinkChannelsBtn(), which deliberately
-// does NOT also gate on the Filter SOIs value, per the request's own
-// wording: "grayed out as long as we are not in Alternating laser
-// ecitation mode" only).
+// AND a real DD+DA pairing already committed (checked here, same as at the
+// button's own enable gate — see refreshSmfretLinkChannelsBtn()).
+//
+// Deliberately does NOT also require Filter SOIs to be DD+DA+AA (an
+// earlier round's own requirement, removed on request: "Filter SOIs set
+// to DD+DA should take DA position to set center positions of ROIs in the
+// AA channel to fit for ... AA is not a strict requirement anymore") —
+// this function never reads getSmfretTimeTraces()'s own photonsAA at all,
+// it always runs its OWN fresh, independent acceptor-channel pass below
+// regardless of what Filter SOIs is set to, so gating it on that dropdown
+// never reflected a real dependency in the first place.
 //
 // The AA site list is a FRESH, ON-DEMAND localization pass — a genuinely
 // separate detect+fit run on the direct-acceptor-excitation channel's own
@@ -11312,7 +11339,6 @@ function refreshSmfretLinkChannelsBtn(){
 async function linkSmfretChannels(){
   if(!stack) return;
   if(!paramValue('alexEnabled')){ log('Link channels needs Alternating laser excitation? ticked.'); return; }
-  if(paramValue('smfretTraceChannels')!=='DD+DA+AA'){ log('Link channels needs Filter SOIs set to DD+DA+AA.'); return; }
   if(!smfretHasDDDAPairing()){ log(`Link channels needs a DD+DA pairing first (Pair DD + DA, or Pairing (sSMLM & FRET)'s own Pair & plot sSMLM).`); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('smfretLinkChannelsBtn').disabled=true;
@@ -11337,6 +11363,7 @@ async function linkSmfretChannels(){
     }
     lastResult.locs=kept;
     renderLocs=null; _tableFilters=[];
+    smfretChannelsLinked=true;   // see this flag's own declaration — lets a later live re-pair (e.g. "Position donor?") re-apply this automatically
     markSmfretSoiPairedKeys(kept);   // kept rows' own x,y are still the original donor SOI's, unchanged by pairing — reuses the exact same x,y-value match
     $('tableBtn').disabled=!kept.length; $('saveBtn').disabled=!kept.length;
     log(`Link channels: kept ${kept.length.toLocaleString()}/${(kept.length+nDropped).toLocaleString()} pair(s) with an AA localization within ${LINK_RADIUS_PX} px of DA.`);
@@ -11365,7 +11392,7 @@ function toggleSmfretTraceMode(){
   smfretShowRawFrame=!smfretShowRawFrame;
   $('smfretTraceModeBtn').textContent = smfretShowRawFrame ? 'Show time trace' : 'Show raw frame';
   if(smfretShowRawFrame){
-    $('smfretTraceScrubRow').style.display='none'; $('smfretRoiThumbsRow').style.display='none';
+    $('smfretTraceScrubRow').style.display='none';
     if(stack.n>1) $('scrubRow').style.display='flex';
     showFrame(+$('scrub').value);
   } else {
@@ -11509,20 +11536,51 @@ function drawSmfretTrace(idx){
     fmt:(vx,vy)=>`t = ${(vx*frametime).toFixed(decT)} s (frame ${(vx+1).toFixed(0)}) · ${vy.toFixed(0)} ADU`});
   _replotRaw=()=>drawSmfretTrace(smfretTraceIdx);
   syncSaveImg();
-  drawSmfretRoiThumbnails(idx);   // fire-and-forget — small async frame fetches, see its own comment
+  // fire-and-forget — small async frame fetches, see its own comment. Geometry
+  // (mL/mT/pw/ph, plus the CURRENT letterbox offset) is captured now, at the
+  // exact moment it's valid, rather than re-read from shared module-level
+  // state whenever the async draw below actually finishes.
+  drawSmfretRoiThumbnails(idx, {mL,mT,pw,ph,ox:_plotLetterboxOx,oy:_plotLetterboxOy});
 }
-// Small ROI thumbnails below the Time trace plot (requested — a quick
+// Small ROI thumbnails inset directly INTO the Time trace plot itself
+// (requested — "put into the Timetrace panel if possible", moved here from
+// an earlier round's own separate DOM row below the canvas) — a quick
 // visual check that DD/DA/AA really do sit on a real molecule, not
-// background). One representative frame per channel, not scrubbed with the
-// main Frame slider — the FIRST frame that channel is actually sampled
-// from (donor-excitation for DD/DA, acceptor-excitation for AA) — this
-// view exists purely as a sanity check, not to browse every frame.
+// background, each now also marked with a magenta crosshair at the EXACT
+// fitted (sub-pixel) position used for that channel's extraction —
+// requested alongside the move, since "does the crop look like a molecule"
+// and "does the fit actually sit ON it" are two different questions the
+// thumbnail alone couldn't answer. One representative frame per channel,
+// not scrubbed with the main Frame slider — the FIRST frame that channel is
+// actually sampled from (donor-excitation for DD/DA, acceptor-excitation
+// for AA) — this view exists purely as a sanity check, not to browse every
+// frame.
+//
+// Drawn directly onto the REAL $('raw') canvas (never through _plotTarget,
+// the SvgRecordingContext redirection exportPlotEither() uses for the 7
+// genuinely vector-shaped plots) — this function runs fire-and-forget well
+// after drawSmfretTrace()'s own synchronous render, and a raster crop has
+// no meaningful vector form anyway, same reasoning the raw frame/
+// reconstruction are already excluded from SVG export for. Explicitly
+// re-applies the dpr scale + 4:3-letterbox translate itself (from the
+// `geom` snapshot the caller took, not live module-level state) rather
+// than trusting whatever transform the shared canvas context happens to
+// still have — a hover-crosshair redraw (drawPlotHover()) resets that
+// transform to plain dpr-only in between, with no translate, so relying on
+// it surviving until this async draw resumes would silently misposition
+// the insets.
+//
 // `_smfretRoiGen` is a cheap own-purpose staleness guard: scrubbing sites
 // quickly shouldn't let an OLDER site's still-in-flight frame fetch draw
-// over a NEWER selection's canvas.
+// over a NEWER selection's canvas; the extra check right before the final
+// draw additionally bails if the raw panel has moved on to something else
+// entirely (a different plot, or "Show raw frame") while the fetches below
+// were in flight — drawing stale insets over whatever's showing NOW would
+// be a real, visible glitch that the old below-the-canvas placement never
+// risked (a hidden DOM row simply stayed hidden).
 let _smfretRoiGen=0;
-async function drawSmfretRoiThumbnails(idx){
-  if(!stack || !smfretTraces || idx<0 || idx>=smfretTraces.length){ $('smfretRoiThumbsRow').style.display='none'; return; }
+async function drawSmfretRoiThumbnails(idx, geom){
+  if(!stack || !smfretTraces || idx<0 || idx>=smfretTraces.length) return;
   const site=smfretTraces[idx];
   const myGen=++_smfretRoiGen;
   const alex=paramValue('alexEnabled');
@@ -11531,10 +11589,17 @@ async function drawSmfretRoiThumbnails(idx){
   const n=stack.n, {w,h}=stack;
   const firstFrameOfParity=p=>{ for(let f=0;f<n;f++) if(!alex || f%2===p) return f; return 0; };
   const win=2*paramValue('winr')+1;
-  const drawOne=async(canvasId, cx, cy, frameIdx)=>{
-    const cv=$(canvasId); if(!cv || !isFinite(cx) || !isFinite(cy)) return;
+  // Builds one native win×win contrast-stretched crop (as an offscreen
+  // canvas, so it can be drawImage()'d onto the real plot canvas later) plus
+  // the fitted position's own LOCAL sub-pixel offset within it, for the
+  // crosshair — same +0.5 pixel-CENTRE convention drawSpotOverlays() uses
+  // (TX(x+0.5)): a fitted position of exactly integer x0 sits at the
+  // CENTRE of that pixel, while canvas image space is corner-based (source
+  // pixel index d spans [d,d+1)).
+  const buildCrop=async(cx,cy,frameIdx)=>{
+    if(!isFinite(cx)||!isFinite(cy)) return null;
     const img=(await stack.getFrames(frameIdx,frameIdx+1))[0];
-    if(myGen!==_smfretRoiGen) return;   // superseded by a newer site selection while this frame was in flight
+    if(myGen!==_smfretRoiGen) return null;   // superseded by a newer site selection while this frame was in flight
     const x0=Math.round(cx)-Math.floor(win/2), y0=Math.round(cy)-Math.floor(win/2);
     // Contrast-stretch THIS crop's own min/max — a display convenience,
     // independent of the raw panel's own fixed Contrast slider (that
@@ -11544,38 +11609,77 @@ async function drawSmfretRoiThumbnails(idx){
       const x=x0+dx, y=y0+dy; if(x<0||x>=w||y<0||y>=h) continue;
       const v=img[y*w+x]; if(v<lo)lo=v; if(v>hi)hi=v;
     }
-    cv.width=win; cv.height=win;   // native size = the crop itself; the CSS width/height (48px) scales it up, image-rendering:pixelated keeps it crisp rather than blurry
-    const ctx=cv.getContext('2d');
-    if(!isFinite(lo)){ ctx.fillStyle='#000'; ctx.fillRect(0,0,win,win); return; }   // window entirely off-frame (near an edge)
-    const range=Math.max(1,hi-lo);
-    const id=ctx.createImageData(win,win);
-    for(let dy=0;dy<win;dy++) for(let dx=0;dx<win;dx++){
-      const x=x0+dx, y=y0+dy;
-      const v = (x<0||x>=w||y<0||y>=h) ? lo : img[y*w+x];
-      const g=Math.round(255*(v-lo)/range);
-      const i=(dy*win+dx)*4;
-      id.data[i]=g; id.data[i+1]=g; id.data[i+2]=g; id.data[i+3]=255;
+    const cv=document.createElement('canvas'); cv.width=win; cv.height=win;
+    const cctx=cv.getContext('2d');
+    if(!isFinite(lo)) cctx.fillStyle='#000', cctx.fillRect(0,0,win,win);   // window entirely off-frame (near an edge)
+    else{
+      const range=Math.max(1,hi-lo);
+      const id=cctx.createImageData(win,win);
+      for(let dy=0;dy<win;dy++) for(let dx=0;dx<win;dx++){
+        const x=x0+dx, y=y0+dy;
+        const v = (x<0||x>=w||y<0||y>=h) ? lo : img[y*w+x];
+        const g=Math.round(255*(v-lo)/range);
+        const i=(dy*win+dx)*4;
+        id.data[i]=g; id.data[i+1]=g; id.data[i+2]=g; id.data[i+3]=255;
+      }
+      cctx.putImageData(id,0,0);
     }
-    ctx.putImageData(id,0,0);
+    return { cv, lx:(cx-x0)+0.5, ly:(cy-y0)+0.5 };
   };
-  $('smfretRoiThumbsRow').style.display='flex';
-  await drawOne('smfretRoiCanvasDD', site.x, site.y, firstFrameOfParity(donorParity));
+  const ddCrop=await buildCrop(site.x, site.y, firstFrameOfParity(donorParity));
   if(myGen!==_smfretRoiGen) return;
-  $('smfretRoiThumbDD').style.display='';
-  if(site.photonsDA){
-    await drawOne('smfretRoiCanvasDA', site.x2, site.y2, firstFrameOfParity(donorParity));
-    if(myGen!==_smfretRoiGen) return;
-    $('smfretRoiThumbDA').style.display='';
-  } else $('smfretRoiThumbDA').style.display='none';
-  if(site.photonsAA){
-    // AA is read at the paired acceptor position (x2,y2) once paired, same
-    // as getSmfretTimeTraces()'s own per-frame extraction — falls back to
-    // the donor position only for the (rare) unpaired-but-ALEX case.
-    const aaCx=isFinite(site.x2)?site.x2:site.x, aaCy=isFinite(site.y2)?site.y2:site.y;
-    await drawOne('smfretRoiCanvasAA', aaCx, aaCy, firstFrameOfParity(acceptorParity));
-    if(myGen!==_smfretRoiGen) return;
-    $('smfretRoiThumbAA').style.display='';
-  } else $('smfretRoiThumbAA').style.display='none';
+  const daCrop = site.photonsDA ? await buildCrop(site.x2, site.y2, firstFrameOfParity(donorParity)) : null;
+  if(myGen!==_smfretRoiGen) return;
+  // AA is read at the paired acceptor position (x2,y2) once paired, same as
+  // getSmfretTimeTraces()'s own per-frame extraction — falls back to the
+  // donor position only for the (rare) unpaired-but-ALEX case.
+  const aaCrop = site.photonsAA
+    ? await buildCrop(isFinite(site.x2)?site.x2:site.x, isFinite(site.y2)?site.y2:site.y, firstFrameOfParity(acceptorParity))
+    : null;
+  if(myGen!==_smfretRoiGen) return;
+  // Bail if the raw panel isn't showing THIS site's Time trace plot any
+  // more (a mode switch, a different site, or the whole feature torn down)
+  // — see this function's own top comment for why this check exists on top
+  // of the plain _smfretRoiGen one above.
+  if(!rawIsPlot || rawPlotName!=='smfretTrace' || smfretTraceIdx!==idx) return;
+  // Same left-to-right order as the curve legend above (DD, AA, DA) —
+  // drawSmfretTrace()'s own `curves` array is built in that order.
+  const items=[{label:'DD',crop:ddCrop},{label:'AA',crop:aaCrop},{label:'DA',crop:daCrop}].filter(it=>it.crop);
+  if(!items.length) return;
+  const cv=$('raw'), ctx=cv.getContext('2d');
+  const dpr=Math.min(2, window.devicePixelRatio||1);
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.translate(geom.ox,geom.oy);
+  const {mL,mT,pw}=geom;
+  const INSET=42, GAP=8, LABEL_H=13, PAD=6;
+  const groupW=items.length*INSET+(items.length-1)*GAP, groupH=LABEL_H+INSET;
+  const gx=mL+pw-PAD-groupW, gy=mT+PAD;   // top-right corner, inside the plotted axes
+  ctx.fillStyle='rgba(0,0,0,.55)';
+  ctx.fillRect(gx-PAD, gy-PAD, groupW+PAD*2, groupH+PAD*2);
+  ctx.imageSmoothingEnabled=false;   // nearest-neighbour scale-up — crisp pixels, not a blur
+  items.forEach((it,i)=>{
+    const ix=gx+i*(INSET+GAP), iy=gy+LABEL_H;
+    ctx.fillStyle='#ddd'; ctx.font='10px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(it.label, ix+INSET/2, gy);
+    ctx.drawImage(it.crop.cv, 0,0,win,win, ix,iy, INSET,INSET);
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1; ctx.strokeRect(ix+0.5,iy+0.5,INSET-1,INSET-1);
+    // Magenta crosshair at the EXACT fitted sub-pixel position (requested —
+    // "indicate the fitted localisation with a magenta cross hair"), same
+    // small-gap-in-the-middle style drawSpotOverlays() uses for a fitted
+    // loc elsewhere in this app.
+    const scale=INSET/win, cxp=ix+it.crop.lx*scale, cyp=iy+it.crop.ly*scale;
+    ctx.strokeStyle='#ff2fd0'; ctx.lineWidth=1.2;
+    ctx.beginPath();
+    ctx.moveTo(cxp-6,cyp); ctx.lineTo(cxp-2,cyp); ctx.moveTo(cxp+2,cyp); ctx.lineTo(cxp+6,cyp);
+    ctx.moveTo(cxp,cyp-6); ctx.lineTo(cxp,cyp-2); ctx.moveTo(cxp,cyp+2); ctx.lineTo(cxp,cyp+6);
+    ctx.stroke();
+  });
+  // Keep the hover-readout's own clean-plot snapshot in sync — it was taken
+  // by registerPlotHover() BEFORE this async draw (inside drawSmfretTrace()'s
+  // synchronous portion), so without this a mousemove right after the insets
+  // appear would restore a stale, inset-free copy of the plot underneath the
+  // hover crosshair (see drawPlotHover()'s own comment on how it uses this
+  // snapshot).
+  if(_plotHover.raw){ const s=_plotHover.raw.snap; s.getContext('2d').clearRect(0,0,s.width,s.height); s.getContext('2d').drawImage(cv,0,0); }
 }
 $('smfretTraceScrub').addEventListener('input',e=>drawSmfretTrace(+e.target.value));
 $('smfretTraceScrubNum').addEventListener('change',e=>{ if(!smfretTraces) return; drawSmfretTrace((+e.target.value||1)-1); });
@@ -14729,7 +14833,7 @@ function initScrub(){
     // (the checkbox's own uncheck handler) still runs the real teardown
     // whenever the checkbox genuinely gets unchecked, by hand or otherwise.
     smfretSOI=null;
-    smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none'; $('smfretRoiThumbsRow').style.display='none';
+    smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
     $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
@@ -16274,21 +16378,24 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09o — three follow-ups.
-(1) "Fix sites of interest (SOI)" is no longer force-unchecked on a
-fresh MOVIE load — only Localize SOI itself has any real consequence
-for it, so a plain load left it needlessly reset. (2) Toggling the
-SOI-composite channel view (DD+DA / AA) no longer discards an
-already-committed DD+DA pairing: the dark-orange paired marks stay
-visible and "Link channels" stays enabled through a round trip to the
-other channel and back, instead of silently reverting to an
-unpaired state. (3) "Position donor?" is now greyed out until Pairing
-(sSMLM & FRET)'s own angle fit has actually run at least once (via
-Preview pairs or Pair DD + DA) — its two options are meaningless
-placeholders before that, with no real data behind them. Verified via
-Playwright against the real ALEX dataset throughout, including a full
-donor→AA→donor round trip confirming the pairing/marking survives
-intact.
+log(`webSMLM v0.12.1-dev · build 2026-09-09p — three more follow-ups.
+(1) Get time traces now samples AA at the paired acceptor position
+whenever a site is already paired, regardless of the "Filter SOIs"
+setting — a real acceptor position from pairing means AA no longer
+needs the explicit "+AA" option to be available; that option now
+only matters for the weaker, unpaired guess. "Link channels" also no
+longer reads "Filter SOIs" at all — it always ran its own
+independent acceptor-channel check regardless, so the requirement
+never reflected a real dependency. (2) Changing "Position donor?"
+(or any Distance/Angle field) no longer silently discards an
+already-applied "Link channels" result: if linking had already run,
+it's now automatically re-applied to the fresh pairing the field
+change produces. (3) The small DD/DA/AA ROI thumbnails are now inset
+directly into the Time trace plot's own top-right corner instead of
+sitting in a separate row below it, and each now shows a magenta
+crosshair marking the EXACT fitted sub-pixel position, not just the
+crop's rough centre. Verified via Playwright against the real ALEX
+dataset throughout.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
