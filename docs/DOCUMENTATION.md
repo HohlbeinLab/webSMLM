@@ -380,7 +380,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Compute NeNA / Compute FRC | `computeNeNA()` / `computeFRC()` | |
 | Estimate gain/offset (PCFO) | `estimateGainOffset()` | |
 | Preview pairs / Pair / Unpair | `previewSSmlmPairs()` / `runSSmlmPair()` / `unpairSSmlm()` | |
-| Fit angle & tol. | `fitSSmlmAngle()` | |
+| Fit dist. and angles | `fitSSmlmDistAndAngle()` | |
 | Show spectral/standard | `toggleSSmlmColorView()` | |
 | **Track** (spt) | `runSptTrack()` | |
 | Save track data | `exportSptSummary()` | |
@@ -2029,6 +2029,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 |---|---|---|---|---|---|---|
 | `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 2200 |
 | `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 2800 |
+| `sSmlmBgProfile` | Background profile | enum (`rect`, `circle`) | — | — | — | `rect` |
 | `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
 | `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
 | `sSmlmRequireNarrower` | Require narrower 0th order (σ) | bool | — | — | — | false |
@@ -2040,7 +2041,8 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 <!-- HINT:sSMLM -->
 <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
 <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-<p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit angle &amp; tol.</b> to fill Primary angle/Angle tolerance in automatically from the angle histogram's peak (its half-max width), a conservative starting point you can widen by hand.</p>
+<p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit dist. and angles</b> to fill all four fields in automatically: Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — both starting points you can widen by hand.</p>
+<p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape <b>Fit dist. and angles</b>' own distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
 <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
 <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
 <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -2093,15 +2095,28 @@ a wrap point the way a linear axis would show them. (This plot has no
 interactive hover the way the Distances view does — a deliberate v1 scope
 limit — but its own three marker lines ARE draggable, see below.) Both histograms accumulate same-frame
 candidates across every frame in the stack (never cross-frame pairs) —
-one pooled plot, not one frame's worth. **Fit angle & tol.** estimates
-Primary angle/Angle tolerance directly from that same distance-windowed,
-doubled-bearing data: peak-bin detection (2° bins) + half-max-width walk,
-DOUBLED as a safety margin (the raw half-max width alone measured ~1° on
-the real reference dataset, vs. the ~5° that actually worked well by
-hand), then fills both fields in — a simple, defensible estimate (not a
-full Gaussian fit, matching the bar this app's other auxiliary estimates
-like PCFO/NeNA set), still usually conservative, meant as a starting point
-you can widen further by hand rather than a final answer. Both histograms
+one pooled plot, not one frame's worth. **Fit dist. and angles** fits BOTH
+windows in one click. Distance min/max come from a two-component mixture
+fit against the (always-wide) distance histogram: a theoretical
+**background** term — the closed-form PDF of the distance between two
+independent, uniformly random, unpaired points confined to the region the
+localizations actually occupy (a rectangle or a circle, per **Background
+profile**; see [§9](#9-references-further-reading) for the Philip 2007/
+MathWorld citations) — plus a **Gaussian signal** term on top, the real
+distance between an emitter's spectrally-split 0th/1st-order images. Fit
+via Levenberg-Marquardt (only 4 free parameters — the background shape's
+own size is derived from the localization bounding box, not fit), it sets
+Distance min/max to the fitted peak ±3σ (a generous starting window, not a
+real-data-validated constant the way the angle half-max-doubling below
+is) and overlays the fitted curve on the distance histogram itself.
+Primary angle/Angle tolerance are then estimated directly from that same
+(now correctly windowed) doubled-bearing data: peak-bin detection (2°
+bins) + half-max-width walk, DOUBLED as a safety margin (the raw half-max
+width alone measured ~1° on the real reference dataset, vs. the ~5° that
+actually worked well by hand) — a simple, defensible estimate (not a full
+Gaussian fit, matching the bar this app's other auxiliary estimates like
+PCFO/NeNA set), still usually conservative, meant as a starting point you
+can widen further by hand rather than a final answer. Both histograms
 also overlay the currently configured window: the distance histogram
 draws vertical Distance min/max marker lines; the angle plot draws three
 dashed lines through the origin — a magenta one at Primary angle itself,
@@ -2117,7 +2132,7 @@ mirrored, since both are always drawn at the same distance from centre;
 a red line can be dragged arbitrarily close to the magenta one but never
 past or onto it. Both refresh live as
 you edit any of the four fields while that histogram is on screen (or
-immediately after clicking **Fit angle & tol.**), no manual re-click
+immediately after clicking **Fit dist. and angles**), no manual re-click
 needed. Narrow these fields (by hand or via the fit) to the real peak,
 then commit with **Pair**. See
 [§2](#2-module-reference)'s **sSMLM** entry for the full pairing algorithm
@@ -3140,6 +3155,10 @@ What this tool borrows from, and where to read more.
 **Aperture photometry (smFRET)**
 - The above pSMLM-3D paper's own Supplementary Information §S11 "Aperture photometry to assess intensity and background levels" describes the circular signal-disk + background-annulus + percentile-background method `apertureIntensity()` (MODULE: smFRET) ports.
 - "Optimal Background Estimators in Single-Molecule FRET Microscopy," S. Preus, L. L. Hildebrandt, V. Birkedal, *Biophys. J.* **111**(6), 1278–1286 (2016). [doi:10.1016/j.bpj.2016.07.047](https://doi.org/10.1016/j.bpj.2016.07.047) — the original source the pSMLM-3D SI's own method adapts from.
+
+**sSMLM pairing — distance-fit background model**
+- Philip, J. *The Probability Distribution of the Distance Between Two Random Points in a Box.* Technical Report TRITA-MAT-07-MA-10, Dept. of Mathematics, Royal Institute of Technology (KTH), Stockholm, 2007. — the rectangle-profile background PDF `sSmlmBgPdfRect()` (MODULE: sSMLM) uses; this report is widely mis-cited as "1991" (a mixup with an unrelated AMS Mathematics Subject Classification footnote year on the same title page) — 2007 is correct, verified against the report's own internal references and report number.
+- Solomon, H. *Geometric Probability*, SIAM, 1978, p. 129 — the circular-profile background PDF `sSmlmBgPdfDisk()` uses, via Wolfram MathWorld's ["Disk Line Picking"](https://mathworld.wolfram.com/DiskLinePicking.html) entry.
 
 **Spot detection & thresholding**
 - "ThunderSTORM: a comprehensive ImageJ plug-in for PALM and STORM data analysis and super-resolution imaging," M. Ovesný, P. Křížek, J. Borkovec, Z. Švindrych, G. M. Hagen, *Bioinformatics* **30**(16), 2389–2390 (2014). [doi:10.1093/bioinformatics/btu202](https://doi.org/10.1093/bioinformatics/btu202)

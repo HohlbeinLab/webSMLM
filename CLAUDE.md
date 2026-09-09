@@ -329,7 +329,7 @@ relevant one before editing rather than scrolling:
   modes for `'gaussmleEll'` — no separate per-method setting. `updateMethodUI()` only shows the
   checkbox's row (`localize3DRow`) for `mle3d`/`gaussmleEll`; unchecked: angle FIXED at
   `paramValue('sSmlmAngleCenter')` (degrees → radians, the sSMLM pairing step's own calibrated
-  dispersion bearing, see `fitSSmlmAngle()`) and no z is computed (`wcal` stays `null` regardless of
+  dispersion bearing, see `fitSSmlmDistAndAngle()`) and no z is computed (`wcal` stays `null` regardless of
   calibration). Checked (default): angle FREE (recovers a genuine per-emitter rotation angle) AND —
   if a `gaussian_width` calibration is loaded — z is computed from the fitted `(σx,σy)` via
   `zFromWidths()`, the same call `mle3d` makes; this doubles as the astigmatism-axis-alignment
@@ -339,7 +339,7 @@ relevant one before editing rather than scrolling:
   inside `gaussianMLEellipticangled`. **Chicken-and-egg gap**: the angle can only be FIT from an
   already-localized dataset's own pair geometry (position-only, any method works for that first
   pass), so unchecking `localize3D` for `'gaussmleEll'` is only meaningful as a SECOND Localize,
-  after a first pass with a symmetric method feeds **Preview pairs**/**Fit angle & tol.**
+  after a first pass with a symmetric method feeds **Preview pairs**/**Fit dist. and angles**.
   `sSmlmAngleCenter` defaults to 0°, and unlike `mle3d` there's no calibration file to hard-gate on
   — a genuinely unset angle is indistinguishable from a real 0° bearing, so `runCore()` can only
   warn (`onLog`, once per Run, gated on `!config.localize3D`), not refuse, when
@@ -658,10 +658,12 @@ relevant one before editing rather than scrolling:
   and plots each candidate's `rawAngle` AND its exact reverse (`+180°`) — which of a candidate's two
   points gets the smaller array index (and so which direction `rawAngle` reports) is a row-order
   accident, not evenly split in real data, so plotting only the raw bearing looks wildly asymmetric;
-  doubling it makes the two peaks equal. `fitSSmlmAngle()` (**Fit angle & tol.**) estimates
-  `sSmlmAngleCenter`/`sSmlmAngleTol` from that same data — 2°-bin peak detection + half-max-width
-  walk, THEN DOUBLED as a safety margin (the raw half-max width alone came out ~1° against real
-  data, vs. the ~5° that actually worked by hand). Both histograms draw the currently configured
+  doubling it makes the two peaks equal. The angle-fitting half of `fitSSmlmDistAndAngle()`
+  (**Fit dist. and angles**, see below for the distance-fitting half added in the same round)
+  estimates `sSmlmAngleCenter`/`sSmlmAngleTol` from that same data — 2°-bin peak detection +
+  half-max-width walk, THEN DOUBLED as a safety margin (the raw half-max width alone came out ~1°
+  against real data, vs. the ~5° that actually worked by hand). Both histograms draw the currently
+  configured
   window as markers (`computeHist()`'s optional 4th `markers` param), refreshed live on field edits
   and after a fit via `refreshSSmlmHistIfShown()`. **Its own "is the sSMLM histogram currently
   showing" check was stale** (reported: Fit angle & tol. updated the log/fields but not the Angles
@@ -672,8 +674,95 @@ relevant one before editing rather than scrolling:
   thing `drawSSmlmHist()` sets unconditionally for BOTH modes — then just calling `drawSSmlmHist()`
   itself, which already re-dispatches to whichever mode (`sSmlmHistMode`) is current and re-reads the
   live angle fields; no other change needed. Verified via Playwright: with the Angles plot showing,
-  clicking **Fit angle & tol.** now visibly redraws it at the new center/tolerance (confirmed via a
-  changed canvas checksum), not just the log line and the underlying fields.
+  clicking **Fit dist. and angles** now visibly redraws it at the new center/tolerance (confirmed via
+  a changed canvas checksum), not just the log line and the underlying fields.
+
+  **`fitSSmlmDistAndAngle()` also fits the DISTANCE histogram now** (renamed from `fitSSmlmAngle()`;
+  button relabelled **Fit angle & tol.** → **Fit dist. and angles**, requested — previously
+  `sSmlmDistMin`/`sSmlmDistMax` had to be set by eye, with no fit at all). A two-component mixture:
+  a theoretical **background** term — the PDF of the distance between two independent, uniformly
+  random, UNPAIRED points confined to the region the localizations actually occupy — plus a
+  **Gaussian signal** term on top, the real distance between an emitter's spectrally-split 0th/1st
+  order images. New `PARAMS.sSmlmBgProfile` (`'rect'`/`'circle'`, default `'rect'`, **Background
+  profile** dropdown next to Distance min/max) picks the background's shape — real optical setups
+  vary (a rectangular camera FOV vs. a circular field-stop/aperture) and this isn't reliably
+  inferable from the point cloud alone, so it's a plain user choice, not auto-detected.
+
+  **The two background formulas** (`sSmlmBgPdfRect(v,a,b)`/`sSmlmBgPdfDisk(r,R)`, right before
+  `fitSSmlmDist()`) were independently verified — Monte Carlo simulation, numerical integration to
+  1.0, and (rectangle) exact reduction to the standard "square line picking" formula at `a=b` —
+  before being transcribed into code, not taken on faith from a single secondary source:
+  - **Rectangle** (sides `a≤b`, domain `0<v≤√(a²+b²)`, 3 pieces): Philip, J. *"The Probability
+    Distribution of the Distance Between Two Random Points in a Box."* Technical Report
+    TRITA-MAT-07-MA-10, Dept. of Mathematics, KTH, Stockholm, 2007 (§4, "The two-dimensional
+    distribution" — the report's own real target is the 3D box case; the 2D rectangle used here is
+    its intermediate result). **A real citation error caught before shipping**: this report is
+    widely mis-cited as "1991" (including in the request that prompted this feature) — reading the
+    primary source directly (recovered via the Wayback Machine, the live KTH mirror having gone
+    404) showed "1991" is the year of the unrelated AMS *Mathematics Subject Classification* scheme
+    referenced in a footnote on the SAME title page, not the report's own publication date; the
+    report is internally dated 2007 (cites Bailey/Borwein/Crandall 2007, uses Maple 10), matching
+    the "07" in its own report number. A DOI the user separately proposed for this citation
+    (`10.1038/s41592-023-02149-7`, the TARDIS paper — Martens et al., *Nat. Methods* 2024, same lab)
+    was checked and dropped: its own Supplementary Information explicitly states a continuous
+    background formula does NOT work for real ROIs and uses an empirical histogram instead — it
+    neither contains nor cites this formula.
+  - **Disk** (radius `R`, domain `0≤r≤2R`, single piece, no breakpoints): Solomon, H. *Geometric
+    Probability*, SIAM, 1978, p. 129 (via Wolfram MathWorld "Disk Line Picking") — verified the mean
+    matches the known closed-form constant `128/(45π)` to 10 significant digits.
+
+  **`sSmlmBoxDims()`** derives `(a,b)` from the ACTUAL localization bounding box
+  (`sSmlmOriginalLocs`, the same raw pairing input `pairCore()` itself always reads from — min/max
+  x,y, native px → nm via `lastResult.px`) rather than the full camera FOV: the background model
+  assumes molecules are roughly uniform over the region they actually occupy, and an unused camera
+  margin (a crop, or a sparse sub-region of the chip) would bias a full-FOV box size upward,
+  understating the true background density. For the circular profile, `R` is the EQUIVALENT-AREA
+  disk radius from that same bounding box (`R=√(a·b/π)`) — a standard, parameter-free way to convert
+  a rectangular extent into a disk radius when there's no independent aperture measurement.
+
+  **`fitSSmlmDist(d,y,bgPdf)`** mirrors `fitNeNA()`'s own Levenberg-Marquardt engine exactly (same
+  `solveLin()`-based per-iteration solve, same damping/back-off loop shape) rather than inventing a
+  new pattern — see that function's own comment (MODULE: locprecision) for the general shape. Only
+  4 free parameters (`p=[A_bg,A_sig,mu,sigma]`), fewer than NeNA's 6, because `a,b`/`R` are FIXED
+  (computed from data, not fit) — the background term's only free parameter is its own linear
+  amplitude (`∂/∂A_bg = bgPdf(x)`, trivial); the signal term's own amplitude/mu/sigma derivatives are
+  the same standard Gaussian ones `fitNeNA()`'s own `dSds`-adjacent code already shows the pattern
+  for. Seeds: `mu0` from the histogram's own peak bin, `sigma0` from a plain half-max-width walk
+  around it (FWHM→σ via the standard `2.3548` conversion), `A_bg0` from the MEDIAN of
+  `y/bgPdf(x)` over bins more than `3·sigma0` from the peak (excludes signal-contaminated bins near
+  it — same "median ≈ flat background" reasoning the angle fit's own background estimate already
+  uses), `A_sig0` from the peak height minus the background's own predicted contribution there.
+  Verified on synthetic data (rejection-sampled uniform points in a real rectangle/disk, plus a
+  known Gaussian signal mixed in) via `osascript -l JavaScript`: recovered `mu`/`sigma` within ~2%
+  of ground truth for the rectangle case, ~10% for the disk case (a smaller synthetic
+  signal-to-background ratio in that test, not a flaw in the disk formula itself, which passed its
+  own independent integration/mean checks above).
+
+  `sSmlmGaussBump(x,mu,s)` (an UNNORMALIZED peak-height-1 Gaussian, same convention `fitNeNA()`'s own
+  `G()` uses for its correction term) is shared between `fitSSmlmDist()`'s model/Jacobian and
+  `drawSSmlmHist()`'s own curve overlay, so the two can never drift apart. The fit result
+  (`sSmlmDistFit={p,bgPdf}`, module-level, `null` until a fit has run) is consumed ONLY at draw time
+  — `drawSSmlmHist()`'s dist-mode branch re-evaluates `histData.curve = x=>bw*(p[0]*bgPdf(x)+
+  p[1]*sSmlmGaussBump(x,p[2],p[3]))` fresh on every draw (never baked in), reusing
+  `drawHistogram()`'s existing single magenta `curve` overlay slot with NO changes needed to that
+  shared function. Invalidated (`sSmlmDistFit=null`) on a fresh **Preview pairs** run (a new
+  candidate set, and possibly a changed bounding box) and on a **Background profile** change (a
+  fit against the WRONG region-shape assumption shouldn't keep decorating the plot) — NOT at every
+  one of the ~9 "reclaim the whole SR panel" reset blocks `alexProjToggleBtn` itself is hidden at,
+  matching the EXISTING precedent that `sSmlmLastCands` itself is never proactively cleared there
+  either (the relevant buttons — `sSmlmHistBtn`/`sSmlmFitAngleBtn` — already get `disabled` at those
+  same points, which is what actually prevents a stale fit/histogram from being reachable).
+
+  `fitSSmlmDistAndAngle()` fits distance FIRST, writing `sSmlmDistMin`/`sSmlmDistMax` to the DOM
+  immediately (`mu∓3σ`, clamped to `[0,PARAMS.sSmlmDistMax.max]`) — a documented STARTING window,
+  not a validated constant the way the angle fit's own `±5°`/half-max-doubling is (no real-data
+  calibration exists yet for distance), deliberately generous (~99.7% of a Gaussian) rather than
+  tuned. The angle-fitting half then runs SECOND and reads `paramValue('sSmlmDistMin'/'Max')` live,
+  so it restricts to the JUST-FITTED distance window rather than whatever was there before — the
+  angle fit's own pre-existing distance-window restriction (above) composes correctly with zero
+  extra plumbing. Also gained a `logCmd()` call (the old `fitSSmlmAngle()` had none at all — a real,
+  reported-adjacent gap, not present before this round) via `overrideWithFields()`, same convention
+  every other bare-function terminal-callable action in this module already uses.
 
   **The distance histogram's own min/max markers are directly draggable** (requested) — a dedicated
   IIFE (MODULE: table, physically right before the existing "Column-histogram X-axis zoom" IIFE)
@@ -708,7 +797,7 @@ relevant one before editing rather than scrolling:
   `previewSSmlmPairs()` resets `sSmlmHistMode='dist'` before its own first draw — a fresh Preview
   always opens on Distances, same precedent `driftPlotMode`/`sptHistMode` follow.
 
-  **Fit angle & tol.** and **Pair** share one button row; **Unpair** sits alone in the row below. An
+  **Fit dist. and angles** and **Pair** share one button row; **Unpair** sits alone in the row below. An
   unpaired localization is dropped from the result. A pair's reported position is the 0th order's
   OWN x/y (undispersed — already the true position), not the midpoint: the 1st order's offset
   varies per emitter with wavelength, so averaging would blur position.
@@ -2522,7 +2611,7 @@ API in sync.
 
 Sidebar/panel-title buttons must fit on one line at the sidebar's normal width — a label that
 wraps reads as broken layout, not a design choice. Abbreviate rather than let a label wrap:
-"Fit angle & tol." not "Fit angle & tolerance" (see **sSMLM**). Favour standard, unambiguous
+"Fit dist. and angles" not "Fit distances and angles" (see **sSMLM**). Favour standard, unambiguous
 abbreviations (`dist.`, `min`/`max`, `deg`) over truncation that could be misread.
 
 Two-word-joined-by-punctuation labels read `Word/word` with no surrounding spaces (**Save
