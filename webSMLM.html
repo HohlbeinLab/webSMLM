@@ -82,14 +82,14 @@
                            _srRenderSeq token discarding a stale/superseded
                            render (its ~24 call sites are unaffected — it
                            still never rejects, all fire-and-forget as before)
-    workers         6980   frame-parallel detect/fit worker pool; dedicated
+    workers         7005   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7290   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7618   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7315   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7643   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -100,7 +100,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8084   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8109   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -110,9 +110,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8614   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8639   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9348   spectrally resolved SMLM pair-finding; merged
+    sSMLM           9373   spectrally resolved SMLM pair-finding; merged
                            Show histograms (sSmlmHistBtn/sSmlmHistModeBtn);
                            Fit dist. & angle/Pair share a row, Unpair alone;
                            runSSmlmPair() logCmd()s its own cfg on success;
@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10933   single particle tracking, trackpy-inspired;
+    spt             10983   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12471  top-level orchestration, *Core()/wrapper split;
+    pipeline        12521  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13127  Micro-Manager/pycromanager camera bridge
+    liveStreaming   13177  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15683  localizations table, filtering, histograms;
+    table           15735  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2422,9 +2422,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-sSMLM"><span class="pill">module: sSMLM</span>
           <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
           <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
-          <p><b>Preview pairs</b> only computes — <b>Show histograms</b> draws them: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to), so you can find your own setup's true peak instead of guessing. Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot). Narrow <b>Distance min/max</b> and <b>Primary angle</b>/<b>tolerance</b> to that peak — either by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit — or click <b>Fit dist. & angle</b> to fill all four fields in automatically: Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — both starting points you can widen by hand.</p>
+          <p><b>Preview pairs</b> computes the candidate pool AND immediately fits it (<b>Fit dist. & angle</b>, below — requested, so the four fields already reflect this dataset's own real peak instead of generic defaults, no extra click needed): Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — all four are starting points you can still widen by hand, or re-fit again later (e.g. after changing Background profile). <b>Show histograms</b> draws the underlying data: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to). Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot); the distance one also overlays the fitted curve. Narrow the fields further by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair</b> to commit.</p>
           <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape <b>Fit dist. & angle</b>' own distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
-          <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output). <b>Unpair</b> restores the original, unpaired localizations.</p>
+          <p><b>Pair</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output) and switches the reconstruction's own Colour map to the HSV (blue loop) scheme automatically. <b>Unpair</b> restores the original, unpaired localizations, AND restores whichever Colour map was selected before Pair switched it (requested) — not left on HSV (blue loop) regardless of what it replaced. The reconstruction's own colour-scale bar, whenever it's showing the paired distance range, overlays the SAME fitted curve the distance histogram shows (requested — "as in the distances plot") as a thin profile along the bar itself: wider toward whichever end of the bar has more real signal, so you can see at a glance where the genuine (fitted) pair population concentrates within the shown range, not just a flat colour gradient.</p>
           <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
         </div>
@@ -6448,8 +6448,33 @@ function drawDepthBar(ctx,DW,DH,zlo,zhi){
   const {x,y}=depthBarRect(bw,bh,DW,DH);
   for(let i=0;i<bh;i++){ const t=1-i/(bh-1), j=(t*255)|0;
     ctx.fillStyle=`rgb(${lut[j*3]},${lut[j*3+1]},${lut[j*3+2]})`; ctx.fillRect(x,y+i,bw,1); }
+  const span=Math.max(1e-9, zhi-zlo), yOf=v=>y+bh*(zhi-v)/span;
+  // sSMLM's own distance fit (Fit dist. & angle, MODULE: sSMLM), overlaid the
+  // same way the distance histogram itself shows it (requested — "as in the
+  // distances plot") — a thin magenta profile of the FITTED curve across
+  // this exact [zlo,zhi] range (the paired result's own distance window, set
+  // by runSSmlmPair() to zmin/zmax), tracing WHERE the real signal
+  // concentrates rather than just a flat colour gradient. Confined entirely
+  // WITHIN the bar's own existing [x,x+bw] footprint (right edge = high
+  // density, left edge = low) rather than drawn in the margin, since the bar
+  // is user-draggable (depthBarPos) — space outside it isn't reliably
+  // available wherever it's been dragged to, but the bar's own interior
+  // always is. Gated on colorField actually being 'dist' (a real 3D z has no
+  // such fit at all) via the same isFinite(locs[0].dist) check
+  // getSmfretTimeTraces() already uses to detect a paired result.
+  if(sSmlmDistFit && lastResult && lastResult.locs.length && isFinite(lastResult.locs[0].dist)){
+    const {p,bgPdf}=sSmlmDistFit, curve=v=>p[0]*bgPdf(v)+p[1]*sSmlmGaussBump(v,p[2],p[3]);
+    const steps=Math.min(bh,60); let cmax=0; const vals=new Float64Array(steps+1);
+    for(let i=0;i<=steps;i++){ const v=zlo+span*i/steps; vals[i]=Math.max(0,curve(v)); if(vals[i]>cmax) cmax=vals[i]; }
+    if(cmax>0){
+      ctx.strokeStyle='#c81cc8'; ctx.lineWidth=1.5; ctx.beginPath();
+      for(let i=0;i<=steps;i++){ const v=zlo+span*i/steps, yy=yOf(v), xp=x+bw*(1-vals[i]/cmax);
+        if(i===0) ctx.moveTo(xp,yy); else ctx.lineTo(xp,yy); }
+      ctx.stroke();
+    }
+  }
   ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.strokeRect(x-.5,y-.5,bw+1,bh+1);
-  const span=Math.max(1e-9, zhi-zlo), yOf=v=>y+bh*(zhi-v)/span, fmt=v=>(v>0?'+':'')+v.toFixed(0)+' nm';
+  const fmt=v=>(v>0?'+':'')+v.toFixed(0)+' nm';
   ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.font='11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
   for(const v of [zhi, 0, zlo]){ if(v>zhi+1e-6||v<zlo-1e-6) continue;   // skip 0 if outside the range
     const yy=Math.max(y,Math.min(y+bh,yOf(v)));
@@ -9597,6 +9622,13 @@ let sSmlmOriginalLocs=null, sSmlmPairedLocs=null, sSmlmShowingRaw=false, sSmlmLa
 // set + region-shape assumption, and shouldn't silently keep decorating a
 // histogram that's since moved on from either).
 let sSmlmDistFit=null;
+// The Colour map value from right before runSSmlmPair() auto-switched it to
+// hsvBlue, so unpairSSmlm() can restore whatever the user actually had
+// selected (requested — Pair's own auto-switch is a real, deliberate
+// convenience, but Unpair silently leaving it on hsvBlue regardless of what
+// it replaced was not). null whenever there's nothing to restore (no Pair
+// has run this session, or Unpair already consumed it).
+let sSmlmPrevLut=null;
 // wrap x into [lo,lo+360) — used below to plot the FULL circle of candidate
 // bearings without an artificial seam landing on either real peak. A plain
 // [0,360) (or the old folded [0,180)) range puts a seam exactly AT 0°/180°,
@@ -10037,10 +10069,18 @@ async function previewSSmlmPairs(){
     const cmdCfg={sSmlmPreview:true, sSmlmDistMax:paramValue('sSmlmDistMax')};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'previewSSmlmPairs()'));
     sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, 0, scanMax, 0, 90, setProg);
-    log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle). Narrow the distance/angle fields to the histogram's peak, then click Pair.`);
+    log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle).`);
     $('sSmlmHistBtn').disabled=false; $('sSmlmFitAngleBtn').disabled=false;
     sSmlmHistMode='dist';   // a fresh Preview always opens on Distances, not wherever a previous session's toggle left it — same precedent driftPlotMode/sptHistMode follow
     drawSSmlmHist();
+    // Auto-run Fit dist. & angle right after a successful Preview (requested
+    // — "this way operation is faster"): every Preview already has exactly
+    // what the fit needs (sSmlmLastCands), so there's no reason to make a
+    // second click mandatory before Distance/Angle fields reflect the real
+    // data instead of their generic PARAMS defaults. Narrowing the fields by
+    // hand (or re-fitting again) afterward still works exactly as before —
+    // this only changes the STARTING point from "defaults" to "auto-fitted".
+    if(sSmlmLastCands.length) fitSSmlmDistAndAngle();
   } finally { $('sSmlmPreviewBtn').disabled=false; setProg(null); }
 }
 // "Pair" button handler: runs pairCore() on the raw (unpaired) locs, swaps
@@ -10089,6 +10129,11 @@ async function runSSmlmPair(){
     $('zcolor').checked = true;
     // Matches the colour scheme from the sSMLM paper's own figures — same
     // auto-switch pattern updateMethodUI() uses for 3D's own depth LUT default.
+    // Stashes whatever was selected before, so Unpair can restore it
+    // (requested) — only if nothing's already stashed, so a re-Pair while
+    // ALREADY paired (no Unpair in between) doesn't overwrite the TRUE
+    // pre-pairing value with 'hsvBlue' itself.
+    if(sSmlmPrevLut===null) sSmlmPrevLut=$('lut').value;
     $('lut').value='hsvBlue';
     rerender(true);
     $('sSmlmUnpairBtn').disabled=false;
@@ -10106,6 +10151,11 @@ function unpairSSmlm(){
   lastResult.locs=sSmlmOriginalLocs;
   sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
   renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  // Restore whatever Colour map was selected before Pair auto-switched it to
+  // hsvBlue (requested) — before rerender() below, so the very next render
+  // already reflects it. No-op (leaves the current LUT alone) if nothing was
+  // ever stashed, e.g. Unpair called with no prior Pair this session.
+  if(sSmlmPrevLut!==null){ $('lut').value=sSmlmPrevLut; sSmlmPrevLut=null; }
   rerender(true);
   $('sSmlmUnpairBtn').disabled=true;
   $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false);
@@ -10373,7 +10423,7 @@ async function locateSmfretSOI(){
     }
     lastResult={locs:fitted, w, h, px:paramValue('pxnm'), mag:paramValue('mag'), det:null, fromSmfretSOI:true};
     renderLocs=null; _tableFilters=[];
-    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a fresh SOI result invalidates any prior pairing state
+    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null;   // a fresh SOI result invalidates any prior pairing state
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
     // alexProjToggleBtn is NOT hidden here — its visibility/label were just
     // set above based on cfg.alexEnabled, unrelated to the sSMLM-pairing
@@ -10428,7 +10478,7 @@ function clearSmfretFixSOI(){
   // existing result would do).
   if(lastResult && lastResult.fromSmfretSOI){
     lastResult=null; renderLocs=null; _tableFilters=[];
-    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
+    sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null;
     $('tableBtn').disabled=true; $('saveBtn').disabled=true;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none';
@@ -13041,7 +13091,7 @@ async function run(){
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
   $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   try{
     const method=paramValue('method');
     const localize3D=paramValue('localize3D');
@@ -13772,7 +13822,7 @@ async function runSimulation(){
     // was running — see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
     stack=generated; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -13812,7 +13862,7 @@ async function loadMovieFiles(fs){
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
@@ -14395,7 +14445,7 @@ async function loadCsvFile(f){
     $('saveBtn').disabled=false; $('tableBtn').disabled = false; $('driftBtn').disabled=false;
     $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
-    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;   // a freshly-loaded result invalidates any prior pairing state
+    $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null;   // a freshly-loaded result invalidates any prior pairing state
     $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the histograms themselves need a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
@@ -14443,7 +14493,7 @@ function applyHeadlessResultToSession(result){
   $('saveBtn').disabled=false; $('tableBtn').disabled=false; $('driftBtn').disabled=false;
   $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('frcBtn').disabled=false;
   $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
-  $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
+  $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null;
   $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   $('rawInfo').textContent='— no raw frame data (result from a log-terminal analyze() call)';
 }
@@ -15109,7 +15159,7 @@ function resetAfterCropChange(){
   // would otherwise try to write lastResult.locs on a null lastResult) — same
   // reset every fresh Run/Load/Simulate already does, needed here for the
   // same reason: a crop/uncrop is just as much "new data" for this state.
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmFitAngleBtn').disabled=true; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
 }
 // Applies the raw-panel crop tool's selected rectangle: swaps `stack` for a
 // makeCroppedStack() wrapper and resets everything derived from the old FOV.
@@ -15544,24 +15594,26 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09e — sSMLM's distance-fit
-curve overlay had a real display bug that LOOKED exactly like the
-build 09d seeding bug but wasn't: reported, the curve again shot up
-near v=0 past the top of the chart. Checked the actual fit this time
-(not just the plot) — it was genuinely correct (mu=510 nm, matching
-the real 979-count peak bin almost exactly). The bug was one extra,
-wrong "bw*" (bin-width) multiplication in the curve-drawing line,
-originally justified by a false claim that fitTrackLifetime() does the
-same — re-reading that function shows it doesn't: it fits its own
-amplitude directly against raw bin counts too, no bin-width factor
-anywhere. fitSSmlmDist()'s own p already comes out in "counts per bin"
-units for the identical reason, so multiplying by bw again inflated
-the curve by the bin width itself (about 79 nm on the reported
-dataset) for no reason, pushing a correctly-converged fit off the
-chart and making it look exactly like a broken one. Removed; verified
-the curve now stays within the real bars' own scale everywhere and
-shows a clean, narrow spike sitting inside the Distance min/max
-window instead of a runaway rise from the origin.
+log(`webSMLM v0.12.1-dev · build 2026-09-09f — three sSMLM workflow
+requests. (1) Preview pairs now runs Fit dist. & angle itself right
+after building the candidate pool, so Distance min/max/Primary
+angle/Angle tolerance already reflect this dataset's own real peak the
+moment Preview finishes — no separate click needed, and typing over
+the fields (or re-fitting again) afterward still works the same.
+(2) Pair's own auto-switch to the HSV (blue loop) Colour map now
+stashes whatever was selected before, and Unpair restores it — Unpair
+previously left the Colour map on HSV (blue loop) regardless of what
+it had replaced. (3) The reconstruction's own colour-scale bar, when
+showing a paired sSMLM result, now overlays the SAME fitted curve the
+distance histogram shows — a thin profile confined within the bar's
+own existing width (right edge = high density, left edge = low)
+rather than drawn in the margin around it, since the bar itself is
+user-draggable and margin space isn't reliably available wherever
+it's been dragged to. Verified via Playwright against the real
+ALEX/prism reproduction dataset: Preview alone now sets Distance
+min/max to 343/677 nm, Pair switches to hsvBlue and Unpair correctly
+restores a distinctively different pre-Pair selection, and the colour
+bar shows real, non-zero curve pixels once paired.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

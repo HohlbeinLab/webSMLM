@@ -1000,6 +1000,36 @@ relevant one before editing rather than scrolling:
   `drawHistogram()`'s own internal `_replotRaw=drawHistogram` assignment runs right after and simply
   overwrites this one back to the (already-correct) simpler target for that mode.
 
+  **Three more workflow requests, same round.** (1) `previewSSmlmPairs()` now calls
+  `fitSSmlmDistAndAngle()` itself right after building `sSmlmLastCands` (requested — "this way
+  operation is faster") — every Preview already has exactly what the fit needs, so Distance
+  min/max/Primary angle/Angle tolerance now reflect the CURRENT dataset's own real peak the moment
+  Preview finishes, instead of sitting at generic `PARAMS` defaults until a separate manual click.
+  Typing over the fields afterward, or re-fitting again (e.g. after changing **Background
+  profile**), still works exactly as before — this only changes the STARTING point. (2) `runSSmlmPair()`
+  now stashes the Colour map value into a new module-level `sSmlmPrevLut` right before its own
+  existing auto-switch to `hsvBlue` (only if nothing's already stashed, so a re-Pair while ALREADY
+  paired — no Unpair in between — doesn't overwrite the TRUE pre-pairing value with `hsvBlue`
+  itself), and `unpairSSmlm()` restores it (requested — Unpair previously left the Colour map on
+  whatever Pair had switched it to, regardless of what the user actually had selected before).
+  `sSmlmPrevLut` is also cleared alongside `sSmlmOriginalLocs`/`sSmlmPairedLocs` at every place those
+  already reset (the ~9 "reclaim the panel" blocks, including the two smFRET-specific ones that
+  don't go through the generic reset — `locateSmfretSOI()`'s own invalidation branch and
+  `clearSmfretFixSOI()`'s tail block), so a stale stash never leaks into an unrelated later result.
+  (3) `drawDepthBar()` (MODULE: render) now overlays `sSmlmDistFit`'s own curve — the SAME curve
+  the distance histogram shows — directly on the colour-scale bar whenever the reconstruction is
+  showing a paired sSMLM result (gated on `isFinite(lastResult.locs[0].dist)`, the same detection
+  `getSmfretTimeTraces()` already uses), requested ("as in the distances plot, the colour plot
+  should show the fitting function"). Confined entirely WITHIN the bar's own existing `[x,x+bw]`
+  width (right edge = high density, left edge = low, a thin profile line rather than a filled
+  silhouette extending into the margin) rather than drawn in the space around it, since the bar
+  itself is user-draggable (`depthBarPos`) — margin space isn't reliably available wherever it's
+  been dragged to, but the bar's own interior always is. Verified via Playwright against the real
+  ALEX/prism reproduction dataset: Preview alone now sets Distance min/max to `343`/`677` nm (no
+  separate Fit click needed), Pair switches the Colour map to `hsvBlue` and Unpair correctly
+  restores a distinctively different pre-Pair selection (`viridis`, in the test), and the
+  reconstruction's own colour bar shows real, non-zero magenta curve pixels once paired.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
   warning only, id stays `smfretBox`). v1: "sites of interest" (SOI) detection plus a
