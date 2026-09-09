@@ -1030,6 +1030,27 @@ relevant one before editing rather than scrolling:
   restores a distinctively different pre-Pair selection (`viridis`, in the test), and the
   reconstruction's own colour bar shows real, non-zero magenta curve pixels once paired.
 
+  **Three more requests on the same round.** (1) Changing **Background profile** now re-fits
+  outright (`if(sSmlmLastCands && sSmlmLastCands.length) fitSSmlmDistAndAngle();`) instead of just
+  clearing `sSmlmDistFit` and leaving the user to click **Fit dist. & angle** again — same
+  "refresh an existing result automatically" convention `smfretApertureMode`'s own change listener
+  already uses; a no-op before the first Preview, since there's nothing to re-fit against yet.
+  (2) The Angles plot's three draggable selection lines (Primary angle, ±Angle tolerance) now
+  extend `SSMLM_POLAR_MARKER_EXT` (25px) past the histogram's own outer radius `R` for an easier
+  drag target (requested) — `drawSSmlmAnglePolar()`'s own `drawDiameter()` draws to `R+
+  SSMLM_POLAR_MARKER_EXT` instead of `R`, and the draggable-marker IIFE's `withinRing()` hit-test
+  bound was widened to match (`R+SSMLM_POLAR_MARKER_EXT+10`, a small grace margin past the line's
+  own visible tip) — one shared constant so the visible line and its clickable area can never drift
+  apart; the hit-test ITSELF is unaffected either way (perpendicular distance to an infinite line,
+  per `distToLine()`'s own comment — `withinRing()` only bounds how far from the circle a click is
+  even worth testing against it). (3) `setupPlot()` gained an optional 3rd `targetRatio` argument
+  (default `4/3`, matching every existing call site exactly, so nothing else changes) —
+  `drawSSmlmAnglePolar()` is the one caller passing `1` (square), requested: a circular plot wastes
+  real estate in a non-square box, whichever axis isn't the limiting one. Verified via Playwright:
+  changing Background profile after a fit already exists re-fits with a genuinely different result
+  (not just a cached copy — `343→342` nm on Distance min in the test), and dragging a line grabbed
+  at `R+20` (past the OLD hit radius, within the new one) successfully changes Primary angle.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
   warning only, id stays `smfretBox`). v1: "sites of interest" (SOI) detection plus a
