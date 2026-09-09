@@ -1340,7 +1340,7 @@ relevant one before editing rather than scrolling:
   `refreshSmfretPairingLive()` and `linkSmfretChannels()` (below) so all three re-filtering call
   sites can never implement this differently.
 
-  **"Channels to show" renamed "Linking SOIs"** (requested — the field now also gates a NEW
+  **"Channels to show" renamed "Filter SOIs"** (requested — the field now also gates a NEW
   action, **Link channels** below, not just Get time traces' own display). **"Position donor?"**
   (`smfretDonorAngleRow`/`smfretDonorAngle`, shown alongside it once ALEX is on) answers a real
   gap: the doubled-bearing angle fit (`fitSSmlmDistAndAngle()`, MODULE: sSMLM) can only recover the
@@ -1360,7 +1360,7 @@ relevant one before editing rather than scrolling:
   a direct-acceptor-excitation (AA) site to a donor-channel DD/DA pair. Enabled only with
   **Alternating laser excitation?** checked AND a real DD+DA pairing already committed
   (`smfretHasDDDAPairing()`, factored out of `getSmfretTimeTraces()`'s own identical check — now
-  shared by both). `linkSmfretChannels()` itself ALSO requires **Linking SOIs** = `DD+DA+AA` to
+  shared by both). `linkSmfretChannels()` itself ALSO requires **Filter SOIs** = `DD+DA+AA` to
   actually do anything (refuses with a log message otherwise) — deliberately a separate check from
   the button's own enable gate, matching the request's own precise wording ("grayed out as long as
   we are not in Alternating laser excitation mode" — only that one precondition disables the
@@ -1391,6 +1391,43 @@ relevant one before editing rather than scrolling:
   real ALEX dataset → exactly 30 finite `photonsDD`/`photonsDA`/`photonsAA` samples each, one per
   excitation half) — no code change needed here, a shipped fix from an earlier round already
   covers exactly this.
+
+  **A real, reported bug in `getSmfretPairingFromDonor()` itself, found the very next round**:
+  clicking **Pair DD + DA** the FIRST time (fresh ALEX + Localize SOI, no manual Preview pairs
+  first) produced only a handful of pairs; clicking it again immediately after produced many more
+  — "clicking it the first time shows only very few pairs, clicking another time produces much
+  more pairs. Why?" Root cause: `cfg` (the window `pairSSmlm()` actually pairs with) was captured
+  from the sidebar fields BEFORE `previewSSmlmPairsCore()` ran — but that call INTERNALLY auto-fits
+  those same four fields (`fitSSmlmDistAndAngle()`, called from inside it) to the real data. So the
+  first click always paired using whatever STALE window was already sitting there (the `PARAMS`
+  defaults, e.g. distance 2200–2800/angle 0°±5°, on a dataset whose real peak sat at 253–691 nm /
+  −89°±6°) — almost nothing qualifies. The second click then captured `cfg` from the FIRST click's
+  own auto-fitted output (now sitting correctly in the fields), pairing correctly. Fixed by moving
+  `cfg` construction (and its `logCmd()`) to AFTER `previewSSmlmPairsCore()` returns, so it always
+  reflects the window pairing is about to actually use — the fit runs, then pairing reads the FRESH
+  result, every single time, first click included. This bug also explains a SECOND report from the
+  same round ("time traces currently do not show signs of DA") that turned out to have the
+  identical root cause, not a separate one: the few, mismatched pairs the buggy first click
+  produced had geometrically poor/border-adjacent `x2,y2` positions, so `smfretExtractIntensity()`
+  rejected most of them — fixing the ordering bug alone restored real DA signal (re-verified:
+  79 pairs on the first click now, 934 non-zero DA samples spanning ~600–1300 photons, and the
+  time-trace plot's own magenta DA curve visibly renders — 556 magenta pixels on a real canvas
+  check, versus a flat, signal-free line before the fix).
+
+  **"Position donor?"'s own option labels corrected to the 0°–360° convention** (reported, with a
+  screenshot — "this is inconsistent. Angle should be as in the 2D histogram running between 0 and
+  360"): `sSmlmAngleCenter` is stored SIGNED (`[-180°,180°)`, the convention `pairCore()`'s own
+  bearing math and the field's own `PARAMS` range both rely on), but the Angles polar plot right
+  next to it labels its spokes 0°–360° (0°=right, 90°=top, increasing counterclockwise). Showing a
+  raw signed value like "-87.0°" in the dropdown read as a different angle convention than the
+  histogram beside it. Fixed by changing only the DISPLAYED label
+  (`wrap360(+v,0).toFixed(1)+'°'`) — `option.value` still carries the real signed number, so
+  picking an option still sets `sSmlmAngleCenter` to the exact value `pairCore()` expects,
+  unchanged; only the text shown to the user now matches the histogram's own convention (e.g.
+  `-89°` displays as `271.0°`).
+
+  **"Channels to show" → "Linking SOIs" → "Filter SOIs"** — renamed twice in two rounds (the first
+  rename, to "Linking SOIs", was itself superseded on direct follow-up the very next round).
 
   **`smfretSOICore(config, stack, checkStack=true)`** (v0.12.1-dev) is the pure, DOM-free half of
   `locateSmfretSOI()` — the averaging+detect+fit loop, extracted so `analyze()`'s own
