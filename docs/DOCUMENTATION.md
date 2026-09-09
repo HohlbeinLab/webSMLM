@@ -831,7 +831,13 @@ drawn — `lastResult.locs = sSmlmShowingRaw ? sSmlmOriginalLocs :
 sSmlmPairedLocs`, plus `zcolor` set to match — not just the colour flag;
 "Show standard" shows the literal unpaired reconstruction (the same data
 Unpair would restore), without discarding the pairing the way Unpair does,
-so toggling back to "Show spectral" is instant. Paired locs are already
+so toggling back to "Show spectral" is instant. The Colour map switches
+too, the same `sSmlmPrevLut` stash/restore **Pair**/**Unpair** already use:
+switching to "Show spectral" stashes whatever Colour map Standard was
+using and sets it to `hsvBlue`; switching back to "Show standard" restores
+it — without this, the unpaired (standard) reconstruction, which has no
+colourable field at all, rendered through `hsvBlue` as a confusing
+blue-dominant density map instead of a plain one. Paired locs are already
 `lastResult.locs` while shown, so the top-level **View data/filtering**
 button works on them directly — no separate table for sSMLM. **Headless**
 (v0.11.1): `config.sSmlmPair` runs pairing right after Localize, before

@@ -294,6 +294,26 @@ relevant one before editing rather than scrolling:
   identical logic `updateMethodUI()` already had, rather than a second copy. Headless `analyze()`
   sets `winr` directly, same as always — this auto-apply is interactive-UI-only.
 
+  **`methodResetsLutToFire(method)`** (v0.12.1-dev, extracted from `updateMethodUI()`'s own
+  else-branch — `m==='phasor'||m==='gaussmle'||m==='mle3d'||m==='gaussmleEll'`, deliberately NOT
+  `gaussls`, see that branch's own comment) is now also checked by `run()` itself, right before
+  `runCore()` starts: `if(!currentIs3d() && methodResetsLutToFire(method)) $('lut').value='fire';`.
+  Real, reported bug this closes: `updateMethodUI()`'s own reset only ever fires on an actual
+  `method`/`localize3D` **change** event — it never re-runs just because Localize was clicked, so a
+  Colour map left on `hsvBlue`/`turbo` by an EARLIER, unrelated result (most commonly sSMLM's own
+  **Pair & plot sSMLM**) silently carried over onto a brand-new dataset's plain 2D Localize run, as
+  long as the Fit method dropdown itself stayed on the same value the whole time (no `change` event
+  to catch it) — the reconstruction rendered as a confusing rainbow/blue-dominant density map instead
+  of Fire. Checked BEFORE `runCore()` starts (not just after it finishes) so every live preview
+  during the run, not only the final render, already uses the corrected map — avoids a
+  flash-then-correct effect on a long run. Reuses the exact same method list `updateMethodUI()`
+  itself checks (now a shared function) rather than a second, potentially-drifting copy; `run()`
+  never needs the OTHER half of that branch (`if(srFull) rerender(true)`) since it always calls
+  `rerender(true)` itself right after anyway. Verified via Playwright: paired an sSMLM/smFRET result
+  (Colour map → `hsvBlue`), loaded a completely different, unrelated real dataset with the Fit
+  method dropdown left untouched (`gaussmle`, still selected), clicked **Localize** — Colour map
+  correctly reads `fire` afterward, not the stale `hsvBlue`.
+
   **Shared MLE accumulator**: `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled`
   all run on ONE Fisher-scoring Newton driver, `mleNewtonFit(n, th, mstep, clampFn, ..., modelFn)` —
   checked directly against Picasso 0.11.0's `picasso/fitting/gaussfit.py`, whose
@@ -523,6 +543,16 @@ relevant one before editing rather than scrolling:
   for this round). All 3 standalone call sites' identical `ctx.fillText(yScale.label,...)` line
   replaced with `drawAxisScaleLabel(ctx,yScale,mL,mT-8,'right')` — one shared implementation instead
   of the same block duplicated three times.
+
+  **`GAP` corrected from `2` to `0` the same day** (reported, with a screenshot, immediately after
+  the first version shipped — "this is not how a scientific superscript should look like, bring
+  closer to trailing number"): 2px read as a visibly floating, disconnected digit, not a real
+  superscript sitting close against "10". A real scientific superscript's exponent sits immediately
+  adjacent to (often slightly overlapping) the preceding character — `GAP=0` reproduces that.
+  Verified visually (a dedicated offscreen canvas, screenshotted at 6x device scale for a crisp
+  close-up) against both the reported-bad `GAP=2` rendering and the corrected `GAP=0` one — the
+  latter reads as an ordinary "×10⁴" the way a textbook would set it, the former as "×10 ⁴" with a
+  visible gap.
 
   Every plot draws a real L-shaped axis border (left + bottom, `C.text`) plus a short (5px)
   outward-facing tick mark at each major tick, on both axes. The border is drawn LAST, after the
@@ -877,6 +907,25 @@ relevant one before editing rather than scrolling:
   Pair result), and `sSmlmShowingRaw`. The reconstruction-panel toggle (`sSmlmColorBtn`, "Show
   spectral"/"Show standard") swaps `lastResult.locs` between them (plus `zcolor`) — a real data
   swap, without discarding the pairing the way Unpair does.
+
+  **`toggleSSmlmColorView()` also swaps the Colour map now** (v0.12.1-dev, reported, same class of
+  bug as `run()`'s own stale-LUT fix — see **pipeline**'s `methodResetsLutToFire()` paragraph):
+  toggling to "Show standard" left whatever `hsvBlue` (or `turbo`) the SPECTRAL view had selected
+  still active, rendering the unpaired reconstruction — which has no colourable field at all — as a
+  confusing blue-dominant density map instead of a plain one. Mirrors `runSSmlmPair()`/
+  `unpairSSmlm()`'s own `sSmlmPrevLut` stash/restore, just at the toggle's own two transition points:
+  switching to spectral captures the standard view's CURRENT Colour map into `sSmlmPrevLut`
+  (unconditionally, not only-if-null like `runSSmlmPair()`'s own stash — that guard exists so a
+  re-Pair while already spectral can't self-overwrite the true value with `hsvBlue` itself; the
+  toggle instead always starts from a genuine standard view, so capturing fresh — including a manual
+  LUT change made while on standard — is safe and more correct) then sets `hsvBlue`; switching back
+  to standard restores `sSmlmPrevLut`. `unpairSSmlm()`'s own restore is unaffected either way, since
+  the toggle keeps `sSmlmPrevLut` in sync with whichever LUT the standard view actually last had,
+  regardless of how many times the toggle fires in between. Verified via Playwright: Colour map set
+  to `viridis` before Pair, `hsvBlue` after; toggling to standard restores `viridis`, toggling back
+  to spectral restores `hsvBlue`; a manual change to `inferno` while on standard is correctly
+  captured on the next switch to spectral and restored on the switch back; Unpair afterward still
+  restores the correct (`inferno`) value.
 
   **Every paired row also keeps the 1st order's own position and the pair's own directed
   bearing** (`x2,y2,pairAngle`, v0.12.1-dev) — previously `pairCore()` looked up the 1st order

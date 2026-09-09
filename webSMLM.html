@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2642   PARAMS registry, single source of truth for params;
+    params          2653   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3523   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3534   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3822   synthetic stack generator ("Simulate movie")
-    detect          4700   per-frame band-pass + local-maxima detection
-    fit             4977   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3833   synthetic stack generator ("Simulate movie")
+    detect          4711   per-frame band-pass + local-maxima detection
+    fit             4988   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5616   accumulate to offscreen buffer; view/colour/blur;
+    render          5627   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -86,14 +86,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7032   frame-parallel detect/fit worker pool; dedicated
+    workers         7043   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7342   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7670   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7353   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7681   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -104,7 +104,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8136   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8147   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -114,9 +114,9 @@
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision
-    locprecision    8666   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8677   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9400   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9411   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -132,7 +132,12 @@
                            Angles polar plot folds the offset mod 180 so
                            either end of the diameter yields the same tol
                            (real bug: the far end read back a wildly wrong
-                           value); runSSmlmPair() logCmd()s its own cfg on success;
+                           value); toggleSSmlmColorView() (Show spectral/
+                           standard) now also swaps the Colour map via
+                           sSmlmPrevLut, same stash/restore Pair/Unpair use
+                           (real bug: standard view rendered through
+                           spectral's own hsvBlue as a confusing density
+                           map); runSSmlmPair() logCmd()s its own cfg on success;
                            pairCore()'s config.exportSSmlmCandidates streams
                            the wider candidate pool (sSmlm_candidates.ndjson)
                            via onRecord, before the directional accept/reject;
@@ -145,7 +150,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             11236   single particle tracking, trackpy-inspired;
+    spt             11272   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -176,10 +181,16 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12774  top-level orchestration, *Core()/wrapper split;
+    pipeline        12810  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
-                           whenever localize3D is unchecked; measureHeader()
+                           whenever localize3D is unchecked; run() also
+                           checks methodResetsLutToFire() itself before
+                           runCore() starts, closing a gap where a stale
+                           hsvBlue/turbo from an unrelated earlier result
+                           survived a fresh 2D Localize with the method
+                           dropdown left unchanged (no change event to
+                           trigger updateMethodUI()'s own reset); measureHeader()
                            adds scrollY back for scroll-invariant fixed-toggle
                            offset; refitCanvases() always re-fits on resize,
                            not gated on atFit; run()/runSptTrack() each
@@ -231,7 +242,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13431  Micro-Manager/pycromanager camera bridge
+    liveStreaming   13480  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -285,14 +296,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           16004  localizations table, filtering, histograms;
+    table           16062  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    16717  window.webSMLM.analyze()/analyzeBatch();
+    headless API    16775  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2021,7 +2032,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2586,7 +2597,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </div>
       <div class="card">
-        <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="alexProjToggleBtn" class="logbtn" style="display:none" title="Toggle the Data projection between averaging only direct donor excitation frames and only direct acceptor excitation frames">Acceptor dir. exc.</button><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance)">Show spectral</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
+        <h4><span style="display:flex;align-items:center;gap:6px"><span id="srTitle">SMLM reconstruction</span><button id="alexProjToggleBtn" class="logbtn" style="display:none" title="Toggle the Data projection between averaging only direct donor excitation frames and only direct acceptor excitation frames">Acceptor dir. exc.</button><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance) — also switches the Colour map between whichever you had on Standard and the spectral convention (HSV blue loop)">Show spectral</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
         <div class="panel-body">
           <canvas id="sr"></canvas>
           <div id="srFilterNote" style="display:none;margin-top:8px;color:var(--accent2);font-size:12px"></div>
@@ -6098,7 +6109,7 @@ function axisScale(maxAbs){
 // could pass 'left').
 function drawAxisScaleLabel(ctx, scale, x, y, align){
   if(!scale || !scale.label) return;
-  const baseFont=ctx.font, expFont='10px '+PLOT_FONT, GAP=2, RAISE=4;
+  const baseFont=ctx.font, expFont='10px '+PLOT_FONT, GAP=0, RAISE=4;   // GAP=0: reported — 2px read as a visibly floating, disconnected digit, not a real superscript sitting close against "10"
   const base='×10', expStr=String(scale.exp);
   ctx.font=baseFont; const baseW=ctx.measureText(base).width;
   ctx.font=expFont; const expW=ctx.measureText(expStr).width;
@@ -10335,6 +10346,31 @@ function toggleSSmlmColorView(){
   lastResult.locs = sSmlmShowingRaw ? sSmlmOriginalLocs : sSmlmPairedLocs;
   renderLocs=null; _tableFilters=[];
   $('zcolor').checked = !sSmlmShowingRaw;   // colour-by-distance only means anything for the paired view
+  // The Colour map must follow which view is now showing too (reported,
+  // same class of bug as run()'s own stale-LUT fix — see
+  // methodResetsLutToFire()'s own comment, MODULE: pipeline): the standard
+  // (unpaired) view has no colourable field at all, so leaving it on
+  // hsvBlue (spectral's own established convention colour, see
+  // runSSmlmPair()) rendered it as a confusing blue-dominant density map
+  // instead of whatever the user actually had selected for a plain
+  // reconstruction. Mirrors runSSmlmPair()/unpairSSmlm()'s own
+  // sSmlmPrevLut stash/restore, just at the toggle's own two transition
+  // points instead of Pair's/Unpair's.
+  if(sSmlmShowingRaw){
+    // -> standard: restore whatever was active before switching to spectral
+    // (a fresh Pair's own stash, or this same toggle's own previous capture).
+    if(sSmlmPrevLut!==null) $('lut').value=sSmlmPrevLut;
+  }else{
+    // -> spectral: capture the standard view's OWN current choice first —
+    // always, not only-if-null like runSSmlmPair()'s own stash (that guard
+    // exists for a DIFFERENT reason: a re-Pair while ALREADY spectral could
+    // otherwise self-overwrite the true value with hsvBlue itself). Here we
+    // KNOW the view about to be replaced is the standard one, so its LUT is
+    // never hsvBlue unless genuinely chosen — safe, and more responsive to
+    // a manual LUT change made while viewing standard, to capture fresh.
+    sSmlmPrevLut=$('lut').value;
+    $('lut').value='hsvBlue';
+  }
   updateSSmlmColorBtnLabel();
   rerender(true);
 }
@@ -13354,6 +13390,19 @@ async function run(){
     // elliptical fit with no z lookup, same as any other 2D method.
     const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
     if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
+    // A stale Colour map from an earlier, unrelated result (most commonly
+    // sSMLM's own Pair, which switches it to hsvBlue) otherwise lingers onto
+    // a brand-new, plain 2D Localize run — updateMethodUI()'s own reset
+    // (below) only fires on an actual method/localize3D UI CHANGE, which
+    // doesn't happen when the dropdown is already sitting on the same
+    // method as before (reported: loading a new, unrelated dataset and
+    // re-running Localize left the reconstruction rendered through hsvBlue
+    // as a plain density map, reading as "wrong LUT"). Checked here, before
+    // runCore() starts, so every live preview during the run — not just the
+    // final render — already uses the corrected map; reuses the exact same
+    // method-based rule updateMethodUI() applies on a real UI change, so
+    // the two can't drift apart.
+    if(!currentIs3d() && methodResetsLutToFire(method)) $('lut').value='fire';
     const config=buildConfigFromParams();
     const px=config.pxnm;   // read live, not the load-time snapshot stack.px was captured with
     // Logged BEFORE runCore() starts, not after it succeeds — a recorded
@@ -14405,6 +14454,15 @@ function currentIs3d(){
   const m=paramValue('method'), is3dMethod = m==='mle3d'||m==='gaussmleEll';
   return m==='phasor3d' || (is3dMethod && paramValue('localize3D'));
 }
+// Methods whose own output is never colourable (no z/dist) — Phasor 2D /
+// Gauss MLE 2D spherical / mle3d/gaussmleEll run in 2D mode, but
+// deliberately NOT Gaussian LS 2D (see updateMethodUI()'s own comment on
+// its else-branch below for why). Shared between updateMethodUI()'s own
+// method/localize3D-CHANGE reset and run()'s own post-Localize check
+// (below) — extracted so the same rule can't drift between the two.
+function methodResetsLutToFire(method){
+  return method==='phasor'||method==='gaussmle'||method==='mle3d'||method==='gaussmleEll';
+}
 // Tracks the value applyWinrDefault() itself last wrote into #winr — NOT
 // simply "the default", since winr2d/winr3d are themselves user-editable.
 // Initialized to winr's own PARAMS default so the very first real check
@@ -14465,7 +14523,7 @@ function updateMethodUI(){
          // localisation?" on mle3d left whatever turbo/hsvBlue the checked
          // state had set stuck in place instead of reverting, even though the
          // resulting reconstruction is a plain 2D fit with no z at all.
-         if(m==='phasor'||m==='gaussmle'||m==='mle3d'||m==='gaussmleEll'){ $('lut').value='fire'; if(srFull) rerender(true); } }
+         if(methodResetsLutToFire(m)){ $('lut').value='fire'; if(srFull) rerender(true); } }
 }
 $('method').addEventListener('change',updateMethodUI);
 $('localize3D').addEventListener('change',updateMethodUI);
@@ -15864,25 +15922,26 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09j — five follow-up fixes.
-(1) Sidebar label shortened to "(Caution!) Pairing (sSMLM & FRET)" —
-the longer wording wrapped onto two lines. (2) Fixed a real bug
-dragging the Angles polar plot's red (tolerance) lines: grabbing the
-FAR end of a line's own full diameter (the same visible line, 180deg
-round) produced a wildly wrong tolerance instead of the correct
-near-side value — fixed by folding the drag offset into its near-side
-representative (mod 180) before computing tolerance from it. (3) "Get
-from pairing" now redraws the Distances/Angles histogram in the raw
-(left) panel with the SOI's own candidate data, same feedback Preview
-pairs itself gives — still silent toward the reconstruction (right)
-panel (no LUT/z-range/rerender). (4) The "x10^n" axis-multiplier
-exponent (previously a tiny Unicode superscript character) now draws
-as a real, separately-sized and better-separated raised digit.
-(5) After a successful Get from pairing, the SOI composite's own ROI
-boxes and numbered crosshairs are filtered down to just the sites
-that survived pairing, instead of still showing dropped sites as if
-they were valid. Verified via Playwright against the real ALEX
-dataset and direct math checks for the drag-fold formula.
+log(`webSMLM v0.12.1-dev · build 2026-09-09k — three Colour-map/LUT
+fixes, plus a follow-up correction to yesterday's exponent label.
+(1) Localize now checks the current Fit method BEFORE running and
+resets the Colour map to Fire when that method produces no
+colourable (z/dist) output — closes a real gap where a stale
+hsvBlue/turbo left by an unrelated earlier result (most commonly
+sSMLM's own Pair) silently carried over onto a brand-new dataset's
+plain 2D Localize run, since the Fit method dropdown itself never
+changed value (no change event to trigger the existing per-method
+LUT default). (2) The sSMLM reconstruction panel's "Show spectral"/
+"Show standard" toggle now also swaps the Colour map to match —
+switching to standard previously left whatever hsvBlue the spectral
+view had active, rendering the unpaired result as a confusing
+blue-dominant density map; now it stashes/restores the Colour map
+the same way Pair/Unpair already do. (3) Corrected the axis exponent
+label from yesterday: the gap between "10" and its raised exponent
+was too wide to read as a real superscript — closed to sit flush
+against it, the way a textbook sets scientific notation. Verified
+via Playwright (both LUT fixes, against a real paired ALEX dataset)
+and a zoomed screenshot comparison (the exponent spacing).
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
