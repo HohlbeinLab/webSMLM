@@ -1185,7 +1185,7 @@ relevant one before editing rather than scrolling:
   an edge case since there's nothing meaningful to replay, but kept consistent with every other
   actionable control here).
 
-  **Internally split into pairing vs. plotting**, so **smFRET**'s own **Get from pairing** button
+  **Internally split into pairing vs. plotting**, so **smFRET**'s own **Pair DD + DA** button
   (below) can pair without hijacking whichever view the smFRET raw/SR panels currently show:
   `pairSSmlm(cfg, myEpoch)` is the pure(ish) pairing step — runs `pairCore()` and applies the result
   to `sSmlmOriginalLocs`/`sSmlmPairedLocs`/`lastResult.locs`, nothing else (returns `null` if a newer
@@ -1197,6 +1197,32 @@ relevant one before editing rather than scrolling:
   (below) calling these two directly pairs the donor-channel SOI set with the SR panel's own
   `srInfo` text staying byte-identical before/after (confirming no rerender/view switch happened)
   and the LUT/`zcolor` fields left completely untouched.
+
+  **"sSMLM histograms" renamed "Pairing histogram"** (v0.12.1-dev, requested — shorter, and no
+  longer misleadingly sSMLM-only now that smFRET pairs through here too). `sSmlmPairContext`
+  (`null`/`'sSmlm'`/`'smfret'`, declared next to `sSmlmOriginalLocs`) tracks which module last
+  COMMITTED a pairing this session — `runSSmlmPair()` sets `'sSmlm'`, `getSmfretPairingFromDonor()`
+  sets `'smfret'` — deciding what dragging a Distances/Angles plot handle does to the right-hand
+  panel AFTERWARD (requested: "when pairing done from within the pairing module, we should see the
+  SMLM reconstruction window, when entered via ... 'Pair DD + DA' ... we should keep showing and
+  live updating the composite window"). The `'sSmlm'` context's own behaviour is UNCHANGED
+  (`syncSSmlmZRangeFromDist()` — colour-RANGE-only rescale, no re-pairing, exactly as before);
+  the `'smfret'` context is genuinely new: `refreshSmfretPairingLive()`, wired to all four fields'
+  (`sSmlmDistMin`/`Max`/`sSmlmAngleCenter`/`Tol`) own `change` event (fires on drag-RELEASE, per
+  every other draggable marker's own convention — not continuously mid-drag, confirmed with the
+  user directly rather than assumed), re-runs `pairSSmlm()` with the NEW window (deliberately
+  skipping `previewSSmlmPairsCore()`'s own auto-fit, which would silently undo a manual edit) then
+  re-filters the SOI composite's own overlay via a newly-extracted `filterSmfretSoiOverlayToPairs
+  (pairedLocs)` (the exact filtering logic `getSmfretPairingFromDonor()`'s own tail used to inline,
+  now shared by both). Always filters from the FULL `smfretSOI` array (never from whatever `srLocs`
+  currently holds) — widening the window on a later refresh must be able to bring back a site an
+  earlier, narrower window had excluded. An empty window (0 pairs) correctly empties the overlay
+  too via `r.nPairs ? r.locs : []`, rather than leaving the previous window's survivors stuck on
+  screen. Verified via Playwright against the real ALEX/prism dataset: narrowing Distance max via a
+  field change while in the smfret context re-pairs and the SR panel's `srSpots`/`srLocs` length
+  changes to match the new count; picking the *other* candidate bearing on smFRET's own "Position
+  donor?" (below) — which sets Primary angle then dispatches `change` — triggers the identical
+  live re-pair/re-filter path for free, no separate wiring needed.
 
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
@@ -1259,7 +1285,7 @@ relevant one before editing rather than scrolling:
   smfretAvgFrames, psf, winr, detFilter, <active threshold field>, pxnm}`, genuinely replayable now
   that `config.smfretLocateSOI` exists (see below), not a cosmetic-only log line.
 
-  **`smfretPairingBtn` ("Get from pairing")** (v0.12.1-dev, requested — shares Localize SOI's own
+  **`smfretPairingBtn` ("Pair DD + DA", renamed from "Get from pairing")** (v0.12.1-dev, requested — shares Localize SOI's own
   row; **Get time traces** moved one row down to make room) is a shortcut over **sSMLM**'s own
   Preview pairs + Pair & plot sSMLM, run from right here on the current sites of interest.
   `getSmfretPairingFromDonor()` calls `previewSSmlmPairsCore()` then `pairSSmlm(cfg, myEpoch)` — the
@@ -1309,6 +1335,62 @@ relevant one before editing rather than scrolling:
   this NEW filtered array) also accepts `srLocs.__pairedSOI`, keeping numbered crosshairs on for the
   filtered composite too (renumbered 1.. for the surviving subset, not the original SOI index — an
   acceptable, undocumented simplification rather than threading the original index through).
+  **Extracted into `filterSmfretSoiOverlayToPairs(pairedLocs)`** the same round `sSmlmPairContext`
+  shipped (see **sSMLM**'s own paragraph above) — the logic itself is unchanged, just shared with
+  `refreshSmfretPairingLive()` and `linkSmfretChannels()` (below) so all three re-filtering call
+  sites can never implement this differently.
+
+  **"Channels to show" renamed "Linking SOIs"** (requested — the field now also gates a NEW
+  action, **Link channels** below, not just Get time traces' own display). **"Position donor?"**
+  (`smfretDonorAngleRow`/`smfretDonorAngle`, shown alongside it once ALEX is on) answers a real
+  gap: the doubled-bearing angle fit (`fitSSmlmDistAndAngle()`, MODULE: sSMLM) can only recover the
+  ANGULAR SPACING between the two orders, never which of the two 180°-apart candidates actually
+  points from donor toward acceptor — that needs the user's own knowledge of the real optical
+  setup, not something derivable from the data. `refreshSmfretDonorAngleOptions()` FREEZES the two
+  candidate values (current Primary angle, and that +180° wrapped) the moment a real fit runs —
+  called from `fitSSmlmDistAndAngle()` itself, right after it sets the field — rather than
+  recomputing them live on every possible Primary-angle change, so toggling between the two options
+  keeps offering the SAME pair, not a shifting one recentred on whichever was just picked. Selecting
+  an option directly sets `sSmlmAngleCenter` and dispatches a real `change` event — one single
+  source of truth for bearing, no new parameter threaded into `pairCore()` — so it also transparently
+  triggers `refreshSmfretPairingLive()`'s own live re-pair for free.
+
+  **"Link channels"** (`smfretLinkChannelsBtn`, new button sharing **Get time traces**' own row, to
+  its left) closes the "not yet implemented" gap this module's own hint text used to flag — linking
+  a direct-acceptor-excitation (AA) site to a donor-channel DD/DA pair. Enabled only with
+  **Alternating laser excitation?** checked AND a real DD+DA pairing already committed
+  (`smfretHasDDDAPairing()`, factored out of `getSmfretTimeTraces()`'s own identical check — now
+  shared by both). `linkSmfretChannels()` itself ALSO requires **Linking SOIs** = `DD+DA+AA` to
+  actually do anything (refuses with a log message otherwise) — deliberately a separate check from
+  the button's own enable gate, matching the request's own precise wording ("grayed out as long as
+  we are not in Alternating laser excitation mode" — only that one precondition disables the
+  button itself). Runs a FRESH, on-demand `smfretSOICore(cfg, stack)` call with
+  `smfretSoiChannel:'acceptor'` — the same detect+fit pass **Localize SOI** itself would run on that
+  channel, but never persisted into `smfretSOI`/`lastResult` (a one-off comparison; re-clicking
+  re-localizes from scratch every time) — then, for every already-paired row, checks whether ANY
+  resulting AA site sits within `LINK_RADIUS_PX` (2, a plain Euclidean `Math.hypot`) of that row's
+  own `x2,y2` (the DA/acceptor-channel position from pairing); a pair with no such AA site is
+  dropped. `lastResult.locs` is replaced with the surviving subset, and
+  `filterSmfretSoiOverlayToPairs()` re-filters the SOI composite's own overlay to match — reusable
+  as-is here since a surviving row's own `x,y` (the DONOR position) is untouched by this step,
+  still matching the original `smfretSOI` entry by value exactly like the pairing-stage filter does.
+  Idempotent — re-clicking re-localizes the acceptor channel fresh and re-applies the same 2 px
+  test to whatever `lastResult.locs` currently holds. Verified via Playwright against the real
+  ALEX/prism dataset: 50 DD+DA pairs → Link channels localizes 283 independent AA sites → keeps
+  48 pairs with a nearby AA hit (also checked with a genuinely different Primary angle from
+  **Position donor?** first: 78 pairs → 77 kept) — `srSpots`/`srLocs` and `lastResult.locs.length`
+  stay in sync throughout, and a second click on an already-linked result is a stable no-op
+  (77→77).
+
+  **`getSmfretTimeTraces()` already sampled AA at the DA position during acceptor-excitation
+  frames** (asked about directly, same round — "How is decided which localisation of a pair is
+  coming from donor or acceptor... add AA obtained from DA loc positions but in direct acceptor
+  excited frames") — re-confirmed by re-reading the per-frame loop (see its own existing comment
+  a few paragraphs up: "AA is direct-acceptor-EXCITATION, so ... its emission physically belongs at
+  the ACCEPTOR's own channel position (x2,y2)") and re-verified end to end via Playwright (60-frame
+  real ALEX dataset → exactly 30 finite `photonsDD`/`photonsDA`/`photonsAA` samples each, one per
+  excitation half) — no code change needed here, a shipped fix from an earlier round already
+  covers exactly this.
 
   **`smfretSOICore(config, stack, checkStack=true)`** (v0.12.1-dev) is the pure, DOM-free half of
   `locateSmfretSOI()` — the averaging+detect+fit loop, extracted so `analyze()`'s own
