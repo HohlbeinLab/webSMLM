@@ -761,10 +761,31 @@ relevant one before editing rather than scrolling:
   `G()` uses for its correction term) is shared between `fitSSmlmDist()`'s model/Jacobian and
   `drawSSmlmHist()`'s own curve overlay, so the two can never drift apart. The fit result
   (`sSmlmDistFit={p,bgPdf}`, module-level, `null` until a fit has run) is consumed ONLY at draw time
-  — `drawSSmlmHist()`'s dist-mode branch re-evaluates `histData.curve = x=>bw*(p[0]*bgPdf(x)+
-  p[1]*sSmlmGaussBump(x,p[2],p[3]))` fresh on every draw (never baked in), reusing
+  — `drawSSmlmHist()`'s dist-mode branch re-evaluates `histData.curve = x=>p[0]*bgPdf(x)+
+  p[1]*sSmlmGaussBump(x,p[2],p[3])` fresh on every draw (never baked in), reusing
   `drawHistogram()`'s existing single magenta `curve` overlay slot with NO changes needed to that
-  shared function. Invalidated (`sSmlmDistFit=null`) on a fresh **Preview pairs** run (a new
+  shared function.
+
+  **A real, reported bug looked exactly like the seeding bug above, but wasn't**: the curve appeared
+  to shoot up near `v=0` and exceed the chart's own y-range within the first ~100 nm — the SAME
+  visual signature the seeding bug produced — but on this dataset (already re-verified end to end
+  after the seeding fix) the fit itself was genuinely correct (`mu=510`, matching the real 979-count
+  peak bin at 512 nm almost exactly: `p[0]*bgPdf(510)+p[1]*sSmlmGaussBump(510,510,56)=977.8`). The
+  curve-attachment line originally read `x=>bw*(p[0]*bgPdf(x)+...)` — an EXTRA, wrong `bw*`
+  multiplication, justified at the time by a false claim ("same convention `fitTrackLifetime()` uses
+  for its own curve overlay") that re-reading that function immediately disproved: it fits its own
+  `A` directly against raw bin counts too (`y=Math.log(c)` in its own weighted-least-squares loop)
+  and its own `histData.curve=x=>fit.A*Math.exp(-x/fit.tau)` has NO bin-width factor either.
+  `fitSSmlmDist()`'s `p` already comes out in "counts per bin" units for the identical reason (its
+  own `cost()`/`jac()` compare `f(d[i],p)` directly against `y[i]`, never a density) — multiplying by
+  `bw` again inflated the curve by the bin width itself (~79 nm here) for NO reason, pushing it off
+  the chart almost immediately and making a correctly-converged fit look exactly like the earlier,
+  genuinely-broken one. Removed; verified via Playwright that the curve now stays within the real
+  bars' own scale everywhere (max ~1330 at the domain's far edge vs. a real bar max of 1648) and
+  shows a clean, narrow signal spike sitting inside the Distance min/max window, not a runaway rise
+  from the origin.
+
+  Invalidated (`sSmlmDistFit=null`) on a fresh **Preview pairs** run (a new
   candidate set, and possibly a changed bounding box) and on a **Background profile** change (a
   fit against the WRONG region-shape assumption shouldn't keep decorating the plot) — NOT at every
   one of the ~9 "reclaim the whole SR panel" reset blocks `alexProjToggleBtn` itself is hidden at,

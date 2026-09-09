@@ -128,7 +128,7 @@
                            ±tolerance lines are all draggable (rotational,
                            perpendicular-distance-to-line hit test, MODULE:
                            table's own IIFE next to the Distances plot's)
-    spt             10925   single particle tracking, trackpy-inspired;
+    spt             10933   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -159,7 +159,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        12463  top-level orchestration, *Core()/wrapper split;
+    pipeline        12471  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; measureHeader()
@@ -214,7 +214,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13119  Micro-Manager/pycromanager camera bridge
+    liveStreaming   13127  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -268,7 +268,7 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           15680  localizations table, filtering, histograms;
+    table           15683  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
@@ -2004,7 +2004,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9632,12 +9632,20 @@ function drawSSmlmHist(){
     computeHist('sSMLM pair distance', vals, 'nm', markers);
     // fitSSmlmDist()'s own curve, re-evaluated fresh on every draw from its
     // stored parameters (same "never bake a curve in, recompute from live
-    // state" convention histData.markers above already follows) — bin-width-
-    // scaled to match hist's own raw-count units, same convention
-    // fitTrackLifetime() uses for its own curve overlay.
+    // state" convention histData.markers above already follows). NO extra
+    // bin-width scaling — fitSSmlmDist() already fits p DIRECTLY against
+    // hist's own raw bin COUNTS (y[i]), same convention fitTrackLifetime()
+    // uses for its own curve overlay (confirmed by re-reading it: its own
+    // A comes from fitting log(count) directly, no separate density->count
+    // conversion either). A real, reported bug: an earlier version WRONGLY
+    // multiplied by bw here, on a false belief that fitTrackLifetime() did
+    // the same — it doesn't. For this module's real, large-FOV data
+    // (bw ~79 nm) that inflated the curve ~79x, sending it off the top of
+    // the chart within the first ~100 nm and making a perfectly good fit
+    // (correctly peaking at the real signal) look like a broken one.
     if(sSmlmDistFit){
-      const {p,bgPdf}=sSmlmDistFit, bw=histData.bw;
-      histData.curve = x=>bw*(p[0]*bgPdf(x)+p[1]*sSmlmGaussBump(x,p[2],p[3]));
+      const {p,bgPdf}=sSmlmDistFit;
+      histData.curve = x=>p[0]*bgPdf(x)+p[1]*sSmlmGaussBump(x,p[2],p[3]);
     }
     drawHistogram();
   } else {
@@ -15536,29 +15544,24 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09d — sSMLM's distance fit
-("Fit dist. & angle", renamed again for length from "Fit dist. and
-angles") had a real bug on real data, reported: the distance curve
-went to a degenerate spike and the Angles histogram came back
-completely empty (n=0). Root cause: the seed (mu0 = the histogram's
-own tallest raw-count bin) assumed the signal peak was always the
-biggest thing in the plot — true for a small/simple dataset, but on a
-real, denser dataset (733 localizations -> 61,358 wide-scan
-candidates, reproduced exactly) the background itself keeps rising
-across the whole scanned range, so the tallest bin is just the
-background's own rising front, nowhere near the real signal. Seeding
-there sent the fit to a degenerate solution whose distance window then
-matched zero real candidates, which is why the angle histogram (its
-own candidate filter reads that window) came back empty too. Fixed
-with a proper two-stage seed needing no prior guess at all: estimate
-the background amplitude first from the 20th percentile of
-count/bgPdf(x) across every bin (robust to the signal, since extra
-signal only ever pushes that ratio up, never down), THEN find the
-signal peak in the RESIDUAL (counts minus that background estimate),
-not the raw counts. Verified on the exact reported dataset: Distance
-min/max now lands on a real, narrow window (343-677 nm) instead of a
-near-empty one, and the Angles histogram shows a real peak (4,096
-values, previously 0).
+log(`webSMLM v0.12.1-dev · build 2026-09-09e — sSMLM's distance-fit
+curve overlay had a real display bug that LOOKED exactly like the
+build 09d seeding bug but wasn't: reported, the curve again shot up
+near v=0 past the top of the chart. Checked the actual fit this time
+(not just the plot) — it was genuinely correct (mu=510 nm, matching
+the real 979-count peak bin almost exactly). The bug was one extra,
+wrong "bw*" (bin-width) multiplication in the curve-drawing line,
+originally justified by a false claim that fitTrackLifetime() does the
+same — re-reading that function shows it doesn't: it fits its own
+amplitude directly against raw bin counts too, no bin-width factor
+anywhere. fitSSmlmDist()'s own p already comes out in "counts per bin"
+units for the identical reason, so multiplying by bw again inflated
+the curve by the bin width itself (about 79 nm on the reported
+dataset) for no reason, pushing a correctly-converged fit off the
+chart and making it look exactly like a broken one. Removed; verified
+the curve now stays within the real bars' own scale everywhere and
+shows a clean, narrow spike sitting inside the Distance min/max
+window instead of a runaway rise from the origin.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
