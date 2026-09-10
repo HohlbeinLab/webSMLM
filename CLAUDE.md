@@ -2835,6 +2835,67 @@ relevant one before editing rather than scrolling:
   parallel check of the distAngle method confirms it's completely unaffected — 119/119 pairs still
   match exactly, `aaLocKeys` stays empty throughout.
 
+  **`alignSmfretChannels()` upgraded from a single rigid displacement to a full 2D AFFINE transform**
+  (rotation + scale + shear + translation), requested directly after investigating why "Via channel
+  matching"'s own match tolerance needed to be so much looser than expected: "if we take the
+  super-resolution position of each emitter, we should have a mapping with sub pixel accuracy
+  between DD and AA ... maybe we should go with a transform instead of [a] vector?" — pointing at
+  the same registration approach dedicated bead-based channel-mapping tools (TetraSpeck-style
+  calibration in packages like TwoTone TIRF-FRET) already use. **Confirmed empirically before
+  changing anything**: sweeping `smfretAlignTolPx` from 2 to 30 px on the real ALEX dataset showed
+  pair count climbing steadily (36→177, saturating once every DD point finds SOME match) while the
+  paired distances' own coefficient of variation climbed in lockstep (0.31%→3.23%) — a textbook
+  signature of a systematic (not random) residual: real matches genuinely need more slack than the
+  old default allowed, but that same slack lets the search snap onto the nearest WRONG neighbour in
+  a crowded region (confirmed separately: DA-region nearest-neighbour spacing averages 10.6 px but
+  drops to 0.24 px at its closest — real crowding, not a data artifact). A pure translation can't
+  represent a real optical dual-view/image-splitter path's own small relative rotation or
+  magnification difference between its two channels (different lens elements/path lengths are
+  common) — its own residual grows with distance from wherever the translation happens to be
+  centred, which is exactly the shape of the problem measured above.
+
+  **`smfretFitAffine(corr)`** (next to `smfretApplyAffine()`, right after `smfretSearchDisplacement()`)
+  is an ordinary least-squares fit of `x2=a·x+b·y+tx, y2=c·x+d·y+ty` from a set of DD→truth point
+  correspondences — two independent 3-parameter linear regressions sharing one design matrix/normal-
+  equations solve, via the same generic `solveLin()` (MODULE: fit) `fitNeNA()`/`fitSSmlmDist()`
+  already use for their own LSQ fits. Returns `null` (fewer than 3 correspondences, or a degenerate/
+  collinear set — `solveLin()` itself returns `null` on a singular matrix) rather than a garbage
+  transform. Verified via a synthetic JXA check (known ground-truth rotation 3°/scale 1.02×0.99/
+  translation (256,5), 50 random correspondence points): recovers all 6 parameters to machine
+  precision noise-free, and to <0.1 px max residual with ±0.3 px of matching noise added — the math
+  itself is correct before it ever touches real data.
+
+  `alignSmfretChannels()`'s own displacement search is now only a coarse, cheap SEED for the affine
+  fit, not the final answer: `smfretSearchDisplacement()` runs at a generous, non-user-facing
+  `SEED_TOL_PX=max(tolPx,20)` (real matches can be missed near the FOV edges under a translation-only
+  guess, so the seed stage needs slack the FINAL match no longer does) to gather an initial
+  correspondence set, then a small, fixed-round ICP (`ICP_ROUNDS=4`) alternates fitting the affine
+  from the current correspondences and re-matching under it at a geometrically-shrinking tolerance
+  (`SEED_TOL_PX·(tolPx/SEED_TOL_PX)^(it/ICP_ROUNDS)`) down to the user's own `smfretAlignTolPx` —
+  each round's tighter, more-accurate correspondence set feeds a better-conditioned fit than the
+  last. Falls back to keeping the LAST GOOD transform (identity+translation initially) if a round's
+  correspondence set drops below 3 points or `smfretFitAffine()` returns `null` — never propagates a
+  degenerate fit forward. `smfretAlignTolPx` itself keeps its existing meaning to the user (the match
+  tolerance), just now applied AFTER convergence rather than to a raw shift.
+
+  On the real ALEX dataset, the fitted transform reads `scale 0.9871/0.9948, rotation -0.24°` — a
+  small but real (~1.3%/0.5%) scale mismatch between channels, not merely rotation, confirming there
+  WAS genuine non-translational distortion for the affine to correct. **Effect measured directly,
+  not assumed**: comparing each of the 177 DD-region points' own nearest-truth-point residual under
+  the best pure translation vs. the converged affine — the OVERALL median residual barely moves
+  (7.63→6.87 px), because most of that population reflects points with NO real partner at all
+  (expected in real smFRET data — a donor-only population is a standard artifact, not a registration
+  failure), not registration error. But among points that DO have a real match, the affine's benefit
+  is large: **3× as many land within 2 px** (9→28) and noticeably more within 4 px (46→56) — exactly
+  the sub-pixel-to-few-px accuracy a genuine geometric transform should recover, once the "most
+  points have no partner" population is set aside. End-to-end pair counts at matched tolerances
+  are similar to the old pure-translation numbers (e.g. tol=4: 59→56) with slightly BETTER
+  consistency at every tolerance (CV 0.83%→0.66% at tol=4; 1.88%→1.78% at tol=10) — a modest,
+  genuine improvement on this particular dataset, whose own optical mapping turns out to already be
+  close to a pure shift; the affine model is expected to matter far more on a setup with a larger
+  real rotation/magnification difference between channels, which this implementation now handles
+  correctly rather than silently absorbing into a looser, noisier translation-only tolerance.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
