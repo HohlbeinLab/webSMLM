@@ -2722,6 +2722,33 @@ relevant one before editing rather than scrolling:
   behaviour) without further, more targeted per-trace inspection than a population-level script can
   give.
 
+  **"Pair DD + AA" + "Pairing method" selector** (v0.12.1-dev) — consolidates the two separate
+  buttons "Pair DD + DA" and "Align channels" from earlier the SAME day into one button, after
+  confirming the two approaches genuinely aren't redundant (they target different optical layouts,
+  not a quality trade-off) but still concluding "then we should use a selector rather than two
+  buttons" once that was established. New `PARAMS.smfretPairMethod` (enum `distAngle`/`channelMatch`,
+  default `distAngle` — preserves the original, longest-established method as the default) drives a
+  new **Pairing method** dropdown, labelled with the user's own preferred wording ("Via distances
+  and angles" / "Via channel matching") rather than an optical-setup description, since naming the
+  actual MECHANISM lets a user just try both and compare rather than first having to reason about
+  which their own setup counts as. `pairSmfretSites()` is a thin dispatcher — `paramValue
+  ('smfretPairMethod')==='channelMatch' ? alignSmfretChannels() : getSmfretPairingFromDonor()` — both
+  underlying functions are completely UNCHANGED, only how they're reached from the UI changed;
+  `alignSmfretChannels()` itself is still directly terminal-callable by name, same as before.
+  `smfretAlignTolPx`'s own row (`smfretAlignTolRow`) is now conditionally shown — only relevant to
+  `channelMatch` — hidden by default (matching `distAngle`'s own default) via both the static HTML
+  attribute AND an explicit page-load sync line (belt-and-braces: a loaded settings JSON can set
+  `smfretPairMethod` without dispatching its own `change` event, which only the sync line, not the
+  `change` listener alone, would catch). `smfretPairingBtn`'s own id/enable-disable lifecycle
+  (Localize SOI's success path, the 4 reset blocks) is UNCHANGED and now the single shared button for
+  both methods — `alignSmfretChannels()`'s own internal disable/enable (previously targeting its now-
+  removed dedicated `smfretAlignBtn`) was retargeted to the same shared `smfretPairingBtn` id.
+  Verified via Playwright against the real ALEX dataset: the default selection dispatches to
+  `getSmfretPairingFromDonor()` (119 pairs, its own histogram-fitted window), switching to "Via
+  channel matching" reveals the tolerance row and dispatches to `alignSmfretChannels()` instead (141
+  pairs, matching the previously-established real-data result) — confirming the SAME underlying
+  algorithms run unchanged, just reached through one consolidated control now.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
