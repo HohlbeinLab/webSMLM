@@ -496,7 +496,16 @@ to a dedicated `loadNd2File()` parser, reaching the interactive `#file`
 input, calibration file loading, and headless `analyze()`'s
 `cfg.file`/`cfg.calibrationFile` alike with no extra wiring. Single
 channel, 16-bit, uncompressed only; multi-channel or other bit depths
-throw a clear unsupported-format error. See **in/out** in `CLAUDE.md` for
+throw a clear unsupported-format error. Native **FITS** (`.fits`/`.fit`,
+**experimental**) is supported the same way — `isFitsFile()` sniffs the
+real `SIMPLE` magic and `loadTiffFile()` dispatches to `loadFitsFile()`,
+reaching all the same call sites — for a camera-generated 2D image or 2D+
+frame-axis data cube (a single-molecule movie exported by camera control
+software such as Andor Solis, not an astronomical multi-extension file);
+NAXIS other than 2/3, or a BITPIX outside the FITS standard's own 5 sample
+formats, throws a clear unsupported-format error. No pixel size/frame time
+is stored in this format — only camera/acquisition metadata (model, gain,
+exposure, temperature) is logged. See **in/out** in `CLAUDE.md` for
 the file-format details. `runFTM()` (optional, `ftmEnabled`)
 runs right after either loader finishes, replacing `stack` with a fresh
 `makeStack()`-backed one holding the temporal-median-corrected frames —
@@ -3280,7 +3289,7 @@ flag still works, aliased with a deprecation warning, see
 `result.csv` gains `track_id`/`D_coeff` columns,
 and `summary.json`'s `spt` field records `nTracks`/`nQualify`/`meanD`/
 `medianD` — see [§8](#8-headless-api-window-websmlm)'s `config.sptTrack`.
-`--segmentation <mask.tif/.tiff/.nd2>` switches `--sptTrack` to cell-by-cell
+`--segmentation <mask.tif/.tiff/.nd2/.fits>` switches `--sptTrack` to cell-by-cell
 tracking — a track can never cross a cell boundary. Only frame 0 is read (a
 segmentation mask is a single image); a size mismatch against `--file` logs
 a warning but still proceeds. `--segAreaMin`/`--segAreaMax` (ordinary

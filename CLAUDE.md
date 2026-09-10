@@ -131,7 +131,70 @@ relevant one before editing rather than scrolling:
   `dCalibration`) and two bonus metadata chunks — `CustomData|AcqTimesCache!` (per-frame
   timestamps → a MEDIAN-of-diffs frame-interval estimate, robust to near-zero leading placeholders
   seen in real files) and `CustomData|STORM_CAM_DATA_SHEET_XML-V1!` (camera datasheet info, NOT
-  wired to `gain`/`camoffset`) — are also parsed. TIFF gets the analogous treatment via
+  wired to `gain`/`camoffset`) — are also parsed.
+
+  **Native FITS** (Flexible Image Transport System), v0.12.1-dev, **experimental** — requested after
+  a real Andor Solis-exported sample file (`t1b18_scan1-g2r1_001.fits`, 512×258×50, 16-bit, camera
+  `DU897_BV` — an Andor iXon EMCCD, the same model already named elsewhere in this file's own
+  `mmMetadataHint()` real-sample log) turned up in the repo: "should be a camera driven data format
+  think from Andor cameras. Could be implemented in the data loading if not too complex." A camera
+  movie export, not an astronomical multi-extension/WCS file — only the small, camera-relevant
+  subset of the (large) FITS standard is implemented: a single primary HDU holding a plain 2D image
+  or a 2D+frame-axis data cube, `BITPIX` ∈ {8,16,32,-32,-64} (the standard's own 5 sample formats),
+  `BZERO`/`BSCALE` applied generally (`physical=raw·BSCALE+BZERO`) — not hardcoded to the common
+  "represent unsigned 16-bit as signed+32768" convention, so any real BZERO/BSCALE pair works.
+  `isFitsFile()` sniffs the real `SIMPLE` magic (byte 0) rather than the `.fits`/`.fit` extension,
+  same convention as `isTiffFile()`/`isNd2File()`; `loadTiffFile()`'s dispatch chain gained one more
+  early check (`if(await isFitsFile(file)) return loadFitsFile(file, onLog);`, right after the
+  existing ND2 one), reaching all 3 existing callers (interactive, calibration, headless) with zero
+  caller-side changes — same "one detection path, three callers" precedent ND2 established.
+  `loadTiffFilesAuto()`'s own "a lone ND2 file must be caught before the TIFF-only magic-byte filter"
+  special case was generalized to cover a lone FITS file too, for the same reason (a bare
+  `isTiffFile()` filter would otherwise silently drop it). `#file`/`#segFile`'s own `accept` lists
+  gained `.fits,.fit` alongside `.nd2`.
+
+  `fitsParseHeader()` walks 80-byte fixed-width "cards" (`fitsParseCard()` handles the 3 value kinds
+  a camera-movie primary header actually uses — a single-quoted STRING with `''`-escaped literal
+  quotes per the FITS standard's own Fortran-derived convention, a bare `T`/`F` LOGICAL, and a plain
+  NUMBER, including Fortran-style exponents like `1.0E-05` that JS's own `Number()` already parses
+  correctly with no translation needed) until `END`, growing its own read by one 2880-byte block at a
+  time since the header's true size isn't known until `END` is actually found (real camera-movie
+  headers seen so far are 1-3 blocks; a pathological file bails after 20 blocks rather than reading
+  forever). Metadata actually present on the one real sample (`HEAD`/camera model, `SERNO`, `ACQMODE`,
+  `EXPOSURE`, `GAIN`/EM gain, `TEMP`) is logged the same "compute once, apply by hand" way ND2's own
+  calibration hint is — **no pixel-size or frame-interval keyword exists in this format at all** (no
+  `CDELT`/`PIXSCALE`-equivalent on the one real sample, and Andor's own FITS export doesn't appear to
+  write one), so unlike TIFF/ND2 there is genuinely nothing here to hint at beyond camera/acquisition
+  identity.
+
+  **Row orientation needed real care, not just structure**: the FITS standard's own convention (Pence
+  et al. 2010, *A&A* 524, A42 §5.1 — the SAME paper this real sample file's own header `COMMENT` card
+  cites) stores row 1 at the BOTTOM of the image with row index increasing UPWARD — the opposite of
+  this app's/TIFF's/canvas's top-down convention — so row 0 in the FILE must become the LAST output
+  row, not the first, or every frame would render upside-down relative to every other loader in this
+  app. `decodeOne()` reads output row `y` from source row `h-1-y` directly during decode (no separate
+  flip pass). **Circumstantial, not independently visually confirmed**: the one real sample's own
+  `SUBRECT` card (`'1, 512, 386, 129'`, a descending top>bottom pair) is consistent with Andor's own
+  sensor-row addressing already matching this bottom-up convention, but the sample carries no
+  fiducial/asymmetric feature that would let the flip direction be settled by eye against a rendered
+  Andor Solis view — revisit if a differently-oriented real file ever surfaces.
+
+  **Verified the same way the ND2 loader was held to** — "install a real reference reader and diff
+  decoded VALUES, not just structure": `astropy.io.fits` (already available in this environment) was
+  used to independently decode the real sample file, and the hand-parsed header arithmetic
+  (`headerSize=5760` bytes, `frameBytes=264,192`, exact total file size) and BOTH frames' pixel
+  statistics (frame 0: min 385/max 443/mean 396.38; frame 25: min 387/max 5201/mean 657.86) matched
+  astropy's own decode EXACTLY, byte for byte — including the first 10 raw pixel values of each
+  frame's own first STORED row, confirming both the header/data-offset arithmetic and the BZERO/
+  BSCALE application are correct before the row-orientation flip was ever applied. Re-verified
+  end-to-end via Playwright through the real interactive `#file` picker (not just a direct function
+  call): `stack.getFrames()`'s own output matches astropy's decode pixel-for-pixel once the vertical
+  flip is accounted for, Localize finds real, plausible spot candidates on the loaded data (107
+  spots/20 locs on the quiet first frame; 265/265 on a bright mid-movie frame), and the Data
+  projection composite renders a normal-looking field of real single-molecule puncta with zero page
+  errors.
+
+  TIFF gets the analogous treatment via
   `tiffScaleHint(ifd0, desc)`: reads `finterval=` from the `t270` description text, and — only when
   `unit=` says micrometers — `t282`/`t283` (XResolution/YResolution) for a pixel-size estimate;
   `t296` (ResolutionUnit) is deliberately never consulted.

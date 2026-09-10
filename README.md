@@ -32,9 +32,10 @@ in-app, plus acknowledgements and licence.
 ## Guided workflow
 
 1. **Get data.** Click **Load movie/data** for a real `.tif`/`.tiff` stack (or
-   a native Nikon `.nd2` file — the same button also accepts a CSV previously
-   written by **Save data**), or **Simulate movie** for a test dataset (open
-   **Simulation settings** to adjust frames, blink density and photons).
+   a native Nikon `.nd2` or camera-generated `.fits` file — the same button
+   also accepts a CSV previously written by **Save data**), or **Simulate
+   movie** for a test dataset (open **Simulation settings** to adjust frames,
+   blink density and photons).
 2. **Set detection & fit.** Pick a **Fit method** first — the relevant
    parameters follow it. **Phasor** is the speed option (no iteration);
    **Gaussian (LS)** and **Gaussian (MLE)** trade speed for precision, with

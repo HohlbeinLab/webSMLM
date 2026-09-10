@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3711   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3711   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -44,8 +44,8 @@
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
     simulation      4010   synthetic stack generator ("Simulate movie")
-    detect          4967   per-frame band-pass + local-maxima detection
-    fit             5244   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    detect          5103   per-frame band-pass + local-maxima detection
+    fit             5380   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5883   accumulate to offscreen buffer; view/colour/blur;
+    render          6019   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7368   frame-parallel detect/fit worker pool; dedicated
+    workers         7504   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7678   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8006   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7814   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8142   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8472   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8608   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -133,9 +133,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    9074   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9210   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9808   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9944   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -255,7 +255,7 @@
                            too, same protective intent the pairing-state
                            branch already had; highlight's own connecting
                            line now starts/ends at each circle's own EDGE
-    spt             12727   single particle tracking, trackpy-inspired;
+    spt             12863   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -286,7 +286,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14265  top-level orchestration, *Core()/wrapper split;
+    pipeline        14401  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -347,7 +347,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14935  Micro-Manager/pycromanager camera bridge
+    liveStreaming   15071  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -401,14 +401,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           17525  localizations table, filtering, histograms;
+    table           17665  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18238  window.webSMLM.analyze()/analyzeBatch();
+    headless API    18378  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2143,7 +2143,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10p</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10q</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2181,8 +2181,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button id="helpBtn" class="helpbtn" title="Open the quick-reference guide (guided workflow, acknowledgements, licence)">Quick guide</button>
       </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
-      <input type="file" id="file" accept=".tif,.tiff,.nd2,.csv" multiple hidden>
-      <input type="file" id="segFile" accept=".tif,.tiff,.nd2" hidden>
+      <input type="file" id="file" accept=".tif,.tiff,.nd2,.fits,.fit,.csv" multiple hidden>
+      <input type="file" id="segFile" accept=".tif,.tiff,.nd2,.fits,.fit" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
       <!-- No listener attached on purpose: a conduit for tools/webSMLM-cli.mjs
            (Layer 2, docs/DOCUMENTATION.md §8) to stash a File via
@@ -4334,6 +4334,140 @@ async function loadNd2File(file, onLog=log){
   return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('ND2 stack: use getFrames()'); }};
 }
 
+// Native FITS (Flexible Image Transport System) — a camera control format
+// (Andor Solis is the motivating exporter here, not astronomy) reverse-
+// engineered against a real sample file and independently cross-checked,
+// pixel value for pixel value, against `astropy.io.fits` (the reference
+// Python FITS reader) before shipping — same "install a real reference
+// reader and diff decoded VALUES, not just structure" discipline the ND2
+// loader above was held to. **Experimental** — one real sample file, one
+// exporter (Andor Solis); the FITS standard itself is large (multi-HDU
+// files, world-coordinate systems, tables, compression) and only the small,
+// camera-movie-relevant subset actually seen is implemented.
+//
+// Sniffs the real "SIMPLE" magic at byte 0 (a FITS file's mandatory first
+// header card starts `SIMPLE  = `) rather than trusting the .fits/.fit
+// extension — mirrors isTiffFile()/isNd2File()'s own convention.
+async function isFitsFile(f){
+  if(f.size<6) return false;
+  const b=new Uint8Array(await f.slice(0,6).arrayBuffer());
+  return String.fromCharCode(...b)==='SIMPLE';
+}
+// One 80-character, fixed-width "card" — FITS's own header record unit.
+// `KEYNAME = value / comment` for a value card; a bare `COMMENT`/`HISTORY`/
+// blank keyword has no `=` and no parsed value. Value parsing covers the 3
+// kinds actually used by a camera-movie primary header: a quoted STRING
+// (single-quoted, with '' as an escaped literal quote — the FITS standard's
+// own convention, mirrored from Fortran), a LOGICAL (bare T/F), and a plain
+// NUMBER (FITS allows Fortran-style exponents, e.g. `1.0E-05`, which
+// JavaScript's own Number() already parses correctly with no translation
+// needed). Returns `{key,raw}` for a valueless card (COMMENT/HISTORY/blank/
+// END) — `raw` is only ever used for logging those, never for a real value.
+function fitsParseCard(card){
+  const key=card.slice(0,8).trim();
+  if(key==='END') return {key,value:undefined};
+  const eq=card.slice(8,10);
+  if(eq!=='= ' && eq!=='=  ') return {key,raw:card.slice(8).trim()};   // COMMENT/HISTORY/blank — no value slot
+  const rest=card.slice(10);
+  if(rest.trimStart()[0]==="'"){
+    // Quoted string: scan for the closing quote, treating '' as an escaped literal quote.
+    const s=rest.trimStart(); let out='',i=1;
+    for(;i<s.length;i++){ if(s[i]==="'"){ if(s[i+1]==="'"){ out+="'"; i++; continue; } break; } out+=s[i]; }
+    return {key,value:out.replace(/\s+$/,'')};   // FITS pads a string value with trailing spaces to fill the field
+  }
+  const slash=rest.indexOf('/');
+  const tok=(slash>=0?rest.slice(0,slash):rest).trim();
+  if(tok==='T') return {key,value:true};
+  if(tok==='F') return {key,value:false};
+  const num=Number(tok);
+  return {key,value:Number.isFinite(num)?num:tok};
+}
+// Walks 80-byte cards from `bytes` (must already span the WHOLE header — the
+// header's own true size isn't known until END is found, so the caller
+// grows its read if this returns null) until END; returns {headerSize
+// (padded up to the next 2880-byte boundary, i.e. where pixel data starts),
+// cards (key->value map, last-write-wins for a repeated keyword — none are
+// expected to repeat in a primary header), comments (key->raw text, for
+// COMMENT/HISTORY only)} or null if END wasn't found within `bytes`.
+function fitsParseHeader(bytes){
+  const n=bytes.length, cards={}, comments=[];
+  for(let i=0;i+80<=n;i+=80){
+    const card=String.fromCharCode(...bytes.subarray(i,i+80));
+    const {key,value,raw}=fitsParseCard(card);
+    if(key==='END') return {headerSize:Math.ceil((i+80)/2880)*2880, cards, comments};
+    if(key==='COMMENT'||key==='HISTORY') comments.push(raw);
+    else if(key) cards[key]=value;
+  }
+  return null;
+}
+// FITS BITPIX -> {bytes per sample, DataView getter name, signed?}. Only the
+// 5 standard values the spec defines exist; anything else is a corrupt/
+// unsupported file, refused with a clear error rather than guessed at.
+const FITS_BITPIX={ 8:{bytes:1,get:'getUint8'}, 16:{bytes:2,get:'getInt16'},
+  32:{bytes:4,get:'getInt32'}, [-32]:{bytes:4,get:'getFloat32'}, [-64]:{bytes:8,get:'getFloat64'} };
+async function loadFitsFile(file, onLog=log){
+  const fileSize=file.size;
+  // The header is an unknown multiple of 2880 bytes until END is found — grow
+  // the read by one block at a time (real camera-movie headers are 1-3
+  // blocks; a pathological file bails after a generous ceiling rather than
+  // reading forever).
+  let headerInfo=null, headerReadBytes=2880;
+  while(!headerInfo && headerReadBytes<=2880*20){
+    const buf=await file.slice(0, Math.min(fileSize,headerReadBytes)).arrayBuffer();
+    headerInfo=fitsParseHeader(new Uint8Array(buf));
+    headerReadBytes+=2880;
+  }
+  if(!headerInfo) throw new Error('FITS: no END card found in the first 20 header blocks — corrupt or unsupported file');
+  const {headerSize,cards}=headerInfo;
+  if(!cards.SIMPLE) throw new Error('FITS: SIMPLE=F (a conforming primary HDU is required) — unsupported file');
+  const bitpix=cards.BITPIX, naxis=cards.NAXIS;
+  const bp=FITS_BITPIX[bitpix];
+  if(!bp) throw new Error(`FITS: BITPIX=${bitpix} is not a supported sample format`);
+  if(!(naxis===2||naxis===3)) throw new Error(`FITS: NAXIS=${naxis} (only a plain 2D image or a 2D+frame-axis cube is supported)`);
+  const w=cards.NAXIS1, h=cards.NAXIS2, n=naxis===3?cards.NAXIS3:1;
+  if(!(w>0)||!(h>0)||!(n>0)) throw new Error('FITS: NAXIS1/2/3 must all be positive — corrupt or unsupported file');
+  const bzero=cards.BZERO||0, bscale=cards.BSCALE!=null?cards.BSCALE:1;
+  const frameBytes=w*h*bp.bytes;
+  if(headerSize+n*frameBytes>fileSize) throw new Error(`FITS: declared ${w}×${h}×${n} (${bp.bytes*8}-bit) needs more data than the file actually holds — truncated or corrupt file`);
+  const px=paramValue('pxnm');
+  const metaParts=[];
+  if(cards.HEAD) metaParts.push(`camera ${cards.HEAD}`);
+  if(cards.SERNO!=null) metaParts.push(`serial ${cards.SERNO}`);
+  if(cards.ACQMODE) metaParts.push(cards.ACQMODE);
+  if(cards.EXPOSURE!=null) metaParts.push(`exposure ${(cards.EXPOSURE*1000).toFixed(3)} ms`);
+  if(cards.GAIN!=null) metaParts.push(`EM gain ${cards.GAIN}`);
+  if(cards.TEMP!=null && cards.TEMP>-999) metaParts.push(`${cards.TEMP}°C`);
+  onLog(`FITS file: ${fmtBytes(fileSize)} on disk — ${n} frame(s) · ${w}×${h} · ${bp.bytes*8}-bit`
+    +(metaParts.length?` — ${metaParts.join(', ')} (Pixel size (nm)/Frame time (s) not stored in this format — set them by hand)`:'.'));
+  // FITS's own standard convention stores row 1 at the BOTTOM of the image
+  // with row index increasing UPWARD (Pence et al. 2010, A&A 524, A42 §5.1 —
+  // the same paper this sample file's own header COMMENT cites), the
+  // opposite of this app's/TIFF's/canvas's top-down row order — so row 0 in
+  // the FILE becomes the LAST output row, not the first. Andor's own SUBRECT
+  // card on the one real sample seen (`'1, 512, 386, 129'`, a descending
+  // top>bottom pair) is consistent with that same bottom-up sensor-row
+  // addressing, but this has NOT been independently cross-validated against
+  // a rendered Andor Solis view of a fiducial/asymmetric real image (this
+  // sample carries no such marker) — revisit if a differently-oriented real
+  // file ever surfaces.
+  const decodeOne=(buf)=>{
+    const dv=new DataView(buf), g=new Float32Array(w*h);
+    for(let row=0; row<h; row++){
+      const srcRow=h-1-row, rowOff=srcRow*w*bp.bytes, outOff=row*w;
+      for(let x=0;x<w;x++) g[outOff+x]=dv[bp.get](rowOff+x*bp.bytes,false)*bscale+bzero;   // big-endian, per the FITS standard
+    }
+    return g;
+  };
+  const getFrames=async(s,e)=>{
+    e=Math.min(e,n); if(e<=s) return [];
+    const buf=await file.slice(headerSize+s*frameBytes, headerSize+e*frameBytes).arrayBuffer();
+    const out=new Array(e-s);
+    for(let i=0;i<e-s;i++) out[i]=decodeOne(buf.slice(i*frameBytes,(i+1)*frameBytes));
+    return out;
+  };
+  return {w,h,n,px,sliced:true,getFrames,getFrame(){ throw new Error('FITS stack: use getFrames()'); }};
+}
+
 // ImageJ TIFF stacks often carry a pixel size (XResolution/YResolution tags,
 // t282/t283 — UTIF already resolves the RATIONAL to a single float, pixels
 // per unit) and a frame interval (`finterval=`, seconds) inside the SAME
@@ -4451,6 +4585,7 @@ function mmMetadataHint(ifds){
 // pass their own instead.
 async function loadTiffFile(file, onLog=log){
   if(await isNd2File(file)) return loadNd2File(file, onLog);
+  if(await isFitsFile(file)) return loadFitsFile(file, onLog);
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const fileSize=file.size;
   // Files under effSliceMin go through the cached whole-file path (faster,
@@ -4696,12 +4831,13 @@ function makeConcatStack(stacks, names){
 // `multi` branch of a selection.
 async function loadTiffFilesAuto(fileList, onLog=log){
   const all=[...fileList];
-  // A lone ND2 file must be caught BEFORE the TIFF-only filter below, which
-  // would otherwise silently drop it (isTiffFile() correctly says no) —
-  // loadTiffFile() itself dispatches to loadNd2File() once it gets there.
-  // Multi-file ND2 selection (combining several .nd2 files into one stack,
-  // the way TIFF's own multi-file path does) isn't supported yet.
-  if(all.length===1 && await isNd2File(all[0])) return loadTiffFile(all[0], onLog);
+  // A lone ND2/FITS file must be caught BEFORE the TIFF-only filter below,
+  // which would otherwise silently drop it (isTiffFile() correctly says no)
+  // — loadTiffFile() itself dispatches to loadNd2File()/loadFitsFile() once
+  // it gets there. Multi-file ND2/FITS selection (combining several files
+  // into one stack, the way TIFF's own multi-file path does) isn't
+  // supported yet for either format.
+  if(all.length===1 && (await isNd2File(all[0]) || await isFitsFile(all[0]))) return loadTiffFile(all[0], onLog);
   const isTiff=await Promise.all(all.map(isTiffFile));
   const files=all.filter((f,i)=>isTiff[i]).sort((a,b)=>naturalCompare(a.name,b.name));
   if(all.length!==files.length) onLog(`(${all.length-files.length} file(s) without a recognized TIFF signature were skipped)`);
@@ -17388,26 +17524,23 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10p — smFRET: "Via channel matching"
-now fits a full geometric transform, not just a shift.
-Investigating why its match tolerance needed to be so much looser than
-expected (sweeping it 2-30px showed pairs climbing steadily while their
-own distance consistency degraded in lockstep — a real registration
-error, not just crowding) led to a direct suggestion: a real dual-view
-optical path can have a small relative rotation/scale difference between
-channels that a pure shift can't represent, so "Via channel matching"
-should fit a real transform instead of a single displacement vector —
-the same approach dedicated channel-mapping tools use.
-alignSmfretChannels() now does exactly that: the existing coarse
-displacement search only SEEDS a full affine fit (rotation + scale +
-shear + translation), refined over a few rounds of fit-then-re-match at
-a progressively tighter tolerance down to the configured px value.
-On the real test dataset the fitted transform shows a genuine ~1.3%/0.5%
-scale mismatch between channels (not just rotation) — confirming there
-was real distortion to correct, not just noise.
-Measured directly: among points that DO have a real partner, 3x as many
-now land within 2px of it (9->28) versus the old translation-only search
-— the sub-pixel-to-few-px accuracy a proper transform should give.
+log(`webSMLM v0.12.1-dev · build 2026-09-10q — added native FITS
+(Flexible Image Transport System) movie loading.
+Requested after a real Andor Solis-exported camera file
+(t1b18_scan1-g2r1_001.fits, DU897_BV EMCCD, 512x258x50 16-bit) turned up
+in the repo: "should be a camera driven data format think from Andor
+cameras. Could be implemented in the data loading if not too complex."
+Loads a single-HDU camera movie (a plain 2D image, or a 2D+frame-axis
+data cube) the same way as TIFF/ND2 — Load movie/data, calibration
+loading, and headless analyze() all accept .fits/.fit with no separate
+wiring, magic-byte sniffed rather than trusted by extension.
+Verified byte-for-byte against astropy.io.fits (an independent reference
+reader) before shipping: header/data-offset arithmetic, BZERO/BSCALE
+application, and pixel values across two frames all matched exactly.
+Applies the FITS standard's own bottom-up row convention (row 0 in the
+file = last row on screen) during decode, matching the reference paper
+this real sample file's own header explicitly cites.
+Experimental — one real sample file, one exporter (Andor Solis) tested.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -18922,7 +19055,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
 
     <h3>Guided workflow</h3>
     <ol>
-      <li><b>Get data.</b> Click <b>Load movie/data</b> for a real <code>.tif</code>/<code>.tiff</code> stack (or a native Nikon <code>.nd2</code> file — the same button also accepts a CSV previously written by <b>Save data</b>), or <b>Simulate movie</b> for a test dataset (open <b>Simulation settings</b> to adjust frames, blink density and photons).</li>
+      <li><b>Get data.</b> Click <b>Load movie/data</b> for a real <code>.tif</code>/<code>.tiff</code> stack (or a native Nikon <code>.nd2</code> or camera-generated <code>.fits</code> file — the same button also accepts a CSV previously written by <b>Save data</b>), or <b>Simulate movie</b> for a test dataset (open <b>Simulation settings</b> to adjust frames, blink density and photons).</li>
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. <b>Phasor</b> is the speed option (no iteration); <b>Gaussian (LS)</b> and <b>Gaussian (MLE)</b> trade speed for precision, with MLE reporting a proper per-localization CRLB uncertainty and covering spherical, elliptical, 3D-astigmatic and rotated-elliptical (sSMLM) variants — see the <b>Fit method</b> popup and the full docs for when to use which. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
       <li><b>Localize.</b> The raw view refreshes live with detected ROIs (green boxes) and accepted localizations as the run progresses; the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
