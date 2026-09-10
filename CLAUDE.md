@@ -2788,6 +2788,53 @@ relevant one before editing rather than scrolling:
   whenever a pairing already exists (same "refresh an existing result" convention `smfretApertureMode`/
   `sSmlmBgProfile`'s own change listeners already use elsewhere) — a no-op before any pairing exists.
 
+  **A real, reported bug in the dark-orange "paired" marking itself, found via a screenshot**: a
+  channel-matched pairing's blue trace-selection circle (above) sat over a genuine, boxed
+  `smfretSOI` site with NO orange recolouring at all, prompting the (reasonable, but wrong) question
+  "is Link DD/DA/AA actually needed if channel matching already links things?" Root cause:
+  `markSmfretSoiPairedKeys()`'s own match test was EXACT string-value equality between a paired
+  row's `x2,y2` and an `smfretSOI` entry's own `x,y` — correct for `getSmfretPairingFromDonor()`
+  (the distAngle method), whose `pairCore()` always copies `x2,y2` verbatim from ANOTHER entry
+  already inside the SAME `smfretSOI` array (so exact equality is guaranteed), but silently
+  impossible for `alignSmfretChannels()`'s own AA-sourced matches — those come from
+  `smfretSOICore(cfg,stack,{smfretSoiChannel:'acceptor'})`'s SEPARATE, independently-fit
+  direct-acceptor-excitation composite, a genuinely different image with its own independent noise
+  realization, so bit-for-bit equality with anything in `smfretSOI` essentially never holds even for
+  a real, correct link. Confirmed directly against the real ALEX dataset before fixing: 29 of 59
+  channel-matched pairs — precisely the AA-sourced ones (`nDAsourced=30` matched exactly under the
+  old check; `nAAsourced=29` never did) — could never be marked, full stop, regardless of match
+  quality. Fixed with two changes: (1) `alignSmfretChannels()` now tags each truth point's own
+  origin (`daPoints.forEach(L=>L.pairSrc='DA')`/`core.fitted.forEach(L=>L.pairSrc='AA')`, right
+  after each is built), carried into `paired.push({...D,x2:T.x,y2:T.y,dist:...,pairSrc:T.pairSrc})`
+  — `linkSmfretChannels()`'s own `kept.push(L)` keeps original object references, so this field
+  survives Link DD/DA/AA's own filtering for free, no changes needed there; `getSmfretPairingFromDonor()`/
+  `pairCore()` never set it at all, so every distAngle-method pair reads `pairSrc===undefined`,
+  treated as `'DA'`-equivalent (same-composite, by construction, for every pair that method
+  produces). (2) `markSmfretSoiPairedKeys()` rewritten to a TOLERANT nearest-position match
+  (`smfretBuildSpatialHash()`/`smfretNearestInHash()`, the same helpers `alignSmfretChannels()`
+  itself already uses for its own displacement search — reused here purely for lookup, no search) at
+  a new `SOI_MARK_TOL_PX=2` (matching `linkSmfretChannels()`'s own `LINK_RADIUS_PX` precedent for
+  "same real feature confirmed across two independently-fit composites") instead of exact string
+  keys — a DA-sourced pair still matches at distance ≈0 regardless, since its `x2,y2` genuinely IS
+  another `smfretSOI` entry's own `x,y`.
+
+  **Also now VISUALLY distinguishes the two kinds of match**, since an AA-sourced link is a real but
+  meaningfully WEAKER guarantee than a DA-sourced one — pure nearest-neighbour geometry under one
+  global rigid transform, with no per-pair distance/angle consistency check at all, versus a
+  same-image, already-detected `smfretSOI` entry. `markSmfretSoiPairedKeys()` now returns two
+  additional Sets (`aaLocKeys`/`aaSpotKeys`, always a subset of `locKeys`/`spotKeys`) alongside the
+  existing ones, populated only when the tolerant match's own winning `smfretSOI` neighbour's
+  `pairSrc==='AA'`. `drawSpotOverlays()` checks the AA sets FIRST: a new `AA_PAIRED_SPOT_COLOR`
+  (`#e8b400`, gold) draws instead of the existing `PAIRED_SPOT_COLOR` (`#d2691e`, dark orange) for
+  those entries only — still reads as "paired" at a glance, but visually flags "confirmed via a
+  cross-composite geometric match, not per-pair-validated same-image data." Verified via Playwright
+  against the real ALEX dataset: post-fix, `locKeys.size=49`/`aaLocKeys.size=17` (up from 0 pre-fix
+  — some AA-sourced positions still land >2px from any real `smfretSOI` entry and stay unmarked,
+  correctly, rather than being force-matched to the wrong neighbour), and a real on-canvas pixel
+  check confirms both colours actually render (91 gold px, 253 orange px) on the same composite; a
+  parallel check of the distAngle method confirms it's completely unaffected — 119/119 pairs still
+  match exactly, `aaLocKeys` stays empty throughout.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
