@@ -2567,6 +2567,87 @@ relevant one before editing rather than scrolling:
   120-frame export round-trips through `JSON.parse()` with all expected top-level fields, each
   site's own `photonsDD` correctly containing real `null` gaps at the ALEX off-parity frames.
 
+  **"Align channels"** (v0.12.1-dev) — a genuinely different, direct REGISTRATION approach to
+  finding donor/acceptor geometry, replacing an earlier attempt (`sSmlmCrossCandidates()`,
+  "Calibrate via AA"/"Pair (fixed window)" — shipped, then reverted the same day, see git history)
+  that was still fundamentally a histogram/background-model fit and, on direct feedback, "doesn't
+  help much and makes everything more complicated." The real root cause the user identified:
+  "Due to the width/height ratio of DD and DA channel, we expect to see more angles along the long
+  axis, which here is actually a false lead" — a confound no amount of candidate-pool cleverness
+  can fix, since it's a property of the FOV's own shape, not the candidate-generation method: in a
+  rectangle much wider than tall, two random points are geometrically more likely to be oriented
+  along the LONG axis purely from combinatorics, and here that long axis coincides with the TRUE
+  physical donor→acceptor bearing (~0°/180°, a horizontal dual-view split) — making a histogram
+  peak there fundamentally indistinguishable from pure background shape, not just hard to detect.
+  Any Distance/Angle-histogram-based approach (`fitSSmlmDistAndAngle()`, `sSmlmFitOrder`, the
+  reverted cross-candidate attempt) inherits this problem regardless of what feeds the histogram.
+
+  **The fix is to stop histogramming pairs at all** and directly register two independently-
+  detected point sets instead — proposed directly: "we need to split the entire frame in DD and DA
+  region and calculate a transform between the channels for mapping... which distance and angle
+  optimises the number of pairs found, with initial guess of deg=180 (to the left) and distance/
+  displacement being half a frame." `smfretFovSplitX(locs, w)` finds the x-position GAP between the
+  two regions from the sites of interest's OWN detected positions, not an assumed frame-half-width
+  — "you can histogram the intensities along the x-axis, that should give you an indication of
+  field of views and separation." **A raw PIXEL intensity profile was tried first and found NOT
+  informative** on the real dataset (`alex50mW_1_MMStack_Default.ome.tif`): uniform background/
+  illumination across the whole 512 px width swamped the real per-molecule signal in a plain
+  column sum (values stayed within ~180–205k across the entire width, no discernible bimodal
+  structure). A histogram of the SITES OF INTEREST'S OWN x-positions instead — zero contribution
+  from background pixels, only confidently-detected real molecules — showed a clean, unambiguous
+  gap (bins at x≈240–272 empty/near-empty) exactly where the two regions meet. `smfretFovSplitX()`
+  searches for the emptiest histogram bin within the middle third of the width only (avoids
+  mistaking a genuinely sparse region near either edge for the real gap).
+
+  **Truth pool, confirmed directly**: "truth (DA + AA) for ALEX seems good. in non ALEX, it would
+  simply be DA" — with `alexEnabled`, truth = DA-region candidates (from the same donor-excitation
+  composite) plus a fresh, independent AA localization (the same on-demand
+  `smfretSOICore(cfg, stack, {smfretSoiChannel:'acceptor'})` call `linkSmfretChannels()` already
+  makes); without ALEX there's no separate direct-acceptor-excitation channel to localize AA from
+  at all, so truth is DA alone. `alignSmfretChannels()` branches on `paramValue('alexEnabled')` for
+  exactly this — confirmed via Playwright that the non-ALEX path never calls `smfretSOICore()` at
+  all (monkeypatched to detect a call; correctly never invoked) and still produces a real pairing
+  from DA-only truth.
+
+  **The registration search** (`smfretSearchDisplacement()`) is a coarse-then-fine grid search over
+  candidate `(dx,dy)` displacement vectors centred on the initial guess (`(w/2, 0)` — half the
+  frame width, dy=0; the request's own "deg=180 (to the left)" describes the reverse direction,
+  truth→DD, same magnitude opposite sign as the DD→truth convention used here) — same two-stage
+  coarse/fine philosophy `bestShift()` (MODULE: drift) already uses for an analogous shift-
+  registration problem. Each candidate's SCORE is exactly the quantity requested: how many DD
+  points land within a match tolerance of a real truth point once shifted by it — "which distance
+  and angle optimises the number of pairs found." **A spatial hash (`smfretBuildSpatialHash()`/
+  `smfretNearestInHash()`, cellSize=tolPx) is required, not just faster** — a naive O(nDD×nTruth)
+  inner check per grid point (measured: ~130M+ operations for a realistic grid×point-count
+  combination) was the dominant cost before this; binning truth points into tolPx-sized cells and
+  only scanning the query's own 3×3 cell neighbourhood cuts this to effectively O(nDD) per grid
+  point. **`smfretAlignTolPx`** ("Align channels match tol. (px)", default 10, PARAMS) is the match
+  tolerance — deliberately more generous than `linkSmfretChannels()`'s own 2 px `LINK_RADIUS_PX`
+  (a "confirm an ALREADY-KNOWN position" check, not a search), per explicit confirmation: "with
+  field dependent distortions being possible, some slack should be allowed" — a single rigid
+  `(dx,dy)` transform is only an approximation once real optical aberrations vary the true local
+  offset slightly across the field of view.
+
+  **The winning transform's own match set IS the pairing** — no separate Distance/Angle-window
+  `pairCore()` step needed afterward, unlike every other pairing path in this app (`pairSSmlm()`,
+  `getSmfretPairingFromDonor()`): for each DD point, its nearest truth point within `tolPx` (if any)
+  directly becomes its `x2,y2`/`dist`, written straight into `lastResult.locs`/`sSmlmOriginalLocs`/
+  `sSmlmPairedLocs` (`sSmlmPairContext='smfret'`, same as every other smFRET pairing path, so the
+  `syncSSmlmZRangeFromDist()` context fix above still applies correctly). `unpairSSmlm()` needed no
+  changes — it only ever reads `sSmlmOriginalLocs`/`sSmlmPairedLocs`, both set the same way any
+  other pairing path sets them.
+
+  Verified via Playwright, both synthetically and against the real file: a synthetic 512×256 px
+  dual-view-style dataset (150 real complexes, true displacement exactly 256 px/dy=0, only 15%
+  showing weak DA signal but 90% showing strong AA) recovered `splitX≈266.7` (the true gap's own
+  midpoint) and paired 178/191 DD sites in ~320 ms. Against the real ALEX file: `splitX=256.0 px`
+  (exactly half the 512 px frame), best displacement `dx=282.75 px, dy=0.00 px` (a clean, purely
+  horizontal result — no spurious vertical component), 142/178 DD sites matched in ~460 ms, and the
+  full paired set's own distance distribution is TIGHT — mean 45,072 nm, std 857 nm (<2% CV) —
+  drastically more consistent than the old histogram-based approach's own noisy ~22,589±10,142 nm
+  result on the same file, strong evidence these are genuine, consistent donor/acceptor pairs
+  rather than scattered spurious matches.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

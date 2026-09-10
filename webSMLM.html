@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2738   PARAMS registry, single source of truth for params;
+    params          2760   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3636   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3668   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      3935   synthetic stack generator ("Simulate movie")
-    detect          4892   per-frame band-pass + local-maxima detection
-    fit             5169   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3967   synthetic stack generator ("Simulate movie")
+    detect          4924   per-frame band-pass + local-maxima detection
+    fit             5201   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5808   accumulate to offscreen buffer; view/colour/blur;
+    render          5840   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -96,14 +96,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7242   frame-parallel detect/fit worker pool; dedicated
+    workers         7274   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7552   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7880   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7584   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7912   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -114,7 +114,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8346   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8378   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -129,9 +129,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    8948   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8980   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9682   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9714   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -208,8 +208,24 @@
                            now correctly no-ops in smfret pairing context
                            (real bug: it forced a rerender(true) that
                            hijacked the SOI composite view on every marker
-                           drag, regardless of context)
-    spt             12229   single particle tracking, trackpy-inspired;
+                           drag, regardless of context); smFRET's "Align
+                           channels" (a shipped-then-reverted cross-candidate
+                           attempt tried and abandoned first, see git
+                           history) replaces the whole Distance/Angle-
+                           histogram approach for a dual-view setup with a
+                           direct point-set REGISTRATION — a wide-but-short
+                           FOV biases a plain angle histogram toward its own
+                           long axis regardless of real signal, a confound
+                           no histogram method can escape; smfretFovSplitX()
+                           finds the DD/DA region gap from the SOI's own
+                           x-positions (a raw pixel intensity profile tried
+                           first was NOT informative — uniform background
+                           swamped it), smfretSearchDisplacement() grid-
+                           searches (dx,dy) maximizing DD->truth match count
+                           via a spatial hash (smfretBuildSpatialHash()) —
+                           the winning transform's own matches ARE the
+                           pairing, no separate pairCore() step needed
+    spt             12447   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -240,7 +256,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13767  top-level orchestration, *Core()/wrapper split;
+    pipeline        13985  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -301,7 +317,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14437  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14655  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -355,14 +371,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           17031  localizations table, filtering, histograms;
+    table           17254  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17744  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17967  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2097,7 +2113,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2553,9 +2569,14 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="checkbox" id="smfretApertureMode"></label>
         <label class="row" title="Aperture photometry's own background-subtracted intensity is set to 0 by default when negative (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Set negative intensities to zero
           <input type="checkbox" id="smfretFloorZero" checked></label>
+        <label class="row" title="How close a DD point, shifted by the channel displacement Align channels searches for, must land to a real DD/DA point to count as a match. Kept generous by default — a single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view.">Align channels match tol. (px)
+          <input type="number" id="smfretAlignTolPx" value="10" min="1" max="100" step="1" class="num"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
           <button id="smfretPairingBtn" type="button" disabled title="Pair the sites of interest (donor-excitation channel) using Pairing (sSMLM &amp; FRET)'s own settings — fits the candidate window, shows the resulting Distances/Angles histogram in the raw (left) panel, and commits the pairing without switching the reconstruction (right) panel's view, so a later Get time traces can read the resulting DD/DA positions">Pair DD + DA</button>
+        </div>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="smfretAlignBtn" type="button" disabled title="For clearly spatially-separated channels (e.g. a dual-view/image-splitter setup): splits sites of interest into DD/DA regions by an x-position gap found directly from the detected sites (not assumed), then searches for the (displacement, angle) that maximises how many DD points land near a real DA (and, with ALEX on, AA) point when shifted by it — a direct registration, avoiding the Distance/Angle histogram approach, which a wide-but-short field of view can bias toward its own long axis regardless of any real signal. Commits the resulting pairing directly.">Align channels</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLinkChannelsBtn" type="button" disabled title="Requires Alternating laser excitation? and a DD+DA pairing already done above. Runs a fresh, on-demand localization pass on the direct-acceptor-excitation channel, then discards any pair whose own DA position has no AA localization within 2 px of it. If this drops to (or near) zero, that's usually a sign 'Position donor?' is set to the physically WRONG bearing, not a malfunction — try the other option.">Link DD/DA/AA</button>
@@ -2571,6 +2592,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it).</p>
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
           <p><b>Pair DD + DA</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do) directly from here, using the current sites of interest: it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram (the same feedback Preview pairs itself gives), and commits the pairing (writing each site's paired acceptor position/distance) — but skips that module's own RECONSTRUCTION-panel side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites (the channel that gives donor/acceptor, i.e. DD/DA, intensity pairs) — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. If the SOI composite is still showing when this succeeds, every site that became the ACCEPTOR (DA) side of a pair has its own ROI box and crosshair recoloured dark orange — the matching donor (DD) site keeps its usual colour, since orange marks "this is the confirmed acceptor," not just "this site paired." Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this: the underlying pairing and its dark-orange marking survive a round trip to the other channel's own composite and back. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA, exactly as if <b>Pair &amp; plot sSMLM</b> had been clicked in the other module.</p>
+          <p><b>Align channels</b> is a genuinely different approach to finding the donor/acceptor geometry than <b>Pair DD + DA</b>'s own Distance/Angle-histogram fit, for a setup with clearly, spatially SEPARATED donor and acceptor regions (a dual-view/image-splitter setup) — in a field of view much wider than it is tall, random point pairs are geometrically more likely to be oriented along the LONG axis regardless of any real signal, and when that long axis happens to coincide with the true physical donor→acceptor bearing (as it does for a horizontal dual-view split), a histogram-based fit can't tell a genuine peak apart from this purely combinatorial bias. <b>Align channels</b> sidesteps histogram fitting entirely: it finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with <b>Alternating laser excitation?</b> checked, a fresh independent AA localization (DA alone without ALEX, since there's no separate direct-acceptor-excitation channel to localize AA from at all) — then searches for the displacement that maximises how many DD points land near a real truth point once shifted by it (starting from a displacement of half the frame width at 180°, refined by the search itself). The winning displacement's own match set becomes the pairing directly — no separate Distance/Angle-window step needed afterward. <b>Align channels match tol. (px)</b> controls how close a shifted point must land to count as a match — kept generous by default, since a single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view.</p>
           <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). With <b>Alternating laser excitation?</b> checked, this stays disabled until <b>Link DD/DA/AA</b> (above) has succeeded at least once — a safety net so you can't trace a pairing whose acceptor-channel position was never independently confirmed; without ALEX, it's available as soon as sites of interest exist, since there's no separate acceptor channel to confirm against. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two, or <b>Filter SOIs</b>, while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
           <p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) into its top-right corner — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites.</p>
@@ -3018,6 +3040,16 @@ const PARAMS = {
   // concept (no molecule this frame, not a floored computed value) and is
   // untouched by this.
   smfretFloorZero: { type:'bool', id:'smfretFloorZero', label:'Set negative intensities to zero', default:true },
+  // Match tolerance for alignSmfretChannels() ("Align channels", MODULE:
+  // smFRET) — how close a DD point, shifted by the searched-for channel
+  // displacement, must land to a real DA/AA point to count as a match.
+  // Deliberately more generous than LINK_RADIUS_PX (2 px, linkSmfretChannels()'s
+  // own "confirm an ALREADY-KNOWN position" check) — requested: "with field
+  // dependent distortions being possible, some slack should be allowed",
+  // since a single rigid (dx,dy) transform found by this search is only an
+  // approximation once real optical aberrations vary the true offset
+  // slightly across the field of view.
+  smfretAlignTolPx: { type:'number', id:'smfretAlignTolPx', label:'Align channels match tolerance (px)', min:1, max:100, step:1, default:10, int:true },
   // alexEnabled/alexFirstFrame are step one of the "ALEX frame-role
   // bookkeeping" prerequisite docs/REFACTOR_PLAN.md's own smFRET/ALEX
   // sketch calls out as needed before any DD/DA/AA/AD sorting — just which
@@ -11026,6 +11058,7 @@ async function locateSmfretSOI(preservePairing=false){
     // its own listener.
     $('smfretFixSOI').checked=true;
     $('smfretPairingBtn').disabled = !fitted.length;
+    $('smfretAlignBtn').disabled = !fitted.length;
     // Toggling the composite VIEW alone must not discard an already-
     // committed DD+DA pairing (see this function's own `preservePairing`
     // comment above) — bail out here, before `lastResult` gets overwritten
@@ -11239,6 +11272,191 @@ async function getSmfretPairingFromDonor(){
   finally{ $('smfretPairingBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
 }
 $('smfretPairingBtn').addEventListener('click', getSmfretPairingFromDonor);
+// "Align channels" — a genuinely different approach from Pair DD + DA's own
+// Distance/Angle-histogram fit, for a setup with clearly, spatially
+// SEPARATED donor/acceptor regions (a dual-view/image-splitter setup).
+// Requested directly, after Pair DD + DA's own histogram-based auto-fit
+// proved unreliable on this kind of dataset: "the detection finding also
+// pairing DA and DD is not the issue. Due to the width/height ratio of DD
+// and DA channel, we expect to see more angles along the long axis, which
+// here is actually a false lead" — a real, previously-unconsidered
+// confound: in a rectangle much wider than tall, two RANDOM points are
+// geometrically more likely to be oriented along the LONG axis regardless
+// of any real signal (pure combinatorics), and here the long axis
+// coincides with the true physical donor→acceptor bearing (~0°/180°),
+// making a histogram peak there impossible to trust as genuine signal —
+// the exact reason a distance/angle-histogram approach can't be trusted
+// for this dataset shape, no matter how the candidate pool is built.
+//
+// The fix is to stop histogramming candidate pairs at all and instead
+// directly REGISTER two independently-detected point sets — "split the
+// entire frame in DD and DA region and calculate a transform between the
+// channels for mapping... which distance and angle optimises the number
+// of pairs found, with initial guess of deg=180 (to the left) and
+// distance/displacement being half a frame."
+//
+// Finds the x-position GAP between the two channels' own regions directly
+// from the detected sites of interest (not an assumed frame-half-width) —
+// "you can histogram the intensities along the x-axis, that should give
+// you an indication of field of views and separation." A raw PIXEL
+// intensity profile was tried first and found NOT informative on the real
+// dataset — uniform background/illumination across the whole width
+// swamped the real per-molecule signal in a plain column sum; a histogram
+// of the SITES OF INTEREST'S OWN x-positions (confidently-detected real
+// molecules only, zero contribution from background pixels) showed a
+// clean, unambiguous gap instead, right where the two regions meet.
+function smfretFovSplitX(locs, w){
+  const nb=Math.max(20,Math.min(80,Math.round(Math.sqrt(locs.length)*1.5))), bw=w/nb;
+  const hist=new Int32Array(nb);
+  for(const L of locs){ let b=Math.floor(L.x/bw); if(b<0)b=0; if(b>=nb)b=nb-1; hist[b]++; }
+  // Search for the emptiest RUN of bins within the middle third of the
+  // width only — avoids mistaking a genuinely sparse region near either
+  // edge (vignetting, a smaller illuminated sub-region) for the real
+  // inter-channel gap, which for two roughly-equal-sized regions must sit
+  // somewhere near the middle by construction.
+  const loB=Math.floor(nb/3), hiB=Math.ceil(2*nb/3);
+  let bestB=Math.floor(nb/2), bestC=Infinity;
+  for(let b=loB;b<=hiB;b++){ if(hist[b]<bestC){ bestC=hist[b]; bestB=b; } }
+  return (bestB+0.5)*bw;
+}
+// Bins `points` into cellSize x cellSize buckets so a "does anything sit
+// within tolPx of (x,y)" query only has to scan a 3x3 neighbourhood of
+// buckets — needed because the coarse-then-fine grid search below tries
+// many displacement candidates, each checking every DD point against the
+// truth set; without this the cost is O(gridPoints x nDD x nTruth), which
+// gets slow well within real dataset sizes (verified: a naive O(n²) inner
+// check was the original approach, replaced after measuring it was the
+// dominant cost). cellSize=tolPx guarantees any point within tolPx of a
+// query is found in the query's own bucket or one of its 8 neighbours.
+function smfretBuildSpatialHash(points, cellSize){
+  const map=new Map();
+  for(const p of points){
+    const key=Math.floor(p.x/cellSize)+'|'+Math.floor(p.y/cellSize);
+    let arr=map.get(key); if(!arr){ arr=[]; map.set(key,arr); }
+    arr.push(p);
+  }
+  return {map, cellSize};
+}
+function smfretNearestInHash(hash, x, y, tolPx){
+  const cx=Math.floor(x/hash.cellSize), cy=Math.floor(y/hash.cellSize);
+  let best=null, bestD=Infinity;
+  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+    const arr=hash.map.get((cx+dx)+'|'+(cy+dy)); if(!arr) continue;
+    for(const p of arr){ const d=Math.hypot(p.x-x,p.y-y); if(d<=tolPx && d<bestD){ bestD=d; best=p; } }
+  }
+  return best;
+}
+// Grid search over candidate (dx,dy) displacement vectors centred on
+// (guessDx,guessDy), scoring each by how many ddPoints land within tolPx
+// of a real truthHash point once shifted by it — the score IS the pair
+// count the request itself names as the optimisation target. `truthHash`
+// is pre-built once per call site (not per grid point) since it doesn't
+// depend on the trial displacement, only ddPoints' own shifted positions do.
+function smfretScoreDisplacement(ddPoints, truthHash, dx, dy, tolPx){
+  let score=0;
+  for(const D of ddPoints){ if(smfretNearestInHash(truthHash, D.x+dx, D.y+dy, tolPx)) score++; }
+  return score;
+}
+async function smfretSearchDisplacement(ddPoints, truthPoints, guessDx, guessDy, tolPx, onProgress){
+  const truthHash=smfretBuildSpatialHash(truthPoints, tolPx);
+  // Coarse-then-fine, same two-stage philosophy bestShift() (MODULE: drift)
+  // already uses for an analogous shift-registration problem — a coarse
+  // grid finds the right neighbourhood cheaply, a fine grid around that
+  // result recovers sub-pixel precision without paying the fine grid's own
+  // cost over the WHOLE coarse search range.
+  const stages=[ {radius:40, step:2}, {radius:3, step:0.25} ];
+  let cx=guessDx, cy=guessDy, best={dx:cx,dy:cy,score:-1};
+  for(let s=0;s<stages.length;s++){
+    const {radius,step}=stages[s];
+    let stageBest={dx:cx,dy:cy,score:-1};
+    let tried=0; const total=Math.pow(2*Math.round(radius/step)+1,2);
+    let lastYield=performance.now();
+    for(let dx=cx-radius; dx<=cx+radius; dx+=step){
+      for(let dy=cy-radius; dy<=cy+radius; dy+=step){
+        const score=smfretScoreDisplacement(ddPoints, truthHash, dx, dy, tolPx);
+        if(score>stageBest.score) stageBest={dx,dy,score};
+        tried++;
+        if(onProgress && performance.now()-lastYield>60){ onProgress(100*(s+tried/total)/stages.length); await tick(); lastYield=performance.now(); }
+      }
+    }
+    cx=stageBest.dx; cy=stageBest.dy; if(stageBest.score>best.score) best=stageBest;
+  }
+  if(onProgress) onProgress(100);
+  return best;
+}
+// Orchestration: split by the detected x-gap, build the truth pool (DA
+// candidates from the SAME donor-excitation composite, plus AA from a
+// fresh on-demand localization when Alternating laser excitation? is
+// checked — "truth (DA + AA) for ALEX seems good. in non ALEX, it would
+// simply be DA" — there is no separate direct-acceptor-excitation channel
+// to localize AA from at all without ALEX), search for the best-matching
+// displacement, then commit the resulting pairs DIRECTLY — the
+// registration's own match set already IS the pairing, no separate
+// Distance/Angle-window pairCore() step needed on top of it.
+async function alignSmfretChannels(){
+  if(!stack) return;
+  const soi = sSmlmOriginalLocs || smfretSOI;
+  if(!soi || !soi.length){ log('Run Localize SOI first.'); return; }
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
+  $('smfretAlignBtn').disabled=true;
+  try{
+    const w=lastResult.w, px=lastResult.px;
+    const splitX=smfretFovSplitX(soi, w);
+    const ddPoints=soi.filter(L=>L.x<splitX), daPoints=soi.filter(L=>L.x>=splitX);
+    log(`\nAlign channels: FOV split at x=${splitX.toFixed(1)} px (from the sites of interest' own x-position gap) — ${ddPoints.length.toLocaleString()} DD-region site(s), ${daPoints.length.toLocaleString()} DA-region site(s).`);
+    let truthPoints=daPoints;
+    const alex=paramValue('alexEnabled');
+    if(alex){
+      const cfg={ smfretAvgFrames:paramValue('smfretAvgFrames'), psf:paramValue('psf'), winr:paramValue('winr'),
+        detFilter:paramValue('detFilter'), detection_wavelet_thr:paramValue('detection_wavelet_thr'),
+        detection_DoG_thr:paramValue('detection_DoG_thr'), detection_box_thr:paramValue('detection_box_thr'),
+        detection_DoG_exactbp:paramValue('detection_DoG_exactbp'), stackProjCap:paramValue('stackProjCap'),
+        alexEnabled:true, alexFirstFrame:paramValue('alexFirstFrame'), smfretSoiChannel:'acceptor' };
+      const core=await smfretSOICore(cfg, stack);
+      if(!core) return;   // stack changed underneath us (interactive only)
+      if(staleEpoch(myEpoch)) return;
+      log(`Align channels: localized ${core.fitted.length.toLocaleString()} direct-acceptor-excitation (AA) site(s).`);
+      truthPoints=daPoints.concat(core.fitted);
+    }
+    log(`Align channels: ${truthPoints.length.toLocaleString()} truth point(s) (${alex?'DA + AA':'DA only, ALEX off'}).`);
+    if(!ddPoints.length || !truthPoints.length){ log('⚠ Align channels — not enough sites on one side to register; check detection settings.'); return; }
+    logCmd({smfretAlignChannels:true}, 'alignSmfretChannels()');
+    // Initial guess exactly as specified: displacement = half the frame
+    // width, angle = 180° (pointing back toward the DD region from a DA/AA
+    // point) — dx is therefore NEGATIVE (DD region sits to the LEFT of the
+    // gap, so shifting a DD point by dx=+half-width lands it in the DA/AA
+    // region; the requested "180° to the left" phrasing describes the
+    // reverse direction, DA/AA back to DD — same magnitude, opposite sign).
+    const guessDx=w/2, guessDy=0;
+    const tolPx=paramValue('smfretAlignTolPx');
+    const best=await smfretSearchDisplacement(ddPoints, truthPoints, guessDx, guessDy, tolPx, setProg);
+    if(staleEpoch(myEpoch)) return;
+    const bestAngleDeg=Math.atan2(best.dy,best.dx)*180/Math.PI, bestDistNm=Math.hypot(best.dx,best.dy)*px;
+    log(`Align channels: best displacement dx=${best.dx.toFixed(2)} px, dy=${best.dy.toFixed(2)} px `
+      + `(distance ${bestDistNm.toFixed(0)} nm, angle ${bestAngleDeg.toFixed(1)}°) — ${best.score.toLocaleString()}/${ddPoints.length.toLocaleString()} DD site(s) matched within ${tolPx} px.`);
+    if(!best.score){ log('⚠ Align channels — no matches found; widen the match tolerance or check the initial guess (frame split/Position donor-style bearing).'); return; }
+    // Build the final pairing from the winning transform directly — each
+    // DD point's own nearest truth point within tolPx, if any.
+    const truthHash=smfretBuildSpatialHash(truthPoints, tolPx);
+    const paired=[];
+    for(const D of ddPoints){
+      const T=smfretNearestInHash(truthHash, D.x+best.dx, D.y+best.dy, tolPx);
+      if(T) paired.push({...D, x2:T.x, y2:T.y, dist:Math.hypot((T.x-D.x)*px,(T.y-D.y)*px)});
+    }
+    sSmlmOriginalLocs=soi; sSmlmPairedLocs=paired; sSmlmShowingRaw=false;
+    lastResult.locs=paired;
+    renderLocs=null; _tableFilters=[];
+    sSmlmPairContext='smfret';   // see its own declaration — keeps a later marker drag from hijacking the reconstruction panel via the OTHER (sSmlm-only) context path
+    smfretChannelsLinked=false;   // a fresh pairing has no Link DD/DA/AA applied yet
+    refreshSmfretTimeTracesBtn();
+    markSmfretSoiPairedKeys(paired);
+    $('sSmlmUnpairBtn').disabled=false;
+    refreshSmfretLinkChannelsBtn();
+    log(`Align channels: paired ${paired.length.toLocaleString()}/${ddPoints.length.toLocaleString()} DD site(s); Get time traces below will now split DD into DD/DA.`);
+  }catch(err){ log(`⚠ Align channels failed: ${err.name}: ${err.message}`); }
+  finally{ $('smfretAlignBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
+}
+$('smfretAlignBtn').addEventListener('click', alignSmfretChannels);
 // Many SOI signals are faint, so the threshold/σ_PSF/window etc. often need
 // hand-tuning to find them at all — re-run automatically once an SOI
 // composite is already showing, same "reflects the current settings without
@@ -11264,7 +11482,7 @@ function clearSmfretFixSOI(){
   smfretSOI=null; smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false;
   $('smfretTraceScrubRow').style.display='none';
   $('smfretTraceModeBtn').style.display='none';
-  $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true;
+  $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretAlignBtn').disabled=true; $('smfretExportTracesBtn').disabled=true;
   if(srSpots||srLocs){   // was showing our SOI composite — clear it and restore the general overview
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
     if(stack) showStackProjection();
@@ -15075,7 +15293,7 @@ async function runSimulation(){
     simulation_pxnm:paramValue('simulation_pxnm'), driftpx:paramValue('driftpx') };
   logCmd(cmdCfg, overrideWithFields(cmdCfg, 'runSimulation()'));
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretAlignBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     const generated=await generateSynthetic();
     // Superseded (a load, a crop, another Simulate, …) while generateSynthetic()
@@ -15121,7 +15339,7 @@ async function loadMovieFiles(fs){
   fs.forEach(registerTerminalFile);   // makes this exact selection recallable-by-name in the log terminal, see registerTerminalFile()'s own comment
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretAlignBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -15343,7 +15561,7 @@ function initScrub(){
     // whenever the checkbox genuinely gets unchecked, by hand or otherwise.
     smfretSOI=null;
     smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
-    $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; }
+    $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretAlignBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
@@ -16890,26 +17108,31 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10i — sSMLM: Fit order toggle + a real smFRET view bug fixed.
-(1) New "Fit order" control (Distance first/Angle first, default Distance
-first) for Preview pairs' own automatic fit. Distance first is the
-original, unchanged behaviour (suits a diffraction-grating setup, where
-the bearing is unknown but distance is well separated from background).
-Angle first is new — for a setup whose real bearing is roughly known in
-advance (e.g. a dual-view/image-splitter split's near-0° horizontal
-separation), it fits angle FIRST from the whole candidate pool, then
-restricts distance fitting (AND the Distances histogram itself, not just
-the fitted numbers) to that angle window — cutting the same-region
-combinatorial background substantially and making a true "half the
-frame" peak much easier to see and fit. Even so, treat the auto-fitted
-Distance min/max as a starting point and verify by eye.
-(2) Fixed a real, reported bug: dragging the Distance min/max markers on
-the Distances histogram while pairing via smFRET's own "Pair DD + DA"
-was silently switching the reconstruction panel from the SOI composite
-to a full z-coloured "SMLM reconstruction" — a leftover gap where
-syncSSmlmZRangeFromDist() (meant only for the plain sSMLM pairing flow)
-never checked which pairing context was actually active, so it forced a
-rerender regardless. Now correctly no-ops during smFRET's own pairing.
+log(`webSMLM v0.12.1-dev · build 2026-09-10j — smFRET: "Align channels" — direct registration, not a histogram fit.
+A different, more direct approach to donor/acceptor geometry for a
+dual-view/image-splitter setup, replacing a same-day attempt that was
+tried and reverted for adding complexity without enough benefit. The
+real problem: in a field of view much wider than tall, random point
+pairs are geometrically more likely to be oriented along the LONG axis
+regardless of any real signal — and here that axis coincides with the
+true physical bearing, so a Distance/Angle-histogram fit (any version of
+it) can't tell a genuine peak from this pure combinatorial bias.
+New "Align channels" sidesteps histogram fitting entirely: it finds the
+gap between the donor and acceptor regions directly from where sites of
+interest are actually detected (a raw pixel-intensity profile was tried
+first and found uninformative — background swamps it; a histogram of
+detected site positions shows a clean gap instead), then searches for
+the displacement that maximises how many donor-region points land near
+a real acceptor-region point (DA, plus AA with ALEX on) once shifted by
+it — starting from half the frame width at 180°, refined by the search
+itself. The winning displacement's own matches become the pairing
+directly. New "Align channels match tol. (px)" (default 10) controls
+how much slack is allowed, since a single rigid displacement is only an
+approximation once real field-dependent optical distortions are at play.
+Verified against the real ALEX dataset: found a clean, purely horizontal
+displacement and a paired distance distribution within 2% of its own
+mean — much tighter and more consistent than any histogram-based result
+on the same file.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
