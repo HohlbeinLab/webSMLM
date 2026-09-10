@@ -2749,6 +2749,45 @@ relevant one before editing rather than scrolling:
   pairs, matching the previously-established real-data result) — confirming the SAME underlying
   algorithms run unchanged, just reached through one consolidated control now.
 
+  **Five follow-up fixes, same day.** (1) **"Align channels match tol. (px)" → "Align channels match
+  tolerance (px)"**, default lowered from 10 to 4 px — a tighter default now that the button/selector
+  consolidation makes it easy to raise by hand if a real setup genuinely needs more slack; the field's
+  own tooltip dropped its "kept generous by default" framing accordingly. (2) **"Pair DD + AA" →
+  "Pair DD + DA"** — the button's own static label (never dynamic per-method, by design, see the
+  consolidation entry above) reverted to the original wording. (3) A third rename — "Link DD/DA/AA" →
+  "Filter SOIs" — was requested but SKIPPED on direct confirmation: "Filter SOIs" already labels a
+  completely different, pre-existing control (`smfretTraceChannels`, Get time traces' own DD+DA/
+  DD+DA+AA channel selector) — reusing the same label for a second, unrelated control would create a
+  real ambiguity, flagged via `AskUserQuestion` before touching anything; the user chose to skip this
+  one rename rather than rename either control. (4) **A real, reported persistence bug in the Time
+  trace selection highlight** (added earlier the same day): toggling the SOI composite's own AA/
+  DD+DA view (`toggleAlexProjChannel()` → `refreshAlexProjectionIfShown(true)` →
+  `locateSmfretSOI(true)`) was silently NULLING `smfretTraces` at the very top of
+  `locateSmfretSOI()`, regardless of `preservePairing` — a real gap in that flag's own original
+  intent (protecting a "just peeking at the other channel" view toggle from discarding real work,
+  already covering the PAIRING state further down the function, but never extended to the ACTIVE
+  TIME TRACE SESSION). This didn't just hide the highlight — it destroyed the whole trace session
+  (raw panel reverted to a live frame, `smfretTraces=null`), and the highlight never came back even
+  after toggling back to the original channel, since the destroyed session state has no path to
+  regenerate itself. Fixed by gating that block on `!preservePairing` too — `smfretTraces` itself
+  doesn't depend on which composite is currently shown (built from `lastResult.locs`, itself
+  untouched by a view toggle), so there was nothing to actually invalidate in that case. **Caught via
+  a real Playwright timing bug in the FIRST verification attempt** — `toggleAlexProjChannel()` isn't
+  itself `async` (it fires off `locateSmfretSOI()`'s own async work without awaiting it), so a test
+  that doesn't wait for that work to finish reads stale state and can look like "nothing changed"
+  regardless of whether the underlying fix worked; re-verified with an explicit wait, confirming the
+  highlight (measured via a real on-canvas blue-pixel count) survives a full AA→DD+DA→AA round trip
+  unchanged (359→361→359 pixels, the small AA-view difference just reflecting a different composite
+  image underneath the same real overlay). (5) **The highlight's connecting line now starts/ends at
+  each circle's own EDGE, not its centre** — offsets each endpoint along the unit vector between the
+  two circle centres by the shared radius `r` (guarded against near-zero separation, `dist>2*r`,
+  avoiding a `dx/dist` NaN when the two circles are very close together or coincide). Verified via a
+  zoomed-in screenshot: no line visible cutting through a highlighted circle's own interior, only
+  starting right at its boundary and heading toward the (off-screen, tens-of-µm-away) partner.
+  Also: changing **"Align channels match tolerance (px)"** now re-runs **Pair DD + DA** automatically
+  whenever a pairing already exists (same "refresh an existing result" convention `smfretApertureMode`/
+  `sSmlmBgProfile`'s own change listeners already use elsewhere) — a no-op before any pairing exists.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

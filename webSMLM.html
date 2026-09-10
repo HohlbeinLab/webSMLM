@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2784   PARAMS registry, single source of truth for params;
+    params          2792   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3703   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3711   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4002   synthetic stack generator ("Simulate movie")
-    detect          4959   per-frame band-pass + local-maxima detection
-    fit             5236   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4010   synthetic stack generator ("Simulate movie")
+    detect          4967   per-frame band-pass + local-maxima detection
+    fit             5244   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5875   accumulate to offscreen buffer; view/colour/blur;
+    render          5883   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7342   frame-parallel detect/fit worker pool; dedicated
+    workers         7357   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7652   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7980   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7667   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7995   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8446   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8461   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -133,9 +133,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    9048   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9063   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9782   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9797   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -242,12 +242,20 @@
                            uncorrected photon counts with no crosstalk/
                            bleedthrough correction yet (a known open item);
                            "Pair DD + DA" + "Align channels" consolidated
-                           into one "Pair DD + AA" button + a "Pairing
+                           into one "Pair DD + DA" button + a "Pairing
                            method" selector (distAngle/channelMatch) once
                            confirmed the two approaches aren't redundant —
                            pairSmfretSites() dispatches, both underlying
-                           functions unchanged
-    spt             12565   single particle tracking, trackpy-inspired;
+                           functions unchanged; real bug: toggling the AA/
+                           DD+DA composite VIEW was silently nulling
+                           smfretTraces regardless of preservePairing,
+                           destroying an active Time trace session (incl.
+                           its own composite highlight) with no way back —
+                           fixed by gating that block on !preservePairing
+                           too, same protective intent the pairing-state
+                           branch already had; highlight's own connecting
+                           line now starts/ends at each circle's own EDGE
+    spt             12597   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -278,7 +286,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14103  top-level orchestration, *Core()/wrapper split;
+    pipeline        14135  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -339,7 +347,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14773  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14805  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -393,14 +401,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           17361  localizations table, filtering, histograms;
+    table           17397  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18074  window.webSMLM.analyze()/analyzeBatch();
+    headless API    18110  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2135,7 +2143,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10m</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10n</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2591,16 +2599,16 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="checkbox" id="smfretApertureMode"></label>
         <label class="row" title="Aperture photometry's own background-subtracted intensity is set to 0 by default when negative (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Set negative intensities to zero
           <input type="checkbox" id="smfretFloorZero" checked></label>
-        <label class="row" title="Which approach Pair DD + AA (below) uses. Via distances and angles fits a Distance/Angle histogram (Pairing (sSMLM &amp; FRET)'s own candidate-fit-and-pair steps) — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area. Via channel matching directly registers two independently-detected point sets (splitting sites into DD/DA regions by their own x-position gap, then finding the displacement that maximises real matches) — suits a spatially SEPARATED setup (dual-view/image-splitter). The two aren't redundant: they target genuinely different optical layouts.">Pairing method
+        <label class="row" title="Which approach Pair DD + DA (below) uses. Via distances and angles fits a Distance/Angle histogram (Pairing (sSMLM &amp; FRET)'s own candidate-fit-and-pair steps) — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area. Via channel matching directly registers two independently-detected point sets (splitting sites into DD/DA regions by their own x-position gap, then finding the displacement that maximises real matches) — suits a spatially SEPARATED setup (dual-view/image-splitter). The two aren't redundant: they target genuinely different optical layouts.">Pairing method
           <select id="smfretPairMethod" class="sel">
             <option value="distAngle">Via distances and angles</option>
             <option value="channelMatch">Via channel matching</option>
           </select></label>
-        <label class="row" id="smfretAlignTolRow" style="display:none" title="How close a DD point, shifted by the channel displacement being searched for, must land to a real DD/DA point to count as a match. Kept generous by default — a single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view.">Align channels match tol. (px)
-          <input type="number" id="smfretAlignTolPx" value="10" min="1" max="100" step="1" class="num"></label>
+        <label class="row" id="smfretAlignTolRow" style="display:none" title="How close a DD point, shifted by the channel displacement being searched for, must land to a real DD/DA point to count as a match. A single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view.">Align channels match tolerance (px)
+          <input type="number" id="smfretAlignTolPx" value="4" min="1" max="100" step="1" class="num"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLocateBtn" type="button" disabled title="Average the first N frames into one composite, detect real emitter positions on it once, and fit each — sites of interest (SOI) for smFRET analysis">Localize SOI</button>
-          <button id="smfretPairingBtn" type="button" disabled title="Pairs the sites of interest using whichever approach Pairing method above selects — see that field's own tooltip for what each does.">Pair DD + AA</button>
+          <button id="smfretPairingBtn" type="button" disabled title="Pairs the sites of interest using whichever approach Pairing method above selects — see that field's own tooltip for what each does.">Pair DD + DA</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretLinkChannelsBtn" type="button" disabled title="Requires Alternating laser excitation? and a DD+DA pairing already done above. Runs a fresh, on-demand localization pass on the direct-acceptor-excitation channel, then discards any pair whose own DA position has no AA localization within 2 px of it. If this drops to (or near) zero, that's usually a sign 'Position donor?' is set to the physically WRONG bearing, not a malfunction — try the other option.">Link DD/DA/AA</button>
@@ -2615,8 +2623,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame, and <b>Filter SOIs</b> (see Get time traces below). This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
           <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating laser excitation?</b> checked, the log line also breaks the total down by channel: the donor-excitation (DD+DA) composite reports how many sites fall in the DD region vs. the DA region (split the same way <b>Align channels</b> below does, from the sites' own x-positions — no extra detection needed), while the direct-acceptor-excitation composite reports its own single AA count.</p>
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
-          <p><b>Pairing method</b> picks which of two genuinely different approaches <b>Pair DD + AA</b> below actually runs — they target different optical layouts, not overlapping options, so the right choice depends on your setup rather than being a quality trade-off. <b>Via distances and angles</b> (default) fits a Distance/Angle histogram — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area and are only distinguished by a small wavelength-dependent dispersion offset. <b>Via channel matching</b> directly registers two independently-detected point sets instead — suits a spatially SEPARATED setup (dual-view/image-splitter), where a histogram-based fit can't tell a genuine peak apart from a purely geometric bias: in a field of view much wider than tall, random point pairs are naturally more likely to be oriented along the long axis regardless of any real signal, and that axis commonly coincides with the true physical donor→acceptor bearing for a horizontal split. Selecting <b>Via channel matching</b> reveals <b>Align channels match tol. (px)</b> (default 10), which controls how close a shifted point must land to a real one to count as a match — kept generous by default, since a single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view.</p>
-          <p><b>Pair DD + AA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°, refined by the search itself); the winning displacement's own match set becomes the pairing directly, no separate histogram/window step needed. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured dark orange — the matching donor site keeps its usual colour, since orange marks "this is the confirmed acceptor," not just "this site paired." Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
+          <p><b>Pairing method</b> picks which of two genuinely different approaches <b>Pair DD + DA</b> below actually runs — they target different optical layouts, not overlapping options, so the right choice depends on your setup rather than being a quality trade-off. <b>Via distances and angles</b> (default) fits a Distance/Angle histogram — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area and are only distinguished by a small wavelength-dependent dispersion offset. <b>Via channel matching</b> directly registers two independently-detected point sets instead — suits a spatially SEPARATED setup (dual-view/image-splitter), where a histogram-based fit can't tell a genuine peak apart from a purely geometric bias: in a field of view much wider than tall, random point pairs are naturally more likely to be oriented along the long axis regardless of any real signal, and that axis commonly coincides with the true physical donor→acceptor bearing for a horizontal split. Selecting <b>Via channel matching</b> reveals <b>Align channels match tolerance (px)</b> (default 4), which controls how close a shifted point must land to a real one to count as a match — a single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view, so widen it if genuine matches are being missed. Changing it re-runs <b>Pair DD + DA</b> automatically whenever a pairing already exists.</p>
+          <p><b>Pair DD + DA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°, refined by the search itself); the winning displacement's own match set becomes the pairing directly, no separate histogram/window step needed. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured dark orange — the matching donor site keeps its usual colour, since orange marks "this is the confirmed acceptor," not just "this site paired." Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
           <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). With <b>Alternating laser excitation?</b> checked, this stays disabled until <b>Link DD/DA/AA</b> (above) has succeeded at least once — a safety net so you can't trace a pairing whose acceptor-channel position was never independently confirmed; without ALEX, it's available as soon as sites of interest exist, since there's no separate acceptor channel to confirm against. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two, or <b>Filter SOIs</b>, while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
           <p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
@@ -3073,8 +3081,8 @@ const PARAMS = {
   // since a single rigid (dx,dy) transform found by this search is only an
   // approximation once real optical aberrations vary the true offset
   // slightly across the field of view.
-  smfretAlignTolPx: { type:'number', id:'smfretAlignTolPx', label:'Align channels match tolerance (px)', min:1, max:100, step:1, default:10, int:true },
-  // Which pairing approach "Pair DD + AA" (below) actually runs — 'distAngle'
+  smfretAlignTolPx: { type:'number', id:'smfretAlignTolPx', label:'Align channels match tolerance (px)', min:1, max:100, step:1, default:4, int:true },
+  // Which pairing approach "Pair DD + DA" (below) actually runs — 'distAngle'
   // (default) is the original Distance/Angle-histogram fit
   // (getSmfretPairingFromDonor()), suited to an overlapping-region setup
   // (diffraction-grating/prism, donor+acceptor images sharing the same
@@ -7233,7 +7241,14 @@ function drawSmfretTraceSelectionOverlay(ctx,v,DW,DH){
   ctx.strokeStyle='#3fa9ff'; ctx.lineWidth=2;
   if(hasPartner){
     const x2=TX(s.x2+0.5), y2=TY(s.y2+0.5);
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    // Requested — draw from the circle's own EDGE, not its centre: offset
+    // each endpoint along the unit vector between the two centres by the
+    // shared radius r, so the line visibly starts/ends right at each
+    // circle's own boundary instead of running through its interior.
+    const dx=x2-x1, dy=y2-y1, dist=Math.hypot(dx,dy);
+    if(dist>2*r){ const ux=dx/dist, uy=dy/dist;
+      ctx.beginPath(); ctx.moveTo(x1+ux*r,y1+uy*r); ctx.lineTo(x2-ux*r,y2-uy*r); ctx.stroke();
+    }
     ctx.beginPath(); ctx.arc(x2,y2,r,0,7); ctx.stroke();
   }
   ctx.beginPath(); ctx.arc(x1,y1,r,0,7); ctx.stroke();
@@ -11051,7 +11066,17 @@ async function locateSmfretSOI(preservePairing=false){
   // A fresh Localize SOI run invalidates any time traces already computed
   // from the OLD positions — reclaim the raw panel from the site scrubber
   // back to the ordinary frame one before rebuilding the composite below.
-  if(smfretTraces){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
+  // Gated on !preservePairing too (real, reported bug: toggling the AA/
+  // DD+DA composite VIEW alone was silently destroying an active Time
+  // trace session — including the SOI composite's own trace-selection
+  // highlight, MODULE: render — even though preservePairing already
+  // existed specifically to protect a "just peeking" view toggle from
+  // discarding real work; this block was the one place that guard never
+  // reached). smfretTraces itself doesn't depend on which composite is
+  // currently shown (built from lastResult.locs, untouched by a view
+  // toggle — see getSmfretTimeTraces()'s own `sites` selection), so
+  // there's nothing to actually invalidate in the preservePairing case.
+  if(smfretTraces && !preservePairing){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
     $('smfretTraceModeBtn').style.display='none'; $('smfretExportTracesBtn').disabled=true;
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
   const alex=paramValue('alexEnabled');
@@ -11553,7 +11578,7 @@ async function alignSmfretChannels(){
   }catch(err){ log(`⚠ Align channels failed: ${err.name}: ${err.message}`); }
   finally{ $('smfretPairingBtn').disabled=!(smfretSOI&&smfretSOI.length); setProg(null); }
 }
-// "Pair DD + AA" — one button over both pairing approaches, picked by
+// "Pair DD + DA" — one button over both pairing approaches, picked by
 // "Pairing method" above (requested: "then we should use a selector rather
 // than two buttons", after confirming the two methods aren't redundant —
 // they target genuinely different optical layouts, see that field's own
@@ -11567,6 +11592,13 @@ $('smfretAlignTolRow').style.display = paramValue('smfretPairMethod')==='channel
 $('smfretPairMethod').addEventListener('change', ()=>{
   $('smfretAlignTolRow').style.display = paramValue('smfretPairMethod')==='channelMatch' ? '' : 'none';
 });
+// Requested — changing the match tolerance should re-run the pairing
+// automatically against an ALREADY-committed result, same "refresh an
+// existing result" convention smfretApertureMode/sSmlmBgProfile's own
+// change listeners already use elsewhere. Only meaningful once a pairing
+// exists at all (smfretHasDDDAPairing()) — a no-op before that, matching
+// every other auto-rerun listener in this module.
+$('smfretAlignTolPx').addEventListener('change', ()=>{ if(smfretHasDDDAPairing()) pairSmfretSites(); });
 // Many SOI signals are faint, so the threshold/σ_PSF/window etc. often need
 // hand-tuning to find them at all — re-run automatically once an SOI
 // composite is already showing, same "reflects the current settings without
@@ -17226,20 +17258,24 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10m — smFRET: one "Pair DD + AA" button, not two.
-"Pair DD + DA" and "Align channels" (two separate buttons for two genuinely
-different pairing approaches) are now one "Pair DD + AA" button, with a new
-"Pairing method" dropdown choosing which algorithm actually runs — "Via
-distances and angles" (the original histogram fit, default) or "Via
-channel matching" (the direct registration added last round). The two
-approaches themselves are completely unchanged, just reached through one
-consolidated control instead of two separate buttons that always did the
-same underlying job. "Align channels match tol. (px)" now only shows when
-"Via channel matching" is selected, since it's meaningless otherwise.
-Verified: the default selection still dispatches to the original
-histogram-based pairing, switching the dropdown dispatches to the
-registration approach instead, both producing the same real-data results
-as before this round.
+log(`webSMLM v0.12.1-dev · build 2026-09-10n — smFRET: 5 follow-up fixes on the pairing UI.
+(1) "Align channels match tol. (px)" renamed to "Align channels match
+tolerance (px)", default lowered from 10 to 4 px.
+(2) The consolidated pairing button renamed back to "Pair DD + DA".
+(3) A third rename ("Link DD/DA/AA" → "Filter SOIs") was requested but
+skipped — "Filter SOIs" already labels a different, unrelated control
+(Get time traces' own DD+DA/DD+DA+AA channel selector); reusing the name
+would create real ambiguity, so this one was left as-is on confirmation.
+(4) Fixed a real, reported bug: toggling the SOI composite's AA/DD+DA
+view was silently destroying the entire active Time trace session
+(including its own composite highlight, added last round) — a gap in
+the existing "just peeking, don't discard real work" protection, which
+covered the pairing state but never the trace session itself. The
+highlight (and the trace view generally) now correctly survives a full
+view round trip.
+(5) The highlight's connecting line now starts/ends at each circle's own
+edge instead of cutting through its centre. Also, changing the match
+tolerance now re-runs Pair DD + DA automatically once a pairing exists.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
