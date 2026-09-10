@@ -2567,6 +2567,79 @@ relevant one before editing rather than scrolling:
   120-frame export round-trips through `JSON.parse()` with all expected top-level fields, each
   site's own `photonsDD` correctly containing real `null` gaps at the ALEX off-parity frames.
 
+  **`sSmlmCrossCandidates()` + "Calibrate via AA"/"Pair (fixed window)"** (v0.12.1-dev, requested —
+  a direct follow-up to the sSMLM auto-fit's known weakness on a dual-view/two-region setup, see
+  that module's own paragraph above): "we know the AA positions... In a way, AA also provides
+  'ground truth' information of the position of the DA molecules... merge to look at the composite
+  of direct donor + direct acceptor channel." AA (direct-acceptor-excitation) is a genuine,
+  FRET-INDEPENDENT ground truth for a real acceptor position — unlike DA, which is weak,
+  FRET-sensitized emission cross-talk riding on the donor's own excitation — so cross-pairing the
+  donor-excitation composite's own sites against a fresh, independent AA localization gives a much
+  stronger signal for the true channel geometry than DD+DA alone. **A naive full merge (donor-exc
+  composite + AA composite, then a plain `sSmlmCandidates()` call over the combined pool) was tried
+  first and found NOT to work** — confirmed empirically via a synthetic dual-view-style test before
+  building anything further: it also generates DD↔DD and AA↔AA combinations, which have no physical
+  meaning as a donor/acceptor correspondence and just add MORE same-channel-type background dilution
+  on top of what DD+DA alone already had (no visible peak at the true separation in either the
+  DD-exc-alone histogram or the naive full-merge one). `sSmlmCrossCandidates(listA, listB, px,
+  distMin, distMax, angleCenter, angleTol, onProgress)` (MODULE: sSMLM, right after
+  `sSmlmCandidates()`) fixes this — a genuinely separate function, not a parameterised
+  `sSmlmCandidates()` call, that only ever pairs ACROSS the two lists (every `listA[a]` against
+  every `listB[b]`, never within either list) — same per-pair math/output shape as
+  `sSmlmCandidates()` (`{i,j,dist,angle,dAngle,sAngle,rawAngle}`) so a result flows through
+  `fitSSmlmDistanceFromCands()`/`fitSSmlmAngleFromCands()` unchanged, but `i`/`j` here are LOCAL
+  indices into `listA`/`listB` respectively (NOT a combined array) since nothing consuming THIS
+  candidate set ever dereferences them — this output is never fed to `pairCore()`, only to fitting/
+  the histogram display, both of which only read `.dist`/`.angle`/`.rawAngle`. Verified via
+  Playwright with a synthetic dual-view-style dataset (150 real donor/acceptor complexes at a true
+  256 px/40,960 nm separation, only 15% showing visible weak DA signal but 90% showing strong AA
+  signal, plus background clutter in both channels): cross-list-only restriction shows a real,
+  visible local spike at the true distance bin (1615 vs. ~1442/1531 in its immediate neighbours) —
+  clearly identifiable by eye — where the DD-exc-alone histogram showed nothing distinguishable at
+  all at that same bin.
+
+  `fitSSmlmDistanceFromCands(cands, dims)` gained an optional 2nd `dims` parameter (default
+  `sSmlmBoxDims()`, unchanged for its two existing `distFirst`/`angleFirst` callers in
+  `fitSSmlmDistAndAngle()`) — needed because the cross-channel candidate pool spans a different,
+  generally LARGER combined donor+AA bounding box than the donor-composite-only extent
+  `sSmlmBoxDims()` itself computes; using the wrong (smaller) box would understate the true
+  background region these cross-candidates actually span.
+
+  **`calibrateSmfretGeometryViaAA()`** ("Calibrate via AA", sharing the Localize SOI/Pair DD + DA
+  row's own follow-up row) runs a fresh, on-demand AA localization (same `smfretSOICore(cfg, stack,
+  {smfretSoiChannel:'acceptor'})` call `linkSmfretChannels()` already makes), computes an EXPLICIT
+  combined bounding box over both the donor-exc list and the AA list together (not `sSmlmBoxDims()`'s
+  own donor-only one), runs `sSmlmCrossCandidates()` over the full physical range (0 to that
+  combined diagonal, any angle), then fits — UNCONDITIONALLY angle-first regardless of the sidebar's
+  own `sSmlmFitOrder` setting, since AA's whole value here is a strong, clean angle signal, and
+  distance still benefits most from being restricted by a reliable angle window first (same
+  reasoning as `angleFirst` mode's own paragraph above). Sets the shared Distance/Angle fields and
+  shows the resulting histogram (`sSmlmPairContext='smfret'` so a later marker drag stays correctly
+  scoped, see the `syncSSmlmZRangeFromDist()` fix above) — does NOT pair anything itself.
+
+  **`pairSmfretFixedWindow()`** ("Pair (fixed window)") exists because `getSmfretPairingFromDonor()`
+  ("Pair DD + DA") ALWAYS calls `previewSSmlmPairsCore()` first (by design — its own "always fresh"
+  convention, and the fix for an earlier real bug, see that function's own comment), which would
+  otherwise immediately re-fit the Distance/Angle window from the weaker DD+DA-only signal and
+  silently undo a just-calibrated one the instant it's clicked. `pairSmfretFixedWindow()` mirrors
+  `getSmfretPairingFromDonor()`'s own guards and tail EXACTLY, just building `cfg` from whatever the
+  sidebar fields ALREADY hold (no `previewSSmlmPairsCore()` call at all) before calling
+  `pairSSmlm(cfg, myEpoch)` — the plain, no-refit pairing primitive `runSSmlmPair()`/"Pair & plot
+  sSMLM" already use for the same reason on the sSMLM side. Enabled/disabled alongside
+  `smfretPairingBtn` at every one of its own existing lifecycle points (Localize SOI's success path;
+  the 3 reset blocks — `clearSmfretFixSOI()`'s tail, the fresh-load/simulate resets, and
+  `locateSmfretSOI()`'s own invalidation branch) — same gate (`!fitted.length`) as "Pair DD + DA",
+  since it doesn't require a Calibrate via AA run first (a hand-typed window works too).
+
+  **Still not fully solved**: even with this stronger cross-channel signal, the underlying
+  two-stage-seeding distance fit still doesn't reliably converge tightly — verified on the same
+  synthetic dataset via `calibrateSmfretGeometryViaAA()` end-to-end (angle came out at 1°, very
+  close to the true 0°, but Distance min/max came back as a wide, uninformative ~2,700–89,600 nm
+  window despite a real, visible peak existing in the underlying angle-restricted histogram at
+  ~40,960 nm). The angle half of this calibration is a genuine, validated improvement; the distance
+  half still needs visual verification/manual placement on the histogram, same caveat as
+  `sSmlmFitOrder='angleFirst'` already carries — not yet resolved this round.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
