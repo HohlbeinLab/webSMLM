@@ -681,6 +681,63 @@ relevant one before editing rather than scrolling:
   only modestly (3.94→4.41 px), while 5% (below the floor) correctly fell back to the full segment
   and reproduced the 100% result exactly.
 
+  **Round 2's own reference used to include the segment being aligned, so it could never revise
+  round 1 — fixed via leave-one-out** (Hazen Babcock, [issue #9](https://github.com/HohlbeinLab/webSMLM/issues/9),
+  2026-09-06, independently re-verified against this exact code before applying). `aimDrift2D()`'s
+  round 2 builds `full` from EVERY segment's own round-1-corrected position, then scores each
+  segment `k` against `full` via `bestShift()`'s histogram-intersection search
+  (`t=Σ min(cs[i],ref)`). Since `full` already contains segment `k`'s own contribution (added in the
+  very loop that builds it), at segment `k`'s own round-1 position every one of its bins has
+  `ref>=cs[i]`, so `min(cs[i],ref)=cs[i]` there — the score is `Σcs[i]`, the fixed total no OTHER
+  shift can ever exceed (`min(cs[i],ref)<=cs[i]` always). Zero additional shift therefore always
+  attains the maximum, whatever round 1's own estimate actually was — round 2 could only ever
+  contribute the sub-pixel parabola term on top of an unquestioned round-1 value, never correct a
+  real round-1 error, no matter how large. **Reproduced exactly**, independently, before touching any
+  code: built a synthetic 20-segment/60-locs-per-segment dataset (realistic camera-FOV spatial scale,
+  not a toy few-hundred-nm box — an early reproduction attempt used too small a synthetic FOV
+  relative to the 15 nm bin size, causing accidental cross-site bin collisions that masked the bug
+  entirely; widening the FOV to a realistic scale reproduced it cleanly), injected a deliberate 60 nm
+  (4-bin) error into one segment's own round-1 estimate — the unpatched code recovered it as `0.00
+  nm` (left in place, matching the issue's own independently-reported `-0.001 bins`), confirming the
+  diagnosis is exactly right, not just plausible. **`picasso/aim.py` has the identical
+  self-referential round 2** (passes the corrected set as both target AND reference for its second
+  pass, same `min()`-based scoring) — so this is a deliberate DIVERGENCE from the reference
+  implementation this codebase otherwise tracks closely, not a port of an upstream fix; not yet
+  reported to the Picasso project as of the issue thread.
+
+  **Fix**: `subFrom(map,list,ox,oy)` (next to `addTo()`, its exact inverse — decrements a bin's count,
+  deleting the key entirely once it would reach 0, matching `addTo()`'s own "absent key means 0"
+  convention) removes segment `k`'s own contribution from `full` immediately before scoring it, then
+  `addTo()` restores it immediately after — O(segment size) per segment (O(N) over the whole round),
+  not the O(nSeg²) an actual per-segment full-rebuild would cost. Re-verified against the SAME
+  injected-error reproduction above: the patched code recovers the 60 nm error to within 0.08 nm
+  (`-60.08` vs. the true `-60`), matching the issue's own reported `-4.00 bins` recovery almost
+  exactly. **A genuinely new failure mode this fix would otherwise introduce, caught before
+  shipping** (not present in the issue's own proposed patch, which doesn't touch `bestShift()`
+  itself): leaving segment `k` out of `full` can leave it EMPTY of any real evidence at all — most
+  simply, `nSeg===1` (no other segment exists to align against), but also possible whenever a segment
+  is the sole occupant of its own spatial footprint. `bestShift()`'s own grid search then ties every
+  candidate shift at `t=0`, and the scan's strict `t>best` comparison silently resolves that tie to
+  whichever shift was tried FIRST — the search window's own `(-R,-R)` corner — a spurious, systematic
+  bias with zero real evidence behind it (the same failure SHAPE as round 1's own now-fixed
+  empty-segment bug, see this module's own `frame0` comment above, just reached a new way). Closed
+  with one shared guard inside `bestShift()` itself (both the 2D and z copies): `if(best<=0) return
+  [0,0]` (`return 0` for z) — "no real alignment evidence" means "don't move this segment," not "pin
+  it to a search-window corner." Verified directly: a synthetic single-segment (`nSeg===1`) call to
+  `aimDrift2D()`/`aimDriftZ()` returns `segdx=segdy=[0]`/`segdz=[0]` post-fix, not a corner-pinned
+  spurious value.
+
+  **The issue itself only covers `aimDrift2D()`'s 2D case — `aimDriftZ()`'s own round 2 has the
+  IDENTICAL `full` self-inclusion bug**, unaddressed by the issue's own proposed patch (its 1D
+  `addTo()`/`bestShift()` are structurally the same shape as the 2D versions, just single-valued bin
+  keys instead of `KEY(bx,by)`-hashed pairs). Fixed the same way — a 1D `subFrom()`, the same
+  `subFrom`/`bestShift`-call bracketing in z's own round 2 loop, and the identical `best<=0` guard in
+  z's own `bestShift()` — so 2D and z drift correction stay consistent rather than one silently
+  keeping the bug the other just fixed. Verified with an analogous synthetic multi-segment z dataset
+  (real recovery, no exceptions) and the same `nSeg===1` degenerate-guard check.
+  Verified end-to-end via Playwright (Simulate movie → Localize → Correct drift) with zero page
+  errors, confirming the interactive path is unaffected by any of the above.
+
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +

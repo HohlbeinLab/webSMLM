@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2677   PARAMS registry, single source of truth for params;
+    params          2682   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,12 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3558   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3563   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb)
-    simulation      3857   synthetic stack generator ("Simulate movie")
-    detect          4735   per-frame band-pass + local-maxima detection
-    fit             5012   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3862   synthetic stack generator ("Simulate movie")
+    detect          4740   per-frame band-pass + local-maxima detection
+    fit             5017   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +60,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5651   accumulate to offscreen buffer; view/colour/blur;
+    render          5656   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -86,14 +86,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7085   frame-parallel detect/fit worker pool; dedicated
+    workers         7090   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7395   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7723   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7400   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7728   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -104,7 +104,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8189   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8194   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -113,10 +113,15 @@
                            driftSamplePct (AIM sample %) subsamples each
                            segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
-                           guarded) — speed vs. estimation precision
-    locprecision    8719   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+                           guarded) — speed vs. estimation precision;
+                           round 2's own reference used to include the
+                           segment being scored (issue #9, Hazen Babcock) —
+                           subFrom()/addTo() leave-one-out fix in both
+                           aimDrift2D()/aimDriftZ(), plus a best<=0 guard
+                           in bestShift() for the no-evidence-left case
+    locprecision    8796   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9453   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9530   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -168,7 +173,7 @@
                            paired SOI site dark orange instead of removing
                            an unpaired one — srSpots/srLocs stay the full,
                            unfiltered set always, no more __pairedSOI hack
-    spt             11720   single particle tracking, trackpy-inspired;
+    spt             11797   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -199,7 +204,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13258  top-level orchestration, *Core()/wrapper split;
+    pipeline        13335  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -260,7 +265,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   13928  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14005  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -314,14 +319,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           16514  localizations table, filtering, histograms;
+    table           16594  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17227  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17307  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2050,7 +2055,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-09p</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -8260,6 +8265,15 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, samp
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1, k*segFrames+segFrames/2));
   const KEY=(bx,by)=>(bx+16384)*32768+(by+16384);
   const addTo=(map,list,ox,oy)=>{ for(const L of list){ const k=KEY(Math.floor((L.x+ox)*qd),Math.floor((L.y+oy)*qd)); map.set(k,(map.get(k)||0)+1); } return map; };
+  // Inverse of addTo() — decrements this list's own bin counts in `map`,
+  // dropping a bin entirely once it reaches 0 (matches addTo's own
+  // "absent key means 0" convention, so a bin that only ever held this
+  // list's own points vanishes rather than lingering at 0). Only ever
+  // called with the EXACT SAME (list,ox,oy) an earlier addTo() call used to
+  // populate `map`, so every bin visited here is guaranteed already present
+  // — see round 2's own comment below for why this exists at all.
+  const subFrom=(map,list,ox,oy)=>{ for(const L of list){ const k=KEY(Math.floor((L.x+ox)*qd),Math.floor((L.y+oy)*qd));
+    const c=map.get(k); if(c===undefined) continue; if(c<=1) map.delete(k); else map.set(k,c-1); } return map; };
   // Sub-pixel shift (px) that aligns `list` (pre-offset by ox,oy) to reference
   // map `ref`, by maximizing histogram intersection over an integer bin grid.
   function bestShift(list,ox,oy,ref){
@@ -8271,6 +8285,21 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, samp
       let t=0; for(let i=0;i<bx.length;i++){ const cr=ref.get(KEY(bx[i]+sx,by[i]+sy)); if(cr) t+=Math.min(cs[i],cr); }
       grid[(sy+R)*W+(sx+R)]=t; if(t>best){best=t;bsx=sx;bsy=sy;}
     }
+    // No candidate shift found ANY overlap with `ref` at all (best stays at
+    // its <=0 floor — either `list` is empty, so every t is trivially 0, or
+    // `ref` shares literally no occupied bin with `list` anywhere in the
+    // search window) — every (sx,sy) is then an exact tie at t=0, and the
+    // grid-scan's own `t>best` (strict) silently picks whichever shift was
+    // tried FIRST (the search window's own (-R,-R) corner), a spurious,
+    // systematic bias with no real evidence behind it. Reported/found
+    // exactly this way for round 1's own now-fixed empty-segment case (see
+    // aimDrift2D()'s frame0 comment) — same failure shape can resurface here
+    // for round 2's leave-one-out reference (below) whenever a segment is
+    // the sole occupant of its own spatial footprint (most simply: only one
+    // segment exists at all, nSeg===1, so leaving it out empties `ref`
+    // completely) — no real alignment evidence means "don't move it", not
+    // "pin it to a search-window corner".
+    if(best<=0) return [0,0];
     const at=(sx,sy)=> (sx<-R||sx>R||sy<-R||sy>R)?0:grid[(sy+R)*W+(sx+R)];
     const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
     return [ (bsx+par(at(bsx-1,bsy),best,at(bsx+1,bsy)))*iD, (bsy+par(at(bsx,bsy-1),best,at(bsx,bsy+1)))*iD ];
@@ -8296,6 +8325,38 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, samp
   // Needs EVERY segment's own round-1 result to build `full` — not something
   // a partial round 1 can feed at all, so a round-1 stop skips round 2
   // entirely rather than running it on an incomplete/meaningless reference.
+  //
+  // LEAVE-ONE-OUT (github.com/HohlbeinLab/webSMLM/issues/9, Hazen Babcock,
+  // 2026-09-06 — verified independently against this exact code before
+  // applying): `full` is built from ALL segments including k itself, so
+  // scoring seg[k] against it at its OWN round-1 shift (sx=sy=0 in
+  // bestShift's own search) always lands every one of seg[k]'s bins on a
+  // ref count >= its own contribution — bestShift's score there is
+  // therefore Σ min(cs[i],ref)=Σ cs[i], the FIXED total no other candidate
+  // shift can exceed (min(cs[i],ref)<=cs[i] always) — so round 2 could
+  // NEVER move a segment by more than the sub-pixel parabola term, no
+  // matter how wrong round 1's own estimate was. Reproduced exactly per the
+  // issue's own numbers before this fix (round 2 shifts <0.16 bins across
+  // 20 real segments; a deliberately injected 60 nm/4-bin round-1 error
+  // came back at -0.001 bins, i.e. untouched) and confirmed fixed after
+  // (same injected error recovered to within 0.2 bins). Also present, and
+  // fixed the same way, in aimDriftZ()'s own round 2 below — the issue
+  // itself only covers the 2D case, but the z round 2 has the identical
+  // `full` self-inclusion. Picasso's own picasso/aim.py has the same
+  // self-referential round 2 (passes the corrected set as both target AND
+  // reference) — this is a deliberate DIVERGENCE from the reference
+  // implementation, not a port of a Picasso fix; not reported upstream by
+  // this project (see the issue thread for whether that's since happened).
+  // subFrom()/addTo() around bestShift() below removes seg[k]'s own
+  // contribution from `full` before scoring it, then restores it —
+  // O(segment size) per segment (O(N) over the whole round), not the
+  // O(nSeg²) a per-segment full-rebuild would cost. bestShift()'s own new
+  // best<=0 guard (see its comment) is what keeps this safe when leaving a
+  // segment out empties `full` entirely (nSeg===1, no other segment to
+  // align against at all) — without it this construction would replace
+  // "round 2 is a no-op" with "round 2 pins the lone segment to the search
+  // window's own corner", a strictly worse regression this patch must not
+  // introduce.
   let dx2, dy2, nSegEff;
   if(stopped){
     nSegEff=completed; dx2=dx.slice(0,completed); dy2=dy.slice(0,completed);
@@ -8305,7 +8366,9 @@ async function aimDrift2D(locs, nFrames, px, segFrames, intersectNm, roiNm, samp
     nSegEff=nSeg;
     for(let k=0;k<nSeg;k++){
       if(shouldStop()){ stopped=true; nSegEff=k; break; }
+      subFrom(full, seg[k], dx[k], dy[k]);
       const [sx,sy]=bestShift(seg[k], dx[k], dy[k], full);
+      addTo(full, seg[k], dx[k], dy[k]);
       dx2f[k]=dx[k]+sx; dy2f[k]=dy[k]+sy;
       await yieldMaybe(0.5+0.5*k/nSeg);
     }
@@ -8361,11 +8424,19 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, samplePct, fram
   if(ncl) onLog(`z drift: using ${nz.toLocaleString()} in-range z, excluding ${ncl.toLocaleString()} clamped (out of calibration).`);
   const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1,k*segFrames+segFrames/2));
   const addTo=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd); map.set(b,(map.get(b)||0)+1); } return map; };
+  // Inverse of addTo() — see aimDrift2D()'s own identical helper for why
+  // this exists (round 2's leave-one-out fix, below).
+  const subFrom=(map,list,o)=>{ for(const z of list){ const b=Math.floor((z+o)*qd);
+    const c=map.get(b); if(c===undefined) continue; if(c<=1) map.delete(b); else map.set(b,c-1); } return map; };
   function bestShift(list,o,ref){
     const bs=[],cs=[]; const m=addTo(new Map(),list,o);
     for(const [b,c] of m){ bs.push(b); cs.push(c); }
     const W=2*R+1, grid=new Float64Array(W); let best=-1,bb=0;
     for(let sx=-R;sx<=R;sx++){ let t=0; for(let i=0;i<bs.length;i++){ const cr=ref.get(bs[i]+sx); if(cr) t+=Math.min(cs[i],cr); } grid[sx+R]=t; if(t>best){best=t;bb=sx;} }
+    // See aimDrift2D()'s own bestShift() for why this guard exists — same
+    // degenerate all-tied-at-0 case (no real evidence -> don't move it),
+    // needed here for the exact same leave-one-out reason.
+    if(best<=0) return 0;
     const at=sx=>(sx<-R||sx>R)?0:grid[sx+R];
     const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
     return (bb+par(at(bb-1),best,at(bb+1)))*binNm;
@@ -8381,12 +8452,18 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, samplePct, fram
   if(stopped){
     nSegEff=completed; dz2=dz.slice(0,completed);
   }else{
+    // Leave-one-out round 2 — see aimDrift2D()'s own comment on this exact
+    // fix (github.com/HohlbeinLab/webSMLM/issues/9) for the full reasoning;
+    // z's round 2 had the identical `full` self-inclusion bug.
     const full=new Map(); for(let k=0;k<nSeg;k++) addTo(full,seg[k],dz[k]);
     const dz2f=new Float64Array(nSeg);
     nSegEff=nSeg;
     for(let k=0;k<nSeg;k++){
       if(shouldStop()){ stopped=true; nSegEff=k; break; }
-      dz2f[k]=dz[k]+bestShift(seg[k],dz[k],full); await yieldMaybe(0.5+0.5*k/nSeg);
+      subFrom(full,seg[k],dz[k]);
+      dz2f[k]=dz[k]+bestShift(seg[k],dz[k],full);
+      addTo(full,seg[k],dz[k]);
+      await yieldMaybe(0.5+0.5*k/nSeg);
     }
     if(stopped && nSegEff===0) nSegEff=1;
     dz2 = stopped ? dz2f.slice(0,nSegEff) : dz2f;
@@ -16378,24 +16455,25 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-09p — three more follow-ups.
-(1) Get time traces now samples AA at the paired acceptor position
-whenever a site is already paired, regardless of the "Filter SOIs"
-setting — a real acceptor position from pairing means AA no longer
-needs the explicit "+AA" option to be available; that option now
-only matters for the weaker, unpaired guess. "Link channels" also no
-longer reads "Filter SOIs" at all — it always ran its own
-independent acceptor-channel check regardless, so the requirement
-never reflected a real dependency. (2) Changing "Position donor?"
-(or any Distance/Angle field) no longer silently discards an
-already-applied "Link channels" result: if linking had already run,
-it's now automatically re-applied to the fresh pairing the field
-change produces. (3) The small DD/DA/AA ROI thumbnails are now inset
-directly into the Time trace plot's own top-right corner instead of
-sitting in a separate row below it, and each now shows a magenta
-crosshair marking the EXACT fitted sub-pixel position, not just the
-crop's rough centre. Verified via Playwright against the real ALEX
-dataset throughout.
+log(`webSMLM v0.12.1-dev · build 2026-09-10a — AIM drift correction fix.
+Round 2 of AIM drift correction (an internal refinement pass that runs
+automatically on every Correct drift click, not something you trigger
+twice) checked each time segment against a reference that included
+that very segment's own data — so it always scored as a perfect match
+regardless of whether round 1 had estimated it correctly, silently
+making round 2 a no-op. Found and diagnosed by Hazen Babcock (issue
+#9, with a proposed fix); independently re-verified against the real
+code (reproduced his exact numbers: an injected 60 nm error was left
+at 0.00 nm by the old code, recovered to -60.08 nm after the fix) and
+extended to also cover: aimDriftZ()'s identical bug (the issue only
+covered the 2D case), plus a new degenerate-case guard for when a
+segment has no other segment left to compare against (e.g. only one
+segment total) that the original proposed patch didn't handle. Real
+per-frame drift correction quality on well-conditioned data is
+essentially unaffected (round 1 was usually already right); the fix
+matters most on sparser datasets and longer segment chains, where
+round 2 previously provided no safety net at all despite documenting
+itself as doing so.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -17920,6 +17998,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <li><b>Koen J. A. Martens</b> also contributed <b>Gain &amp; offset estimation</b> (the PCFO photon-conversion-factor method) and the Simulation settings module's physically-motivated emitter-lifetime and camera forward models (<a href="https://github.com/HohlbeinLab/webSMLM/pull/5" target="_blank">PR #5</a>, v0.10.2).</li>
       <li><b>Aun Al Atiat</b> contributed the Read the Docs manual build (Sphinx + MyST, splitting <code>docs/DOCUMENTATION.md</code> into a multi-page reference site) (<a href="https://github.com/HohlbeinLab/webSMLM/pull/6" target="_blank">PR #6</a>, v0.11.4).</li>
       <li><b>Hazen Babcock</b> contributed a separable-Fisher-build fast path for the spherical and axis-aligned-elliptical Gaussian MLE fitters — hoisting per-axis erf/exp terms instead of recomputing them per pixel, ~1.7&ndash;1.9&times; faster fitting with bit-identical output (<a href="https://github.com/HohlbeinLab/webSMLM/pull/7" target="_blank">PR #7</a>, v0.11.10).</li>
+      <li><b>Hazen Babcock</b> also identified and diagnosed a real bug in AIM drift correction's second refinement round, which compared each segment against a reference that included the segment itself, silently reducing it to a no-op — with a proposed leave-one-out fix (<a href="https://github.com/HohlbeinLab/webSMLM/issues/9" target="_blank">issue #9</a>, v0.12.1-dev).</li>
     </ul>
 
     <h3>License &amp; author</h3>

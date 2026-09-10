@@ -677,7 +677,19 @@ widths per frame — see [§7](#7-calibration-json-format).
 AIM (adaptive intersection maximization), point-based, no
 FFT, 2D+z. Segments localizations in time (`driftSeg`), grid-searches the
 shift that maximizes coincident localizations against the accumulated
-reference (`driftRoi`), then a parabolic sub-pixel peak refine.
+reference (`driftRoi`), then a parabolic sub-pixel peak refine. Two
+internal rounds run automatically on every **Correct drift** click (not a
+user-facing repeat step): round 1 chains each segment to the previous
+one's own already-corrected position; round 2 re-checks every segment
+against a SINGLE combined reference built from all segments together, so a
+chain-accumulated round-1 error can still get caught. Round 2 scores each
+segment with a leave-one-out reference (`subFrom()`/`addTo()` around
+`bestShift()` in `aimDrift2D()`/`aimDriftZ()`) — earlier, the reference
+included the segment's own contribution, which always scored as the best
+possible match regardless of whether round 1 had actually gotten that
+segment right, silently reducing round 2 to a no-op
+([issue #9](https://github.com/HohlbeinLab/webSMLM/issues/9), Hazen
+Babcock).
 
 ### Localization precision (NeNA & FRC) (`locprecision`) {#locprecision}
 
