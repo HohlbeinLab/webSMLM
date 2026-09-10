@@ -2676,6 +2676,52 @@ relevant one before editing rather than scrolling:
   a real smFRET sample with imperfect donor/acceptor labelling stoichiometry, not an alignment
   defect.
 
+  **`drawSmfretTraceSelectionOverlay()`** (v0.12.1-dev, requested — "add blue highlighting circles
+  in the SOI composite window of which ROIs are currently selected with a line connecting the two
+  circles") highlights the currently-scrubbed Time trace site directly on the SOI composite: a blue
+  (`#3fa9ff`) circle at the site's own DD position, and — once paired — a second one at its DA/AA
+  position (`x2,y2`), joined by a line. Radius is `winr+3` NATIVE px, scaled by the current zoom
+  exactly like `drawSpotOverlays()`'s own ROI-box radius, so it sits proportionally just outside the
+  real ROI box at any zoom level rather than drifting relative to it. Reads `smfretTraceIdx`/
+  `smfretTraces` fresh on every call (no state threading needed) — `drawSmfretTrace(idx)`'s own tail
+  just calls `clampView(); drawView();` when `srLocs===smfretSOI`, mirroring the exact "just refresh
+  the marking" pattern `markSmfretSoiPairedKeys()` already uses. Wired into BOTH of `drawSpotOverlays()`'s
+  own SOI-composite call sites (`drawView()`'s interactive path AND the PNG-export `isSR` branch), so
+  a saved "Save plot/image" composite also shows it when relevant. Never reachable through
+  `_plotTarget`/`SvgRecordingContext` (the SOI composite is raster-only, same as the raw frame/
+  reconstruction) — its own `ctx.arc()`+`ctx.stroke()` pairing would hit that recorder's own known
+  gap otherwise (see **render**'s own paragraph on this). Verified via Playwright against the real
+  ALEX dataset: scrubbing to a specific site (site 4/141) produces real `#3fa9ff`-matching pixels on
+  the SR canvas at exactly that site's own DD/DA composite positions.
+
+  **A same-round investigation, reported as a possible wiring bug, found no bug**: "I do not see any
+  anticorrelation expected that when acceptor bleaches (DA and AA) down that DD goes up... indicates
+  somewhat that the linking is not done [correctly]." Investigated directly against the real ALEX
+  dataset (post `alignSmfretChannels()` pairing) rather than assumed: (1) the DD/DA/AA extraction
+  code itself is correct — `x,y`/`x2,y2` are real, sensible, finite positions in their own expected
+  regions, matching the already-documented, unchanged extraction logic. (2) Match QUALITY doesn't
+  explain it — splitting paired sites into "tight" vs "loose" match-distance halves gave
+  indistinguishable anticorrelation rates (24.3% vs 26.8%), arguing against `alignSmfretChannels()`
+  producing systematically-wrong (spurious) pairs as the root cause. (3) A population-level check
+  (first-half vs. second-half trace means) found BOTH DD and DA tend to decrease together over the
+  movie (mean deltas −1128/−1674) — consistent with ordinary independent photobleaching of both
+  fluorophores dominating any per-molecule FRET-driven anticorrelation at the population-average
+  level. (4) A targeted, per-molecule bleach-STEP check (find each site's own largest clean DA drop,
+  excluding exact-zero REJECTED-FIT artifacts — a real gotcha caught while building this check: a
+  non-converged fit's own "0" — see **smFRET**'s existing convention above — was initially being
+  mistaken for a real near-zero photon count, inflating "drop size" for spurious reasons) found DD
+  goes up right after a DA drop only 49.3% of the time — statistically indistinguishable from chance.
+  **Conclusion, not yet resolved further this round**: no coding defect found: this app currently
+  reports RAW, uncorrected per-channel photon counts only — no spectral bleedthrough/crosstalk
+  correction, no gamma/beta factor, no E_raw/S_raw computation (already-documented open items, see
+  `docs/REFACTOR_PLAN.md`'s smFRET/ALEX section). If donor→acceptor bleedthrough dominates this
+  sample's own DA signal over genuine FRET-sensitized emission, DD and DA would be expected to track
+  each other (via shared donor brightness) rather than anticorrelate — a real, physically plausible
+  explanation consistent with what was measured, though not conclusively distinguished from other
+  possibilities (e.g. this specific "control, no ATP" condition genuinely having little dynamic FRET
+  behaviour) without further, more targeted per-trace inspection than a population-level script can
+  give.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
