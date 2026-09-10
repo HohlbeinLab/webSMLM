@@ -1440,6 +1440,58 @@ relevant one before editing rather than scrolling:
   change — a dedicated "restrict the wide scan by the current Angle window" toggle is a plausible,
   not-yet-built follow-up if this proves broadly useful.
 
+  **`sSmlmFitOrder`** ("Fit order", Distance first/Angle first, default Distance first, v0.12.1-dev)
+  — the toggle proposed just above, built the same round after the user confirmed the real bearing
+  is known in advance for a dual-view/image-splitter setup: "we know the angle... that might help.
+  ...Should we insert a toggle... or how can we keep it general?" `fitSSmlmDistAndAngle()` was split
+  into two reusable, DOM-free pieces — `fitSSmlmDistanceFromCands(cands)` and
+  `fitSSmlmAngleFromCands(cands)`, each taking an explicit candidate array instead of implicitly
+  reading `sSmlmLastCands`/the live Distance fields — so both fit orders share identical fitting
+  code, only the candidate SUBSET and the order differ. `distFirst` (default) is the ORIGINAL,
+  real-data-validated behaviour verbatim (fit distance from the wide, any-angle pool; then fit angle
+  restricted to the just-fitted distance window) — re-verified byte-for-byte identical against a
+  synthetic regression case (`11942, 20505, -1`, matching the pre-refactor code's own output exactly)
+  before shipping the refactor. `angleFirst` reverses both the order AND the restriction direction:
+  fits angle from the wide, ANY-DISTANCE pool first, then restricts to that fitted angle window via a
+  new `filterSSmlmCandsByAngle(cands, angleCenter, angleTol)` (mirrors `sSmlmCandidates()`'s own
+  per-candidate folded-angle-distance math exactly, applied post-hoc to each candidate's already-
+  computed `angle` field — so it agrees with what a fresh `sSmlmCandidates()` call at that exact
+  center/tolerance would have kept) before fitting distance on the result. Wired the same "refresh
+  an existing result automatically" convention as `sSmlmBgProfile`'s own change listener.
+
+  **The Distances HISTOGRAM itself also respects `angleFirst`** (not just the fitted numbers) —
+  without this, the toggle would improve the auto-fitted angle but leave the visible PLOT just as
+  diluted as before, missing the actual demonstrated benefit (a ~4-5x background reduction making
+  the true peak visible by eye). `drawSSmlmHist()`'s dist-mode branch now filters `sSmlmLastCands`
+  through `filterSSmlmCandsByAngle()` (using the LIVE Primary angle/Angle tolerance, so manually
+  narrowing either field re-filters the plot immediately) whenever `sSmlmFitOrder==='angleFirst'` —
+  mirroring the angle histogram's own pre-existing "restrict by the other axis's current window"
+  logic, just in the direction this fit order needs; `distFirst` is completely untouched, still the
+  full, unrestricted "whole picture" the histogram was originally designed to show. Verified via
+  Playwright on the same synthetic dual-view-style dataset: `angleFirst` correctly narrows the
+  histogram's own candidate count (72,010 → 42,143 in the test, using the auto-fitted ±32° window)
+  while `distFirst` still shows the full 72,010.
+
+  **A real, reported bug found and fixed the same round, unrelated to the above**: dragging the
+  Distance min/max markers directly on the Distances histogram was switching the reconstruction
+  panel from the smFRET SOI composite to a genuine z-coloured "SMLM reconstruction" — exactly the
+  behaviour `refreshSmfretPairingLive()`'s own comment says should NOT happen in the `'smfret'`
+  pairing context ("this context ... deliberately does NOT touch the reconstruction panel"). Root
+  cause: `syncSSmlmZRangeFromDist()` (MODULE: sSMLM, the plain `'sSmlm'`-context colour-rescale
+  helper) is wired to the SAME `change` event on `sSmlmDistMin`/`Max` as `refreshSmfretPairingLive()`
+  — both listeners always fire together — but `syncSSmlmZRangeFromDist()` itself never checked
+  `sSmlmPairContext` at all, only `sSmlmOriginalLocs==null`/`sSmlmShowingRaw`, so it unconditionally
+  called `rerender(true)` regardless of which module actually committed the pairing.
+  `sSmlmPairContext` postdates this function (added for the smFRET live-repair feature in an earlier
+  round), and the missing guard was a real gap, not a deliberate omission —
+  `refreshSmfretPairingLive()`'s own comment already documented the INTENDED split, it just was
+  never enforced on this side. Fixed with one added condition:
+  `if(sSmlmOriginalLocs==null || sSmlmShowingRaw || sSmlmPairContext!=='sSmlm') return;`. Verified
+  via Playwright: with `sSmlmPairContext='smfret'`, dragging a distance marker no longer touches
+  `zmin`/`zmax` (stayed empty, confirming the function returned immediately); with
+  `sSmlmPairContext='sSmlm'`, the exact same drag still correctly sets `zmin`/`zmax` and rerenders,
+  unchanged from before this fix.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
   warning only, id stays `smfretBox`). **Sidebar label renamed** "(Caution!) smFRET (experimental)"

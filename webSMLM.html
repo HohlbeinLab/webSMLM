@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2722   PARAMS registry, single source of truth for params;
+    params          2738   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3611   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3636   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      3910   synthetic stack generator ("Simulate movie")
-    detect          4867   per-frame band-pass + local-maxima detection
-    fit             5144   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3935   synthetic stack generator ("Simulate movie")
+    detect          4892   per-frame band-pass + local-maxima detection
+    fit             5169   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5783   accumulate to offscreen buffer; view/colour/blur;
+    render          5808   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -96,14 +96,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7217   frame-parallel detect/fit worker pool; dedicated
+    workers         7242   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7527   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7855   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7552   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7880   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -114,7 +114,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8321   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8346   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -129,9 +129,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    8923   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8948   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9657   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9682   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -197,9 +197,19 @@
                            auto-fit's own single-region background model
                            still doesn't reliably find a two-disjoint-region
                            (dual-view) peak — angle-restricting candidates
-                           to a known bearing first helps a lot, not yet a
-                           UI toggle
-    spt             12116   single particle tracking, trackpy-inspired;
+                           to a known bearing first helps a lot; now a real
+                           sSmlmFitOrder toggle (distFirst/angleFirst) —
+                           fitSSmlmDistAndAngle() split into
+                           fitSSmlmDistanceFromCands()/fitSSmlmAngleFromCands()
+                           + filterSSmlmCandsByAngle(), shared by both
+                           orders; angleFirst also restricts the Distances
+                           HISTOGRAM itself by the live angle window, not
+                           just the fitted numbers; syncSSmlmZRangeFromDist()
+                           now correctly no-ops in smfret pairing context
+                           (real bug: it forced a rerender(true) that
+                           hijacked the SOI composite view on every marker
+                           drag, regardless of context)
+    spt             12229   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -230,7 +240,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13654  top-level orchestration, *Core()/wrapper split;
+    pipeline        13767  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -291,7 +301,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14324  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14437  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -345,14 +355,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           16955  localizations table, filtering, histograms;
+    table           17031  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17668  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17744  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2087,7 +2097,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10h</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2487,6 +2497,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="rect">Rectangle</option>
             <option value="circle">Circle</option>
           </select></label>
+        <label class="row" title="Which axis Preview pairs' own automatic fit finds FIRST, and then restricts the other to. Distance first (default) suits a diffraction-grating/sSMLM setup, where the bearing is unknown but the real pair distance is well separated from the combinatorial background. Angle first suits a setup whose bearing is roughly known in advance (e.g. a dual-view/image-splitter split's near-0° horizontal separation) — restricting by angle FIRST removes most of the same-region combinatorial background before distance fitting even starts, which matters when the real separation sits deep inside an otherwise smooth, large background (a two-disjoint-region setup, not a single overlapping one).">Fit order
+          <select id="sSmlmFitOrder" class="sel">
+            <option value="distFirst">Distance first</option>
+            <option value="angleFirst">Angle first</option>
+          </select></label>
         <label class="row">Primary angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-180" max="180" step="1" class="num"></label>
         <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="5" min="0" max="90" step="1" class="num"></label>
         <label class="row">Require narrower 0th order (σ) <input type="checkbox" id="sSmlmRequireNarrower"></label>
@@ -2504,6 +2519,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair &amp; plot sSMLM</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
           <p><b>Preview pairs</b> computes the candidate pool AND immediately fits it (no separate button needed — Distance min/max/Primary angle/Angle tolerance below are filled in automatically, so they already reflect this dataset's own real peak instead of generic defaults): Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — all four are starting points you can still widen by hand; changing <b>Background profile</b> re-fits automatically too. <b>Show histograms</b> draws the underlying data: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to). Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot); both also overlay their own fitted curve. Narrow the fields further by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair &amp; plot sSMLM</b> to commit.</p>
           <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape Preview pairs' own automatic distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. Changing it re-fits automatically once a fit already exists, rather than just clearing the old one. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
+          <p><b>Fit order</b> (Distance first/Angle first, default Distance first) picks which axis Preview pairs' automatic fit finds FIRST, and then restricts the other axis to. <b>Distance first</b> suits a diffraction-grating/sSMLM setup, where the bearing is unknown but the real pair distance is well separated from the combinatorial background. <b>Angle first</b> suits a setup whose bearing is roughly known in advance — a dual-view/image-splitter setup's near-0° horizontal separation, for instance — where distance is the harder-to-find axis, buried deep inside an otherwise smooth, large combinatorial background from the setup's own two disjoint regions; restricting by the known angle FIRST removes most of that background before the distance fit even starts. With Angle first selected, the <b>Distances</b> histogram itself is also restricted to the current Primary angle/Angle tolerance window (read live, so editing either field re-filters the plot immediately) — the same "restrict by the other axis's current window" logic the Angles histogram already applies to Distance min/max, just in the direction this fit order needs. Even with the angle restriction, treat the automatically-fitted Distance min/max as a rough starting point — verify by eye on the (now much less diluted) histogram rather than trusting it blindly.</p>
           <p><b>Pair &amp; plot sSMLM</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output) and switches the reconstruction's own Colour map to the HSV (blue loop) scheme automatically. <b>Unpair</b> restores the original, unpaired localizations, AND restores whichever Colour map was selected before Pair switched it — not left on HSV (blue loop) regardless of what it replaced.</p>
           <p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
@@ -2954,6 +2970,15 @@ const PARAMS = {
   // isn't reliably inferable from the point cloud alone, so it's a plain
   // user choice rather than auto-detected.
   sSmlmBgProfile: { type:'enum', id:'sSmlmBgProfile', label:'Background profile', options:['rect','circle'], default:'rect' },
+  // sSmlmFitOrder picks which axis fitSSmlmDistAndAngle() (MODULE: sSMLM)
+  // fits FIRST, and then restricts the other axis to. Default 'distFirst'
+  // matches the original, real-data-validated grating/sSMLM behaviour
+  // (bearing unknown, distance well-separated from the background) —
+  // 'angleFirst' is for a setup whose bearing is roughly known in advance
+  // (e.g. a dual-view/image-splitter split's near-0° horizontal separation),
+  // where distance is the harder-to-find axis, buried in a large
+  // combinatorial background from the setup's own two disjoint regions.
+  sSmlmFitOrder: { type:'enum', id:'sSmlmFitOrder', label:'sSMLM fit order', options:['distFirst','angleFirst'], default:'distFirst' },
   // sSmlmAngleCenter/Tol = the 1st order's fixed, SIGNED bearing from its 0th
   // order ± tolerance — a genuine direction (full ±180°), not an undirected
   // line: real-data analysis found brightness doesn't reliably tell 0th from
@@ -9971,7 +9996,20 @@ function drawSSmlmHist(){
   // scan's off-peak distances would just dilute it with background.
   const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
   if(sSmlmHistMode==='dist'){
-    const vals=sSmlmLastCands.map(c=>c.dist);
+    // Mirror the angle histogram's own logic when sSmlmFitOrder is
+    // 'angleFirst': distance signal is only sharp WITHIN the real angle
+    // peak for a setup whose bearing is roughly known in advance (a
+    // dual-view/image-splitter split), so pooling every angle together
+    // would dilute it with the same-region combinatorial background —
+    // exactly the reasoning that made the true peak invisible before
+    // angle-restricting (see CLAUDE.md's sSMLM module notes). Read live
+    // (same convention as the angle branch's own distance restriction), so
+    // editing Primary angle/Angle tolerance re-filters without a fresh
+    // Preview. distFirst (default) is completely unaffected — still the
+    // full, unrestricted "whole picture" this histogram was designed for.
+    const angleFirst=paramValue('sSmlmFitOrder')==='angleFirst';
+    const distCands=angleFirst ? filterSSmlmCandsByAngle(sSmlmLastCands, paramValue('sSmlmAngleCenter'), paramValue('sSmlmAngleTol')) : sSmlmLastCands;
+    const vals=distCands.map(c=>c.dist);
     const markers=[{x:distMin,label:'min'},{x:distMax,label:'max'}];
     computeHist('sSMLM pair distance', vals, 'nm', markers);
     // fitSSmlmDist()'s own curve, re-evaluated fresh on every draw from its
@@ -10306,66 +10344,63 @@ function fitSSmlmDist(d, y, bgPdf){
   }
   return {p};   // p = [A_bg, A_sig, mu, sigma]
 }
-// Estimate Distance min/max (from the distance histogram: background model
-// + Gaussian signal, fitSSmlmDist() above) and Primary angle/Angle tolerance
-// (from the SAME doubled-bearing data the angle histogram plots, not
-// whatever histogram happens to be currently on screen — peak-bin detection
-// + half-max walk, not a full fit; deliberately simple, matching this app's
-// existing bar for auxiliary estimates elsewhere) in one click. Distance is
-// fit FIRST and its result written to the fields immediately, so the angle
-// fit's own existing distance-window restriction (below) picks up the
-// freshly-fitted window rather than whatever was there before.
-function fitSSmlmDistAndAngle(){
-  if(!sSmlmLastCands || !sSmlmLastCands.length){ log('Run Preview pairs first — nothing to fit.'); return; }
-  // --- Distance ---
-  const vals=sSmlmLastCands.map(c=>c.dist);
+// Distance-fitting half of fitSSmlmDistAndAngle(), extracted so both fit
+// orders (see sSmlmFitOrder, PARAMS) can call it against whichever candidate
+// SUBSET is appropriate for that order — an explicit `cands` argument, no
+// implicit dependency on sSmlmLastCands or the live Distance fields. Returns
+// null (does nothing else) if there's no bounding box to fit a background
+// model against; otherwise fits and returns {distMin,distMax,mu,sigma,
+// regionLabel} — the CALLER writes the fields/logs, since the two fit orders
+// want different log wording (which axis this was restricted BY).
+function fitSSmlmDistanceFromCands(cands){
+  const vals=cands.map(c=>c.dist);
   const dims=sSmlmBoxDims();
-  if(dims && dims.a>0 && dims.b>0){
-    const profile=paramValue('sSmlmBgProfile');
-    let bgPdf, regionLabel;
-    if(profile==='circle'){
-      const R=Math.sqrt(dims.a*dims.b/Math.PI);
-      bgPdf=v=>sSmlmBgPdfDisk(v,R);
-      regionLabel=`circle (R=${R.toFixed(0)} nm, equivalent-area from a ${dims.a.toFixed(0)}×${dims.b.toFixed(0)} nm localization bounding box)`;
-    }else{
-      bgPdf=v=>sSmlmBgPdfRect(v,dims.a,dims.b);
-      regionLabel=`rectangle (${dims.a.toFixed(0)}×${dims.b.toFixed(0)} nm localization bounding box)`;
-    }
-    // Same bin-count/edge formula computeHist() uses (MODULE: table), so the
-    // fit's own bins match whatever Show histograms would later draw for the
-    // SAME candidate set — duplicated rather than calling computeHist()
-    // itself, which would clobber histData/histView as an unwanted side
-    // effect even if a completely different histogram is on screen right now.
-    let dmin=Infinity,dmax=-Infinity; for(const v of vals){ if(v<dmin)dmin=v; if(v>dmax)dmax=v; }
-    let lo=Math.min(0,dmin), hi=dmax<=lo?lo+1:dmax; hi=lo+(hi-lo)*1.05;
-    const nb=Math.max(10,Math.min(80,Math.round(Math.sqrt(vals.length)*1.5))), bw=(hi-lo)/nb;
-    const d=new Float64Array(nb), y=new Float64Array(nb);
-    for(let i=0;i<nb;i++) d[i]=lo+(i+0.5)*bw;
-    for(const v of vals){ let b=((v-lo)/bw)|0; if(b<0)b=0; if(b>=nb)b=nb-1; y[b]++; }
-    const {p}=fitSSmlmDist(d,y,bgPdf);
-    sSmlmDistFit={p,bgPdf};   // consumed by drawSSmlmHist()'s dist-mode branch as a curve overlay
-    const mu=p[2], sigma=Math.abs(p[3]);
-    // ±3σ: a documented STARTING window, not a validated constant the way
-    // the angle fit's own ±5°/half-max-doubling is — there's no real-data
-    // calibration for distance yet, so this is deliberately generous
-    // (captures ~99.7% of a Gaussian) rather than tuned; widen/narrow by
-    // hand from here, same framing the angle fit's own log line uses.
-    // Upper bound is the box's own diagonal (no two localizations within it
-    // can be farther apart than that) — NOT PARAMS.sSmlmDistMax.max, which is
-    // now null (no fixed UI ceiling, see that field's own comment); Math.min
-    // would silently coerce a null second argument to 0 and always clamp
-    // distMax to 0 if this were left as-is.
-    const distMin=Math.max(0,mu-3*sigma), distMax=Math.min(Math.hypot(dims.a,dims.b), mu+3*sigma);
-    $('sSmlmDistMin').value=distMin.toFixed(0); $('sSmlmDistMax').value=distMax.toFixed(0);
-    log(`\nsSMLM distance fit: background = ${regionLabel}; signal peak at ${mu.toFixed(0)} nm (σ=${sigma.toFixed(0)} nm) — `
-      + `Distance min/max set to ${distMin.toFixed(0)}/${distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
+  if(!dims || !(dims.a>0) || !(dims.b>0)) return null;
+  const profile=paramValue('sSmlmBgProfile');
+  let bgPdf, regionLabel;
+  if(profile==='circle'){
+    const R=Math.sqrt(dims.a*dims.b/Math.PI);
+    bgPdf=v=>sSmlmBgPdfDisk(v,R);
+    regionLabel=`circle (R=${R.toFixed(0)} nm, equivalent-area from a ${dims.a.toFixed(0)}×${dims.b.toFixed(0)} nm localization bounding box)`;
   }else{
-    log('⚠ No localization bounding box to fit a background model against — skipping the distance fit, angle only.');
+    bgPdf=v=>sSmlmBgPdfRect(v,dims.a,dims.b);
+    regionLabel=`rectangle (${dims.a.toFixed(0)}×${dims.b.toFixed(0)} nm localization bounding box)`;
   }
-  // --- Angle (unchanged logic; now reads the JUST-FITTED distance window) ---
-  const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
-  const cands=sSmlmLastCands.filter(c=>c.dist>=distMin&&c.dist<=distMax);
-  if(!cands.length){ log('⚠ No candidates in the current Distance min/max window — widen it or re-run Preview first.'); refreshSSmlmHistIfShown(); return; }
+  // Same bin-count/edge formula computeHist() uses (MODULE: table), so the
+  // fit's own bins match whatever Show histograms would later draw for the
+  // SAME candidate set — duplicated rather than calling computeHist()
+  // itself, which would clobber histData/histView as an unwanted side
+  // effect even if a completely different histogram is on screen right now.
+  let dmin=Infinity,dmax=-Infinity; for(const v of vals){ if(v<dmin)dmin=v; if(v>dmax)dmax=v; }
+  let lo=Math.min(0,dmin), hi=dmax<=lo?lo+1:dmax; hi=lo+(hi-lo)*1.05;
+  const nb=Math.max(10,Math.min(80,Math.round(Math.sqrt(vals.length)*1.5))), bw=(hi-lo)/nb;
+  const d=new Float64Array(nb), y=new Float64Array(nb);
+  for(let i=0;i<nb;i++) d[i]=lo+(i+0.5)*bw;
+  for(const v of vals){ let b=((v-lo)/bw)|0; if(b<0)b=0; if(b>=nb)b=nb-1; y[b]++; }
+  const {p}=fitSSmlmDist(d,y,bgPdf);
+  sSmlmDistFit={p,bgPdf};   // consumed by drawSSmlmHist()'s dist-mode branch as a curve overlay
+  const mu=p[2], sigma=Math.abs(p[3]);
+  // ±3σ: a documented STARTING window, not a validated constant the way
+  // the angle fit's own ±5°/half-max-doubling is — there's no real-data
+  // calibration for distance yet, so this is deliberately generous
+  // (captures ~99.7% of a Gaussian) rather than tuned; widen/narrow by
+  // hand from here, same framing the angle fit's own log line uses.
+  // Upper bound is the box's own diagonal (no two localizations within it
+  // can be farther apart than that) — NOT PARAMS.sSmlmDistMax.max, which is
+  // now null (no fixed UI ceiling, see that field's own comment); Math.min
+  // would silently coerce a null second argument to 0 and always clamp
+  // distMax to 0 if this were left as-is.
+  const distMin=Math.max(0,mu-3*sigma), distMax=Math.min(Math.hypot(dims.a,dims.b), mu+3*sigma);
+  return {distMin, distMax, mu, sigma, regionLabel};
+}
+// Angle-fitting half of fitSSmlmDistAndAngle(), extracted the same way and
+// for the same reason — an explicit `cands` argument (the wide, unrestricted
+// pool for angleFirst order; the just-fitted-distance-window subset for
+// distFirst) instead of reading sSmlmLastCands/the live Distance fields
+// directly. Returns null if there are no candidates; otherwise
+// {center,tol,halfMaxTol,pkVal,bg} — the caller writes fields/logs.
+function fitSSmlmAngleFromCands(cands){
+  if(!cands.length) return null;
   const lo=-90, nb=180, bw=2, hist=new Float64Array(nb);
   for(const c of cands){
     for(const raw of [c.rawAngle, c.rawAngle+180]){
@@ -10427,11 +10462,74 @@ function fitSSmlmDistAndAngle(){
   // precision for recovering more of the real pairs sitting in the peak's
   // wings, closer to a hand-tuned window's own recall.
   const halfMaxTol=Math.max(1,Math.round((leftW+rightW)/2*bw)), tol=halfMaxTol*2;
-  $('sSmlmAngleCenter').value=center.toFixed(1); $('sSmlmAngleTol').value=tol;
-  log(`sSMLM angle fit: primary angle ${center.toFixed(1)}°, tolerance ±${tol}° (2× the ±${halfMaxTol}° half-max width of the histogram peak, ${pkVal.toLocaleString()} candidates at the peak vs. ${bg.toLocaleString()} background).`);
+  return {center, tol, halfMaxTol, pkVal, bg};
+}
+// Given a folded-orientation angle window (center/tol, the SIGNED,
+// wrap-safe-to-any-value convention pairCore()/sSmlmCandidates() itself
+// uses — see PARAMS.sSmlmAngleCenter's own comment), returns the subset of
+// `cands` whose OWN folded `angle` field falls within it. Mirrors
+// sSmlmCandidates()'s own per-candidate angle-distance computation exactly
+// (fold into [0,180), signed distance, absolute value) so a post-hoc filter
+// against already-computed candidates agrees with what a fresh
+// sSmlmCandidates() call at this same center/tol would have kept — needed
+// for angleFirst order, which fits angle from the WIDE (any-distance) pool
+// and then must restrict to that fitted window before the distance fit.
+function filterSSmlmCandsByAngle(cands, angleCenter, angleTol){
+  const acNorm=((angleCenter%180)+180)%180;
+  return cands.filter(c=>{
+    let s=c.angle-acNorm; if(s>90) s-=180; else if(s<-90) s+=180;
+    return Math.abs(s)<=angleTol;
+  });
+}
+// Estimate Distance min/max and Primary angle/Angle tolerance in one click,
+// in whichever order PARAMS.sSmlmFitOrder currently says (see that field's
+// own comment for when to use which): 'distFirst' (default) fits distance
+// from the WIDE, any-angle candidate pool, then fits angle restricted to
+// the just-fitted distance window; 'angleFirst' fits angle from the WIDE,
+// any-distance pool, then fits distance restricted to the just-fitted angle
+// window. Both fits reuse the exact same two engines
+// (fitSSmlmDistanceFromCands()/fitSSmlmAngleFromCands()) — only which
+// candidate subset is fed to each, and in which order, differs.
+function fitSSmlmDistAndAngle(){
+  if(!sSmlmLastCands || !sSmlmLastCands.length){ log('Run Preview pairs first — nothing to fit.'); return; }
+  const order=paramValue('sSmlmFitOrder');
+  if(order==='angleFirst'){
+    const a=fitSSmlmAngleFromCands(sSmlmLastCands);   // ALL candidates, any distance
+    if(!a){ log('⚠ No candidates to fit an angle against.'); return; }
+    $('sSmlmAngleCenter').value=a.center.toFixed(1); $('sSmlmAngleTol').value=a.tol;
+    log(`\nsSMLM angle fit (angleFirst order, ${sSmlmLastCands.length.toLocaleString()} candidates, any distance): primary angle ${a.center.toFixed(1)}°, `
+      + `tolerance ±${a.tol}° (2× the ±${a.halfMaxTol}° half-max width of the histogram peak, ${a.pkVal.toLocaleString()} candidates at the peak vs. ${a.bg.toLocaleString()} background).`);
+    const cands=filterSSmlmCandsByAngle(sSmlmLastCands, a.center, a.tol);
+    if(!cands.length){ log('⚠ No candidates within the fitted angle window — widen Angle tolerance or re-run Preview.'); refreshSSmlmHistIfShown(); return; }
+    const d=fitSSmlmDistanceFromCands(cands);
+    if(d){
+      $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
+      log(`sSMLM distance fit (restricted to the angle window above, ${cands.length.toLocaleString()} of ${sSmlmLastCands.length.toLocaleString()} candidates): background = ${d.regionLabel}; `
+        + `signal peak at ${d.mu.toFixed(0)} nm (σ=${d.sigma.toFixed(0)} nm) — Distance min/max set to ${d.distMin.toFixed(0)}/${d.distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
+    }else{
+      log('⚠ No localization bounding box to fit a background model against — angle only.');
+    }
+  }else{
+    const d=fitSSmlmDistanceFromCands(sSmlmLastCands);   // ALL candidates, any angle
+    if(d){
+      $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
+      log(`\nsSMLM distance fit: background = ${d.regionLabel}; signal peak at ${d.mu.toFixed(0)} nm (σ=${d.sigma.toFixed(0)} nm) — `
+        + `Distance min/max set to ${d.distMin.toFixed(0)}/${d.distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
+    }else{
+      log('⚠ No localization bounding box to fit a background model against — skipping the distance fit, angle only.');
+    }
+    const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
+    const cands=sSmlmLastCands.filter(c=>c.dist>=distMin&&c.dist<=distMax);
+    if(!cands.length){ log('⚠ No candidates in the current Distance min/max window — widen it or re-run Preview first.'); refreshSSmlmHistIfShown(); return; }
+    const a=fitSSmlmAngleFromCands(cands);
+    if(a){
+      $('sSmlmAngleCenter').value=a.center.toFixed(1); $('sSmlmAngleTol').value=a.tol;
+      log(`sSMLM angle fit: primary angle ${a.center.toFixed(1)}°, tolerance ±${a.tol}° (2× the ±${a.halfMaxTol}° half-max width of the histogram peak, ${a.pkVal.toLocaleString()} candidates at the peak vs. ${a.bg.toLocaleString()} background).`);
+    }
+  }
   refreshSSmlmHistIfShown();   // the histogram's own marker lines/curve (if shown) should reflect the just-fitted values immediately, not just after the next manual redraw
   refreshSmfretDonorAngleOptions();   // smFRET's own "Position donor?" freezes its two candidate bearings at fit time too, see that function's own comment (MODULE: smFRET)
-  { const cmdCfg={sSmlmBgProfile:paramValue('sSmlmBgProfile')}; logCmd(cmdCfg, overrideWithFields(cmdCfg, 'fitSSmlmDistAndAngle()')); }
+  { const cmdCfg={sSmlmBgProfile:paramValue('sSmlmBgProfile'), sSmlmFitOrder:order}; logCmd(cmdCfg, overrideWithFields(cmdCfg, 'fitSSmlmDistAndAngle()')); }
 }
 // Preview computes candidates but commits nothing — always a WIDE, FIXED scan
 // (distance 0–6000 nm, or wider still if the configured Distance max OR the
@@ -10674,6 +10772,10 @@ $('sSmlmHistModeBtn').addEventListener('click',()=>{ sSmlmHistMode = sSmlmHistMo
 // already uses. No-op (nothing to re-fit against yet) before the first
 // Preview.
 $('sSmlmBgProfile').addEventListener('change',()=>{ if(sSmlmLastCands && sSmlmLastCands.length) fitSSmlmDistAndAngle(); });
+// Same "refresh an existing result automatically" convention — changing
+// which axis is fit first should re-run immediately against the SAME
+// candidate pool, not require a fresh Preview pairs to see the effect.
+$('sSmlmFitOrder').addEventListener('change',()=>{ if(sSmlmLastCands && sSmlmLastCands.length) fitSSmlmDistAndAngle(); });
 $('sSmlmPairBtn').addEventListener('click',runSSmlmPair);
 $('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
 // Re-narrowing Distance min/max while the paired ("spectral") view is
@@ -10682,8 +10784,19 @@ $('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
 // z values don't change (they're not re-paired), only the colour range
 // they're viewed through. No-op before the first Pair, and while the
 // "standard" (raw) view is toggled on, since it doesn't use zmin/zmax.
+// Scoped to the plain sSMLM context ONLY (real, reported bug — this fired
+// unconditionally even during smFRET's own pairing context, forcing a full
+// rerender(true) that silently swapped the SOI composite for a genuine
+// z-coloured "SMLM reconstruction" the instant a Distance marker was
+// dragged, even though refreshSmfretPairingLive() right below already
+// handles that context correctly and deliberately does NOT touch the
+// reconstruction panel). sSmlmPairContext didn't exist yet when this
+// function was first written, so the missing guard was a real gap, not a
+// deliberate omission — refreshSmfretPairingLive()'s own comment already
+// documented the INTENDED split ("this context's existing colour-RANGE-only
+// behaviour is intentionally untouched"), it just never got enforced here.
 function syncSSmlmZRangeFromDist(){
-  if(sSmlmOriginalLocs==null || sSmlmShowingRaw) return;
+  if(sSmlmOriginalLocs==null || sSmlmShowingRaw || sSmlmPairContext!=='sSmlm') return;
   $('zmin').value=paramValue('sSmlmDistMin'); $('zmax').value=paramValue('sSmlmDistMax');
   if(lastResult) rerender(true);
 }
@@ -16777,63 +16890,26 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10h — sSMLM pairing distance has no ceiling any more.
-(1) A new real dataset (dual-view/image-splitter ALEX TIRF smFRET — donor
-channel on the left half of the sensor, acceptor on the right) needs
-sSMLM pairs found tens of micrometers apart, not the few-hundred-nm
-separation a diffraction-grating setup produces. Distance min/max
-(sSmlmDistMin/Max) previously had a fixed 20000 nm ceiling baked into
-both the field and the underlying PARAMS entry — removed (no fixed
-upper limit now, same convention Last frame already uses), so a real
-optical setup with widely-separated donor/acceptor channels can now
-pair correctly. Caught two real Math.min(null,x) coercion bugs while
-removing it — a null second argument silently coerces to 0 — fixed in
-the distance-fit's own ±3σ clamp (now bounded by the localization
-bounding box's own diagonal instead) and the histogram's draggable
-marker lines (now an explicit null check).
-(2) Checking the same new file's own TIFF metadata for pixel size/frame
-time surfaced a second, previously-latent bug: a file with unit=um but
-NO real pixel calibration can still carry an XResolution tag of
-4294967295/1 (the classic "unset" sentinel some writers emit) — the
-old check only tested tag>0, so it happily logged a fabricated-looking
-"pixel size ≈ 0.0 nm/px". Now sanity-checks the RESOLVED pixel size
-against a plausible range instead of trusting any nonzero tag value —
-verified this doesn't touch any real, legitimate calibration (checked
-against GATTA-PAINT's own dataset, which coincidentally shares the same
-huge numerator with a genuinely different, valid denominator). This
-particular file has no embedded pixel size anywhere — set it by hand.
-(3) Every TIFF load now also checks for Micro-Manager's own richer
-per-frame metadata (a real JSON blob per frame, not just plain
-description text) — camera identity, exposure, and a sampled-median
-frame-interval estimate from real per-frame timestamps (25 evenly
--spaced frames, not every one — stays fast even on a 40,000-frame
-stack). Logged as a second line alongside the existing pixel-size/
-finterval hint whenever present; silently absent for files that don't
-carry this tag (most non-Micro-Manager TIFFs). Verified against the
-same new dataset: reports "camera iXon | DU897_BV | 5673, exposure
-30 ms ..., frame interval ≈ 32.01 ms" — matching its own separately
--confirmed 32.02 ms actual interval almost exactly, with no measurable
-load-time slowdown (264 MB file still loads in ~1.3 s).
-(4) A real, reported follow-up bug in the (1) fix above: removing the
-FIELD's own ceiling wasn't enough — "Preview pairs"' own wide diagnostic
-scan had a SEPARATE hardcoded floor (max(6000 nm, Distance max)),
-independent of the field, so a dual-view setup's real ~tens-of-µm
-separation still never entered the histogram at all (matches the
-reported symptom exactly: the plot's own x-axis topped out at 6000 nm).
-Fixed the same way as the ±3σ clamp — floored at the localization
-bounding box's own diagonal too, in both the interactive and headless
-code paths. Verified: the scan now reaches the data's full physical
-extent. Separately found (not yet fixed, discussed with the user): the
-automatic distance-peak-fit itself still doesn't reliably lock onto a
-correct window for a two-region (left/right split) setup, since its
-background model assumes one contiguous region — a real signal at
-"half the frame" sits deep in an already-large, smoothly-varying
-combinatorial background. Restricting candidates to a narrow angle
-window (when the real bearing is roughly known, as it is for a
-horizontal dual-view split) cuts that background by ~4-5x and makes
-the true peak visibly stand out — recommended as a manual workaround
-via sSmlmCandidates() from the terminal for now; a UI toggle for this
-is a possible follow-up, not built this round.
+log(`webSMLM v0.12.1-dev · build 2026-09-10i — sSMLM: Fit order toggle + a real smFRET view bug fixed.
+(1) New "Fit order" control (Distance first/Angle first, default Distance
+first) for Preview pairs' own automatic fit. Distance first is the
+original, unchanged behaviour (suits a diffraction-grating setup, where
+the bearing is unknown but distance is well separated from background).
+Angle first is new — for a setup whose real bearing is roughly known in
+advance (e.g. a dual-view/image-splitter split's near-0° horizontal
+separation), it fits angle FIRST from the whole candidate pool, then
+restricts distance fitting (AND the Distances histogram itself, not just
+the fitted numbers) to that angle window — cutting the same-region
+combinatorial background substantially and making a true "half the
+frame" peak much easier to see and fit. Even so, treat the auto-fitted
+Distance min/max as a starting point and verify by eye.
+(2) Fixed a real, reported bug: dragging the Distance min/max markers on
+the Distances histogram while pairing via smFRET's own "Pair DD + DA"
+was silently switching the reconstruction panel from the SOI composite
+to a full z-coloured "SMLM reconstruction" — a leftover gap where
+syncSSmlmZRangeFromDist() (meant only for the plain sSMLM pairing flow)
+never checked which pairing context was actually active, so it forced a
+rerender regardless. Now correctly no-ops during smFRET's own pairing.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
