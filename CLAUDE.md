@@ -2186,6 +2186,56 @@ relevant one before editing rather than scrolling:
   only surrounding prose), and every current sSMLM/smFRET button id/label cross-checked directly
   against the live HTML via a grep sweep rather than assumed from memory.
 
+  **Four more usability fixes, same round.** (1) The ROI thumbnails' own `×10ⁿ` y-axis exponent was
+  reported STILL too far from "10" even at `drawAxisScaleLabel()`'s existing `GAP=-2` — the third
+  report on this exact spacing (2px → 0px → -2px, each time "still too far"). Rather than guess a
+  fourth single value blind, built a side-by-side offscreen-canvas comparison this round (`GAP`
+  ∈ {-2,-4,-5,-6,-8}, 6× zoomed screenshots) to actually SEE where the exponent starts genuinely
+  colliding/merging into the "0" rather than just looking closer — `-6` and `-8` visibly cross
+  strokes with the "0", `-5` tucks right against it without merging, matching a real superscript's
+  own look. Shipped `GAP=-5`. (2) The ROI thumbnails (DD/DA/AA), inset into the plot's own top-right
+  corner two rounds ago, are moved again — now to a dedicated strip BELOW the x-axis, still on the
+  same canvas/panel (requested: "move the three ROIs from within the graph to below the graph (but
+  still in the Time trace frame)"), and 40% larger (`SMFRET_ROI_INSET=59`, up from 42). New shared
+  constants (`SMFRET_ROI_INSET/GAP/LABEL_H/PAD`, next to `SMFRET_ML/MR`) are read by BOTH
+  `drawSmfretTrace()` (to size its own `mBRoi` bottom-margin reservation, shrinking the actual
+  line-graph's plotted height to make room within the same fixed-size panel — "still in the frame,
+  with enough space" means reallocating existing space, not growing the panel, which isn't under
+  this function's control anyway) and `drawSmfretRoiThumbnails()` (to actually draw there), so the
+  two can never disagree on how much room is set aside. The semi-opaque group backing panel from the
+  inset design is REMOVED — it existed only to keep the thumbnails legible over real curve data
+  underneath; the new position has nothing else drawn there, so a plain per-thumbnail border
+  (`plotColors().grid`) is enough, and the label text switches from a fixed light-grey to
+  `plotColors().text` — both now correctly theme-aware, unlike the fixed light-on-dark pair the old
+  inset (deliberately, since it always sat on a fixed dark backing regardless of theme) used.
+  Verified via Playwright in both dark and light theme: thumbnails render below the graph with no
+  overlap, correct contrast in both themes, scrubbing between sites and zero page errors.
+  (3) **Get time traces** can be run without ever clicking **Link channels** first, tracing the
+  full, unverified pair set — reported as unintuitive, with the alternative floated of having Get
+  time traces call Link channels internally. Decided AGAINST auto-wiring: Link channels is a
+  genuinely separate, meaningful action — it runs its own fresh, independent acceptor-channel
+  detect+fit pass (can be slow) and PERMANENTLY reduces `lastResult.locs` to the verified subset (a
+  real, visible effect on the table/export too, not just future traces) — folding that silently into
+  a button whose whole point is "just show me the trace" would hide a real computation cost and a
+  real, hard-to-undo data reduction behind an unrelated action, and would remove the ability to
+  trace the full unverified set at all even when that's what's wanted (e.g. comparing verified vs.
+  unverified). Fixed the actual complaint (discoverability, not a missing behaviour) instead: both
+  `smfretTimeTracesBtn`'s own tooltip and the `hint-smfret` popup now say outright that Get time
+  traces works on whatever's currently loaded and does NOT run Link channels for you.
+  (4) **`smfretDonorAngle`** ("Position donor?") stayed enabled/clickable even after its pairing was
+  later undone (Unpair, a fresh Localize SOI, or unchecking Fix sites of interest (SOI)) — reported:
+  "people might start clicking on it nonetheless ... wondering why nothing is happening." A plain
+  `smfretHasDDDAPairing()`-tracks-enablement approach was tried first and rejected: **Preview pairs**
+  alone (no commit yet) already runs the angle fit and is MEANT to enable this dropdown on purpose,
+  so a user can choose the donor bearing BEFORE actually committing a pair — gating on "currently
+  paired" would re-disable it in exactly that legitimate pre-commit window. Fixed instead by setting
+  `sel.disabled=true` directly at the same three places that already reset `sSmlmOriginalLocs`/
+  `smfretChannelsLinked` to `null`/`false` (`unpairSSmlm()`, `locateSmfretSOI()`'s fresh-SOI reset,
+  `clearSmfretFixSOI()`'s tail block) — those are genuine "no active pairing SESSION at all, frozen
+  options or otherwise" resets, not "not committed yet," so they don't reopen the pre-commit gap the
+  simpler check would have. Verified via Playwright: `disabled===false` right after **Pair DD + DA**,
+  `disabled===true` right after **Unpair**.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
