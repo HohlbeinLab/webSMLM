@@ -2320,6 +2320,51 @@ relevant one before editing rather than scrolling:
   only ever happens via **Localize SOI** — sSMLM's own plain (non-smFRET) diffraction-grating
   pairing never touches `smfretSOI` or this function, so the swap is invisible to that module.
 
+  **Two more fixes/additions, same area.** (1) **`getSmfretTimeTraces()` gained a `preserveView`
+  parameter** (default `false`, requested: "make sure that the same molecule that is currently
+  shown in the Time Trace overview stays shown and not jumping back to molecule 1") — toggling
+  **Aperture photometry (no fit)**, **Set negative intensities to zero**, or **Filter SOIs** while a
+  trace is already showing now calls `getSmfretTimeTraces(true)`, which clamps the OLD
+  `smfretTraceIdx`/`smfretTraceView` onto the freshly-recomputed traces instead of resetting to site
+  1 with the full x-range — a genuine fresh click of **Get time traces** itself is unaffected,
+  still opening on site 1 as before (a real, not just a settings-triggered, re-run may have
+  genuinely different sites to show). **Caught a real, pre-existing latent bug while wiring this
+  up**: `$('smfretTimeTracesBtn').addEventListener('click', getSmfretTimeTraces)` passed the
+  function directly rather than wrapped — harmless while the function took no parameters at all,
+  but the moment it gained `preserveView` as its first parameter, the DOM's own click EVENT object
+  (always truthy) silently became every button click's own `preserveView` argument, meaning a
+  literal, deliberate re-click of **Get time traces** stopped resetting to site 1 at all. Caught by
+  testing the exact scenario the feature was built for (this button → a settings toggle → this
+  button again) rather than just the toggle-alone case; fixed by wrapping the listener in an arrow
+  function, `()=>getSmfretTimeTraces()`, so a real click always calls it with zero arguments
+  regardless of the event object. Verified via Playwright: scrub to site 5, set a narrow x-zoom,
+  toggle each of the three settings in turn (site/zoom preserved every time), then a genuine fresh
+  **Get time traces** click (correctly resets to site 0, full range).
+
+  (2) **New "Export traces" button** (`exportSmfretTracesBtn`/`exportSmfretTraces()`, requested) —
+  saves `smfretTraces` as one JSON file, MOLECULE BY MOLECULE: one self-contained record per site,
+  each carrying its own `x`/`y` (`x2`/`y2` too, once paired, present only when finite — same
+  optional-field convention as `sigma1st`/`track_id` elsewhere), a `time_s` array, and
+  `photonsDD`/`photonsDA`/`photonsAA` (whichever the site actually has). A deliberately simple v1 —
+  one in-memory JSON blob, not the streaming-NDJSON precedent (`config.exportTrackData` etc.) a
+  truly huge dataset would need — real smFRET site counts don't currently warrant that complexity.
+  **A real gotcha caught before shipping**: `JSON.stringify()` on a raw `Float64Array` serializes it
+  as a plain OBJECT (`{"0":1,"1":2,...}`), not a JSON array, since `Array.isArray()` is false for
+  typed arrays — `Array.from(s.photonsDD)` first is what actually produces `[1,2,...]`. Converting
+  first also turns every channel's own `NaN` gap into JSON's native `null` for free, via
+  `JSON.stringify`'s own existing `NaN`→`null` convention — no extra handling needed. Compact JSON
+  (no `null,2` indent argument), unlike `exportCalibration()`'s own pretty-printed file — a
+  calibration file is small and meant to be read directly, while a trace export can be many sites ×
+  many frames × up to 3 channels, where indentation whitespace alone would meaningfully bloat the
+  file for a file nobody reads by eye anyway. Enabled/disabled alongside `smfretTraces` itself at
+  every point that already sets or clears it (`getSmfretTimeTraces()`'s own success path;
+  `locateSmfretSOI()`'s trace-invalidation branch, `clearSmfretFixSOI()`, and the two fresh-load/
+  simulate reset blocks that already null it). Verified via Playwright (stubbing
+  `window.showSaveFilePicker` to force the plain anchor-download fallback, since the native picker
+  hangs forever waiting for a dialog that never appears in headless automation): a real 82-site,
+  120-frame export round-trips through `JSON.parse()` with all expected top-level fields, each
+  site's own `photonsDD` correctly containing real `null` gaps at the ALEX off-parity frames.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
