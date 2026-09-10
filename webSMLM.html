@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2760   PARAMS registry, single source of truth for params;
+    params          2765   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3668   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3673   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      3967   synthetic stack generator ("Simulate movie")
-    detect          4924   per-frame band-pass + local-maxima detection
-    fit             5201   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3972   synthetic stack generator ("Simulate movie")
+    detect          4929   per-frame band-pass + local-maxima detection
+    fit             5206   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5840   accumulate to offscreen buffer; view/colour/blur;
+    render          5845   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -96,14 +96,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7274   frame-parallel detect/fit worker pool; dedicated
+    workers         7279   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7584   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7912   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7589   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7917   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -114,7 +114,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8378   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8383   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -129,9 +129,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    8980   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8985   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9714   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9719   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -224,8 +224,13 @@
                            searches (dx,dy) maximizing DD->truth match count
                            via a spatial hash (smfretBuildSpatialHash()) —
                            the winning transform's own matches ARE the
-                           pairing, no separate pairCore() step needed
-    spt             12447   single particle tracking, trackpy-inspired;
+                           pairing, no separate pairCore() step needed;
+                           alignSmfretChannels()'s own logCmd() now uses
+                           overrideWithFields() (was a bare marker, no real
+                           config); locateSmfretSOI()'s success log now
+                           reports DD-region/DA-region (or AA) counts when
+                           ALEX is on, reusing smfretFovSplitX()
+    spt             12482   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -256,7 +261,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13985  top-level orchestration, *Core()/wrapper split;
+    pipeline        14020  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -317,7 +322,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14655  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14690  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -371,14 +376,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           17254  localizations table, filtering, histograms;
+    table           17280  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17967  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17993  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2113,7 +2118,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2589,7 +2594,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
           <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame, and <b>Filter SOIs</b> (see Get time traces below). This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
-          <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it).</p>
+          <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating laser excitation?</b> checked, the log line also breaks the total down by channel: the donor-excitation (DD+DA) composite reports how many sites fall in the DD region vs. the DA region (split the same way <b>Align channels</b> below does, from the sites' own x-positions — no extra detection needed), while the direct-acceptor-excitation composite reports its own single AA count.</p>
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
           <p><b>Pair DD + DA</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do) directly from here, using the current sites of interest: it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram (the same feedback Preview pairs itself gives), and commits the pairing (writing each site's paired acceptor position/distance) — but skips that module's own RECONSTRUCTION-panel side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites (the channel that gives donor/acceptor, i.e. DD/DA, intensity pairs) — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. If the SOI composite is still showing when this succeeds, every site that became the ACCEPTOR (DA) side of a pair has its own ROI box and crosshair recoloured dark orange — the matching donor (DD) site keeps its usual colour, since orange marks "this is the confirmed acceptor," not just "this site paired." Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this: the underlying pairing and its dark-orange marking survive a round trip to the other channel's own composite and back. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA, exactly as if <b>Pair &amp; plot sSMLM</b> had been clicked in the other module.</p>
           <p><b>Align channels</b> is a genuinely different approach to finding the donor/acceptor geometry than <b>Pair DD + DA</b>'s own Distance/Angle-histogram fit, for a setup with clearly, spatially SEPARATED donor and acceptor regions (a dual-view/image-splitter setup) — in a field of view much wider than it is tall, random point pairs are geometrically more likely to be oriented along the LONG axis regardless of any real signal, and when that long axis happens to coincide with the true physical donor→acceptor bearing (as it does for a horizontal dual-view split), a histogram-based fit can't tell a genuine peak apart from this purely combinatorial bias. <b>Align channels</b> sidesteps histogram fitting entirely: it finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with <b>Alternating laser excitation?</b> checked, a fresh independent AA localization (DA alone without ALEX, since there's no separate direct-acceptor-excitation channel to localize AA from at all) — then searches for the displacement that maximises how many DD points land near a real truth point once shifted by it (starting from a displacement of half the frame width at 180°, refined by the search itself). The winning displacement's own match set becomes the pairing directly — no separate Distance/Angle-window step needed afterward. <b>Align channels match tol. (px)</b> controls how close a shifted point must land to count as a match — kept generous by default, since a single rigid displacement is only an approximation once real optical field-dependent distortions vary the true offset slightly across the field of view.</p>
@@ -11112,7 +11117,24 @@ async function locateSmfretSOI(preservePairing=false){
     $('tableBtn').disabled=!fitted.length; $('saveBtn').disabled=!fitted.length;
     $('sSmlmPreviewBtn').disabled=!fitted.length; $('sSmlmPairBtn').disabled=!fitted.length;
     refreshSmfretLinkChannelsBtn();   // a fresh (unpaired) SOI result always disables it
-    log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest `+
+    // Requested — with ALEX on, name how many sites landed in each channel's
+    // own region, not just the bare total. The donor-excitation (DD+DA)
+    // composite mixes a real DD population with the SAME composite's own
+    // DA candidates, split by the SAME x-position-gap method Align channels
+    // uses (smfretFovSplitX()) — no extra detection needed, this composite
+    // is already fully fitted. The acceptor-excitation (AA) composite has
+    // only the one population, so it's reported as a bare AA count instead.
+    let channelBreakdown='';
+    if(alex){
+      if(cfg.smfretSoiChannel==='donor'){
+        const splitX=smfretFovSplitX(fitted, w);
+        const nDD=fitted.filter(L=>L.x<splitX).length, nDA=fitted.length-nDD;
+        channelBreakdown=` (donor-excitation/DD+DA view: ${nDD.toLocaleString()} DD-region + ${nDA.toLocaleString()} DA-region site(s), split at x=${splitX.toFixed(0)} px)`;
+      }else{
+        channelBreakdown=` (direct-acceptor-excitation/AA view: ${fitted.length.toLocaleString()} AA site(s))`;
+      }
+    }
+    log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest${channelBreakdown} `+
         `— available in View data/filtering and Pairing (sSMLM & FRET) (Preview pairs/Pair & plot sSMLM, or Pair DD + DA above) for donor/acceptor pairing.`);
   }catch(err){ log(`⚠ Localize SOI failed: ${err.name}: ${err.message}`); }
 }
@@ -11420,7 +11442,20 @@ async function alignSmfretChannels(){
     }
     log(`Align channels: ${truthPoints.length.toLocaleString()} truth point(s) (${alex?'DA + AA':'DA only, ALEX off'}).`);
     if(!ddPoints.length || !truthPoints.length){ log('⚠ Align channels — not enough sites on one side to register; check detection settings.'); return; }
-    logCmd({smfretAlignChannels:true}, 'alignSmfretChannels()');
+    // Reported gap: the logged command was a bare {smfretAlignChannels:true}
+    // marker with no real config attached — every other actionable smFRET
+    // function (locateSmfretSOI(), linkSmfretChannels(), getSmfretTimeTraces())
+    // uses overrideWithFields() so the ACTUAL settings used are visible/
+    // recallable directly from the log line, not just a re-run-with-whatever-
+    // the-fields-currently-hold call. Same "only the ACTIVE detection filter's
+    // own threshold field" convention locateSmfretSOI() itself uses (the other
+    // two thresholds are inert for whichever filter isn't selected).
+    const detFilter=paramValue('detFilter');
+    const thrKey={wave:'detection_wavelet_thr',dog:'detection_DoG_thr',box:'detection_box_thr'}[detFilter];
+    const cmdCfg={ smfretAlignChannels:true, smfretAvgFrames:paramValue('smfretAvgFrames'), psf:paramValue('psf'),
+      winr:paramValue('winr'), detFilter, [thrKey]:paramValue(thrKey), smfretAlignTolPx:paramValue('smfretAlignTolPx') };
+    if(alex) cmdCfg.alexEnabled=true, cmdCfg.alexFirstFrame=paramValue('alexFirstFrame');
+    logCmd(cmdCfg, overrideWithFields(cmdCfg, 'alignSmfretChannels()'));
     // Initial guess exactly as specified: displacement = half the frame
     // width, angle = 180° (pointing back toward the DD region from a DA/AA
     // point) — dx is therefore NEGATIVE (DD region sits to the LEFT of the
@@ -17108,31 +17143,22 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10j — smFRET: "Align channels" — direct registration, not a histogram fit.
-A different, more direct approach to donor/acceptor geometry for a
-dual-view/image-splitter setup, replacing a same-day attempt that was
-tried and reverted for adding complexity without enough benefit. The
-real problem: in a field of view much wider than tall, random point
-pairs are geometrically more likely to be oriented along the LONG axis
-regardless of any real signal — and here that axis coincides with the
-true physical bearing, so a Distance/Angle-histogram fit (any version of
-it) can't tell a genuine peak from this pure combinatorial bias.
-New "Align channels" sidesteps histogram fitting entirely: it finds the
-gap between the donor and acceptor regions directly from where sites of
-interest are actually detected (a raw pixel-intensity profile was tried
-first and found uninformative — background swamps it; a histogram of
-detected site positions shows a clean gap instead), then searches for
-the displacement that maximises how many donor-region points land near
-a real acceptor-region point (DA, plus AA with ALEX on) once shifted by
-it — starting from half the frame width at 180°, refined by the search
-itself. The winning displacement's own matches become the pairing
-directly. New "Align channels match tol. (px)" (default 10) controls
-how much slack is allowed, since a single rigid displacement is only an
-approximation once real field-dependent optical distortions are at play.
-Verified against the real ALEX dataset: found a clean, purely horizontal
-displacement and a paired distance distribution within 2% of its own
-mean — much tighter and more consistent than any histogram-based result
-on the same file.
+log(`webSMLM v0.12.1-dev · build 2026-09-10k — smFRET: 3 follow-up fixes on Align channels.
+(1) Align channels' own logged command was a bare marker with no real
+config attached, unlike every other actionable smFRET function — fixed
+to show the actual settings used (averaging/detection/match tolerance/
+ALEX fields), directly recallable from the log/terminal like the rest.
+(2) Localize SOI's success line now breaks the site count down by
+channel when Alternating laser excitation? is on: the donor-excitation
+(DD+DA) composite reports DD-region vs. DA-region counts (reusing Align
+channels' own region-split logic, no extra detection needed); the
+direct-acceptor-excitation composite reports its own AA count.
+(3) Clarified, not a bug: after Align channels, many DA-region sites
+often stay unpaired — this is mathematically expected whenever the DA
+region has more detected sites than the DD region (common on real data,
+often genuine unconjugated acceptor label or extra background on that
+side), since the smaller population is a hard ceiling on how many can
+ever be marked paired, regardless of match quality.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

@@ -2648,6 +2648,34 @@ relevant one before editing rather than scrolling:
   result on the same file, strong evidence these are genuine, consistent donor/acceptor pairs
   rather than scattered spurious matches.
 
+  **Three follow-up fixes, same day.** (1) `alignSmfretChannels()`'s own logged command was a bare
+  `{smfretAlignChannels:true}` marker with no real config attached, unlike every other actionable
+  smFRET function (`locateSmfretSOI()`, `linkSmfretChannels()`, `getSmfretTimeTraces()`), which use
+  `overrideWithFields()` so the ACTUAL settings used are visible/recallable directly from the log
+  line — reported: "'Aperture photometry (no fit)' => cli and all others!". Fixed by building a
+  real `cmdCfg` (the same detection/averaging fields `locateSmfretSOI()` itself logs, only the
+  ACTIVE detection filter's own threshold, plus `smfretAlignTolPx` and, when ALEX is on,
+  `alexEnabled`/`alexFirstFrame`) and passing it through `overrideWithFields()` — verified the
+  logged line now reads as a complete, directly-runnable `$('id').value=...;` sequence ending in
+  `alignSmfretChannels()`, not a bare call with no visible config. (2) **`locateSmfretSOI()`'s own
+  success log line now breaks the total down by channel when ALEX is on** — reported: "In Alex,
+  mention how many on DD+DA and AA channel respectively." The donor-excitation (DD+DA) composite
+  reuses `smfretFovSplitX()` (already built for Align channels, no extra detection needed — the
+  composite is already fully fitted) to report DD-region vs. DA-region counts; the direct-
+  acceptor-excitation composite reports its own single AA count instead (no split needed, only one
+  real population there). Verified via Playwright against the real ALEX dataset: `"found 482
+  site(s) of interest (donor-excitation/DD+DA view: 177 DD-region + 305 DA-region site(s), split at
+  x=256 px)"`. (3) **Explained, not a bug**: "After 'Align channels' many molecules do not seem to
+  be paired in the DA channel?" — the SAME real run's own numbers make this mathematically
+  necessary, not a matching failure: the DA region has 305 detected sites against only 177 in the
+  DD region, so AT MOST 177 DA sites could EVER be marked paired regardless of match quality — the
+  DD population itself is the hard ceiling. With 141/177 (80%) of DD sites actually finding a
+  match, 305−141=164 DA-region sites stay unpaired, the large majority (305−177=128) simply because
+  there is no possible DD partner for them at all — most likely genuine free (unconjugated)
+  acceptor label or higher background on that side of the sensor, both common, expected effects in
+  a real smFRET sample with imperfect donor/acceptor labelling stoichiometry, not an alignment
+  defect.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
