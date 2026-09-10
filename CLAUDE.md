@@ -136,6 +136,73 @@ relevant one before editing rather than scrolling:
   `unit=` says micrometers — `t282`/`t283` (XResolution/YResolution) for a pixel-size estimate;
   `t296` (ResolutionUnit) is deliberately never consulted.
 
+  **`tiffScaleHint()`'s pixel-size branch now sanity-checks the RESOLVED value, not just `>0`** —
+  a real, reported bug found via a genuinely new sample file (`experimental_data/
+  alex50mW_1_MMStack_Default.ome.tif`, dual-view/image-splitter ALEX TIRF smFRET — see
+  `experimental_data/README.md`'s own Dataset V entry): its `unit=um` description paired with a
+  `t282` (XResolution) RATIONAL of `4294967295/1` — `0xFFFFFFFF`, the classic "unset" sentinel some
+  TIFF writers emit instead of omitting the tag entirely — passed the old `ifd0.t282[0]>0` check
+  trivially (`4294967295>0`), so the app logged a fabricated-looking `"pixel size ≈ 0.0 nm/px"` for
+  a file whose own Micro-Manager metadata elsewhere explicitly says `PixelSizeUm: 0.0` (never
+  calibrated). Fixed by checking the FINAL computed `pxNm=1000/ifd0.t282[0]` against a plausibility
+  range (`PX_HINT_MIN_NM`/`MAX_NM`, 1–100000 nm/px — comfortably covering every real scientific-
+  camera pixel size this project has seen) instead of the raw tag value. **Deliberately not a
+  hardcoded reject-`4294967295`-specifically rule** — `experimental_data/README.md`'s own Dataset I
+  (GATTA-PAINT) has a LEGITIMATE, correctly-calibrated XResolution of `4294967295/42605` (same huge
+  numerator, but a real, non-unity denominator resolving to a normal ~100 nm/px scale) — a
+  numerator-based check would have wrongly rejected that genuine case too; checking the final
+  resolved pixel size is what correctly tells the two apart. Verified via Playwright against the
+  real new file (bogus line no longer logged, nothing incorrect substituted in its place — this
+  dataset genuinely has no usable pixel-size hint anywhere) and against two real POSITIVE cases
+  (GATTA-PAINT-80R-raw_cropped.tif → still `119.0 nm/px`; the Z-calibration stack → still
+  `160.0 nm/px` + `118.9 ms` frame interval) to confirm the fix doesn't touch a real, valid hint.
+
+  **`mmMetadataHint(ifds)`** (requested, same investigation — "always check each tiff header for
+  extractable information especially on camera, frametime and pixel size... general readout...
+  many data will have been provided, for example with micromanager") reads a genuinely different,
+  much richer tag `tiffScaleHint()` never touches: Micro-Manager's own per-frame metadata (TIFF tag
+  51123, present on EVERY IFD of an MMStack file) — a real JSON object per frame, not just plain
+  description text. UTIF stores an ASCII-type tag's value as an array containing the WHOLE decoded
+  string (confirmed by direct inspection via Playwright — not a raw byte array needing a UTF-8
+  decode, which was tried first and produced garbage/NUL bytes), so the JSON text is
+  `ifd.t51123.join('')` — the exact same "UTIF stores ASCII tags as an array, `join()` it" pattern
+  `descOf()`/`dv()` already use for `t270` elsewhere in this file. Three keys are UNIVERSAL across
+  every camera adapter Micro-Manager supports (`Exposure-ms`, `ElapsedTime-ms`, `PixelSizeUm` — all
+  Core metadata, not adapter-specific); camera IDENTITY has no such standard — `'Camera-Camera'`/
+  `'Camera-Description'` (checked here, best-effort) happen to be populated by the Andor adapter in
+  every real sample this project has, but a different camera/adapter may use neither, in which case
+  this simply omits that one line rather than guessing at an unfamiliar key name. Andor's own
+  adapter writes the camera identity as a literal `"| Type | Model | Serial |"` pipe-table string —
+  only the OUTER pipes/whitespace are stripped (keeping the inner `" | "` separators, which read
+  fine as `"Type | Model | Serial"`), so the log doesn't show a value wrapped in stray leading/
+  trailing bars.
+
+  **Frame interval is estimated from a SAMPLE, not every frame** (`MM_HINT_SAMPLE=25`) — parsing
+  every single frame's own JSON blob would cost 40,000 `JSON.parse()` calls on a Leterrier-style
+  large stack, measurably slowing down every such load for no real gain in estimate quality.
+  Instead, `Math.min(n,25)` evenly-spaced indices are sampled across the WHOLE stack, and the
+  MEDIAN of `Δtime/Δindex` between consecutive SAMPLED points is taken — dividing by the index gap
+  means a non-adjacent sample pair is just as valid as an adjacent one (a longer baseline is
+  actually LESS sensitive to any single frame's own jitter), the same "median, robust to a bad
+  sample" spirit as the ND2 loader's own `AcqTimesCache` interval estimate above, generalized to
+  work off a spread sample rather than requiring every consecutive frame. Wired into all 3
+  `tiffScaleHint()` call sites (`loadTiffFile()`'s contiguous-single-IFD fast path,
+  `loadTiffSequence()`'s per-file decode, `loadTiff()`'s general multi-IFD decode) — the first two
+  only ever have ONE decoded IFD available at that point (a contiguous ImageJ stack's own frames
+  aren't separate IFDs; a file-per-frame sequence decodes the REST of its files lazily, later, in
+  `getFrames()`), so `mmMetadataHint([ifd0])` there naturally reports only camera/exposure/pixel-size
+  and skips the frame-interval estimate (needs ≥2 IFDs) — no special-casing needed, the function
+  degrades on its own. `loadTiff()`'s own `ifds` array already holds every frame's IFD (the whole
+  file is decoded up front on that path), so it gets the full sampled estimate for free. Verified
+  via Playwright against the real new file: reports `camera iXon | DU897_BV | 5673, exposure 30 ms
+  (set point — real inter-frame time may differ, see below), frame interval ≈ 32.01 ms (median of
+  24 sampled inter-frame gaps)` — matching the file's own separately-confirmed `32.02 ms`
+  `Camera-ActualInterval-ms` almost exactly — while a 264 MB load still completes in ~1.3 s (no
+  measurable slowdown from the added sampling); re-checked against 3 files that predate this
+  feature (GATTA-PAINT, the Z-calibration stack, the sptPALM Lactis dataset — none of which carry
+  tag 51123 at all) to confirm `mmMetadataHint()` cleanly returns `''` and changes nothing about
+  their existing `tiffScaleHint()`-only output.
+
   `makeCroppedStack()` (raw-panel crop tool, `rawCropBtn`) is the simplest stack wrapper: slices
   every fetched frame to a fixed `[x0,x1)×[y0,y1)` sub-rectangle and REPLACES the module-level
   `stack` with it (kept in `originalStack` while active, restored on "uncrop") — a full stack swap
@@ -1289,6 +1356,43 @@ relevant one before editing rather than scrolling:
   design); picking the *other* candidate bearing on smFRET's own "Position donor?" (below) — which
   sets Primary angle then dispatches `change` — triggers the identical live re-pair/re-mark path
   for free, no separate wiring needed.
+
+  **`sSmlmDistMin`/`sSmlmDistMax` have no fixed upper limit any more** (v0.12.1-dev, reported — a
+  new real dataset, dual-view/image-splitter TIRF smFRET, put the donor channel on the LEFT half of
+  the sensor and the acceptor channel on the RIGHT half — a genuinely different physical setup from
+  every prior ALEX/sSMLM sample this session, which are all prism/polychroic-based with donor/
+  acceptor images overlapping the SAME region and pair separations of only hundreds of nm. A
+  dual-view separation is instead the sensor's own half-width, tens of MICROMETERS. Both fields'
+  own `PARAMS` `max` (previously a flat `20000`, chosen for the diffraction-grating reference
+  dataset's own sub-µm dispersion) and the matching HTML `<input max="20000">` attributes are gone
+  — `max:null`, the exact convention `fitLastFrame` already established for "no UI ceiling, only a
+  physical one" (`syncParamControls()`'s own `if(spec.max!=null) el.max=spec.max;` line means
+  `max:null` leaves the HTML attribute unset entirely, so the static markup itself had to drop
+  `max="20000"` too — setting only the PARAMS side would have left the old ceiling silently in
+  place). The "Preview pairs" wide diagnostic scan already tracked a widened Distance max
+  (`scanMax=Math.max(6000,paramValue('sSmlmDistMax'))`, MODULE: sSMLM/pipeline) — it was ONLY the
+  fields' own hard ceiling blocking dialing in a large enough window in the first place, not a
+  second, independent cap. **Two real `Math.min(null,x)` gotchas caught while removing the
+  ceiling** — `null` coerces to `0` in `Math.min`/`Math.max`, so leaving either of these call sites
+  unchanged would have silently zeroed the very thing this fix was meant to unblock: (1)
+  `fitSSmlmDistAndAngle()`'s own auto-fit clamped `distMax` via
+  `Math.min(PARAMS.sSmlmDistMax.max, mu+3*sigma)` — replaced with `Math.min(Math.hypot(dims.a,
+  dims.b), mu+3*sigma)`, the localization bounding box's own diagonal (already computed as
+  `dims.a`/`dims.b` for the background-model fit right above it) being the actual physical bound —
+  no two localizations within that box can be farther apart than its diagonal, a real constraint
+  unlike the old arbitrary constant; (2) the distance histogram's own draggable min/max marker IIFE
+  clamped every drag tick via `Math.max(spec.min,Math.min(spec.max,nv))` — changed to
+  `Math.max(spec.min, spec.max==null?nv:Math.min(spec.max,nv))`, an explicit null-check rather than
+  relying on `Math.min`'s own silent coercion, since without it every drag would have snapped
+  straight to `spec.min` on the very first pointermove. `sSmlmAngleCenter`/`sSmlmAngleTol`'s own
+  drag clamps (a few lines below, same IIFE family) are untouched — those fields keep real, bounded
+  `max` values (±180°/90°), unaffected by any of this. Verified via Playwright with a synthetic
+  dual-view-style dataset (donor/acceptor sites 300 px apart at 160 nm/px ≈ 48 µm — well past the
+  old 20000 nm ceiling): the field itself now accepts and retains 50000 directly; **Preview pairs**
+  found real candidates out to ~54,640 nm; **Pair & plot sSMLM** committed 19/20 planted pairs at a
+  mean distance of ~48,327 nm; and a separate run through `fitSSmlmDistAndAngle()`'s own auto-fit
+  path converged to a real, non-zero, non-crashing window (~44,600–45,800 nm) instead of the
+  `Math.min(null,...)` bug's `0` — confirming both the manual-entry and auto-fit code paths.
 
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual

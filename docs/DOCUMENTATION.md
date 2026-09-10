@@ -2208,8 +2208,8 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 20000 | 50 | 2200 |
-| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 20000 | 50 | 2800 |
+| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | — | 50 | 2200 |
+| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | — | 50 | 2800 |
 | `sSmlmBgProfile` | Background profile | enum (`rect`, `circle`) | — | — | — | `rect` |
 | `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
 | `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
@@ -2298,7 +2298,16 @@ via Levenberg-Marquardt (only 4 free parameters — the background shape's
 own size is derived from the localization bounding box, not fit), it sets
 Distance min/max to the fitted peak ±3σ (a generous starting window, not a
 real-data-validated constant the way the angle half-max-doubling below
-is) and overlays the fitted curve on the distance histogram itself.
+is — clamped only by the localization bounding box's own diagonal, since
+no two localizations can be farther apart than that) and overlays the
+fitted curve on the distance histogram itself. **Distance min/max have no
+fixed upper limit** — the original 20000 nm ceiling matched a
+diffraction-grating setup's own sub-µm dispersion, but a dual-view/
+image-splitter TIRF rig puts the donor and acceptor channels tens of
+micrometers apart on the same sensor, so both fields (and the wide
+diagnostic scan **Preview pairs** runs, which always covers at least
+6000 nm or the current Distance max, whichever is larger) scale with
+whatever window the real optical setup needs.
 Primary angle/Angle tolerance are then estimated directly from that same
 (now correctly windowed) doubled-bearing data: peak-bin detection (2°
 bins) + half-max-width walk, DOUBLED as a safety margin (the raw half-max

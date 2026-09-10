@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2696   PARAMS registry, single source of truth for params;
+    params          2714   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,12 +30,22 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3577   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3603   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
-                           vs-streamed threshold to Memory budget (memgb)
-    simulation      3876   synthetic stack generator ("Simulate movie")
-    detect          4754   per-frame band-pass + local-maxima detection
-    fit             5031   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+                           vs-streamed threshold to Memory budget (memgb);
+                           tiffScaleHint()'s pixel-size branch now sanity-
+                           checks the RESOLVED nm value (1-100000), not just
+                           tag>0 — a real 0xFFFFFFFF "unset" XResolution
+                           sentinel logged a fabricated "pixel size ≈ 0.0
+                           nm/px" before this; mmMetadataHint() reads Micro-
+                           Manager's own richer per-frame JSON tag (51123) —
+                           camera/exposure/pixel-size, plus a sampled-median
+                           frame-interval estimate (MM_HINT_SAMPLE=25 evenly
+                           -spaced frames, not every one) — wired alongside
+                           tiffScaleHint() at all 3 load call sites
+    simulation      3902   synthetic stack generator ("Simulate movie")
+    detect          4859   per-frame band-pass + local-maxima detection
+    fit             5136   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -60,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5670   accumulate to offscreen buffer; view/colour/blur;
+    render          5775   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -86,14 +96,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7104   frame-parallel detect/fit worker pool; dedicated
+    workers         7209   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7414   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7742   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7519   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7847   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -104,7 +114,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8208   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8313   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -119,9 +129,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    8810   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8915   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9544   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9649   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -172,8 +182,16 @@
                            filterSmfretSoiOverlayToPairs()) now COLOURS a
                            paired SOI site dark orange instead of removing
                            an unpaired one — srSpots/srLocs stay the full,
-                           unfiltered set always, no more __pairedSOI hack
-    spt             11983   single particle tracking, trackpy-inspired;
+                           unfiltered set always, no more __pairedSOI hack;
+                           sSmlmDistMin/Max have no fixed upper limit any
+                           more (max:null, fitLastFrame's own convention) —
+                           a dual-view/image-splitter TIRF setup needs pairs
+                           tens of µm apart, not the few-hundred-nm ceiling
+                           a diffraction-grating setup's 20000nm cap assumed;
+                           fitSSmlmDistAndAngle()'s own ±3σ clamp now uses
+                           the bounding box's own diagonal (Math.hypot),
+                           not the now-null PARAMS.sSmlmDistMax.max
+    spt             12093   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -204,7 +222,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13521  top-level orchestration, *Core()/wrapper split;
+    pipeline        13631  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -265,7 +283,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14191  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14301  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -319,14 +337,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           16771  localizations table, filtering, histograms;
+    table           16900  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17484  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17613  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2061,7 +2079,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2454,8 +2472,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="sSmlmBox">
         <summary>(Caution!) Pairing (sSMLM & FRET)</summary>
-        <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" max="20000" step="50" class="num"></label>
-        <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" max="20000" step="50" class="num"></label>
+        <label class="row">Distance min (nm) <input type="number" id="sSmlmDistMin" value="2200" min="0" step="50" class="num"></label>
+        <label class="row">Distance max (nm) <input type="number" id="sSmlmDistMax" value="2800" min="0" step="50" class="num"></label>
         <label class="row" title="The shape assumed for the region the localizations occupy, for the &quot;random unpaired pairs&quot; background model Preview pairs' own automatic distance fit uses — a rectangle (the actual localization bounding box) or a circle (the equivalent-area disk). Real optical setups vary, so this isn't guessed from the data.">Background profile
           <select id="sSmlmBgProfile" class="sel">
             <option value="rect">Rectangle</option>
@@ -2910,8 +2928,16 @@ const PARAMS = {
   // dispersion (experimental_data/sSMLM_Fig2_locs.csv) — a *different* setup's
   // dispersion will sit elsewhere, so re-check Preview pairs' distance
   // histogram for the real peak rather than trusting these numbers blind.
-  sSmlmDistMin: { type:'number', id:'sSmlmDistMin', label:'sSMLM pair distance min (nm)', min:0, max:20000, step:50, default:2200, int:false },
-  sSmlmDistMax: { type:'number', id:'sSmlmDistMax', label:'sSMLM pair distance max (nm)', min:0, max:20000, step:50, default:2800, int:false },
+  // max:null (no UI ceiling, fitLastFrame's own convention) — a fixed 20000nm
+  // cap was fine for a diffraction-grating setup's own sub-µm dispersion, but
+  // silently blocked a genuinely different optical setup (a dual-view/
+  // image-splitter TIRF rig, donor/acceptor channels tens of µm apart on the
+  // SAME sensor) from ever pairing at all; the real physical bound is the
+  // data's own bounding-box diagonal (sSmlmBoxDims(), enforced where the
+  // distance fit clamps distMax — see fitSSmlmDistAndAngle()), not an
+  // arbitrary constant here.
+  sSmlmDistMin: { type:'number', id:'sSmlmDistMin', label:'sSMLM pair distance min (nm)', min:0, max:null, step:50, default:2200, int:false },
+  sSmlmDistMax: { type:'number', id:'sSmlmDistMax', label:'sSMLM pair distance max (nm)', min:0, max:null, step:50, default:2800, int:false },
   // Which shape the "random unpaired pairs" background model in
   // fitSSmlmDist() (MODULE: sSMLM) assumes for the region the localizations
   // actually occupy — a rectangle (Philip 2007) or a circle (Solomon 1978,
@@ -4221,14 +4247,90 @@ async function loadNd2File(file, onLog=log){
 // actual µ character — an ImageJ/Java text-encoding quirk only caught by
 // inspecting the real decoded string, not documented anywhere) — both are
 // recognised.
+//
+// XResolution/YResolution must be SANITY-CHECKED, not just checked for >0
+// (a real, reported bug: a Micro-Manager OME-TIFF with unit=um but no real
+// pixel-size calibration — PixelSizeUm:0.0 in its own MicroManagerMetadata —
+// still carried a t282 RATIONAL of 4294967295/1, i.e. 0xFFFFFFFF, the classic
+// "unset" sentinel some TIFF writers emit rather than omitting the tag
+// entirely. `4294967295>0` is true, so the naive check happily computed and
+// logged "pixel size ≈ 0.0 nm/px" — a fabricated-looking measurement from a
+// value that was never real. `PX_SANITY_MIN_NM`/`MAX_NM` (1–100000 nm/px,
+// comfortably covering every real scientific-camera pixel size this project
+// has ever seen, from a raw sensor pixel to a very low-mag overview) reject
+// both this sentinel and any other implausible XResolution value without
+// hardcoding the one specific bad number.
+const PX_HINT_MIN_NM=1, PX_HINT_MAX_NM=100000;
 function tiffScaleHint(ifd0, desc){
   const um=/unit=(\S+)/i.exec(desc);
   const isMicron=um && /^(µm|um|microns?|\\u00b5m)$/i.test(um[1]);
   const fi=/finterval=([\d.]+)/i.exec(desc);
   const parts=[];
-  if(isMicron && ifd0.t282 && ifd0.t282[0]>0) parts.push(`pixel size ≈ ${(1000/ifd0.t282[0]).toFixed(1)} nm/px (XResolution+unit)`);
+  if(isMicron && ifd0.t282 && ifd0.t282[0]>0){
+    const pxNm=1000/ifd0.t282[0];
+    if(pxNm>=PX_HINT_MIN_NM && pxNm<=PX_HINT_MAX_NM) parts.push(`pixel size ≈ ${pxNm.toFixed(1)} nm/px (XResolution+unit)`);
+  }
   if(fi && +fi[1]>0) parts.push(`frame interval ${(+fi[1]*1000).toFixed(1)} ms (finterval)`);
   return parts.length ? `file's own metadata: ${parts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.` : '';
+}
+// Micro-Manager writes a much richer per-frame metadata blob (t51123,
+// present on EVERY IFD of an MMStack file) that tiffScaleHint() above never
+// reads — a genuine JSON object (real camera identity, exposure, and a real
+// per-frame timestamp), not just the plain ImageJ description text. UTIF
+// stores an ASCII-type tag's value as an array containing the whole decoded
+// string (same convention descOf()/dv() elsewhere already join() around),
+// so the JSON text is `ifd.t51123.join('')`, not a raw byte array needing a
+// UTF-8 decode.
+function mmMetaStr(ifd, tagKey){ const v=ifd[tagKey]; return !v?'':(typeof v==='string'?v:(v.join?v.join(''):String(v))); }
+function mmMetaParse(ifd){ const s=mmMetaStr(ifd,'t51123'); if(!s) return null; try{ return JSON.parse(s); }catch(_){ return null; } }
+// General TIFF-header readout for camera/frame-time/pixel-size, run
+// alongside tiffScaleHint() at every TIFF load path (requested — "many data
+// will have been provided ... with micromanager"). Only 3 keys are UNIVERSAL
+// across every camera adapter Micro-Manager supports (Exposure-ms,
+// ElapsedTime-ms, PixelSizeUm — all Core metadata, not adapter-specific);
+// camera IDENTITY keys are adapter-specific naming with no stable standard —
+// 'Camera-Camera'/'Camera-Description' (checked here, best-effort) happen to
+// be populated by the Andor adapter seen in this project's own real sample
+// data, but a different camera/adapter may use neither, in which case this
+// simply omits that one line rather than guessing at an unfamiliar key name.
+const MM_HINT_SAMPLE=25;   // frames sampled for the frame-interval estimate — a
+                           // few dozen JSON.parse calls is plenty regardless of
+                           // whether the stack has 500 or 40,000 frames; every
+                           // frame's own t51123 would make a 40,000-frame
+                           // Leterrier-style load measurably slower for no
+                           // real gain in estimate quality
+function mmMetadataHint(ifds){
+  if(!ifds || !ifds.length || !ifds[0].t51123) return '';
+  const mm0=mmMetaParse(ifds[0]); if(!mm0) return '';
+  const parts=[];
+  // Andor's own adapter writes this as a literal "| Type | Model | Serial |"
+  // pipe-table string — strip only the OUTER pipes/whitespace (keeping the
+  // inner " | " separators, which read fine as "Type | Model | Serial") so
+  // it doesn't show up in the log wrapped in stray leading/trailing bars.
+  const camRaw=mm0['Camera-Camera']||mm0['Camera-Description'];
+  const cam=camRaw ? String(camRaw).trim().replace(/^\|\s*/,'').replace(/\s*\|$/,'') : '';
+  if(cam) parts.push(`camera ${cam}`);
+  if(isFinite(mm0['Exposure-ms']) && mm0['Exposure-ms']>0) parts.push(`exposure ${mm0['Exposure-ms']} ms (set point — real inter-frame time may differ, see below)`);
+  if(isFinite(mm0['PixelSizeUm']) && mm0['PixelSizeUm']>0) parts.push(`pixel size ${(mm0['PixelSizeUm']*1000).toFixed(1)} nm/px (PixelSizeUm)`);
+  // Frame interval: sample evenly-spaced frames across the WHOLE stack (not
+  // every one) and take the MEDIAN of (Δtime/Δindex) between consecutive
+  // sampled points — dividing by the index gap makes a non-adjacent sample
+  // pair just as valid as an adjacent one (a longer baseline is actually
+  // LESS sensitive to any single frame's own jitter), same "median, robust
+  // to outliers" spirit as the ND2 loader's own AcqTimesCache interval
+  // estimate (MODULE: in/out), generalized to work off a spread sample
+  // rather than requiring every consecutive frame.
+  const n=ifds.length, k=Math.min(n, MM_HINT_SAMPLE);
+  if(k>=2){
+    const idxs=[]; for(let i=0;i<k;i++) idxs.push(Math.round(i*(n-1)/(k-1)));
+    const pts=[];
+    for(const idx of idxs){ const m=idx===0?mm0:mmMetaParse(ifds[idx]); if(m && isFinite(m['ElapsedTime-ms'])) pts.push({idx, t:m['ElapsedTime-ms']}); }
+    const rates=[];
+    for(let i=1;i<pts.length;i++){ const di=pts[i].idx-pts[i-1].idx, dt=pts[i].t-pts[i-1].t; if(di>0 && dt>0) rates.push(dt/di); }
+    if(rates.length){ rates.sort((a,b)=>a-b); const med=rates[rates.length>>1];
+      parts.push(`frame interval ≈ ${med.toFixed(2)} ms (median of ${rates.length} sampled inter-frame gaps)`); }
+  }
+  return parts.length ? `Micro-Manager metadata: ${parts.join(', ')} — Pixel size (nm)/Frame time (s) NOT auto-updated, set them by hand if you want to use this.` : '';
 }
 /* Reads only a header slice first. If the file turns out to be a contiguous
    ImageJ stack, frames are read on demand with File.slice() and the whole file
@@ -4296,6 +4398,7 @@ async function loadTiffFile(file, onLog=log){
         onLog(`(Below the ${fmtBytes(SLICE_MIN)} size where this is required regardless — the ${fmtBytes(effSliceMin)} Memory budget is what pushed it here; raise it if you have the RAM to load faster.)`);
       }
       const hint=tiffScaleHint(hifds[0], dv('t270')); if(hint) onLog(hint);
+      const mmHint=mmMetadataHint([hifds[0]]); if(mmHint) onLog(mmHint);
       // Fast path: single-channel, native (LE) byte order, aligned offset — a
       // direct TypedArray view + Float32Array.set() bulk-copies/converts at the
       // engine level (measured ~45x faster than the per-pixel DataView loop
@@ -4411,6 +4514,7 @@ async function loadTiffSequence(fileList, onLog=log){
   onLog(`${files[0].name} … ${files[n-1].name}`);
   const descOf0=t=>{ const v=ifd0[t]; return !v?'' : (typeof v==='string'?v : (v.join?v.join(''):String(v))); };
   const seqHint=tiffScaleHint(ifd0, descOf0('t270')); if(seqHint) onLog(seqHint);
+  const seqMmHint=mmMetadataHint([ifd0]); if(seqMmHint) onLog(seqMmHint);
   let cached0=ifdToFloat(ifd0,w,h);            // avoid decoding frame 0 twice
   const getFrames=async(s,e)=>{
     e=Math.min(e,n); if(e<=s) return [];
@@ -4632,6 +4736,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
   const mImg=/images=(\d+)/i.exec(descOf('t270'));
   let declared=mImg?+mImg[1]:0;
   const scaleHint=tiffScaleHint(ifds[0], descOf('t270')); if(scaleHint) onLog(scaleHint);
+  const mmHint=mmMetadataHint(ifds); if(mmHint) onLog(mmHint);
   // Safety net: even without an images= record, a single IFD in a file far
   // larger than one frame means frames are going unread. Infer the count from
   // the file size rather than silently analysing a fraction of the data.
@@ -10237,7 +10342,12 @@ function fitSSmlmDistAndAngle(){
     // calibration for distance yet, so this is deliberately generous
     // (captures ~99.7% of a Gaussian) rather than tuned; widen/narrow by
     // hand from here, same framing the angle fit's own log line uses.
-    const distMin=Math.max(0,mu-3*sigma), distMax=Math.min(PARAMS.sSmlmDistMax.max, mu+3*sigma);
+    // Upper bound is the box's own diagonal (no two localizations within it
+    // can be farther apart than that) — NOT PARAMS.sSmlmDistMax.max, which is
+    // now null (no fixed UI ceiling, see that field's own comment); Math.min
+    // would silently coerce a null second argument to 0 and always clamp
+    // distMax to 0 if this were left as-is.
+    const distMin=Math.max(0,mu-3*sigma), distMax=Math.min(Math.hypot(dims.a,dims.b), mu+3*sigma);
     $('sSmlmDistMin').value=distMin.toFixed(0); $('sSmlmDistMax').value=distMax.toFixed(0);
     log(`\nsSMLM distance fit: background = ${regionLabel}; signal peak at ${mu.toFixed(0)} nm (σ=${sigma.toFixed(0)} nm) — `
       + `Distance min/max set to ${distMin.toFixed(0)}/${distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
@@ -16387,7 +16497,10 @@ $('raw').addEventListener('click',async e=>{
     const otherId=draggingId==='sSmlmDistMin'?'sSmlmDistMax':'sSmlmDistMin', other=paramValue(otherId);
     let nv=pxToValue(e.clientX);
     nv = draggingId==='sSmlmDistMin' ? Math.min(nv,other-MIN_SEPARATION_NM) : Math.max(nv,other+MIN_SEPARATION_NM);
-    nv = Math.max(spec.min,Math.min(spec.max,nv));
+    // spec.max is null for both sSmlmDistMin/Max (no fixed UI ceiling, see
+    // their own PARAMS comment) — Math.min(null,nv) would silently coerce to
+    // Math.min(0,nv), snapping the marker straight to spec.min on every drag.
+    nv = Math.max(spec.min, spec.max==null?nv:Math.min(spec.max,nv));
     $(draggingId).value=Math.round(nv);
     // Cheap redraw only during the drag itself — drawSSmlmHist() recomputes
     // its markers from the live field value directly, no event needed for
@@ -16641,20 +16754,43 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10e — Get time traces keeps its place, plus JSON export.
-(1) Toggling Aperture photometry, Set negative intensities to zero, or
-Filter SOIs while a time trace was already showing silently jumped
-back to site 1 every time — these now keep showing whichever
-site/x-zoom was already on screen (a genuine fresh "Get time traces"
-click still opens on site 1, unchanged). Along the way, caught a real
-latent bug: the button's own click listener passed the click event
-itself into the function as an argument, which would have silently
-broken a real click's own "reset to site 1" behaviour the moment this
-fix was wired up — fixed by wrapping the listener properly.
-(2) New "Export traces" button saves every site's own DD/DA/AA time
-trace as one JSON file, one self-contained record per site (position,
-time in seconds, and whichever of photonsDD/photonsDA/photonsAA that
-site actually has) — a gap in any channel is written as a plain null.
+log(`webSMLM v0.12.1-dev · build 2026-09-10g — sSMLM pairing distance has no ceiling any more.
+(1) A new real dataset (dual-view/image-splitter ALEX TIRF smFRET — donor
+channel on the left half of the sensor, acceptor on the right) needs
+sSMLM pairs found tens of micrometers apart, not the few-hundred-nm
+separation a diffraction-grating setup produces. Distance min/max
+(sSmlmDistMin/Max) previously had a fixed 20000 nm ceiling baked into
+both the field and the underlying PARAMS entry — removed (no fixed
+upper limit now, same convention Last frame already uses), so a real
+optical setup with widely-separated donor/acceptor channels can now
+pair correctly. Caught two real Math.min(null,x) coercion bugs while
+removing it — a null second argument silently coerces to 0 — fixed in
+the distance-fit's own ±3σ clamp (now bounded by the localization
+bounding box's own diagonal instead) and the histogram's draggable
+marker lines (now an explicit null check).
+(2) Checking the same new file's own TIFF metadata for pixel size/frame
+time surfaced a second, previously-latent bug: a file with unit=um but
+NO real pixel calibration can still carry an XResolution tag of
+4294967295/1 (the classic "unset" sentinel some writers emit) — the
+old check only tested tag>0, so it happily logged a fabricated-looking
+"pixel size ≈ 0.0 nm/px". Now sanity-checks the RESOLVED pixel size
+against a plausible range instead of trusting any nonzero tag value —
+verified this doesn't touch any real, legitimate calibration (checked
+against GATTA-PAINT's own dataset, which coincidentally shares the same
+huge numerator with a genuinely different, valid denominator). This
+particular file has no embedded pixel size anywhere — set it by hand.
+(3) Every TIFF load now also checks for Micro-Manager's own richer
+per-frame metadata (a real JSON blob per frame, not just plain
+description text) — camera identity, exposure, and a sampled-median
+frame-interval estimate from real per-frame timestamps (25 evenly
+-spaced frames, not every one — stays fast even on a 40,000-frame
+stack). Logged as a second line alongside the existing pixel-size/
+finterval hint whenever present; silently absent for files that don't
+carry this tag (most non-Micro-Manager TIFFs). Verified against the
+same new dataset: reports "camera iXon | DU897_BV | 5673, exposure
+30 ms ..., frame interval ≈ 32.01 ms" — matching its own separately
+-confirmed 32.02 ms actual interval almost exactly, with no measurable
+load-time slowdown (264 MB file still loads in ~1.3 s).
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

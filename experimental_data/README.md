@@ -176,6 +176,47 @@ matched 1st-order positions, an entirely independent computation from the
 per-pair distance stat) reproduced a (2544, 87) nm separation, confirming
 the pairs found were self-consistent.
 
+## Dataset V — dual-view (image-splitter) ALEX TIRF smFRET
+
+`alex50mW_1_MMStack_Default.ome.tif` (264 MB, 500 frames, 512×512 px,
+Micro-Manager OME-TIFF). Acquired on an Andor iXon DU897_BV EMCCD (EM
+gain 300, 30 ms exposure, ~32.02 ms actual per-frame interval — see below),
+via pycromanager/Micro-Manager 2.0. Genuinely different optical layout from
+Dataset IV above: this is a **dual-view/image-splitter** TIRF setup —
+donor emission on the LEFT half of the sensor, acceptor emission on the
+RIGHT half — not a diffraction-grating setup, so a real donor/acceptor pair
+sits **tens of micrometers apart** on the same frame, not the few-hundred-nm
+separation Dataset IV's grating dispersion produces. This is what motivated
+removing `sSmlmDistMin`/`sSmlmDistMax`'s fixed 20000 nm ceiling (see
+`CLAUDE.md`'s **sSMLM** module notes) — those two fields now have no upper
+limit, only the practical bound of the localization bounding box's own
+diagonal.
+
+**No pixel size is embedded anywhere in this file** — checked directly (both
+`tifffile` and webSMLM's own `tiffScaleHint()`): the OME-XML `<Pixels>`
+element has no `PhysicalSizeX`/`PhysicalSizeY` attributes at all, and the
+per-frame Micro-Manager metadata explicitly reports `PixelSizeUm: 0.0` (never
+calibrated in software). The TIFF's own XResolution tag (`t282`) is present
+but is `4294967295/1` — the classic 0xFFFFFFFF "unset" RATIONAL sentinel, not
+a real value — which is what led to fixing `tiffScaleHint()` to sanity-check
+the resolved pixel size instead of trusting any tag with a nonzero value (a
+real, previously-latent bug: the naive check logged a fabricated-looking
+"pixel size ≈ 0.0 nm/px" for this exact file). **Pixel size (nm) must be set
+by hand** for this dataset — there's no metadata anywhere in the file to
+derive it from.
+
+**Frame time IS derivable — via a new, separate mechanism, `mmMetadataHint()`**
+(see `CLAUDE.md`'s in/out module notes): there's no `finterval=` key in
+either description text, but the per-frame Micro-Manager metadata
+(`MicroManagerMetadata`, TIFF tag 51123 — a genuine JSON blob per frame,
+which `tiffScaleHint()` never reads) carries a real `ElapsedTime-ms`
+timestamp on every frame. Loading this file now logs a second metadata
+line alongside the existing one: `camera iXon | DU897_BV | 5673, exposure
+30 ms (set point — real inter-frame time may differ, see below), frame
+interval ≈ 32.01 ms (median of 24 sampled inter-frame gaps)` — matching the
+`Camera-ActualInterval-ms: "32.02"` this file's own metadata separately
+confirms, and clearly NOT the 30 ms exposure setting.
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations
