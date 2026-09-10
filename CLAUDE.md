@@ -2303,6 +2303,23 @@ relevant one before editing rather than scrolling:
   completely unaffected — same plain `smfretSOI.length` gate as before, verified via Playwright
   producing real traces immediately after **Localize SOI** with no linking step at all.
 
+  **The dark-orange "part of a pair" marking was recolouring the wrong endpoint — DD, not DA**
+  (reported directly: "for me orange box indicates acceptor, meaning DA, so this is what caused the
+  confusion for me, best to change"). `markSmfretSoiPairedKeys(pairedLocs)` built its match set from
+  `pairedLocs.map(L=>L.x+'|'+L.y)` — but `pairCore()`'s own convention is that a pair's `x,y` is
+  ALWAYS the 0th-order/DONOR position (undispersed, the true emitter position — see **sSMLM**'s own
+  module bullet), with the acceptor stored separately as `x2,y2`. So every `smfretSOI` entry
+  matching that set was, by construction, a DONOR site — confirmed directly before touching any
+  code: a diagnostic against the real ALEX dataset found the donor position matched 84/84 accepted
+  pairs and the acceptor position matched 0/84, not a coincidence. Fixed by matching on `L.x2+'|'
+  +L.y2` instead — the SAME `smfretSOI` filter-by-value-equality mechanism, just checking the
+  pair's acceptor coordinate instead of its donor one. Re-verified on the same real dataset,
+  inverted exactly as expected: acceptor position now matches 84/84 (82/82 after **Link
+  DD/DA/AA** narrows it), donor position matches 0/84 either way. Scoped correctly with no
+  cross-module risk: `markSmfretSoiPairedKeys()` is gated on `smfretSOI` existing at all, which
+  only ever happens via **Localize SOI** — sSMLM's own plain (non-smFRET) diffraction-grating
+  pairing never touches `smfretSOI` or this function, so the swap is invisible to that module.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
