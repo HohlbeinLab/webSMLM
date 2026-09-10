@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2714   PARAMS registry, single source of truth for params;
+    params          2722   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3603   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
+    in/out          3611   TIFF/ND2 parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      3902   synthetic stack generator ("Simulate movie")
-    detect          4859   per-frame band-pass + local-maxima detection
-    fit             5136   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      3910   synthetic stack generator ("Simulate movie")
+    detect          4867   per-frame band-pass + local-maxima detection
+    fit             5144   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          5775   accumulate to offscreen buffer; view/colour/blur;
+    render          5783   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -96,14 +96,14 @@
                            two separately-sized pieces (real superscript,
                            not the tiny Unicode glyph) — one implementation
                            replacing 3 duplicated fillText() call sites
-    workers         7209   frame-parallel detect/fit worker pool; dedicated
+    workers         7217   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7519   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  7847   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7527   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  7855   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -114,7 +114,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8313   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8321   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -129,9 +129,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    8915   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    8923   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9649   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           9657   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -190,8 +190,16 @@
                            a diffraction-grating setup's 20000nm cap assumed;
                            fitSSmlmDistAndAngle()'s own ±3σ clamp now uses
                            the bounding box's own diagonal (Math.hypot),
-                           not the now-null PARAMS.sSmlmDistMax.max
-    spt             12093   single particle tracking, trackpy-inspired;
+                           not the now-null PARAMS.sSmlmDistMax.max;
+                           previewSSmlmPairsCore()'s wide-scan ceiling had
+                           the SAME max(6000,...) floor problem, fixed the
+                           same way (both interactive + headless); the
+                           auto-fit's own single-region background model
+                           still doesn't reliably find a two-disjoint-region
+                           (dual-view) peak — angle-restricting candidates
+                           to a known bearing first helps a lot, not yet a
+                           UI toggle
+    spt             12116   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -222,7 +230,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        13631  top-level orchestration, *Core()/wrapper split;
+    pipeline        13654  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -283,7 +291,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   14301  Micro-Manager/pycromanager camera bridge
+    liveStreaming   14324  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -337,14 +345,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           16900  localizations table, filtering, histograms;
+    table           16955  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    17613  window.webSMLM.analyze()/analyzeBatch();
+    headless API    17668  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2079,7 +2087,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-10h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -10426,11 +10434,14 @@ function fitSSmlmDistAndAngle(){
   { const cmdCfg={sSmlmBgProfile:paramValue('sSmlmBgProfile')}; logCmd(cmdCfg, overrideWithFields(cmdCfg, 'fitSSmlmDistAndAngle()')); }
 }
 // Preview computes candidates but commits nothing — always a WIDE, FIXED scan
-// (distance 0–6000 nm — or wider still if the configured Distance max is
-// already past that — at any angle, 0±90°), ignoring the current
-// Distance/Angle fields entirely, so narrowing either one first can't hide
-// the true peak behind an already-wrong guess (nor clip the histogram to a
-// window that isn't even close). The configured window is instead drawn as
+// (distance 0–6000 nm, or wider still if the configured Distance max OR the
+// localization bounding box's own diagonal is already past that — at any
+// angle, 0±90°), ignoring the current Distance/Angle fields entirely, so
+// narrowing either one first can't hide the true peak behind an
+// already-wrong guess (nor clip the histogram to a window that isn't even
+// close — the bounding-box-diagonal floor is what makes this true even for
+// a dataset whose real separation is tens of µm, far past the 6000 nm
+// default). The configured window is instead drawn as
 // vertical reference lines ON that wide histogram (see drawSSmlmHist), so
 // it's visible at a glance whether it's actually sitting on the real peak.
 // Matches the two-step read (broad distance histogram, then angle histogram
@@ -10446,7 +10457,19 @@ function fitSSmlmDistAndAngle(){
 // no DOM beyond that, no button-enabling, no view switch.
 async function previewSSmlmPairsCore(){
   const rawLocs = sSmlmOriginalLocs || lastResult.locs;   // always the raw input, see block comment above
-  const scanMax=Math.max(6000,paramValue('sSmlmDistMax'));
+  // scanMax must also cover the data's own physical extent (the localization
+  // bounding box's diagonal — no two localizations can be farther apart than
+  // that), not just 6000 nm/the configured Distance max — a real, reported
+  // bug: a dual-view/image-splitter setup's true separation (tens of µm, half
+  // the sensor width) sat WELL past a 6000 nm scan, so the wide "diagnostic"
+  // histogram never actually reached the real peak at all, and the auto-fit
+  // it feeds converged on a spurious peak inside the truncated window instead
+  // (the same failure SHAPE the original seeding bug had — see this
+  // function's own "two-stage seed" comment further down — just reached via
+  // a different route: a truncated SCAN, not a bad seed against a complete
+  // one). See CLAUDE.md's sSMLM module notes.
+  const dims=sSmlmBoxDims();
+  const scanMax=Math.max(6000,paramValue('sSmlmDistMax'), dims?Math.hypot(dims.a,dims.b):0);
   sSmlmDistFit=null; sSmlmAngleFit=null;   // a fresh candidate set (and possibly a changed bounding box) invalidates any previous distance/angle fit
   sSmlmLastCands=await sSmlmCandidates(rawLocs, lastResult.px, 0, scanMax, 0, 90, setProg);
   log(`\nsSMLM preview: ${sSmlmLastCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle).`);
@@ -16754,7 +16777,7 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-10g — sSMLM pairing distance has no ceiling any more.
+log(`webSMLM v0.12.1-dev · build 2026-09-10h — sSMLM pairing distance has no ceiling any more.
 (1) A new real dataset (dual-view/image-splitter ALEX TIRF smFRET — donor
 channel on the left half of the sensor, acceptor on the right) needs
 sSMLM pairs found tens of micrometers apart, not the few-hundred-nm
@@ -16791,6 +16814,26 @@ same new dataset: reports "camera iXon | DU897_BV | 5673, exposure
 30 ms ..., frame interval ≈ 32.01 ms" — matching its own separately
 -confirmed 32.02 ms actual interval almost exactly, with no measurable
 load-time slowdown (264 MB file still loads in ~1.3 s).
+(4) A real, reported follow-up bug in the (1) fix above: removing the
+FIELD's own ceiling wasn't enough — "Preview pairs"' own wide diagnostic
+scan had a SEPARATE hardcoded floor (max(6000 nm, Distance max)),
+independent of the field, so a dual-view setup's real ~tens-of-µm
+separation still never entered the histogram at all (matches the
+reported symptom exactly: the plot's own x-axis topped out at 6000 nm).
+Fixed the same way as the ±3σ clamp — floored at the localization
+bounding box's own diagonal too, in both the interactive and headless
+code paths. Verified: the scan now reaches the data's full physical
+extent. Separately found (not yet fixed, discussed with the user): the
+automatic distance-peak-fit itself still doesn't reliably lock onto a
+correct window for a two-region (left/right split) setup, since its
+background model assumes one contiguous region — a real signal at
+"half the frame" sits deep in an already-large, smoothly-varying
+combinatorial background. Restricting candidates to a narrow angle
+window (when the real bearing is roughly known, as it is for a
+horizontal dual-view split) cuts that background by ~4-5x and makes
+the true peak visibly stand out — recommended as a manual workaround
+via sSmlmCandidates() from the terminal for now; a UI toggle for this
+is a possible follow-up, not built this round.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -17889,21 +17932,27 @@ async function analyze(config){
   }
   // config.sSmlmPreview — the headless equivalent of clicking Preview pairs
   // (MODULE: sSMLM): a WIDE, FIXED diagnostic scan (distance 0–6000 nm, or
-  // wider still if cfg.sSmlmDistMax already exceeds that — angle 0±90°,
-  // same as the interactive button), ignoring cfg.sSmlmDistMin/AngleCenter/
-  // AngleTol entirely, computed on the SAME raw/unpaired locs config.sSmlmPair
-  // below would use. Reported: previously had no headless form at all, so
-  // clicking Preview pairs interactively had nothing to logCmd() — a real
-  // command now exists for it. Not mutually exclusive with config.sSmlmPair:
-  // a caller can request either, both, or neither, matching how Preview and
-  // Pair are independent interactive actions. cfg.exportPlots (below, once
-  // `plots` exists) additionally renders the same distance-histogram image
-  // "Save plot/image" would — Preview pairs is followed by a genuinely
-  // exportable figure interactively, so a headless caller should get that
-  // too, not just the numeric summary.
+  // wider still if cfg.sSmlmDistMax OR the localization bounding box's own
+  // diagonal already exceeds that — angle 0±90°, same as the interactive
+  // button — see previewSSmlmPairsCore()'s own comment for why the diagonal
+  // floor is needed, a dual-view setup's true separation can be tens of µm),
+  // ignoring cfg.sSmlmDistMin/AngleCenter/AngleTol entirely, computed on the
+  // SAME raw/unpaired locs config.sSmlmPair below would use. Reported:
+  // previously had no headless form at all, so clicking Preview pairs
+  // interactively had nothing to logCmd() — a real command now exists for
+  // it. Not mutually exclusive with config.sSmlmPair: a caller can request
+  // either, both, or neither, matching how Preview and Pair are independent
+  // interactive actions. cfg.exportPlots (below, once `plots` exists)
+  // additionally renders the same distance-histogram image "Save plot/image"
+  // would — Preview pairs is followed by a genuinely exportable figure
+  // interactively, so a headless caller should get that too, not just the
+  // numeric summary.
   let sSmlmPreview=null, sSmlmPreviewCands=null;
   if(cfg.sSmlmPreview && locs.length){
-    const scanMax=Math.max(6000,cfg.sSmlmDistMax);
+    let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+    for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
+    const diag=Math.hypot((xmax-xmin)*cfg.pxnm, (ymax-ymin)*cfg.pxnm);
+    const scanMax=Math.max(6000,cfg.sSmlmDistMax,diag);
     sSmlmPreviewCands=await sSmlmCandidates(locs, cfg.pxnm, 0, scanMax, 0, 90, onProgress);
     sSmlmPreview={nCandidates:sSmlmPreviewCands.length, scanMax};
     onLog(`sSMLM preview: ${sSmlmPreviewCands.length.toLocaleString()} candidate pair(s) in 0–${scanMax.toLocaleString()} nm (any angle).`);

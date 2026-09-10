@@ -1394,6 +1394,52 @@ relevant one before editing rather than scrolling:
   path converged to a real, non-zero, non-crashing window (~44,600–45,800 nm) instead of the
   `Math.min(null,...)` bug's `0` — confirming both the manual-entry and auto-fit code paths.
 
+  **"Preview pairs"' own wide diagnostic scan had a SEPARATE, independent 6000 nm floor — the field
+  ceiling fix above wasn't sufficient on its own** (reported, with a screenshot: the Distances
+  histogram's own x-axis topped out at 6000 nm, and the resulting pairing came back at a mean
+  distance nowhere near the user's expected "half the frame size" separation). Root cause:
+  `previewSSmlmPairsCore()` (interactive) and `analyze()`'s own `config.sSmlmPreview` branch
+  (headless) both compute `scanMax=Math.max(6000, Distance max)` — a SEPARATE ceiling from the
+  field's own `PARAMS.max` (already fixed above), so removing the field's ceiling alone did nothing
+  once `Distance max` itself was still sitting at some value below the true tens-of-µm separation
+  (its own default, or the auto-fit's previous wrong output) — the wide scan never looked far enough
+  to find the real peak at all. Fixed the same way as the ±3σ clamp above: both scans now also floor
+  at the localization bounding box's own diagonal — `previewSSmlmPairsCore()` via `sSmlmBoxDims()`
+  (already in scope), the headless branch via an inline bounding-box computation over `locs`/
+  `cfg.pxnm` (no equivalent global state to reuse there). Verified via Playwright with a synthetic
+  512×256 px two-region dataset (donor left half, acceptor right half, true separation exactly
+  256 px × 160 nm/px = 40,960 nm): the scan now reaches ~89,814 nm (the box's own diagonal), where it
+  previously stopped dead at 6000 nm.
+
+  **A second, deeper limitation found while verifying the fix above, not yet addressed in code**:
+  even with the scan reaching far enough, `fitSSmlmDistAndAngle()`'s own two-stage seeding still
+  doesn't reliably converge on the correct window for a two-DISJOINT-region setup (donor/acceptor on
+  separate halves of the sensor) — confirmed on both a synthetic dataset and a real quick Localize
+  SOI run against `alex50mW_1_MMStack_Default.ome.tif`: the fit produced a wide, uninformative window
+  whose resulting pairs' mean distance (~22.6 µm in the real-file test) sat nowhere near the true
+  ~41 µm separation. Root cause: the background model (`sSmlmBgPdfRect`/`sSmlmBgPdfDisk`, see this
+  module's own paragraph above) assumes ONE contiguous uniform region — correct for the
+  diffraction-grating dataset it was built and validated against (0th/1st order images overlap the
+  SAME region), but wrong for a dual-view split, where the real signal sits at a MODERATE distance
+  (roughly half the box diagonal) deep inside an already-large, smoothly-varying combinatorial
+  background from same-half and cross-half unpaired candidates — not the kind of clean, isolated
+  local maximum the residual-based seeding was designed to find. **A real, user-suggested workaround,
+  independently verified**: since the true angular bearing of a dual-view split is usually known
+  in advance (roughly horizontal, ~0°, unlike the grating case where angle is itself unknown),
+  restricting `sSmlmCandidates()`'s own angle window to that known bearing BEFORE looking at
+  distance removes most of the combinatorial noise — same-half random pairs span all angles, but a
+  real cross-channel pair does not. Verified on the synthetic 40,960 nm-separation dataset: an
+  any-angle scan showed no distinguishable peak at all (72,010 total candidates, smooth background);
+  restricting to ±10° around the known 0° bearing cut candidates to 15,985 and produced a clear,
+  visible local spike (747 counts at the true bin vs. ~580–610 in neighbouring bins — unmistakable
+  against the otherwise smooth decline) at exactly the true distance. The angle HALF of a subsequent
+  auto-fit on this angle-restricted candidate set also improved sharply (1° vs. the true 0°), though
+  the distance half still didn't converge tightly — recommended, for now, as a terminal-driven manual
+  workaround (`sSmlmCandidates(locs, px, 0, dmax, 0, tol, …)` with a narrow `tol` around the known
+  bearing, then visually placing Distance min/max on the resulting histogram) rather than a UI
+  change — a dedicated "restrict the wide scan by the current Angle window" toggle is a plausible,
+  not-yet-built follow-up if this proves broadly useful.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
   warning only, id stays `smfretBox`). **Sidebar label renamed** "(Caution!) smFRET (experimental)"
