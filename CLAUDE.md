@@ -2236,6 +2236,73 @@ relevant one before editing rather than scrolling:
   simpler check would have. Verified via Playwright: `disabled===false` right after **Pair DD + DA**,
   `disabled===true` right after **Unpair**.
 
+  **Four more fixes, same area, next round.** (1) **`select.sel` had NO `:disabled` CSS rule at
+  all** — the previous round's `smfretDonorAngle.disabled=true` fix was setting the real DOM
+  attribute correctly the whole time, but it was invisible: the element's own explicit
+  `color:var(--fg)` defeats a browser's native disabled-dimming, and this codebase never gave
+  `select.sel` its own `:disabled` style the way `button:disabled{opacity:.45;cursor:not-allowed}`
+  already has. Reported via a screenshot showing "Position donor?" looking fully active BEFORE
+  **Localize SOI** had even run. Fixed with one shared rule, `select.sel:disabled{opacity:.45;
+  cursor:not-allowed}` — the same convention buttons already use — which also retroactively makes
+  every EARLIER disable point (the page-load seed, Unpair, a fresh Localize SOI, unchecking Fix
+  sites of interest) visually correct for free, not just this one.
+
+  (2) **A real, reported "Link channels gives zero after flipping Position donor" turned out NOT to
+  be a bug** — independently investigated end to end against the real bundled ALEX dataset before
+  touching any code. Root-caused precisely: flipping `sSmlmAngleCenter` by exactly 180° leaves
+  `sSmlmCandidates()`'s own candidate pool byte-identical (its filter folds into `[0,180)` modulo
+  180, so ±87°/93° map to the same axis) and `pairCore()`'s role-classification cleanly SWAPS which
+  point is 0th/1st for every candidate (verified directly: a hand-replica of the classify/qualify
+  loop gave the identical `nQualifying` count, 84/84, for BOTH bearings — confirmed via a dedicated
+  diagnostic script, not assumed). The actual collapse to exactly 0 happens one step later, inside
+  **Link DD/DA/AA**'s own independent acceptor-channel check: flipping the bearing swaps `x2,y2` to
+  what used to be the DONOR position, and Link DD/DA/AA correctly finds no real direct-acceptor-
+  excitation signal there (there's no physical reason for any — that's the undispersed channel).
+  A clean 0/N is therefore the CORRECT fingerprint of picking the physically wrong "Position
+  donor?" option, not a malfunction — and a genuinely useful one, since there was previously no
+  automatic way to tell which of the two bearings is correct at all. Verified precisely on the real
+  dataset: default bearing kept 82/84; the flipped one kept 0/84; switching back restored 82/84
+  exactly. Documented this explicitly (a new log line fires on a 0-kept result: `↳ 0 kept usually
+  means "Position donor?" is set to the physically wrong bearing — try the other option above.`)
+  rather than leaving a correct-but-alarming result unexplained. Renamed **Link channels** →
+  first **"Link DD, DA and AA"** (as requested), then shortened to **`Link DD/DA/AA`** one round
+  later after it wrapped to two lines at the sidebar's real 300px-fixed width (`.wrap{grid-
+  template-columns:300px ...}`) — a real violation of this file's own "Button label length" rule,
+  caught by screenshotting at the actual sidebar width rather than trusting a wider test viewport;
+  `/`-joined with no spaces matches the established compact-label convention (**Save plot/image**,
+  **View data/filtering**) instead of introducing a new one. Every reference — button label,
+  tooltips, log messages, code comments, `docs/DOCUMENTATION.md` prose and its own `hint-smfret`
+  marker (re-synced via `tools/sync_hints.mjs`, after a first pass accidentally hand-edited the
+  `.hint` div directly via a broad `sed` and had to be reconciled back through the marker, the
+  correct source of truth) — renamed together, except the two places that verbatim-quote an
+  EARLIER user request containing the old name, deliberately left untouched.
+
+  (3) **`smfretTraceChannels`'s two option labels gained spaces** — `DD+DA`/`DD+DA+AA` →
+  `DD + DA`/`DD + DA + AA` (requested, to match **Pair DD + DA**'s own layout) — display text only;
+  the underlying `option value`/`PARAMS.smfretTraceChannels` enum strings stay unspaced, since
+  settings JSON and every code comparison (`smfretTraceChannels==='DD+DA+AA'`, etc.) already commit
+  to that exact literal.
+
+  (4) **`smfretTimeTracesBtn` now stays disabled until `linkSmfretChannels()` has actually
+  succeeded, but only with ALEX on** (requested, "to be really safe") — previously **Get time
+  traces** only ever checked `smfretSOI.length`, letting a user trace a pairing whose acceptor
+  position was never independently confirmed (or built on the wrong "Position donor?" bearing
+  entirely, see above — the one check that would have caught it was skippable). New shared
+  `refreshSmfretTimeTracesBtn()` (next to `refreshSmfretLinkChannelsBtn()`, same pattern) —
+  `disabled = !haveSites || (alex && !(smfretChannelsLinked && lastResult.locs.length>0))` — wired
+  into every place `smfretChannelsLinked` changes (`unpairSSmlm()`, `locateSmfretSOI()`'s two exit
+  paths, `getSmfretPairingFromDonor()`'s start, `linkSmfretChannels()`'s own `finally`) plus
+  `toggleAlexEnabled()` itself (flipping ALEX changes whether the extra requirement even applies).
+  **The `lastResult.locs.length>0` half is not redundant** — caught in testing, not assumed: after a
+  successful link, flipping **Position donor?** re-applies **Link DD/DA/AA** live (see this
+  module's own `refreshSmfretPairingLive()` paragraph above) and can legitimately drop the kept
+  count to zero (the "wrong bearing" case just above) — `smfretChannelsLinked` alone would still
+  read `true` then (linking DID run, it just kept nothing), so checking it in isolation left **Get
+  time traces** wrongly enabled with literally nothing to trace; verified this exact sequence via
+  Playwright before shipping the fix, not just the simpler on/off transitions. ALEX off is
+  completely unaffected — same plain `smfretSOI.length` gate as before, verified via Playwright
+  producing real traces immediately after **Localize SOI** with no linking step at all.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
