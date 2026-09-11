@@ -333,7 +333,7 @@
                            S(t) (fixed [0,1] range) — the per-site,
                            time-resolved complement to the pooled Show E(S)
                            histogram above
-    spt             13366   single particle tracking, trackpy-inspired;
+    spt             13380   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -364,7 +364,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14904  top-level orchestration, *Core()/wrapper split;
+    pipeline        14918  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -425,7 +425,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   15574  Micro-Manager/pycromanager camera bridge
+    liveStreaming   15588  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -479,14 +479,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           18192  localizations table, filtering, histograms;
+    table           18199  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18905  window.webSMLM.analyze()/analyzeBatch();
+    headless API    18912  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2258,7 +2258,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12565,7 +12565,7 @@ function drawSmfretESPlot(){
   // reference derivation), worked directly in PIXEL space (not data
   // [0,1] space) so hexagons render visually regular on screen regardless
   // of E/S's own domain scale.
-  const hexSize=Math.max(4, plotW/34);   // ~34 hexagons across the plot width
+  const hexSize=Math.max(2, plotW/68);   // requested — "make them smaller, 2x reduction in both directions": ~68 hexagons across the plot width now, halving the earlier ~34
   const SQRT3=Math.sqrt(3);
   const hexCounts=new Map();
   for(let i=0;i<E.length;i++){
@@ -12612,7 +12612,10 @@ function drawSmfretESPlot(){
   ctx.save(); ctx.translate(14, topH+plotH/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('Stoichiometry S',0,0); ctx.restore();
   // Top marginal: E's own 1D histogram, using the SAME NB bins/domain as
   // the main plot so its bars line up exactly under the shared x-axis.
-  const eBarTop=8, eBarBase=topH-4;
+  // eBarBase sits at EXACTLY topH — the main plot's own top edge — so the
+  // bars' own baseline and axis line connect to the main plot's border
+  // with no seam (requested — "no need for gap between 2D and 1D plots").
+  const eBarTop=8, eBarBase=topH;
   const eCounts=new Float64Array(NB);
   for(const e of E){ let b=(e*NB)|0; if(b<0)b=0; if(b>=NB)b=NB-1; eCounts[b]++; }
   let eMax=1; for(const c of eCounts) if(c>eMax) eMax=c;
@@ -12621,8 +12624,9 @@ function drawSmfretESPlot(){
     const x0=X(b/NB), x1=X((b+1)/NB), h=(eBarBase-eBarTop)*eCounts[b]/eMax;
     ctx.fillRect(x0, eBarBase-h, Math.max(1,x1-x0-1), h); }
   // Right marginal: S's own 1D histogram, rotated — bars extend rightward
-  // from the main plot's own right edge.
-  const sBarLeft=mL+plotW+4, sBarRight=W-8;
+  // from the main plot's own right edge, again starting EXACTLY at
+  // mL+plotW (no gap) for the same reason.
+  const sBarLeft=mL+plotW, sBarRight=W-8;
   const sCounts=new Float64Array(NB);
   for(const s of S){ let b=(s*NB)|0; if(b<0)b=0; if(b>=NB)b=NB-1; sCounts[b]++; }
   let sMax=1; for(const c of sCounts) if(c>sMax) sMax=c;
@@ -12645,11 +12649,21 @@ function drawSmfretESPlot(){
   // extending that same horizontal line rightward is the same idea in the
   // bar-is-horizontal direction. No separate axis line is drawn at all —
   // just more of the one that's already there.
+  //
+  // The count=0 tick is skipped entirely on both axes (requested — "plot
+  // from 1, thereby re-using the 1[.0] already present in the ES
+  // histogram"): that tick would land exactly at the shared boundary
+  // point (E=1 or S=1), where the MAIN plot's own "1.0" tick is already
+  // drawn — a second, redundant "0" label right next to it added visual
+  // noise for a value that's already implied by the boundary itself.
+  // Tick font matched to the main plot's own 11px tick labels (was 9px —
+  // reported as visibly smaller/inconsistent right next to them, more
+  // noticeable now that the two axes visually connect with no gap).
   const eAxisX=mL, sAxisY=topH+plotH;
-  ctx.strokeStyle=C.text; ctx.fillStyle=C.text; ctx.font='9px '+PLOT_FONT;
+  ctx.strokeStyle=C.text; ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT;
   ctx.beginPath(); ctx.moveTo(eAxisX,eBarBase); ctx.lineTo(eAxisX,eBarTop); ctx.stroke();
   ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const c of niceTicks(0,eMax,3)){
+  for(const c of niceTicks(0,eMax,3)){ if(c<=0) continue;
     const y=eBarBase-(eBarBase-eBarTop)*Math.min(1,c/eMax);
     ctx.beginPath(); ctx.moveTo(eAxisX-4,y); ctx.lineTo(eAxisX,y); ctx.stroke();
     ctx.fillText(Math.round(c).toLocaleString(), eAxisX-6, y);
@@ -12658,8 +12672,8 @@ function drawSmfretESPlot(){
   ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT;
   ctx.fillText('counts',0,0); ctx.restore();
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(sBarLeft,sAxisY); ctx.lineTo(sBarRight,sAxisY); ctx.stroke();
-  ctx.fillStyle=C.text; ctx.font='9px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const c of niceTicks(0,sMax,3)){
+  ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const c of niceTicks(0,sMax,3)){ if(c<=0) continue;
     const x=sBarLeft+(sBarRight-sBarLeft)*Math.min(1,c/sMax);
     ctx.beginPath(); ctx.moveTo(x,sAxisY); ctx.lineTo(x,sAxisY+4); ctx.stroke();
     ctx.fillText(Math.round(c).toLocaleString(), x, sAxisY+6);
@@ -18042,28 +18056,26 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-11j — E vs S plot: redesigned
-count axes, hexagonal binning replaces blur.
-Reported same-day follow-up on the previous build's own corner-anchored
-axis pair: a screenshot showed its tick numbers and "counts" title
-actually overlapping in the cramped corner box -- "What is this?".
-Replaced with a simpler design: each marginal's own count axis now just
-EXTENDS the main plot's already-drawn axis line (E's up the left/S-axis
-line at x=mL; S's rightward along the bottom/E-axis line at
-y=topH+plotH) straight through the adjoining marginal, instead of a
-second, separate line anywhere.
-Also replaced the entire blur()+raster-image density pipeline with
-hexagonal binning ("I also dont like the bluring much... use tiling as
-shown in [a PLOS ONE smFRET figure], maybe combined with viridis, color
-bar should not be necessary") -- standard axial hex-grid binning
-(pointy-top hexagons, cube-coordinate rounding), worked in pixel space so
-hexagons stay visually regular regardless of the E/S domain's own scale.
-Each hexagon's own viridis fill comes directly from its count relative to
-the busiest cell -- no blur, no colour bar.
-Verified via Playwright against the real ALEX dataset: the new plot
-visually matches the referenced figure's own style, and both marginal
-histograms' count axes now sit flush against the main plot's own borders
-with zero text overlap.
+log(`webSMLM v0.12.1-dev · build 2026-09-11k — E vs S plot: smaller
+hexagons, axes connect with no gap, no redundant "0" tick.
+Three same-day follow-ups on the previous build's own redesign:
+(1) hexSize halved (plotW/68, was plotW/34) -- "make them smaller, 2x
+reduction in both directions".
+(2) Each marginal's own count-axis line/bar-baseline now sits at EXACTLY
+the main plot's own border position (topH / mL+plotW, not topH-4 /
+mL+plotW+4) -- "connect lines directly ... no need for gap between 2D
+and 1D plots". The two segments now share one endpoint exactly, reading
+as a single unbroken line. Tick font also matched to the main plot's own
+11px (was 9px, visibly smaller once the two axes touch directly).
+(3) With that gap gone, a count axis's own "0" tick would land exactly
+on top of the main plot's already-drawn "1.0" tick -- "plot from 1,
+thereby re-using the 1 already present in the ES histogram". Both count
+axes now skip their own c<=0 tick entirely; the boundary stays
+implicitly "count=0" via the 1.0 label already there.
+Verified via Playwright: a full-plot screenshot plus a zoomed top-left
+corner crop confirm the E-axis's own line runs unbroken into the main
+plot's border, tick digits read at one consistent size, and no stray "0"
+sits beside the "1.0".
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

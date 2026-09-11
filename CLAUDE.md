@@ -3460,6 +3460,25 @@ relevant one before editing rather than scrolling:
   blur or blocky-square artifacts), with both marginal histograms' own count axes now sitting flush
   against the main plot's own borders with zero text overlap.
 
+  **Three same-day follow-up fixes on the above.** (1) `hexSize` halved (`plotW/68`, was `plotW/34`
+  — requested, "make them smaller 2x reduction in both directions") — finer tiling, closer to the
+  referenced figure's own resolution. (2)+(3) the "extend the main plot's own axis line" redesign
+  still left a small (4px) reserved gap between each marginal's own bar baseline/axis segment and
+  the main plot's border, plus a smaller (9px vs. the main plot's own 11px) tick font — reported
+  directly, with a zoomed screenshot showing the seam and the size mismatch both at once ("font
+  size different, connect lines directly, ... no need for gap between 2D and 1D plots"). Fixed by
+  setting `eBarBase`/`sBarLeft` to EXACTLY `topH`/`mL+plotW` (the main plot's own border position)
+  instead of `topH-4`/`mL+plotW+4` — the two line segments now share one endpoint exactly, rendering
+  as a single unbroken line — and matching both count axes' own tick font to the main plot's 11px.
+  Closing that gap also surfaced a genuine redundancy request: "plot from 1, thereby re-using the 1
+  already present in the ES histogram" — with the seam gone, a count axis's own `0` tick would land
+  exactly where the main plot's own `1.0` (E=1 or S=1) tick already sits, so both `niceTicks(0,eMax/
+  sMax,3)` loops now skip `c<=0` entirely — the boundary point stays implicitly "count=0" via the
+  ALREADY-drawn `1.0` label, with no second, redundant tick crowding the exact same spot. Verified
+  via Playwright (a full plot screenshot plus a zoomed top-left corner crop): the E-axis's own
+  vertical line now runs unbroken from the marginal into the main plot's border with no visible
+  seam, tick digits read at a consistent size throughout, and no stray `0` sits beside the `1.0`.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
