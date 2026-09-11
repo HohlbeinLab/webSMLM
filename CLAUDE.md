@@ -1510,6 +1510,32 @@ relevant one before editing rather than scrolling:
   change — a dedicated "restrict the wide scan by the current Angle window" toggle is a plausible,
   not-yet-built follow-up if this proves broadly useful.
 
+  **The ceiling-widening direction above was REVERTED — `sSmlmDistMin`/`sSmlmDistMax` have a fixed
+  upper limit again (10000nm)** (reported: "Angle first does nothing" on a real wedge-prism
+  donor-only dataset whose TRUE separation is only ~500nm at ~0° — a small, single-region setup, not
+  a dual-view split at all; "the other approaches fail equally"). Removing the ceiling to unblock the
+  dual-view case (above) had a real, unintended cost for "Via distances and angles"' own ORIGINAL
+  use case (a small, sub-µm-to-few-µm dispersion — diffraction grating, wedge prism): both the wide
+  Preview scan and the ±3σ auto-fit clamp grew to cover the data's FULL bounding-box diagonal
+  (tens of µm on a real FOV) regardless of how small the TRUE separation actually was, diluting a
+  genuinely small real peak across a search range orders of magnitude larger than it needed to be —
+  exactly the failure this user hit, and unrelated to `sSmlmFitOrder`'s own distance-vs-angle
+  ordering (correctly reported as unhelpful here, since the real problem was scan/clamp WIDTH, not
+  fit order). Fixed by reinstating a real ceiling (`PARAMS.sSmlmDistMin`/`sSmlmDistMax.max=10000`,
+  matching HTML `max="10000"` attributes restored) — chosen from the user's own suggested 5–10 µm
+  range — and reverting `previewSSmlmPairsCore()`'s/`analyze()`'s `config.sSmlmPreview`'s own
+  `scanMax` to floor-only (`Math.max(6000, Distance max)`, dropping the bounding-box-diagonal term)
+  and `fitSSmlmDistAndAngle()`'s own `distMax` clamp back to
+  `Math.min(PARAMS.sSmlmDistMax.max, Math.hypot(dims.a,dims.b), mu+3*sigma)` (both bounds combined,
+  tighter of the two wins). The dual-view/large-displacement case this ceiling was originally
+  widened for is now **channel matching**'s job instead (see smFRET's own module bullet,
+  `alignSmfretChannels()`) — a purpose-built point-registration method with no such cap, so "Via
+  distances and angles" no longer needs to cover both scales at once. `sSmlmFitOrder` itself is
+  UNCHANGED and still useful in principle (a same-region setup with an unusually WIDE but still
+  bounded-under-10µm dispersion and a known bearing could still benefit from angle-restricting
+  first) — its own motivating BIG-PICTURE case (a two-disjoint-region dual-view split) is simply out
+  of scope for this method again, same as the ceiling itself.
+
   **`sSmlmFitOrder`** ("Fit order", Distance first/Angle first, default Distance first, v0.12.1-dev)
   — the toggle proposed just above, built the same round after the user confirmed the real bearing
   is known in advance for a dual-view/image-splitter setup: "we know the angle... that might help.

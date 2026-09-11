@@ -2218,8 +2218,8 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | — | 50 | 2200 |
-| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | — | 50 | 2800 |
+| `sSmlmDistMin` | sSMLM pair distance min (nm) | number | 0 | 10000 | 50 | 2200 |
+| `sSmlmDistMax` | sSMLM pair distance max (nm) | number | 0 | 10000 | 50 | 2800 |
 | `sSmlmBgProfile` | Background profile | enum (`rect`, `circle`) | — | — | — | `rect` |
 | `sSmlmFitOrder` | Fit order | enum (`distFirst`, `angleFirst`) | — | — | — | `distFirst` |
 | `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
@@ -2234,9 +2234,8 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 <p>Localizing with <b>Gauss MLE rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair &amp; plot sSMLM</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
 <p><b>Preview pairs</b> computes the candidate pool AND immediately fits it (no separate button needed — Distance min/max/Primary angle/Angle tolerance below are filled in automatically, so they already reflect this dataset's own real peak instead of generic defaults): Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — all four are starting points you can still widen by hand; changing <b>Background profile</b> re-fits automatically too. <b>Show histograms</b> draws the underlying data: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to). Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot); both also overlay their own fitted curve. Narrow the fields further by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair &amp; plot sSMLM</b> to commit.</p>
 <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape Preview pairs' own automatic distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. Changing it re-fits automatically once a fit already exists, rather than just clearing the old one. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
-<p><b>Fit order</b> (Distance first/Angle first, default Distance first) picks which axis Preview pairs' automatic fit finds FIRST, and then restricts the other axis to. <b>Distance first</b> suits a diffraction-grating/sSMLM setup, where the bearing is unknown but the real pair distance is well separated from the combinatorial background. <b>Angle first</b> suits a setup whose bearing is roughly known in advance — a dual-view/image-splitter setup's near-0° horizontal separation, for instance — where distance is the harder-to-find axis, buried deep inside an otherwise smooth, large combinatorial background from the setup's own two disjoint regions; restricting by the known angle FIRST removes most of that background before the distance fit even starts. With Angle first selected, the <b>Distances</b> histogram itself is also restricted to the current Primary angle/Angle tolerance window (read live, so editing either field re-filters the plot immediately) — the same "restrict by the other axis's current window" logic the Angles histogram already applies to Distance min/max, just in the direction this fit order needs. Even with the angle restriction, treat the automatically-fitted Distance min/max as a rough starting point — verify by eye on the (now much less diluted) histogram rather than trusting it blindly.</p>
+<p><b>Fit order</b> (Distance first/Angle first, default Distance first) picks which axis Preview pairs' automatic fit finds FIRST, and then restricts the other axis to. <b>Distance first</b> is the right choice for almost every same-region setup (diffraction grating, wedge prism) — the bearing is unknown but the real pair distance (capped at 10000 nm, see Distance min/max below) is well separated from the combinatorial background. <b>Angle first</b> instead restricts by a known bearing before fitting distance — useful only when the real distance itself is the harder-to-find axis at a KNOWN bearing within that same, still-bounded-under-10µm search range; it does nothing for a large, spatially separated (dual-view/image-splitter) setup, since that scale of separation is <b>Pairing method: Via channel matching</b>'s job instead, not this histogram-based one. With Angle first selected, the <b>Distances</b> histogram itself is also restricted to the current Primary angle/Angle tolerance window (read live, so editing either field re-filters the plot immediately) — the same "restrict by the other axis's current window" logic the Angles histogram already applies to Distance min/max, just in the direction this fit order needs.</p>
 <p><b>Pair &amp; plot sSMLM</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output) and switches the reconstruction's own Colour map to the HSV (blue loop) scheme automatically. <b>Unpair</b> restores the original, unpaired localizations, AND restores whichever Colour map was selected before Pair switched it — not left on HSV (blue loop) regardless of what it replaced.</p>
-<p><b>Require narrower 0th order (σ)</b> is an optional extra confidence gate: the 0th order is undispersed while the 1st is spectrally smeared, so it tends to have the narrower PSF — but only ~65–70% reliably on real data, so this is off by default rather than required.</p>
 <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
 <!-- /HINT:sSMLM -->
 
@@ -2309,16 +2308,19 @@ via Levenberg-Marquardt (only 4 free parameters — the background shape's
 own size is derived from the localization bounding box, not fit), it sets
 Distance min/max to the fitted peak ±3σ (a generous starting window, not a
 real-data-validated constant the way the angle half-max-doubling below
-is — clamped only by the localization bounding box's own diagonal, since
-no two localizations can be farther apart than that) and overlays the
-fitted curve on the distance histogram itself. **Distance min/max have no
-fixed upper limit** — the original 20000 nm ceiling matched a
-diffraction-grating setup's own sub-µm dispersion, but a dual-view/
-image-splitter TIRF rig puts the donor and acceptor channels tens of
-micrometers apart on the same sensor, so both fields (and the wide
-diagnostic scan **Preview pairs** runs, which always covers at least
-6000 nm or the current Distance max, whichever is larger) scale with
-whatever window the real optical setup needs.
+is — clamped by whichever is tighter of a fixed 10000 nm ceiling or the
+localization bounding box's own diagonal, since no two localizations can
+be farther apart than that) and overlays the fitted curve on the distance
+histogram itself. **Distance min/max are capped at 10000 nm** — a fixed
+ceiling matching a diffraction-grating or wedge-prism setup's own
+sub-µm-to-few-µm dispersion; a dual-view/image-splitter TIRF rig, whose
+donor/acceptor channels sit tens of micrometers apart on the same sensor,
+needs **Pairing method: Via channel matching** instead (no such cap) —
+this histogram-based method's own wide diagnostic scan (**Preview
+pairs**, which always covers at least 6000 nm or the current Distance
+max, whichever is larger) is tuned for the small-separation case, and
+scaling it to the data's full physical extent instead diluted a
+genuinely small real peak across an unnecessarily large search range.
 Primary angle/Angle tolerance are then estimated directly from that same
 (now correctly windowed) doubled-bearing data: peak-bin detection (2°
 bins) + half-max-width walk, DOUBLED as a safety margin (the raw half-max
