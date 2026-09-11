@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2819   PARAMS registry, single source of truth for params;
+    params          2840   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3747   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          3768   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4046   synthetic stack generator ("Simulate movie")
-    detect          5139   per-frame band-pass + local-maxima detection
-    fit             5416   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4067   synthetic stack generator ("Simulate movie")
+    detect          5160   per-frame band-pass + local-maxima detection
+    fit             5437   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6055   accumulate to offscreen buffer; view/colour/blur;
+    render          6076   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7540   frame-parallel detect/fit worker pool; dedicated
+    workers         7562   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7850   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8178   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7872   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8200   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8644   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8666   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -133,9 +133,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    9246   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9268   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           9980   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10002   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -271,8 +271,25 @@
                            2D E-vs-S joint density, ALEX+AA only) histogram
                            across every site/time point, viridis + blur()
                            for the 2D case, Min D_ex/Min AA per-sample
-                           burst-selection threshold sliders
-    spt             13122   single particle tracking, trackpy-inspired;
+                           burst-selection threshold sliders; 3 follow-up
+                           fixes: smfretPoolES() required DD/DA/AA finite at
+                           the SAME frame index, impossible under ALEX
+                           (strictly alternating) — always 0 samples; now
+                           pairs a donor-exc frame with its own adjacent
+                           acceptor-exc one; both E-hist plots + their
+                           threshold sliders (scrubslider-styled) moved to
+                           the SR (right) panel so they sit alongside the
+                           Time trace plot rather than replacing it —
+                           surfaced a 2nd real bug, drawSmfretTrace()'s own
+                           highlight-refresh tail unconditionally called
+                           drawView() over the new plot, now guarded by
+                           `&& !srIsPlot`; locateSmfretSOI()'s click
+                           listener had the SAME unwrapped-event-as-param
+                           bug getSmfretTimeTraces() was already fixed for
+                           — a real click's preservePairing was always the
+                           truthy click Event, so Localize SOI silently
+                           never reset an existing pairing/links/traces
+    spt             13234   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -303,7 +320,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14660  top-level orchestration, *Core()/wrapper split;
+    pipeline        14772  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -364,7 +381,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   15330  Micro-Manager/pycromanager camera bridge
+    liveStreaming   15442  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -418,14 +435,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           17925  localizations table, filtering, histograms;
+    table           18037  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18638  window.webSMLM.analyze()/analyzeBatch();
+    headless API    18750  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2160,7 +2177,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2631,17 +2648,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretExportTracesBtn" type="button" disabled title="Save every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file — one record per site, each carrying its own time (s) array alongside photonsDD/photonsDA/photonsAA. A gap (no fit attempted that frame, or a frame that wasn't this channel's turn under ALEX) is written as null, matching JSON's own convention for a non-finite number.">Export traces</button>
-          <button id="smfretEHistBtn" type="button" disabled title="Plots E = DA/(DD+DA) pooled over every site and every time point (with Alternating laser excitation? on and a real pairing, a 2D E vs. S histogram instead — S = (DD+DA)/(AA+DD+DA)). Requires Get time traces above (and, for E, a real DD+DA pairing).">Show E hist</button>
-        </div>
-        <div id="smfretEHistDexRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
-          <span style="color:var(--muted);font-size:12px;white-space:nowrap">Min D_ex (DD+DA)</span>
-          <input type="range" id="smfretMinDexRange" min="0" max="1" step="1" value="0" style="flex:1">
-          <input type="number" id="smfretMinDex" class="num" min="0" step="1" value="0" style="width:72px">
-        </div>
-        <div id="smfretEHistAARow" style="display:none;margin-top:8px;align-items:center;gap:10px">
-          <span style="color:var(--muted);font-size:12px;white-space:nowrap">Min AA</span>
-          <input type="range" id="smfretMinAARange" min="0" max="1" step="1" value="0" style="flex:1">
-          <input type="number" id="smfretMinAA" class="num" min="0" step="1" value="0" style="width:72px">
+          <button id="smfretEHistBtn" type="button" disabled title="Plots E = DA/(DD+DA) pooled over every site and every time point (with Alternating laser excitation? on and a real pairing, a 2D E vs. S histogram instead — S = (DD+DA)/(AA+DD+DA)) in the reconstruction (right) panel, with Min D_ex/Min AA threshold sliders underneath it. Requires Get time traces above (and, for E, a real DD+DA pairing).">Show E hist</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
@@ -2653,7 +2660,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Pair DD + DA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the initial displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°), refines that shift into a full geometric transform (rotation + scale + shear on top of translation) by repeatedly fitting the mapping from the current matches and re-matching at a progressively tighter tolerance, and the final match set under the converged transform becomes the pairing directly, no separate histogram/window step needed. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured — the matching donor site keeps its usual colour, since a coloured box marks "this is the confirmed acceptor," not just "this site paired." <b>Via distances and angles</b> always colours dark orange (every acceptor position there is another entry of the SAME donor-excitation composite that's on screen). <b>Via channel matching</b> colours dark orange too when the match came from that same DA region, but a match sourced from the separate, independently-fit AA composite (only possible with ALEX on) instead colours gold — a real but purely geometric, nearest-neighbour match rather than one validated against data visible in the composite you're looking at, worth being able to tell apart at a glance. The match itself uses a small position tolerance (a few px) rather than requiring an exact coordinate match, since an AA-sourced position comes from a genuinely different image/fit pass than the composite's own site list — an acceptor position with no sufficiently close site of interest nearby (rare, but possible for a noisier AA fit) is left in its ordinary colour even though it IS part of a real pair. Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
           <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). With <b>Alternating laser excitation?</b> checked, this stays disabled until <b>Link DD/DA/AA</b> (above) has succeeded at least once — a safety net so you can't trace a pairing whose acceptor-channel position was never independently confirmed; without ALEX, it's available as soon as sites of interest exist, since there's no separate acceptor channel to confirm against. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two, or <b>Filter SOIs</b>, while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces.</p>
           <p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
-          <p><b>Show E hist</b> (labelled <b>Show E/S hist</b> once <b>Alternating laser excitation?</b> is on and AA data exists) pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram — a real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot. Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), viridis-coloured, with E's own 1D histogram along the top and S's own along the right — the classic ALEX "E-S" plot layout. <b>Min D_ex (DD+DA)</b> (and, in E/S mode, <b>Min AA</b>) are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live.</p>
+          <p><b>Show E hist</b> (labelled <b>Show E/S hist</b> once <b>Alternating laser excitation?</b> is on and AA data exists) pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot. Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), viridis-coloured, with E's own 1D histogram along the top and S's own along the right — the classic ALEX "E-S" plot layout. <b>Min D_ex</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
           <p>With <b>Alternating laser excitation?</b> checked, <b>Filter SOIs</b> picks whether Get time traces plots just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also a rougher <b>AA</b> guess (direct-acceptor-excitation frames, blue) sampled at the SOI's own position for a site that ISN'T yet paired — before pairing there's no independently known acceptor position to sample at all, so this stays opt-in. Pairing the sites first (<b>Pair DD + DA</b> above, or <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) splits DD into <b>DD</b> and <b>DA</b>, AND makes a real <b>AA</b> trace available too — both read at the pair's own known acceptor position, so once paired, AA no longer needs the Filter SOIs "+AA" option at all (DD at the donor position, DA and AA at the paired acceptor position; DD/DA read during donor-excitation frames — DA needs no ALEX at all, a continuous single-laser setup still has every frame count as donor excitation — AA during direct-acceptor-excitation frames, the physically correct channel/timing for direct acceptor excitation). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active).</p>
           <p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs — <b>Link DD/DA/AA</b> below (see next) automatically re-applies itself to the new pairing if it had already run, so a channel-linked result doesn't silently revert to unlinked. There's no automatic way to tell which of the two is physically correct ahead of time — but <b>Link DD/DA/AA</b> below doubles as an independent check: the wrong bearing typically drops its kept count to (or near) zero, since it's now checking for real acceptor signal at what's actually the donor's own position.</p>
@@ -2793,6 +2800,20 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             </div>
             <span class="val" id="srContrastV" style="min-width:110px;text-align:right;font-size:12px;white-space:nowrap">B &amp; W: 0-255</span>
             <button id="srContrastAutoBtn" class="logbtn" title="Reset Black/White to the full auto-stretched range">Auto</button>
+          </div>
+          <div id="smfretEHistDexRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+            <span style="color:var(--muted);font-size:12px;white-space:nowrap">Min D_ex</span>
+            <input type="range" id="smfretMinDexRange" class="scrubslider" min="0" max="1" step="1" value="0" style="flex:1">
+            <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
+              <input type="number" id="smfretMinDex" class="num" min="0" step="1" value="0" style="width:64px;padding:2px 4px">
+            </span>
+          </div>
+          <div id="smfretEHistAARow" style="display:none;margin-top:8px;align-items:center;gap:10px">
+            <span style="color:var(--muted);font-size:12px;white-space:nowrap">Min AA</span>
+            <input type="range" id="smfretMinAARange" class="scrubslider" min="0" max="1" step="1" value="0" style="flex:1">
+            <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
+              <input type="number" id="smfretMinAA" class="num" min="0" step="1" value="0" style="width:64px;padding:2px 4px">
+            </span>
           </div>
         </div>
       </div>
@@ -6731,6 +6752,7 @@ function drawView(){
   const d=$('sr'); const {ctx,W:DW,H:DH}=setupPlot(d);   // backing = CSS×dpr, drawn in CSS px → crisp overlays at any window size
   _plotHover.sr=null; _replotSr=null;   // reconstruction now owns this panel — no plot readout/replot
   { const r=$('calViewRow'); if(r) r.style.display='none'; }   // calibration-only toggle
+  $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none';   // E/E-S-plot-only rows — a real reconstruction/composite reclaiming this panel supersedes them
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
   syncSaveImg();
   if(!srFull) return;
@@ -11406,7 +11428,19 @@ async function locateSmfretSOI(preservePairing=false){
         `— available in View data/filtering and Pairing (sSMLM & FRET) (Preview pairs/Pair & plot sSMLM, or Pair DD + DA above) for donor/acceptor pairing.`);
   }catch(err){ log(`⚠ Localize SOI failed: ${err.name}: ${err.message}`); }
 }
-$('smfretLocateBtn').addEventListener('click', locateSmfretSOI);
+// Wrapped, not passed directly — addEventListener('click', locateSmfretSOI)
+// would hand the DOM click event itself to locateSmfretSOI() as its own
+// `preservePairing` parameter (any Event object is truthy), silently
+// turning EVERY real user click into a "just peeking, keep the pairing"
+// call — the same class of bug getSmfretTimeTraces()'s own click listener
+// was already fixed for (see its own comment). A real, reported
+// consequence: a genuine fresh Localize SOI click never actually reset an
+// existing pairing/Link DD/DA/AA state/Time trace session at all — the
+// `if(preservePairing && smfretHasDDDAPairing())` early-return fired every
+// time a pairing already existed, and the smfretTraces-reset block at the
+// top (`if(smfretTraces && !preservePairing)`) never fired either, since
+// `!preservePairing` was `!<a truthy Event>` = false.
+$('smfretLocateBtn').addEventListener('click', ()=>locateSmfretSOI());
 // Marks (COLOURS, not filters) which of the SOI composite's own ROI boxes/
 // crosshairs are currently part of a pair — shared by
 // getSmfretPairingFromDonor()'s own initial pairing, linkSmfretChannels(),
@@ -12327,8 +12361,22 @@ function smfretPoolES(minDex,minAA){
     if(!s.photonsDA||!s.photonsAA) continue;
     const dd=s.photonsDD, da=s.photonsDA, aa=s.photonsAA, n=dd.length;
     for(let i=0;i<n;i++){
-      const d=dd[i], a=da[i], A=aa[i];
-      if(!isFinite(d)||!isFinite(a)||!isFinite(A)) continue;
+      const d=dd[i], a=da[i];
+      if(!isFinite(d)||!isFinite(a)) continue;   // this frame isn't a donor-excitation readout at all
+      // A REAL bug caught after shipping, not in the original design: under
+      // ALEX, donor-excitation (DD/DA) and direct-acceptor-excitation (AA)
+      // frames strictly ALTERNATE — aa[i] is NEVER finite at the same index
+      // a donor-excitation frame's own dd[i]/da[i] are (getSmfretTimeTraces()'s
+      // own isDonorExc/showAA gates write to disjoint index sets by
+      // construction). Requiring all three finite at the SAME i (the first
+      // shipped version) meant the intersection was always EMPTY on real
+      // ALEX data — "no samples pass the current threshold" even at 0,
+      // regardless of how much real data existed. One ALEX excitation cycle
+      // pairs a donor-exc readout with its own ADJACENT acceptor-exc one
+      // instead — prefer i+1, fall back to i-1 (whichever neighbour is
+      // actually finite; one of the two always is for an interior frame).
+      let A = (i+1<n && isFinite(aa[i+1])) ? aa[i+1] : ((i-1>=0 && isFinite(aa[i-1])) ? aa[i-1] : NaN);
+      if(!isFinite(A)) continue;
       const dex=d+a; if(dex<=0||dex<minDex||A<minAA) continue;
       const denom=A+dex; if(denom<=0) continue;
       E.push(a/dex); S.push(dex/denom);
@@ -12360,17 +12408,63 @@ function smfretUpdateEHistThresholdRanges(){
   $('smfretMinDexRange').value=paramValue('smfretMinDex');
   $('smfretMinAARange').value=paramValue('smfretMinAA');
 }
-// 1D case (no ALEX, or no AA data): reuses the exact shared column-histogram
-// machinery (computeHist()/drawHistogram(), MODULE: table) every other
-// histogram in this app already draws through — table columns, sSMLM
-// distance/angle, spt D/track-length — rather than a bespoke drawer; only
-// histData.col's text ("E (FRET efficiency)") distinguishes it from those.
+// Both plots below live in the RECONSTRUCTION (right) panel, not the raw
+// (left) one every other plot in this app uses — requested, so the left
+// panel can keep showing the Time trace plot (or the SOI composite) while
+// this one shows the pooled population distribution alongside it. This is
+// genuinely new territory for the SR panel (previously only 3D
+// calibration's own drawCalibration() and the ordinary reconstruction/SOI
+// composite ever drew there) — mirrors that precedent's own conventions
+// (srFull=null/setSrRecon(false)/$('srTitle')/_replotSr) rather than the
+// raw-panel ones (rawFull/setRawPlot/rawPlotName/_replotRaw) every other
+// plot function in this file still uses.
+//
+// 1D case (no ALEX, or no AA data) is bespoke rather than reusing the
+// shared computeHist()/drawHistogram() (MODULE: table) machinery every
+// OTHER histogram in this app draws through — that pair is hardcoded to
+// the raw panel throughout (rawFull/rawPlotName/$('rawTitle') baked into
+// drawHistogram() itself), and retargeting such a widely-shared function
+// risked unrelated regressions for a comparatively small amount of reuse;
+// simpler and lower-risk to give this one its own small drawer, styled
+// consistently with drawSmfretESPlot() right below it instead.
 function drawSmfretEHist(){
   const minDex=paramValue('smfretMinDex');
   const vals=smfretPoolE(minDex);
-  computeHist('E (FRET efficiency)', vals, '');
-  drawHistogram();
-  $('rawInfo').textContent = `— pooled over ${smfretTraces.length} site(s) and every time point, D_ex ≥ ${minDex.toFixed(0)}`;
+  srFull=null; srIsPlot=true; const cv=$('sr'); const {ctx,W,H}=setupPlot(cv,true);
+  setSrRecon(false); $('srTitle').textContent='E histogram';
+  const C=plotColors();
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+  _replotSr=drawSmfretEHist; _plotHover.sr=null;
+  const mL=56,mR=16,mT=20,mB=44, pw=W-mL-mR, ph=H-mT-mB;
+  if(!vals.length || pw<=20 || ph<=20){
+    ctx.fillStyle=C.text; ctx.font='13px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(vals.length?'Panel too small':'No samples pass the current threshold', W/2, H/2);
+    $('srInfo').textContent = `— 0 sample(s) pass D_ex ≥ ${minDex.toFixed(0)}`;
+    return;
+  }
+  let dmin=Infinity,dmax=-Infinity; for(const v of vals){ if(v<dmin)dmin=v; if(v>dmax)dmax=v; }
+  let lo=Math.min(0,dmin), hi=dmax<=lo?lo+1:dmax; hi=lo+(hi-lo)*1.05;   // same 5% headroom convention computeHist() uses
+  const nb=Math.max(10,Math.min(80,Math.round(Math.sqrt(vals.length)*1.5))), bw=(hi-lo)/nb;
+  const hist=new Float64Array(nb);
+  for(const v of vals){ let b=((v-lo)/bw)|0; if(b<0)b=0; if(b>=nb)b=nb-1; hist[b]++; }
+  let ymax=0; for(const c of hist) if(c>ymax) ymax=c; ymax=Math.max(1,ymax*1.08);
+  const X=v=>mL+pw*(v-lo)/(hi-lo), Y=c=>mT+ph*(1-c/ymax);
+  ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(const c of niceTicks(0,ymax,5)){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); ctx.fillText(c.toFixed(0),mL-6,y); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const v of niceTicks(lo,hi,6)){ const x=X(v); if(x<mL-0.5||x>mL+pw+0.5) continue;
+    ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+4); ctx.strokeStyle=C.text; ctx.stroke(); ctx.strokeStyle=C.grid;
+    ctx.fillText(v.toFixed(2),x,mT+ph+7); }
+  ctx.fillStyle=C.bar;
+  for(let b=0;b<nb;b++){ if(hist[b]<=0) continue; const x0=X(lo+b*bw), x1=X(lo+(b+1)*bw), y=Y(hist[b]);
+    ctx.fillRect(x0,y,Math.max(1,x1-x0-1),(mT+ph)-y); }
+  ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
+  ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('Transfer efficiency E', mL+pw/2, mT+ph+22);
+  ctx.save(); ctx.translate(16,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('count',0,0); ctx.restore();
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.fillText(`n = ${vals.length.toLocaleString()}`, mL+pw, mT-4);
+  $('srInfo').textContent = `— pooled over ${smfretTraces.length} site(s) and every time point, D_ex ≥ ${minDex.toFixed(0)}`;
 }
 // 2D case (ALEX + a real pairing with AA): a joint density plot — E vs S,
 // viridis-coloured, with 1D marginal histograms top (E)/right (S), styled
@@ -12391,18 +12485,18 @@ function drawSmfretEHist(){
 function drawSmfretESPlot(){
   const minDex=paramValue('smfretMinDex'), minAA=paramValue('smfretMinAA');
   const {E,S}=smfretPoolES(minDex,minAA);
-  rawFull=null; const cv=$('raw'); const {ctx,W,H}=setupPlot(cv,true,1);
-  setRawPlot(true); rawPlotName='smfretES'; $('rawTitle').textContent='E vs S';
+  srFull=null; srIsPlot=true; const cv=$('sr'); const {ctx,W,H}=setupPlot(cv,true,1);
+  setSrRecon(false); $('srTitle').textContent='E vs S';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
-  _replotRaw=drawSmfretESPlot; _plotHover.raw=null;   // reclaiming the panel from whatever previously owned it, same convention drawRaw()/drawSSmlmAnglePolar() use
+  _replotSr=drawSmfretESPlot; _plotHover.sr=null;   // reclaiming the panel from whatever previously owned it, same convention drawView()/drawCalibration() use
   const NB=60;   // fixed bin count per axis; domain fixed [0,1] — E/S are conventionally displayed on that range
   const topH=64, rightW=90, mL=52, mB=44;
   const plotW=W-mL-rightW, plotH=H-topH-mB;
   if(!E.length || plotW<=20 || plotH<=20){
     ctx.fillStyle=C.text; ctx.font='13px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(E.length?'Panel too small':'No samples pass the current thresholds', W/2, H/2);
-    $('rawInfo').textContent = `— 0 sample(s) pass D_ex ≥ ${minDex.toFixed(0)}, AA ≥ ${minAA.toFixed(0)}`;
+    $('srInfo').textContent = `— 0 sample(s) pass D_ex ≥ ${minDex.toFixed(0)}, AA ≥ ${minAA.toFixed(0)}`;
     return;
   }
   const grid=new Float32Array(NB*NB);
@@ -12467,7 +12561,7 @@ function drawSmfretESPlot(){
     ctx.fillRect(mL+plotW+6, y0, w, Math.max(1,y1-y0-1)); }
   ctx.fillStyle=C.text; ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='11px '+PLOT_FONT;
   ctx.fillText(`n = ${E.length.toLocaleString()}`, mL+plotW, topH-8);
-  $('rawInfo').textContent = `— ${E.length.toLocaleString()} sample(s), D_ex ≥ ${minDex.toFixed(0)}, AA ≥ ${minAA.toFixed(0)}`;
+  $('srInfo').textContent = `— ${E.length.toLocaleString()} sample(s), D_ex ≥ ${minDex.toFixed(0)}, AA ≥ ${minAA.toFixed(0)}`;
 }
 // Dispatches to whichever of the two the current state calls for — a real
 // pairing (photonsDA present) is required for E at all; AA additionally
@@ -12476,11 +12570,20 @@ function renderSmfretEHistCore(){
   const alex=paramValue('alexEnabled'), hasAA=smfretTraces && smfretTraces.some(s=>s.photonsAA);
   if(alex && hasAA) drawSmfretESPlot(); else drawSmfretEHist();
 }
+// Checks $('srTitle') (the SAME "which of the several things that can draw
+// into this panel is currently showing" mechanism markSmfretSoiPairedKeys()/
+// refreshSSmlmHistIfShown() already use for their own "am I still the one
+// showing" tests) rather than a dedicated srPlotName variable — no such
+// variable exists for the SR panel (only the raw panel's rawPlotName does),
+// and introducing one for just this one caller wasn't worth it next to the
+// title text already being the established discriminator here.
 function refreshSmfretEHistIfShown(){
-  if(rawPlotName==='smfretES' || (rawPlotName==='histogram' && histData && histData.col==='E (FRET efficiency)')) renderSmfretEHistCore();
+  const t=$('srTitle').textContent;
+  if(t==='E vs S' || t==='E histogram') renderSmfretEHistCore();
 }
 function smfretEHistLogIfShown(){
-  if(!(rawPlotName==='smfretES' || (rawPlotName==='histogram' && histData && histData.col==='E (FRET efficiency)'))) return;
+  const t=$('srTitle').textContent;
+  if(t!=='E vs S' && t!=='E histogram') return;
   const cmdCfg={smfretMinDex:paramValue('smfretMinDex')};
   if($('smfretEHistAARow').style.display!=='none') cmdCfg.smfretMinAA=paramValue('smfretMinAA');
   logCmd(cmdCfg, overrideWithFields(cmdCfg, 'showSmfretEHist()'));
@@ -12927,7 +13030,16 @@ function drawSmfretTrace(idx){
   // intuition for a site's own neighbourhood/density. drawView() itself
   // reads smfretTraceIdx fresh on every call (see drawSmfretTraceSelectionOverlay()),
   // so a plain redraw is enough — no separate state to pass through.
-  if(srLocs===smfretSOI){ clampView(); drawView(); }
+  // `&& !srIsPlot` (real bug, caught after "Show E hist" moved its own
+  // plot into the SR panel): srLocs===smfretSOI stays true regardless of
+  // WHAT the SR panel currently shows — showSmfretEHist() only ever
+  // touches srFull/srIsPlot, never srLocs — so without this guard, EVERY
+  // Time trace redraw (including refitCanvases()'s own debounced resize
+  // replay, which fires shortly after any layout change — and showing/
+  // hiding the E-hist threshold rows IS one) unconditionally called
+  // drawView() on top of the E/S plot, wiping it (and hiding those very
+  // rows) within a few hundred ms of it ever being shown.
+  if(srLocs===smfretSOI && !srIsPlot){ clampView(); drawView(); }
 }
 // Small ROI thumbnails for the Time trace plot — a quick visual check that
 // DD/DA/AA really do sit on a real molecule, not background, each also
@@ -17785,25 +17897,27 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-11c — smFRET: new "Show E hist" /
-"Show E/S hist", plus a log-wording fix.
-(1) pairCore()'s own summary log said "... are dropped, not shown" —
-misleading for smFRET's own pairing, whose SOI composite always keeps
-every site visible (colour-marked, not removed) unlike the plain sSMLM
-reconstruction this line was originally written for. Reworded to only
-claim what's always true regardless of caller.
-(2) New "Show E hist" button (Pairing (sSMLM & FRET) module) pools every
-site's own DD/DA/AA samples across ALL time points into one FRET
-histogram: E = DA/(DD+DA) alone, or — with Alternating laser excitation?
-on and AA data present — a 2D E vs. S joint density plot instead
-(S = (DD+DA)/(AA+DD+DA), the standard ALEX stoichiometry), viridis-
-coloured with 1D marginal histograms top (E) and right (S), styled after
-the classic ALEX "E-S" plot. Min D_ex (DD+DA) and Min AA sliders are
-per-sample burst-selection thresholds, ranged from the actual loaded
-traces' own observed intensity — drag or type either for a live redraw.
-Verified against synthetic DD/DA/AA trace data: both the 1D histogram and
-the 2D plot render correctly (real viridis pixels, correct marginals),
-and raising the threshold live correctly shrinks the pooled sample count.
+log(`webSMLM v0.12.1-dev · build 2026-09-11d — smFRET E/E-S histogram:
+3 follow-up fixes, two of them real bugs.
+(1) smfretPoolES() required DD/DA/AA all finite at the SAME frame index —
+impossible under real ALEX data, which strictly ALTERNATES donor- and
+acceptor-excitation frames. Always found 0 samples regardless of
+threshold. Fixed by pairing a donor-exc frame with its own adjacent
+acceptor-exc one instead. Verified against the real ALEX dataset: 11,965
+real samples now pass at threshold 0, where the bug always found 0.
+(2) Both E-hist plots (and their Min D_ex/Min AA threshold sliders, now
+styled like the Frame scrubber) moved from the raw (left) panel to the
+reconstruction (right) one, so they sit alongside the Time trace plot
+instead of replacing it. This surfaced a second real bug: the Time trace
+plot's own highlight-refresh tail unconditionally redrew the right panel
+over the new plot a moment after it appeared (via the debounced resize
+handler, triggered by the new sliders' own layout change) -- now guarded
+so it skips itself while an unrelated plot owns that panel.
+(3) Localize SOI's click listener had the exact same "the real click
+Event gets passed as a boolean parameter" bug Get time traces' listener
+was already fixed for -- meaning a genuine fresh Localize SOI click never
+actually reset an existing pairing/Link DD/DA/AA state/Time trace
+session. Fixed the same way: wrap the listener.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

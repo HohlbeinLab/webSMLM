@@ -3066,6 +3066,92 @@ relevant one before editing rather than scrolling:
   Min D_ex live (dispatching a real `input` event) correctly shrinks the pooled sample count
   (6000→4127 against a synthetic population with a deliberate 30% dim-sample fraction).
 
+  **Four follow-up fixes, same feature, next round — two of them real bugs the first version's own
+  synthetic verification failed to catch.**
+
+  **(1) A genuine bug in `smfretPoolES()` itself, not a display issue**: reported as "E/S histogram
+  errored out saying no samples pass the current threshold even though they were by default at 0."
+  Root cause: under ALEX, `getSmfretTimeTraces()`'s own `isDonorExc`/`showAA` gates write
+  `photonsDD`/`photonsDA` and `photonsAA` to STRICTLY ALTERNATING frame indices — a donor-excitation
+  frame never also has a finite AA value at that same index, and vice versa (by construction, one
+  physical excitation laser is on at a time). The first shipped `smfretPoolES()` required all of
+  `dd[i]`/`da[i]`/`aa[i]` finite at the SAME `i` — an intersection that is ALWAYS EMPTY on real ALEX
+  data, regardless of threshold or how much real data exists. **The original verification's own
+  synthetic fixture had the identical bug** — it wrote `aa[i]` at every index alongside `dd[i]`/`da[i]`,
+  which doesn't model real ALEX sampling at all, so the "6000→4127" test above never actually
+  exercised this code path against realistic data. Fixed by pairing a donor-exc frame `i` with its
+  own ADJACENT acceptor-exc frame's AA value instead (prefer `aa[i+1]`, fall back to `aa[i-1]`) — one
+  ALEX excitation CYCLE, not one frame index, is the real unit of "simultaneous" DD/DA/AA. Verified
+  with a CORRECTED synthetic fixture (even frames = DD/DA finite/AA NaN, odd = the reverse) and
+  against the real ALEX dataset: 11,965 real (site,frame) samples now pass at threshold 0, where the
+  unfixed version found 0 regardless of threshold.
+
+  **(2) Moved both plots from the raw (left) panel to the reconstruction (right) one** (requested —
+  "move E/S to the right panel", so it can sit alongside the Time trace plot rather than replacing
+  it) — genuinely new territory for the SR panel (previously only 3D calibration's own
+  `drawCalibration()` and the ordinary reconstruction/SOI composite ever drew there). The 1D case
+  (`drawSmfretEHist()`) is now a bespoke drawer rather than reusing `computeHist()`/`drawHistogram()`
+  (MODULE: table) — that pair is hardcoded throughout to the raw panel (`rawFull`/`rawPlotName`/
+  `$('rawTitle')` baked into `drawHistogram()` itself), and retargeting such a widely-shared function
+  risked unrelated regressions for a modest amount of reuse; simpler and lower-risk to give it its
+  own small drawer, styled consistently with `drawSmfretESPlot()`. Both now use `srFull=null`/
+  `srIsPlot=true`/`setSrRecon(false)`/`$('srTitle')`/`_replotSr`/`_plotHover.sr` (the `drawCalibration()`
+  convention), not the raw-panel equivalents. `refreshSmfretEHistIfShown()`/`smfretEHistLogIfShown()`
+  check `$('srTitle').textContent` (`'E histogram'`/`'E vs S'`) to know this specific plot — not some
+  unrelated one — currently owns the panel, the same "read the title text" mechanism
+  `markSmfretSoiPairedKeys()`/`refreshSSmlmHistIfShown()` already use elsewhere, since no dedicated
+  `srPlotName` variable exists (only the raw panel's `rawPlotName` does) and introducing one for just
+  this one caller wasn't worth it. `drawView()` (the "a real reconstruction reclaims this panel" entry
+  point) gained one more reclaim line hiding both threshold rows, matching its own pre-existing
+  `calViewRow` precedent right above it.
+
+  **A second real bug, found only once the plot actually lived in the SR panel** (not a synthetic-test
+  gap this time — a real, reported symptom: "the sliders show, then disappear"): `drawSmfretTrace()`
+  (the Time trace plot, MODULE: smFRET) has its own long-standing tail —
+  `if(srLocs===smfretSOI){ clampView(); drawView(); }` — that refreshes the SOI composite's own blue
+  trace-selection highlight (see this module's own earlier paragraph on it) every time the Time trace
+  redraws. `showSmfretEHist()` only ever touches `srFull`/`srIsPlot`, never `srLocs` — so
+  `srLocs===smfretSOI` stayed true even while the E/S plot owned the SR panel, meaning EVERY Time
+  trace redraw still unconditionally called `drawView()` on top of it. This didn't show up
+  immediately: `refitCanvases()`'s own debounced resize/`ResizeObserver` handler (MODULE: pipeline)
+  replays whichever of `_replotRaw`/`_replotSr` currently applies ~120ms after a layout change —
+  and showing the two new threshold rows for the first time IS a layout change (the SR panel's own
+  `.panel-body` grows taller) — so `_replotRaw()` (still `drawSmfretTrace`, from the Time trace plot
+  in the OTHER panel) fired shortly after the click, its own tail called `drawView()`, which blanked
+  the E/S plot and hid the very rows that had just triggered the resize in the first place. Confirmed
+  by instrumenting `drawView()` directly (a wrapped version logging `new Error().stack`) — the call
+  chain traced exactly to `refitCanvases()` → `_replotRaw` → `drawSmfretTrace()`'s own tail. Fixed
+  with one added guard, `srLocs===smfretSOI && !srIsPlot` — `srIsPlot` is `false` whenever the SOI
+  composite is genuinely showing (unaffected) and `true` exactly when a plot (E-hist or calibration)
+  owns the panel instead, so the highlight-refresh now correctly skips itself while an unrelated plot
+  is up. Re-verified via the same `drawView()` call-count instrumentation: the rows now stay visible
+  (`display:'flex'`) past the same 400ms window that previously reverted them to `'none'`.
+
+  **(3) `locateSmfretSOI()`'s own button listener had the SAME event-object-as-parameter bug
+  `getSmfretTimeTraces()`'s click listener was already fixed for, just never applied here** (reported
+  — "Localize SOI should reset potentially existing pairs, links and traces", i.e. it currently
+  didn't). `$('smfretLocateBtn').addEventListener('click', locateSmfretSOI);` handed the real DOM
+  click `Event` object to `locateSmfretSOI(preservePairing=false)` as its own `preservePairing`
+  parameter on EVERY real user click — an `Event` is always truthy, so `preservePairing` was
+  effectively always `true` for a genuine click, never the intended default `false`. Two real
+  consequences, both silent: the smfretTraces-invalidation block (`if(smfretTraces &&
+  !preservePairing)`) never fired (`!preservePairing` was `!<truthy>` = `false`), and — worse — the
+  `if(preservePairing && smfretHasDDDAPairing()){ ...; return; }` early-return fired on every click
+  where a pairing already existed, skipping the reset of `sSmlmOriginalLocs`/`smfretChannelsLinked`/
+  `smfretPairedSoiKeys` entirely. Net effect: a genuine fresh Localize SOI click never actually reset
+  an existing pairing/Link DD/DA/AA state/Time trace session at all — exactly the reported symptom.
+  Fixed the same way `getSmfretTimeTraces()`'s own listener already was: wrap it,
+  `()=>locateSmfretSOI()`, so a real click always calls it with zero arguments (`preservePairing`
+  correctly resolves to its own default `false`); `refreshAlexProjectionIfShown(true)`'s own DIRECT
+  call to `locateSmfretSOI(true)` (the real "just peeking at the other channel" case this parameter
+  exists for) is a plain function call, not an event listener, so it's completely unaffected. Verified
+  via Playwright against the real ALEX dataset: built a real paired+linked+traced session
+  (`sSmlmOriginalLocs!==null`, `smfretChannelsLinked===true`, `lastResult.locs.length===51`), then
+  dispatched a REAL `page.click()` (not a direct function call) on Localize SOI — post-fix, all three
+  correctly reset (`sSmlmOriginalLocs===null`, `smfretChannelsLinked===false`,
+  `lastResult.locs.length===482`, matching the fresh, full, unpaired SOI count) — pre-fix this exact
+  sequence left the OLD 51-row paired/linked state completely untouched.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
