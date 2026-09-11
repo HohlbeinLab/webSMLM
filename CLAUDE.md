@@ -3152,6 +3152,38 @@ relevant one before editing rather than scrolling:
   `lastResult.locs.length===482`, matching the fresh, full, unpaired SOI count) — pre-fix this exact
   sequence left the OLD 51-row paired/linked state completely untouched.
 
+  **Three more requests, same round.** (1) Both E-hist plots now call `setSrContrastRowVisible(false)`
+  right after claiming the panel — the SOI composite's own Contrast (Black/White) slider has no
+  meaning for a density/count plot, and was previously left showing (stale) underneath it. (2) 2D
+  density blur reduced `1.1`→`0.6` (`blur(grid,NB,NB,0.6)`, `drawSmfretESPlot()`) — the original value
+  over-smoothed real structure in the density on actual data; still enough to avoid a blocky per-bin
+  look. (3) **`alexProjToggleBtn` folds the E/E-S histogram into its own existing DD+DA/AA cycle as a
+  THIRD stop** (requested — "the toggle should enable to toggle between E/S, SOI composite DD+DA, and
+  SOI composite AA"): DD+DA → AA → E (or E vs S, whichever `smfretCanShowEHist()`/ALEX+AA data calls
+  for) → back to DD+DA. `smfretCanShowEHist()` (extracted from `showSmfretEHist()`'s/
+  `refreshSmfretEHistBtn()`'s own duplicate checks — a real "must never drift apart" risk otherwise,
+  since a mismatch would mean the toggle offers "E/S" as a destination the button itself would then
+  refuse) is the single shared gate all three now use. `toggleAlexProjChannel()` reads the CURRENT
+  state from `$('srTitle').textContent` (the same discriminator `showSmfretEHist()`/
+  `refreshSmfretEHistIfShown()` already use) rather than a separate mode variable — doesn't matter
+  whether the user arrived at the current view via this toggle or a direct button click either way.
+  Only reachable with ALEX on (without it there's no DD+DA/AA composite distinction at all —
+  `alexProjToggleBtn` stays hidden entirely, unchanged). `locateSmfretSOI()`'s own AA-composite label
+  line now reads `smfretCanShowEHist()` too, showing "E/S" as the next stop once real data exists,
+  "DD+DA" (the plain 2-way fallback) otherwise — naturally correct immediately after a fresh Localize
+  SOI run, since that already resets `smfretTraces` to `null` before this label is set (see the
+  `preservePairing`-bug fix just above). **A real bug caught while wiring the "E/S → DD+DA" step**:
+  the first attempt called `refreshAlexProjectionIfShown(true)`, which decides what to refresh by
+  RE-READING `$('srTitle')` itself — but the title is STILL `'E vs S'`/`'E histogram'` at that point
+  (nothing has redrawn yet), so it matched neither of that function's own branches and silently did
+  nothing, leaving the toggle stuck on the E/S view forever. Fixed by calling `locateSmfretSOI(true)`
+  DIRECTLY instead — this step is a forced TRANSITION away from the plot, not a "refresh whatever's
+  already showing" (the composite isn't currently on screen to refresh). Verified via Playwright
+  against the real ALEX dataset, cycling through all 4 steps of the loop: DD+DA (label "AA", Contrast
+  visible) → AA (label "E/S", Contrast visible) → E vs S (label "DD+DA", Contrast hidden) → back to
+  DD+DA (label "AA", Contrast visible again) — confirmed broken at exactly the 4th step before the
+  `refreshAlexProjectionIfShown`→`locateSmfretSOI` fix, correct after.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
