@@ -3220,6 +3220,57 @@ relevant one before editing rather than scrolling:
   native `<input type=range>` element's own default box model differing slightly from the `.dualrange`
   wrapper's, not to the label width this fix actually targets.
 
+  **`Link DD/DA/AA` is now GATED on `Filter SOIs==='DD+DA+AA'`, reversing an earlier round's own
+  "doesn't reflect a real dependency" removal** (reported, with a clearer statement of the intended
+  model: "Filter SOIs tells us whether AA is taking into account for linking to DA/DD or not... If
+  not (FilterSOIs = DA + DD), 'Get time traces' should still measure intensity at the AA ROI
+  determined... by the position determined by DA! If FilterSOIs = DA + DD + AA, the 'Link DD/DA/AA'
+  button should only keep pairs... where DA matches the position determined independently in AA").
+  **Point one was already true** — confirmed by re-reading `getSmfretTimeTraces()`'s own per-frame
+  loop: whenever a site is `paired`, AA is ALWAYS sampled at `(x2,y2)` (the DA-inferred acceptor
+  position), never an independently-detected AA position, completely independent of `Filter SOIs` or
+  whether `Link DD/DA/AA` has ever run — no code change needed there. **Point two needed a real
+  reversal**: the earlier round's own reasoning ("this function never reads
+  `getSmfretTimeTraces()`'s own `photonsAA` at all... gating it on that dropdown never reflected a
+  real dependency") was narrowly correct about the DATA FLOW, but missed the actual WORKFLOW meaning
+  of the setting — `'DD+DA'` is meant to say "I'm not requiring independent AA confirmation at all"
+  (the donor-leakage-only control case the user names explicitly: "Pair DD + DA remains relevant to
+  serve as finding DA/AA positions even if technically no acceptor is currently present, then
+  utilising the donor leakage"), so silently running the validation pass anyway and narrowing the
+  pairing regardless contradicted that stated intent. `refreshSmfretLinkChannelsBtn()` and
+  `linkSmfretChannels()`'s own guard both gained the same added condition
+  (`paramValue('smfretTraceChannels')==='DD+DA+AA'`), with the button's own tooltip and `Filter
+  SOIs`'s own tooltip both rewritten to state the new two-way dependency explicitly.
+
+  **A real deadlock this change would otherwise have introduced, caught before shipping**:
+  `refreshSmfretTimeTracesBtn()`'s own existing safety net unconditionally required
+  `smfretChannelsLinked` whenever ALEX was on, regardless of `Filter SOIs` — with `Link DD/DA/AA` now
+  DISABLED whenever `Filter SOIs==='DD+DA'`, that combination would have made `Get time traces`
+  permanently unreachable in that mode (the one thing that could ever set `smfretChannelsLinked` true
+  is a button the user can no longer click). Fixed by making the safety net ITSELF conditional on the
+  same setting: `linkRequired = alex && smfretTraceChannels==='DD+DA+AA'`, so the "must be linked
+  first" requirement only applies when that setting says confirmation is even wanted — exactly
+  mirroring `Link DD/DA/AA`'s own new enable gate. `smfretTraceChannels`'s own `change` listener
+  gained a matching `refreshSmfretTimeTracesBtn()` call (previously only refreshed
+  `refreshSmfretLinkChannelsBtn()`), so switching the setting live updates both buttons' enable state
+  together. Verified via Playwright against the real ALEX dataset: with `Filter SOIs='DD+DA'`, `Link
+  DD/DA/AA` is disabled and `Get time traces` runs successfully with NO link step at all (56 traces,
+  real AA data present); switching to `'DD+DA+AA'` re-disables `Get time traces` until `Link
+  DD/DA/AA` succeeds (51 pairs kept); switching back to `'DD+DA'` and calling `linkSmfretChannels()`
+  directly (bypassing the disabled button) correctly refuses with a clear log message and leaves
+  `lastResult.locs` untouched (51, unchanged).
+
+  **A third `Filter SOIs` option ("DD or AA") was proposed in the same round, not yet implemented** —
+  see the chat transcript for the full design discussion: combining DD-detected and AA-detected sites
+  into one SOI pool (recovering a real pair even when the donor itself is too dim/bleached to detect
+  directly) needs a genuinely new capability — inverting the established Pair DD + DA geometric
+  relationship (bearing+distance, or the channel-matching affine transform) to infer a hypothetical
+  donor position for an AA-only site with no DD counterpart — that doesn't exist anywhere in this
+  codebase yet (every current pairing path only ever infers acceptor-from-donor, never the reverse).
+  Flagged as needing explicit confirmation of the inversion mechanism (which pairing method's own
+  inverse to use; how to mark/flag an AA-inferred position as distinct from a genuinely DD-detected
+  one, for later QC/export) before implementing, rather than guessed at.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2870   PARAMS registry, single source of truth for params;
+    params          2879   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3798   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          3807   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4097   synthetic stack generator ("Simulate movie")
-    detect          5190   per-frame band-pass + local-maxima detection
-    fit             5467   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4106   synthetic stack generator ("Simulate movie")
+    detect          5199   per-frame band-pass + local-maxima detection
+    fit             5476   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6106   accumulate to offscreen buffer; view/colour/blur;
+    render          6115   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7592   frame-parallel detect/fit worker pool; dedicated
+    workers         7601   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7902   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8230   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7911   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8239   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8696   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8705   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -133,9 +133,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    9298   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9307   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10032   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10041   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -304,8 +304,17 @@
                            samples at the histogram's own edges; shared
                            .scrublabel CSS class gives every Frame/Site/
                            Contrast/Min D_ex/Min AA row label the same
-                           fixed width so their sliders all start flush
-    spt             13328   single particle tracking, trackpy-inspired;
+                           fixed width so their sliders all start flush;
+                           Link DD/DA/AA now gated on Filter SOIs===
+                           'DD+DA+AA' (reversing an earlier "no real
+                           dependency" removal — the actual gap was
+                           workflow meaning, not data flow); had to also
+                           make refreshSmfretTimeTracesBtn()'s own "must
+                           be linked" safety net conditional on the same
+                           setting, or Filter SOIs=DD+DA would deadlock
+                           Get time traces (Link now disabled, nothing
+                           else can ever set smfretChannelsLinked true)
+    spt             13351   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -336,7 +345,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14866  top-level orchestration, *Core()/wrapper split;
+    pipeline        14889  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -397,7 +406,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   15536  Micro-Manager/pycromanager camera bridge
+    liveStreaming   15559  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -451,14 +460,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           18130  localizations table, filtering, histograms;
+    table           18152  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18843  window.webSMLM.analyze()/analyzeBatch();
+    headless API    18865  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2207,7 +2216,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11f</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2644,7 +2653,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="dirDonorExc">Direct donor excitation</option>
             <option value="dirAcceptorExc">Direct acceptor excitation</option>
           </select></label>
-        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots. DD + DA reads donor-excitation frames at the donor position, and — once sites are paired via Pair DD + DA/Pairing (sSMLM &amp; FRET) — direct-acceptor-excitation frames at the paired acceptor position too (a real position is already known, so AA is sampled either way). DD + DA + AA additionally samples AA at the SOI's own position even before any pairing exists (a rougher guess, with no real acceptor position yet). Link DD/DA/AA doesn't read this setting at all — it always runs its own independent acceptor-channel check regardless.">Filter SOIs
+        <label class="row" id="smfretTraceChannelsRow" style="display:none" title="Which channels Get time traces plots, AND whether Link DD/DA/AA (above) requires independent AA confirmation at all. DD + DA reads donor-excitation frames at the donor position, and — once sites are paired via Pair DD + DA/Pairing (sSMLM &amp; FRET) — direct-acceptor-excitation frames at the paired (DA-inferred) acceptor position too, NEVER an independently-detected AA position, even if Link DD/DA/AA has run before switching back to this setting; Link DD/DA/AA itself is disabled here, since this setting says you're not requiring that confirmation (e.g. a donor-leakage-only control with no real acceptor channel to confirm against). DD + DA + AA additionally samples AA at the SOI's own position before any pairing exists (a rougher guess, with no real acceptor position yet), and enables Link DD/DA/AA to independently confirm each pair against real AA signal.">Filter SOIs
           <!-- option values stay unspaced ("DD+DA") — PARAMS.smfretTraceChannels/
                code comparisons and saved settings JSON already use these exact
                strings; only the visible text gained spaces, to match "Pair DD +
@@ -2673,7 +2682,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <button id="smfretPairingBtn" type="button" disabled title="Pairs the sites of interest using whichever approach Pairing method above selects — see that field's own tooltip for what each does.">Pair DD + DA</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
-          <button id="smfretLinkChannelsBtn" type="button" disabled title="Requires Alternating laser excitation? and a DD+DA pairing already done above. Runs a fresh, on-demand localization pass on the direct-acceptor-excitation channel, then discards any pair whose own DA position has no AA localization within 2 px of it. If this drops to (or near) zero, that's usually a sign 'Position donor?' is set to the physically WRONG bearing, not a malfunction — try the other option.">Link DD/DA/AA</button>
+          <button id="smfretLinkChannelsBtn" type="button" disabled title="Requires Alternating laser excitation?, a DD+DA pairing already done above, AND Filter SOIs set to DD + DA + AA (below) — that setting is what says you want each pair independently confirmed against real AA signal. Runs a fresh, on-demand localization pass on the direct-acceptor-excitation channel, then discards any pair whose own DA position has no AA localization within 2 px of it. If this drops to (or near) zero, that's usually a sign 'Position donor?' is set to the physically WRONG bearing, not a malfunction — try the other option.">Link DD/DA/AA</button>
           <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, and plot the resulting intensity-vs-frame time traces in the raw (left) panel. With Alternating laser excitation? on, this stays disabled until Link DD/DA/AA (above) has succeeded at least once — a safety net so you can't trace a pairing whose acceptor-channel position was never independently confirmed. Without ALEX, it's available as soon as sites of interest exist.">Get time traces</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
@@ -2692,9 +2701,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
           <p><b>Show E hist</b> (labelled <b>Show E/S hist</b> once <b>Alternating laser excitation?</b> is on and AA data exists) pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot. Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), viridis-coloured, with E's own 1D histogram along the top and S's own along the right — the classic ALEX "E-S" plot layout. <b>Min D_ex</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating laser excitation?</b> on, that button now cycles DD+DA composite → AA composite → E (or E vs S) histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
-          <p>With <b>Alternating laser excitation?</b> checked, <b>Filter SOIs</b> picks whether Get time traces plots just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also a rougher <b>AA</b> guess (direct-acceptor-excitation frames, blue) sampled at the SOI's own position for a site that ISN'T yet paired — before pairing there's no independently known acceptor position to sample at all, so this stays opt-in. Pairing the sites first (<b>Pair DD + DA</b> above, or <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) splits DD into <b>DD</b> and <b>DA</b>, AND makes a real <b>AA</b> trace available too — both read at the pair's own known acceptor position, so once paired, AA no longer needs the Filter SOIs "+AA" option at all (DD at the donor position, DA and AA at the paired acceptor position; DD/DA read during donor-excitation frames — DA needs no ALEX at all, a continuous single-laser setup still has every frame count as donor excitation — AA during direct-acceptor-excitation frames, the physically correct channel/timing for direct acceptor excitation). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active).</p>
+          <p>With <b>Alternating laser excitation?</b> checked, <b>Filter SOIs</b> picks whether Get time traces plots just <b>DD</b> (direct-donor-excitation frames, green) — the default — or also a rougher <b>AA</b> guess (direct-acceptor-excitation frames, blue) sampled at the SOI's own position for a site that ISN'T yet paired — before pairing there's no independently known acceptor position to sample at all, so this stays opt-in. Pairing the sites first (<b>Pair DD + DA</b> above, or <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, which work on Localize SOI's sites the same way they pair an ordinary sSMLM 0th/1st-order candidate) splits DD into <b>DD</b> and <b>DA</b>, AND makes a real <b>AA</b> trace available too — both read at the pair's own known (DA-inferred) acceptor position, NEVER an independently-detected AA position, regardless of which Filter SOIs option is selected or whether <b>Link DD/DA/AA</b> has ever run. This is also what <b>Filter SOIs</b> itself decides: <b>DD + DA</b> means you are NOT requiring independent AA confirmation at all (e.g. a donor-leakage-only control with no real acceptor channel to confirm against) — <b>Link DD/DA/AA</b> below is disabled in this mode, and <b>Get time traces</b> needs nothing from it. <b>DD + DA + AA</b> means you DO want each pair independently confirmed against real AA signal — it enables <b>Link DD/DA/AA</b>, and <b>Get time traces</b> then stays disabled until that confirmation has actually run (see below). DA is magenta, the same colour the plot itself uses when showing just one plain, unsplit curve (the case with neither ALEX nor a pairing active).</p>
           <p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs — <b>Link DD/DA/AA</b> below (see next) automatically re-applies itself to the new pairing if it had already run, so a channel-linked result doesn't silently revert to unlinked. There's no automatic way to tell which of the two is physically correct ahead of time — but <b>Link DD/DA/AA</b> below doubles as an independent check: the wrong bearing typically drops its kept count to (or near) zero, since it's now checking for real acceptor signal at what's actually the donor's own position.</p>
-          <p><b>Link DD/DA/AA</b> (only enabled with <b>Alternating laser excitation?</b> checked, and only once a DD+DA pairing exists — independent of the Filter SOIs setting, which it doesn't read at all) validates each already-paired site against an INDEPENDENT direct-acceptor-excitation localization, rather than trusting the pairing geometry's own acceptor position blindly: it runs a fresh, on-demand detect+fit pass on the direct-acceptor-excitation channel (the same Average # of frames/detection/fit settings <b>Localize SOI</b> itself uses, but not saved anywhere — a one-off comparison, re-computed fresh each click), then discards any pair whose own DA position has no real localization from that pass within 2 px of it. With <b>Alternating laser excitation?</b> checked, <b>Get time traces</b> stays disabled until this has succeeded at least once (see below) — a real pairing must be independently confirmed before you can trace it, not just optionally verified.</p>
+          <p><b>Link DD/DA/AA</b> (only enabled with <b>Alternating laser excitation?</b> checked, a DD+DA pairing already existing, AND <b>Filter SOIs</b> set to <b>DD + DA + AA</b> — that setting is what says you want independent AA confirmation at all) validates each already-paired site against an INDEPENDENT direct-acceptor-excitation localization, rather than trusting the pairing geometry's own acceptor position blindly: it runs a fresh, on-demand detect+fit pass on the direct-acceptor-excitation channel (the same Average # of frames/detection/fit settings <b>Localize SOI</b> itself uses, but not saved anywhere — a one-off comparison, re-computed fresh each click), then discards any pair whose own DA position has no real localization from that pass within 2 px of it. With <b>Filter SOIs</b> at <b>DD + DA + AA</b>, <b>Get time traces</b> stays disabled until this has succeeded at least once (see below) — a real pairing must be independently confirmed before you can trace it, not just optionally verified; with <b>Filter SOIs</b> at <b>DD + DA</b>, that requirement doesn't apply at all, since this setting already says you don't need that confirmation.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -12763,7 +12772,7 @@ $('alexProjToggleBtn').addEventListener('click', toggleAlexProjChannel);
 // preserveView=true here too — same reasoning as Aperture photometry/Set
 // negative intensities to zero just above: a settings-only re-run of
 // already-shown traces shouldn't silently jump back to site 1 either.
-$('smfretTraceChannels').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(true); refreshSmfretLinkChannelsBtn(); });
+$('smfretTraceChannels').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(true); refreshSmfretLinkChannelsBtn(); refreshSmfretTimeTracesBtn(); });
 // "Position donor?" (requested — "how is decided which localisation of a
 // pair is coming from donor or acceptor emission... I would add a
 // selection... options one of the two determined primary angles"): the
@@ -12833,7 +12842,7 @@ function smfretHasDDDAPairing(){
   return !!(lastResult && lastResult.fromSmfretSOI && lastResult.locs && lastResult.locs.length && isFinite(lastResult.locs[0].dist));
 }
 function refreshSmfretLinkChannelsBtn(){
-  $('smfretLinkChannelsBtn').disabled = !(paramValue('alexEnabled') && smfretHasDDDAPairing());
+  $('smfretLinkChannelsBtn').disabled = !(paramValue('alexEnabled') && smfretHasDDDAPairing() && paramValue('smfretTraceChannels')==='DD+DA+AA');
 }
 // Get time traces normally only needs real sites of interest to exist
 // (smfretSOI) — but with ALEX on, requested as a real safety net: also
@@ -12851,32 +12860,45 @@ function refreshSmfretLinkChannelsBtn(){
 // alongside the actual current `lastResult.locs.length`, not on its own.
 // Without ALEX there's no separate acceptor channel/verification concept
 // at all, so the plain "sites exist" gate is unchanged in that case.
+// Also bypassed whenever Filter SOIs isn't 'DD+DA+AA' — that setting is
+// what says independent AA confirmation is even wanted (see
+// linkSmfretChannels()'s own comment); Link DD/DA/AA is disabled in that
+// case (refreshSmfretLinkChannelsBtn()), so requiring it here too would
+// deadlock Get time traces permanently unreachable rather than correctly
+// reflecting "this session doesn't need that confirmation at all."
 // Called everywhere `smfretChannelsLinked` changes AND from
 // `toggleAlexEnabled()` itself (flipping ALEX changes whether the extra
 // requirement even applies).
 function refreshSmfretTimeTracesBtn(){
   const haveSites = !!(smfretSOI && smfretSOI.length);
   const alex = paramValue('alexEnabled');
-  const linkedOk = !alex || (smfretChannelsLinked && lastResult && lastResult.locs && lastResult.locs.length>0);
+  const linkRequired = alex && paramValue('smfretTraceChannels')==='DD+DA+AA';
+  const linkedOk = !linkRequired || (smfretChannelsLinked && lastResult && lastResult.locs && lastResult.locs.length>0);
   $('smfretTimeTracesBtn').disabled = !haveSites || !linkedOk;
 }
-// "Link DD/DA/AA" button handler (requested): validates each already-paired
-// DD+DA row against an INDEPENDENT direct-acceptor-excitation
-// localization, rather than trusting the pairing geometry's own x2,y2 (the
-// DA position) as if it were confirmed to actually contain acceptor
-// emission — discards a pair whose own DA position has no real AA
-// localization within LINK_RADIUS_PX of it. Only meaningful with ALEX on
-// AND a real DD+DA pairing already committed (checked here, same as at the
-// button's own enable gate — see refreshSmfretLinkChannelsBtn()).
+// "Link DD/DA/AA" button handler: validates each already-paired DD+DA row
+// against an INDEPENDENT direct-acceptor-excitation localization, rather
+// than trusting the pairing geometry's own x2,y2 (the DA position) as if
+// it were confirmed to actually contain acceptor emission — discards a
+// pair whose own DA position has no real AA localization within
+// LINK_RADIUS_PX of it. Only meaningful with ALEX on AND a real DD+DA
+// pairing already committed (checked here, same as at the button's own
+// enable gate — see refreshSmfretLinkChannelsBtn()).
 //
-// Deliberately does NOT also require Filter SOIs to be DD+DA+AA (an
-// earlier round's own requirement, removed on request: "Filter SOIs set
-// to DD+DA should take DA position to set center positions of ROIs in the
-// AA channel to fit for ... AA is not a strict requirement anymore") —
-// this function never reads getSmfretTimeTraces()'s own photonsAA at all,
-// it always runs its OWN fresh, independent acceptor-channel pass below
-// regardless of what Filter SOIs is set to, so gating it on that dropdown
-// never reflected a real dependency in the first place.
+// NOW GATED ON Filter SOIs === 'DD+DA+AA' (reversing an earlier round's
+// own "doesn't reflect a real dependency" removal — reported, with a
+// clearer statement of the actual intended model: "Filter SOIs tells us
+// whether AA is taking into account for linking to DA/DD or not"). The
+// earlier reasoning was narrowly true (this function's own AA pass never
+// fed getSmfretTimeTraces()'s own photonsAA sampling, which always reads
+// the DA-inferred position x2,y2 regardless — see that function's own
+// comment, unchanged by this), but missed the actual WORKFLOW meaning of
+// the setting: 'DD+DA' is meant to say "I'm not requiring independent AA
+// confirmation at all" (e.g. a donor-leakage-only control with no real
+// acceptor channel to confirm against), so running this validation pass
+// anyway and silently narrowing the pairing contradicted that stated
+// intent. 'DD+DA+AA' is meant to say "confirm each pair against real,
+// independently-detected AA signal" — exactly what this function does.
 //
 // The AA site list is a FRESH, ON-DEMAND localization pass — a genuinely
 // separate detect+fit run on the direct-acceptor-excitation channel's own
@@ -12890,6 +12912,7 @@ async function linkSmfretChannels(){
   if(!stack) return;
   if(!paramValue('alexEnabled')){ log('Link DD/DA/AA needs Alternating laser excitation? ticked.'); return; }
   if(!smfretHasDDDAPairing()){ log(`Link DD/DA/AA needs a DD+DA pairing first (Pair DD + DA, or Pairing (sSMLM & FRET)'s own Pair & plot sSMLM).`); return; }
+  if(paramValue('smfretTraceChannels')!=='DD+DA+AA'){ log(`Link DD/DA/AA needs Filter SOIs set to DD + DA + AA — it validates each pair against an independent AA localization, which "DD + DA" says you don't require.`); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('smfretLinkChannelsBtn').disabled=true;
   try{
@@ -17991,23 +18014,29 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-11f — smFRET E/E-S histogram:
-strict positivity + aligned slider labels.
-(1) smfretPoolE()/ES() now require DD, DA, and (in E/S mode) AA each
-STRICTLY POSITIVE individually, not just their sums -- a rejected/
-non-converged fit reports a real, meaningful 0 on just one channel,
-which previously still passed the sum check while clamping E (or S) to
-exactly 0 or 1, piling spurious samples at the histogram's own edges.
-Verified with synthetic data (degenerate zero-valued samples correctly
-excluded, genuine ones unaffected) and against the real ALEX dataset:
-tightened the pooled 2D sample count from 11,965 to 8,125 and visibly
-sharpened the density plot's own real structure.
-(2) A shared CSS class now gives every Frame/Site/Contrast/Min D_ex/Min
-AA row label the same fixed width, so their sliders all start at the
-same x-position regardless of label text length -- reported (with
-screenshots) that "Min D_ex"/"Min AA", and separately the raw panel's
-own "Site"/"Contrast" pair, started their sliders at visibly different
-positions since each label was only as wide as its own text.
+log(`webSMLM v0.12.1-dev · build 2026-09-11g — smFRET: Link DD/DA/AA now
+respects Filter SOIs.
+"DD + DA" means you're not requiring independent AA confirmation at all
+(e.g. a donor-leakage-only control with no real acceptor channel) --
+Link DD/DA/AA is now disabled in that mode, matching that stated intent,
+where it previously ran its own AA validation pass regardless and could
+silently narrow the pairing anyway.
+"DD + DA + AA" means you DO want that confirmation -- Link DD/DA/AA stays
+enabled there exactly as before.
+Get time traces already sampled AA at the DA-inferred position (not an
+independent AA localization) whenever paired, regardless of Filter SOIs
+-- confirmed unchanged, no fix needed there.
+A real deadlock this would otherwise have introduced, caught before
+shipping: Get time traces' own "must be linked first" safety net
+unconditionally required Link DD/DA/AA under ALEX -- with Link now
+disabled whenever Filter SOIs is "DD + DA", that combination would have
+made Get time traces permanently unreachable. Fixed by making that
+safety net conditional on the same setting too.
+Verified against the real ALEX dataset: "DD + DA" runs Get time traces
+successfully with no link step; "DD + DA + AA" correctly re-requires it;
+calling Link DD/DA/AA directly while on "DD + DA" refuses cleanly.
+A proposed third Filter SOIs option ("DD or AA") is still open -- see
+chat for the design discussion.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
