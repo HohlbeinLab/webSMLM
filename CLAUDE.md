@@ -3184,6 +3184,42 @@ relevant one before editing rather than scrolling:
   DD+DA (label "AA", Contrast visible again) — confirmed broken at exactly the 4th step before the
   `refreshAlexProjectionIfShown`→`locateSmfretSOI` fix, correct after.
 
+  **Two more requests, same round.** (1) **`smfretPoolE()`/`smfretPoolES()` now require DD, DA, and
+  (in the E/S case) AA each STRICTLY POSITIVE INDIVIDUALLY, not just their sums** ("always require
+  DD, DA, and AA to be larger than 0 to avoid clamping in the ES histogram") — the previous checks
+  (`dex<=0`, `denom<=0`) only guarded the SUM, so a rejected/non-converged fit's own real, meaningful
+  `0` (see this module's own established convention elsewhere) on just ONE channel — or a genuinely
+  negative unfloored background subtraction, `smfretFloorZero` unchecked — still passed a `dex>0` sum
+  check while CLAMPING the ratio to exactly 0 or 1 (`a=0`→E=0; `d=0`→E=1), piling spurious samples at
+  the histogram's own edges rather than being excluded as the degenerate case they are. `!(d>0)`
+  (rather than a separate `isFinite(d)` check) excludes NaN too in one comparison (`NaN>0` is
+  `false`), so the old finite-checks were folded into this same test rather than kept alongside it.
+  Verified directly: a synthetic 1D case with 5 samples (one `DD=0`, one `DA=0`, 3 genuinely valid)
+  correctly pools only the 3 valid ones; a synthetic 2D (ALEX-alternating) case with 5 excitation
+  cycles (one with `DD=0`, one with `DA=0`, one with a paired `AA=0`, 2 genuinely valid) correctly
+  pools only the 2 valid ones. On the real ALEX dataset this tightened the pooled 2D sample count
+  from 11,965 to 8,125 and visibly sharpened the density plot's own real structure (screenshotted:
+  the previous edge pile-up at `S≈1.0` thinned out, the genuine mid-plot hot spot became more
+  distinct) — user-flagged as needing further empirical evaluation of its real impact before treating
+  as final ("I will need to check influence").
+
+  (2) **A shared `.scrublabel` CSS class (right after `.scrubslider`'s own rules) now gives every
+  Frame/Site/Contrast/Min D_ex/Min AA row label the SAME fixed width** (`min-width:70px`, sized to
+  the row family's own longest label, "Contrast"/"Min D_ex" at 8 characters) — reported, with
+  screenshots, that "Min D_ex"/"Min AA" (and, separately, the raw panel's own pre-existing "Site"/
+  "Contrast" pair) started their own sliders at different x-positions since each label span was only
+  as wide as its own text. Applied to all 6 real occurrences (`scrubRow`/`liveStreamScrubRow`'s own
+  "Frame", `smfretTraceScrubRow`'s "Site", `rawContrastRow`/`srContrastRow`'s own "Contrast",
+  `smfretEHistDexRow`/`AARow`'s "Min D_ex"/"Min AA") — deliberately NOT `calViewRow`'s own much
+  longer "Calibration graph" label, a different kind of row (a button, not a slider) that never
+  appears alongside any of these. Verified via Playwright: `smfretEHistDexRow`'s and `AARow`'s own
+  `<input type=range>` elements now start at the IDENTICAL x-coordinate (946px in the test), where
+  they previously differed by the "Min D_ex"/"Min AA" text-width difference; the two label spans
+  themselves measure pixel-identical (`x=318, width=70, right=388` for both "Site" and "Contrast" in
+  a direct DOM check) — a small (~2px) residual gap between their OWN following sliders traces to the
+  native `<input type=range>` element's own default box model differing slightly from the `.dualrange`
+  wrapper's, not to the label width this fix actually targets.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
