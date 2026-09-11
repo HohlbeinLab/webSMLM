@@ -3422,6 +3422,44 @@ relevant one before editing rather than scrolling:
   spanned grid area regardless; `width:auto` is what actually lets `justify-self` have something to
   centre. Verified via Playwright: the button's own centre x now matches the modal's centre x exactly.
 
+  **The count-axis design above was reported back the SAME day as confusing and REDESIGNED, and the
+  2D density itself was replaced with hexagonal binning** — both real, direct follow-ups on a
+  screenshot of the shipped result, not further iteration on a vague request.
+
+  **Axes**: the corner-anchored L-shaped axis pair (documented just above) read as a separate,
+  disconnected mini-plot dropped into the panel's top-right corner — reported with a screenshot
+  showing its own tick numbers and "counts" title actually overlapping each other in the cramped
+  space, plus a plain "What is this?". Replaced with a simpler design: each marginal's own count
+  axis now EXTENDS the main plot's own already-drawn axis line straight through the adjoining
+  marginal, rather than drawing a second, separate line anywhere — E's bars grow up FROM `x=mL` (the
+  main plot's own left/S-axis border, also E's own E=0 edge), so that same vertical line just
+  continues upward through the top marginal with its own tick set for count; S's bars extend right
+  FROM `y=topH+plotH` (the main plot's own bottom/E-axis border, also S's own S=0 edge), so that same
+  horizontal line continues rightward through the right marginal the same way. One shared line each,
+  not two, and no cramped corner box left to route text around. `eBarTop`/`eBarBase` and `sBarLeft`/
+  `sBarRight` simplified back to using nearly the FULL marginal thickness (`8`/`topH-4` and `mL+plotW+4`/
+  `W-8`) — no reserved headroom needed any more, since neither axis nor tick labels sit anywhere near
+  where a bar could reach once they're on the OPPOSITE side from before.
+
+  **Density**: "I also dont like the bluring much in the E/S histogram. New idea, use tiling as shown
+  in [a PLOS ONE smFRET burst-histogram figure], maybe combined with viridis, color bar should not be
+  necessary." The entire `blur()`+raster-`ImageData`+`drawImage()` pipeline (grid accumulation,
+  Gaussian blur, alpha-ramp, offscreen-canvas upscale) is GONE — replaced with a standard axial
+  hex-grid binning (pointy-top hexagons, cube-coordinate rounding to the nearest cell — the
+  textbook redblobgames.com derivation, not an invented approximation), worked directly in PIXEL
+  space (via the same `X(e)`/`Y(s)` mappers the rest of the plot already uses) rather than data
+  space, so hexagons render visually regular on screen regardless of E/S's own [0,1] domain scale.
+  `hexSize` is sized relative to `plotW` (~34 hexagons across), not a fixed pixel constant, so the
+  tiling stays proportionate as the panel itself resizes. Each non-empty hex cell is filled directly
+  via `ctx.fillStyle=rgb(...)` from `getLUT('viridis')` indexed by its own count relative to
+  `hexMax` (linear, matching the earlier raster version's own linear intensity mapping) — no colour
+  bar added, per the request ("should not be necessary"), matching the referenced figure's own
+  reliance on hexagon SIZE-independent, purely relative colour brightness. Verified via Playwright
+  against the real ALEX dataset: the resulting plot visually matches the referenced figure's own
+  style (a smooth, hexagon-tiled density cloud, brightest at the true peak, tapering cleanly with no
+  blur or blocky-square artifacts), with both marginal histograms' own count axes now sitting flush
+  against the main plot's own borders with zero text overlap.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
