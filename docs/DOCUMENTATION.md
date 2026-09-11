@@ -570,7 +570,7 @@ returns `lpsx`/`lpsy` (fit precision of the σx/σy widths), consumed by
 `zFromWidths()` to estimate `lpz` — an approximate z-precision via error
 propagation through the calibration curve's local slope (not a true joint
 CRLB, since z isn't a parameter of the pixel-level fit). A fifth method,
-**Gauss MLE 3D rotated elliptical** (`gaussmleEll`, `gaussianMLEellipticangled()`),
+**Gauss MLE rotated elliptical** (`gaussmleEll`, `gaussianMLEellipticangled()`),
 fits an independent σx/σy at either a FREE or a FIXED rotation angle,
 chosen by the **3D localisation?** checkbox (`localize3D`, shown for this
 method and `mle3d`, default checked — see
@@ -583,7 +583,7 @@ calibrated dispersion bearing (`sSmlmAngleCenter`,
 [§3/sSMLM](#ssmlm-params)),
 no z — the original sSMLM-only path, for a spectrally-elongated 1st-order
 PSF. Renamed from "Gaussian MLE Elliptical (sSMLM)"; `mle3d`'s own UI
-label is now **Gauss MLE 3D elliptical** (`gaussianMLEelliptic()`, axis-
+label is now **Gauss MLE elliptical** (`gaussianMLEelliptic()`, axis-
 aligned) and `gaussmle`'s is **Gauss MLE 2D spherical**
 (`gaussianMLEspheric()`) — matching Picasso's own SPHERICAL/ELLIPTIC/
 ROTATED naming, no change to the underlying fit math from the rename
@@ -761,13 +761,11 @@ recover *more* pairs than the old brightness-gated approach (64.0% vs
 mean-position sanity check (mean of all accepted 0th-order positions vs.
 mean of all their matched 1st-order positions) reproduces the configured
 ~2500 nm/~2° separation almost exactly, confirming the pairs found are
-self-consistent rather than an artifact. PSF width (σ) showed a real but
+self-consistent rather than an artifact. PSF width (σ) showed only an
 imperfect ~65–70% correlation with role (consistent with the 1st order's
-spectral smearing broadening its PSF relative to the undispersed 0th) and
-is available as an optional, default-off extra confidence gate
-(`sSmlmRequireNarrower` — requires the qualified 0th candidate's own σ to
-be smaller than its chosen 1st order's) rather than a requirement, since
-it's still well short of reliable enough to gate on by default.
+spectral smearing broadening its PSF relative to the undispersed 0th) —
+too unreliable to gate on, so it isn't used as a filter at all, only
+reported (`sigma1st`, below).
 **2-point pairs only for now**
 (0th+1st) — multi-order chaining, and FFT-based automatic angle/distance
 detection (`sSMLMAnalyzer`'s `AngleAnalyzer.java` renders localizations to
@@ -785,8 +783,7 @@ position, while the 1st order sits a wavelength-dependent (i.e.
 emitter-to-emitter varying) distance away — averaging the two would blur
 position by up to half that spectrally-varying offset instead of reporting
 it precisely. Each paired row also carries `sigma1st` — the 1st order's own
-`sigma` (`locs[e.down].sigma`, already read once for `sSmlmRequireNarrower`'s
-comparison above, threaded through here instead of discarded), exported as
+`sigma` (`locs[e.down].sigma`, threaded through rather than discarded), exported as
 a `sigma1st [nm]` CSV column (see §6) and shown as a `sigma1st` table
 column (see §5) whenever present — not a directional/long-axis width, since
 no 2D fit method computes one, but the closest available proxy for how much
@@ -1652,7 +1649,7 @@ single control group in the sidebar.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE 2D spherical", "Gauss MLE 3D elliptical", "Gauss MLE 3D rotated elliptical") |
+| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE 2D spherical", "Gauss MLE elliptical", "Gauss MLE rotated elliptical") |
 | `localize3D` | 3D localisation? | bool | — | — | — | true (only shown/meaningful for `mle3d`/`gaussmleEll` — see §2/fit) |
 | `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
 | `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
@@ -1670,9 +1667,9 @@ run the script, never edit the `.hint` div directly):
   <li><b>Phasor 2D/3D</b> — ~100–250× faster per candidate (265× on the GATTA-PAINT test stack). No per-localization uncertainty; 3D needs a phasor-magnitude calibration.</li>
   <li><b>Gaussian LS 2D</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
   <li><b>Gauss MLE 2D spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
-  <li><b>Gauss MLE 3D elliptical</b> / <b>Gauss MLE 3D rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
+  <li><b>Gauss MLE elliptical</b> / <b>Gauss MLE rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation?</b> below.</li>
 </ul>
-<p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as MLE 3D. <b>Unchecked</b>: a calibration-free fit with no z — for MLE 3D elliptical this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing (sSMLM &amp; FRET) → Primary angle).</p>
+<p><b>3D localisation?</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as <b>Gauss MLE elliptical</b>. <b>Unchecked</b>: a calibration-free fit with no z — for <b>Gauss MLE elliptical</b> this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing (sSMLM &amp; FRET) → Primary angle).</p>
 <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation?</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
 <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
 <ul>
@@ -2227,7 +2224,6 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 | `sSmlmFitOrder` | Fit order | enum (`distFirst`, `angleFirst`) | — | — | — | `distFirst` |
 | `sSmlmAngleCenter` | sSMLM pair primary angle (deg) | number | -180 | 180 | 1 | 0 |
 | `sSmlmAngleTol` | sSMLM pair angle tolerance (± deg) | number | 0 | 90 | 1 | 5 |
-| `sSmlmRequireNarrower` | Require narrower 0th order (σ) | bool | — | — | — | false |
 
 **In-app "more info…" popup** (`hint-sSMLM` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
@@ -2235,7 +2231,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 
 <!-- HINT:sSMLM -->
 <p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
-<p>Localizing with <b>Gauss MLE 3D rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair &amp; plot sSMLM</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
+<p>Localizing with <b>Gauss MLE rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair &amp; plot sSMLM</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
 <p><b>Preview pairs</b> computes the candidate pool AND immediately fits it (no separate button needed — Distance min/max/Primary angle/Angle tolerance below are filled in automatically, so they already reflect this dataset's own real peak instead of generic defaults): Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — all four are starting points you can still widen by hand; changing <b>Background profile</b> re-fits automatically too. <b>Show histograms</b> draws the underlying data: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to). Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot); both also overlay their own fitted curve. Narrow the fields further by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair &amp; plot sSMLM</b> to commit.</p>
 <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape Preview pairs' own automatic distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. Changing it re-fits automatically once a fit already exists, rather than just clearing the old one. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
 <p><b>Fit order</b> (Distance first/Angle first, default Distance first) picks which axis Preview pairs' automatic fit finds FIRST, and then restricts the other axis to. <b>Distance first</b> suits a diffraction-grating/sSMLM setup, where the bearing is unknown but the real pair distance is well separated from the combinatorial background. <b>Angle first</b> suits a setup whose bearing is roughly known in advance — a dual-view/image-splitter setup's near-0° horizontal separation, for instance — where distance is the harder-to-find axis, buried deep inside an otherwise smooth, large combinatorial background from the setup's own two disjoint regions; restricting by the known angle FIRST removes most of that background before the distance fit even starts. With Angle first selected, the <b>Distances</b> histogram itself is also restricted to the current Primary angle/Angle tolerance window (read live, so editing either field re-filters the plot immediately) — the same "restrict by the other axis's current window" logic the Angles histogram already applies to Distance min/max, just in the direction this fit order needs. Even with the angle restriction, treat the automatically-fitted Distance min/max as a rough starting point — verify by eye on the (now much less diluted) histogram rather than trusting it blindly.</p>
@@ -2648,7 +2644,7 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   through **Load data** (`parseCsvLocs()`) like `sigma_z`/`dist`/`n_merged` do.
 - `sx0th [nm]`/`sy0th [nm]`/`sx1st [nm]`/`sy1st [nm]` are also sSMLM-
   **Pair**-specific, but only present when the Run used an elliptical fit
-  method (`mle3d`/**Gauss MLE 3D rotated elliptical** — `gaussmleEll`,
+  method (`mle3d`/**Gauss MLE rotated elliptical** — `gaussmleEll`,
   renamed from "Gaussian MLE Elliptical (sSMLM)") — a real per-axis width
   for BOTH orders (not just a proxy for the 1st the way `sigma1st` is),
   since those methods fit an independent σx/σy for every localization, not
@@ -2848,7 +2844,7 @@ const result = await window.webSMLM.analyze({
   `pairCore()` (spectral SMLM pairing, see **sSMLM** in `CLAUDE.md`) right
   after Localize, before drift/NeNA/FRC — the headless equivalent of
   clicking **Pair & plot sSMLM**. `config.sSmlmDistMin`/`sSmlmDistMax`/`sSmlmAngleCenter`/
-  `sSmlmAngleTol`/`sSmlmRequireNarrower` (ordinary `PARAMS` fields) configure
+  `sSmlmAngleTol` (ordinary `PARAMS` fields) configure
   the window. `pairCore()` itself throws — propagating as a rejected
   `analyze()` promise, same "throws immediately" precedent as this API's
   other preconditions — if the localizations already have real 3D `z` (a 3D
@@ -3274,7 +3270,7 @@ redundant with the log's own summary line and can run into the thousands);
 [§8](#8-headless-api-window-websmlm)'s `config.estimateGainOffset`.
 `--sSmlmPair` pairs 0th/1st-order spectral SMLM localizations right after
 Localize (`--sSmlmDistMin`/`--sSmlmDistMax`/`--sSmlmAngleCenter`/
-`--sSmlmAngleTol`/`--sSmlmRequireNarrower`, ordinary `PARAMS` overrides,
+`--sSmlmAngleTol`, ordinary `PARAMS` overrides,
 configure the window; `summary.json`'s `sSmlmPair` field records
 `nPairs`/`nInput`/`meanDistance`/`stdDistance`) — see
 [§8](#8-headless-api-window-websmlm)'s `config.sSmlmPair`. `--sptTrack`

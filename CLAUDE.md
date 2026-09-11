@@ -456,7 +456,10 @@ relevant one before editing rather than scrolling:
   + backtracking line search) is deliberately NOT part of this unification — different per-pixel
   weighting (plain squared residual, no `1/model` term) and a different outer solver.
 
-  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gauss MLE 3D rotated elliptical" in the UI)
+  **`gaussianMLEellipticangled`** (`'gaussmleEll'`, "Gauss MLE rotated elliptical" in the UI —
+  "3D" dropped from this and `mle3d`'s own label, requested: both methods work equally validly as a
+  plain 2D fit with **3D localisation?** unchecked, so a "3D"-only-sounding name was misleading,
+  particularly for sSMLM's own non-3D FIXED-angle use case below)
   adds a genuinely new model: `[x,y,N,bg,σx,σy]` plus a rotation angle, either FIXED (6 free params,
   reusing `mleModelElliptical` with pixel offsets pre-rotated by the constant once — same
   size/stability class as `gaussianMLEelliptic`, no angle Hessian row) or FREE (7 free params, angle
@@ -889,8 +892,12 @@ relevant one before editing rather than scrolling:
   maps: a point qualifies as 0th order only if it has ≥1 outgoing edge (a candidate on the
   configured bearing) AND zero incoming evidence (opposite bearing, more likely someone else's 1st
   order) — self-disqualifying, no brightness needed. PSF width (σ, broader for the spectrally
-  smeared 1st order) showed only ~65–70% correlation with role — available as an optional,
-  default-OFF extra filter (`sSmlmRequireNarrower`), not required. **2-point pairs only** (0th+1st)
+  smeared 1st order) showed only ~65–70% correlation with role — too unreliable to gate on, so
+  it's reported (`sigma1st`, below) but never used to filter. An optional `sSmlmRequireNarrower`
+  extra-confidence gate built on this correlation was REMOVED (requested — "rarely does anything")
+  after direct confirmation it was already default-OFF and only ever a weak, optional filter, never
+  load-bearing for correctness; `pairCore()`'s own `best=edges[0]` selection (closest-to-expected-
+  bearing wins) is now unconditional, with no sigma-based override. **2-point pairs only** (0th+1st)
   — multi-order chaining and FFT-based angle/distance auto-detection are `docs/REFACTOR_PLAN.md`
   follow-ups; the interactive **Preview pairs** distance/angle histograms
   (`computeHist()`/`drawHistogram()` from **table**) cover "find my window" instead — always
