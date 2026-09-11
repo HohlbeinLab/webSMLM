@@ -1588,6 +1588,18 @@ relevant one before editing rather than scrolling:
   `sSmlmPairContext='sSmlm'`, the exact same drag still correctly sets `zmin`/`zmax` and rerenders,
   unchanged from before this fix.
 
+  **`pairCore()`'s own summary log line said "dropped, not shown" — misleading for one of its two
+  callers** (reported: "there are still non paired ROIs in SOI composite (as it should be!)" — a
+  real point of confusion, not a bug in behaviour). `pairCore()` is shared by the plain sSMLM
+  reconstruction path (where the claim is literally true — the reconstruction really does only ever
+  show the `n` paired points) and smFRET's own `pairSSmlm()`/`getSmfretPairingFromDonor()` (where
+  the SOI composite always shows EVERY site regardless, colour-marking a paired one via
+  `markSmfretSoiPairedKeys()` rather than removing anything) — `pairCore()` itself has no visibility
+  into which caller it's serving, so a blanket "not shown" overclaimed for the smFRET case. Reworded
+  to only assert what's always true regardless of caller — "this result now holds only these N
+  paired points; M ... are dropped from it (a site may still be visible elsewhere ...)" — rather than
+  a display claim `pairCore()` can't actually verify.
+
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
   warning only, id stays `smfretBox`). **Sidebar label renamed** "(Caution!) smFRET (experimental)"
@@ -2991,6 +3003,68 @@ relevant one before editing rather than scrolling:
   close to a pure shift; the affine model is expected to matter far more on a setup with a larger
   real rotation/magnification difference between channels, which this implementation now handles
   correctly rather than silently absorbing into a looser, noisier translation-only tolerance.
+
+  **"Show E hist"/"Show E/S hist"** (requested — a classic ALEX-FRET "E-S" plot, reference image
+  supplied) pools every site's own DD/DA/AA samples across ALL time points into one population-level
+  FRET histogram — `smfretPoolE(minDex)` (E = DA/(DD+DA), 1D case) and `smfretPoolES(minDex,minAA)`
+  (E vs S = (DD+DA)/(AA+DD+DA), 2D case, the standard ALEX stoichiometry). `renderSmfretEHistCore()`
+  dispatches between the two based on live state: E alone needs only a real DD+DA pairing
+  (`s.photonsDA` present); the 2D E-vs-S plot additionally needs ALEX on AND AA data
+  (`s.photonsAA` present) — matching `getSmfretTimeTraces()`'s own `showAA` gate exactly, since S
+  has no meaning without a direct-acceptor-excitation channel to sample AA from at all.
+  `smfretEHistBtn`'s own label reflects which of the two the NEXT click would draw
+  (`refreshSmfretEHistBtn()`, same "shows what clicking gets you" convention `driftPlotModeBtn`/
+  `sptHistModeBtn` use), refreshed after every `getSmfretTimeTraces()` run and on `alexEnabled`'s own
+  `change` (a second, additional listener — `toggleAlexEnabled()`'s own existing one is left
+  untouched).
+
+  `smfretMinDex`/`smfretMinAA` (new `PARAMS` entries, `max:null` — same "no fixed UI ceiling, the
+  real bound comes from the loaded data" convention `fitLastFrame`/`segAreaMax` already use) are
+  per-SAMPLE (site,frame) burst-selection thresholds — the standard smFRET/ALEX technique for
+  excluding a sample whose own donor-excitation (or, for AA, direct-acceptor-excitation) total
+  intensity is too low for E (or S) to be a meaningful ratio rather than noise.
+  `smfretUpdateEHistThresholdRanges()` (called once `getSmfretTimeTraces()` succeeds) sets both
+  sliders' own `max` from the ACTUAL loaded traces' observed range — same pattern the raw-panel
+  Contrast slider's own `estimateRawContrastRange()` already established — and clamps the CURRENT
+  value down if a smaller re-run left it out of range. Each threshold is a range+number pair
+  (`wireSmfretThresholdSlider()`, two-way bound) — dragging/typing gives a cheap live redraw
+  (`refreshSmfretEHistIfShown()`, checked via `rawPlotName`/`histData.col`) with one `logCmd()` on
+  release (`change`), the same "cheap redraw per tick, one committed log per gesture" convention the
+  sSMLM distance histogram's own draggable min/max markers already use.
+
+  **1D case** (`drawSmfretEHist()`) reuses the exact shared column-histogram machinery
+  (`computeHist()`/`drawHistogram()`, MODULE: table) every other histogram in this app already draws
+  through — table columns, sSMLM distance/angle, spt D/track-length — rather than a bespoke drawer;
+  only `histData.col`'s text ("E (FRET efficiency)") distinguishes it from those, and is what
+  `refreshSmfretEHistIfShown()`/`smfretEHistLogIfShown()` check to know this specific histogram (not
+  some unrelated one) is currently showing.
+
+  **2D case** (`drawSmfretESPlot()`) is bespoke — no existing plot in this app is a 2D binned
+  scatter-density — but reuses two already-shared primitives rather than reinventing them: `blur()`
+  (MODULE: fit, the SAME Gaussian blur `renderSuperResPixels()` uses) smooths the raw per-bin counts
+  into the soft "hot cloud" look these plots conventionally have (a plain bar grid reads as
+  blocky/noisy at any realistic sample count — the same reasoning the reconstruction itself blurs
+  for), and `getLUT('viridis')` (MODULE: render, the SAME LUT the reconstruction/render pipeline
+  uses) colorizes it — "the rendering engine from 3D plot" the request asked for, reused here as its
+  two real components rather than a literal call into `renderSuperResPixels()` itself (that
+  function's own machinery — CRLB-sized Gaussian splats, mag/zoom, z-colour — has no natural meaning
+  in an E/S coordinate space). A 60×60 bin grid (fixed [0,1] domain both axes, the conventional E/S
+  range) is blurred, normalised, colour-mapped, then blitted through a tiny offscreen canvas scaled
+  up to the plot rect — the canvas's own bilinear resampling adds a further, cheap smoothing pass on
+  top of `blur()`'s own. Near-empty bins are left fully transparent (alpha 0) rather than a flat
+  dark-viridis rectangle, so the panel background shows through outside the real data cloud. 1D
+  marginal histograms — E along the top, S along the right (rotated, bars extending from the main
+  plot's own right edge) — use the SAME 60 bins/domain as the main density grid, so they align
+  exactly under/beside the shared axes; plain bar histograms for this first version, not the
+  smoothed KDE-like outline the reference image's own marginals show. Row `by=0` (low S) must be
+  written to the LAST image row, not the first — canvas image rows run top-to-bottom while the
+  plot's own S axis increases upward, the same bottom-up-vs-top-down flip every other
+  non-screen-native-axis plot in this app already needs. Verified via Playwright with synthetic
+  DD/DA/AA trace data (known true E/S per site): both the 1D histogram (`histData.n`/`lo`/`hi` match
+  the synthetic population) and the 2D plot (real viridis-coloured pixels at the expected E/S
+  location, correct marginal bar heights, `n` label) render correctly with zero page errors; raising
+  Min D_ex live (dispatching a real `input` event) correctly shrinks the pooled sample count
+  (6000→4127 against a synthetic population with a deliberate 30% dim-sample fraction).
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
