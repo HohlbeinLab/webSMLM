@@ -3376,6 +3376,52 @@ relevant one before editing rather than scrolling:
   non-zero amber/teal pixel counts on the raw canvas; **Show E(S) histogram** renders the 2D E-vs-S
   view with its own fixed label.
 
+  **Five follow-up polish fixes, same feature.** (1) **A real, reported overlap bug in
+  `drawSmfretESPlot()`'s own `"n = ..."` label** — screenshotted directly ("n = 1,840" sitting on top
+  of the tallest bars): the label's own fixed position (`mL+plotW, topH-8`) sat right at the shared
+  (E=1,S=1) corner the top marginal's own bars grow toward, so a real dataset whose E-distribution
+  peaks near that corner had its tallest bins collide with the text. Moved to the TOP-RIGHT of the
+  panel entirely (`W-6, 6`, right-aligned/top-baseline) — the one spot in the whole canvas neither
+  marginal's own bars, nor the new count axes below, can ever reach. (2) **Both marginal histograms
+  gained a real count axis of their own** (requested — they previously had no scale at all, just
+  bars) — anchored at the SAME shared (E=1,S=1) corner point ("taking the 1 from either E or S['s]
+  extended axes") and extending AWAY from the main density plot into the corner box neither
+  marginal's own bars ever reach (`x>mL+plotW, y<topH`): E's own axis runs VERTICALLY (matching its
+  vertical bars) from that corner up to `eBarTop`; S's own axis runs HORIZONTALLY (matching its
+  horizontal bars) from that corner right to `sBarRight` — together forming a small L-shaped joint
+  axis pair right at the shared corner, echoing the main plot's own L-shaped border. Both bars'
+  own max height/width is now capped short of the full marginal thickness (`eBarTop=26`/
+  `sBarRight=W-26`, not the full `topH-6`/`W-6`) specifically to leave that reserved band clear for
+  the new axis + tick labels + a "counts" title (rotated for E, upright for S) — without this
+  reservation, a bin's own bar could still grow tall/wide enough to collide with the very axis
+  labelling it. (3) **`blur()`'s own sigma reduced 0.6→0.45** (requested — "reduce blur"). (4) **A
+  genuine artifact fix, not just less blur**: reported "blurring... adds crosses" — root-caused to
+  the HARD on/off alpha cutoff (`t>0.02?255:0`) that fed the density image's own alpha channel: for a
+  sparse dataset (isolated single-count bins, a small blur radius — `rad=Math.ceil(sigma*3)=2` at
+  this sigma), clipping everything below 2% of peak throws away most of a blurred bin's own smooth
+  Gaussian falloff, leaving only its brightest few pixels — with that little spatial extent left, the
+  discrete kernel's own shape (a 5-tap-radius outer product, not yet large enough to read as circular)
+  shows through as a visible diamond/plus rather than a smooth round blob. Fixed by replacing the hard
+  cutoff with a continuous linear ramp (`t<=0?0:Math.min(255,Math.round(255*t*3))` — full opacity
+  already reached at 1/3 of a bin's own peak density, not only at the peak itself) that preserves the
+  blur's own natural falloff instead of aliasing it into a hard-edged shape, while still leaving an
+  exactly-empty bin fully transparent. (5) **A real, reproduced-and-fixed general bug, not smFRET-
+  specific** — see this file's own "Left/right panel plot pattern" section for the full
+  `min-height:320px` writeup (`canvas#sr,canvas#raw`'s own CSS, MODULE: params): reported as "check
+  scaling for rectangular (wider than high) smFRET data, plot looks strange and graphs not scaled" —
+  confirmed by reproducing with `setFrameAspect(1024,200)` (no bundled sample is this shape) that
+  EVERY plot sharing this canvas, not just smFRET's own, was being crushed to a near-illegible sliver
+  by an extreme camera-frame aspect ratio the plot itself has nothing to do with.
+
+  Renamed **"Show E(S) histogram" → "E(S) histogram"** (button label + its own log/DOCUMENTATION.md
+  references) — shorter, matching this sidebar's own established preference for compact labels.
+  **"Save which window?"'s own "Both windows" button now sits centred**, not flush-left, on its own
+  row below Left/Right window (`#saveImgBoth{grid-column:1/-1;justify-self:center;width:auto;
+  min-width:140px}`) — a real gotcha caught mid-fix: `justify-self:center` alone did nothing, since
+  the app's own global `button{width:100%}` rule still stretched it to fill its (now double-wide)
+  spanned grid area regardless; `width:auto` is what actually lets `justify-self` have something to
+  centre. Verified via Playwright: the button's own centre x now matches the modal's centre x exactly.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
@@ -4446,6 +4492,29 @@ pairs**) used to leave the PREVIOUS toggle stranded on screen alongside the new 
 reported bug, since each dispatcher only knew how to show/label its OWN button. Fixed by having
 all four dispatchers (plus `drawRaw()`/`drawSegmentedImage()`) call `hideOtherRawToggleBtns()`
 first. Any FUTURE raw-panel toggle button must do the same — add its id to the helper's list.
+
+**`canvas#sr,canvas#raw`'s own CSS `min-height:320px` (v0.12.1-dev) guards every plot in the app,
+not just one module's own.** Both canvases' CSS box tracks `aspect-ratio:var(--frame-ar)` — correct
+for the RAW FRAME/RECONSTRUCTION views, which really do have that shape, but every PLOT that
+reuses this same canvas (`setupPlot()`'s own letterboxed sub-rect — Time trace, E vs S, drift, NeNA,
+FRC, spt's D/track-length/MSD histograms, sSMLM's distance/angle histograms, calibration, PCFO,
+line-profile) has nothing to do with the camera's own geometry. Reported and reproduced directly
+(no bundled sample file is this shape, so verified via `setFrameAspect(1024,200)` after a real
+load — a stand-in for a genuine wide dual-view/image-splitter smFRET sensor): an extreme
+wider-than-tall `--frame-ar` crushed the canvas's own CSS height down to a sliver (e.g. 247px for
+1024:200 on a 1264px-wide panel), and `setupPlot()`'s letterboxed plot rect — sized to fit within
+that sliver while keeping its own fixed aspect (4:3 for most plots, 1:1 for E vs S) — shrank right
+along with it, rendering as a tiny box floating in a mostly-empty panel with huge unused margins on
+both sides ("plot looks strange and graphs not scaled"). `min-height:320px` on the shared rule is
+the standard CSS way to floor this without touching the normal (near-square) case at all —
+`aspect-ratio` alone still wins whenever it would compute a height above the floor, so a typical
+dataset's own frame shape is completely unaffected; only an extreme aspect ratio that would
+otherwise crush the canvas gets the floor instead. Verified via Playwright, before/after: the same
+synthetic-aspect reproduction went from a ~247px-tall panel with tiny, near-illegible Time trace/
+E-vs-S plots to a 320px floor with both rendering at full, legible size (real DD/AA/DA curves, a
+real viridis E-vs-S density cloud with readable axes) — the raw frame/reconstruction VIEWS
+themselves are unaffected either way, since `fitView()` already letterboxes arbitrary content into
+whatever box it's given.
 
 ### Live preview (real-time detect/fit on the scrubbed frame)
 
