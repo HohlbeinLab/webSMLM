@@ -3271,6 +3271,111 @@ relevant one before editing rather than scrolling:
   inverse to use; how to mark/flag an AA-inferred position as distinct from a genuinely DD-detected
   one, for later QC/export) before implementing, rather than guessed at.
 
+  **An 8-point simplification pass, same day** ("i see the confusion, let's simplify") — decisive
+  instructions, not a design question, so implemented directly rather than confirmed first.
+
+  (1) **A real, reported bug**: changing **Pixel size (nm)** while the Data-projection/SOI-composite
+  view was showing never updated its scale bar — `srNmPerPx()` already read `paramValue('pxnm')`
+  live for exactly this non-reconstruction case, but nothing ever repainted the canvas to pick the
+  new value up. The `#pxnm` `change` listener's own `rerender(true)` call was gated on `lastResult`
+  alone — wrong for two reasons: a bare composite may have no `lastResult` at all (Data projection,
+  before any Localize), and even when one exists (`fromSmfretSOI`) it isn't a real per-localization
+  reconstruction, so calling `rerender(true)` on it would have been actively wrong, not just a no-op.
+  Fixed by branching on `srIsRecon` (true ONLY inside `rerender()` itself, confirmed by grep — the
+  correct discriminator for "is this actually a reconstruction") for the `rerender(true)` path, and
+  falling back to a plain `clampView();drawView();` repaint whenever `srFull` is set but `srIsRecon`
+  is false — the exact call `showStackProjection()`/`locateSmfretSOI()` themselves already make to
+  build these views in the first place, so no new rendering path was needed, just reaching it from
+  this listener too. Skipped entirely when a vector plot (`srIsPlot`) owns the panel — none of those
+  have anything pxnm-dependent to refresh. Verified via Playwright: with the SOI composite showing,
+  `$('pxnm').value=250; dispatchEvent(change)` immediately updates `srNmPerPx()` to `250`.
+
+  (2) **A real design flaw, not a bug in the old sense**: `locateSmfretSOI()`'s own per-channel
+  reporting (added the SAME day, an earlier round) split ONE composite's own candidates by an
+  x-POSITION gap (`smfretFovSplitX()`) and labelled the two halves "DD"/"DA" — reported back almost
+  immediately: *"Now reporting on DD and DA number of locs although no information on those can be
+  drawn without pairing?!?"* — a fair catch: at Localize SOI time, before any pairing has run,
+  there is no real donor/acceptor IDENTITY to split by, and the x-position-gap split is additionally
+  meaningless outright for a same-region (non-split) setup like a wedge-prism/grating donor-leakage
+  control, which has no real x-position gap to split on in the first place. Replaced with what the
+  report actually implies is wanted: a genuine, INDEPENDENT candidate count on BOTH ALEX channels —
+  the one just localized (already fully fitted, free) AND a fresh, on-demand `smfretSOICore()` pass
+  on the OTHER channel (the same mechanism `alignSmfretChannels()`/the former `linkSmfretChannels()`
+  already used for exactly this kind of "count real signal on the other channel" check), purely
+  informational, never stored into `smfretSOI`/`lastResult` — costs one extra full average+detect+fit
+  pass per click when ALEX is on, an accepted trade-off. Verified via Playwright against the real
+  ALEX dataset: `"donor-excitation: 482 candidate(s); direct-acceptor-excitation: 351 candidate(s)"`
+  — two real, independently-fitted counts, not a same-composite split.
+
+  (3)+(4) **"Filter SOIs" and "Link DD/DA/AA" dropped entirely** ("Drop 'Filter SOIs' entirely...
+  Drop 'Link DD/DA/AA' entirely") — the whole Round-E mechanism this file's own paragraphs above
+  document in detail (the `smfretTraceChannels` PARAMS enum, its sidebar row, `linkSmfretChannels()`
+  itself and its button/click listener, `smfretChannelsLinked` and every one of its ~13 reset-point
+  references, `LINK_RADIUS_PX`, `refreshSmfretLinkChannelsBtn()` and its ~6 call sites,
+  `refreshSmfretPairingLive()`'s "re-apply Link live" `wasLinked`/`linkSmfretChannels()` re-invocation,
+  and `refreshSmfretTimeTracesBtn()`'s `linkRequired`/`smfretChannelsLinked` gating logic) is gone —
+  a comprehensive grep for every one of those identifiers before starting was what made removing all
+  of them (and only them, leaving `alignSmfretChannels()`'s own unrelated `pairSrc`/`aaLocKeys`/
+  `SOI_MARK_TOL_PX` machinery for the channel-matching pairing method's own AA-vs-DA provenance
+  marking completely untouched) tractable without leaving dangling references. `refreshSmfretTimeTracesBtn()`
+  is now just `!(smfretSOI && smfretSOI.length)` — plain "sites exist," no linking precondition at all.
+
+  (5) **AA unconditionally sampled at the DA position once paired, no other option** ("After 'Pair DD
+  and DA', DA is the leading position for time traces to obtain time traces in the AA channel. drop
+  for now all other options.") — `getSmfretTimeTraces()`'s own `showAA` gate simplified from
+  `alex && (paired || smfretTraceChannels==='DD+DA+AA')` (with a whole `if(paired){...}else{...}`
+  branch sampling AA at the SOI's own `(x,y)` for an unpaired site) down to plain `alex && paired` —
+  AA is read at the pair's own acceptor position `(x2,y2)` whenever `showAA` is true, full stop; an
+  unpaired site simply has no AA trace at all any more (matching DA's own pre-existing behaviour,
+  which never had an unpaired fallback either).
+
+  (6) **The 2D E-vs-S histogram** (`drawSmfretESPlot()`): bin count `NB` 60→100 per axis; the two
+  marginal histograms' own thickness (`topH`/`rightW`) increased 64/90→90/115 (requested — "make the
+  2D histogram a bit smaller, to give more space for the 1D histograms") — shrinks the central
+  density plot's own share of the fixed-square panel, since every downstream position (`plotW`/
+  `plotH`, tick placement, marginal-bar length) is already derived from these two constants, so
+  bumping them alone was sufficient with no other code change. The existing `blur()` sigma (0.6,
+  from an earlier round) is untouched — flagged by the user as still under evaluation ("We might
+  take it out again"), not something to change pre-emptively.
+
+  (7) **"Show E hist"/"Show E/S hist" → one fixed "Show E(S) histogram"** — `refreshSmfretEHistBtn()`'s
+  own dynamic `(alex&&hasAA) ? 'Show E/S hist' : 'Show E hist'` relabeling is gone; the button now
+  keeps one constant label and the function only toggles its `disabled` state. Moved (HTML only) to
+  share **Get time traces**' own row — **Export traces** now sits alone in the row below it.
+
+  (8) **A second stacked sub-plot in the Time trace view** (`drawSmfretTrace()`, requested — "below
+  the DD, DA, AA plot, add a plot (well, traces) showing E and S between 0 and 1 as a function of
+  time. Plots could share a x-axis") — the previously single curve area is split into two vertically
+  stacked regions sharing ONE `X(f)` time mapping: plot A (unchanged DD/DA/AA intensity content,
+  `phA` tall) on top, plot B (new, `phB` tall, fixed [0,1] range) below it, separated by a fixed
+  `gapAB` (room for plot A's own bottom axis border) — only plot B carries x tick labels/the
+  "time (s)" title, since the shared axis only needs labelling once; a faint vertical gridline at
+  each x tick spans BOTH plots (`yTopA`..`yBotB`) so a feature in one lines up with the other by eye.
+  Plot B computes E(t)/S(t) for the CURRENTLY SELECTED site only (not pooled across sites/time the
+  way **Show E(S) histogram** is) — same per-sample math as `smfretPoolE()`/`smfretPoolES()` (each
+  channel strictly `>0` individually, so a rejected-fit "0" or a genuinely negative unfloored value
+  on just one channel can't clamp E/S to exactly 0 or 1), just kept per-FRAME instead of pooled, and
+  with no Min D_ex/Min AA threshold — a diagnostic trace of one site, not a burst-selected population
+  histogram. E is drawn amber (`#e0821e`), S teal (`#00acc1`) — both new colours, distinct from every
+  existing curve/marker colour this app already uses elsewhere. An unpaired site (no `photonsDA`)
+  shows a centred placeholder message ("Pair DD + DA above for E/S vs time") instead of a blank plot.
+  The ROI-thumbnail strip and ROI-row bottom margin (`mBRoi`) are unaffected — `totalPh` (renamed from
+  the old single `ph`) still equals `phA+gapAB+phB` by construction, so `roiY` (`yBotB+mBAxis`) lands
+  exactly where the old `mT+ph+mBAxis` did. The shared `registerPlotHover()`/`drawPlotHover()`
+  mechanism only supports one rectangular hover region at a time — the hover readout still covers
+  plot A (intensity, ADU) only; a second, separate hover region for plot B's own [0,1] E/S range is a
+  plausible follow-up, not attempted this round.
+
+  Verified end-to-end via Playwright against the real ALEX dataset for all 8 points together: `pxnm`
+  edit updates `srNmPerPx()` live on the showing composite; Localize SOI reports two genuine,
+  independent per-channel counts; `document.getElementById('smfretLinkChannelsBtn')` and
+  `#smfretTraceChannelsRow` are both confirmed absent from the DOM with no dangling references
+  anywhere in the JS (`grep` over the whole file after the edit); **Get time traces** is enabled
+  immediately once sites exist, with no linking precondition; **Pair DD + DA** → **Get time traces**
+  produces real traces with both `hasDA` and `hasAA` true; the new E/S-vs-time sub-plot renders real,
+  non-zero amber/teal pixel counts on the raw canvas; **Show E(S) histogram** renders the 2D E-vs-S
+  view with its own fixed label.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
