@@ -724,6 +724,14 @@ relevant one before editing rather than scrolling:
   `PARAMS`/Save-Load Settings/the headless `analyze()` config — same "pure display/layout" carve-out
   as UI theme and sidebar state — a display convenience local to one interactive session.
 
+  **The Contrast slider's own final value is now logged** (requested — "setting is important when
+  exporting images"): `#rawBlack`/`#rawWhite` gained a shared `change` listener (drag-release, not
+  the existing `input` listeners' per-tick redraw) logging `"Raw frame Contrast: B & W = X-Y"`, the
+  same wording `rawContrastV`'s own on-screen readout already uses. Not wired into
+  `PARAMS`/settings/`logCmd()` — this remains the same "pure display/layout, local to one session"
+  value it always was (see the paragraph above); the log line is purely a visibility aid for
+  reproducing what an exported raw-frame PNG actually looked like, not a replayable command.
+
   **`rerender()`/`srNmPerPx()` guard against `lastResult` going null mid-render** — a genuine,
   pre-existing async race, found (not introduced) while Playwright-testing the terminal's new
   GUI/terminal parity work (see **pipeline**): `rerender()`'s own EARLY `if(!lastResult) return;`
@@ -1599,6 +1607,24 @@ relevant one before editing rather than scrolling:
   to only assert what's always true regardless of caller — "this result now holds only these N
   paired points; M ... are dropped from it (a site may still be visible elsewhere ...)" — rather than
   a display claim `pairCore()` can't actually verify.
+
+  **`sSmlmFitOrder` ("Fit order", distFirst/angleFirst) removed entirely** (requested — "I thought
+  we took that out, always going first for distances and then for angles?!"): the PARAMS entry, its
+  sidebar `<select>` row + hint paragraph, and its own `change` listener are all gone. `PARAMS`'s
+  own `sSmlmDistMax` fixed ceiling reversion earlier this cycle already made the toggle's original
+  motivating case (a dual-view/image-splitter setup with a known bearing) `channelMatch`'s job
+  instead — see that section's own paragraph above — leaving `sSmlmFitOrder` with no real remaining
+  use case, exactly what prompted removing it outright rather than just defaulting it.
+  `fitSSmlmDistAndAngle()` is back to ALWAYS fitting distance first, then restricting angle to the
+  just-fitted distance window — unconditionally, the same logic the old `distFirst` branch already
+  had, just with the `if(order==='angleFirst'){...}else{...}` branching removed. `filterSSmlmCandsByAngle()`
+  (only ever called from the now-gone `angleFirst` branch and `drawSSmlmHist()`'s own matching
+  conditional) is deleted too; the Distances histogram itself is unconditionally the full,
+  unrestricted candidate pool again, exactly as it was before `sSmlmFitOrder` existed.
+  `fitSSmlmDistanceFromCands()`/`fitSSmlmAngleFromCands()` — the two actual fit engines this toggle
+  split `fitSSmlmDistAndAngle()` into — are UNCHANGED and still called the same way, just always in
+  the one fixed order now. Verified via Playwright: `document.getElementById('sSmlmFitOrder')` and
+  `'sSmlmFitOrder' in PARAMS` both confirm absent after this change.
 
 - **smFRET** (v0.12.1-dev) — Marked **experimental**; the sidebar label also carries the same
   **"(Caution!)"** prefix as **sSMLM**/**spt** (see sSMLM's own paragraph on this — a visual
@@ -3478,6 +3504,61 @@ relevant one before editing rather than scrolling:
   via Playwright (a full plot screenshot plus a zoomed top-left corner crop): the E-axis's own
   vertical line now runs unbroken from the marginal into the main plot's border with no visible
   seam, tick digits read at a consistent size throughout, and no stray `0` sits beside the `1.0`.
+
+  **Six more fixes/requests, next round.** (1) A real, reported gap: toggling **Aperture photometry
+  (no fit)** (or **Set negative intensities to zero**) already re-ran `getSmfretTimeTraces(true)`
+  when a trace was showing, but that only redraws the RAW-panel Time trace plot — the SR-panel
+  **E/S histogram**, if that's what happened to be on screen, kept showing STALE content from
+  before the toggle, since nothing repainted it. Fixed with one added `refreshSmfretEHistIfShown()`
+  call right after `drawSmfretTrace()` in `getSmfretTimeTraces()`'s own success path — a no-op
+  (checks `$('srTitle')` itself) whenever the E/S histogram isn't the thing currently shown.
+
+  (2) **Naming unified to "E/S histogram" everywhere except the button itself** (reported — the
+  panel title read "E vs S", inconsistent with other places calling it something else). Both
+  `drawSmfretEHist()` (1D case) and `drawSmfretESPlot()` (2D case) now set `$('srTitle')` to the
+  SAME string, `'E/S histogram'` — every `t==='E vs S'||t==='E histogram'` discriminator check
+  (`refreshSmfretEHistIfShown()`, `smfretEHistLogIfShown()`, `toggleAlexProjChannel()`) collapsed to
+  a single `t==='E/S histogram'` comparison now that there's only one string to match. The
+  **E(S) histogram** BUTTON keeps its own existing label as a deliberate exception (confirmed
+  directly) — it can show either the 1D or 2D case depending on ALEX/pairing state, so a slightly
+  different name there is fine.
+
+  (3) **"Min D_ex" → "Min DD + DA"** (requested — clearer, since the quantity is literally
+  `DD+DA`, not an opaque physics-jargon abbreviation) — display label only; `smfretMinDex` stays the
+  PARAMS id/settings-JSON key unchanged. Bumped `.scrublabel`'s own shared `min-width` (70px→84px,
+  MODULE: params) to fit the new, longer longest-label — every OTHER row sharing that class
+  (Frame/Site/Contrast/Min AA) automatically gets the same, slightly wider column for free, keeping
+  their sliders still starting flush with each other.
+
+  (4) **The main-plot-to-marginal size RATIO now stays fixed on resize** (`ES_RATIO=2.5`, "subject
+  to change" per the request) — a real, reported bug: `topH`/`rightW` (the marginal histograms' own
+  thickness) were fixed PIXEL constants while `plotW`/`plotH` (the main 2D plot) grew/shrank with
+  the panel on window resize, so the visual PROPORTION between them visibly drifted instead of
+  staying consistent. Both are now derived as a fraction of the panel's own current size
+  (`rightW=(W-mL)/(ES_RATIO+1)`, `topH=(H-mB)/(ES_RATIO+1)`, so `plotW/rightW===plotH/topH===
+  ES_RATIO` always) — `mL`/`mB` (axis-label margins) stay fixed pixel constants, unrelated to this
+  ratio. Verified via Playwright at two very different viewport sizes (1600×1200 and 900×800): the
+  ratio computes to exactly `2.5` at both.
+
+  (5) **Gridlines now extend into the two marginal histograms** (requested — "the thin lines at 0.2
+  spacing of either E or S could extent into the 1D plots") — the main plot's own light 0.2-spaced
+  gridlines previously stopped exactly at the main plot's own border; each vertical (E) gridline now
+  runs from `eBarTop` (the very top of the E marginal) down through the whole main plot, and each
+  horizontal (S) gridline runs from the main plot rightward out to `sBarRight` (the far edge of the
+  S marginal) — drawn BEFORE the marginals' own bars, so a bar still paints over the gridline where
+  they overlap, the same layering the main plot's own bars/gridlines already have. Required
+  reordering `eBarTop`/`eBarBase`/`sBarLeft`/`sBarRight`'s own declaration earlier in the function
+  (they're pure layout constants with no data dependency, so moving them up cost nothing) so the
+  gridline-drawing loop — which now runs BEFORE the bars are computed — has them available.
+
+  (6) **"Fit order" removed entirely** from **Pairing (sSMLM & FRET)** — see that module's own
+  paragraph below for the removal itself; noted here too since it was requested in the same round
+  ("I thought we took that out, always going first for distances and then for angles?!").
+
+  Verified via Playwright end-to-end against the real ALEX dataset: `sSmlmFitOrder` confirmed absent
+  from both the DOM and `PARAMS`; the Min DD + DA label reads correctly; `$('srTitle')` reads
+  `'E/S histogram'` after showing either the 1D or 2D case; monkeypatching
+  `refreshSmfretEHistIfShown()` confirms it's actually invoked after toggling Aperture photometry.
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**

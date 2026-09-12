@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2909   PARAMS registry, single source of truth for params;
+    params          2915   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3836   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          3833   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4135   synthetic stack generator ("Simulate movie")
-    detect          5228   per-frame band-pass + local-maxima detection
-    fit             5505   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4132   synthetic stack generator ("Simulate movie")
+    detect          5225   per-frame band-pass + local-maxima detection
+    fit             5502   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6144   accumulate to offscreen buffer; view/colour/blur;
+    render          6141   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7630   frame-parallel detect/fit worker pool; dedicated
+    workers         7627   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7940   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8268   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7937   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8265   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8734   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8731   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -133,9 +133,9 @@
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
                            in bestShift() for the no-evidence-left case
-    locprecision    9336   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9333   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10070   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10067   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -332,8 +332,20 @@
                            showing the CURRENTLY SELECTED site's own E(t)/
                            S(t) (fixed [0,1] range) — the per-site,
                            time-resolved complement to the pooled Show E(S)
-                           histogram above
-    spt             13380   single particle tracking, trackpy-inspired;
+                           histogram above; sSmlmFitOrder ("Fit order")
+                           removed entirely, always distance-then-angle now;
+                           hexagonal binning (pointy-top, cube-rounded)
+                           replaces the E/S plot's own blur()+raster density
+                           image; its marginal-histogram count axes redone
+                           twice (corner-anchored -> extends the main plot's
+                           own axis line, gap-free, no redundant 0 tick);
+                           ES_RATIO=2.5 keeps the main-plot/marginal size
+                           ratio fixed on resize; gridlines extend into the
+                           marginals; Min D_ex -> Min DD + DA; unified
+                           "E/S histogram" title (button stays the
+                           exception); getSmfretTimeTraces() now refreshes
+                           an already-showing E/S histogram too
+    spt             13340   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -364,7 +376,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14918  top-level orchestration, *Core()/wrapper split;
+    pipeline        14878  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -425,7 +437,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   15588  Micro-Manager/pycromanager camera bridge
+    liveStreaming   15548  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -479,14 +491,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           18199  localizations table, filtering, histograms;
+    table           18167  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18912  window.webSMLM.analyze()/analyzeBatch();
+    headless API    18880  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1882,19 +1894,19 @@ X.B(E,Y);return E}return J}())
   .scrubslider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:-5px}
   .scrubslider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
   /* Shared label width for every .scrubslider-driven row (Frame/Site/
-     Contrast/Min D_ex/Min AA) — reported: several of these rows can be
+     Contrast/Min DD + DA/Min AA) — reported: several of these rows can be
      visible in the SAME panel at once (a live frame's own Frame scrubber
-     next to its Contrast slider; the E/S plot's own Min D_ex next to Min
-     AA), and without a shared width each label is only as wide as its own
-     text, so shorter ones ("Site", "Min AA") left their own slider
-     starting further left than a longer sibling's ("Contrast", "Min
-     D_ex") — a visibly uneven left edge across stacked rows. Sized to the
-     longest label actually used this way ("Contrast"/"Min D_ex", both 8
-     characters) at this row family's own 12px font; calViewRow's own much
-     longer "Calibration graph" is a different kind of row (a button, not
-     a slider) that never appears alongside these, so it's deliberately
-     not part of this shared width. */
-  .scrublabel{display:inline-block;min-width:70px}
+     next to its Contrast slider; the E/S plot's own Min DD + DA next to
+     Min AA), and without a shared width each label is only as wide as its
+     own text, so shorter ones ("Site", "Min AA") left their own slider
+     starting further left than a longer sibling's — a visibly uneven left
+     edge across stacked rows. Sized to the longest label actually used
+     this way ("Min DD + DA", 11 characters, since "Min D_ex" was renamed)
+     at this row family's own 12px font; calViewRow's own much longer
+     "Calibration graph" is a different kind of row (a button, not a
+     slider) that never appears alongside these, so it's deliberately not
+     part of this shared width. */
+  .scrublabel{display:inline-block;min-width:84px}
   /* Dual-handle range (raw-frame Contrast, Picasso-style Black/White slider):
      no native two-thumb <input>, so two ordinary range inputs are stacked on
      the same track — each fully transparent except its own thumb (pointer-
@@ -2258,7 +2270,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-11k</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-12a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2658,11 +2670,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="rect">Rectangle</option>
             <option value="circle">Circle</option>
           </select></label>
-        <label class="row" title="Which axis Preview pairs' own automatic fit finds FIRST, and then restricts the other to. Distance first (default) suits a diffraction-grating/sSMLM setup, where the bearing is unknown but the real pair distance is well separated from the combinatorial background. Angle first suits a setup whose bearing is roughly known in advance (e.g. a dual-view/image-splitter split's near-0° horizontal separation) — restricting by angle FIRST removes most of the same-region combinatorial background before distance fitting even starts, which matters when the real separation sits deep inside an otherwise smooth, large background (a two-disjoint-region setup, not a single overlapping one).">Fit order
-          <select id="sSmlmFitOrder" class="sel">
-            <option value="distFirst">Distance first</option>
-            <option value="angleFirst">Angle first</option>
-          </select></label>
         <label class="row">Primary angle (deg) <input type="number" id="sSmlmAngleCenter" value="0" min="-180" max="180" step="1" class="num"></label>
         <label class="row">Angle tolerance (± deg) <input type="number" id="sSmlmAngleTol" value="5" min="0" max="90" step="1" class="num"></label>
         <div class="btnrow" style="margin-top:6px">
@@ -2679,7 +2686,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Localizing with <b>Gauss MLE rotated elliptical</b> first (Fit method, above — <b>3D localisation?</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair &amp; plot sSMLM</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
           <p><b>Preview pairs</b> computes the candidate pool AND immediately fits it (no separate button needed — Distance min/max/Primary angle/Angle tolerance below are filled in automatically, so they already reflect this dataset's own real peak instead of generic defaults): Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — all four are starting points you can still widen by hand; changing <b>Background profile</b> re-fits automatically too. <b>Show histograms</b> draws the underlying data: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to). Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot); both also overlay their own fitted curve. Narrow the fields further by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair &amp; plot sSMLM</b> to commit.</p>
           <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape Preview pairs' own automatic distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. Changing it re-fits automatically once a fit already exists, rather than just clearing the old one. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
-          <p><b>Fit order</b> (Distance first/Angle first, default Distance first) picks which axis Preview pairs' automatic fit finds FIRST, and then restricts the other axis to. <b>Distance first</b> is the right choice for almost every same-region setup (diffraction grating, wedge prism) — the bearing is unknown but the real pair distance (capped at 10000 nm, see Distance min/max below) is well separated from the combinatorial background. <b>Angle first</b> instead restricts by a known bearing before fitting distance — useful only when the real distance itself is the harder-to-find axis at a KNOWN bearing within that same, still-bounded-under-10µm search range; it does nothing for a large, spatially separated (dual-view/image-splitter) setup, since that scale of separation is <b>Pairing method: Via channel matching</b>'s job instead, not this histogram-based one. With Angle first selected, the <b>Distances</b> histogram itself is also restricted to the current Primary angle/Angle tolerance window (read live, so editing either field re-filters the plot immediately) — the same "restrict by the other axis's current window" logic the Angles histogram already applies to Distance min/max, just in the direction this fit order needs.</p>
           <p><b>Pair &amp; plot sSMLM</b> replaces the current localizations with one row per accepted pair (refuses if the current result already has real 3D <b>z</b> from an astigmatic fit method, or is already-paired output) and switches the reconstruction's own Colour map to the HSV (blue loop) scheme automatically. <b>Unpair</b> restores the original, unpaired localizations, AND restores whichever Colour map was selected before Pair switched it — not left on HSV (blue loop) regardless of what it replaced.</p>
           <p><i>2-point pairs only (0th+1st) for now — multi-order chaining is not yet implemented, see <code>docs/REFACTOR_PLAN.md</code>.</i> Ported from <a href="https://github.com/HohlbeinLab/sSMLMAnalyzer" target="_blank" rel="noopener">HohlbeinLab/sSMLMAnalyzer</a> — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>.</p>
         </div>
@@ -2716,7 +2722,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, and plot the resulting intensity-vs-frame time traces in the raw (left) panel. Once paired (Pair DD + DA above), DA leads: the acceptor-channel position it establishes is what DA AND (with Alternating laser excitation? on) AA are both sampled at.">Get time traces</button>
-          <button id="smfretEHistBtn" type="button" disabled title="Plots E = DA/(DD+DA) pooled over every site and every time point (with Alternating laser excitation? on and a real pairing, a 2D E vs. S histogram instead — S = (DD+DA)/(AA+DD+DA)) in the reconstruction (right) panel, with Min D_ex/Min AA threshold sliders underneath it. Requires Get time traces above (and, for E, a real DD+DA pairing).">E(S) histogram</button>
+          <button id="smfretEHistBtn" type="button" disabled title="Plots E = DA/(DD+DA) pooled over every site and every time point (with Alternating laser excitation? on and a real pairing, a 2D E vs. S histogram instead — S = (DD+DA)/(AA+DD+DA)) in the reconstruction (right) panel, with Min DD + DA/Min AA threshold sliders underneath it. Requires Get time traces above (and, for E, a real DD+DA pairing).">E(S) histogram</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretExportTracesBtn" type="button" disabled title="Save every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file — one record per site, each carrying its own time (s) array alongside photonsDD/photonsDA/photonsAA. A gap (no fit attempted that frame, or a frame that wasn't this channel's turn under ALEX) is written as null, matching JSON's own convention for a non-finite number.">Export traces</button>
@@ -2731,7 +2737,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Pair DD + DA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the initial displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°), refines that shift into a full geometric transform (rotation + scale + shear on top of translation) by repeatedly fitting the mapping from the current matches and re-matching at a progressively tighter tolerance, and the final match set under the converged transform becomes the pairing directly, no separate histogram/window step needed. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured — the matching donor site keeps its usual colour, since a coloured box marks "this is the confirmed acceptor," not just "this site paired." <b>Via distances and angles</b> always colours dark orange (every acceptor position there is another entry of the SAME donor-excitation composite that's on screen). <b>Via channel matching</b> colours dark orange too when the match came from that same DA region, but a match sourced from the separate, independently-fit AA composite (only possible with ALEX on) instead colours gold — a real but purely geometric, nearest-neighbour match rather than one validated against data visible in the composite you're looking at, worth being able to tell apart at a glance. The match itself uses a small position tolerance (a few px) rather than requiring an exact coordinate match, since an AA-sourced position comes from a genuinely different image/fit pass than the composite's own site list — an acceptor position with no sufficiently close site of interest nearby (rare, but possible for a noisier AA fit) is left in its ordinary colour even though it IS part of a real pair. Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
           <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating laser excitation?</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
           <p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
-          <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>Min D_ex</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating laser excitation?</b> on, that button now cycles DD+DA composite → AA composite → E (or E vs S) histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
+          <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>Min DD + DA</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating laser excitation?</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
           <p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct ahead of time — try both and compare the resulting Get time traces AA signal.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
@@ -2871,7 +2877,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <button id="srContrastAutoBtn" class="logbtn" title="Reset Black/White to the full auto-stretched range">Auto</button>
           </div>
           <div id="smfretEHistDexRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
-            <span class="scrublabel" style="color:var(--muted);font-size:12px;white-space:nowrap">Min D_ex</span>
+            <span class="scrublabel" style="color:var(--muted);font-size:12px;white-space:nowrap">Min DD + DA</span>
             <input type="range" id="smfretMinDexRange" class="scrubslider" min="0" max="1" step="1" value="0" style="flex:1">
             <span class="val" style="min-width:78px;text-align:right;font-size:12px;white-space:nowrap">
               <input type="number" id="smfretMinDex" class="num" min="0" step="1" value="0" style="width:64px;padding:2px 4px">
@@ -3145,15 +3151,6 @@ const PARAMS = {
   // isn't reliably inferable from the point cloud alone, so it's a plain
   // user choice rather than auto-detected.
   sSmlmBgProfile: { type:'enum', id:'sSmlmBgProfile', label:'Background profile', options:['rect','circle'], default:'rect' },
-  // sSmlmFitOrder picks which axis fitSSmlmDistAndAngle() (MODULE: sSMLM)
-  // fits FIRST, and then restricts the other axis to. Default 'distFirst'
-  // matches the original, real-data-validated grating/sSMLM behaviour
-  // (bearing unknown, distance well-separated from the background) —
-  // 'angleFirst' is for a setup whose bearing is roughly known in advance
-  // (e.g. a dual-view/image-splitter split's near-0° horizontal separation),
-  // where distance is the harder-to-find axis, buried in a large
-  // combinatorial background from the setup's own two disjoint regions.
-  sSmlmFitOrder: { type:'enum', id:'sSmlmFitOrder', label:'sSMLM fit order', options:['distFirst','angleFirst'], default:'distFirst' },
   // sSmlmAngleCenter/Tol = the 1st order's fixed, SIGNED bearing from its 0th
   // order ± tolerance — a genuine direction (full ±180°), not an undirected
   // line: real-data analysis found brightness doesn't reliably tell 0th from
@@ -3216,7 +3213,7 @@ const PARAMS = {
   // observed range (smfretUpdateEHistThresholdRanges(), called once Get
   // time traces succeeds), the same "no fixed UI ceiling, real bound comes
   // from the data" convention fitLastFrame/segAreaMax already use.
-  smfretMinDex: { type:'number', id:'smfretMinDex', label:'Min D_ex (DD+DA) for E histogram', min:0, max:null, step:10, default:0, int:false },
+  smfretMinDex: { type:'number', id:'smfretMinDex', label:'Min DD + DA for E/S histogram', min:0, max:null, step:10, default:0, int:false },
   smfretMinAA: { type:'number', id:'smfretMinAA', label:'Min AA for E/S histogram', min:0, max:null, step:10, default:0, int:false },
   // alexEnabled/alexFirstFrame are step one of the "ALEX frame-role
   // bookkeeping" prerequisite docs/REFACTOR_PLAN.md's own smFRET/ALEX
@@ -10388,20 +10385,7 @@ function drawSSmlmHist(){
   // scan's off-peak distances would just dilute it with background.
   const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
   if(sSmlmHistMode==='dist'){
-    // Mirror the angle histogram's own logic when sSmlmFitOrder is
-    // 'angleFirst': distance signal is only sharp WITHIN the real angle
-    // peak for a setup whose bearing is roughly known in advance (a
-    // dual-view/image-splitter split), so pooling every angle together
-    // would dilute it with the same-region combinatorial background —
-    // exactly the reasoning that made the true peak invisible before
-    // angle-restricting (see CLAUDE.md's sSMLM module notes). Read live
-    // (same convention as the angle branch's own distance restriction), so
-    // editing Primary angle/Angle tolerance re-filters without a fresh
-    // Preview. distFirst (default) is completely unaffected — still the
-    // full, unrestricted "whole picture" this histogram was designed for.
-    const angleFirst=paramValue('sSmlmFitOrder')==='angleFirst';
-    const distCands=angleFirst ? filterSSmlmCandsByAngle(sSmlmLastCands, paramValue('sSmlmAngleCenter'), paramValue('sSmlmAngleTol')) : sSmlmLastCands;
-    const vals=distCands.map(c=>c.dist);
+    const vals=sSmlmLastCands.map(c=>c.dist);
     const markers=[{x:distMin,label:'min'},{x:distMax,label:'max'}];
     computeHist('sSMLM pair distance', vals, 'nm', markers);
     // fitSSmlmDist()'s own curve, re-evaluated fresh on every draw from its
@@ -10736,14 +10720,11 @@ function fitSSmlmDist(d, y, bgPdf){
   }
   return {p};   // p = [A_bg, A_sig, mu, sigma]
 }
-// Distance-fitting half of fitSSmlmDistAndAngle(), extracted so both fit
-// orders (see sSmlmFitOrder, PARAMS) can call it against whichever candidate
-// SUBSET is appropriate for that order — an explicit `cands` argument, no
-// implicit dependency on sSmlmLastCands or the live Distance fields. Returns
-// null (does nothing else) if there's no bounding box to fit a background
-// model against; otherwise fits and returns {distMin,distMax,mu,sigma,
-// regionLabel} — the CALLER writes the fields/logs, since the two fit orders
-// want different log wording (which axis this was restricted BY).
+// Distance-fitting half of fitSSmlmDistAndAngle() — an explicit `cands`
+// argument, no implicit dependency on sSmlmLastCands or the live Distance
+// fields. Returns null (does nothing else) if there's no bounding box to
+// fit a background model against; otherwise fits and returns
+// {distMin,distMax,mu,sigma,regionLabel} — the CALLER writes the fields/log.
 function fitSSmlmDistanceFromCands(cands){
   const vals=cands.map(c=>c.dist);
   const dims=sSmlmBoxDims();
@@ -10783,12 +10764,11 @@ function fitSSmlmDistanceFromCands(cands){
   const distMin=Math.max(0,mu-3*sigma), distMax=Math.min(PARAMS.sSmlmDistMax.max, Math.hypot(dims.a,dims.b), mu+3*sigma);
   return {distMin, distMax, mu, sigma, regionLabel};
 }
-// Angle-fitting half of fitSSmlmDistAndAngle(), extracted the same way and
-// for the same reason — an explicit `cands` argument (the wide, unrestricted
-// pool for angleFirst order; the just-fitted-distance-window subset for
-// distFirst) instead of reading sSmlmLastCands/the live Distance fields
-// directly. Returns null if there are no candidates; otherwise
-// {center,tol,halfMaxTol,pkVal,bg} — the caller writes fields/logs.
+// Angle-fitting half of fitSSmlmDistAndAngle() — an explicit `cands`
+// argument (the just-fitted-distance-window subset) instead of reading
+// sSmlmLastCands/the live Distance fields directly. Returns null if there
+// are no candidates; otherwise {center,tol,halfMaxTol,pkVal,bg} — the
+// caller writes fields/logs.
 function fitSSmlmAngleFromCands(cands){
   if(!cands.length) return null;
   const lo=-90, nb=180, bw=2, hist=new Float64Array(nb);
@@ -10854,72 +10834,35 @@ function fitSSmlmAngleFromCands(cands){
   const halfMaxTol=Math.max(1,Math.round((leftW+rightW)/2*bw)), tol=halfMaxTol*2;
   return {center, tol, halfMaxTol, pkVal, bg};
 }
-// Given a folded-orientation angle window (center/tol, the SIGNED,
-// wrap-safe-to-any-value convention pairCore()/sSmlmCandidates() itself
-// uses — see PARAMS.sSmlmAngleCenter's own comment), returns the subset of
-// `cands` whose OWN folded `angle` field falls within it. Mirrors
-// sSmlmCandidates()'s own per-candidate angle-distance computation exactly
-// (fold into [0,180), signed distance, absolute value) so a post-hoc filter
-// against already-computed candidates agrees with what a fresh
-// sSmlmCandidates() call at this same center/tol would have kept — needed
-// for angleFirst order, which fits angle from the WIDE (any-distance) pool
-// and then must restrict to that fitted window before the distance fit.
-function filterSSmlmCandsByAngle(cands, angleCenter, angleTol){
-  const acNorm=((angleCenter%180)+180)%180;
-  return cands.filter(c=>{
-    let s=c.angle-acNorm; if(s>90) s-=180; else if(s<-90) s+=180;
-    return Math.abs(s)<=angleTol;
-  });
-}
-// Estimate Distance min/max and Primary angle/Angle tolerance in one click,
-// in whichever order PARAMS.sSmlmFitOrder currently says (see that field's
-// own comment for when to use which): 'distFirst' (default) fits distance
-// from the WIDE, any-angle candidate pool, then fits angle restricted to
-// the just-fitted distance window; 'angleFirst' fits angle from the WIDE,
-// any-distance pool, then fits distance restricted to the just-fitted angle
-// window. Both fits reuse the exact same two engines
-// (fitSSmlmDistanceFromCands()/fitSSmlmAngleFromCands()) — only which
-// candidate subset is fed to each, and in which order, differs.
+// Estimate Distance min/max and Primary angle/Angle tolerance in one click:
+// fits distance from the WIDE, any-angle candidate pool first, then fits
+// angle restricted to the just-fitted distance window — always in this
+// order (an "angleFirst" toggle existed briefly but was removed; requested
+// — "always going first for distances and then for angles").
+// fitSSmlmDistanceFromCands()/fitSSmlmAngleFromCands() are the two actual
+// fit engines, each taking an explicit candidate array (no implicit
+// dependency on sSmlmLastCands/the live Distance fields).
 function fitSSmlmDistAndAngle(){
   if(!sSmlmLastCands || !sSmlmLastCands.length){ log('Run Preview pairs first — nothing to fit.'); return; }
-  const order=paramValue('sSmlmFitOrder');
-  if(order==='angleFirst'){
-    const a=fitSSmlmAngleFromCands(sSmlmLastCands);   // ALL candidates, any distance
-    if(!a){ log('⚠ No candidates to fit an angle against.'); return; }
-    $('sSmlmAngleCenter').value=a.center.toFixed(1); $('sSmlmAngleTol').value=a.tol;
-    log(`\nsSMLM angle fit (angleFirst order, ${sSmlmLastCands.length.toLocaleString()} candidates, any distance): primary angle ${a.center.toFixed(1)}°, `
-      + `tolerance ±${a.tol}° (2× the ±${a.halfMaxTol}° half-max width of the histogram peak, ${a.pkVal.toLocaleString()} candidates at the peak vs. ${a.bg.toLocaleString()} background).`);
-    const cands=filterSSmlmCandsByAngle(sSmlmLastCands, a.center, a.tol);
-    if(!cands.length){ log('⚠ No candidates within the fitted angle window — widen Angle tolerance or re-run Preview.'); refreshSSmlmHistIfShown(); return; }
-    const d=fitSSmlmDistanceFromCands(cands);
-    if(d){
-      $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
-      log(`sSMLM distance fit (restricted to the angle window above, ${cands.length.toLocaleString()} of ${sSmlmLastCands.length.toLocaleString()} candidates): background = ${d.regionLabel}; `
-        + `signal peak at ${d.mu.toFixed(0)} nm (σ=${d.sigma.toFixed(0)} nm) — Distance min/max set to ${d.distMin.toFixed(0)}/${d.distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
-    }else{
-      log('⚠ No localization bounding box to fit a background model against — angle only.');
-    }
+  const d=fitSSmlmDistanceFromCands(sSmlmLastCands);   // ALL candidates, any angle
+  if(d){
+    $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
+    log(`\nsSMLM distance fit: background = ${d.regionLabel}; signal peak at ${d.mu.toFixed(0)} nm (σ=${d.sigma.toFixed(0)} nm) — `
+      + `Distance min/max set to ${d.distMin.toFixed(0)}/${d.distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
   }else{
-    const d=fitSSmlmDistanceFromCands(sSmlmLastCands);   // ALL candidates, any angle
-    if(d){
-      $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
-      log(`\nsSMLM distance fit: background = ${d.regionLabel}; signal peak at ${d.mu.toFixed(0)} nm (σ=${d.sigma.toFixed(0)} nm) — `
-        + `Distance min/max set to ${d.distMin.toFixed(0)}/${d.distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
-    }else{
-      log('⚠ No localization bounding box to fit a background model against — skipping the distance fit, angle only.');
-    }
-    const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
-    const cands=sSmlmLastCands.filter(c=>c.dist>=distMin&&c.dist<=distMax);
-    if(!cands.length){ log('⚠ No candidates in the current Distance min/max window — widen it or re-run Preview first.'); refreshSSmlmHistIfShown(); return; }
-    const a=fitSSmlmAngleFromCands(cands);
-    if(a){
-      $('sSmlmAngleCenter').value=a.center.toFixed(1); $('sSmlmAngleTol').value=a.tol;
-      log(`sSMLM angle fit: primary angle ${a.center.toFixed(1)}°, tolerance ±${a.tol}° (2× the ±${a.halfMaxTol}° half-max width of the histogram peak, ${a.pkVal.toLocaleString()} candidates at the peak vs. ${a.bg.toLocaleString()} background).`);
-    }
+    log('⚠ No localization bounding box to fit a background model against — skipping the distance fit, angle only.');
+  }
+  const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
+  const cands=sSmlmLastCands.filter(c=>c.dist>=distMin&&c.dist<=distMax);
+  if(!cands.length){ log('⚠ No candidates in the current Distance min/max window — widen it or re-run Preview first.'); refreshSSmlmHistIfShown(); return; }
+  const a=fitSSmlmAngleFromCands(cands);
+  if(a){
+    $('sSmlmAngleCenter').value=a.center.toFixed(1); $('sSmlmAngleTol').value=a.tol;
+    log(`sSMLM angle fit: primary angle ${a.center.toFixed(1)}°, tolerance ±${a.tol}° (2× the ±${a.halfMaxTol}° half-max width of the histogram peak, ${a.pkVal.toLocaleString()} candidates at the peak vs. ${a.bg.toLocaleString()} background).`);
   }
   refreshSSmlmHistIfShown();   // the histogram's own marker lines/curve (if shown) should reflect the just-fitted values immediately, not just after the next manual redraw
   refreshSmfretDonorAngleOptions();   // smFRET's own "Position donor?" freezes its two candidate bearings at fit time too, see that function's own comment (MODULE: smFRET)
-  { const cmdCfg={sSmlmBgProfile:paramValue('sSmlmBgProfile'), sSmlmFitOrder:order}; logCmd(cmdCfg, overrideWithFields(cmdCfg, 'fitSSmlmDistAndAngle()')); }
+  { const cmdCfg={sSmlmBgProfile:paramValue('sSmlmBgProfile')}; logCmd(cmdCfg, overrideWithFields(cmdCfg, 'fitSSmlmDistAndAngle()')); }
 }
 // Preview computes candidates but commits nothing — always a WIDE, FIXED scan
 // (distance 0–6000 nm, or wider still if the configured Distance max OR the
@@ -11155,10 +11098,6 @@ $('sSmlmHistModeBtn').addEventListener('click',()=>{ sSmlmHistMode = sSmlmHistMo
 // already uses. No-op (nothing to re-fit against yet) before the first
 // Preview.
 $('sSmlmBgProfile').addEventListener('change',()=>{ if(sSmlmLastCands && sSmlmLastCands.length) fitSSmlmDistAndAngle(); });
-// Same "refresh an existing result automatically" convention — changing
-// which axis is fit first should re-run immediately against the SAME
-// candidate pool, not require a fresh Preview pairs to see the effect.
-$('sSmlmFitOrder').addEventListener('change',()=>{ if(sSmlmLastCands && sSmlmLastCands.length) fitSSmlmDistAndAngle(); });
 $('sSmlmPairBtn').addEventListener('click',runSSmlmPair);
 $('sSmlmUnpairBtn').addEventListener('click',unpairSSmlm);
 // Re-narrowing Distance min/max while the paired ("spectral") view is
@@ -12281,6 +12220,14 @@ async function getSmfretTimeTraces(preserveView=false){
     $('smfretTraceScrubNum').max=traces.length;
     $('smfretTraceModeBtn').style.display=''; $('smfretTraceModeBtn').textContent='Show raw frame';
     drawSmfretTrace(smfretTraceIdx);
+    // Requested — recalculating time traces (e.g. toggling Aperture
+    // photometry) left the E/S histogram showing STALE content if it
+    // already happened to be on screen in the SR (right) panel: this
+    // function only ever redraws the raw-panel Time trace plot above, and
+    // the SR panel keeps whatever it last rendered until something
+    // explicitly repaints it. No-op if the E/S histogram isn't currently
+    // shown (checks $('srTitle') itself).
+    refreshSmfretEHistIfShown();
     log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
     // jsOverride — reported gap: a real per-frame fit/aperture-photometry
     // computation over every site with real tunable params, never logged.
@@ -12479,7 +12426,7 @@ function drawSmfretEHist(){
   const minDex=paramValue('smfretMinDex');
   const vals=smfretPoolE(minDex);
   srFull=null; srIsPlot=true; const cv=$('sr'); const {ctx,W,H}=setupPlot(cv,true);
-  setSrRecon(false); $('srTitle').textContent='E histogram';
+  setSrRecon(false); $('srTitle').textContent='E/S histogram';   // same title as the 2D case (drawSmfretESPlot()) — requested, one consistent name for this feature regardless of which of the two it's currently showing
   setSrContrastRowVisible(false);   // the SOI composite's own Contrast control has no meaning for this plot
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -12535,19 +12482,28 @@ function drawSmfretESPlot(){
   const minDex=paramValue('smfretMinDex'), minAA=paramValue('smfretMinAA');
   const {E,S}=smfretPoolES(minDex,minAA);
   srFull=null; srIsPlot=true; const cv=$('sr'); const {ctx,W,H}=setupPlot(cv,true,1);
-  setSrRecon(false); $('srTitle').textContent='E vs S';
+  setSrRecon(false); $('srTitle').textContent='E/S histogram';
   setSrContrastRowVisible(false);   // the SOI composite's own Contrast control has no meaning for this plot
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   _replotSr=drawSmfretESPlot; _plotHover.sr=null;   // reclaiming the panel from whatever previously owned it, same convention drawView()/drawCalibration() use
   const NB=100;   // bin count for the two 1D marginal histograms only (the central 2D density is hex-binned in pixel space instead, see below); domain fixed [0,1] — E/S are conventionally displayed on that range
-  // topH/rightW (the two marginal histograms' own thickness) bumped from
-  // 64/90 (requested — "make the 2D histogram a bit smaller, to give more
-  // space for the 1D histograms") — shrinks the central 2D density plot's
-  // own share of the fixed square panel, leaving the marginals visibly
-  // taller/wider rather than the thin strips they were before.
-  const topH=90, rightW=115, mL=52, mB=44;
+  // topH/rightW (the two marginal histograms' own thickness) are a FIXED
+  // RATIO of the main 2D plot's own size (ES_RATIO, "subject to change" —
+  // requested), not fixed pixel constants — a real, reported bug otherwise:
+  // mL/mB stay fixed but plotW/plotH grow with the panel on resize, so a
+  // fixed topH/rightW meant the main-plot-to-marginal PROPORTION visibly
+  // drifted as the window was resized, rather than staying visually
+  // consistent. main:marginal = ES_RATIO:1, so marginal = available/(ES_RATIO+1).
+  const ES_RATIO=2.5, mL=52, mB=44;
+  const rightW=(W-mL)/(ES_RATIO+1), topH=(H-mB)/(ES_RATIO+1);
   const plotW=W-mL-rightW, plotH=H-topH-mB;
+  // Bar/axis layout for the two marginals, computed here (not later, next
+  // to where they're drawn) so the gridline-extension below can already
+  // use them — eBarTop/sBarRight are where each marginal's own count axis
+  // now reaches (see that axis's own comment further down for why it sits
+  // flush against the main plot's border with no gap).
+  const eBarTop=8, eBarBase=topH, sBarLeft=mL+plotW, sBarRight=W-8;
   if(!E.length || plotW<=20 || plotH<=20){
     ctx.fillStyle=C.text; ctx.font='13px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(E.length?'Panel too small':'No samples pass the current thresholds', W/2, H/2);
@@ -12598,13 +12554,21 @@ function drawSmfretESPlot(){
     ctx.closePath(); ctx.fill();
   }
   ctx.restore();
+  // Gridlines EXTEND into the two marginal histograms (requested — "the
+  // thin lines at 0.2 spacing of either E or S could extent into the 1D
+  // plots") — a vertical E gridline runs from eBarTop (the top of the E
+  // marginal) down through the main plot; a horizontal S gridline runs
+  // from the main plot rightward out to sBarRight (the far edge of the S
+  // marginal). Drawn BEFORE the marginals' own bars (below), so a bar
+  // paints over the gridline where they overlap — the same layering the
+  // main plot's own bars already have with its own gridlines.
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT;
   const ticks=[0,0.2,0.4,0.6,0.8,1];
   ctx.textAlign='center'; ctx.textBaseline='top';
-  for(const t of ticks){ const x=X(t); ctx.beginPath(); ctx.moveTo(x,topH); ctx.lineTo(x,topH+plotH); ctx.stroke();
+  for(const t of ticks){ const x=X(t); ctx.beginPath(); ctx.moveTo(x,eBarTop); ctx.lineTo(x,topH+plotH); ctx.stroke();
     ctx.fillText(t.toFixed(1), x, topH+plotH+5); }
   ctx.textAlign='right'; ctx.textBaseline='middle';
-  for(const t of ticks){ const y=Y(t); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+plotW,y); ctx.stroke();
+  for(const t of ticks){ const y=Y(t); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(sBarRight,y); ctx.stroke();
     ctx.fillText(t.toFixed(1), mL-6, y); }
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,topH); ctx.lineTo(mL,topH+plotH); ctx.lineTo(mL+plotW,topH+plotH); ctx.stroke();
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
@@ -12615,7 +12579,6 @@ function drawSmfretESPlot(){
   // eBarBase sits at EXACTLY topH — the main plot's own top edge — so the
   // bars' own baseline and axis line connect to the main plot's border
   // with no seam (requested — "no need for gap between 2D and 1D plots").
-  const eBarTop=8, eBarBase=topH;
   const eCounts=new Float64Array(NB);
   for(const e of E){ let b=(e*NB)|0; if(b<0)b=0; if(b>=NB)b=NB-1; eCounts[b]++; }
   let eMax=1; for(const c of eCounts) if(c>eMax) eMax=c;
@@ -12626,7 +12589,6 @@ function drawSmfretESPlot(){
   // Right marginal: S's own 1D histogram, rotated — bars extend rightward
   // from the main plot's own right edge, again starting EXACTLY at
   // mL+plotW (no gap) for the same reason.
-  const sBarLeft=mL+plotW, sBarRight=W-8;
   const sCounts=new Float64Array(NB);
   for(const s of S){ let b=(s*NB)|0; if(b<0)b=0; if(b>=NB)b=NB-1; sCounts[b]++; }
   let sMax=1; for(const c of sCounts) if(c>sMax) sMax=c;
@@ -12702,12 +12664,10 @@ function renderSmfretEHistCore(){
 // and introducing one for just this one caller wasn't worth it next to the
 // title text already being the established discriminator here.
 function refreshSmfretEHistIfShown(){
-  const t=$('srTitle').textContent;
-  if(t==='E vs S' || t==='E histogram') renderSmfretEHistCore();
+  if($('srTitle').textContent==='E/S histogram') renderSmfretEHistCore();
 }
 function smfretEHistLogIfShown(){
-  const t=$('srTitle').textContent;
-  if(t!=='E vs S' && t!=='E histogram') return;
+  if($('srTitle').textContent!=='E/S histogram') return;
   const cmdCfg={smfretMinDex:paramValue('smfretMinDex')};
   if($('smfretEHistAARow').style.display!=='none') cmdCfg.smfretMinAA=paramValue('smfretMinAA');
   logCmd(cmdCfg, overrideWithFields(cmdCfg, 'showSmfretEHist()'));
@@ -12796,17 +12756,17 @@ function toggleAlexEnabled(){
 // $('srTitle') (the same discriminator showSmfretEHist()/
 // refreshSmfretEHistIfShown() already use) rather than a separate mode
 // variable, so it doesn't matter whether the user arrived at the current
-// view via this toggle or via a direct button (Show E hist, or a fresh
+// view via this toggle or via a direct button (E(S) histogram, or a fresh
 // Localize SOI). Only reachable with ALEX on — without it there's no
 // DD+DA/AA composite distinction at all (alexProjToggleBtn stays hidden
 // entirely in that case, same as always), so the ordinary 2-way cycle is
 // exactly what's left.
 function toggleAlexProjChannel(){
   const title=$('srTitle').textContent, alex=paramValue('alexEnabled');
-  if(alex && (title==='E vs S' || title==='E histogram')){
+  if(alex && title==='E/S histogram'){
     // Calls locateSmfretSOI() directly, NOT refreshAlexProjectionIfShown()
     // — that function decides what to refresh by re-reading $('srTitle'),
-    // which is STILL 'E vs S'/'E histogram' at this point (nothing has
+    // which is STILL 'E/S histogram' at this point (nothing has
     // redrawn yet), so it would match neither of its own branches and
     // silently do nothing. This call is a forced TRANSITION away from the
     // plot, not a "refresh whatever's already showing" — the composite
@@ -16501,6 +16461,16 @@ $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
 $('scrubNum').addEventListener('change',e=>{ if(!stack) return; showFrame((+e.target.value||1)-1); });
 $('rawBlack').addEventListener('input',e=>{ rawBlack=Math.min(+e.target.value,rawWhite-1); syncRawContrastUI(); redrawRawContrast(); });
 $('rawWhite').addEventListener('input',e=>{ rawWhite=Math.max(+e.target.value,rawBlack+1); syncRawContrastUI(); redrawRawContrast(); });
+// Requested — the raw-frame Contrast slider changes what an exported raw-
+// frame PNG actually looks like (Save plot/image), so its own final value
+// is worth a log line for reproducibility, same reasoning every other
+// export-relevant setting already gets one for. 'change' (drag release),
+// not 'input' (every tick) — same "cheap redraw per tick, one committed
+// log per gesture" convention this app's other draggable controls use.
+// Same B & W wording rawContrastV's own readout already shows.
+const logRawContrastChange=()=>log(`Raw frame Contrast: B & W = ${rawBlack.toFixed(0)}-${rawWhite.toFixed(0)}`);
+$('rawBlack').addEventListener('change',logRawContrastChange);
+$('rawWhite').addEventListener('change',logRawContrastChange);
 $('srBlack').addEventListener('input',e=>{ srBlack=Math.min(+e.target.value,srWhite-1); syncSrContrastUI(); redrawSrContrast(); });
 $('srWhite').addEventListener('input',e=>{ srWhite=Math.max(+e.target.value,srBlack+1); syncSrContrastUI(); redrawSrContrast(); });
 $('srContrastAutoBtn').addEventListener('click',()=>{ if(!srCompositeProj) return; srFull=renderSrCompositeCanvas(srCompositeProj.data, srCompositeProj.w, srCompositeProj.h, true); drawView(); });
@@ -18056,26 +18026,28 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-11k — E vs S plot: smaller
-hexagons, axes connect with no gap, no redundant "0" tick.
-Three same-day follow-ups on the previous build's own redesign:
-(1) hexSize halved (plotW/68, was plotW/34) -- "make them smaller, 2x
-reduction in both directions".
-(2) Each marginal's own count-axis line/bar-baseline now sits at EXACTLY
-the main plot's own border position (topH / mL+plotW, not topH-4 /
-mL+plotW+4) -- "connect lines directly ... no need for gap between 2D
-and 1D plots". The two segments now share one endpoint exactly, reading
-as a single unbroken line. Tick font also matched to the main plot's own
-11px (was 9px, visibly smaller once the two axes touch directly).
-(3) With that gap gone, a count axis's own "0" tick would land exactly
-on top of the main plot's already-drawn "1.0" tick -- "plot from 1,
-thereby re-using the 1 already present in the ES histogram". Both count
-axes now skip their own c<=0 tick entirely; the boundary stays
-implicitly "count=0" via the 1.0 label already there.
-Verified via Playwright: a full-plot screenshot plus a zoomed top-left
-corner crop confirm the E-axis's own line runs unbroken into the main
-plot's border, tick digits read at one consistent size, and no stray "0"
-sits beside the "1.0".
+log(`webSMLM v0.12.1-dev · build 2026-09-12a — sSMLM: "Fit order" removed;
+smFRET: E/S plot resize ratio + gridlines, naming, 2 real fixes.
+sSmlmFitOrder ("Fit order", distFirst/angleFirst) removed entirely --
+"always going first for distances and then for angles" is now the only
+behaviour; fitSSmlmDistAndAngle() dropped its own branching,
+filterSSmlmCandsByAngle() deleted (only that branch used it).
+E/S plot: main-plot-to-marginal size ratio is now FIXED (ES_RATIO=2.5,
+"subject to change") instead of drifting on window resize; the 0.2-
+spaced gridlines now extend into both marginal histograms instead of
+stopping at the main plot's own border.
+"Min D_ex" -> "Min DD + DA" (display label only). Panel title unified to
+"E/S histogram" everywhere (was "E vs S"/"E histogram" depending on
+mode) -- the E(S) histogram BUTTON stays the one deliberate exception.
+Two real fixes: recalculating time traces (e.g. toggling Aperture
+photometry) now also refreshes an already-showing E/S histogram, which
+previously kept showing stale content; the raw-frame Contrast slider now
+logs its own final B&W value on release, useful when reproducing an
+exported image's own settings.
+Verified via Playwright against the real ALEX dataset: sSmlmFitOrder
+confirmed absent from the DOM and PARAMS; the resize ratio holds exactly
+at 1600x1200 and 900x800; monkeypatching confirms the E/S histogram
+refresh actually fires after toggling Aperture photometry.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
