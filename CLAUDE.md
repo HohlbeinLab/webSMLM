@@ -3538,7 +3538,9 @@ relevant one before editing rather than scrolling:
   (`rightW=(W-mL)/(ES_RATIO+1)`, `topH=(H-mB)/(ES_RATIO+1)`, so `plotW/rightW===plotH/topH===
   ES_RATIO` always) — `mL`/`mB` (axis-label margins) stay fixed pixel constants, unrelated to this
   ratio. Verified via Playwright at two very different viewport sizes (1600×1200 and 900×800): the
-  ratio computes to exactly `2.5` at both.
+  ratio computes to exactly `2.5` at both. **Bumped to `ES_RATIO=3`** the same day (requested —
+  "please try 3:1") — thinner marginals relative to the central density plot; no other code change
+  needed, the whole layout is already derived from this one constant.
 
   (5) **Gridlines now extend into the two marginal histograms** (requested — "the thin lines at 0.2
   spacing of either E or S could extent into the 1D plots") — the main plot's own light 0.2-spaced

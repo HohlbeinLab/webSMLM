@@ -2270,7 +2270,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-12a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-12b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12495,7 +12495,7 @@ function drawSmfretESPlot(){
   // fixed topH/rightW meant the main-plot-to-marginal PROPORTION visibly
   // drifted as the window was resized, rather than staying visually
   // consistent. main:marginal = ES_RATIO:1, so marginal = available/(ES_RATIO+1).
-  const ES_RATIO=2.5, mL=52, mB=44;
+  const ES_RATIO=3, mL=52, mB=44;   // requested — try 3:1 (was 2.5:1)
   const rightW=(W-mL)/(ES_RATIO+1), topH=(H-mB)/(ES_RATIO+1);
   const plotW=W-mL-rightW, plotH=H-topH-mB;
   // Bar/axis layout for the two marginals, computed here (not later, next
@@ -18026,28 +18026,18 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-12a — sSMLM: "Fit order" removed;
-smFRET: E/S plot resize ratio + gridlines, naming, 2 real fixes.
-sSmlmFitOrder ("Fit order", distFirst/angleFirst) removed entirely --
-"always going first for distances and then for angles" is now the only
-behaviour; fitSSmlmDistAndAngle() dropped its own branching,
-filterSSmlmCandsByAngle() deleted (only that branch used it).
-E/S plot: main-plot-to-marginal size ratio is now FIXED (ES_RATIO=2.5,
-"subject to change") instead of drifting on window resize; the 0.2-
-spaced gridlines now extend into both marginal histograms instead of
-stopping at the main plot's own border.
-"Min D_ex" -> "Min DD + DA" (display label only). Panel title unified to
-"E/S histogram" everywhere (was "E vs S"/"E histogram" depending on
-mode) -- the E(S) histogram BUTTON stays the one deliberate exception.
-Two real fixes: recalculating time traces (e.g. toggling Aperture
-photometry) now also refreshes an already-showing E/S histogram, which
-previously kept showing stale content; the raw-frame Contrast slider now
-logs its own final B&W value on release, useful when reproducing an
-exported image's own settings.
-Verified via Playwright against the real ALEX dataset: sSmlmFitOrder
-confirmed absent from the DOM and PARAMS; the resize ratio holds exactly
-at 1600x1200 and 900x800; monkeypatching confirms the E/S histogram
-refresh actually fires after toggling Aperture photometry.
+log(`webSMLM v0.12.1-dev · build 2026-09-12b — E/S plot: resize ratio
+bumped to 3:1.
+ES_RATIO 2.5 -> 3 (requested — "please try 3:1"), thinner marginal
+histograms relative to the central density plot; the whole layout
+already derives from this one constant, no other code change needed.
+Previous build (2026-09-12a): sSmlmFitOrder ("Fit order") removed
+entirely from Pairing (sSMLM & FRET) -- distance-then-angle is now the
+only order; E/S plot's main-plot-to-marginal ratio made resize-stable,
+its gridlines extended into the marginals, "Min D_ex" relabeled "Min DD
++ DA", panel title unified to "E/S histogram"; recalculating time traces
+now refreshes an already-showing E/S histogram; the raw-frame Contrast
+slider now logs its own final value on release.
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
