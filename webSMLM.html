@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2915   PARAMS registry, single source of truth for params;
+    params          2932   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3833   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          3866   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4132   synthetic stack generator ("Simulate movie")
-    detect          5225   per-frame band-pass + local-maxima detection
-    fit             5502   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4165   synthetic stack generator ("Simulate movie")
+    detect          5258   per-frame band-pass + local-maxima detection
+    fit             5535   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6141   accumulate to offscreen buffer; view/colour/blur;
+    render          6174   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7627   frame-parallel detect/fit worker pool; dedicated
+    workers         7660   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          7937   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8265   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          7970   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8298   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8731   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8764   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -132,10 +132,19 @@
                            segment being scored (issue #9, Hazen Babcock) —
                            subFrom()/addTo() leave-one-out fix in both
                            aimDrift2D()/aimDriftZ(), plus a best<=0 guard
-                           in bestShift() for the no-evidence-left case
-    locprecision    9333   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+                           in bestShift() for the no-evidence-left case;
+                           renamed "Drift correction" (was AIM-only);
+                           correlationDrift2D() — a 2nd driftMethod, image-
+                           based (FFT cross-correlation, fft2d() shared with
+                           FRC), needs no Localize to ESTIMATE (works on the
+                           raw movie); driftSeg relabeled "Average # of
+                           frames", shared by both methods; AIM's own 3
+                           settings hidden while correlation is selected;
+                           smFRET's own new "Apply drift correction?" is a
+                           thin caller over whichever method is configured
+    locprecision    9559   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10067   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10293   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -345,7 +354,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             13340   single particle tracking, trackpy-inspired;
+    spt             13638   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -376,7 +385,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        14878  top-level orchestration, *Core()/wrapper split;
+    pipeline        15176  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -437,7 +446,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   15548  Micro-Manager/pycromanager camera bridge
+    liveStreaming   15846  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -491,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           18167  localizations table, filtering, histograms;
+    table           18457  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    18880  window.webSMLM.analyze()/analyzeBatch();
+    headless API    19170  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2270,7 +2279,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-12b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.1-dev · build 2026-09-12c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2618,14 +2627,19 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="driftBox">
-        <summary>Drift correction (AIM)</summary>
-        <label class="row" style="margin-top:6px">Segment (frames)
+        <summary>Drift correction</summary>
+        <label class="row" style="margin-top:6px" title="Shared by both methods below: for AIM, how many already-fitted localizations' own frames go into one drift-estimation segment; for Cross correlation, how many raw frames get averaged into one segment's own representative image.">Average # of frames
           <input type="number" id="driftSeg" value="100" min="5" max="2000" step="5" class="num"></label>
-        <label class="row">Search radius (nm)
+        <label class="row">Drift correction method
+          <select id="driftMethod" class="sel">
+            <option value="aim">AIM</option>
+            <option value="correlation">Cross correlation</option>
+          </select></label>
+        <label class="row" id="driftRoiRow" style="padding-left:40px">Search radius (nm)
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
-        <label class="row" id="driftZRow" style="display:none">Correct z too (3D)
+        <label class="row" id="driftZRow" style="display:none;padding-left:40px">Correct z too (3D)
           <input type="checkbox" id="driftZ" checked></label>
-        <label class="row" title="Subsample each segment's own localizations before the search, on a large dataset where AIM is slow — trades some estimation precision for speed. 100% = no change.">AIM sample %
+        <label class="row" id="driftSamplePctRow" style="padding-left:40px" title="Subsample each segment's own localizations before the search, on a large dataset where AIM is slow — trades some estimation precision for speed. 100% = no change.">AIM sample %
           <input type="number" id="driftSamplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <div class="btnrow">
           <button id="driftBtn" disabled>Correct drift</button>
@@ -2633,13 +2647,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-drift"><span class="pill">module: drift</span>
-          <p>Point-based drift correction — adaptive intersection maximization (AIM; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>). <b>Localize first, then Correct drift.</b></p>
+          <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
           <ul>
-          <li>The search radius must exceed the drift <b>increment per segment</b> — shrink the segment for faster drift.</li>
-          <li>Each run re-estimates from the raw localisations, so segment size / search radius can be swept and compared.</li>
-          <li>Corrected coordinates are used by the render and CSV; the raw coordinates are kept.</li>
+          <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
+          <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>AIM sample %</b> deterministically subsamples each segment's own localizations before the search on a large, slow dataset (100% = no change, the default; a segment that's already small is never subsampled further); <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
+          <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
+          <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
-          <li><b>AIM sample %</b> — on a large dataset where drift estimation is slow, deterministically subsample each segment's own localizations before the search (100% = no change, the default). Trades some estimation precision for speed; a segment that's already small is never subsampled further.</li>
           </ul>
         </div>
       </details>
@@ -2709,6 +2723,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="checkbox" id="smfretApertureMode"></label>
         <label class="row" title="Aperture photometry's own background-subtracted intensity is set to 0 by default when negative (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Set negative intensities to zero
           <input type="checkbox" id="smfretFloorZero" checked></label>
+        <label class="row" title="Estimates drift on the loaded movie and shifts each frame's own extraction window to follow it, before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever Drift correction method/settings are currently configured (its own sidebar section, above): Cross correlation runs directly on the raw movie (no Localize needed just to estimate it); AIM needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes — slower, but reuses the current detection/fit settings.">Apply drift correction
+          <input type="checkbox" id="smfretApplyDrift"></label>
         <label class="row" title="Which approach Pair DD + DA (below) uses. Via distances and angles fits a Distance/Angle histogram (Pairing (sSMLM &amp; FRET)'s own candidate-fit-and-pair steps) — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area. Via channel matching directly registers two independently-detected point sets (splitting sites into DD/DA regions by their own x-position gap, then finding the displacement that maximises real matches) — suits a spatially SEPARATED setup (dual-view/image-splitter). The two aren't redundant: they target genuinely different optical layouts.">Pairing method
           <select id="smfretPairMethod" class="sel">
             <option value="distAngle">Via distances and angles</option>
@@ -2735,7 +2751,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own).</p>
           <p><b>Pairing method</b> picks which of two genuinely different approaches <b>Pair DD + DA</b> below actually runs — they target different optical layouts, not overlapping options, so the right choice depends on your setup rather than being a quality trade-off. <b>Via distances and angles</b> (default) fits a Distance/Angle histogram — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area and are only distinguished by a small wavelength-dependent dispersion offset. <b>Via channel matching</b> directly registers two independently-detected point sets instead — suits a spatially SEPARATED setup (dual-view/image-splitter), where a histogram-based fit can't tell a genuine peak apart from a purely geometric bias: in a field of view much wider than tall, random point pairs are naturally more likely to be oriented along the long axis regardless of any real signal, and that axis commonly coincides with the true physical donor→acceptor bearing for a horizontal split. Selecting <b>Via channel matching</b> reveals <b>Align channels match tolerance (px)</b> (default 4), which controls how close a mapped point must land to a real one to count as a match ONCE THE GEOMETRIC TRANSFORM HAS CONVERGED — an initial coarse translation-only search only seeds a full affine fit (rotation + scale + shear + translation, refined over a few rounds of fit-then-re-match at progressively tighter tolerance), since a real optical dual-view/image-splitter path commonly has a small relative rotation or magnification difference between its two channels that a plain shift can't capture; the converged mapping is expected to hold to genuine sub-pixel-to-few-px accuracy, so widen this only if genuine matches are still being missed after that refinement, not to compensate for an uncorrected shift. Changing it re-runs <b>Pair DD + DA</b> automatically whenever a pairing already exists.</p>
           <p><b>Pair DD + DA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the initial displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°), refines that shift into a full geometric transform (rotation + scale + shear on top of translation) by repeatedly fitting the mapping from the current matches and re-matching at a progressively tighter tolerance, and the final match set under the converged transform becomes the pairing directly, no separate histogram/window step needed. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured — the matching donor site keeps its usual colour, since a coloured box marks "this is the confirmed acceptor," not just "this site paired." <b>Via distances and angles</b> always colours dark orange (every acceptor position there is another entry of the SAME donor-excitation composite that's on screen). <b>Via channel matching</b> colours dark orange too when the match came from that same DA region, but a match sourced from the separate, independently-fit AA composite (only possible with ALEX on) instead colours gold — a real but purely geometric, nearest-neighbour match rather than one validated against data visible in the composite you're looking at, worth being able to tell apart at a glance. The match itself uses a small position tolerance (a few px) rather than requiring an exact coordinate match, since an AA-sourced position comes from a genuinely different image/fit pass than the composite's own site list — an acceptor position with no sufficiently close site of interest nearby (rare, but possible for a noisier AA fit) is left in its ordinary colour even though it IS part of a real pair. Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
-          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating laser excitation?</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
+          <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating laser excitation?</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two (or <b>Apply drift correction</b>, below) while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
+          <p><b>Apply drift correction</b> (default OFF) estimates drift on the loaded movie and shifts each frame's own extraction window to follow it before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever <b>Drift correction method</b>/settings are currently configured in <b>Drift correction</b>'s own sidebar section (see <a href="#drift-params">its own reference</a>): <b>Cross correlation</b> runs directly on the raw movie, no Localize needed just to estimate it; <b>AIM</b> needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes (using the current detection/fit settings) — a real, sometimes substantial added cost, unlike Cross correlation. Either way, the estimated drift is anchored to frame 0 (a site's own fixed x,y is treated as "how it looked when Localize SOI averaged it", effectively frame 0), so every other frame's own extraction position is derived as an offset from that fixed reference — not from an arbitrary drift-curve reference point the way <b>Correct drift</b>'s own AIM-based reconstruction correction can be.</p>
           <p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
           <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>Min DD + DA</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating laser excitation?</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
@@ -3099,8 +3116,18 @@ const PARAMS = {
   calFixedXY: { type:'bool', id:'calFixedXY', label:'Fix bead x,y', default:false },
 
   // ---- drift ----
-  // driftSeg = number of frames per AIM drift-estimation segment
-  driftSeg: { type:'number', id:'driftSeg', label:'Drift segment size (frames)', min:5, max:2000, step:5, default:100, int:true },
+  // driftSeg = number of frames per drift-estimation segment — SHARED by
+  // both driftMethod options (requested): for AIM, how many already-fitted
+  // LOCALIZATIONS' own frames go into one segment (unchanged meaning); for
+  // "Cross correlation", how many RAW FRAMES get averaged into one
+  // segment's own representative image. Renamed "Average # of frames" to
+  // read naturally for either.
+  driftSeg: { type:'number', id:'driftSeg', label:'Average # of frames', min:5, max:2000, step:5, default:100, int:true },
+  // driftMethod picks which ESTIMATION method driftCore() uses — AIM
+  // (point-based, needs a real Localize run first) or Cross correlation
+  // (image-based, works directly off the raw movie — see
+  // correlationDrift2D()'s own module comment, MODULE: drift).
+  driftMethod: { type:'enum', id:'driftMethod', label:'Drift correction method', options:['aim','correlation'], default:'aim' },
   // driftRoi = "region of interest", the AIM intersection-search radius in nm
   driftRoi: { type:'number', id:'driftRoi', label:'Drift search radius (nm)', min:10, max:1000, step:10, default:120, int:false },
   // driftZ = also run the 1-D z-drift correction alongside the 2-D x/y correction
@@ -3182,6 +3209,12 @@ const PARAMS = {
   // concept (no molecule this frame, not a floored computed value) and is
   // untouched by this.
   smfretFloorZero: { type:'bool', id:'smfretFloorZero', label:'Set negative intensities to zero', default:true },
+  // smfretApplyDrift: estimate drift on the loaded movie (whichever
+  // driftMethod/settings are currently configured, MODULE: drift) and shift
+  // each frame's own extraction window to follow it in getSmfretTimeTraces()
+  // — default OFF, since it's a real added cost (a full silent Localize
+  // pass for AIM; an FFT cross-correlation pass for the other method).
+  smfretApplyDrift: { type:'bool', id:'smfretApplyDrift', label:'Apply drift correction', default:false },
   // Match tolerance for alignSmfretChannels() ("Align channels", MODULE:
   // smFRET) — how close a DD point, shifted by the searched-for channel
   // displacement, must land to a real DA/AA point to count as a match.
@@ -7126,7 +7159,7 @@ async function rerender(keepView,isPreview){
     $('zmaxLabel').textContent='z max (nm)';
   }
   $('zcolorRow').style.display = colorField ? 'flex' : 'none';
-  { const zr=$('driftZRow'); if(zr) zr.style.display = hasZ ? 'flex' : 'none'; }
+  refreshDriftMethodUI(hasZ);
   // 3D shells (FSC) not implemented yet — keep the row hidden.
   const zColor = !!colorField && paramValue('zcolor');
   $('zrangeRow').style.display = zColor ? 'block' : 'none';
@@ -8737,6 +8770,8 @@ async function exportCalibration(){
    refinement; linear interpolation of per-segment drift instead of a spline.
    Quantize localizations, maximize the count of coincident points across a
    small shift search — no rendered images, no FFT (sub-pixel by parabola).
+   (A second, image-based `driftMethod` — Cross correlation, WITH an FFT —
+   sits further down, right before driftCore(); see its own module comment.)
    =========================================================================== */
 // Light [1,2,1] smoothing of a per-segment drift array (in place). Removes the
 // 2-segment sawtooth that a broad (noisy) intersection peak produces, while
@@ -9018,6 +9053,157 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, samplePct, fram
   return {fdz, segdz:dz2, nSeg:nSegEff, nSegRequested:nSeg, nz, ncl, stopped, stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
 }
 
+/* ===========================================================================
+   Cross-correlation drift (v0.12.1-dev) — a genuinely different ESTIMATION
+   method from AIM above (image-based, not point-based), added as a second
+   `driftMethod` option ("Drift correction method", default 'aim') rather
+   than replacing it: AIM needs real localizations to already exist; this
+   works directly off the RAW MOVIE, needing no Localize run at all first —
+   the property smFRET's own "Apply drift correction?" (below) relies on.
+   Splits the analysed frame range into segments of `segFrames` frames each
+   (the SAME "Average # of frames" field AIM's own driftSeg already uses —
+   shared across both methods, though it means something slightly different
+   per method: AIM buckets already-fitted LOCALIZATIONS by frame into a
+   segment; this AVERAGES that many RAW FRAMES into one representative
+   image per segment), then finds each segment's own (dx,dy) shift relative
+   to segment 0 via FFT-based cross-correlation — a peak in the correlation
+   surface, not AIM's own histogram-intersection search — with a sub-pixel
+   parabolic refinement around the peak, the same idea `bestShift()` above
+   uses on its own intersection-score grid, applied here to a correlation
+   surface instead.
+   Deliberately ONE ROUND against a FIXED reference (segment 0), not AIM's
+   own two-round leave-one-out refinement — re-doing that here would need
+   sub-pixel-shifting and re-summing whole IMAGES per iteration (expensive),
+   not just re-weighting point counts in a hash map (cheap) the way AIM's
+   own round 2 does. A single round against a fixed, real reference is a
+   standard, well-understood cross-correlation registration baseline (the
+   same one many simple stack-registration tools use) — a two-round
+   refinement is a plausible future improvement, not attempted here.
+   =========================================================================== */
+// Round up to the next power of two — fft2d() (MODULE: locprecision, shared
+// with FRC) is a radix-2 implementation, so a camera frame's own w×h (almost
+// never a power of two, and rarely even square) must be zero-padded into a
+// square N×N buffer before it can be FFT'd. Same "round up while doubling"
+// idiom frcResolution() already uses for its own FFT size.
+function _nextPow2(want){ let N=1; while(N<want) N<<=1; return N; }
+// Builds one segment's own representative image: the mean of every raw frame
+// in [segStart,segEnd), zero-padded (after mean-subtraction, so the padded
+// border matches the real image's own DC level rather than introducing a
+// sharp discontinuity at the edge) into an N×N buffer, top-left-aligned —
+// consistent alignment is all that matters (only RELATIVE shifts between
+// segments are ever read back), not which corner. Frames fetched ONE AT A
+// TIME (st.getFrames(fi,fi+1)) rather than the whole segment at once, same
+// memory-conscious convention averageFrames() (MODULE: in/out) already uses.
+async function _correlationSegmentImage(st, segStart, segEnd, N, w, h, yieldMaybe){
+  const acc=new Float64Array(w*h);
+  for(let fi=segStart; fi<segEnd; fi++){
+    const img=(await st.getFrames(fi,fi+1))[0];
+    for(let p=0;p<acc.length;p++) acc[p]+=img[p];
+    await yieldMaybe();
+  }
+  const cnt=Math.max(1,segEnd-segStart);
+  let mean=0; for(let p=0;p<acc.length;p++) mean+=acc[p]; mean/=(acc.length*cnt);
+  const padded=new Float64Array(N*N);
+  for(let y=0;y<h;y++){ const ro=y*w, po=y*N; for(let x=0;x<w;x++) padded[po+x]=acc[ro+x]/cnt-mean; }
+  return padded;
+}
+// FFT-based cross-correlation of two already-padded/mean-subtracted N×N
+// images: forward-FFT both, multiply by the cross-power spectrum
+// (FFT(A)·conj(FFT(B))), inverse-FFT — the real part is a valid correlation
+// surface (peak = best-aligning shift). No 1/N² inverse-FFT normalization
+// applied — irrelevant here, since only the peak's LOCATION (and the
+// relative heights of its immediate neighbours, for the sub-pixel fit) are
+// ever read, both invariant to a common overall scale factor.
+function _fftCrossCorrPeak(imgA, imgB, N){
+  const reA=Float64Array.from(imgA), imA=new Float64Array(N*N);
+  const reB=Float64Array.from(imgB), imB=new Float64Array(N*N);
+  fft2d(reA,imA,N,-1); fft2d(reB,imB,N,-1);
+  const reC=new Float64Array(N*N), imC=new Float64Array(N*N);
+  for(let i=0;i<N*N;i++){ reC[i]=reA[i]*reB[i]+imA[i]*imB[i]; imC[i]=imA[i]*reB[i]-reA[i]*imB[i]; }
+  fft2d(reC,imC,N,1);
+  // Locate the peak (integer bin), then a separable 1D parabolic fit through
+  // its immediate neighbours in x and y — same par() shape bestShift() (AIM,
+  // above) uses on its own intersection-score grid. Neighbour reads wrap
+  // modularly (a peak near bin 0 or N-1 is a real, valid location — the
+  // correlation surface is itself circular).
+  let best=-Infinity, bi=0, bj=0;
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const v=reC[j*N+i]; if(v>best){ best=v; bi=i; bj=j; } }
+  const at=(i,j)=>reC[((j%N+N)%N)*N+((i%N+N)%N)];
+  const par=(a,b,c)=>{ const d=a-2*b+c; return d<0?Math.max(-0.5,Math.min(0.5,0.5*(a-c)/d)):0; };
+  const sub_i=bi+par(at(bi-1,bj),best,at(bi+1,bj)), sub_j=bj+par(at(bi,bj-1),best,at(bi,bj+1));
+  // FFT bin order: index <=N/2 is a POSITIVE lag, index >N/2 wraps to a
+  // NEGATIVE one (lag = index-N) — standard DFT frequency/lag layout.
+  const dx = sub_i>N/2 ? sub_i-N : sub_i, dy = sub_j>N/2 ? sub_j-N : sub_j;
+  return [dx,dy];
+}
+// Same role/shape as aimDrift2D() above (a `driftMethod` sibling), and
+// returns the IDENTICAL shape driftCore() reads from either one
+// ({fdx,fdy,segCenters,segdx,segdy,nSeg,nSegRequested,stopped,
+// stoppedAtFrame}) — only the per-segment shift ESTIMATION differs; the
+// zero-mean referencing, [1,2,1] smoothing and frame interpolation right at
+// the end are shared verbatim (copied, not factored into a third function,
+// since aimDrift2D()'s own version is entangled with its own `stopped`
+// partial-completion bookkeeping in a way that's clearer kept separate for
+// each method's own comment/reasoning to sit next to its own code).
+async function correlationDrift2D(st, nFrames, segFrames, frame0, onProgress, shouldStop=()=>false){
+  let _yld=performance.now();
+  const yieldMaybe=async()=>{ if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
+  const {w,h}=st;
+  const N=_nextPow2(Math.max(w,h));
+  const nSeg=Math.max(1, Math.ceil(nFrames/segFrames));
+  const dx=new Float64Array(nSeg), dy=new Float64Array(nSeg);
+  let stopped=false, completed=1;   // segment 0 needs no estimation (it IS the reference, drift 0)
+  const refImg=await _correlationSegmentImage(st, frame0, Math.min(frame0+nFrames, frame0+segFrames), N, w, h, yieldMaybe);
+  onProgress(100/nSeg);
+  for(let k=1;k<nSeg;k++){
+    if(shouldStop()){ stopped=true; break; }
+    const segStart=frame0+k*segFrames, segEnd=Math.min(frame0+nFrames, segStart+segFrames);
+    const segImg=await _correlationSegmentImage(st, segStart, segEnd, N, w, h, yieldMaybe);
+    const [sx,sy]=_fftCrossCorrPeak(refImg, segImg, N);
+    // Sign convention verified NUMERICALLY, not just by derivation (same
+    // discipline this codebase already applies to every other drift/fit
+    // sign convention): a synthetic pair of images, one a Gaussian blob,
+    // the other the SAME blob moved by a known (dx0,dy0), fed through
+    // _fftCrossCorrPeak(ref,seg) directly, returns exactly -(dx0,dy0) —
+    // i.e. already the CORRECTION to add back (driftCore() applies
+    // L.x+=fdx[f]), matching aimDrift2D()'s own dx[k] convention with no
+    // extra negation needed. (An initial by-hand derivation predicted the
+    // opposite sign; trust the synthetic check over that derivation.)
+    dx[k]=sx; dy[k]=sy;
+    completed=k+1;
+    onProgress(100*completed/nSeg);
+  }
+  const nSegEff=stopped?completed:nSeg;
+  const dx2=stopped?dx.slice(0,nSegEff):dx, dy2=stopped?dy.slice(0,nSegEff):dy;
+  const centers=[]; for(let k=0;k<nSeg;k++) centers.push(Math.min(nFrames-1, k*segFrames+segFrames/2));
+  const centersEff=stopped?centers.slice(0,nSegEff):centers;
+  // Deliberately NO zero-mean re-referencing here (unlike aimDrift2D()'s own
+  // — that function's own two-round refinement can legitimately move segment
+  // 0 away from exactly 0, so re-centring on the mean is the only sensible
+  // "some fixed reference" left to pick). This function only ever has ONE
+  // round, always directly against segment 0 as a FIXED reference — segdx[0]
+  // is therefore always exactly 0 by construction, a real, meaningful
+  // anchor (not an arbitrary one) worth keeping: smFRET's own "Apply drift
+  // correction?" (MODULE: smFRET) relies on fdx/fdy being anchored to frame
+  // 0 to correctly re-derive each frame's own absolute extraction position
+  // from a fixed reference position — re-centring on the mean would silently
+  // offset every frame by a constant, breaking that anchor (caught via a
+  // synthetic end-to-end check: a linearly drifting synthetic blob, sampled
+  // at "referencePos - fdx[f]", was off by exactly half the total drift
+  // before this fix, matching a linear ramp's own mean offset exactly).
+  _smoothSeg(dx2); _smoothSeg(dy2);
+  const fdx=new Float64Array(nFrames), fdy=new Float64Array(nFrames);
+  for(let f=0;f<nFrames;f++){
+    if(nSegEff===1 || f<=centersEff[0]){ fdx[f]=dx2[0]; fdy[f]=dy2[0]; continue; }
+    if(f>=centersEff[nSegEff-1]){ fdx[f]=dx2[nSegEff-1]; fdy[f]=dy2[nSegEff-1]; continue; }
+    let k=0; while(k<nSegEff-1 && centersEff[k+1]<f) k++;
+    const t=(f-centersEff[k])/(centersEff[k+1]-centersEff[k]);
+    fdx[f]=dx2[k]+(dx2[k+1]-dx2[k])*t; fdy[f]=dy2[k]+(dy2[k+1]-dy2[k])*t;
+  }
+  return {fdx, fdy, segCenters:centersEff, segdx:dx2, segdy:dy2, nSeg:nSegEff, nSegRequested:nSeg, stopped,
+    stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
+}
+
 // Pure: runs AIM drift correction on `locs`, MUTATED IN PLACE (reversibly —
 // x0/y0/z0 preserve the pre-correction values, same contract as before).
 // config = {driftSeg, driftRoi, driftZ}. No DOM — onLog/onProgress mirror
@@ -9058,18 +9244,36 @@ async function driftCore(locs, px, config, hooks={}){
   // the already-corrected data and under-correct. This makes it safe to sweep
   // segment size / search radius and compare results directly.
   for(const L of locs){ if(L.x0!==undefined){ L.x=L.x0; L.y=L.y0; } if(L.z0!==undefined) L.z=L.z0; }
-  onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
-        (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
-        (samplePct<100?` · sampling ${samplePct}% of each segment`:'')+`…`);
+  // driftMethod ("Drift correction method", default 'aim') — the point-based
+  // AIM estimate above, or a genuinely different image-based cross-
+  // correlation one (see correlationDrift2D()'s own module comment,
+  // MODULE: drift) that works directly off the RAW MOVIE, needing no
+  // Localize run at all — config.stack only needs to be a real stack for
+  // THIS branch; every other config field/precondition is unchanged either
+  // way. Correlation is 2D-only (no z equivalent — a raw camera frame has
+  // no separate z channel to correlate), so config.driftZ is simply never
+  // consulted on this path, regardless of its own value.
   const t0=performance.now();
-  const d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, samplePct, frame0, p=>onProgress(100*p), shouldStop);
+  let d;
+  if(config.driftMethod==='correlation'){
+    if(!config.stack) throw new Error('Drift correction: "Cross correlation" needs the raw movie (config.stack) — a CSV-only input has no raw frames to correlate.');
+    onLog(`\nDrift correction (cross correlation): ${segF}-frame segments`+
+          (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
+    d=await correlationDrift2D(config.stack, nFrames, segF, frame0, p=>onProgress(100*p), shouldStop);
+  }else{
+    onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
+          (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
+          (samplePct<100?` · sampling ${samplePct}% of each segment`:'')+`…`);
+    d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, samplePct, frame0, p=>onProgress(100*p), shouldStop);
+  }
   d.frame0=frame0;   // carried on the result so the drift plot/RMS-vs-ground-truth scoring can label true frame numbers, not the 0-based remapped index
   // z drift (Phasor 3D): independent 1-D correction on z (nm) — skipped
   // entirely if 2D already stopped, since there'd be nothing complete to
-  // apply either way and no reason to spend more time computing it.
+  // apply either way and no reason to spend more time computing it. Also
+  // skipped outright for the correlation method — see the comment above.
   const has3d=locs.some(L=>isFinite(L.z));
   let dz=null;
-  if(!d.stopped && has3d && config.driftZ){
+  if(!d.stopped && has3d && config.driftZ && config.driftMethod!=='correlation'){
     dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, samplePct, frame0, p=>onProgress(100*p), onLog, shouldStop);
     d.fdz=dz.fdz;
   }
@@ -9084,7 +9288,8 @@ async function driftCore(locs, px, config, hooks={}){
       (dz&&dz.stopped?` · z stopped after ${dz.nSeg} of ${dz.nSegRequested} segment(s)`:'')+
       ` — drift shown up to that point (flat beyond it, not a real measurement); NOT applied — `+
       `the reconstruction/CSV export still use the ORIGINAL, uncorrected coordinates. Adjust `+
-      `Segment/Search radius and re-run, or run to completion to actually correct the data.`);
+      (config.driftMethod==='correlation' ? `Average # of frames` : `Average # of frames/Search radius`)+
+      ` and re-run, or run to completion to actually correct the data.`);
     return { drift:d, nFrames, frame0, stopped:true, ms:Math.round(performance.now()-t0) };
   }
   // apply reversibly — keep the raw coordinates in x0/y0
@@ -9108,6 +9313,26 @@ async function driftCore(locs, px, config, hooks={}){
   return { drift:d, nFrames, frame0, ms:Math.round(performance.now()-t0) };
 }
 
+// Shows/hides AIM's own settings (Search radius, AIM sample %, Correct z
+// too) — indented sub-rows under the "Drift correction method" selector,
+// same "conditional settings pop up under a selection" convention
+// smfretAlignTolRow/sSmlmAlignTolRow etc. already use — hidden entirely
+// while "Cross correlation" is selected, since none of the three apply to
+// it (that method has no search-radius concept, no locs to subsample, and
+// no z equivalent at all — see correlationDrift2D()'s own module comment).
+// hasZ is optional — rerender() already has it computed from the CURRENT
+// result and passes it straight through; the driftMethod select's own
+// change listener (below) has no result-refresh reason to run, so it
+// re-derives the same thing from lastResult itself instead.
+function refreshDriftMethodUI(hasZ){
+  const isAim = paramValue('driftMethod')==='aim';
+  $('driftRoiRow').style.display = isAim ? '' : 'none';
+  $('driftSamplePctRow').style.display = isAim ? '' : 'none';
+  if(hasZ===undefined) hasZ = !!(lastResult && lastResult.locs && lastResult.locs.some(L=>isFinite(L.z)));
+  $('driftZRow').style.display = (isAim && hasZ) ? 'flex' : 'none';
+}
+$('driftMethod').addEventListener('change', ()=>refreshDriftMethodUI());
+refreshDriftMethodUI();   // sync once at load against whatever driftMethod already is (static default, or a loaded settings JSON applied before this line runs)
 let lastDrift=null;                               // last estimated drift (for the curve / reversibility)
 // driftPlotMode: 'frame' (default) = x/y/(z) vs frame index, today's
 // original view; 'xy' = a single trajectory plot (drift y vs drift x),
@@ -9129,7 +9354,8 @@ async function correctDrift(){
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
-    const config={driftSeg:paramValue('driftSeg'), driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), driftSamplePct:paramValue('driftSamplePct')};
+    const driftMethod=paramValue('driftMethod');
+    const config={driftSeg:paramValue('driftSeg'), driftMethod, driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), driftSamplePct:paramValue('driftSamplePct'), stack};
     // Logged BEFORE driftCore() starts — see run()'s own comment on this
     // ordering (command announces what's about to run, prose narrates what
     // happened) — safe this early since config is already fully resolved.
@@ -9142,7 +9368,7 @@ async function correctDrift(){
     // ever corrects ITS drift — it never re-Localizes anything itself.
     // correctDrift() is a no-arg, reads-live-state function, same override
     // shape as applyCropToRaw()'s own.
-    const cmdCfg={correctDrift:true, driftSeg:config.driftSeg, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct};
+    const cmdCfg={correctDrift:true, driftSeg:config.driftSeg, driftMethod, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'correctDrift()'));
     const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg, shouldStop:()=>stopRequested});
     // A newer action superseded this one while driftCore() was still
@@ -12116,6 +12342,60 @@ function smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useApertu
   const L=gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset);
   return (L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma) ? L.photons : 0;
 }
+// "Apply drift correction?" (requested — "how to potentially enable drift
+// correction for time traces... a checkbox in smFRET 'Enable drift
+// correction?' which would run a silent localisation and AIM drift
+// correction whenever 'Get time traces' is triggered"). Reads whichever
+// driftMethod/settings the Drift correction sidebar section (MODULE:
+// drift) is currently configured with, so this stays a THIN caller over
+// the exact same two estimators "Correct drift" itself uses — no separate,
+// smFRET-specific drift algorithm. Returns {fdx,fdy} (Float64Array, one
+// entry per frame of the WHOLE movie, frame0=0) in driftCore()'s own
+// convention (add fdx[f] to a raw camera position to map it into the
+// frame-0 reference), or null if estimation wasn't possible.
+//
+// Re-anchors AIM's own output to frame 0 explicitly (fdx[0]=fdy[0]=0)
+// before returning it — aimDrift2D() zero-MEANS its own result instead
+// (the right choice for ITS OWN use, rendering, where only relative
+// positions matter — see that function's own comment), which leaves
+// fdx[0] at some arbitrary non-zero value. This caller needs an ABSOLUTE
+// anchor instead: a site of interest's own established (x,y) is fixed at
+// "however the sample looked when Localize SOI averaged it" — effectively
+// frame 0 — so every OTHER frame's own extraction position must be
+// derived as an offset from THAT frame, not from AIM's own arbitrary mean.
+// correlationDrift2D() needs no such re-anchoring — see its own comment
+// for why frame 0 is already an exact, built-in anchor there (a real bug
+// caught via a synthetic end-to-end check before this shipped: sampling at
+// "referencePos-fdx[f]" tracked a synthetic linearly-drifting blob to
+// within sub-pixel error only once the zero-mean step was removed for that
+// function — it was previously off by exactly half the total drift, the
+// zero-mean's own re-centring point for a linear ramp).
+async function smfretComputeDrift(){
+  if(!stack) return null;
+  const method=paramValue('driftMethod'), segF=paramValue('driftSeg');
+  if(method==='correlation'){
+    log(`smFRET: Apply drift correction — cross-correlation on the raw movie (${segF}-frame segments)…`);
+    const d=await correlationDrift2D(stack, stack.n, segF, 0, p=>setProg(p), ()=>false);
+    log(`smFRET: drift estimated — ${d.nSeg} segment(s).`);
+    return {fdx:d.fdx, fdy:d.fdy};
+  }
+  // AIM needs real localizations across the WHOLE movie first — a silent,
+  // scratch Localize pass using the CURRENT detection/fit settings
+  // (buildConfigFromParams(), the same live-settings snapshot run() itself
+  // uses), kept completely separate from lastResult/the table/SOI/etc. —
+  // its own locs are never written anywhere visible, only fed straight
+  // into aimDrift2D() and then discarded.
+  log('smFRET: Apply drift correction — running a full Localize pass first (AIM needs real localizations)…');
+  const cfg=Object.assign(buildConfigFromParams(), {fitFirstFrame:1, fitLastFrame:Infinity});
+  const r=await runCore(cfg, stack, {zcal:null, wcal:null}, {onLog:()=>{}, onProgress:p=>setProg(p)});
+  if(!r.locs.length){ log('⚠ Apply drift correction: the silent Localize pass found no localizations — skipping drift correction for this run.'); return null; }
+  const roiNm=paramValue('driftRoi'), samplePct=paramValue('driftSamplePct');
+  const d=await aimDrift2D(r.locs, stack.n, paramValue('pxnm'), segF, 15, roiNm, samplePct, 0, p=>setProg(p), ()=>false);
+  const f0x=d.fdx[0], f0y=d.fdy[0];
+  const fdx=d.fdx.map(v=>v-f0x), fdy=d.fdy.map(v=>v-f0y);
+  log(`smFRET: drift estimated via AIM — ${r.locs.length.toLocaleString()} localization(s), ${d.nSeg} segment(s).`);
+  return {fdx, fdy};
+}
 // `preserveView` (default false, requested): when a settings-only re-run
 // (Aperture photometry, Set negative intensities to zero) recomputes an
 // ALREADY-shown set of traces, keep showing the SAME site/molecule at the
@@ -12164,20 +12444,37 @@ async function getSmfretTimeTraces(preserveView=false){
     photonsDD: new Float64Array(n).fill(NaN),
     photonsAA: showAA ? new Float64Array(n).fill(NaN) : null,
     photonsDA: paired ? new Float64Array(n).fill(NaN) : null }));
+  // "Apply drift correction?" (default off) — estimated ONCE, up front, not
+  // per-site — see smfretComputeDrift()'s own comment for the method/
+  // reference-frame convention. Null (unchecked, or estimation genuinely
+  // failed) means every site's own window just stays fixed at its own
+  // (x,y)/(x2,y2), exactly the pre-existing behaviour.
+  let drift=null;
+  if(paramValue('smfretApplyDrift')){
+    drift=await smfretComputeDrift();
+    if(staleEpoch(myEpoch)) return;   // a newer action superseded this one while drift estimation (possibly a full silent Localize pass) was running
+  }
   log(`smFRET: Get time traces — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s)`
-    + `${paired?' (DD+DA paired)':''}${showAA?' · ALEX':''} across ${n} frames…`);
+    + `${paired?' (DD+DA paired)':''}${showAA?' · ALEX':''}${drift?' · drift-corrected':''} across ${n} frames…`);
   $('smfretTimeTracesBtn').disabled=true;
   try{
     let lastYield=performance.now();
     for(let fi=0; fi<n; fi++){
       const img=(await stack.getFrames(fi,fi+1))[0];
       const isDonorExc = !alex || (fi%2===donorParity);
+      // Drift shift for THIS frame — SUBTRACTED from each site's own fixed
+      // reference position to recover where that same physical point
+      // actually sits in the RAW camera frame right now (inverse of
+      // driftCore()'s own "add fdx[f] to a raw position to correct it" —
+      // see smfretComputeDrift()'s own comment for the full derivation,
+      // verified against a synthetic drifting-blob movie before shipping).
+      const ddx = drift ? drift.fdx[fi] : 0, ddy = drift ? drift.fdy[fi] : 0;
       for(let j=0;j<sites.length;j++){
-        const s=sites[j], cx=Math.round(s.x), cy=Math.round(s.y);
+        const s=sites[j], cx=Math.round(s.x-ddx), cy=Math.round(s.y-ddy);
         if(isDonorExc){
           traces[j].photonsDD[fi]=smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero);
           if(paired){
-            const cx2=Math.round(s.x2), cy2=Math.round(s.y2);
+            const cx2=Math.round(s.x2-ddx), cy2=Math.round(s.y2-ddy);
             traces[j].photonsDA[fi]=smfretExtractIntensity(img,w,h,cx2,cy2,win,sigma,gain,camoffset,useAperture,floorZero);
           }
         }else if(showAA){
@@ -12185,7 +12482,7 @@ async function getSmfretTimeTraces(preserveView=false){
           // belongs at the ACCEPTOR's own channel position (x2,y2), not the
           // donor's, exactly like DA already reads there — showAA already
           // guarantees `paired` is true, see its own comment above.
-          const cx2=Math.round(s.x2), cy2=Math.round(s.y2);
+          const cx2=Math.round(s.x2-ddx), cy2=Math.round(s.y2-ddy);
           traces[j].photonsAA[fi]=smfretExtractIntensity(img,w,h,cx2,cy2,win,sigma,gain,camoffset,useAperture,floorZero);
         }
       }
@@ -12231,7 +12528,7 @@ async function getSmfretTimeTraces(preserveView=false){
     log(`smFRET: Get time traces — done, ${traces.length} site(s) × ${n} frames.`);
     // jsOverride — reported gap: a real per-frame fit/aperture-photometry
     // computation over every site with real tunable params, never logged.
-    const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture, smfretFloorZero:floorZero};
+    const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset, smfretApertureMode:useAperture, smfretFloorZero:floorZero, smfretApplyDrift:!!drift};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'getSmfretTimeTraces()'));
   }catch(err){ log(`⚠ Get time traces failed: ${err.name}: ${err.message}`); }
   finally{ refreshSmfretTimeTracesBtn(); refreshSmfretEHistBtn(); setProg(null); }
@@ -12256,6 +12553,7 @@ $('smfretTimeTracesBtn').addEventListener('click', ()=>getSmfretTimeTraces());
 // whichever site/zoom was already on screen, not silently jump back to site 1.
 $('smfretApertureMode').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(true); });
 $('smfretFloorZero').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(true); });
+$('smfretApplyDrift').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTraces(true); });
 // "Export traces" (requested): every site's own DD/DA/AA (whichever apply)
 // intensity-vs-time trace as one JSON file — MOLECULE BY MOLECULE, each a
 // self-contained record carrying its own time_s array alongside
@@ -18026,18 +18324,34 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.1-dev · build 2026-09-12b — E/S plot: resize ratio
-bumped to 3:1.
-ES_RATIO 2.5 -> 3 (requested — "please try 3:1"), thinner marginal
-histograms relative to the central density plot; the whole layout
-already derives from this one constant, no other code change needed.
-Previous build (2026-09-12a): sSmlmFitOrder ("Fit order") removed
-entirely from Pairing (sSMLM & FRET) -- distance-then-angle is now the
-only order; E/S plot's main-plot-to-marginal ratio made resize-stable,
-its gridlines extended into the marginals, "Min D_ex" relabeled "Min DD
-+ DA", panel title unified to "E/S histogram"; recalculating time traces
-now refreshes an already-showing E/S histogram; the raw-frame Contrast
-slider now logs its own final value on release.
+log(`webSMLM v0.12.1-dev · build 2026-09-12c — new drift method: Cross
+correlation, plus smFRET's own "Apply drift correction?".
+Drift correction (renamed from "Drift correction (AIM)") gains a 2nd
+driftMethod: Cross correlation is image-based -- it estimates drift
+directly off the raw movie via FFT cross-correlation (fft2d(), shared
+with FRC), needing NO Localize run at all first, unlike AIM. "Segment
+(frames)" renamed "Average # of frames" and moved to the first row,
+shared by both methods (frames-per-AIM-segment, or frames-averaged-per-
+correlation-segment). AIM's own 3 settings (Search radius, Correct z
+too, AIM sample %) are now indented, shown only when AIM is selected.
+smFRET gains "Apply drift correction?" (default off, below Set negative
+intensities to zero) -- estimates drift (via whichever method Drift
+correction is configured with) and shifts each frame's own extraction
+window to follow it before reading DD/DA/AA intensities. Cross
+correlation is the cheap path here (no Localize needed); AIM runs one
+full silent Localize pass across the whole movie first.
+A real sign/reference-point bug was caught via a synthetic end-to-end
+check before shipping: AIM's own drift is zero-mean referenced (correct
+for AIM's own use, wrong for smFRET's fixed-position lookup) -- re-
+anchored to frame 0 explicitly for that path; the new correlation
+method's own output needed its own zero-mean step REMOVED entirely
+(it's already anchored to frame 0 by construction, once that step no
+longer double-references it).
+Verified via Playwright against the real ALEX dataset: both drift
+methods complete successfully on a real Localize result with sensible
+drift spans; Get time traces with Apply drift correction checked
+completes correctly under both methods (Cross correlation in seconds;
+AIM after a real ~193k-localization silent Localize pass).
 Not yet released to main.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -19060,7 +19374,7 @@ async function analyze(config){
   // loadCsvFile()'s own comment) — cfg.files always means a TIFF/ND2
   // concat/sequence instead, never CSVs, so this only ever checks cfg.file.
   const isCsv = !cfg.files && cfg.file && /\.csv$/i.test(cfg.file.name||'');
-  let r, locs, pcfo=null;
+  let r, locs, pcfo=null, stack=null;   // stack hoisted out of the non-CSV branch below (null for a CSV input) so config.correctDrift's own driftMethod:'correlation' path (needs raw frames, not just locs) can reach it further down
   if(isCsv){
     const text = typeof cfg.file.text==='function' ? await cfg.file.text() : new TextDecoder().decode(await cfg.file.arrayBuffer());
     const parsed = parseCsvLocs(text);
@@ -19073,7 +19387,7 @@ async function analyze(config){
           `using pxnm=${cfg.pxnm}${has3d?' (3D)':''}${hasDist?' (sSMLM paired)':''}; no raw frame data, `+
           `so method/crop/estimateGainOffset/calibration options don't apply to a CSV input.`);
   } else {
-    let stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+    stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
     // config.cropX0/Y0/X1/Y1 — the headless equivalent of the raw-panel crop tool
     // (MODULE: in/out, makeCroppedStack()): replaces `stack` with a cropped
     // wrapper BEFORE anything else (PCFO, runCore) touches it, matching the
@@ -19174,7 +19488,7 @@ async function analyze(config){
     else onLog('no pairs found — widen sSmlmDistMin/Max/sSmlmAngleTol and try again.');
   }
   let drift=null;
-  if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, cfg, {onLog, onProgress});
+  if(cfg.correctDrift && locs.length) drift = await driftCore(locs, cfg.pxnm, {...cfg, stack}, {onLog, onProgress});
   let nena=null, frc=null;
   // nenaPrecision/frcResolution report progress as a 0..1 FRACTION
   // internally (unlike runCore/driftCore's 0..100), so onProgress needs the

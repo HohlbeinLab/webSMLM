@@ -879,6 +879,97 @@ relevant one before editing rather than scrolling:
   Verified end-to-end via Playwright (Simulate movie → Localize → Correct drift) with zero page
   errors, confirming the interactive path is unaffected by any of the above.
 
+  **Cross correlation — a genuinely different, image-based drift ESTIMATION method, added as a
+  second `driftMethod` option** (v0.12.1-dev, requested: "build it as a new drift method"). Section
+  renamed **"Drift correction (AIM)"** → **"Drift correction"** (id stays `driftBox`), since it's no
+  longer AIM-only. **"Segment (frames)"** renamed **"Average # of frames"** (`driftSeg`'s own PARAMS
+  label, no id change) and moved to the FIRST row, unconditionally shown regardless of method
+  (requested — "let the 'Average # of frames' as first line shared for both AIM and as number of how
+  many frames to average for the correlation approach"): for AIM this is unchanged (how many
+  already-fitted LOCALIZATIONS' own frames go into one segment); for Cross correlation it's how many
+  RAW FRAMES get averaged into one segment's own representative image — a genuinely different
+  meaning per method, but the SAME underlying number, so one shared field rather than two. A new
+  **"Drift correction method"** `<select>` (`driftMethod`, PARAMS enum `aim`/`correlation`, default
+  `aim`) sits right below it; AIM's own three settings (**Search radius (nm)**/`driftRoi`, **Correct
+  z too (3D)**/`driftZ`, **AIM sample %**/`driftSamplePct`) are each wrapped in their own row
+  (`driftRoiRow`/`driftZRow`/`driftSamplePctRow`, `padding-left:40px`) and hidden entirely while
+  Cross correlation is selected — the same "conditional settings pop up, indented, under a
+  selection" convention `smfretAlignTolRow`/`smfretDonorAngleRow` etc. already use elsewhere.
+  `refreshDriftMethodUI(hasZ)` is the single function deciding all three rows' visibility — called
+  from the `driftMethod` select's own `change` listener (re-deriving `hasZ` from `lastResult` itself,
+  since a plain method switch has no fresh result to hand it), from `rerender()`'s own existing
+  hasZ-computation (passing it straight through, no need to recompute), and once, bare, right after
+  its own definition — matching `smfretPairMethod`'s own established "sync once at load, then keep in
+  sync on change" pattern (`$('smfretAlignTolRow').style.display=...` right after
+  `pairSmfretSites()`'s own definition) rather than inventing a new one.
+
+  **`correlationDrift2D(st, nFrames, segFrames, frame0, onProgress, shouldStop)`** (MODULE: drift,
+  right after `aimDriftZ()`) is a `driftMethod` SIBLING to `aimDrift2D()` — same role, same return
+  shape (`{fdx,fdy,segCenters,segdx,segdy,nSeg,nSegRequested,stopped,stoppedAtFrame}`, everything
+  `driftCore()` reads from either one) — but image-based rather than point-based, and needs no
+  Localize run at all to ESTIMATE the drift (it works directly on `st`, the raw movie). Splits the
+  analysed range into `segFrames`-frame segments, averages each into one representative image
+  (`_correlationSegmentImage()`, one frame fetched at a time — same memory-conscious convention
+  `averageFrames()`, MODULE: in/out, already uses), zero-pads each into an N×N buffer (`_nextPow2()`,
+  the same "round up while doubling" idiom `frcResolution()` already uses — `fft2d()`, MODULE:
+  locprecision, shared verbatim with FRC, is radix-2, so a real w×h camera frame — almost never
+  square or a power of two — must be padded first) after MEAN-subtracting it (so the zero-padded
+  border matches the real image's own DC level rather than introducing a sharp edge discontinuity),
+  then finds each segment's own (dx,dy) shift relative to segment 0 via FFT cross-correlation
+  (`_fftCrossCorrPeak()`: `IFFT(FFT(A)·conj(FFT(B)))`, peak location = best-aligning shift) with a
+  separable parabolic sub-pixel refine around the peak — the SAME `par()` shape `bestShift()` (AIM,
+  above) already uses on its own intersection-score grid, just applied to a correlation surface
+  instead. Deliberately ONE round against a FIXED reference (segment 0), not AIM's own two-round
+  leave-one-out refinement — re-doing that here would need sub-pixel-shifting and re-summing whole
+  IMAGES per iteration (expensive), not just re-weighting point counts in a hash map (cheap) the way
+  AIM's own round 2 does; a single round against a real, fixed reference is a standard, well-
+  understood registration baseline, not a shortcut invented for this.
+
+  **Sign convention verified NUMERICALLY, not derived** — a synthetic pair of images (a Gaussian
+  blob, and the same blob moved by a known (dx0,dy0)) fed through `_fftCrossCorrPeak(ref,seg)`
+  directly returns exactly `-(dx0,dy0)` — i.e. already the CORRECTION to add back
+  (`driftCore()` applies `L.x+=fdx[f]`), matching `aimDrift2D()`'s own `dx[k]` convention with no
+  extra negation needed. An initial by-hand derivation of the DFT cross-correlation shift theorem
+  predicted the OPPOSITE sign — trusted the synthetic check over that derivation, per this codebase's
+  own established discipline of verifying sign conventions numerically rather than by hand alone.
+
+  **A real bug caught only by an end-to-end synthetic check, not the unit-level sign check above**:
+  `correlationDrift2D()`'s FIRST version copied `aimDrift2D()`'s own zero-MEAN re-referencing
+  verbatim (`dx2[k]-=mean(dx2)`) — correct for AIM's own use (only relative positions matter for a
+  reconstruction, and AIM's own two-round refinement can legitimately move segment 0 away from
+  exactly 0 anyway, so re-centring on the mean is the only sensible "some fixed reference" left to
+  pick) but WRONG here: this function's own segment 0 is ALWAYS the fixed reference by construction
+  (never re-estimated), so `dx2[0]` is always exactly 0 already — a real, meaningful anchor, not an
+  arbitrary one. Zero-meaning on top of that silently offset EVERY frame by a constant
+  (`-mean(segment drift)`) for no reason. Caught by a synthetic end-to-end check (a linearly
+  drifting blob in a synthetic movie, sampled at `referencePos-fdx[f]` after estimating drift):  the
+  recovered position was off by EXACTLY half the total drift — matching a linear ramp's own mean
+  value precisely — before removing the zero-mean step; after removing it, the same check recovered
+  the blob's true position to within ~0.6 px (segment-interpolation residual, not a bug). Fixed by
+  deleting the zero-mean block entirely for this function (kept, unchanged, in `aimDrift2D()`'s own
+  copy) — `segdx[0]`/`segdy[0]` (and so `fdx[0]`/`fdy[0]`) are now always exactly 0, a real anchor
+  this codebase's own smFRET **Apply drift correction?** (see that module's own paragraph below)
+  depends on directly.
+
+  **`driftCore()` branches on `config.driftMethod`** right before calling either estimator — AIM's
+  own call is unchanged; the correlation branch needs `config.stack` (the raw movie), threaded
+  through from both callers: the interactive `correctDrift()` wrapper passes the module-level
+  `stack` global directly; `analyze()`'s own headless `config.correctDrift` path needed `stack`
+  HOISTED out of its own `if(isCsv){...}else{...}` block (previously block-scoped via `let stack=...`
+  inside the non-CSV branch only, invisible at the later `driftCore()` call site) into the same outer
+  `let r,locs,pcfo=null` declaration those two already share — a CSV input therefore correctly has
+  `stack=null`, and `driftCore()` throws a clear, actionable error
+  (`"Cross correlation" needs the raw movie...`) rather than a confusing low-level one if that
+  combination is ever requested headlessly. z-drift (`config.driftZ`) is unconditionally skipped for
+  the correlation method regardless of its own value — a raw camera frame has no separate z channel
+  to correlate against at all, so there's no equivalent to even attempt.
+
+  Verified via Playwright against the real ALEX dataset: the UI correctly hides/shows AIM's own three
+  settings on selecting each method; a real Localize (phasor, 50 frames) followed by **Correct
+  drift** under EACH method in turn both complete successfully with sensible small drift spans (a
+  real dataset with no deliberate drift over a short range); the AIM regression case (re-run after
+  switching back from Cross correlation) is byte-for-byte unaffected.
+
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution,
   inline radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s two overlaid curves are green (`#0a7d32`, the FULL Endesfelder fit — signal +
@@ -3561,6 +3652,54 @@ relevant one before editing rather than scrolling:
   from both the DOM and `PARAMS`; the Min DD + DA label reads correctly; `$('srTitle')` reads
   `'E/S histogram'` after showing either the 1D or 2D case; monkeypatching
   `refreshSmfretEHistIfShown()` confirms it's actually invoked after toggling Aperture photometry.
+
+  **`smfretApplyDrift`** ("Apply drift correction", default OFF, checkbox sharing `smfretFloorZero`'s
+  own row group, right below **Set negative intensities to zero**) is the answer this codebase gave
+  to its own earlier open question — "how to potentially enable drift correction for time traces...
+  a checkbox in smFRET 'Enable drift correction?' which would run a silent localisation and AIM
+  drift correction whenever 'Get time traces' is triggered" — once **Drift correction** itself
+  gained a second, image-based estimation method (Cross correlation, see that module's own paragraph
+  above) that doesn't NEED a Localize run at all. `getSmfretTimeTraces()` gained a new
+  `smfretComputeDrift()` helper (called once, up front, before the per-frame extraction loop even
+  starts) that's a THIN caller over whichever `driftMethod` **Drift correction**'s own sidebar
+  section is currently configured with — no separate smFRET-specific drift algorithm:
+  `driftMethod==='correlation'` calls `correlationDrift2D(stack, stack.n, driftSeg, 0, ...)` directly
+  (cheap — no Localize needed at all); otherwise it runs a full, SILENT, scratch Localize pass across
+  the WHOLE movie first (`buildConfigFromParams()` — the same live-settings snapshot `run()` itself
+  uses — merged with `fitFirstFrame:1,fitLastFrame:Infinity` to force the whole movie regardless of
+  whatever range the main Localize controls happen to be set to), whose own locs are fed straight
+  into `aimDrift2D()` and then discarded — never written to `lastResult`/the table/SOI/anywhere
+  visible, a real but genuinely separate cost from the interactive "Localize" button's own result.
+
+  **AIM's own output needed one extra step smFRET couldn't skip**: `aimDrift2D()` zero-MEANS its own
+  final per-frame drift (correct for ITS OWN use — see the drift module's own paragraph above for
+  why), leaving `fdx[0]` at some arbitrary non-zero value — but smFRET needs an ABSOLUTE anchor: a
+  site's own fixed `(x,y)` represents "how the sample looked when Localize SOI averaged it",
+  effectively frame 0, so every OTHER frame's own extraction position must be derived as an offset
+  from THAT frame specifically, not from AIM's own arbitrary mean. `smfretComputeDrift()`'s own AIM
+  branch re-anchors explicitly (`fdx[0]`/`fdy[0]` subtracted off the whole array) before returning —
+  `correlationDrift2D()`'s own output needs no such correction, already anchored to frame 0 by
+  construction (see that function's own paragraph above).
+
+  **Extraction position is `(x-fdx[fi], y-fdy[fi])`, SUBTRACTING the drift** — the inverse of
+  `driftCore()`'s own "add `fdx[f]` to a raw position to correct it" convention: a site's own fixed
+  `(x,y)` is the REFERENCE-frame position; recovering where that same physical point sits in the RAW
+  camera frame `fi` right now means undoing the correction, `x_raw(fi) = x_ref - fdx[fi]`. Verified
+  directly against a synthetic drifting-blob movie (the same one that caught the zero-mean bug above)
+  before wiring this into the real extraction loop — sampling at `referencePos-fdx[fi]` tracked the
+  blob's own true position to within sub-pixel error across the whole synthetic movie. Applied to
+  `x,y` AND `x2,y2` alike (DD/DA/AA all share the SAME per-frame drift, since it's one estimate for
+  the whole field of view, not per-site). A newer action superseding this one while
+  `smfretComputeDrift()` was still running (a real possibility for the AIM branch — a full Localize
+  pass) is checked via `staleEpoch()` immediately after it returns, before the main per-frame loop
+  even starts, same convention every other long-running smFRET action already uses.
+
+  Verified via Playwright against the real ALEX dataset: **Apply drift correction** defaults
+  unchecked; with **Cross correlation** selected, Get time traces completes in seconds with a
+  logged "drift-corrected" note; with **AIM** selected, it correctly runs a full silent Localize
+  first (193,162 real localizations found on the whole 500-frame movie using the fast Phasor method
+  for the check) before estimating drift and completing — slower (as documented/expected for AIM),
+  but not stuck or broken.
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
