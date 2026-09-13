@@ -179,6 +179,24 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   of the filtered image instead. Also: threshold statistics currently include border pixels never
   searched for maxima; and plateau handling needs a look — the local-maximum test uses strict `>`,
   so two equal adjacent pixels can both survive as separate localizations from one emitter.
+
+  **Feasibility check (2026-09-13), real GATTA-PAINT data + a line-for-line port of Picasso's own
+  `identify_in_image`/net-gradient detector for comparison:** a naive MAD (sort a copy of the frame,
+  twice) is 10-33x slower than the current threshold and gets worse with size — not shippable. MAD
+  via quickselect (median + MAD-of-deviations, two O(n)-average selections, no full sort) is the only
+  realistic version: ~2x the current threshold's cost at 1024×1024 (the current mean+k·σ is
+  essentially free, ~O(n), next to the band-pass itself). A single percentile via quickselect is
+  cheaper still (~1.2x) but has no size/density-stable default the way `k` does. Picasso's own
+  single-parameter net-gradient detector was, surprisingly, the SLOWEST option tested — 6-7x the
+  current cost at every size and worsening with frame size — because its local-maxima test is a
+  naive box×box window scan with no separable acceleration (numba JIT buys it a constant factor, not
+  a change in that O(box²·w·h) scaling); "one parameter" isn't "cheap" here. **Open question, not yet
+  tested**: could just lowering `k` in the current formula recover the same dim localizations MAD
+  does, without the cost? Likely not robustly — MAD's real benefit is that its noise estimate stays
+  roughly constant as density varies *within* one movie (high breakdown point), while a single fixed,
+  manually-lowered `k` has no such adaptivity: tuned low enough to help on a dense frame, it would be
+  too permissive (more noise false-positives) on a sparser frame from the same movie. Needs a
+  synthetic density-sweep check before treating either claim as settled.
 - **σ_PSF estimation from the data**, instead of a fixed, user-supplied value.
 - **Photon calibration beyond a single scalar gain/offset.** Single-image gain/offset estimation
   from the data itself (PCFO, a photon-transfer-curve variant) shipped in 0.10.2. A scalar still
