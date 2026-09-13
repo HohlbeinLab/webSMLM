@@ -118,16 +118,6 @@ font-size/contrast was hard to read for anything longer than a line or two)
 — this section summarizes what's *in* each, not what the help text already
 says.
 
-- **Memory & streaming** (`memBox`) — `memgb`/`chunkmb`. See
-  [§3](#in-out-params)/[§2](#in-out).
-- **Simulation settings** (`simBox`) — only relevant when using **Simulate
-  movie**. See [§3](#simulation-params)/[§2](#simulation).
-- **Gain & offset estimation** (`pcfoBox`) — **Estimate**/**Transfer
-  estimates**. Placed here, before **3D calibration**, since both are
-  one-off "derive a number from data, then use it below" steps run before
-  the main Localize. See [§3](#pcfo-params)/[§2](#fit).
-- **3D calibration** (`calibBox`) — **Calibrate**/**Save calib.**. See
-  [§3](#3d-calibration-params)/[§7](#7-calibration-json-format)/[§2](#3d-calibration).
 - **Localisation settings** (`locBox`) — fit method, detection filter, FTM,
   frame range, and Gain/Camera offset; two separate "more info…" popups
   cover them (one for everything through **Fit radius**, a second for
@@ -137,10 +127,23 @@ says.
 - **Rendering settings** (`renderBox`) — magnification, colour map, and
   (3D/sSMLM-paired results only) depth/distance colouring. See
   [§3](#render-params)/[§2](#render).
-- **Drift correction (AIM)** (`driftBox`) — **Correct drift**/**Show
-  drift**. See [§3](#drift-params)/[§2](#drift).
-- **Localization precision (NeNA & FRC)** (`precBox`) — **NeNA**/**FRC**.
-  See [§3](#locprecision-params)/[§2](#locprecision).
+- **Drift correction & precision** (`driftBox`) — **Correct drift**/**Show
+  drift** (AIM or Cross correlation), plus **NeNA**/**FRC** underneath —
+  one section, one shared "more info…" popup (two independent JS modules,
+  `drift` and `locprecision`, that turned out to be workflow-sequential
+  enough — correct drift, then measure how good the corrected result is —
+  to combine in the sidebar). See
+  [§3](#drift-params)/[§2](#drift)/[§2](#locprecision).
+- **Simulation settings** (`simBox`) — only relevant when using **Simulate
+  movie**. See [§3](#simulation-params)/[§2](#simulation).
+- **Memory & streaming** (`memBox`) — `memgb`/`chunkmb`. See
+  [§3](#in-out-params)/[§2](#in-out).
+- **Gain & offset estimation** (`pcfoBox`) — **Estimate**/**Transfer
+  estimates**. Placed here, before **3D calibration**, since both are
+  one-off "derive a number from data, then use it below" steps run before
+  the main Localize. See [§3](#pcfo-params)/[§2](#fit).
+- **3D calibration** (`calibBox`) — **Calibrate**/**Save calib.**. See
+  [§3](#3d-calibration-params)/[§7](#7-calibration-json-format)/[§2](#3d-calibration).
 - **(Caution!) Pairing (sSMLM & FRET)** (`sSmlmBox`) — pairs 0th/1st-order
   localizations from a diffraction grating (or a prism-split donor/acceptor
   pair, for smFRET); enabled as soon as there are localizations (Run or
@@ -2194,9 +2197,12 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 </ul>
 <!-- /HINT:calibration -->
 
-### Drift correction (`drift`) {#drift-params}
+### Drift correction & precision (NeNA & FRC) (`drift`) {#drift-params}
 
-*Module:* **drift** — see [§2](#drift).
+*Module:* **drift** — see [§2](#drift); NeNA/FRC are a separate JS module,
+**locprecision** — see [§2](#locprecision) — combined into this one sidebar
+section since the two are workflow-sequential (correct drift, then measure
+the corrected result's own precision/resolution).
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
@@ -2205,6 +2211,7 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
 | `driftSamplePct` | AIM sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
+| `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
 
 **In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
@@ -2219,28 +2226,13 @@ by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
   <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
   <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
 </ul>
-<!-- /HINT:drift -->
-
-### Localization precision (NeNA & FRC) (`locprecision`) {#locprecision-params}
-
-*Module:* **locprecision** — see [§2](#locprecision).
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
-
-**In-app "more info…" popup** (`hint-locprecision` in `webSMLM.html`; synced
-by `tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:locprecision -->
 <ul>
   <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
   <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
 </ul>
 <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
 <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
-<!-- /HINT:locprecision -->
+<!-- /HINT:drift -->
 
 ### Pairing (sSMLM & FRET) settings (`sSMLM`) {#ssmlm-params}
 
@@ -2417,7 +2409,8 @@ for the first implementation.
 <p><b>Pair DD + DA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating laser excitation?</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the initial displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°), refines that shift into a full geometric transform (rotation + scale + shear on top of translation) by repeatedly fitting the mapping from the current matches and re-matching at a progressively tighter tolerance, and the final match set under the converged transform becomes the pairing directly, no separate histogram/window step needed. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured — the matching donor site keeps its usual colour, since a coloured box marks "this is the confirmed acceptor," not just "this site paired." <b>Via distances and angles</b> always colours dark orange (every acceptor position there is another entry of the SAME donor-excitation composite that's on screen). <b>Via channel matching</b> colours dark orange too when the match came from that same DA region, but a match sourced from the separate, independently-fit AA composite (only possible with ALEX on) instead colours gold — a real but purely geometric, nearest-neighbour match rather than one validated against data visible in the composite you're looking at, worth being able to tell apart at a glance. The match itself uses a small position tolerance (a few px) rather than requiring an exact coordinate match, since an AA-sourced position comes from a genuinely different image/fit pass than the composite's own site list — an acceptor position with no sufficiently close site of interest nearby (rare, but possible for a noisier AA fit) is left in its ordinary colour even though it IS part of a real pair. Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get time traces</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
 <p><b>Get time traces</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating laser excitation?</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two (or <b>Apply drift correction</b>, below) while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get time traces</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
 <p><b>Apply drift correction</b> (default OFF) estimates drift on the loaded movie and shifts each frame's own extraction window to follow it before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever <b>Drift correction method</b>/settings are currently configured in <b>Drift correction</b>'s own sidebar section (see <a href="#drift-params">its own reference</a>): <b>Cross correlation</b> runs directly on the raw movie, no Localize needed just to estimate it; <b>AIM</b> needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes (using the current detection/fit settings) — a real, sometimes substantial added cost, unlike Cross correlation. Either way, the estimated drift is anchored to frame 0 (a site's own fixed x,y is treated as "how it looked when Localize SOI averaged it", effectively frame 0), so every other frame's own extraction position is derived as an offset from that fixed reference — not from an arbitrary drift-curve reference point the way <b>Correct drift</b>'s own AIM-based reconstruction correction can be.</p>
-<p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result.</p>
+<p><b>Export traces</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Enabled as soon as <b>Get time traces</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code> and <code>alex_first_frame</code> — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
+<p><b>Load traces</b> reverses this — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating laser excitation?</b>/<b>First frame</b> from the file so the trace redraws exactly as it looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
 <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>Min DD + DA</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating laser excitation?</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
 <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
 <p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct ahead of time — try both and compare the resulting Get time traces AA signal.</p>

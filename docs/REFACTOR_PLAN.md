@@ -110,6 +110,17 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     code needed. Composite-averaging keeps a real, distinct advantage (it can find sites too faint to
     cross the per-frame detection threshold in any single frame), so this isn't a strict replacement;
     revisit once someone's actually compared the two on real smFRET data.
+  - **Embed the SOI composite image(s) in the "Export traces"/"Load traces" JSON.** Right now the
+    round trip only carries fitted positions and intensities, so a loaded-traces-only session (no
+    movie loaded) can show the Time trace plot / E(S) histogram but never the SOI composite or real
+    ROI-thumbnail pixel crops (`loadSmfretTraces()`, MODULE: smFRET). Raised and considered when
+    building Load traces — deliberately NOT done then: a full composite is a w×h float array (over a
+    million values on a real 1024×1024 test file), and as plain JSON text that's easily 10+ MB per
+    composite, doubled for donor+acceptor — a 100×+ size jump over a traces-only file (~150 KB on the
+    same real test) for a feature that's a visual sanity check, not analysis data. If built, do it as
+    an opt-in checkbox at export time (default OFF) rather than baking it in unconditionally, and
+    store it base64-encoded binary (Float32Array bytes) rather than a raw JSON number array to keep
+    the size hit down.
   - **Molecules that aren't perfectly immobilised** (tethered particle motion) could reuse **spt**'s
     own `linkTracks()` instead of a fixed-xy assumption — a distinct, later option, not needed for a
     genuinely immobilised-molecule dataset.
