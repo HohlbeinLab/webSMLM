@@ -344,6 +344,15 @@ relevant one before editing rather than scrolling:
   when fit in photon units, so this is the one place gain/offset actually change a result rather
   than just rescaling it.
 
+  **`gaussianMLEspheric`'s own UI label dropped "2D"** — "Gauss MLE 2D spherical" → **"Gauss MLE
+  spherical"** (v0.12.2-dev, requested). Different reasoning from `mle3d`/`gaussmleEll`'s own earlier
+  "3D" removal (see their own paragraph below) — that was fixing a genuinely MISLEADING label (both
+  methods work equally validly with **3D localisation?** unchecked, so a "3D"-only-sounding name was
+  sometimes wrong). `gaussmle` has no such ambiguity — it's always a plain spherical 2D fit, no
+  z-capable variant exists at all, so "2D" here was never inaccurate the way "3D" was. Dropped anyway
+  on direct request, purely for label brevity/consistency, not because the original misleading-label
+  rationale actually extends to this one.
+
   **Accept/reject drift gate decoupled from `winr`** (reported): all 5 fitters (`gaussianFit`,
   `gaussianFitElliptical`, `gaussianMLEspheric`, `gaussianMLEelliptic`, `gaussianMLEellipticangled`)
   reject a converged fit whose position drifted too far from its seed — previously bounded by `r`
@@ -540,7 +549,8 @@ relevant one before editing rather than scrolling:
   `Float32Array`. `Uint16Array` WRAPS silently past 65535 on a naive `+=1`, so the increment is
   guarded explicitly (`if(acc[idx]<65535) acc[idx]++`) with a one-line saturation warning.
 
-  **`renderMode`** (`PARAMS.renderMode`, default `'precision'`) picks how `renderSuperResPixels()`
+  **`renderMode`** (`PARAMS.renderMode`, default `'fixed'` as of v0.12.2-dev — see this bullet's own
+  paragraph below for why it changed from `'precision'`) picks how `renderSuperResPixels()`
   turns locs into pixels: `'precision'` splats each loc as its own bounded (±3σ) Gaussian sized by
   its real CRLB (`lpx`/`lpy`; `rblur` is the fallback width for a method with none, e.g. phasor) —
   Picasso's own default convention — with σ additionally capped at `MAX_SPLAT_SIGMA_PX` (6 SR-px)
@@ -556,6 +566,51 @@ relevant one before editing rather than scrolling:
   fallback AND the render worker's own copy) key off `renderMode` too: `Uint16Array` for
   `'fixed'`/`'dither'` (integer hit count), `Float32Array` for `'precision'` (fractional Gaussian
   mass); a mode switch must reallocate, never reuse the other dtype.
+
+  **A real, reported bug: `'precision'` mode could silently discard almost an entire dataset's own
+  mass** (v0.12.2-dev) — found via a genuinely new real sample (GATTA-PAINT at its own DEFAULT,
+  uncalibrated `gain=1`/`camoffset=0`): the fitted "photon" count came out as raw ADU (hundreds of
+  thousands, not true photons — this camera's real gain is nowhere near 1), so the CRLB-derived
+  `lpx`/`lpy` came out unrealistically tiny (median ≈0.004 native px), giving a splat σ ≈0.04 SR-px
+  at the default `mag=10` — far under 1 pixel. `splatGaussianLoc()` used to sample the Gaussian PDF
+  only at each SR pixel's CENTER (`exp(-dx²/2σ²)`, ported from Picasso's own `render.py
+  _draw_gaussian_loc`, which does the same) — a good approximation of the true per-pixel mass as
+  long as σ isn't small relative to 1 pixel, but once σ<<1 it collapses to ~0 unless a localization's
+  own sub-pixel position happens to land within about 1σ of a sample point, which most positions
+  won't by pure chance. Measured on the real file: `'fixed'` rendered 19,151 non-background SR
+  pixels, point-sampled `'precision'` only 1,080 — 17.7× fewer, "almost everything disappears."
+  **Two-part fix**: (1) `PARAMS.renderMode`'s own default changed `'precision'`→`'fixed'`, since a
+  typical quick-look/demo dataset is far more likely to hit this than to need per-loc-precision
+  rendering; **Live streaming** overrides this back to `'precision'` at session-arm time
+  (`startLiveStreamingSession()`) specifically, since a live, incrementally-growing acquisition
+  benefits from precision-aware splatting and is less likely to be running on wildly miscalibrated
+  gain/offset than a quick sample file — a starting value only, not a lock, still changeable mid-
+  session same as always. Caught one adjacent latent bug while doing this: `#rblurRow` ("Render blur
+  σ_render") was only ever shown/hidden by `renderMode`'s own `change` listener, never synced at page
+  load — invisible while `'precision'` (which hides it) was the default, exposed the moment `'fixed'`
+  (which needs it) became default; fixed with the same "sync once bare at load too" call this
+  codebase already uses elsewhere (`refreshDriftMethodUI()`). (2) The REAL underlying bug —
+  `splatGaussianLoc()`'s own point-sampling — was also fixed, not just worked around: it now calls
+  `mleGInt()` (MODULE: fit, the exact same erf-based pixel-INTEGRATION the MLE fitters already use
+  for their own model) per pixel instead of point-sampling the PDF, so each pixel's weight is the
+  Gaussian's true probability mass over that pixel's footprint — as σ→0 this correctly converges to
+  "put all the mass in the one pixel containing the true position," never less, a genuine departure
+  from the ported Picasso reference (point-sampling), not a bug shared with it (deliberately not
+  verified against Picasso's own behaviour here, since the whole point is that this diverges from
+  it). Needed adding `mleErf`/`mleGInt` to `renderWorkerSource()`'s own stringified body (the render
+  worker's version of the Web Worker gotcha above — confirmed neither references `_SQ2PI`, which is
+  `mleModelSpherical`/`Elliptical`'s own dependency, not `mleGInt`'s, so nothing else needed adding).
+  The render worker's own `ping` self-test only ever exercised `'fixed'` mode — extended to also probe
+  `'precision'`, so a missing dependency like this one would be caught automatically in the future
+  rather than only surfacing as a silent single-threaded fallback. **Verified rigorously, not just by
+  eye**: called `splatGaussianLoc()` directly with 2000 synthetic localizations at σ=0.02 (the exact
+  broken regime), 0.1, 0.5, 1.5, and 6.0 SR-px — mean accumulated mass per localization came out
+  0.997–1.000 at every σ tested (the small, expected shortfall is the ±3σ window's own known tail
+  truncation, unrelated to and unchanged by this fix), where σ=0.02 previously lost nearly all of it.
+  A `'precision'`-mode reconstruction can still show FEWER lit pixels than `'fixed'` on the same
+  data even after this fix — expected, not a regression: a correctly mass-conserved, genuinely
+  sub-pixel-confident localization concentrates almost its whole (now-correct) mass into one pixel,
+  while `'fixed'`'s uniform blur always spreads paint over a wider area regardless of true precision.
 
   `setupPlot(cv, isPlot=false)` (shared by every draw function on the raw/sr canvases) letterboxes
   a fixed 4/3 sub-rectangle, centred within the panel's own box, for plots — rather than changing
@@ -3121,6 +3176,78 @@ relevant one before editing rather than scrolling:
   real rotation/magnification difference between channels, which this implementation now handles
   correctly rather than silently absorbing into a looser, noisier translation-only tolerance.
 
+  **Alignment overlay** (v0.12.2-dev, requested — "confirm the transform... cutting DD channel
+  coloured green and overlaying it with DA or AA channel coloured magenta such that overlays are
+  shown in white") — a standard registration-QC visualization, shown automatically the instant a
+  "Via channel matching" **Pair DD + DA** run succeeds (never for "Via distances and angles," which
+  has no per-pixel spatial transform at all to visualize). `buildSmfretAlignmentOverlay(donorImg,dw,
+  dh,truthImg,tw,th,T)` backward-warps the donor composite through the just-fitted affine `T` — for
+  every OUTPUT pixel, inverts `T` (`det=ad-bc`; `x=(d·rx-b·ry)/det, y=(-c·rx+a·ry)/det`) to find where
+  it came from in donor-space, then bilinearly samples there (`smfretBilinearSample()`) — avoiding the
+  holes a forward warp would leave wherever the mapping doesn't land on an exact integer pixel.
+  Composited as R=magenta, G=green, B=magenta (`smfretStretchRange()` contrast-stretches each source
+  to its own real min/max first, same per-image convention `drawSmfretRoiThumbnails()`'s own crops
+  already use), so a genuinely well-registered feature reads white, a real misalignment shows as
+  separated green/magenta fringes. **Truth (magenta) image**: the separate acceptor composite when
+  ALEX produced one (hoisted `acceptorProj/W/H` out of the `if(alex)` block specifically for this —
+  also now persisted into `smfretAcceptorCompositeImg`, closing a real gap where this exact on-demand
+  acceptor pass used to compute a composite and then discard it), else the SAME donor composite itself
+  (its own DA region already sits in the right place, no warping needed for that half). Deliberately
+  warps the WHOLE donor composite, not just its own DD-region crop — a real, transformed "ghost" of
+  the DA-region's own content lands elsewhere in the warped image as a minor cosmetic side effect, not
+  worth the extra bookkeeping a clean crop would need. **`smfretAlignOverlayBtn`** ("Show alignment"/
+  "Show SOI composite", same `<h4>` button group as `sSmlmColorBtn`/`srSegOverlayBtn`) toggles between
+  the built overlay and re-showing the ordinary SOI composite via `renderSrCompositeCanvas()` — same
+  "swap two already-built views, relabel to whichever it would switch to NEXT" shape
+  `toggleSSmlmColorView()` already uses. `smfretAlignOverlayCanvas`/`smfretAlignOverlayShowing` reset
+  (and the button hides) at every one of the ~9 existing "reclaim the panel" points `sSmlmColorBtn`
+  itself already resets at — added via one `replace_all` over that exact shared string, not hand-
+  duplicated per site. Verified via Playwright against the real ALEX dataset: the overlay shows
+  automatically (`srTitle`="Alignment overlay") with a real, non-trivial white-pixel count (genuine
+  overlap, not just green+magenta side by side) alongside green/magenta-only regions; the toggle
+  correctly swaps to "SOI composite" and back; a fresh Localize SOI run correctly clears it.
+
+  **Two follow-up fixes, same day.** (1) **`alexProjToggleBtn` left stranded alongside the new
+  toggle** (reported, with a screenshot: "AA" — its own leftover DD+DA/AA/E-S cycle label from
+  *before* Align channels ran — sitting right next to "Show SOI composite," two competing panel
+  toggles at once). It plays no part in the alignment-overlay/SOI-composite pair at all, so
+  `alignSmfretChannels()`'s own success tail now hides it the instant the overlay first shows, and
+  `toggleSmfretAlignOverlay()`'s own SOI-composite branch restores it — always to `'AA'` specifically,
+  never re-derived from `cfg.smfretSoiChannel`-style logic, since Align channels only ever runs
+  against the donor composite, so switching back to "SOI composite" from the overlay always means the
+  donor view. (2) **Add a Contrast slider for the alignment overlay** (requested) — reworked
+  `buildSmfretAlignmentOverlay()` into two pieces: `smfretComputeAlignmentArrays()` does the expensive
+  backward-warp once, caching the raw (uncolorized) `{green,magenta,w,h}` in a new
+  `smfretAlignOverlayData`; `renderSmfretAlignmentCanvas(resetRange)` does the cheap colorizing step
+  (through the SAME shared `srBlack`/`srWhite`/`rawContrastLUT()` the ordinary SOI composite's own
+  Contrast slider already uses — one slider, whichever of the two views currently owns the panel),
+  callable repeatedly on every drag tick without re-running the warp. `redrawSrContrast()` (the
+  slider's own drag handler) now branches on `smfretAlignOverlayShowing` first. `resetRange=true`
+  re-estimates `[srBlack,srWhite]` from BOTH channels' own combined real min/max — used on a fresh
+  overlay build and on toggling back to it (deliberately NOT preserved across a toggle away and back,
+  for implementation simplicity — a plain, disclosed trade-off, not an oversight). Verified via
+  Playwright: `#srContrastRow` is now visible while the overlay shows (was wrongly forced hidden in
+  the first version); dragging `#srWhite` produces a genuinely different rendered image (pixel-sum
+  33.4M→59.7M in the real test); `alexProjToggleBtn` visibility/label round-trips correctly through a
+  full overlay→composite→overlay toggle cycle.
+
+  **"Get time traces" + "E(S) histogram" merged into one button, "Get traces & E/S hist"** (v0.12.2-
+  dev, requested — "they run already dependent on each other," since the E(S) histogram button was
+  always disabled until Get time traces had produced a result anyway). The standalone
+  `smfretEHistBtn` is gone entirely — `showSmfretEHist()` itself is unchanged and still directly
+  terminal-callable (e.g. to re-show it after navigating away with no need to recompute traces) — and
+  `refreshSmfretEHistBtn()` (whose ENTIRE body was disabling that now-gone button) is deleted along
+  with every one of its ~5 call sites, rather than left as dead code. `getSmfretTimeTraces()`'s own
+  success tail now branches: a genuine FRESH run (`preserveView=false`) calls `showSmfretEHist()`
+  outright once `smfretCanShowEHist()` says a real DD+DA pairing exists; a settings-triggered re-run
+  (`preserveView=true`, e.g. toggling Aperture photometry) still only REFRESHES the histogram via the
+  pre-existing `refreshSmfretEHistIfShown()` if it was already showing — re-running a settings toggle
+  must not hijack the SR panel away from whatever the user was actually looking at (the SOI composite,
+  say), the same reasoning that function's own comment already established. Button grid reflowed to
+  match (Localize SOI/Pair DD + DA unchanged; Get traces & E/S hist now shares a row with Load traces;
+  Export traces sits alone in the row below, matching a plain "shift every later button up/left by one
+  slot" reflow after the 6-button grid dropped to 5).
+
   **"Show E hist"/"Show E/S hist"** (requested — a classic ALEX-FRET "E-S" plot, reference image
   supplied) pools every site's own DD/DA/AA samples across ALL time points into one population-level
   FRET histogram — `smfretPoolE(minDex)` (E = DA/(DD+DA), 1D case) and `smfretPoolES(minDex,minAA)`
@@ -3148,6 +3275,17 @@ relevant one before editing rather than scrolling:
   (`refreshSmfretEHistIfShown()`, checked via `rawPlotName`/`histData.col`) with one `logCmd()` on
   release (`change`), the same "cheap redraw per tick, one committed log per gesture" convention the
   sSMLM distance histogram's own draggable min/max markers already use.
+
+  **Mouse wheel over either control** (requested, v0.12.2-dev) steps the value by its own `step`
+  (scroll up = increase, matching `.numstep`'s own +/− button convention) via one shared listener on
+  both the range and number element, clamped to `[min,max]` and kept in sync exactly like a manual
+  drag/type. No app-wide `.num`-field wheel support exists (checked — this app has none anywhere
+  else, only per-scrubber wheel handling like `#scrub`'s own `scrubByWheel()`, MODULE: pipeline),
+  so this is scoped to these two fields specifically, not a new general convention. Direction reads
+  only `e.deltaY`'s SIGN, not magnitude — same convention `scrubByWheel()` itself already uses — one
+  native wheel event is one step, regardless of how far a trackpad/mouse actually scrolled per event.
+  No per-gesture `change` event exists for a wheel the way a slider's own release gives one, so the
+  `logCmd()` commit is debounced (~400ms after scrolling stops) instead of firing once per notch.
 
   **1D case** (`drawSmfretEHist()`) reuses the exact shared column-histogram machinery
   (`computeHist()`/`drawHistogram()`, MODULE: table) every other histogram in this app already draws
