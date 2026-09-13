@@ -3248,6 +3248,50 @@ relevant one before editing rather than scrolling:
   Export traces sits alone in the row below, matching a plain "shift every later button up/left by one
   slot" reflow after the 6-button grid dropped to 5).
 
+  **"Get traces & E/S hist" → "Get traces & E/S"** (v0.12.2-dev, reported with a screenshot: the
+  label wrapped to two lines in the sidebar's real fixed-width 2-button row — the same class of bug
+  this file's own "Button label length" rule already covers, caught by screenshotting the real
+  sidebar width rather than trusting a wider test viewport, exactly like `Link DD/DA/AA`'s own
+  earlier wrap). Dropping " hist" was enough on its own once the button also got its own SOLO row
+  (below) — a 2-button row's own narrower half-width is what actually caused the wrap, not the
+  label's raw length in isolation. **`smfretLoadTracesBtn`/`smfretExportTracesBtn` renamed "Load
+  traces & E/S"/"Export traces & E/S"** (requested, same round, alongside "would be good to also
+  save the E/S 2D and 1D histograms into the json file") — both names now correctly promise what
+  the file actually carries post this round's change (below), not just the raw per-frame traces.
+  All three buttons moved to their OWN solo row (previously Get traces & E/S hist shared a row with
+  Load traces, Export traces alone below) — safer than trying to fit two now-longer labels
+  ("Load traces & E/S"/"Export traces & E/S", each longer than the original "Load traces"/"Export
+  traces") into another 2-button row and risking a second wrap; verified via Playwright by comparing
+  each button's own rendered height against a known-good single-line reference (`Localize SOI`) —
+  all three measure the identical 26px single-line height.
+
+  **`exportSmfretTraces()` now also saves the pooled E(S) histogram data** — the exact same
+  per-sample values `smfretPoolE()`/`smfretPoolES()` compute for `drawSmfretEHist()`/
+  `drawSmfretESPlot()`, added to the payload as a new `e_s_histogram` object (`{min_dex, pooled_E}`
+  for the 1D case, `{min_dex, min_aa, pooled_E, pooled_S}` once ALEX+AA data are both present —
+  same `smfretCanShowEHist()`/`alexEnabled && hasAA` gate `renderSmfretEHistCore()` itself already
+  branches on), gated on `smfretCanShowEHist()` so it's simply absent when no real DD+DA pairing
+  exists to histogram at all. Deliberately FLAT arrays (the raw per-sample E/S values), not
+  pre-binned bar/count arrays — the raw per-frame `photonsDD`/`photonsDA`/`photonsAA` arrays are
+  already fully sufficient to recompute these on demand, so what's actually missing without this is
+  the ALEX adjacent-frame-pairing/threshold LOGIC itself (`smfretPoolES()`'s own "prefer i+1, fall
+  back to i-1" convention for pairing a donor-excitation readout with its nearest acceptor-excitation
+  AA sample — see that function's own comment) — saving the already-pooled result means a downstream
+  tool doesn't have to reimplement that logic just to get the same values, and can re-bin them
+  however it likes. `loadSmfretTraces()` restores `smfretMinDex`/`smfretMinAA` from
+  `e_s_histogram.min_dex`/`min_aa` (when present) BEFORE its own existing
+  `smfretUpdateEHistThresholdRanges()` call, so a subsequent **E(S) histogram** click reproduces the
+  saved plot exactly rather than falling back to whatever the sidebar already had. Verified via
+  Playwright: built a synthetic `smfretTraces` population with DD/DA finite on even frame indices and
+  AA finite on odd ones (matching real ALEX alternation — an earlier draft of this test made all
+  three channels finite at the SAME parity, which is unrealistic and made every pooled sample get
+  rejected by the adjacent-frame lookup, silently producing empty arrays that looked broken but
+  weren't), round-tripped through `exportSmfretTraces()`→`loadSmfretTraces()` (via a monkey-patched
+  `saveBlob()` capturing the JSON text instead of opening a real file picker): `e_s_histogram` is
+  present with the exact `min_dex`/`min_aa` values set beforehand, `pooled_E`/`pooled_S` both come
+  back with real, non-empty, correctly-computed values, and reloading restores those same threshold
+  values into the live sidebar fields.
+
   **"Show E hist"/"Show E/S hist"** (requested — a classic ALEX-FRET "E-S" plot, reference image
   supplied) pools every site's own DD/DA/AA samples across ALL time points into one population-level
   FRET histogram — `smfretPoolE(minDex)` (E = DA/(DD+DA), 1D case) and `smfretPoolES(minDex,minAA)`
