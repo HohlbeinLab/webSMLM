@@ -829,7 +829,7 @@ rotation, in RADIANS — reusing the name for this DEGREES-valued pair
 bearing would silently corrupt that column for any result that also
 carries a real per-loc ellipse angle. `x2 [nm]`/`y2 [nm]`/`pairAngle [deg]`
 are optional CSV/table columns, present whenever any loc carries them (see
-§5/§6) — this is what lets smFRET's own **Get time traces** read a real,
+§5/§6) — this is what lets smFRET's own **Get traces & E/S** read a real,
 independently-known acceptor position for **DA**/**AA** once a pairing
 exists (see **Single-molecule FRET** below), rather than only ever having
 the 0th order's own position to work with. Pairing stores
@@ -1010,7 +1010,7 @@ already use, rather than a dynamic HTML `max` attribute.
 **Fix sites of interest (SOI)** (`smfretFixSOI`, default checked) is a
 STATUS flag, not an independent on/off switch — every successful
 `locateSmfretSOI()` run (explicit click or an auto-rerun above) checks it,
-marking the current positions as the fixed reference **Get time traces**
+marking the current positions as the fixed reference **Get traces & E/S**
 below will fit. Checking it by hand does nothing on its own (there's no
 way to tell "just auto-checked" from "user clicked it", and the only state
 worth reacting to is losing the positions, not gaining them); unchecking
@@ -1025,7 +1025,7 @@ that checkbox's own check-to-trigger direction. It also discards
 Localize/CSV-loaded result that happened to still be current, which SOI
 already claimed the moment it first ran.
 
-**Get time traces** (`getSmfretTimeTraces()`) extracts every `smfretSOI`
+**Get traces & E/S** (`getSmfretTimeTraces()`) extracts every `smfretSOI`
 site's intensity — using its known x,y only to pick which window to look
 at, never re-detected by scanning the whole frame — in EVERY frame of the
 loaded movie, by one of two methods selected by **Aperture photometry (no
@@ -1155,7 +1155,7 @@ shows a placeholder message instead of an empty plot.
 
 **Headless**: `config.smfretLocateSOI` (v0.12.1-dev) runs the same
 `smfretSOICore()` the interactive button calls — see [§8](#8-headless-api-window-websmlm)
-for the full config/result shape. **Get time traces** has no headless
+for the full config/result shape. **Get traces & E/S** has no headless
 equivalent yet.
 
 **Alternating laser excitation (ALEX)** — step one of the "ALEX frame-role
@@ -1185,7 +1185,7 @@ a **Contrast** slider also appears next to the panel title, at the same
 fixed `[black,white]` stretch the raw panel's own Contrast control uses —
 useful since a real composite's own intensity range is rarely known in
 advance. The raw (left) panel and every other analysis path (a real
-Localize run, Get time traces' own extraction, …) are untouched — this
+Localize run, Get traces & E/S's own extraction, …) are untouched — this
 family of controls only ever affects which frames get averaged into a
 preview/detection composite, not per-localization channel sorting.
 
@@ -1255,33 +1255,37 @@ Picking an option sets **Pairing (sSMLM & FRET)**'s own **Primary angle**
 directly and re-pairs live — there's no automatic way to tell which of the
 two is physically correct, so this still needs checking against a known
 FRET pair or the optical setup's own geometry (e.g. by comparing the
-resulting AA signal in Get time traces between the two options).
+resulting AA signal in Get traces & E/S between the two options).
 
 **Simplified, v0.12.1-dev** ("let's simplify... Drop 'Link DD/DA/AA'
 entirely... DA is the leading position for time traces to obtain time
 traces in the AA channel. drop for now all other options.") — an earlier
 round's independent-AA-confirmation step (**Link DD/DA/AA**, plus the
-**Filter SOIs** setting that gated it) is gone: Get time traces now always
+**Filter SOIs** setting that gated it) is gone: Get traces & E/S now always
 samples AA at the DA-established acceptor position directly once paired,
 with no separate verification pass and no unpaired-own-position guess. A
 future, more general re-introduction of independent AA confirmation is a
 plausible follow-up, not attempted this round.
 
-Genuinely still open (see `docs/REFACTOR_PLAN.md` for the full sketch):
-E_raw/S_raw computation and the later accurate-FRET correction step
-(leakage/crosstalk, direct excitation, γ-factor); per-localization ALEX
-frame-role tagging on a GENERAL, non-smFRET-SOI localization set (today's
-DD/DA/AA splitting only applies to `smfretSOI` sites via **Get time
-traces**); a genuine period/pattern control for >2-frame ALEX cycles
-(today's is a fixed 1st-frame + period-2 alternation only); a "Donor vs
-acceptor" control exposing `pairCore()`'s own directional 0th/1st-order
-role classification under smFRET's own donor/acceptor terminology, instead
-of quietly assuming the convention `pairCore()` already uses is the right
-one; and a headless/NDJSON equivalent for **Get time traces** itself
-(`config.smfretLocateSOI` alone doesn't cover it). The core donor/acceptor
-pairing pipeline described above, by contrast, is no longer a mechanical-
-only proof of concept — it has been run and verified end to end against
-real prism/polychroic ALEX acquisition data throughout its development.
+Genuinely still open (see `docs/REFACTOR_PLAN.md` for the full sketch): the
+FULL accurate-FRET correction step on top of the raw E/S values already
+computed and exported (leakage/crosstalk, direct excitation, γ-factor —
+raw, uncorrected E/S are already shown in the **E(S) histogram** and saved
+by **Export traces & E/S**, this is only the correction layer on top);
+per-localization ALEX frame-role tagging on a GENERAL, non-smFRET-SOI
+localization set (today's DD/DA/AA splitting only applies to `smfretSOI`
+sites via **Get traces & E/S**); a genuine period/pattern control for
+>2-frame ALEX cycles (today's is a fixed 1st-frame + period-2 alternation
+only); a "Donor vs acceptor" control exposing `pairCore()`'s own
+directional 0th/1st-order role classification under smFRET's own
+donor/acceptor terminology for the **Via distances and angles** pairing
+method (**Via channel matching** already has its own separate **Position
+donor?** disambiguation); and a headless/NDJSON equivalent for **Get
+traces & E/S** itself (`config.smfretLocateSOI` alone doesn't cover it).
+The core donor/acceptor pairing pipeline described above, by contrast, is
+no longer a mechanical-only proof of concept — it has been run and
+verified end to end against real prism/polychroic and dual-view ALEX
+acquisition data throughout its development.
 
 ### Single particle tracking (`spt`) {#spt}
 
@@ -2004,7 +2008,7 @@ headless equivalent.
 
 <!-- HINT:render -->
 <ul>
-  <li><b>Render mode</b> — <b>Fixed blur</b> (default) applies one uniform blur over the whole reconstruction, controlled by <b>Render blur σ_render</b> below (which only appears in this mode). <b>Localization precision</b> instead renders each localization as its own Gaussian sized by its real fitted precision — in principle the more scientifically informative choice, but it can render as almost nothing on a dataset with unrealistically tiny fitted precision (most commonly an uncalibrated Gain/Camera offset, which distorts the photon count the precision estimate is derived from) — a per-localization sigma well under 1 super-resolution pixel isn't represented reliably by this mode yet. <b>Live streaming</b> switches this to <b>Localization precision</b> automatically when a session starts (still changeable by hand afterward). <b>Precision (fast/dithered)</b> is a much faster stochastic approximation of the same per-localization-Gaussian idea, best suited to very large/dense datasets where the exact per-localization rendering gets slow — it looks grainier on sparse data, so it isn't the default either.</li>
+  <li><b>Render mode</b> — <b>Fixed blur</b> (default) applies one uniform blur over the whole reconstruction, controlled by <b>Render blur σ_render</b> below (which only appears in this mode) — cost scales with the buffer's own area, not the number of localizations. <b>Localization precision</b> instead renders each localization as its own Gaussian, pixel-integrated so its total mass is conserved regardless of how small the fitted precision is (even a sigma well under 1 super-resolution pixel correctly concentrates almost all of its weight into the one pixel containing the true position, rather than being lost) — the more scientifically informative choice, but slower on a very large/dense dataset since cost scales with localization count. An unrealistically tiny fitted precision (most commonly from an uncalibrated Gain/Camera offset, which distorts the photon count the precision estimate is derived from) is still a sign the underlying calibration is off, even though it no longer breaks the render itself. <b>Live streaming</b> switches this to <b>Localization precision</b> automatically when a session starts (still changeable by hand afterward). <b>Precision (fast/dithered)</b> is a much faster stochastic approximation of the same per-localization-Gaussian idea, best suited to very large/dense datasets where the exact per-localization rendering gets slow — it looks grainier on sparse data, so it isn't the default either.</li>
   <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
   <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
   <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume. After clicking <b>Pair &amp; plot sSMLM</b>, this same toggle reads "Colour by distance (sSMLM)" and colours by inter-order spectral distance instead of real z.</li>
@@ -2419,7 +2423,7 @@ for the first implementation.
 <p><b>Load traces &amp; E/S</b> reverses this — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating laser excitation?</b>/<b>First frame</b> and, when present, the <b>Min DD + DA</b>/<b>Min AA</b> thresholds from the file so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
 <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>Min DD + DA</b> (and, in E/S mode, <b>Min AA</b>) — shown as slider rows underneath the reconstruction panel, styled the same as the Frame scrubber — are per-SAMPLE burst-selection thresholds: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the slider — the standard technique for excluding a sample too dim for E (or S) to be a meaningful ratio rather than noise. Both sliders' own range is set from the actual loaded traces' observed intensity range, and dragging either (or typing a value) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating laser excitation?</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
 <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
-<p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct ahead of time — try both and compare the resulting Get time traces AA signal.</p>
+<p><b>Position donor?</b> (shown once <b>Alternating laser excitation?</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct ahead of time — try both and compare the resulting Get traces &amp; E/S AA signal.</p>
 <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 

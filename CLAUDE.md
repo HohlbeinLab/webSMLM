@@ -5261,10 +5261,13 @@ in the repo.
   never hand-edit a `.hint` div directly, it'll be overwritten on the next sync. `--check` exits 1
   without writing if `webSMLM.html` would change, for a pre-commit/CI-style drift check. The
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is NOT part of the
-  synced content (kept as fixed markup in `webSMLM.html`). All 13 `.hint` divs
+  synced content (kept as fixed markup in `webSMLM.html`). All 12 `.hint` divs
   (`hint-memory`/`hint-liveStreaming`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
-  `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-locprecision`/`hint-sSMLM`/
-  `hint-smfret`/`hint-spt`) use this mechanism. Each
+  `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-sSMLM`/
+  `hint-smfret`/`hint-spt`) use this mechanism — `hint-drift` covers Localization
+  precision (NeNA/FRC) too, since that section was merged into Drift correction's
+  own (see the **drift**/**locprecision** module bullets below); there is no
+  separate `hint-locprecision`. Each
   marker is placed as the INTRO to its DOCUMENTATION.md section, right after the PARAMS table — the
   surrounding prose picks up only where the popup leaves off, not restating it.
 - **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the

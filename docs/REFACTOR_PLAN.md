@@ -67,27 +67,40 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   - A minimum-neighbour-count spatial consistency filter (reject sparse false pairs with too few
     nearby confirmed pairs) — `sSMLMAnalyzer` has one, webSMLM doesn't.
 
-- **smFRET/ALEX integration** — the sSMLM-style acquisition mode (one movie, a diffraction grating
-  or prism/polychroic splitter giving a donor/acceptor pair per emitter) now has a complete,
-  real-data-verified v1 pipeline: SOI detection (**Localize SOI**), donor/acceptor pairing
-  (**Pair DD + DA**, reusing **Pairing (sSMLM & FRET)**'s own distance+bearing-angle matching),
-  role disambiguation (**Position donor?**), an independent acceptor-channel verification step
-  (**Link channels**), and ALEX-aware DD/DA/AA time traces (**Get time traces**) with inset ROI
-  thumbnails. See **Single-molecule FRET** in `CLAUDE.md` for the full implementation history — this
-  file only tracks what's still genuinely open. References: Kapanidis, Lee, Laurence, Doose,
-  Margeat & Weiss, "Fluorescence-aided molecule sorting: Analysis of structure and interactions by
+- **smFRET/ALEX integration** — the sSMLM-style acquisition mode (one movie, a diffraction grating,
+  prism/polychroic splitter, or dual-view/image-splitter giving a donor/acceptor pair per emitter)
+  now has a complete, real-data-verified v1 pipeline: SOI detection (**Localize SOI**),
+  donor/acceptor pairing via either of two methods (**Pair DD + DA**, **Via distances and angles**
+  reusing **Pairing (sSMLM & FRET)**'s own distance+bearing-angle matching, or **Via channel
+  matching** for a spatially-separated dual-view setup — a from-scratch point-registration/affine-
+  transform approach with its own **Alignment overlay** visual QA), role disambiguation
+  (**Position donor?**), ALEX-aware DD/DA/AA time traces with a per-site E/S-vs-time subplot and
+  inset ROI thumbnails, and a pooled population-level **E(S) histogram** (1D or, with ALEX+AA, a 2D
+  E-vs-S density plot) — all under **Get traces & E/S**, whose own **Export traces & E/S**/**Load
+  traces & E/S** round-trip both the raw per-frame traces and the pooled E(S) histogram data. See
+  **Single-molecule FRET** in `CLAUDE.md` for the full implementation history — this file only
+  tracks what's still genuinely open. References: Kapanidis, Lee, Laurence, Doose, Margeat & Weiss,
+  "Fluorescence-aided molecule sorting: Analysis of structure and interactions by
   alternating-laser excitation of single molecules," *PNAS* **101**(24), 8936–8941 (2004),
   https://doi.org/10.1073/pnas.0401690101 (introduces ALEX); Hohlbein, Craggs & Cordes,
   "Alternating-laser excitation: single-molecule FRET and beyond," *Chem. Soc. Rev.* **43**(4),
   1156–1171 (2014), https://doi.org/10.1039/c3cs60233h (review).
 
+  **"Link DD/DA/AA"/"Filter SOIs" were built, then dropped entirely** (an independent
+  acceptor-channel verification pass and a DD+DA-vs-DD+DA+AA channel-selection setting) — direct
+  request, on the reasoning that **Pair DD + DA** already establishes the acceptor position, and
+  AA should simply always be sampled there once paired, no separate confirmation step or opt-in
+  needed. Not a gap; don't re-add without a fresh, specific reason.
+
   **Still open**:
-  - **Accurate FRET**: E_raw = DA/(DA+DD) and, with ALEX, S_raw = (DD+DA)/(DD+DA+AA) are trivial
-    derived columns from the DD/DA/AA arrays **Get time traces** already produces, but not computed
-    yet — and the full correction (leakage/crosstalk, direct excitation, γ-factor derived from the
-    population structure on a 2D E–S histogram) is a distinct, later step on top of that, deliberately
-    deferred per the references above.
-  - **Headless/NDJSON export for Get time traces.** `config.smfretLocateSOI` covers SOI detection
+  - **Accurate/corrected FRET.** RAW E (= DA/(DD+DA)) and S (= (DD+DA)/(AA+DD+DA)) are already
+    computed and shown — per-sample in the pooled **E(S) histogram**, per-site-per-time in the Time
+    trace plot's own E/S-vs-time subplot, and now saved directly in **Export traces & E/S**'s own
+    `pooled_E`/`pooled_S` arrays. What's still missing is the FULL correction on top of these raw
+    values — leakage/crosstalk, direct excitation, and a γ-factor derived from the population
+    structure on the 2D E–S histogram — a distinct, later step, deliberately deferred per the
+    references above.
+  - **Headless/NDJSON export for Get traces & E/S.** `config.smfretLocateSOI` covers SOI detection
     headlessly; the time-trace extraction itself (`getSmfretTimeTraces()`) has no headless path yet.
     The existing streaming-NDJSON precedent (`spt_tracks.ndjson` via `makeRecordEmitter()`) is the
     natural shape to reuse — many molecules × many frames is too large for `analyze()`'s own return
@@ -96,9 +109,10 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   - **A "Donor vs acceptor" control** exposing `pairCore()`'s own existing directional 0th/1st-order
     role classification under smFRET's own donor/acceptor terminology, rather than silently assuming
     the convention `pairCore()` already uses (0th = donor-side) is the physically correct one for
-    every setup.
+    every setup. Only applies to **Via distances and angles**; **Via channel matching** has its own,
+    separate **Position donor?** disambiguation already.
   - **Per-localization ALEX frame-role tagging on a GENERAL, non-smFRET-SOI localization set.**
-    Today's DD/DA/AA sorting only ever applies to `smfretSOI` sites via **Get time traces**; an
+    Today's DD/DA/AA sorting only ever applies to `smfretSOI` sites via **Get traces & E/S**; an
     ordinary Localize run's own output has no per-loc frame-role tag at all. Also still open: a
     genuine period/pattern control for ALEX cycles longer than a simple 1st-frame + period-2
     alternation, or explicit frame-index lists.
@@ -110,27 +124,32 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     code needed. Composite-averaging keeps a real, distinct advantage (it can find sites too faint to
     cross the per-frame detection threshold in any single frame), so this isn't a strict replacement;
     revisit once someone's actually compared the two on real smFRET data.
-  - **Embed the SOI composite image(s) in the "Export traces"/"Load traces" JSON.** Right now the
-    round trip only carries fitted positions and intensities, so a loaded-traces-only session (no
-    movie loaded) can show the Time trace plot / E(S) histogram but never the SOI composite or real
-    ROI-thumbnail pixel crops (`loadSmfretTraces()`, MODULE: smFRET). Raised and considered when
-    building Load traces — deliberately NOT done then: a full composite is a w×h float array (over a
-    million values on a real 1024×1024 test file), and as plain JSON text that's easily 10+ MB per
-    composite, doubled for donor+acceptor — a 100×+ size jump over a traces-only file (~150 KB on the
-    same real test) for a feature that's a visual sanity check, not analysis data. If built, do it as
-    an opt-in checkbox at export time (default OFF) rather than baking it in unconditionally, and
-    store it base64-encoded binary (Float32Array bytes) rather than a raw JSON number array to keep
-    the size hit down.
+  - **Embed the SOI composite image(s) in the "Export traces & E/S"/"Load traces & E/S" JSON.**
+    Right now the round trip carries fitted positions, raw per-frame intensities, and the pooled
+    E(S) histogram data, but no pixel data at all — a loaded-traces-only session (no movie loaded)
+    can show the Time trace/E(S) plots but never the SOI composite or real ROI-thumbnail pixel crops
+    (`loadSmfretTraces()`, MODULE: smFRET). Raised and considered when building Load traces —
+    deliberately NOT done then: a full composite is a w×h float array (over a million values on a
+    real 1024×1024 test file), and as plain JSON text that's easily 10+ MB per composite, doubled
+    for donor+acceptor — a 100×+ size jump over a traces-only file (~150 KB on the same real test)
+    for a feature that's a visual sanity check, not analysis data. If built, do it as an opt-in
+    checkbox at export time (default OFF) rather than baking it in unconditionally, and store it
+    base64-encoded binary (Float32Array bytes) rather than a raw JSON number array to keep the size
+    hit down.
   - **Molecules that aren't perfectly immobilised** (tethered particle motion) could reuse **spt**'s
     own `linkTracks()` instead of a fixed-xy assumption — a distinct, later option, not needed for a
     genuinely immobilised-molecule dataset.
-  - **Dual-channel input for an image-splitter or two-camera setup** — genuinely new infrastructure,
-    not a reuse of anything existing, and doesn't apply to the sSMLM-style (single-movie,
-    spectrally-split) acquisition mode above. A single-camera image-splitter setup needs a
-    frame-region split (two sub-rectangles of the SAME frame, donor + acceptor) — structurally like
-    the raw-panel crop tool's `makeCroppedStack()`, but producing TWO frame-synchronised sub-stacks
-    from one crop step instead of one. A two-camera setup (separate donor/acceptor cameras) needs
-    genuinely new frame-synchronised dual-stack loading — no existing precedent to lean on there.
+  - **Dual-channel PIXEL input for an image-splitter or two-camera setup** — narrower than it used
+    to be: **Via channel matching** (`alignSmfretChannels()`) already solves the single-camera
+    dual-view/image-splitter PAIRING problem directly on the one already-loaded movie (splitting
+    sites of interest by their own x-position gap, then registering the two point sets with a fitted
+    affine transform) — no separate frame-region split or synchronised sub-stacks needed for that.
+    What's still genuinely open is lower-level: an actual PIXEL-level split of a dual-view frame into
+    two independent sub-stacks (so e.g. Localize itself, not just smFRET's own SOI/pairing path,
+    could run on either half separately) — structurally like the raw-panel crop tool's
+    `makeCroppedStack()`, but producing TWO frame-synchronised sub-stacks from one crop step instead
+    of one — and, separately, genuinely new frame-synchronised DUAL-STACK loading for a real
+    two-camera setup (no existing precedent to lean on there at all).
 
 - **Single particle tracking (spt)** — deliberately deferred, not forgotten:
   - **Length-resolved D histogram** (the reference pipeline's `D_track_length_matrix`, one
