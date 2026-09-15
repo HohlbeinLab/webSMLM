@@ -3292,6 +3292,22 @@ relevant one before editing rather than scrolling:
   back with real, non-empty, correctly-computed values, and reloading restores those same threshold
   values into the live sidebar fields.
 
+  **"Get traces & E/S"/"Load traces & E/S"/"Export traces & E/S" renamed "Get FRET data"/"Load
+  FRET data"/"Save FRET data"** (v0.12.3-dev, requested, along with a layout move — "Load traces &
+  E/S" one line up and to the right, "Export traces & E/S" one line up) — plain shorter labels;
+  `getSmfretTimeTraces()`/`loadSmfretTraces()`/`exportSmfretTraces()` themselves, and every id
+  (`smfretTimeTracesBtn`/`smfretLoadTracesBtn`/`smfretExportTracesBtn`), are unchanged. The layout
+  move puts **Get FRET data**/**Load FRET data** back on ONE shared row (with **Localize SOI**/
+  **Pair DD + DA** unchanged above them) and **Save FRET data** alone on the row below — the exact
+  2-row shape this pair had BEFORE the v0.12.2-dev wrap fix that split all three onto solo rows
+  (see that entry above): the new, much shorter labels ("Get FRET data"/"Load FRET data", 13-14
+  characters each) comfortably fit a 2-button row where the old "Get traces & E/S"/"Load traces &
+  E/S" (each 15-18 characters) didn't — reclaiming the vertical space that fix cost without
+  reintroducing the wrap. Verified via Playwright: all three buttons still measure the same 26px
+  single-line height as before (no wrap), **Get FRET data**/**Load FRET data** now sit side by side
+  on one row, and **Save FRET data** sits directly below them — one row shorter overall than the
+  three-solo-row layout it replaces.
+
   **"Show E hist"/"Show E/S hist"** (requested — a classic ALEX-FRET "E-S" plot, reference image
   supplied) pools every site's own DD/DA/AA samples across ALL time points into one population-level
   FRET histogram — `smfretPoolE(minDex)` (E = DA/(DD+DA), 1D case) and `smfretPoolES(minDex,minAA)`
