@@ -93,7 +93,7 @@
   body{margin:0;background:var(--bg);color:var(--fg);min-height:100vh;
     display:flex;flex-direction:column;            /* no hard-coded header height */
     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  header{padding:16px 20px;border-bottom:1px solid var(--line);
+  header{padding:16px 20px 11px;
     display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
   /* title + subtitle share one row (subtitle right behind the title) instead
      of stacking on two lines — saves vertical header space; still wraps to
@@ -142,9 +142,18 @@
   /* minmax(0,1fr): a plain 1fr track has an implicit min of its CONTENT width, so
      the canvases refuse to shrink and overflow horizontally / overlap; minmax(0,…)
      lets the tracks shrink and the panels scale to the available width. */
-  .wrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;flex:1;min-height:0}
-  .sidebar{border-right:1px solid var(--line);padding:16px 18px;overflow:auto}
-  .main{padding:18px 20px;overflow:auto}
+  /* No border-right on .sidebar and no border-bottom on header any more
+     (both dropped from webSMLM — sections now rely on whitespace alone,
+     not a drawn rule). Sidebar-to-main and canvas-to-canvas (.canvases'
+     own gap, below) are both tuned to add up to the SAME 18px as the
+     page's own left/right side margins: sidebar's own 6px right padding +
+     this 6px wrap gap + .main's own 0 left padding = 18px, matching
+     .sidebar's own 18px LEFT padding on the opposite side and .main's
+     own 12px right padding + .card's own 6px padding on the far right —
+     one consistent gap everywhere, inside and out. */
+  .wrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:6px;flex:1;min-height:0}
+  .sidebar{padding:16px 6px 16px 18px;overflow:auto}
+  .main{padding:10px 12px 10px 0;overflow:auto}
   /* collapsible sidebar. Desktop: collapsing gives the canvases the full width.
      Mobile (see @media): the sidebar becomes an overlay drawer so the images are
      visible first and re-opening slides over them without moving them. */
@@ -188,10 +197,12 @@
     body.side-float #sidePin{display:flex}
   }
   .group{margin-bottom:16px}
-  /* plain grey rule as the section separator (replaces numbered headings) */
-  hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0 14px}
+  /* No hr.sep rule any more — webSMLM dropped its own <hr class="sep">
+     section dividers, relying on .group's own margin-bottom alone to
+     separate stacked sections (a real project with several groups per
+     module just needs consecutive .group blocks, no divider element). */
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
-  button{width:100%;padding:9px 12px;margin:4px 0;border:1px solid var(--line);
+  button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--line);
     background:var(--surface);color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
   button:hover{border-color:var(--accent)}
   button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
@@ -237,7 +248,7 @@
   .numstep-btns button:active{background:var(--accent-tint);color:var(--accent)}
   /* two equal buttons side by side */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-  .btnrow button{margin:0;padding:8px 6px;font-size:12px}
+  .btnrow button{margin:0;padding:5px 6px;font-size:12px}
   /* collapsed-by-default module sections */
   details.sim{margin-top:0}
   /* section header: deliberately NOT the raised button skin — a slim, flat
@@ -267,7 +278,11 @@
   /* fixed 60% of the row so all selects line up right-aligned (label takes the rest) */
   select.sel{flex:0 0 60%;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
-  .canvases{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  /* 6px, matching .wrap's own gap above — together with .card's own 6px
+     padding on each side (below), the canvas-to-canvas gap nets to the
+     same 18px as the sidebar-to-canvas gap and the page's own left/right
+     side margins (see .wrap's own comment). */
+  .canvases{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
   /* very wide/short content: side by side would squeeze each panel to half width
      on top of already being short — a real project would toggle this from its own
      loaded-data aspect ratio (see applyLayout() below) independent of the
@@ -275,7 +290,12 @@
      it by hand either way. */
   .canvases.stacked{grid-template-columns:1fr}
   .canvases > .card{min-width:0}   /* allow the panels to shrink below their content size */
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  /* .card has no border/background/radius of its own any more — just a
+     padding wrapper. Dropped from webSMLM: the canvases already delineate
+     themselves against the page background (see canvas{border:...} below),
+     and the Log panel keeps its own inner dark box (.log, further down),
+     so an outer card box around either was purely redundant chrome. */
+  .card{padding:6px}
   /* Both canvases always track --frame-ar, so the two panels are always the same
      height — .panel-body (canvas + any trailing per-panel controls a real project
      adds below it) stays top-aligned (flex's own default), NOT centred: centring
@@ -303,8 +323,26 @@
      this bare layout never loads data. */
   canvas#left,canvas#right{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0}
   canvas#left:active,canvas#right:active{cursor:grabbing}
+  /* height fixed at 12 text lines, not viewport-relative: 12 * 18px
+     line-height (12px font * 1.5) + 20px padding (10px top+bottom,
+     box-sizing:border-box) = 236px. Was clamp(180px,32vh,460px), which
+     rendered ~25 lines on a normal desktop viewport — mostly scrolled-past
+     history rather than what just happened; #log's own overflow:auto
+     still scrolls to whatever's beyond the fixed 12. */
   .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);
-    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:clamp(180px,32vh,460px);overflow:auto;white-space:pre-wrap}
+    background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:10px;height:236px;overflow:auto;white-space:pre-wrap}
+  /* #log/#logText split: #log is the outer box (border/background/scroll,
+     no width cap — its own border should reach as wide as the panel
+     does); #logText (a plain child div) holds the actual text, capped to
+     a readable 80ch column so a long wrapped line doesn't stretch edge to
+     edge on a wide window. log()/clearLogBtn/exportLogBtn all read/write
+     #logText's own textContent; #log.scrollTop (the outer box) is still
+     what log() sets to autoscroll, since #logText has no scrollbar of its
+     own. IMPORTANT: never put a <noscript> fallback inside an element
+     .textContent is later WRITTEN to (not just read) — see webSMLM's own
+     CLAUDE.md "<noscript> + .textContent +=" gotcha if you add one here;
+     a write blows away raw <noscript> markup as literal visible text. */
+  .log #logText{max-width:80ch}
   .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
@@ -443,7 +481,7 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
 
     <div class="card" style="margin-top:16px">
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
-      <div class="log" id="log">Ready.</div>
+      <div class="log" id="log"><div id="logText">Ready.</div></div>
     </div>
   </main>
 </div>
@@ -458,7 +496,11 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
 
 <script>
 const $ = id => document.getElementById(id);
-const log = m => { const l=$('log'); l.textContent += '\n'+m; l.scrollTop=l.scrollHeight; };
+// Writes to #logText (the width-capped inner text div), not #log itself
+// (the outer box) — see the .log/#logText CSS comment above for why the
+// two are split; #log.scrollTop is still what actually autoscrolls, since
+// #logText itself has no scrollbar of its own.
+const log = m => { const t=$('logText'); t.textContent += '\n'+m; $('log').scrollTop=$('log').scrollHeight; };
 
 // ---- number-input steppers (+/-) ---------------------------------------
 // Wraps every input.num in a small, always-visible −/+ pair instead of
@@ -682,9 +724,9 @@ $('layoutToggleBtn').addEventListener('click', ()=>{
 });
 
 // ---- log panel --------------------------------------------------------
-$('clearLogBtn').addEventListener('click',()=>{ $('log').textContent=''; });
+$('clearLogBtn').addEventListener('click',()=>{ $('logText').textContent=''; });
 $('exportLogBtn').addEventListener('click',async()=>{
-  const txt=$('log').textContent.replace(/^\n+/,'');
+  const txt=$('logText').textContent.replace(/^\n+/,'');
   if(!txt){ log('Log is empty.'); return; }
   const saved=await saveBlob(new Blob([txt+'\n'],{type:'text/plain;charset=utf-8'}), 'log.txt', 'Log (text)', 'text/plain', '.txt');
   if(saved) log(`Exported log as ${saved}.`);
