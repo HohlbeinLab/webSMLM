@@ -1525,7 +1525,10 @@ loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 
 ### Memory & streaming (`in/out`) {#in-out-params}
 
-*Module:* **in/out** — see [§2](#in-out).
+*Module:* **in/out** — see [§2](#in-out); live streaming's own `window.webSMLM.liveStream` API
+(see [§8](#live-streaming) for the full reference) is combined into this one sidebar section too,
+since **Enable live streaming?** sits directly below the memory-budget controls that also govern
+its own raw-frame history cache.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
@@ -1540,6 +1543,18 @@ first load before a user had any reason to know to lower this setting themselves
 default changes (resizing the window afterward doesn't re-trigger it); a loaded settings JSON's own
 `memgb` value still overrides it as always.
 
+**Enable live streaming?** (`liveStreamEnabled`, a plain UI-reveal checkbox, not a `PARAMS` entry —
+same "pure display/layout" carve-out as UI theme/sidebar collapse state) shows/hides **WebSocket
+URL** and the **Connect**/**Clear** buttons below it, unchecked by default so this rarely-used,
+still-**experimental** path stays out of the way until opted into. Live streaming itself has no
+`PARAMS` entries of its own beyond this — the render cadence reuses `srPreviewMs`/`srPreviewMaxMs`
+([§3](#pipeline-tuning-params)'s "reconstruction live-preview interval", the same adaptive interval
+`runCore()`'s own live preview uses), rather than a separate manual "Render every N frames" setting
+an earlier version had. That setting's behaviour depended on external chunk granularity a bridge
+controls, not this app — the same N meant completely different things depending on whether a
+bridge pushed one frame per chunk or a hundred — so it was removed once cadence tracked actual
+elapsed time instead.
+
 **In-app "more info…" popup** (`hint-memory` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 `.hint` div directly):
@@ -1549,41 +1564,18 @@ default changes (resizing the window afterward doesn't re-trigger it); a loaded 
   <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
   <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
 </ul>
-<!-- /HINT:memory -->
-
-### Live streaming (Micro-Manager camera bridge) (`in/out`) {#live-streaming-params}
-
-*Module:* **in/out** — nested inside the same "Memory & streaming" sidebar section as
-`memgb`/`chunkmb` above, below its own separator. See [§8](#live-streaming) for the full
-`window.webSMLM.liveStream` API.
-
-No `PARAMS` entries of its own — the render cadence reuses `srPreviewMs`/
-`srPreviewMaxMs` ([§3](#pipeline-tuning-params)'s "reconstruction
-live-preview interval", the same adaptive interval `runCore()`'s own live
-preview uses), rather than a separate manual "Render every N frames"
-setting an earlier version had. That setting's behaviour depended on
-external chunk granularity a bridge controls, not this app — the same N
-meant completely different things depending on whether a bridge pushed one
-frame per chunk or a hundred — so it was removed once cadence tracked
-actual elapsed time instead.
-
-**In-app "more info…" popup** (`hint-liveStreaming` in `webSMLM.html`; synced by
-`tools/sync_hints.mjs` — edit here, then run the script, never edit the
-`.hint` div directly):
-
-<!-- HINT:liveStreaming -->
-<p><i>Live streaming is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
-<p>Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
+<p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
+<p><b>Enable live streaming?</b> reveals <b>WebSocket URL</b> and the <b>Connect</b>/<b>Clear</b> buttons — hidden otherwise, since this path is rarely used compared to a normal file load. Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
 <ul>
 <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment. The connection dropping unexpectedly also ends the session, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session, leaving the connection itself open.</li>
-<li><b>tools/webSMLM-livestream-bridge.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.liveStream.pushChunk()</code>. This path never touches Connect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.liveStream.end()</code> ends it.</li>
+<li><b>tools/webSMLM-livestream-bridge.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.liveStream.pushChunk()</code>. This path never touches Connect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.liveStream.end()</code> ends it — <b>Enable live streaming?</b> doesn't need to be checked for this path at all, since it never reaches for the Connect button this checkbox reveals.</li>
 </ul>
 <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) is the one control that ends an active streaming session from either path — closing the WebSocket first if one is open — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect of its own to click. (An earlier version of this sidebar had a separate Disconnect button; folded into Stop and removed, since Stop does everything it did and also covers the bridge path.)</p>
 <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. That repaint (and milestone line) is throttled adaptively by elapsed time, not a frame count — frequent while cheap, self-throttling once the growing dataset makes a render expensive — the same mechanism a normal Localize run's own live preview uses.</p>
-<p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (Memory &amp; streaming section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
+<p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
 <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
 <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
-<!-- /HINT:liveStreaming -->
+<!-- /HINT:memory -->
 
 ### Simulation settings (`simulation`) {#simulation-params}
 

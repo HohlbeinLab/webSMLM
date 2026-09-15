@@ -4816,6 +4816,49 @@ relevant one before editing rather than scrolling:
   localizations** (`liveStreamClearBtn`, `clearLiveStreamingLocalizations()`) resets `allLocs`/
   `frameOffset`/`rawFrames`/the reconstruction to empty without touching `.active` — chunks keep
   arriving through the call, no reconnect needed.
+
+  **"Live streaming" (a plain text sub-heading) replaced with an "Enable live streaming?"
+  checkbox** (`liveStreamEnabled`, v0.12.3-dev, requested) that shows/hides **WebSocket URL**, the
+  **Connect**/**Clear** buttons, and the `#liveStreamStatus` line ("Not streaming."/"Streaming —
+  …") — unchecked by default, so this rarely-used, still-experimental path stays out of the way of
+  the far more common "just load a file" workflow, matching every other checkbox-reveals-a-
+  control-group precedent in this sidebar (`applySegmentation`, `smfretPairMethod`'s conditional
+  rows, etc.). `refreshLiveStreamEnabledUI()` toggles all four elements' own `style.display` — a
+  plain UI-reveal, not itself wired to `liveStreamState` at all: unchecking it mid-session does NOT
+  stop anything about an already-active stream, only hides these four controls (including its own
+  live status readout — a deliberate, requested follow-up correction from an earlier version of
+  this same round that left the status line always visible); the top-level **Stop** button remains
+  the one thing that actually ends a session, exactly as before this checkbox existed. Not a
+  `PARAMS` entry, same "pure display/layout" carve-out as UI theme/sidebar collapse state.
+  **WebSocket URL** is a plain, unindented `label.row` — a first version gave it `padding-left:40px`
+  to match this sidebar's usual "indent what a checkbox reveals" convention (`segAreaMinRow`/`Row`,
+  the drift-method-conditional rows), reverted on direct follow-up (the extra indent wasn't wanted
+  here). It stays a DIRECT child of its own `details.sim` either way, never wrapped in an
+  intermediate `<div>` — see this file's own `label.row` nesting-depth gotcha section.
+
+  **The two separate "more info…" popups (`hint-memory`/`hint-liveStreaming`) merged into one**
+  (requested, same round) — `hint-liveStreaming`'s own content (the experimental notice, the two
+  "ways in," Stop/FTM/raw-panel-scrubber/Clear-localizations/Correct-drift-mid-stream paragraphs)
+  was appended into `hint-memory`'s own DOCUMENTATION.md marker, right after the existing Budget/
+  Heap `<ul>`; the pill text became `module: in/out & liveStreaming` (mirroring `hint-drift`'s own
+  `module: drift & locprecision` precedent for exactly this kind of merge). `hint-liveStreaming`
+  and its own now-redundant `<button class="infobtn">` are gone entirely — `wireInfoButtons()`
+  needed no changes, since it already just reads whichever single `.hint` div is a button's own
+  `nextElementSibling`, regardless of how many exist app-wide.
+
+  **A real, reported bug caught in the same round, unrelated to either of the above**: the
+  WebSocket URL `<input type="text">` was the ONLY plain text input anywhere in the sidebar missing
+  `class="num"` — every other text-entry field, including the filter box (`#tableFilter`, itself
+  `type="text"` with no `type` attribute at all) already reuses this same class for its shared
+  sidebar-input look (background/border/padding/font-size), despite the class's own name suggesting
+  it's number-specific — `addNumberSteppers()`'s own `input.num[type="number"]` selector already
+  scopes the +/- stepper wrapping to actual number inputs only, so adding the class to a text input
+  is safe and adds no stepper buttons. Missing it left this one field rendering with the browser's
+  own unstyled default appearance (default font/size, a plain white background regardless of theme)
+  — visibly inconsistent next to every other sidebar control, exactly as reported ("font and font
+  size... seems to be different"). Fixed by adding `class="num"`; verified via Playwright that its
+  computed `font-size`/`font-family`/`background-color`/`padding` now match `#memgb` (a genuine
+  `.num` field) exactly.
 - **table** — the sortable, cumulatively-filterable localizations table ("View data/filtering")
   and per-column histograms. Committed filters set `renderLocs`, which drives the reconstruction
   live. The SR panel's crop tool (`cropBtn`, click two corners) is not a separate mechanism — it
@@ -5277,13 +5320,17 @@ in the repo.
   never hand-edit a `.hint` div directly, it'll be overwritten on the next sync. `--check` exits 1
   without writing if `webSMLM.html` would change, for a pre-commit/CI-style drift check. The
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is NOT part of the
-  synced content (kept as fixed markup in `webSMLM.html`). All 12 `.hint` divs
-  (`hint-memory`/`hint-liveStreaming`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
+  synced content (kept as fixed markup in `webSMLM.html`). All 11 `.hint` divs
+  (`hint-memory`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
   `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-sSMLM`/
   `hint-smfret`/`hint-spt`) use this mechanism — `hint-drift` covers Localization
   precision (NeNA/FRC) too, since that section was merged into Drift correction's
   own (see the **drift**/**locprecision** module bullets below); there is no
-  separate `hint-locprecision`. Each
+  separate `hint-locprecision`. `hint-memory` covers live streaming too, since
+  its own controls (**Enable live streaming?**/**WebSocket URL**/**Connect**/
+  **Clear**) sit inside the same "Memory & streaming" sidebar section (see the
+  **liveStreaming** module bullet below); there is no separate `hint-liveStreaming`
+  either. Each
   marker is placed as the INTRO to its DOCUMENTATION.md section, right after the PARAMS table — the
   surrounding prose picks up only where the popup leaves off, not restating it.
 - **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the
