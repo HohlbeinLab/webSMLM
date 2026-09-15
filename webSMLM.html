@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          2925   PARAMS registry, single source of truth for params;
+    params          2975   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          3880   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          3930   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4179   synthetic stack generator ("Simulate movie")
-    detect          5272   per-frame band-pass + local-maxima detection
-    fit             5549   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4229   synthetic stack generator ("Simulate movie")
+    detect          5322   per-frame band-pass + local-maxima detection
+    fit             5599   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6188   accumulate to offscreen buffer; view/colour/blur;
+    render          6238   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7694   frame-parallel detect/fit worker pool; dedicated
+    workers         7746   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8021   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8349   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8073   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8401   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           8815   AIM drift correction (2D+z); drift-vs-frame or
+    drift           8867   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -142,9 +142,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9610   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9662   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10344   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10396   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -354,7 +354,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14017   single particle tracking, trackpy-inspired;
+    spt             14069   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -385,7 +385,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15555  top-level orchestration, *Core()/wrapper split;
+    pipeline        15607  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -446,7 +446,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16225  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16277  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -500,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           18860  localizations table, filtering, histograms;
+    table           18927  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    19573  window.webSMLM.analyze()/analyzeBatch();
+    headless API    19640  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -1924,7 +1924,18 @@ X.B(E,Y);return E}return J}())
      drag. .dualrange::before draws the static neutral baseline; .dualrange-
      fill (positioned/sized in JS, syncRawContrastUI()) is the accent-coloured
      segment between the two current handle positions. */
-  .dualrange{position:relative;flex:1;height:20px}
+  /* min-width:70px stops flex-shrink crushing the actual draggable track
+     down to a near-unusable sliver on a narrow row — a real, reported
+     problem once Auto + the two .numflat boxes (below) sit on the SAME
+     row as this: without a floor, those fixed-size neighbours could eat
+     almost the whole row on a narrow/mobile viewport, squeezing the track
+     itself to ~20-30px. #rawContrastRow/#srContrastRow's own
+     flex-wrap:wrap (below) is what actually keeps the track USABLE at
+     that width — once it can't shrink any further, Auto+the value boxes
+     (grouped in their own wrapper span so they move together) drop to a
+     second line instead, rather than this min-width alone trying to force
+     an overflow. */
+  .dualrange{position:relative;flex:1;min-width:110px;height:20px}
   .dualrange::before{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:4px;background:var(--line);border-radius:2px}
   .dualrange-fill{position:absolute;top:50%;transform:translateY(-50%);height:4px;background:var(--accent);border-radius:2px;pointer-events:none}
   .dualrange input[type=range]{position:absolute;left:0;top:0;width:100%;height:20px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none}
@@ -1959,6 +1970,33 @@ X.B(E,Y);return E}return J}())
     -moz-appearance:textfield;appearance:textfield}
   input.num::-webkit-inner-spin-button,
   input.num::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+  /* Plain twin number inputs sitting directly next to a dual-range slider
+     (Contrast's own Black/White) — same look as input.num (background/
+     border/radius/font-size) but a DIFFERENT class on purpose, so
+     addNumberSteppers()'s own input.num[type="number"] selector skips it:
+     two adjacent min/max boxes read cleaner without a +/- stepper pair
+     bolted onto each one, and their own native spinner is suppressed the
+     same way input.num's is. */
+  /* height:20px (not padding-driven, like input.num's own 24px natural
+     height) matches the OTHER scrubber rows' own 20px .numstep-wrapped
+     input exactly — that height actually comes from .numstep's own
+     align-items:stretch squeezing the input down to match its sibling
+     .numstep-btns, a side effect invisible until an UNwrapped number
+     input (no stepper) sits in the same kind of row and renders taller by
+     comparison. flex-shrink:0 is required, not cosmetic: as a flex child
+     of #rawContrastV (display:flex below), a plain input.num-style
+     input's own default flex-shrink:1 combined with browser-dependent
+     content-based min-width can shrink two inputs by DIFFERENT amounts
+     depending on their own value's digit count (a real, reported bug —
+     "822" and "2056" rendered visibly different widths despite both
+     having the same explicit width:52px) — flex-shrink:0 pins the
+     explicit width unconditionally, so both always match. */
+  .numflat{width:52px;height:20px;line-height:18px;flex-shrink:0;
+    background:var(--bg);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:0 6px;font-size:12px;text-align:right;
+    -moz-appearance:textfield;appearance:textfield}
+  .numflat::-webkit-inner-spin-button,
+  .numflat::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
   /* addNumberSteppers() wraps the input in .numstep and appends
      .numstep-btns right after it — together they read as ONE control: the
      input keeps its left/top/bottom rounding and loses its right border,
@@ -2279,7 +2317,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.3-dev · build 2026-09-15c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.3-dev · build 2026-09-15d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2839,15 +2877,21 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
               <input type="number" id="smfretTraceScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a site number and press Enter to jump to it"><span id="smfretTraceScrubTotal" style="vertical-align:middle"> / 1</span>
             </span>
           </div>
-          <div id="rawContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
+          <div id="rawContrastRow" style="display:none;flex-wrap:wrap;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to every frame — set once, stays put while scrubbing">
             <span class="scrublabel" style="color:var(--muted);font-size:12px">Contrast</span>
-            <div class="dualrange" style="flex:0 1 55%">
+            <div class="dualrange" style="flex:1">
               <div id="rawContrastFill" class="dualrange-fill"></div>
               <input type="range" id="rawBlack" min="0" max="255" step="1" value="0">
               <input type="range" id="rawWhite" min="0" max="255" step="1" value="255">
             </div>
-            <span class="val" id="rawContrastV" style="min-width:110px;text-align:right;font-size:12px;white-space:nowrap">B &amp; W: 0-255</span>
-            <button id="rawContrastAutoBtn" class="logbtn" title="Reset Black/White to the auto-estimated default range">Auto</button>
+            <span style="display:flex;align-items:center;gap:10px;flex:0 0 auto">
+              <button id="rawContrastAutoBtn" class="logbtn" title="Reset Black/White to the auto-estimated default range">Auto</button>
+              <span class="val" id="rawContrastV" style="display:flex;align-items:center;gap:4px;white-space:nowrap">
+                <input type="number" id="rawBlackNum" class="numflat" min="0" step="1" value="0">
+                <span style="color:var(--muted)">–</span>
+                <input type="number" id="rawWhiteNum" class="numflat" min="0" step="1" value="255">
+              </span>
+            </span>
           </div>
         </div>
       </div>
@@ -2873,15 +2917,21 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
               <input type="number" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px">
             </span>
           </div>
-          <div id="srContrastRow" style="display:none;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to this composite">
+          <div id="srContrastRow" style="display:none;flex-wrap:wrap;margin-top:6px;align-items:center;gap:10px" title="Fixed brightness/contrast range applied to this composite">
             <span class="scrublabel" style="color:var(--muted);font-size:12px">Contrast</span>
-            <div class="dualrange" style="flex:0 1 55%">
+            <div class="dualrange" style="flex:1">
               <div id="srContrastFill" class="dualrange-fill"></div>
               <input type="range" id="srBlack" min="0" max="255" step="1" value="0">
               <input type="range" id="srWhite" min="0" max="255" step="1" value="255">
             </div>
-            <span class="val" id="srContrastV" style="min-width:110px;text-align:right;font-size:12px;white-space:nowrap">B &amp; W: 0-255</span>
-            <button id="srContrastAutoBtn" class="logbtn" title="Reset Black/White to the full auto-stretched range">Auto</button>
+            <span style="display:flex;align-items:center;gap:10px;flex:0 0 auto">
+              <button id="srContrastAutoBtn" class="logbtn" title="Reset Black/White to the full auto-stretched range">Auto</button>
+              <span class="val" id="srContrastV" style="display:flex;align-items:center;gap:4px;white-space:nowrap">
+                <input type="number" id="srBlackNum" class="numflat" min="0" step="1" value="0">
+                <span style="color:var(--muted)">–</span>
+                <input type="number" id="srWhiteNum" class="numflat" min="0" step="1" value="255">
+              </span>
+            </span>
           </div>
           <div id="smfretEHistDexRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span class="scrublabel" style="color:var(--muted);font-size:12px;white-space:nowrap">Min DD + DA</span>
@@ -7341,7 +7391,8 @@ function syncRawContrastUI(){
   const fB=frac(rawBlack), fW=frac(rawWhite);
   $('rawContrastFill').style.left=fillX(fB);
   $('rawContrastFill').style.width=`calc(${Math.max(0,fW-fB)}*(100% - ${DUALRANGE_THUMB_PX}px))`;
-  $('rawContrastV').textContent=`B & W: ${rawBlack.toFixed(0)}-${rawWhite.toFixed(0)}`;
+  $('rawBlackNum').max=$('rawWhiteNum').max=rawContrastMax;
+  $('rawBlackNum').value=rawBlack.toFixed(0); $('rawWhiteNum').value=rawWhite.toFixed(0);
 }
 // Re-renders the currently-cached raw frame at the new contrast without
 // re-fetching it from the stack (would lag while dragging a handle) —
@@ -7398,7 +7449,8 @@ function syncSrContrastUI(){
   const fB=frac(srBlack), fW=frac(srWhite);
   $('srContrastFill').style.left=fillX(fB);
   $('srContrastFill').style.width=`calc(${Math.max(0,fW-fB)}*(100% - ${DUALRANGE_THUMB_PX}px))`;
-  $('srContrastV').textContent=`B & W: ${srBlack.toFixed(0)}-${srWhite.toFixed(0)}`;
+  $('srBlackNum').max=$('srWhiteNum').max=srContrastMax;
+  $('srBlackNum').value=srBlack.toFixed(0); $('srWhiteNum').value=srWhite.toFixed(0);
 }
 // Re-renders the currently-cached composite at the new contrast without
 // re-averaging the stack — same "redraw from a cached source" shape as
@@ -17172,8 +17224,22 @@ $('rawWhite').addEventListener('input',e=>{ rawWhite=Math.max(+e.target.value,ra
 const logRawContrastChange=()=>log(`Raw frame Contrast: B & W = ${rawBlack.toFixed(0)}-${rawWhite.toFixed(0)}`);
 $('rawBlack').addEventListener('change',logRawContrastChange);
 $('rawWhite').addEventListener('change',logRawContrastChange);
+// rawBlackNum/rawWhiteNum (plain .numflat inputs, requested — a typed-in
+// alternative to dragging the slider, replacing the old read-only "B & W:
+// X-Y" text) mirror the sliders' own min()/max() clamp (each end can't
+// cross the other) so a stray edit can't invert the range; 'change' fires
+// the same log line the sliders' own drag-release already does, so typing
+// a value and pressing Enter/blurring is just as reproducible as dragging.
+$('rawBlackNum').addEventListener('input',e=>{ rawBlack=Math.max(0,Math.min(+e.target.value||0,rawWhite-1)); syncRawContrastUI(); redrawRawContrast(); });
+$('rawWhiteNum').addEventListener('input',e=>{ rawWhite=Math.min(rawContrastMax,Math.max(+e.target.value||0,rawBlack+1)); syncRawContrastUI(); redrawRawContrast(); });
+$('rawBlackNum').addEventListener('change',logRawContrastChange);
+$('rawWhiteNum').addEventListener('change',logRawContrastChange);
 $('srBlack').addEventListener('input',e=>{ srBlack=Math.min(+e.target.value,srWhite-1); syncSrContrastUI(); redrawSrContrast(); });
 $('srWhite').addEventListener('input',e=>{ srWhite=Math.max(+e.target.value,srBlack+1); syncSrContrastUI(); redrawSrContrast(); });
+// Same typed-input alternative as rawBlackNum/rawWhiteNum above, for the
+// SR-panel composite's own Contrast slider.
+$('srBlackNum').addEventListener('input',e=>{ srBlack=Math.max(0,Math.min(+e.target.value||0,srWhite-1)); syncSrContrastUI(); redrawSrContrast(); });
+$('srWhiteNum').addEventListener('input',e=>{ srWhite=Math.min(srContrastMax,Math.max(+e.target.value||0,srBlack+1)); syncSrContrastUI(); redrawSrContrast(); });
 $('srContrastAutoBtn').addEventListener('click',()=>{ if(!srCompositeProj) return; srFull=renderSrCompositeCanvas(srCompositeProj.data, srCompositeProj.w, srCompositeProj.h, true); drawView(); });
 $('rawContrastAutoBtn').addEventListener('click',async()=>{
   // Streaming has no `stack` at all (see MODULE: pipeline) — while it owns the raw panel
@@ -18734,9 +18800,10 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.3-dev · build 2026-09-15c — narrowed the sidebar/panel
-and panel/panel gaps (16px column gap → 6px) so both now measure 18px,
-matching the page's own left/right side-border margins exactly.`);
+log(`webSMLM v0.12.3-dev · build 2026-09-15d — Contrast slider redesigned:
+plain paired Black/White number inputs instead of "B & W:" text, Auto moved
+right after the slider, and the slider now reliably wraps to its own full-
+width line at narrow/mobile viewports instead of staying cramped.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
