@@ -834,16 +834,26 @@ relevant one before editing rather than scrolling:
   ~72px of actual glyph width), so a much SHORTER label sharing the same class and left-aligned by
   default (`"Frame"`, ~36px; `"Contrast"`, ~49px) left a large run of blank space INSIDE its own box,
   between its last letter and the box's own right edge, on top of the row's own flex `gap` — the
-  shorter the label, the bigger this leftover run. Fixed by adding `text-align:right` to
-  `.scrublabel` (collapses that leftover space to BEFORE the text instead of after it, so every row's
-  own last-letter-to-slider distance becomes just the flex gap, independent of that row's own label
-  length) and tightening `min-width` from 84px to 78px (a ~6px buffer over the measured ~72px longest
-  label, down from a ~12px buffer, since the buffer's own job is now just absorbing cross-browser
-  font-metric variance, not hiding an oversized box). Verified via Playwright: selecting each label's
-  own text range and measuring its right edge directly (not the box) confirms the FRAME and CONTRAST
-  labels' text now sits flush at the identical x-coordinate, with the gap to their own slider reduced
-  to exactly the row's flex gap (~10-12px) on both — and the narrow-viewport wrap sweep above still
-  reproduces unchanged (if anything, the tighter label box leaves a couple more px for the track).
+  shorter the label, the bigger this leftover run. **First fix tried**: `text-align:right` on
+  `.scrublabel` (collapses that leftover space to BEFORE the text instead of after it) plus
+  tightening `min-width` 84px→78px — closed the gap correctly, but on direct follow-up the user
+  said this wasn't what they wanted at all: they'd rather give up the shared-width cross-row
+  alignment entirely than keep the shared box — "I want left aligned (as it was) and the gap
+  narrower, meaning the grey bar larger and moved to the left." **Reverted to a different fix
+  instead**: `.scrublabel` dropped BOTH `min-width` and `text-align` entirely (`display:
+  inline-block` only) — no shared width at all, so each row's label (left-aligned, the default) is
+  exactly as wide as its own text, and that row's slider starts right after it. Rows no longer share
+  a common slider-start x (a short label's own row now starts its slider further left AND runs a
+  longer track than a long label's row — "Frame"'s track visibly starts earlier and reaches further
+  than "Contrast"'s, since "Frame" is the shorter string) — an explicit, confirmed trade-off:
+  per-row tightness over cross-row alignment. The row's own flex `gap` (10px) was ALSO reduced to
+  6px on every row in this family (`scrubRow`/`liveStreamScrubRow`/`smfretTraceScrubRow`/
+  `rawContrastRow`/`srContrastRow`/`smfretEHistDexRow`/`smfretEHistAARow`) for the same "narrower
+  gap" ask. Verified via Playwright: Frame and Contrast's own label LEFT edges now match (both flush
+  at the row's own start, as before either fix), each row's own label-to-slider gap measures the new
+  6px row gap (not the old 10-12px), and the mobile-scale wrap sweep still reproduces correctly
+  (the wrap threshold shifted slightly lower, ~375px→390px, from the smaller gap freeing a little
+  more room, but the track stays a usable size — ~119-159px — even in the narrow unwrapped band).
 
   **`rerender()`/`srNmPerPx()` guard against `lastResult` going null mid-render** — a genuine,
   pre-existing async race, found (not introduced) while Playwright-testing the terminal's new
@@ -3872,11 +3882,12 @@ relevant one before editing rather than scrolling:
 
   (3) **"Min D_ex" → "Min DD + DA"** (requested — clearer, since the quantity is literally
   `DD+DA`, not an opaque physics-jargon abbreviation) — display label only; `smfretMinDex` stays the
-  PARAMS id/settings-JSON key unchanged. Bumped `.scrublabel`'s own shared `min-width` (70px→84px at
-  the time, later retuned to 78px + `text-align:right` — see this module's own Contrast-slider
-  paragraph above for why, MODULE: params) to fit the new, longer longest-label — every OTHER row
-  sharing that class (Frame/Site/Contrast/Min AA) automatically gets the same, slightly wider column
-  for free, keeping their sliders still starting flush with each other.
+  PARAMS id/settings-JSON key unchanged. Bumped `.scrublabel`'s own shared `min-width` (70px→84px) at
+  the time to fit the new, longer longest-label — every OTHER row sharing that class (Frame/Site/
+  Contrast/Min AA) got the same, slightly wider column for free, keeping their sliders starting flush
+  with each other. **This shared width was later removed entirely** (see this module's own
+  Contrast-slider paragraph above, MODULE: params) — cross-row slider alignment was traded away on
+  direct request in favour of each row's own label sitting as close as possible to its own slider.
 
   (4) **The main-plot-to-marginal size RATIO now stays fixed on resize** (`ES_RATIO=2.5`, "subject
   to change" per the request) — a real, reported bug: `topH`/`rightW` (the marginal histograms' own
