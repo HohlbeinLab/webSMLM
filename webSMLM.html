@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.3-dev; may drift
+  MODULE INDEX — line numbers as of v0.12.3; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -507,7 +507,7 @@
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    19782  window.webSMLM.analyze()/analyzeBatch();
+    headless API    19816  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2185,14 +2185,20 @@ X.B(E,Y);return E}return J}())
      height math; field-sizing isn't supported everywhere yet, so it just
      stays a fixed 1-line box there (still fully usable — Shift+Enter still
      inserts a real newline, just scrolled within the box) rather than
-     failing outright. */
-  .logTerminalRow{display:flex;align-items:flex-start;gap:8px;margin-top:6px;
+     failing outright.
+     No leading ">" prompt column any more (reported — it kept the box from
+     spanning the full width of the log box above it, since that width was
+     shared with the flex row rather than the textarea alone) — #logTerminal
+     is now the row's only child, at `width:100%`/`box-sizing:border-box` so
+     it lines up with #log's own left/right edges exactly. Its own accent-
+     coloured border (matching .helpbtn's "Quick guide" outline) is what now
+     marks it as a distinct, actionable control instead of the prompt glyph. */
+  .logTerminalRow{display:flex;margin-top:6px;
     font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;}
-  .logTerminalPrompt{color:var(--muted);padding-top:6px;user-select:none}
-  #logTerminal{flex:1;resize:none;field-sizing:content;max-height:200px;overflow-y:auto;
-    background:var(--deep);border:1px solid var(--line);border-radius:8px;color:var(--fg);
+  #logTerminal{width:100%;box-sizing:border-box;resize:none;field-sizing:content;max-height:200px;overflow-y:auto;
+    background:var(--deep);border:1px solid var(--accent);border-radius:8px;color:var(--fg);
     padding:6px 9px;font:inherit}
-  #logTerminal:focus{outline:none;border-color:var(--accent)}
+  #logTerminal:focus{outline:none;box-shadow:0 0 0 2px var(--accent-tint)}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--accent);color:var(--accent)}
@@ -2331,7 +2337,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.3-dev · build 2026-09-16e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.3 · proof-of-concept</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2977,7 +2983,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span style="display:flex;align-items:center;gap:8px"><span>Log</span><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are shown as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Show as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button></span></h4>
       <div class="log" id="log"><div id="logText"></div></div>
       <div class="logTerminalRow" title="Type or paste a JS statement (e.g. a logged analyze({...}) call, edited or as-is) and press Enter to run it. ↑/↓ recalls previous statements — both ones you've run here and every action's own logged command.">
-        <span class="logTerminalPrompt">&gt;</span><textarea id="logTerminal" rows="1" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — Enter to run, ↑/↓ for history"></textarea>
+        <textarea id="logTerminal" rows="1" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — Enter to run, ↑/↓ for history"></textarea>
       </div>
   </main>
 </div>
@@ -18942,10 +18948,11 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.3-dev · build 2026-09-16e — the SOI composite's own
-Contrast range now remembers each channel (DD+DA/AA) separately: a manual
-adjustment survives toggling to the other channel and back, instead of
-being silently re-auto-estimated away on every click.`);
+log(`webSMLM v0.12.3 — layout-gap consistency, a redesigned Contrast
+slider (now with plain Black/White boxes), a real min/max range for the
+E/S histogram's DD+DA/AA thresholds, a per-channel Contrast-memory bug
+fix, and terminal/hotkey polish (no more ">" prompt, three new
+Alt+Shift shortcuts). See CHANGELOG.md for the full summary.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -19645,6 +19652,22 @@ const HOTKEY_DIGITS=['1','2','3','4','5','6','7','8','9','0'];
 const HOTKEY_CODES=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0'];
 const HOTKEY_BUTTONS=['loadBtn','genBtn','loadSetBtn','saveSetBtn','runBtn','stopBtn','saveBtn','saveImgBtn','tableBtn','helpBtn'];
 const HOTKEY_SECTIONS=['locBox','renderBox','driftBox','simBox','memBox','pcfoBox','calibBox','sSmlmBox','smfretBox','sptBox'];
+// Alt+Shift+<letter> single fixed bindings (requested) — same shape as
+// Alt+T's own dedicated check below (not part of the numbered digit
+// lists, since there's no natural "10-item, on-screen-position" set these
+// belong to), but Shift-gated rather than "either Shift state": P/F/S
+// aren't used for anything else, but requiring Shift keeps every letter
+// key consistent with the rest of this app's own Alt-alone-vs-Alt+Shift
+// convention (buttons vs. sections) instead of adding a THIRD ungated
+// tier. `kind:'focus'` scrolls to and focuses (+selects, so retyping a
+// short numeric field doesn't need deleting the old value first) a plain
+// input; `kind:'click'` clicks a button, same as a digit hotkey's own
+// non-Shift branch.
+const HOTKEY_LETTERS={
+  KeyP:{id:'pxnm', kind:'focus', label:'P'},
+  KeyF:{id:'frametime', kind:'focus', label:'F'},
+  KeyS:{id:'layoutToggleBtn', kind:'click', label:'S'},
+};
 function wireHotkeys(){
   let hints=[];
   const clearHints=()=>{ hints.forEach(el=>el.remove()); hints=[]; };
@@ -19665,7 +19688,7 @@ function wireHotkeys(){
   // is shown alongside EITHER digit set, not one more numbered entry in
   // HOTKEY_BUTTONS/SECTIONS — it's a single fixed binding (focus the log
   // terminal), not a 10-item, on-screen-position-indexed list like those.
-  const showHints=ids=>{
+  const showHints=(ids,shiftOn)=>{
     clearHints();
     ids.forEach((id,i)=>{
       const target=$(id); if(!target) return;
@@ -19674,8 +19697,12 @@ function wireHotkeys(){
       addHint(anchor, HOTKEY_DIGITS[i]);
     });
     addHint($('logTerminal'), 'T');
+    // HOTKEY_LETTERS' own badges only show alongside the Shift-held hint set
+    // (sections) — they're Shift-gated bindings too (see that const's own
+    // comment), unlike Alt+T which shows either way.
+    if(shiftOn) for(const code in HOTKEY_LETTERS){ const a=HOTKEY_LETTERS[code]; addHint($(a.id), a.label); }
   };
-  const refresh=(altOn,shiftOn)=>{ if(!altOn){ clearHints(); return; } showHints(shiftOn?HOTKEY_SECTIONS:HOTKEY_BUTTONS); };
+  const refresh=(altOn,shiftOn)=>{ if(!altOn){ clearHints(); return; } showHints(shiftOn?HOTKEY_SECTIONS:HOTKEY_BUTTONS, shiftOn); };
   window.addEventListener('keydown',e=>{
     if(e.key==='Alt'){ refresh(true,e.shiftKey); return; }
     if(e.key==='Shift'&&e.altKey){ refresh(true,true); return; }
@@ -19686,6 +19713,14 @@ function wireHotkeys(){
     if(e.code==='KeyT'){
       e.preventDefault();
       const ta=$('logTerminal'); ta.scrollIntoView({behavior:'smooth',block:'center'}); ta.focus();
+      return;
+    }
+    // Alt+Shift+P/F/S — see HOTKEY_LETTERS' own comment above.
+    if(e.shiftKey && HOTKEY_LETTERS[e.code]){
+      e.preventDefault();
+      const a=HOTKEY_LETTERS[e.code], el=$(a.id); if(!el) return;
+      if(a.kind==='focus'){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus(); el.select(); }
+      else if(!el.disabled) el.click();
       return;
     }
     const i=HOTKEY_CODES.indexOf(e.code); if(i<0) return;

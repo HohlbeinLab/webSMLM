@@ -83,7 +83,13 @@ instead toggle one of the 10 collapsible module sections below open/closed,
 scrolling to and focusing its header so the next Tab press lands on that
 section's first field. A hint only appears for a button that's currently
 enabled or a section currently on screen; the digit each one maps to never
-changes based on that, so it stays predictable across sessions.
+changes based on that, so it stays predictable across sessions. **Alt+T**
+(either Shift state) jumps straight to the log terminal (below). A handful
+of single, fixed **Alt+Shift** letter bindings — shown as their own hint
+badges alongside the section digits — reach a few frequently-used fields
+directly: **Alt+Shift+P** jumps to and selects **Pixel size (nm)**,
+**Alt+Shift+F** to **Frame time (s)**, and **Alt+Shift+S** clicks the
+**Stack panels**/**Side by side** toggle.
 
 ### Sidebar — Pixel size (nm) / Frame time (s) {#sidebar-pxnm-frametime}
 
@@ -291,7 +297,9 @@ fires on a genuine release change, not routine local development reloads.
 
 **The log doubles as an interactive JavaScript terminal.** Directly below the
 log text (now a fixed 12 lines tall, with its own scrollbar for anything
-older) is a one-line, auto-growing input with a `>` prompt — **Alt+T**
+older) is a one-line, auto-growing input box, the same width as the log box
+above it and outlined in the accent colour (no leading prompt glyph — the
+outline itself marks it as a distinct, actionable control) — **Alt+T**
 (either Shift state) jumps straight to it from anywhere on the page, the
 same way Alt+1–0 reaches the top-level action buttons. Because almost every
 action already logs a directly-runnable `analyze({...})` call, you can type

@@ -4431,6 +4431,32 @@ relevant one before editing rather than scrolling:
   factored out of `showHints()`'s per-target loop so both call sites share it), shown alongside
   EITHER digit set since Alt+T isn't itself Shift-gated.
 
+  **`HOTKEY_LETTERS`** (v0.12.3, requested — three more single, fixed bindings for frequently-used
+  fields that don't belong to either 10-item list) adds **Alt+Shift+P** (`pxnm`, "Pixel size (nm)"),
+  **Alt+Shift+F** (`frametime`, "Frame time (s)"), and **Alt+Shift+S** (`layoutToggleBtn`, "Stack
+  panels"/"Side by side"). Unlike Alt+T, these ARE Shift-gated — P/F/S aren't bound to anything else,
+  but requiring Shift keeps every letter-key binding consistent with this app's own established
+  Alt-alone-vs-Alt+Shift split (buttons vs. sections) rather than adding a third, ungated tier of
+  shortcuts. A shared `{id, kind, label}` table (`kind:'focus'` scrolls-to+focuses+`.select()`s a
+  plain input, so retyping a short numeric field doesn't need deleting the old value first;
+  `kind:'click'` clicks a button, same as a digit hotkey's own non-Shift branch) — checked right
+  after the Alt+T check, same "single fixed binding, not through the digit lookup" shape. Their own
+  hint badges only show alongside the SHIFT-held set (`showHints()` gained an optional `shiftOn`
+  parameter for this) — unlike Alt+T's own badge, shown either way, these three are only ever
+  reachable with Shift held, so showing them during the Alt-alone (button) hint set would advertise a
+  binding that wouldn't actually fire yet.
+
+  **The log terminal's own `>` prompt was dropped** (v0.12.3, reported — it kept `#logTerminal` from
+  spanning the full width of the `#log` box directly above it, since that width used to be shared
+  between the prompt glyph's own column and the textarea in one flex row, rather than the textarea
+  alone). `.logTerminalPrompt` (the `<span>` holding the glyph) is gone from both the HTML and CSS;
+  `#logTerminal` is now the row's only child, `width:100%`/`box-sizing:border-box` so it lines up
+  with `#log`'s own left/right edges exactly. Its border is now a permanent `var(--accent)` (matching
+  `.helpbtn`'s "Quick guide" outline, requested as the visual cue replacing the removed prompt glyph)
+  rather than only turning accent-coloured on focus; focus itself is now shown via a `box-shadow`
+  glow (`var(--accent-tint)`) instead of a border-colour change, since the border no longer HAS an
+  unfocused colour to change away from.
+
   **Load movie/data** (`loadBtn`) is one button over ONE hidden `#file` input whose `accept` lists
   `.tif,.tiff,.nd2,.csv` together. Dispatch is by file EXTENSION alone (`/\.csv$/i`) — real content
   sniffing for the movie side (`isTiffFile()`/`isNd2File()`) still happens downstream, inside
