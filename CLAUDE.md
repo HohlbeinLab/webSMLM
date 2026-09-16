@@ -855,6 +855,14 @@ relevant one before editing rather than scrolling:
   (the wrap threshold shifted slightly lower, ~375px→390px, from the smaller gap freeing a little
   more room, but the track stays a usable size — ~119-159px — even in the narrow unwrapped band).
 
+  **The "–" separator between the Black/White (and, later, the E/S histogram's own Min/Max) boxes
+  was dropped** (v0.12.3-dev, requested, same round the E/S histogram range selectors below were
+  built) — `rawBlackNum`/`rawWhiteNum`/`srBlackNum`/`srWhiteNum`'s own wrapper already has
+  `gap:4px`, which reads as plenty of separation between two adjacent boxes on its own; the extra
+  `<span>–</span>` was redundant. Removing it is HTML-only — no CSS/JS changes needed, since the
+  wrapper's own flex `gap` already accounted for the space between the dash and each box, not just
+  around it.
+
   **`rerender()`/`srNmPerPx()` guard against `lastResult` going null mid-render** — a genuine,
   pre-existing async race, found (not introduced) while Playwright-testing the terminal's new
   GUI/terminal parity work (see **pipeline**): `rerender()`'s own EARLY `if(!lastResult) return;`
@@ -3968,6 +3976,60 @@ relevant one before editing rather than scrolling:
   first (193,162 real localizations found on the whole 500-frame movie using the fast Phasor method
   for the check) before estimating drift and completing — slower (as documented/expected for AIM),
   but not stuck or broken.
+
+  **`smfretMinDex`/`smfretMinAA` widened from a single MIN-only threshold into a real [min,max]
+  RANGE, matching the Contrast slider's own redesign** (v0.12.3-dev, requested — the same round that
+  redesigned the raw-panel Contrast slider itself ended with "we might apply it to the E/S histogram
+  slider to offer access to both a min and a max selecting a range rather than a single value";
+  greenlit directly this round, along with dropping the "–" separator between Contrast's own Black/
+  White boxes — `rawBlackNum`/`rawWhiteNum`/`srBlackNum`/`srWhiteNum`'s own `gap:4px` wrapper is
+  enough spacing on its own, the dash was redundant). New `smfretMaxDex`/`smfretMaxAA` PARAMS entries
+  (`default:Infinity`, "0 to inf" requested) sit alongside the existing `smfretMinDex`/`smfretMinAA` —
+  Min's own meaning/id/default (0) are UNCHANGED, only a Max half was added. `#smfretEHistDexRow`/
+  `AARow` were rebuilt from a single `<input type=range>`+one number box into the exact same
+  `.dualrange`/`.dualrange-fill`/`.numflat` markup the Contrast slider uses (`smfretDexFill`/
+  `smfretAAFill`, `smfretMin<X>Range`/`smfretMax<X>Range`, `smfretMin<X>`/`smfretMax<X>` — `X` is
+  `Dex` or `AA`) — same look, same `flex-wrap:wrap` narrow-viewport behaviour, no +/− steppers.
+
+  **Representing "no upper limit" in a `<input type=number>` box reuses an ALREADY-established
+  app-wide convention, not a new mechanism**: `fitLastFrame`'s own `default:Infinity` already means
+  "leave the HTML `value` attribute unset" — `paramValue()`'s existing `parseFloat('')→NaN→
+  isFinite() false→fall back to spec.default` chain resolves a blank field straight to `Infinity`
+  with no code change needed. `smfretMaxDex`/`smfretMaxAA`'s own HTML carries no `value` (just a
+  `placeholder="∞"` hint, `fitLastFrame` has none since blank-means-unlimited is less visually
+  surprising for a frame-range field than an intensity threshold). The corresponding MAX range
+  THUMB — which, unlike a number box, cannot itself represent "infinity" — is shown at the slider's
+  own CURRENT ceiling whenever the Max box is blank (`smfretSyncRangeUI(prefix)`, mirroring
+  `syncRawContrastUI()`'s own thumb-inset `calc()` math): purely cosmetic, since nothing in the
+  loaded data can exceed that ceiling anyway, so the slider visually reads "no limit" rather than
+  looking stuck at 0. Dragging that thumb (or typing any real number) commits an actual, finite
+  cutoff; clearing the Max box's own text back to empty (`wireSmfretRangeSlider()`'s own `onMax`
+  handler checks for `raw===''` explicitly) reverts to "no limit" again, snapping the thumb back to
+  the ceiling on the next sync.
+
+  `smfretPoolE(minDex,maxDex)`/`smfretPoolES(minDex,maxDex,minAA,maxAA)` (renamed call signatures,
+  same functions) gained a plain `dex>maxDex`/`A>maxAA` upper check each — a no-op whenever the
+  bound is `Infinity` (any real value compares `<=Infinity`), so the existing MIN-only behaviour is
+  reproduced exactly until a user actually sets a Max. `smfretFmtRange(min,max)` (new, right before
+  `smfretPoolE`) renders `"X–Y"` for an explicit range or `"X–∞"` once the upper bound resolves to
+  `Infinity`, replacing every `srInfo`/"no samples" readout's own previous `"D_ex ≥ X"` wording (a
+  MIN-only phrasing that stopped being accurate once a Max exists) — used by both `drawSmfretEHist()`
+  and `drawSmfretESPlot()`, both of which also gained matching `maxDex`/`maxAA` reads. `smfretUpdate
+  EHistThresholdRanges()` sets BOTH range inputs' own ceiling (previously only one), clamps an
+  EXPLICIT (non-blank) Max down if a smaller re-run now falls under it (a blank one needs no clamping
+  — it already tracks whatever the new ceiling is). `exportSmfretTraces()`'s own `e_s_histogram`
+  payload gained `max_dex`/`max_aa` (serializing as JSON `null` when `Infinity`, `JSON.stringify`'s
+  own existing convention — no special-casing needed); `loadSmfretTraces()` restores them the same
+  way, explicitly blanking the Max box back to "no limit" on a `null`/missing value rather than
+  leaving a stale value from an earlier load in place. `smfretEHistLogIfShown()`'s own `cmdCfg` gained
+  the two Max fields alongside their existing Min counterparts.
+
+  Verified via Playwright with a synthetic ALEX-alternating trace population: the E/S histogram
+  correctly pools 200 samples at the default 0–∞/0–∞ range; dragging the DD+DA max thumb down to
+  roughly half the observed ceiling correctly drops the pass count to 0 (the synthetic DD+DA sum sits
+  entirely above that threshold) with `srInfo` reading `"D_ex 0–490, AA 0–∞"`; clearing the Max
+  number box back to empty text restores all 200 samples and `"D_ex 0–∞"` — confirming the blank/
+  Infinity round trip works both ways, not just at initial load.
 
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
