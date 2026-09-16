@@ -787,6 +787,64 @@ relevant one before editing rather than scrolling:
   value it always was (see the paragraph above); the log line is purely a visibility aid for
   reproducing what an exported raw-frame PNG actually looked like, not a replayable command.
 
+  **The Contrast row's "B & W:" text readout replaced with two plain, editable number inputs**
+  (requested, v0.12.3-dev — "add to input fields next to each other, but without the - and +
+  Inkscape-style additions"). `.numflat` (next to `input.num`'s own rule) is a DELIBERATELY separate
+  class from `.num` — `addNumberSteppers()` (MODULE: params) wraps every `input.num` in a stepper
+  span unconditionally, and this control explicitly doesn't want that. `rawBlackNum`/`rawWhiteNum`
+  (and their `sr`-prefixed siblings) sit in a small `flex` wrapper (`gap:4px`) right after **Auto**
+  (moved to sit immediately after the slider, then the two boxes — previously slider→boxes→Auto,
+  reordered on request); `syncRawContrastUI()`/`syncSrContrastUI()` write `.value`/`.max` onto them
+  instead of `.textContent` on the old combined span. Needed 3 real CSS fixes, not just markup: (1)
+  a height mismatch (24px vs. the row's own 20px) traced to `.numstep{align-items:stretch}` (MODULE:
+  params) squeezing a WRAPPED `.num` input down to match its shorter `.numstep-btns` sibling — a side
+  effect invisible until an unwrapped input rendered at its own natural, taller height with nothing to
+  constrain it; fixed with explicit `height:20px;line-height:18px` on `.numflat`. (2) unequal box
+  widths (e.g. "822" narrower than "2056") traced to the two inputs' own default `flex-shrink:1`
+  letting them shrink by different, content-dependent amounts inside their flex wrapper despite an
+  identical explicit `width:52px`; fixed with `flex-shrink:0`. (3) `.dualrange`'s own inline
+  `style="flex:0 1 55%"` — a hard-capped, non-growing flex-basis with no documented rationale anywhere
+  in this file, inconsistent with every OTHER scrubber slider (`style="flex:1"`) — replaced with plain
+  `flex:1`, matching that convention.
+
+  **A follow-up regression at mobile-scale widths (~390px), reported with a screenshot**: the
+  redesign held up at desktop width but the slider's own track collapsed to ~75px there, because
+  Auto + the two `.numflat` boxes consumed most of the row and `flex-wrap:wrap` (added to
+  `#rawContrastRow`/`#srContrastRow`'s own inline style, with Auto+the value-boxes grouped into one
+  `<span style="flex:0 0 auto">` so they move together as a unit) never actually triggered — the row's
+  own combined MIN-CONTENT width (label + `.dualrange`'s own `min-width:70px` + the Auto/boxes group)
+  still fit inside the row at that width, just barely, leaving the slider pinned at its bare
+  min-width with nothing to spare. Fixed by raising `.dualrange{min-width:70px→110px}` — enough to
+  push the row's own combined minimum past its available width at mobile scale, so it now correctly
+  wraps (the slider gets its own full-width line, 186-280px across a 320-414px sweep) while staying
+  single-line and unaffected at desktop widths (verified via a Playwright sweep, 320-860px, plus
+  before/after screenshots in both dark and light theme).
+
+  **A second follow-up, reported with a screenshot and clarified over two rounds of back-and-forth**:
+  "the gap is still huge" between a label (e.g. "Contrast") and its own slider. First measured
+  directly to rule out the obvious reading — the actual DOM gap from label-box edge to
+  `.dualrange`'s own left edge was already ~10-12px on both Frame and Contrast rows, imperceptibly
+  different — and a reproduction at the reported (light-theme) values (`rawBlack=822,
+  rawWhite=2056`, max ~2400) matched the user's screenshot pixel-for-pixel, confirming the visible
+  gray segment right of the label was the real, correct 0→Black portion of the track (34% of it at
+  those values), not a layout defect. The user's own follow-up clarified the actual complaint: the
+  distance from the label's own LAST LETTER (not the label's own box edge) to the track — i.e.
+  `.scrublabel`'s shared `min-width` (see the "Min D_ex" → "Min DD + DA" paragraph elsewhere in this
+  module) was sized to the LONGEST label across the whole shared-class family (`"Min DD + DA"`,
+  ~72px of actual glyph width), so a much SHORTER label sharing the same class and left-aligned by
+  default (`"Frame"`, ~36px; `"Contrast"`, ~49px) left a large run of blank space INSIDE its own box,
+  between its last letter and the box's own right edge, on top of the row's own flex `gap` — the
+  shorter the label, the bigger this leftover run. Fixed by adding `text-align:right` to
+  `.scrublabel` (collapses that leftover space to BEFORE the text instead of after it, so every row's
+  own last-letter-to-slider distance becomes just the flex gap, independent of that row's own label
+  length) and tightening `min-width` from 84px to 78px (a ~6px buffer over the measured ~72px longest
+  label, down from a ~12px buffer, since the buffer's own job is now just absorbing cross-browser
+  font-metric variance, not hiding an oversized box). Verified via Playwright: selecting each label's
+  own text range and measuring its right edge directly (not the box) confirms the FRAME and CONTRAST
+  labels' text now sits flush at the identical x-coordinate, with the gap to their own slider reduced
+  to exactly the row's flex gap (~10-12px) on both — and the narrow-viewport wrap sweep above still
+  reproduces unchanged (if anything, the tighter label box leaves a couple more px for the track).
+
   **`rerender()`/`srNmPerPx()` guard against `lastResult` going null mid-render** — a genuine,
   pre-existing async race, found (not introduced) while Playwright-testing the terminal's new
   GUI/terminal parity work (see **pipeline**): `rerender()`'s own EARLY `if(!lastResult) return;`
@@ -3814,10 +3872,11 @@ relevant one before editing rather than scrolling:
 
   (3) **"Min D_ex" → "Min DD + DA"** (requested — clearer, since the quantity is literally
   `DD+DA`, not an opaque physics-jargon abbreviation) — display label only; `smfretMinDex` stays the
-  PARAMS id/settings-JSON key unchanged. Bumped `.scrublabel`'s own shared `min-width` (70px→84px,
-  MODULE: params) to fit the new, longer longest-label — every OTHER row sharing that class
-  (Frame/Site/Contrast/Min AA) automatically gets the same, slightly wider column for free, keeping
-  their sliders still starting flush with each other.
+  PARAMS id/settings-JSON key unchanged. Bumped `.scrublabel`'s own shared `min-width` (70px→84px at
+  the time, later retuned to 78px + `text-align:right` — see this module's own Contrast-slider
+  paragraph above for why, MODULE: params) to fit the new, longer longest-label — every OTHER row
+  sharing that class (Frame/Site/Contrast/Min AA) automatically gets the same, slightly wider column
+  for free, keeping their sliders still starting flush with each other.
 
   (4) **The main-plot-to-marginal size RATIO now stays fixed on resize** (`ES_RATIO=2.5`, "subject
   to change" per the request) — a real, reported bug: `topH`/`rightW` (the marginal histograms' own
