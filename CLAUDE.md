@@ -4061,6 +4061,47 @@ relevant one before editing rather than scrolling:
   number box back to empty text restores all 200 samples and `"D_ex 0–∞"` — confirming the blank/
   Infinity round trip works both ways, not just at initial load.
 
+  **A genuinely different "range" — the SOI composite's own Contrast (Black/White) range per
+  channel — was silently discarded on every DD+DA<->AA toggle, a real reported bug** (not the E/S
+  histogram thresholds above, despite the similar wording): `locateSmfretSOI()`, `showStackProjection()`
+  and `toggleSmfretAlignOverlay()`'s own switch-back branch all called `renderSrCompositeCanvas(...,
+  true)` UNCONDITIONALLY every time a channel's composite was (re)built — including on every single
+  `toggleAlexProjChannel()` click — so a by-hand Contrast drag made while viewing DD+DA was silently
+  re-auto-estimated away the moment the user toggled to AA and back. Fixed with a new module-level
+  `smfretContrastByChannel` (`{dirDonorExc:null, dirAcceptorExc:null}`, declared next to
+  `alexProjChannel` itself) holding `{black,white,max}` once the user manually touches Contrast while
+  a given channel's composite is showing, or `null` if it's never been touched (meaning: keep
+  auto-estimating). A new `renderSrCompositeForChannel(proj,w,h)` (right after
+  `renderSrCompositeCanvas()` itself, MODULE: render) is now the SINGLE place all three call sites
+  reach to build a channel's own composite — checks `smfretContrastByChannel[alexProjChannel]` first,
+  restoring a saved range (`srBlack`/`srWhite`/`srContrastMax` set explicitly, then
+  `renderSrCompositeCanvas(...,false)` so it doesn't re-estimate) or auto-estimating fresh
+  (`renderSrCompositeCanvas(...,true)`) if nothing's saved yet — replacing each of those three
+  functions' own previous `renderSrCompositeCanvas(...,true)` call directly. `redrawSrContrast()`
+  (the shared redraw every Contrast drag/type already funnels through) writes the current
+  `srBlack`/`srWhite`/`srContrastMax` into `smfretContrastByChannel[alexProjChannel]` right after
+  redrawing — the ONE place a "the user just changed it by hand" moment is unambiguous, since the
+  alignment overlay's own redraw path bails out before reaching this line (that view isn't part of
+  the DD+DA/AA toggle at all). `srContrastAutoBtn`'s own click handler explicitly clears
+  `smfretContrastByChannel[alexProjChannel]` before re-estimating — clicking **Auto** is a deliberate
+  "stop overriding this channel" action, not itself another override to remember. `toggleSmfretAlignOverlay()`'s
+  switch-back branch also force-sets `alexProjChannel='dirDonorExc'` immediately before calling the
+  helper — that branch always shows the DONOR composite specifically (Align channels only ever runs
+  against it, per that function's own existing comment), so this guarantees the cache read/write
+  targets the correct slot regardless of whichever channel happened to be showing before Align
+  channels ran. Reset alongside `smfretDonorCompositeImg`/`smfretAcceptorCompositeImg` at the same two
+  points those already reset (`clearSmfretFixSOI()`, `initScrub()`'s fresh-stack-load block) — a stale
+  by-hand range from an earlier dataset must not silently carry over to a new one; deliberately NOT
+  reset on an ordinary Localize SOI re-run with the SAME movie still loaded (a detection-setting
+  tweak), since keeping a still-reasonable Contrast range across that kind of refresh is the same
+  "don't discard my by-hand setting for no reason" principle this whole fix is about. Verified
+  directly (calling `renderSrCompositeForChannel()`/`redrawSrContrast()` with synthetic proj arrays,
+  not a real ALEX movie): DD+DA auto-estimates first, a manual (100,500) survives a full DD+DA→AA→
+  DD+DA round trip untouched, AA independently auto-estimates on its own first build and separately
+  remembers its own manual (50,300) across a round trip without disturbing DD+DA's, and clicking the
+  Auto-equivalent for AA correctly makes a SUBSEQUENT round trip re-auto-estimate instead of restoring
+  the old manual value.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
