@@ -855,6 +855,36 @@ relevant one before editing rather than scrolling:
   (the wrap threshold shifted slightly lower, ~375px→390px, from the smaller gap freeing a little
   more room, but the track stays a usable size — ~119-159px — even in the narrow unwrapped band).
 
+  **A fourth round reversed course again, this time landing on the actual final design** — a
+  screenshot of the just-shipped no-shared-width state ("Site"'s slider starting well left of
+  "Contrast"'s) drew: "make sure that the starting positions of the selection bars are left aligned
+  and not in a constant distance to the leading text." Read precisely, this asks for the OPPOSITE of
+  the immediately-preceding fix: every row's slider should start at the SAME x (cross-row alignment,
+  the very thing just given up), NOT at `that row's own text width + the row's flex gap` (which is
+  exactly what "no shared width" produces — a per-row CONSTANT distance from each row's own text,
+  precisely the phrase used). Reconciling this with the two earlier, seemingly incompatible asks
+  ("left aligned, not right" from round 3; "gap narrower" from round 2) landed on a variant of the
+  VERY FIRST design (shared `min-width`, left-aligned) rather than anything tried in between — the
+  key realization: round 1's shared width (84px) was sized to `"Min DD + DA"` (11 characters), a
+  label that had since been shortened to `"DD + DA"` (this same session, an unrelated rename) — by
+  the time this fourth round happened, NOTHING in this shared-class family was anywhere near that
+  wide any more (`"Contrast"`/`"DD + DA"` both measure 49px at this row family's own 12px font,
+  `"Frame"` 36px, `"Site"` 22px, `"AA"` 17px — measured directly via a detached, unstyled span
+  rather than guessed). A shared width sized to the group's own CURRENT longest label (54px, a 5px
+  buffer over the measured 49px) reproduces round 1's cross-row alignment with a MUCH smaller
+  leftover gap than round 1 ever had (a short label's own worst case, `"AA"`, now has ~37px of
+  leftover box space plus the 6px row gap, versus round 1's `"Frame"` having ~48px of leftover box
+  space plus the original 10px row gap) — small enough that it no longer reads as "huge" the way the
+  original report did, while still satisfying "left aligned" (not right) and genuine cross-row
+  alignment. This is a real, inherent trade-off, not a bug still being chased: keeping every row's
+  slider aligned to a shared x necessarily leaves SOME unused box space after a short label's own
+  text — eliminating that space entirely requires either right-aligning (rejected in round 3) or
+  giving up alignment (rejected in round 4); shrinking the shared width to match what's actually
+  used is the only lever left, and this round used it. Verified via Playwright: Frame's and
+  Contrast's own sliders now start within 2px of each other (373px vs. 372px, sub-pixel box-model
+  rounding, not a real misalignment), the smFRET DD + DA/AA pair aligns the same way, and the
+  mobile-scale wrap sweep still reproduces correctly at a usable track size throughout.
+
   **The "–" separator between the Black/White (and, later, the E/S histogram's own Min/Max) boxes
   was dropped** (v0.12.3-dev, requested, same round the E/S histogram range selectors below were
   built) — `rawBlackNum`/`rawWhiteNum`/`srBlackNum`/`srWhiteNum`'s own wrapper already has
