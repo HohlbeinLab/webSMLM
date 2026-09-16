@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.4; may drift
+  MODULE INDEX — line numbers as of v0.12.5-dev; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3064   PARAMS registry, single source of truth for params;
+    params          3097   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMobileViewport() (memgb's own lower default on
                            a narrow viewport); log()/logCmd() — prose gets a
@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4031   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4064   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4330   synthetic stack generator ("Simulate movie")
-    detect          5423   per-frame band-pass + local-maxima detection
-    fit             5700   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4363   synthetic stack generator ("Simulate movie")
+    detect          5456   per-frame band-pass + local-maxima detection
+    fit             5733   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6339   accumulate to offscreen buffer; view/colour/blur;
+    render          6372   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7866   frame-parallel detect/fit worker pool; dedicated
+    workers         7899   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8193   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8521   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8226   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8554   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9004   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9037   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -142,9 +142,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9799   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9832   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10533   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10566   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -354,7 +354,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14272   single particle tracking, trackpy-inspired;
+    spt             14313   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -385,7 +385,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15810  top-level orchestration, *Core()/wrapper split;
+    pipeline        15851  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -446,7 +446,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16480  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16552  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -500,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19134  localizations table, filtering, histograms;
+    table           19226  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    19875  window.webSMLM.analyze()/analyzeBatch();
+    headless API    19967  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2268,6 +2268,10 @@ X.B(E,Y);return E}return J}())
     background:var(--deep);border:1px solid var(--deep);border-radius:8px;color:var(--fg);
     padding:6px 9px;font:inherit}
   #logTerminal:focus{outline:none;box-shadow:0 0 0 2px var(--accent-tint)}
+  /* Hidden on desktop (physical ↑/↓ already work there) — shown at the
+     mobile breakpoint below, next to the other max-width:860px rules. */
+  .logTerminalMobileNav{display:none;gap:6px;margin-top:6px}
+  .logTerminalMobileNav button{width:auto;flex:1 1 0}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--surface);color:var(--muted)}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--surface);color:var(--accent)}
@@ -2363,8 +2367,17 @@ X.B(E,Y);return E}return J}())
     #scrim{display:block;position:fixed;inset:0;background:transparent;z-index:35}
     /* iOS auto-zooms when focusing an input whose font is <16px; 16px stops that
        (and shows the numbers larger, which is fine on mobile) without disabling
-       pinch-zoom elsewhere. */
-    input.num,select.sel{font-size:16px}
+       pinch-zoom elsewhere. .numflat (the Contrast slider's Black/White boxes,
+       and the E/S histogram's DD+DA/AA range boxes — added after this rule was
+       first written, missed then, reported) is a DELIBERATELY separate class
+       from .num (so addNumberSteppers() skips it, see .numflat's own comment)
+       but needs the identical mobile-zoom fix — it's still a real, focusable
+       number input, the class split was only ever about the +/- steppers. */
+    input.num,select.sel,.numflat{font-size:16px}
+    /* No physical ↑/↓ keys on an on-screen keyboard (reported) — these
+       mirror the keyboard shortcut exactly (see logTerminalUpBtn/DownBtn's
+       own click wiring, next to the terminal's keydown listener). */
+    .logTerminalMobileNav{display:flex}
     body.side-hidden #scrim{pointer-events:none}   /* drawer closed → clicks pass through to the canvases */
     .canvases{grid-template-columns:1fr}
     .main{padding:14px 14px}
@@ -2406,7 +2419,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.4 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-16b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3055,6 +3068,16 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <div class="log" id="log"><div id="logText"></div></div>
       <div class="logTerminalRow" title="Type or paste a JS statement (e.g. a logged analyze({...}) call, edited or as-is) and press Enter to run it. ↑/↓ recalls previous statements — both ones you've run here and every action's own logged command.">
         <textarea id="logTerminal" rows="1" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — Enter to run, ↑/↓ for history"></textarea>
+      </div>
+      <!-- Mobile-only (no physical ↑/↓ keys on an on-screen keyboard, reported) —
+           display:none by default, shown at the same max-width:860px breakpoint
+           every other mobile-specific control in this file uses. Calls the SAME
+           recallHistoryUp()/Down() the keyboard shortcut uses (MODULE: pipeline,
+           next to the terminal's own keydown listener) — one shared history
+           cursor, not a second implementation. -->
+      <div class="logTerminalMobileNav" id="logTerminalMobileNav">
+        <button type="button" id="logTerminalUpBtn" class="logbtn" title="Recall the previous statement/command (same as pressing ↑ with a physical keyboard)">▲ History</button>
+        <button type="button" id="logTerminalDownBtn" class="logbtn" title="Recall the next statement/command, or return to what you were typing (same as pressing ↓)">▼ History</button>
       </div>
   </main>
 </div>
@@ -13604,7 +13627,15 @@ function wireSmfretRangeSlider(prefix){
   const onMax=raw=>{
     if(raw===''){ maxNum.value=''; smfretSyncRangeUI(prefix); refreshSmfretEHistIfShown(); return; }   // blank = no upper limit again
     const minV=parseFloat(minNum.value)||0, step=+maxNum.step||1;
-    const nv=Math.max(minV+step,(+raw)||0);
+    // Capped at ceil() (the actual observed data max) — reported: typing a
+    // value ABOVE it left the number box showing the raw typed value while
+    // the range thumb (whose own HTML max attribute is the real ceiling)
+    // silently clamped itself, so the two disagreed and the fill/label math
+    // (which reads the number box, not the clamped thumb) rendered as an
+    // extended, overflowing slider. Nothing in the data can exceed the
+    // ceiling anyway, so a value above it is semantically identical to "no
+    // limit" and should just be capped, not accepted as a bigger real bound.
+    const nv=Math.max(minV+step, Math.min(ceil(),(+raw)||0));
     maxNum.value=nv.toFixed(0); smfretSyncRangeUI(prefix); refreshSmfretEHistIfShown();
   };
   minRange.addEventListener('input', e=>onMin(e.target.value));
@@ -15874,6 +15905,37 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const sSmlmAngleRad = config.localize3D ? null : (config.sSmlmAngleCenter||0)*Math.PI/180;
   const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gauss MLE spherical':method==='mle3d'?'Gauss MLE elliptical':method==='gaussmleEll'?'Gauss MLE rotated elliptical':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
+  // Warns ONCE (not a hard stop — an in-progress Run's own already-computed
+  // locs are worth keeping, and only the USER can judge whether to Stop) if
+  // the growing `locs` array's own estimated footprint gets uncomfortably
+  // close to Memory budget (memgb) — reported: a real 40k-frame mobile
+  // phasor Run "silently crashed" with no error at all, the exact "a mobile
+  // tab killed for memory pressure gets no JS-visible error" limitation
+  // this file's own FTM memory notes already document. Before this, NEITHER
+  // memory guard in the app (checkRenderSize()/checkTableSize(), MODULE:
+  // render/table) could catch this case at all — both only ever run AFTER
+  // a Run finishes (opening the table, or rendering the reconstruction),
+  // by which point a real OOM tab-kill during the RUN ITSELF already
+  // happened with nothing left to guard. `*200` bytes/row is the same
+  // per-row estimate checkTableSize() already uses, for consistency (not
+  // re-derived independently) — deliberately checked at the SAME per-
+  // batch/per-yield cadence onProgress() already fires at (3 call sites
+  // below: the FTM-barrier worker path, the plain worker-parallel path,
+  // and the serial per-frame path), not on every single push, since a
+  // proper memory estimate isn't needed more often than that anyway.
+  const LOC_MEM_WARN_ROW_BYTES=200, LOC_MEM_WARN_FRACTION=0.7;
+  let locsMemWarned=false;
+  const warnIfLocsMemoryHigh=()=>{
+    if(locsMemWarned) return;
+    const budget=config.memgb*1073741824;
+    if(locs.length*LOC_MEM_WARN_ROW_BYTES > budget*LOC_MEM_WARN_FRACTION){
+      locsMemWarned=true;
+      onLog(`⚠ ${locs.length.toLocaleString()} localizations so far already use a large share of the `+
+            `${fmtBytes(budget)} Memory budget (Memory & streaming) — on a memory-constrained device `+
+            `(mobile especially) this Run can silently crash the tab with no further warning. Consider `+
+            `clicking Stop, narrowing the frame range, or raising the detection threshold to reduce candidates.`);
+    }
+  };
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
   const rangeNote=(firstIdx>0||lastIdx<nStack)?` (frames ${firstIdx+1}–${lastIdx} of ${nStack})`:'';
   onLog(`\nRun: ${n} frames${rangeNote} · ${label} fit · σ=${sigma} · k=${k} · win=${win} · filter ${filterLabel}`);
@@ -16117,7 +16179,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
                 if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
               tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
               doneF+=d.count; processed=doneF; cInflight--;
-              onProgress(100*doneF/n);
+              onProgress(100*doneF/n); warnIfLocsMemoryHigh();
               if(batchImg && batchStart>latestFi){ latestFi=batchStart; latestImg=batchImg; latestLocs=batchLocs; }
               if(locs.length && !srPreviewBusy && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
                 lastSrMs=performance.now(); srPreviewBusy=true;
@@ -16178,7 +16240,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
             if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
           doneF+=d.count; processed=doneF; inflight--;
-          onProgress(100*doneF/n);
+          onProgress(100*doneF/n); warnIfLocsMemoryHigh();
           // Cheap and unconditional — no detection/redraw work here, just
           // remembering the latest completed batch for scheduleRawPreview's
           // independent timer to pick up whenever it next fires. Forward-only
@@ -16254,7 +16316,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         }
         processed=fi-firstIdx+1;   // count of frames done so far in THIS run, not an absolute stack index
         if(performance.now()-lastYield > 50){      // yield on a time budget to keep the UI responsive
-          onProgress(100*processed/n);
+          onProgress(100*processed/n); warnIfLocsMemoryHigh();
           await tick(); lastYield=performance.now();
           // A Stop click can only be delivered while we're yielding, so this is
           // the earliest point it can be observed — no need to poll elsewhere.
@@ -18111,6 +18173,39 @@ $('exportLogBtn').addEventListener('click',async()=>{
   let histIdx=-1, draft='';   // histIdx=-1 means "not currently navigating" (own draft is live)
   const atFirstLine = ()=> ta.selectionStart<=(ta.value.indexOf('\n')===-1?ta.value.length:ta.value.indexOf('\n'));
   const atLastLine = ()=> ta.selectionStart>=(ta.value.lastIndexOf('\n')===-1?0:ta.value.lastIndexOf('\n')+1);
+  // Shared by the keyboard shortcut (below) AND #logTerminalUpBtn/DownBtn
+  // (reported — no physical ↑/↓ keys on an on-screen keyboard) — one
+  // history cursor either way reaches, not a second implementation. The
+  // keyboard version only fires at the first/last line (see this IIFE's
+  // own top comment); the buttons have no such notion of "line" at all, so
+  // they always navigate regardless of cursor position — always() lets
+  // each caller opt in or out of that check.
+  // Both return whether they actually navigated, so the keydown handler
+  // (below) only preventDefault()s a real recall — an empty history (Up)
+  // or "not currently navigating" (Down) falls through to the textarea's
+  // own normal cursor movement instead of silently swallowing the key.
+  const historyUp=(always)=>{
+    if(!always && !atFirstLine()) return false;
+    const hist=terminalHistoryList(); if(!hist.length) return false;
+    if(histIdx===-1) draft=ta.value;
+    histIdx = histIdx===-1 ? hist.length-1 : Math.max(0,histIdx-1);
+    ta.value=hist[histIdx];
+    ta.selectionStart=ta.selectionEnd=ta.value.length;
+    ta.focus();
+    return true;
+  };
+  const historyDown=(always)=>{
+    if(!always && !atLastLine()) return false;
+    if(histIdx===-1) return false;
+    const hist=terminalHistoryList();
+    histIdx++;
+    ta.value = histIdx>=hist.length ? (histIdx=-1, draft) : hist[histIdx];
+    ta.selectionStart=ta.selectionEnd=ta.value.length;
+    ta.focus();
+    return true;
+  };
+  $('logTerminalUpBtn').addEventListener('click', ()=>historyUp(true));
+  $('logTerminalDownBtn').addEventListener('click', ()=>historyDown(true));
   ta.addEventListener('keydown', async e=>{
     if(e.key==='Enter' && !e.shiftKey){
       e.preventDefault();
@@ -18139,21 +18234,8 @@ $('exportLogBtn').addEventListener('click',async()=>{
       }
       return;
     }
-    if(e.key==='ArrowUp' && atFirstLine()){
-      const hist=terminalHistoryList(); if(!hist.length) return;
-      e.preventDefault();
-      if(histIdx===-1) draft=ta.value;
-      histIdx = histIdx===-1 ? hist.length-1 : Math.max(0,histIdx-1);
-      ta.value=hist[histIdx];
-      ta.selectionStart=ta.selectionEnd=ta.value.length;
-    } else if(e.key==='ArrowDown' && atLastLine()){
-      if(histIdx===-1) return;
-      e.preventDefault();
-      const hist=terminalHistoryList();
-      histIdx++;
-      ta.value = histIdx>=hist.length ? (histIdx=-1, draft) : hist[histIdx];
-      ta.selectionStart=ta.selectionEnd=ta.value.length;
-    }
+    if(e.key==='ArrowUp'){ if(historyUp(false)) e.preventDefault(); }
+    else if(e.key==='ArrowDown'){ if(historyDown(false)) e.preventDefault(); }
   });
   // Reset navigation the moment the user types anything by hand (not via the
   // Up/Down recall above, which sets ta.value directly without an 'input'
@@ -19019,12 +19101,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.4 — an app-wide flat-outline pass for buttons/module
-headers/windows/icons (value inputs kept their border, "people might not
-know where to click"); each data panel's title moved back above its
-canvas (aligned with the sidebar's own top button row), with its icon
-buttons/description staying below, left-aligned; slider thumbs shrunk
-14px→10px. See CHANGELOG.md for the full summary.`);
+log(`webSMLM v0.12.5-dev · build 2026-09-16b — four mobile fixes: .numflat
+now gets the same iOS zoom-prevention font bump as other inputs; the log
+terminal's ↑/↓ history recall now has on-screen buttons too; a real gap
+that let a long/dense Run silently crash a memory-constrained tab with no
+warning at all is now flagged once it gets risky; and the E/S histogram's
+Max boxes (DD+DA/AA) are properly capped at the real data ceiling instead
+of letting the slider extend indefinitely.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

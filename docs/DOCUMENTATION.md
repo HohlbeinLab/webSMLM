@@ -314,7 +314,10 @@ re-running a logged command actually useful, rather than just a curiosity.
 around inside a multi-line paste is unaffected) recalls previous statements
 to edit before re-running — both ones typed here and every action's own
 logged command, so arrow-up after a Localize or a committed filter brings
-back that exact call, ready to tweak a parameter and rerun. **Shift+Enter**
+back that exact call, ready to tweak a parameter and rerun. On a touch
+device with no physical arrow keys, two small **▲ History**/**▼ History**
+buttons appear below the terminal (narrow-viewport layouts only) and do the
+same thing. **Shift+Enter**
 inserts a newline for a genuinely multi-line statement instead of running
 early.
 

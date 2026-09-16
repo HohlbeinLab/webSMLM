@@ -5490,6 +5490,79 @@ Verified via Playwright/screenshot: both thumb families render visibly smaller, 
 slider's own blue fill bar still starts/ends flush with its two thumbs' own visual centres, not
 drifted from them.
 
+### Four real mobile bugs, reported together (v0.12.5-dev)
+
+**(1) `.numflat` was missing from the mobile 16px-font iOS-zoom fix.** The existing rule —
+`input.num,select.sel{font-size:16px}` under `@media (max-width:860px)` — predates `.numflat`
+(the Contrast slider's Black/White boxes, and the E/S histogram's DD+DA/AA range boxes, both added
+this same session): `.numflat` is a DELIBERATELY separate class from `.num` so
+`addNumberSteppers()` skips it (no +/− steppers on a paired min/max box), but that split was only
+ever about the steppers — it still needed the identical mobile-zoom fix, just missed when the rule
+was first written. Fixed by adding `.numflat` to the same selector list. **This also explains
+report (4)** ("are the new input boxes always the same width? the left one of the contrast slider
+looks smaller") — `.numflat` already had a fixed `width:52px;flex-shrink:0` (the exact fix for a
+near-identical unequal-width bug earlier this session), so the two boxes were never actually
+different widths; what varied was the FONT SIZE (still 12px pre-fix, vs. 16px on any properly-
+matched `.num`/`select.sel` field nearby, or mid-way through an iOS auto-zoom transition when one
+box was focused and the other wasn't) — verified via Playwright post-fix: both boxes measure
+identical `52×20px` boxes at identical `16px` computed font-size.
+
+**(2) The log terminal's ↑/↓ history recall had no mobile equivalent** — an on-screen keyboard has
+no physical arrow keys at all. `#logTerminalMobileNav` (two new buttons, `▲ History`/`▼ History`,
+`display:none` by default, shown at the same `max-width:860px` breakpoint every other mobile
+adaptation in this file uses — desktop is unaffected, physical arrows already work there) call the
+SAME history cursor the keyboard shortcut uses, not a second implementation: the existing IIFE's
+own inline `ArrowUp`/`ArrowDown` keydown logic was extracted into two shared functions,
+`historyUp(always)`/`historyDown(always)` (closure-scoped over the same `histIdx`/`draft` state),
+each returning whether it actually navigated (so the keydown handler only calls
+`e.preventDefault()` on a real recall, not swallowing an arrow key that should just move the
+cursor). The keyboard's own line-position gating (`atFirstLine()`/`atLastLine()` — only recall when
+the cursor is already on the textarea's first/last line) is skipped entirely for the buttons
+(`always=true`) — a button click has no "cursor position" concept to gate on in the first place.
+
+**(3) A real, reported mobile crash — "the site silently crashed" after a 40k-frame phasor Run on
+the Leterrier dataset — traced to a genuine gap, not just the known undetectable-OOM limitation.**
+This app already has TWO memory guards (`checkRenderSize()`/`checkTableSize()`, MODULE:
+render/table), but BOTH only ever run AFTER a Run finishes — opening the table, or building the
+reconstruction — so a tab genuinely killed for memory pressure DURING the Run itself (the growing
+`locs` array, never checked against Memory budget at all while accumulating) hits neither guard;
+by the time either would fire, the crash has often already happened. Added
+`warnIfLocsMemoryHigh()` inside `runCore()` itself (declared next to `locs=[]`), checked at the
+SAME per-batch/per-yield cadence `onProgress()` already fires at (all 3 call sites: the FTM-barrier
+worker path, the plain worker-parallel path, the serial per-frame path) — not a hard stop (an
+in-progress Run's own already-computed locs are worth keeping; only the user can judge whether to
+Stop), just a ONE-TIME (`locsMemWarned` flag) log warning once `locs.length * 200 bytes` (the same
+per-row estimate `checkTableSize()` already uses, for consistency) crosses 70% of `config.memgb`'s
+own budget, naming the real risk explicitly ("this Run can silently crash the tab with no further
+warning") and suggesting concrete next steps (Stop, narrow the frame range, raise the threshold).
+Reads `config.memgb`, not `paramValue('memgb')` — `runCore()` is a DOM-free `*Core()` function (see
+MODULE: pipeline's own convention), so it only ever reads already-resolved `config` fields, never
+touches the DOM/PARAMS registry directly. Verified via Playwright: setting an artificially tiny
+`memgb` (0.0005 GB) before a real simulated Run fires the warning exactly once, with the correct
+loc count and budget figures in the message. **Not a full fix** for the underlying limitation this
+file's own FTM memory notes already document ("a mobile tab killed for memory pressure gets no
+JS-visible error at all — nothing here can detect or prevent that") — a sufficiently dense/long Run
+on a sufficiently memory-constrained device can still exceed the OS's own per-tab ceiling before
+this warning's own 70% threshold is even reached, or before the next `onProgress()` checkpoint
+comes around; this closes the specific gap of "no warning at all, ever," not the deeper "genuinely
+guarantee no OOM" problem, which no client-side JS can fully solve.
+
+**A real, separate bug found while fixing the E/S histogram's Max box for (1)/(4) above, reported
+with a screenshot**: typing a value ABOVE the real observed ceiling into `smfretMaxDex`/`smfretMaxAA`
+(e.g. "100000" against a real ~400-unit ceiling) left the SLIDER extending indefinitely — the number
+box showed the raw typed value with no upper clamp at all, while the RANGE THUMB (whose own HTML
+`max` attribute is the real ceiling) silently self-clamped per the browser's own native behaviour,
+so the two disagreed: the fill-bar/label math (which reads the unclamped number box via
+`paramValue()`, not the clamped thumb) computed a `frac()` fraction over 100%, rendering as an
+overflowing, seemingly-uncapped slider. `wireSmfretRangeSlider()`'s own `onMax` handler was missing
+an upper clamp entirely (it only floored the value at `minV+step`, with no ceiling check) — fixed
+by also capping at `ceil()` (the real observed data max): `Math.max(minV+step, Math.min(ceil(),
+(+raw)||0))`. Semantically correct, not just cosmetic — nothing in the data can exceed the ceiling
+anyway, so a typed value above it is already equivalent to "no limit," and should be capped rather
+than accepted as a bigger real bound. Verified via Playwright: typing `100000` against a synthetic
+399-unit ceiling now correctly clamps the number box to `399`, the range thumb to the matching
+value, and the fill bar to exactly `100%` width, not overflowing past it.
+
 ### `label.row` nesting-depth gotcha (indented sidebar sub-rows)
 
 `details.sim>label.row{padding-right:4px}` (keeps a row's numstep +/- buttons flush with every
