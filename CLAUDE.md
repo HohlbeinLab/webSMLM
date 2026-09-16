@@ -628,8 +628,96 @@ relevant one before editing rather than scrolling:
   `#calViewRow`) is top-aligned, NOT centred, since raw/sr canvases are always the same height
   (both track `--frame-ar` unconditionally) — centring each panel's canvas+controls group
   independently shifted the two canvases out of vertical alignment by roughly half of whichever
-  trailing control only one panel has. Top-aligning puts both canvases flush against their own
-  `h4`, so any leftover height difference lands invisibly at the bottom of the shorter card.
+  trailing control only one panel has. Top-aligning puts both canvases flush against the top of
+  their own `.panel-body`, so any leftover height difference lands invisibly at the bottom of the
+  shorter card.
+
+  **Each panel's own `<h4>` (title/icon-buttons/description) moved from ABOVE its canvas to
+  directly BELOW it** (v0.12.4-dev, requested — "move the titles, icons and descriptions above
+  the data windows to just below the data windows... make sure the data windows are horizontally
+  aligned with the top of the highest row of selection buttons"). `.card` previously had TWO
+  direct children (`h4`, `.panel-body`); now it has only ONE — `h4` moved INSIDE `.panel-body`,
+  positioned right after `<canvas>` and before `#scrubRow`/the contrast row, so it still reads as
+  "about this image" rather than being separated from it by the per-frame/per-composite controls.
+  `.canvases > .card > h4{flex:0 0 auto}` (meaningless once `h4` is no longer a direct child of
+  `.card`) replaced with `.panel-body > h4{flex:0 0 auto}`, same purpose at its new nesting depth.
+  `.card h4`'s own margin flipped from `0 0 8px` (space BELOW, when it sat above the canvas) to
+  `8px 0 0` (space ABOVE, now that it sits below the canvas) — no bottom margin needed, since the
+  row right after it (`#scrubRow` etc.) already supplies its own `margin-top` for that gap.
+
+  **The alignment claim verified, not just asserted**: `.sidebar{padding:16px ...}`'s own top
+  padding and `.main{padding:10px ...}` + `.card{padding:6px}`'s combined top padding (10+6=16px)
+  already matched exactly — a coincidence from earlier gap-matching work, not something this round
+  had to engineer — so simply removing `h4` from ABOVE the canvas (making the canvas the first
+  thing in `.panel-body`, hence the first thing in `.card`) was sufficient on its own to bring the
+  canvas's own top edge level with the sidebar's first button row; no extra positioning/margin
+  hack was needed. Verified via Playwright: `#loadBtn`'s own `getBoundingClientRect().top` and
+  both `#raw`/`#sr` canvases' own `.top` are pixel-identical (69px in the test), both before and
+  after loading real data, and in the mobile "Stack panels" layout too.
+
+  **A real regression from the move above, caught immediately**: the general `.card h4{margin:...}`
+  rule is shared by all THREE `.card`s in the app — the raw/sr panels AND the separate **Log**
+  card, whose own `h4` ("Log" + Show as CLI/Clear log/Export log) never moved and is still ABOVE
+  its content (`#log`). The first version of the h4-move fix changed THAT shared rule's own margin
+  from `0 0 8px` (space below) to `8px 0 0` (space above) to serve the raw/sr panels' new layout —
+  correct for them, but it also silently removed the Log card's own title-to-log-box gap, since
+  that h4 never moved and still needs space BELOW itself, not above. Fixed by reverting `.card h4`
+  to its original `margin:0 0 8px` (serving the Log card, and any other h4 still above its
+  content) and adding a SEPARATE, higher-specificity-by-source-order override,
+  `.panel-body > h4{margin:8px 0 0}` (placed textually AFTER `.card h4` — equal specificity, later
+  wins), matching only the raw/sr panels' own now-relocated h4. Verified via Playwright: the Log
+  card's own title-to-log-box gap measures 8px again (matching its original value), unaffected by
+  the raw/sr panels' own independent margin.
+
+  **The title text itself moved BACK above the canvas on direct follow-up — only the icon buttons
+  and description stayed below it** (v0.12.4-dev, requested: "put the titles of the data windows
+  back on top of the windows... keep the icons and additional text below the data window and move
+  left to align left with the respective data windows"). Each `.card` now has TWO `<h4>` elements
+  again, but split by CONTENT rather than the original single combined one: a plain title-only h4
+  (`<h4><span id="rawTitle">Raw frame</span></h4>`, a direct child of `.card`, ABOVE `.panel-body`)
+  and the pre-existing icon/description h4 (now holding just the icon-buttons flex span + `<small
+  id="rawInfo">`, title span removed) staying exactly where the previous round put it — inside
+  `.panel-body`, right after `<canvas>`. No new CSS was needed for either half: the title-only h4
+  is a direct `.card` child, so it automatically gets the BASE `.card h4{margin:0 0 8px;...}` rule
+  (space below, exactly right for something sitting above its own content) with no override
+  required; the icon/description h4 keeps using the `.panel-body > h4{margin:8px 0 0}` override
+  from the previous round entirely unchanged, since it never moved. "Align left with the data
+  windows" needed no extra CSS either — the icon-buttons span is a plain flex item with no
+  indentation of its own, so it already starts flush at `.panel-body`'s (and so the canvas's) own
+  left edge by ordinary block/flex flow. A pleasant coincidence, not engineered: the title-only
+  h4's own top position, once it's back to being `.card`'s first child, lands at the exact same y
+  as the sidebar's first button row (69px in the same Playwright check as before) — the "top
+  alignment" property the previous two rounds were built around now applies to the TITLE instead
+  of the canvas, with no extra spacing adjustment needed despite the request's own "maybe we have
+  to increase the distance" caveat. Verified via Playwright and screenshots (desktop + mobile
+  "Stack panels" layout): both titles sit flush with the sidebar's own top button row, both
+  icon-button rows start at the same x as their own canvas, and `$('rawTitle')`/`$('srTitle')`
+  (read/written by ~15 call sites elsewhere in the app — drift/NeNA/FRC/pcfo/calibration/sSMLM/
+  spt/smFRET view switches) needed zero changes, since every one of them only ever sets
+  `.textContent` on the element, never relies on its parent structure.
+
+  **The `.numstep` (input + Inkscape-style −/+ buttons) focus highlight now covers the COMBINED
+  group, not just the input** (v0.12.4-dev, reported with a screenshot — focusing a `.num` field
+  wrapped by `addNumberSteppers()` showed the browser's own native focus ring around the INPUT
+  half only, making the stepper buttons look like a separate, unrelated control at exactly the
+  moment `.numstep`'s own design — "together they read as ONE control," see its own comment above
+  — most needs to hold up). `.numstep:focus-within{box-shadow:0 0 0 2px var(--accent)}` (`var(--accent-tint)`
+  tried first, reverted the same round — reported as reading too faint against the app's OTHER
+  accent-coloured feedback) draws one continuous glow around the WHOLE wrapper (fires whether the
+  input or either stepper button
+  currently has focus); the input's own native outline (`.numstep input.num:focus{outline:none}`)
+  and the stepper buttons' own (`.numstep-btns button:focus-visible{outline:none}`) are both
+  suppressed so only this one outer highlight shows, not a doubled-up effect. **Deliberately scoped
+  to `.numstep input.num`, not a bare `input.num:focus`** — `.num` is also used by fields
+  `addNumberSteppers()` never wraps (e.g. `#tableFilter`, a plain `type="text"` field) — a bare
+  selector would have stripped THEIR native focus outline too with nothing to replace it, a real
+  regression caught before shipping by checking every other `.num` consumer, not just the stepper
+  case being fixed. `.numstep` itself gained `border-radius:6px` so the box-shadow glow's own
+  corners are rounded to match the group's real rounded-rectangle shape (input rounded on the
+  left, button pair rounded on the right, sharing a flat seam in the middle) rather than square.
+  Verified via Playwright in all three themes: focusing a wrapped field shows one continuous
+  rounded highlight spanning the input and both stepper buttons, with `outline-style:none` on the
+  input itself confirming the native ring is actually suppressed, not just visually covered.
 
   Every plot function reads colours from `plotColors()` (`{bg,grid,text,axis,bar}`) rather than a
   hardcoded hex value, driven by a module-level `_plotExportMode` flag. `false` (normal, on-screen)
@@ -5314,6 +5402,93 @@ plot/image**, **View data/filtering**, **Load movie/data**) — matches the comp
 already used elsewhere (`sigma_x`/`sigma_y`, `min`/`max`). A `+` joining two nouns (as
 "View data + filtering" used to) reads as addition/combination rather than an either/or or
 belongs-together pairing; `/` is the established connector for that here.
+
+### Flat-outline pass — buttons/modules/windows/icons/inputs (v0.12.4-dev)
+
+Requested as a deliberate app-wide visual direction change: "remove all outlines of buttons,
+modules, windows and icons, (as an option of removing, colour them in the same way as the area
+within the button, module, icon etc)". Confirmed scope directly before touching ~20 CSS rules
+(a broad enough change that guessing wrong would have meant redoing all of it): input/select
+fields ARE included (not just buttons/panels), and hover/focus/active border-colour changes stay
+as the one remaining use of colour on a border — only the RESTING-state border goes flat.
+
+**The technique, consistently**: for every element whose resting-state `border` colour differed
+from its own `background`, the border-color was changed to MATCH that same background token
+(`.theme-btn`/icons/`button`/`.logbtn`/`.helpbtn`/`.numstep-btns` → `var(--surface)`;
+`input.num`/`.numflat`/`select.sel`/`#infoModalBody code`/`.modal code` → `var(--bg)`;
+`details.sim>summary` (module headers) → `transparent`, since its own background already is;
+`.log`/`#logTerminal` → `var(--deep)`; `.modal`/`#tableFilterAC`/table wraps → `var(--panel)`;
+`#tableHistBtn` → `var(--surface)`) — same border width/radius, just visually blended away,
+rather than `border:none` outright, so nothing's box model shifts by a pixel. Hover/focus/active
+rules (`button:hover`, `details.sim>summary:hover`/`[open]`, `.theme-btn.active`/`.linetool.on`,
+`.infobtn:focus-visible`, `#tableFilter.bad`) were deliberately left untouched — those are
+meaningful state feedback, not decorative resting-state framing. The `.numstep-btns` button-pair's
+own internal divider (`border-right:1px solid var(--line)` between − and +) was ALSO left alone —
+a functional separator between two different click targets inside one combined control, not the
+kind of "outline around a whole element" the request was about. `button.primary`/`button.danger`
+needed no change at all — their own `background`/`border-color` were already the same token
+(`var(--accent)`/`var(--danger)` respectively), so they were already flat by construction.
+
+**The raw/reconstruction canvas ("data window") border was a real exception, caught on direct
+follow-up** — matched to the canvas's own fill (`border:1px solid #000`, since `background:#000`
+is fixed regardless of theme) initially, per the same technique as everything else. Reported back
+as still showing "a dark grey/black outline": matching a border to the element's OWN interior only
+blends it away against something ALSO that same colour — the canvas's fill is pure black, but the
+`.card`/page background sitting OUTSIDE its edge is a dark grey/navy in every theme, never pure
+`#000`, so the border still read as a visible ring against THAT. Fixed by dropping the border
+entirely (`border:none`) instead of colour-matching it — the one rule in this whole pass where
+"remove" (not "match") was the only option that actually works, since no single colour blends
+against both the canvas's own fixed-black interior and three different theme backgrounds outside
+it at once.
+
+**Value inputs (`input.num`/`.numflat`/`select.sel`) had their flattened border REVERTED back to
+`var(--line)`** — the one category this pass fully undid, on direct follow-up ("people might not
+know where to click"): a button/panel/module header is already recognisable as interactive from
+its own shape, label, or icon, but a plain box holding an editable value has no OTHER affordance
+telling you it's clickable/typable — flattening its border removed the one visual cue that
+distinguished "an editable field" from "a plain label with a number in it."
+
+**`.numstep-btns` (the Inkscape-style −/+ pair) had to revert its own border too, right after —
+the "input reverted, button pair still flat" asymmetry looked fine in dark/light theme but was
+visibly broken in CONTRAST theme specifically**, reported with a screenshot: a crisp, bright-white-
+bordered input capsule butted against a dim, seemingly disconnected button blob, not one shape.
+Root cause: contrast theme's own `--line` is a much brighter, higher-contrast white than dark/
+light theme's own subtler grey (see this file's own earlier note on it), so the SAME "input
+bordered, buttons flattened to their own fill" asymmetry that was only mildly noticeable elsewhere
+became glaring there. Fixed by reverting `.numstep-btns`'s border from `var(--surface)` back to
+`var(--line)` too, matching the input exactly — the whole combined control is bordered again, as
+a single visually consistent unit, in every theme. (`#tableWrap`/`#trackTableWrap`/`.fchip`/`.pill`/
+`.logbtn`/`.helpbtn`/etc. — every OTHER category from the original pass — stayed flat; only the
+value-input family, now including its own stepper-button pair, reverted.)
+
+### Slider thumb size — 14px -> 10px diameter (v0.12.4-dev)
+
+Requested directly ("make the slider circles a bit smaller... reduce by ~30% for now") across
+BOTH single-handle scrubbers (`.scrubslider` — Frame/Site/etc.) and the dual-handle Contrast/E-S-
+range sliders (`.dualrange`) — every `::-webkit-slider-thumb`/`::-moz-range-thumb` rule in the app
+shared the same `width:14px;height:14px`, so this was one consistent, app-wide reduction, not a
+per-slider tweak. `14 * 0.7 = 9.8`, rounded to a clean `10px` (a ~28.6% reduction, close enough to
+the requested "~30% for now").
+
+**The `margin-top` centring offset on each thumb had to be recomputed, not just left alone** — the
+established formula here is `margin-top = (visual-track-height - thumb-height) / 2`:
+`.scrubslider`'s own real 4px track (`::-webkit-slider-runnable-track{height:4px}`) gives
+`(4-10)/2 = -3px` (was `-5px` for the old 14px thumb); `.dualrange`'s own input sits in a 20px box
+with a fully TRANSPARENT track the same height (the real visible rail is `.dualrange::before`,
+drawn separately), giving `(20-10)/2 = 5px` (was `3px`). Getting either one wrong would have left
+the (now smaller) thumb visibly off-centre from the grey rail/blue fill behind it.
+
+**The JS-side `DUALRANGE_THUMB_PX` constant — three independent copies (`syncRawContrastUI()`/
+`syncSrContrastUI()`, MODULE: render; `smfretSyncRangeUI()`, MODULE: smFRET) — also had to move
+from `14` to `10`, or the fill bar would drift out of alignment with the now-smaller thumbs.** Each
+copy's own comment already documents WHY this constant exists at all (a native thumb's centre
+travels within `[thumbW/2, trackW-thumbW/2]`, not the full `[0,trackW]` the fill's own box spans,
+so a plain 0-100% left/width would be off by a fixed half-thumb-width at each end) — the constant
+simply had to track whatever the CSS thumb width actually is, kept in sync by hand across all three
+copies (no single shared source of truth for this value between CSS and JS currently exists).
+Verified via Playwright/screenshot: both thumb families render visibly smaller, and the Contrast
+slider's own blue fill bar still starts/ends flush with its two thumbs' own visual centres, not
+drifted from them.
 
 ### `label.row` nesting-depth gotcha (indented sidebar sub-rows)
 
