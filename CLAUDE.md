@@ -4233,6 +4233,32 @@ relevant one before editing rather than scrolling:
   exist, FRET? checked); unchecking **FRET?** disables it with sites still present; re-checking
   re-enables it — confirming the checkbox alone, not a stale sites check, drives the button.
 
+  **Three follow-up naming/layout fixes, reported with a screenshot showing the summary text
+  wrapping to two lines** (v0.12.5-dev): (1) "(Caution!) Single-molecule traces and FRET" →
+  **"(Caution!) Time traces and FRET"** — shorter, fits one line at the sidebar's real width, and
+  arguably a better name regardless (the module's own two halves are "find sites + read out time
+  traces" and "optionally pair them for FRET", not really "single-molecule" specific phrasing).
+  (2) **"FRET?" renamed "Analyse FRET?" and moved from right after `<summary>` to right below
+  Average # of frames** — `smfretFretEnabled`'s own id/PARAMS entry/`change` listener are all
+  unchanged, only the HTML row's position (now the row right after `smfretAvgFrames`, both still
+  the module's first two rows) and its `label`/visible text moved. (3) **"(Caution!) Single
+  particle tracking" → "(Caution!) Single-particle tracking"** (spt module's own summary,
+  hyphenated) — a plain `replace_all` across every occurrence of the exact phrase "Single particle
+  tracking" in `webSMLM.html`, `README.md`, and `docs/DOCUMENTATION.md` (the sidebar summary, two
+  HTML comments, one tooltip, the §1 module-list bullet, the §2 section heading and its own
+  `#spt`/`#spt-params` params-table heading) — none of the LOWERCASE generic-technique mentions
+  (e.g. `sptCore()`'s own descriptive prose, "single particle tracking" as a plain noun phrase) were
+  touched, only the exact-cased proper-noun form used as this module's own name. `docs/
+  DOCUMENTATION.md`'s own "Time traces and FRET" section heading/every bolded cross-reference to
+  this module by name were updated to match (the plain-prose "Single-molecule FRET (donor/acceptor
+  pair analysis)" phrase introducing the section's own first paragraph — and the matching sentence
+  opening the synced `.hint-smfret` popup — were deliberately left as-is, since those describe the
+  general TECHNIQUE this module implements, not the module's own name). Verified via Playwright:
+  the summary now measures a single-line height (`25.6px`, same as every other one-line `<summary>`
+  in the sidebar), `#smfretBox`'s own first two rows read `Average # of frames` then
+  `Analyse FRET?` in that order, and `#sptBox summary` reads `"(Caution!) Single-particle
+  tracking"`.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the

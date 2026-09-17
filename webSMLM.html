@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4093   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4097   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4392   synthetic stack generator ("Simulate movie")
-    detect          5485   per-frame band-pass + local-maxima detection
-    fit             5762   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4396   synthetic stack generator ("Simulate movie")
+    detect          5489   per-frame band-pass + local-maxima detection
+    fit             5766   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6401   accumulate to offscreen buffer; view/colour/blur;
+    render          6405   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7928   frame-parallel detect/fit worker pool; dedicated
+    workers         7932   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8255   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8583   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8259   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8587   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9066   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9070   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -142,9 +142,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9861   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9865   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10595   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10599   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -354,7 +354,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14356   single particle tracking, trackpy-inspired;
+    spt             14360   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -385,7 +385,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15894  top-level orchestration, *Core()/wrapper split;
+    pipeline        15898  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -446,7 +446,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16595  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16599  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -500,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19297  localizations table, filtering, histograms;
+    table           19301  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20038  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20042  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2419,7 +2419,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2499,11 +2499,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            question whether they should move too, see CLAUDE.md. -->
       <label class="row" style="padding-right:4px" title="Camera pixel size (nm) — physical scale for the scale bar, z, and exported CSV coordinates">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <!-- Pinned alongside pxnm above, same reasoning (v0.12.1-dev): a per-dataset acquisition
-           property, not something specific to Single particle tracking despite only that module
+           property, not something specific to Single-particle tracking despite only that module
            currently reading it — used to live inside sptBox (collapsed by default). Renamed from
            sptFrameTime at the same time (id="frametime" now) — see the PARAMS registry's own
            comment for the full reasoning and the temporary sptFrameTime back-compat alias. -->
-      <label class="row" style="padding-right:4px" title="Seconds per frame — used by Single particle tracking's diffusion-coefficient calculation">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
+      <label class="row" style="padding-right:4px" title="Seconds per frame — used by Single-particle tracking's diffusion-coefficient calculation">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
       <details class="sim" id="locBox">
         <summary>Localisation settings</summary>
         <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
@@ -2833,11 +2833,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="smfretBox">
-        <summary>(Caution!) Single-molecule traces and FRET</summary>
-        <label class="row" title="Whether this module is being used for real FRET pair analysis. Unchecked, Pair DD + DA is disabled/greyed out — everything else (Localize SOI, Get (FRET) data, Load/Save (FRET) data) stays fully usable for plain intensity-vs-time traces, with no pairing implied. With Alternating laser excitation? also on and no pairing, Get (FRET) data still plots real DD and AA (AA sampled at the site's own position); there's just no E/S available without a real DD+DA pair.">FRET?
-          <input type="checkbox" id="smfretFretEnabled" checked></label>
+        <summary>(Caution!) Time traces and FRET</summary>
         <label class="row">Average # of frames
           <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
+        <label class="row" title="Whether this module is being used for real FRET pair analysis. Unchecked, Pair DD + DA is disabled/greyed out — everything else (Localize SOI, Get (FRET) data, Load/Save (FRET) data) stays fully usable for plain intensity-vs-time traces, with no pairing implied. With Alternating laser excitation? also on and no pairing, Get (FRET) data still plots real DD and AA (AA sampled at the site's own position); there's just no E/S available without a real DD+DA pair.">Analyse FRET?
+          <input type="checkbox" id="smfretFretEnabled" checked></label>
         <label class="row" title="Frames alternate between direct donor and direct acceptor excitation (ALEX). Turns on the First-frame-role selector below and a donor/acceptor toggle on the Data projection/SOI composite views.">Alternating laser excitation?
           <input type="checkbox" id="alexEnabled"></label>
         <label class="row" id="alexFirstFrameRow" style="display:none">First frame
@@ -2877,7 +2877,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
-          <p><b>FRET?</b> (default checked) makes explicit that this module also works as a plain single-molecule traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Load/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating laser excitation?</b> on and <b>FRET?</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
+          <p><b>Analyse FRET?</b> (default checked, right below <b>Average # of frames</b>) makes explicit that this module also works as a plain time-traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Load/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating laser excitation?</b> on and <b>Analyse FRET?</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
           <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
           <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating laser excitation?</b> checked, the log line also breaks the total down by channel: it reports the candidate count on the channel just localized AND runs a second, on-demand detect+fit pass on the OTHER channel purely to report its own independent count too (no pairing has run yet at this point, so there's no real donor/acceptor IDENTITY to split by — see below).</p>
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own). Each of the two channels (<b>DD+DA</b>/<b>AA</b>, or <b>Donor</b>/<b>Acceptor dir. exc.</b> before Localize SOI) remembers its own Contrast range independently — the first time a channel's composite is shown it's auto-estimated, but a by-hand adjustment sticks: toggling to the other channel and back does not silently reset it. Clicking <b>Auto</b> explicitly reverts the CURRENT channel back to auto-estimating on future toggles.</p>
@@ -2894,7 +2894,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="sptBox">
-        <summary>(Caution!) Single particle tracking</summary>
+        <summary>(Caution!) Single-particle tracking</summary>
         <label class="row">Apply segmentation? <input type="checkbox" id="applySegmentation"></label>
         <div id="segLoadRow" style="display:none">
           <div class="btnrow" style="margin-top:2px">
@@ -3382,16 +3382,20 @@ const PARAMS = {
   // smfretFixSOI mirrors calFixedXY's own role (freeze positions instead of
   // re-detecting) — auto-checked by locateSmfretSOI() itself on every
   // successful run, not something the user is expected to check by hand. ----
-  // smfretFretEnabled ("FRET?", default on) is the module's own discoverability
-  // switch (requested — plain SOI/trace analysis without any FRET pairing was
-  // "somewhat hidden"): unchecked, it grays out/disables Pair DD + DA (the one
-  // control that only makes sense once a real FRET pair is wanted) while
-  // Localize SOI/Get FRET data/Load/Save FRET data all stay fully usable —
-  // with Alternating laser excitation? on and no pairing, Get FRET data still
-  // plots real DD and AA (see getSmfretTimeTraces()'s own showAA comment
-  // above), just with no E/S available (smfretCanShowEHist() already gates on
-  // a real DD+DA pairing, so this falls out for free with no extra check).
-  smfretFretEnabled: { type:'bool', id:'smfretFretEnabled', label:'FRET?', default:true },
+  // smfretFretEnabled ("Analyse FRET?", default on) is the module's own
+  // discoverability switch (requested — plain SOI/trace analysis without any
+  // FRET pairing was "somewhat hidden"): unchecked, it grays out/disables
+  // Pair DD + DA (the one control that only makes sense once a real FRET
+  // pair is wanted) while Localize SOI/Get FRET data/Load/Save FRET data all
+  // stay fully usable — with Alternating laser excitation? on and no
+  // pairing, Get FRET data still plots real DD and AA (see
+  // getSmfretTimeTraces()'s own showAA comment above), just with no E/S
+  // available (smfretCanShowEHist() already gates on a real DD+DA pairing,
+  // so this falls out for free with no extra check). Sits right below
+  // Average # of frames, not right after <summary> — moved there on direct
+  // follow-up so the module's own most-used numeric setting stays the very
+  // first row.
+  smfretFretEnabled: { type:'bool', id:'smfretFretEnabled', label:'Analyse FRET?', default:true },
   smfretAvgFrames: { type:'number', id:'smfretAvgFrames', label:'Average # of frames', min:1, max:100000, step:10, default:100, int:true },
   smfretFixSOI: { type:'bool', id:'smfretFixSOI', label:'Fix sites of interest (SOI)', default:true },
   smfretApertureMode: { type:'bool', id:'smfretApertureMode', label:'Aperture photometry (no fit)', default:false },
@@ -10024,7 +10028,7 @@ function drawNenaPlot(res){
 // by every fresh Load movie/Simulate movie/Load data, AND by
 // resetAfterCropChange() — a precision figure from a previously analysed
 // FOV must never silently leak into a different dataset's (or a
-// differently-cropped same dataset's) Single particle tracking via "from
+// differently-cropped same dataset's) Single-particle tracking via "from
 // NeNA" (a real reported risk: nothing else about SPT's own state
 // distinguishes "still the same analysed region" from "something changed
 // under it"). FRC has no equivalent stash to reset — its own result is
@@ -19169,12 +19173,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.5-dev · build 2026-09-17a — Single-molecule FRET renamed
-"Single-molecule traces and FRET", with a new FRET? checkbox (default on)
-that disables Pair DD + DA when unticked, making plain intensity-vs-time
-trace analysis (no FRET pairing at all) discoverable; the three trace
-buttons now read Get/Load/Save (FRET) data to signal pairing is optional;
-and a settings-JSON version fail-safe now warns when a loaded file carries
+log(`webSMLM v0.12.5-dev · build 2026-09-17b — "Single-molecule FRET" module
+renamed "Time traces and FRET", with a new Analyse FRET? checkbox (default
+on, below Average # of frames) that disables Pair DD + DA when unticked,
+making plain intensity-vs-time trace analysis (no FRET pairing at all)
+discoverable; the three trace buttons now read Get/Load/Save (FRET) data;
+Single particle tracking is now Single-particle tracking; and a
+settings-JSON version fail-safe now warns when a loaded file carries
 settings this build doesn't recognise, especially if it was saved by a
 newer webSMLM release.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
@@ -20357,7 +20362,7 @@ async function analyze(config){
   // diffusion coefficient DOES benefit from drift-corrected coordinates (an
   // uncorrected systematic drift over the acquisition would inflate D), so
   // this runs after correctDrift specifically, matching the sidebar's own
-  // Drift correction -> Single particle tracking ordering.
+  // Drift correction -> Single-particle tracking ordering.
   //
   // config.segmentationFile — the headless equivalent of checking "Apply
   // segmentation?" + Load segm. image, switching sptCore() to cell-by-cell
@@ -20722,7 +20727,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. <b>Phasor</b> is the speed option (no iteration); <b>Gaussian (LS)</b> and <b>Gaussian (MLE)</b> trade speed for precision, with MLE reporting a proper per-localization CRLB uncertainty and covering spherical, elliptical, 3D-astigmatic and rotated-elliptical (sSMLM) variants — see the <b>Fit method</b> popup and the full docs for when to use which. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
       <li><b>Localize.</b> The raw view refreshes live with detected ROIs (green boxes) and accepted localizations as the run progresses; the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
-      <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction &amp; precision</b> removes sample drift (AIM or cross correlation) and reports NeNA/FRC; <b>Pairing (sSMLM &amp; FRET)</b> pairs 0th/1st-order localizations from a diffraction grating (or a prism-split donor/acceptor pair); <b>Single-molecule FRET</b> finds sites of interest, pairs donor/acceptor channels and reads out DD/DA/AA intensity-vs-time traces; <b>Single particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients.</li>
+      <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction &amp; precision</b> removes sample drift (AIM or cross correlation) and reports NeNA/FRC; <b>Pairing (sSMLM &amp; FRET)</b> pairs 0th/1st-order localizations from a diffraction grating (or a prism-split donor/acceptor pair); <b>Time traces and FRET</b> finds sites of interest, pairs donor/acceptor channels and reads out DD/DA/AA intensity-vs-time traces; <b>Single-particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients.</li>
     </ol>
 
     <h3>Keyboard hotkeys</h3>
