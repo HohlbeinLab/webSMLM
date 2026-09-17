@@ -53,6 +53,40 @@ relevant one before editing rather than scrolling:
   `vertical-align:middle`. That span also carries a space on each side of the `/` (` / 20000`) —
   safe since the parent already has `white-space:nowrap`.
 
+  **Gain (photons/ADU)/Camera offset (ADU)/Get estimate moved to the TOP of Localisation settings,
+  right below Real-time update** (v0.12.5-dev, requested) — previously the last three rows of the
+  module, after the whole Fit method/Detection filter/FTM/Fit radius block. `gain`/`camoffset` are
+  plain `PARAMS` entries with no other DOM dependency on their own position (`syncParamControls()`/
+  `paramValue()`/every fitter's own `$('gain')`/`$('camoffset')` read all find them by id regardless
+  of where they sit in the DOM) — a pure relocation, same "id-based lookup, position doesn't matter"
+  precedent `pxnm`'s own earlier move already established (see below). **The module's own two
+  separate "more info…" buttons were also merged into one** in the same round — `hint-export`
+  (Gain/Camera offset/EMCCD-vs-sCMOS prose) is gone entirely, its content appended onto the END of
+  `hint-detectfit` (shared with Fit method/Detection filter/FTM above it) rather than kept as a
+  second button in the same already-long collapsed section; the merged `.hint` div's own pill label
+  was updated to `module: detect/fit & export` to reflect the merge (edited directly in
+  `webSMLM.html` — the pill span is fixed markup, not part of `sync_hints.mjs`'s own synced content,
+  see **Documentation build** below).
+
+  **Checkbox labels no longer end in "?"** (v0.12.5-dev, requested — "Tickboxes are self
+  explanatory") — a plain UI-copy convention applied app-wide, found by a systematic search (parsing
+  every `<label class="row">...<input type="checkbox"...` pair, not just the ones mentioned in the
+  request) rather than fixing only the named examples: **Analyse FRET?** → **Analyse FRET**,
+  **Apply segmentation?** → **Apply segmentation**, **3D localisation?** → **3D localisation**,
+  **Enable live streaming?** → **Enable live streaming**, and **Alternating laser excitation?** →
+  **Alternating-laser excitation** (the one also explicitly asked to gain a hyphen). Every other
+  reference to these five labels — tooltips, `PARAMS` label strings, JS comments/log lines, the
+  `.hint` popups (edited via their own `DOCUMENTATION.md` markers, then synced) — was updated to
+  match, so the label text reads identically wherever it appears; genuinely different controls that
+  happen to share a similarly-worded but GENUINELY interrogative label (**Position donor?**, a
+  `<select>` asking which of two bearings is correct, not a tickbox) were deliberately left alone.
+  `localize3D`/`smfretFretEnabled`/`alexEnabled`'s own `PARAMS.label` strings were updated too (the
+  displayed text in Save/Load Settings' own `logParamValues()` echo and the terminal's
+  `overrideWithFields()` — both read `spec.label` directly); `applySegmentation`/`liveStreamEnabled`
+  have no `PARAMS` entry to update (pure UI-reveal checkboxes, not analysis parameters). Verified via
+  Playwright: a fresh, exhaustive re-scan of every checkbox's own label text confirms zero remaining
+  "?" suffixes anywhere in the sidebar.
+
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
   multi-GB files via `File.slice()` (never fully loaded). `loadTiffFile()`'s choice between the
@@ -5184,6 +5218,27 @@ relevant one before editing rather than scrolling:
   advisory instead; a file stamped with the CURRENT running version and only real, recognised keys
   produces neither warning.
 
+  **`loadSettingsJson()`/`loadCalibrationJson()` never called `logCmd()` at all — found while
+  answering a direct question** ("is `saveSettingsJson()` written in the log file when pressed as a
+  button, same as when loading?"). Checking rather than assuming turned up a real, asymmetric gap:
+  `saveSettingsJson()` already calls `logCmd({}, 'saveSettingsJson()')` (see this bullet's own
+  earlier paragraph), but `loadSettingsJson()`/`loadCalibrationJson()` only ever call `log()`/
+  `logParamValues()` — plain prose, a `{type:'log'}` `logHistory` entry — never a `{type:'cmd'}` one.
+  `terminalHistoryList()` only ever collects `'cmd'`/`'term'` entries, so neither Load action showed
+  up in the terminal's own ↑/↓ recall at all, unlike every other file-load action in this app
+  (`loadMovieFiles()`, `loadCsvFile()`). Worse, NEITHER function called `registerTerminalFile(f)`
+  either — even hand-typing `loadSettingsJson("myfile.json")` afterward would have thrown ("no
+  matching registered file"), since the file picked via the interactive `<input type=file>` was
+  never added to `_terminalFileRegistry` in the first place. Fixed by adding both calls to each
+  function, mirroring `loadCsvFile()`'s own convention exactly: `registerTerminalFile(f)` then
+  `logCmd({file:f.name}, `loadSettingsJson("${f.name}")`)` / `logCmd({calibrationFile:f.name},
+  `loadCalibrationJson("${f.name}")`)`, both right at the top, before the parse/try block (same
+  "announce, then narrate" placement `loadCsvFile()`'s own comment already documents). Verified via
+  Playwright: round-tripped a real `saveSettingsJson()` → `loadSettingsJson(file)` call — the loaded
+  file is now in `_terminalFileRegistry`, the most recent `{type:'cmd'}` entry's own `jsOverride`
+  reads `loadSettingsJson("my_settings.json")`, and calling `runTerminalStatement('loadSettingsJson
+  ("my_settings.json")')` directly (the actual recall path) runs without throwing.
+
   **The timing table's own label→number gap was still too wide** (follow-up, same round, reported —
   no literal tabs anywhere, just plain spaces: each row's label is hardcoded-padded to 12 chars in
   its own template literal, and `sec()`'s `padStart(7)` right-aligned the number on top of that — a
@@ -5900,17 +5955,22 @@ in the repo.
   never hand-edit a `.hint` div directly, it'll be overwritten on the next sync. `--check` exits 1
   without writing if `webSMLM.html` would change, for a pre-commit/CI-style drift check. The
   `<span class="pill">module: X</span>` label at the top of each `.hint` div is NOT part of the
-  synced content (kept as fixed markup in `webSMLM.html`). All 11 `.hint` divs
+  synced content (kept as fixed markup in `webSMLM.html`). All 10 `.hint` divs
   (`hint-memory`/`hint-simulation`/`hint-pcfo`/`hint-calibration`/
-  `hint-detectfit`/`hint-export`/`hint-render`/`hint-drift`/`hint-sSMLM`/
+  `hint-detectfit`/`hint-render`/`hint-drift`/`hint-sSMLM`/
   `hint-smfret`/`hint-spt`) use this mechanism — `hint-drift` covers Localization
   precision (NeNA/FRC) too, since that section was merged into Drift correction's
   own (see the **drift**/**locprecision** module bullets below); there is no
   separate `hint-locprecision`. `hint-memory` covers live streaming too, since
-  its own controls (**Enable live streaming?**/**WebSocket URL**/**Connect**/
+  its own controls (**Enable live streaming**/**WebSocket URL**/**Connect**/
   **Clear**) sit inside the same "Memory & streaming" sidebar section (see the
   **liveStreaming** module bullet below); there is no separate `hint-liveStreaming`
-  either. Each
+  either. `hint-detectfit` covers **export**'s own Gain/Camera offset fields
+  too (v0.12.5-dev, moved to the top of Localisation settings and merged in
+  when the standalone `hint-export` button was removed alongside them — see
+  **pipeline**'s own paragraph on the move below); there is no separate
+  `hint-export` any more — see **params**'s own paragraph on the move below.
+  Each
   marker is placed as the INTRO to its DOCUMENTATION.md section, right after the PARAMS table — the
   surrounding prose picks up only where the popup leaves off, not restating it.
 - **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the
