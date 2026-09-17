@@ -467,6 +467,21 @@ in a module.
   only DOM-reading/writing belongs in the wrapper. See `docs/DOCUMENTATION.md` §8 for the full
   headless API and `docs/REFACTOR_PLAN.md` for the design rationale.
 
+  **`runCore()`'s own `checkLocsMemory()` genuinely STOPS a Run, not just warns** — a real, reported
+  gap: an earlier warn-only version logged a message once the growing `locs` array crossed 70% of
+  **Memory budget (memgb)**, but nothing actually halted the Run, so a real ~30k-frame mobile Run
+  still "silently crashed" (total data loss) even at the correct memory-constrained `memgb` default.
+  `runCore()` now shadows its own `shouldStop` with `()=>shouldStopHook()||memStopTriggered` right
+  after destructuring the hook — every existing `shouldStop()` call site (worker dispatch loops, the
+  serial yield loop, the FTM barrier phase) picks up a memory-triggered stop for free, with the exact
+  same "stop mid-way, keep the partial locs found so far" handling a manual Stop click already gets.
+  `checkLocsMemory()` warns once at 70% of budget, then sets `memStopTriggered=true` (and logs a
+  distinct message) at 95% — deliberately tight, since the `200` bytes/row estimate (same one
+  `checkTableSize()` uses) likely UNDERESTIMATES a real loc object's V8 footprint (15+ own
+  properties), so erring toward stopping a little early is safer than not stopping at all. This also
+  means a headless `analyze()` call (which passes no `shouldStop` hook at all) now gets this same
+  protection, a genuine improvement there, not just interactively.
+
   **Standing rule — every actionable GUI control needs a plain top-level function behind it.** A
   button click, checkbox change, or any control that actually computes or changes data must call ONE
   plain top-level `function`/`async function`, never inline its real logic in an anonymous

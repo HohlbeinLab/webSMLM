@@ -447,7 +447,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16667  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16691  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -501,14 +501,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19394  localizations table, filtering, histograms;
+    table           19418  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20135  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20159  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2461,7 +2461,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-17a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-17b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -16001,7 +16001,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // DOM state only run()'s wrapper can construct correctly); shouldStop
   // stays no-op too (no generic "was Stop clicked" outside that same
   // wrapper's stopRequested global).
-  const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop=()=>false } = hooks;
+  const { onLog=log, onProgress=setProg, onRawPreview=()=>{}, onSrPreview=()=>{}, shouldStop:shouldStopHook=()=>false } = hooks;
+  // checkLocsMemory() (below) can ALSO request a stop, on top of whatever
+  // the caller's own hook says (a real Stop click, interactively) — shadowing
+  // `shouldStop` with this combined check, rather than threading a second
+  // condition through every one of the ~10 `shouldStop()` call sites below,
+  // means every existing check (worker dispatch loops, the serial yield
+  // loop, the FTM barrier phase) picks up the memory-triggered stop for
+  // free, with the exact same "stop mid-way, keep the partial locs found so
+  // far" handling a manual Stop already gets — no separate code path needed.
+  let memStopTriggered=false;
+  const shouldStop=()=>shouldStopHook()||memStopTriggered;
   const {w,h,n:nStack}=stack, px=config.pxnm;
   // Every downstream `n` in this function already meant "how many frames
   // this run processes", so redefining it here to the SELECTED count (not
@@ -16023,35 +16033,49 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const sSmlmAngleRad = config.localize3D ? null : (config.sSmlmAngleCenter||0)*Math.PI/180;
   const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gauss MLE spherical':method==='mle3d'?'Gauss MLE elliptical':method==='gaussmleEll'?'Gauss MLE rotated elliptical':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
-  // Warns ONCE (not a hard stop — an in-progress Run's own already-computed
-  // locs are worth keeping, and only the USER can judge whether to Stop) if
-  // the growing `locs` array's own estimated footprint gets uncomfortably
-  // close to Memory budget (memgb) — reported: a real 40k-frame mobile
-  // phasor Run "silently crashed" with no error at all, the exact "a mobile
-  // tab killed for memory pressure gets no JS-visible error" limitation
-  // this file's own FTM memory notes already document. Before this, NEITHER
-  // memory guard in the app (checkRenderSize()/checkTableSize(), MODULE:
-  // render/table) could catch this case at all — both only ever run AFTER
-  // a Run finishes (opening the table, or rendering the reconstruction),
-  // by which point a real OOM tab-kill during the RUN ITSELF already
-  // happened with nothing left to guard. `*200` bytes/row is the same
-  // per-row estimate checkTableSize() already uses, for consistency (not
-  // re-derived independently) — deliberately checked at the SAME per-
-  // batch/per-yield cadence onProgress() already fires at (3 call sites
-  // below: the FTM-barrier worker path, the plain worker-parallel path,
-  // and the serial per-frame path), not on every single push, since a
-  // proper memory estimate isn't needed more often than that anyway.
-  const LOC_MEM_WARN_ROW_BYTES=200, LOC_MEM_WARN_FRACTION=0.7;
-  let locsMemWarned=false;
-  const warnIfLocsMemoryHigh=()=>{
-    if(locsMemWarned) return;
-    const budget=config.memgb*1073741824;
-    if(locs.length*LOC_MEM_WARN_ROW_BYTES > budget*LOC_MEM_WARN_FRACTION){
+  // First WARNS, then genuinely STOPS (a real, reported gap in the original
+  // warn-only version: a real ~30k-frame MLE-spherical mobile Run, even at
+  // the correct memory-constrained 0.5 GB memgb default, still "silently
+  // crashed" — the warning fired, logged, and changed nothing, since
+  // nothing actually halted the Run; the locs array just kept growing past
+  // it, unattended, until the tab was killed with total data loss). Before
+  // this, NEITHER memory guard in the app (checkRenderSize()/
+  // checkTableSize(), MODULE: render/table) could catch this case at all —
+  // both only ever run AFTER a Run finishes, by which point a real OOM
+  // tab-kill during the RUN ITSELF already happened with nothing left to
+  // guard, and a warning nobody's watching a mobile log for is no better.
+  // `*200` bytes/row is the same per-row estimate checkTableSize() already
+  // uses (not re-derived independently) — likely an UNDERESTIMATE of a real
+  // V8 object's footprint for a loc with this many own properties (15+:
+  // x,y,photons,bg,bgstd,sigma,z,zClamped,frame,lpx,lpy,lpz,sx,sy,angle),
+  // which is exactly why the STOP threshold below is deliberately tighter
+  // than "leave real headroom" would suggest if the estimate were exact —
+  // erring toward stopping a little early over not stopping at all.
+  // Checked at the SAME per-batch/per-yield cadence onProgress() already
+  // fires at (3 call sites below: the FTM-barrier worker path, the plain
+  // worker-parallel path, and the serial per-frame path) — each of those
+  // sites' own very next `shouldStop()` check (the same tick or the next
+  // one) is what actually turns `memStopTriggered` into the Run halting,
+  // reusing every existing "stop mid-way, keep the partial locs found so
+  // far" finalization a manual Stop click already gets, unchanged.
+  const LOC_MEM_ROW_BYTES=200, LOC_MEM_WARN_FRACTION=0.7, LOC_MEM_STOP_FRACTION=0.95;
+  let locsMemWarned=false, locsMemStopLogged=false;
+  const checkLocsMemory=()=>{
+    if(locsMemStopLogged) return;   // already stopping — nothing more to say
+    const budget=config.memgb*1073741824, bytes=locs.length*LOC_MEM_ROW_BYTES;
+    if(bytes > budget*LOC_MEM_STOP_FRACTION){
+      locsMemStopLogged=true; memStopTriggered=true;
+      onLog(`⚠ Auto-stopping: ${locs.length.toLocaleString()} localizations so far are estimated at `+
+            `~${fmtBytes(bytes)}, at or beyond the ${fmtBytes(budget)} Memory budget (Memory & streaming) `+
+            `— on a memory-constrained device this Run could otherwise silently crash the tab with total `+
+            `data loss. Stopping now with the ${locs.length.toLocaleString()} localizations already found `+
+            `kept as a partial result. Raise Memory budget, narrow the frame range, or raise the detection `+
+            `threshold to reduce candidates, then re-run if you need the rest.`);
+    } else if(!locsMemWarned && bytes > budget*LOC_MEM_WARN_FRACTION){
       locsMemWarned=true;
       onLog(`⚠ ${locs.length.toLocaleString()} localizations so far already use a large share of the `+
-            `${fmtBytes(budget)} Memory budget (Memory & streaming) — on a memory-constrained device `+
-            `(mobile especially) this Run can silently crash the tab with no further warning. Consider `+
-            `clicking Stop, narrowing the frame range, or raising the detection threshold to reduce candidates.`);
+            `${fmtBytes(budget)} Memory budget (Memory & streaming) — this Run will auto-stop (keeping `+
+            `what's found so far) if it keeps growing much further.`);
     }
   };
   const filterLabel=mode==='wave'?'wavelet (B-spline)':mode==='box'?'uniform box filter':(exactBP?'DoG exact':'DoG fast (box approx.)');
@@ -16297,7 +16321,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
                 if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
               tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
               doneF+=d.count; processed=doneF; cInflight--;
-              onProgress(100*doneF/n); warnIfLocsMemoryHigh();
+              onProgress(100*doneF/n); checkLocsMemory();
               if(batchImg && batchStart>latestFi){ latestFi=batchStart; latestImg=batchImg; latestLocs=batchLocs; }
               if(locs.length && !srPreviewBusy && performance.now()-lastSrMs>previewInterval){ const tp=performance.now();
                 lastSrMs=performance.now(); srPreviewBusy=true;
@@ -16358,7 +16382,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
             if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
           doneF+=d.count; processed=doneF; inflight--;
-          onProgress(100*doneF/n); warnIfLocsMemoryHigh();
+          onProgress(100*doneF/n); checkLocsMemory();
           // Cheap and unconditional — no detection/redraw work here, just
           // remembering the latest completed batch for scheduleRawPreview's
           // independent timer to pick up whenever it next fires. Forward-only
@@ -16434,7 +16458,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         }
         processed=fi-firstIdx+1;   // count of frames done so far in THIS run, not an absolute stack index
         if(performance.now()-lastYield > 50){      // yield on a time budget to keep the UI responsive
-          onProgress(100*processed/n); warnIfLocsMemoryHigh();
+          onProgress(100*processed/n); checkLocsMemory();
           await tick(); lastYield=performance.now();
           // A Stop click can only be delivered while we're yielding, so this is
           // the earliest point it can be observed — no need to poll elsewhere.
@@ -19266,14 +19290,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-17a — fixed a real bug: the
-memory-budget mobile default (0.5 GB) only ever checked window width
-alone, so a phone held in landscape (width > 860px in that orientation)
-kept the desktop 3 GB default and could crash on a large dataset;
-isMemoryConstrainedDevice() now checks the SMALLER of width/height,
-orientation-independent. Also: the log terminal's input font was still
-12px on mobile (iOS auto-zooms below 16px) — now 16px there, matching
-every other mobile-adapted input.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-17b — fixed a real bug: even at
+the correct memory-constrained 0.5 GB budget, a Localize run's growing
+locs array was only ever WARNED about near the budget, never actually
+stopped — so a genuinely dense/long Run (e.g. ~30k frames) could still
+silently crash a mobile tab with total data loss. It now auto-stops
+(keeping whatever was found so far as a real, exportable partial
+result) once locs cross ~95% of the budget, on top of the earlier
+landscape-viewport and terminal-font mobile fixes.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
