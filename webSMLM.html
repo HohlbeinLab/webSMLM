@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7923   frame-parallel detect/fit worker pool; dedicated
+    workers         7938   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8250   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8578   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8265   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8593   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9060   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9075   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -142,9 +142,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9855   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9870   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10589   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10604   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -354,7 +354,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14350   single particle tracking, trackpy-inspired;
+    spt             14365   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -385,7 +385,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15888  top-level orchestration, *Core()/wrapper split;
+    pipeline        15903  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -446,7 +446,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16589  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16604  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -500,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19314  localizations table, filtering, histograms;
+    table           19331  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20055  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20072  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2419,7 +2419,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -7559,7 +7559,22 @@ function syncRawContrastUI(){
 // re-fetching it from the stack (would lag while dragging a handle) —
 // rawPixelData already holds the exact ADU array drawRaw() last received.
 function redrawRawContrast(){
-  if(!rawPixelData || rawSegView) return;   // segmentation view repurposes rawPixelData for label lookups, not ADU — dragging Contrast while it's shown must no-op, not corrupt it through the grayscale mapping
+  // A real, reported bug: dragging Contrast while ANY plot owns the raw panel
+  // (drift/NeNA/FRC/PCFO/line-profile, sSMLM's distance/angle histograms,
+  // spt's D/track-length/MSD histograms, smFRET's Time trace) silently
+  // reclaimed it back to a live raw frame — drawRaw() itself always calls
+  // hideOtherRawToggleBtns(null)/setRawPlot(false) unconditionally (correct
+  // for a GENUINE frame redraw, e.g. scrubbing), but rawPixelData is never
+  // cleared when a plot takes over, so this function had nothing stopping it
+  // from calling drawRaw() anyway and silently overwriting the plot — the
+  // smFRET case additionally left smfretTraceModeBtn's own label stale
+  // ("Show raw frame" — implying raw frame ISN'T showing yet — even though
+  // this had already put one on screen), since only the button's own click
+  // handler, never this path, updates smfretShowRawFrame. Same reasoning as
+  // the pre-existing rawSegView guard right below, just generalized: dragging
+  // Contrast while something else legitimately owns the panel must no-op,
+  // not reclaim it.
+  if(!rawPixelData || rawSegView || rawIsPlot) return;
   drawRaw(rawPixelData.arr, rawPixelData.w, rawPixelData.h, rawSpots, rawLocs);
 }
 // SR-panel Contrast slider (v0.12.2-dev, requested — "when SOI composite or
@@ -19188,14 +19203,12 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.5-dev · build 2026-09-17e — the 3D calibration graph's
-own view toggle moved next to the reconstruction panel title, alongside
-every other view toggle there, and its old "Calibration graph" label
-dropped as redundant; every reconstruction/raw-panel view toggle whose
-label previously showed a bare mode name (Diffusion/Track length, Angles/
-Distances, Segmentation image/Area histogram, AA/DD+DA/E/S/Acceptor dir.
-exc./Donor dir. exc.) now reads "Show …", so a click's own effect is never
-ambiguous with what's currently on screen.`);
+log(`webSMLM v0.12.5-dev · build 2026-09-17f — fixed a real bug: dragging
+the raw-panel Contrast slider while ANY plot was showing there (drift,
+NeNA, FRC, a histogram, or smFRET's Time trace) silently reclaimed the
+panel back to a live raw frame, discarding the plot. Contrast dragging
+now correctly does nothing while a plot owns the panel, and only redraws
+a real frame when one is genuinely showing.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

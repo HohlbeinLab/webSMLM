@@ -984,6 +984,34 @@ relevant one before editing rather than scrolling:
   value it always was (see the paragraph above); the log line is purely a visibility aid for
   reproducing what an exported raw-frame PNG actually looked like, not a replayable command.
 
+  **`redrawRawContrast()` silently reclaimed the raw panel from ANY plot back to a live raw frame —
+  a real, reported bug** (v0.12.5-dev, reported for smFRET's Time trace specifically: "changing the
+  contrast, the shown image reverts to raw frame with the toggle then still showing 'Show raw
+  frame' even though it is already on screen" — that stale label was a symptom, not the actual bug).
+  `redrawRawContrast()` (the Contrast slider's own `input` handler) already had a guard for the
+  segmentation-image view (`rawSegView`) — added when THAT feature shipped — but nothing analogous
+  for the far more common case of a PLOT (`rawIsPlot`) owning the panel: drift/NeNA/FRC/PCFO/
+  line-profile, sSMLM's distance/angle histograms, spt's D/track-length/MSD histograms, and
+  smFRET's own Time trace all leave `rawPixelData` sitting untouched from whatever real frame was
+  last drawn (nothing nulls it on switching to a plot), and `drawRaw()` itself unconditionally calls
+  `hideOtherRawToggleBtns(null)`/`setRawPlot(false)` — correct for a GENUINE frame redraw (e.g.
+  scrubbing), but with nothing to stop `redrawRawContrast()` from calling it anyway on a plain
+  Contrast drag. Confirmed this is genuinely general, not smFRET-specific, before fixing: reproduced
+  the identical symptom with the **drift** plot (`rawIsPlot` flipped `true→false`, title
+  "Drift vs frame"→"Raw frame") via Playwright, with no smFRET involved at all. Fixed with one
+  added condition, generalizing the existing `rawSegView` guard rather than writing a
+  feature-specific one: `if(!rawPixelData || rawSegView || rawIsPlot) return;`. The smFRET-specific
+  symptom (`smfretTraceModeBtn` stuck reading "Show raw frame") was never really a separate bug in
+  its own label logic — only `drawSmfretTrace()`'s own click handler and this function ever touched
+  the raw panel's live-vs-plot state, and only the LATTER was buggy; once `redrawRawContrast()`
+  stopped hijacking the panel, the label was correct all along (Time trace still showing → "Show
+  raw frame" is exactly what clicking would do). Verified via Playwright: dragging Contrast while
+  the drift plot is up now leaves `rawIsPlot`/the title untouched; the identical drag while
+  smFRET's Time trace is up leaves `rawPlotName==='smfretTrace'` and the button's own label
+  unchanged; switching to smFRET's genuine "Show raw frame" sub-view (`smfretShowRawFrame=true`,
+  `rawIsPlot=false`) still lets Contrast dragging redraw a real frame with the new range — no
+  regression to the one case where this function is SUPPOSED to redraw.
+
   **The Contrast row's "B & W:" text readout replaced with two plain, editable number inputs**
   (requested, v0.12.3-dev — "add to input fields next to each other, but without the - and +
   Inkscape-style additions"). `.numflat` (next to `input.num`'s own rule) is a DELIBERATELY separate
