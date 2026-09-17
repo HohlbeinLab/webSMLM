@@ -61,12 +61,17 @@ relevant one before editing rather than scrolling:
   of where they sit in the DOM) — a pure relocation, same "id-based lookup, position doesn't matter"
   precedent `pxnm`'s own earlier move already established (see below). **The module's own two
   separate "more info…" buttons were also merged into one** in the same round — `hint-export`
-  (Gain/Camera offset/EMCCD-vs-sCMOS prose) is gone entirely, its content appended onto the END of
-  `hint-detectfit` (shared with Fit method/Detection filter/FTM above it) rather than kept as a
+  (Gain/Camera offset/EMCCD-vs-sCMOS prose) is gone entirely, its content merged into
+  `hint-detectfit` (shared with Fit method/Detection filter/FTM below it) rather than kept as a
   second button in the same already-long collapsed section; the merged `.hint` div's own pill label
   was updated to `module: detect/fit & export` to reflect the merge (edited directly in
   `webSMLM.html` — the pill span is fixed markup, not part of `sync_hints.mjs`'s own synced content,
-  see **Documentation build** below).
+  see **Documentation build** below). **Reordered to lead with it, on direct follow-up** ("reorder
+  to match the recent changes moving gain and offset up") — the merged content was first appended at
+  the very END of `hint-detectfit` (after the FTM citation), which no longer matched the FIELDS' own
+  new top-of-module position; moved the Gain/Camera offset `<ul>` to the very START of the popup
+  instead (right after the pill span, before the Fit method paragraph), so the popup's own reading
+  order tracks the sidebar's again.
 
   **Checkbox labels no longer end in "?"** (v0.12.5-dev, requested — "Tickboxes are self
   explanatory") — a plain UI-copy convention applied app-wide, found by a systematic search (parsing
@@ -78,7 +83,7 @@ relevant one before editing rather than scrolling:
   reference to these five labels — tooltips, `PARAMS` label strings, JS comments/log lines, the
   `.hint` popups (edited via their own `DOCUMENTATION.md` markers, then synced) — was updated to
   match, so the label text reads identically wherever it appears; genuinely different controls that
-  happen to share a similarly-worded but GENUINELY interrogative label (**Position donor?**, a
+  happen to share a similarly-worded but GENUINELY interrogative label (**Position donor**, a
   `<select>` asking which of two bearings is correct, not a tickbox) were deliberately left alone.
   `localize3D`/`smfretFretEnabled`/`alexEnabled`'s own `PARAMS.label` strings were updated too (the
   displayed text in Save/Load Settings' own `logParamValues()` echo and the terminal's
@@ -86,6 +91,18 @@ relevant one before editing rather than scrolling:
   have no `PARAMS` entry to update (pure UI-reveal checkboxes, not analysis parameters). Verified via
   Playwright: a fresh, exhaustive re-scan of every checkbox's own label text confirms zero remaining
   "?" suffixes anywhere in the sidebar.
+
+  **`Position donor` — the one label deliberately left alone above — later asked to drop its own "?"
+  too** ("[the] Time traces and FRET module still has a question mark: 'Position donor?' remove").
+  Overrides the earlier reasoning (a genuinely interrogative `<select>`, not a self-explanatory
+  tickbox) on direct instruction — the app-wide "no question marks on control labels" preference
+  evidently extends past checkboxes specifically. Blanket-replaced the exact string `"Position
+  donor?"` → `"Position donor"` across `webSMLM.html`, `docs/DOCUMENTATION.md`, and this file (its
+  own visible `<label>` text, the `.hint-smfret` popup paragraph, and every JS/HTML comment
+  referencing the control by name) — unlike the earlier "Single particle tracking" rename, no
+  verbatim historical user-quote needed preserving here, so a plain global substitution was safe
+  everywhere the string appeared. Verified via Playwright: `#smfretDonorAngle`'s own `<label>` text
+  reads `"Position donor"` with no trailing `?`.
 
 - **in/out** — TIFF parsing; in-memory vs. streamed loading; contiguous ImageJ stacks are indexed
   arithmetically, multi-IFD (Micro-Manager MMStack) stacks by walking the IFD chain. Handles
@@ -630,6 +647,18 @@ relevant one before editing rather than scrolling:
   (`cal3d||cal3dW`) — `updateMethodUI()` re-runs after every calibration load/compute so the box
   disappears the moment one lands. No in-page "replace calibration" affordance yet; a fresh page
   load or Load-settings round-trip is the reset path.
+
+  **`loadCalBtn` was full sidebar width, alone in its own row — narrowed and right-aligned to match
+  every other button** (v0.12.5-dev, requested — "smaller in width matching all other buttons and
+  move it to the right"). It used to sit bare inside `#cal3dRow` (`style="margin:0"`, no `.btnrow`
+  wrapper), so the app's own global `button{width:100%}` rule stretched it across the whole sidebar —
+  the ONE button in this file with no sibling to naturally halve its width via `.btnrow`'s 2-column
+  grid. Fixed by wrapping it in a plain `<div class="btnrow" style="margin:0">` with
+  `style="grid-column:2"` on the button itself — the exact same "single button in a 2-col grid,
+  pushed to the right column" idiom `gainOffsetFromPcfoBtn` already established (right above this
+  one, MODULE: params — Get estimate). Verified via Playwright: `loadCalBtn`'s own rendered width
+  now matches `gainOffsetFromPcfoBtn`'s exactly (127px, not the previous full-row stretch), and its
+  right edge aligns with the row's own right edge (both buttons' `grid-column:2` placement).
 
 - **render** — accumulates localizations into an offscreen buffer `srFull`; a `view` (zoom/pan)
   transform draws the visible region + scale bar. Colour maps, blur, and display scaling apply
@@ -1908,7 +1937,7 @@ relevant one before editing rather than scrolling:
   Verified via Playwright against the real ALEX/prism dataset: narrowing Distance max via a field
   change while in the smfret context re-pairs and `smfretPairedSoiKeys`' own size changes to match
   the new pair count (`srSpots`/`srLocs` themselves stay the same full length throughout, by
-  design); picking the *other* candidate bearing on smFRET's own "Position donor?" (below) — which
+  design); picking the *other* candidate bearing on smFRET's own "Position donor" (below) — which
   sets Primary angle then dispatches `change` — triggers the identical live re-pair/re-mark path
   for free, no separate wiring needed.
 
@@ -2222,7 +2251,7 @@ relevant one before editing rather than scrolling:
   Localize SOI run, `unpairSSmlm()`, and `clearSmfretFixSOI()`.
 
   **"Channels to show" renamed "Filter SOIs"** (requested — the field now also gates a NEW
-  action, **Link channels** below, not just Get time traces' own display). **"Position donor?"**
+  action, **Link channels** below, not just Get time traces' own display). **"Position donor"**
   (`smfretDonorAngleRow`/`smfretDonorAngle`, shown alongside it once ALEX is on) answers a real
   gap: the doubled-bearing angle fit (`fitSSmlmDistAndAngle()`, MODULE: sSMLM) can only recover the
   ANGULAR SPACING between the two orders, never which of the two 180°-apart candidates actually
@@ -2260,7 +2289,7 @@ relevant one before editing rather than scrolling:
   test to whatever `lastResult.locs` currently holds. Verified via Playwright against the real
   ALEX/prism dataset: 50 DD+DA pairs → Link channels localizes 283 independent AA sites → keeps
   48 pairs with a nearby AA hit (also checked with a genuinely different Primary angle from
-  **Position donor?** first: 78 pairs → 77 kept) — `srSpots`/`srLocs` and `lastResult.locs.length`
+  **Position donor** first: 78 pairs → 77 kept) — `srSpots`/`srLocs` and `lastResult.locs.length`
   stay in sync throughout, and a second click on an already-linked result is a stable no-op
   (77→77).
 
@@ -2296,7 +2325,7 @@ relevant one before editing rather than scrolling:
   time-trace plot's own magenta DA curve visibly renders — 556 magenta pixels on a real canvas
   check, versus a flat, signal-free line before the fix).
 
-  **"Position donor?"'s own option labels corrected to the 0°–360° convention** (reported, with a
+  **"Position donor"'s own option labels corrected to the 0°–360° convention** (reported, with a
   screenshot — "this is inconsistent. Angle should be as in the 2D histogram running between 0 and
   360"): `sSmlmAngleCenter` is stored SIGNED (`[-180°,180°)`, the convention `pairCore()`'s own
   bearing math and the field's own `PARAMS` range both rely on), but the Angles polar plot right
@@ -2853,7 +2882,7 @@ relevant one before editing rather than scrolling:
   `smfretPairedSoiKeys.locKeys.size` (79) stayed identical throughout, **Link channels** stayed
   enabled the whole time, the dark-orange pixel count reappeared on toggling back (540 px), and a
   subsequent **Link channels** re-run against the restored state still completed correctly (71
-  pairs). (3) **Position donor?** (`smfretDonorAngle`) is now `disabled` by default in the HTML and
+  pairs). (3) **Position donor** (`smfretDonorAngle`) is now `disabled` by default in the HTML and
   only enabled once a real angle fit has actually run — requested: "Position donor should grayed
   out and deactive until 'Pair DD + DA' was checked providing guesses for the angles," since its two
   options are meaningless placeholders (the `PARAMS` default bearing and its +180°) before any real
@@ -2892,7 +2921,7 @@ relevant one before editing rather than scrolling:
   (requested, same round: "If the position of the donor is changed, make sure that also the 'Link
   channels' will be handle the new situation, this is currently not the case and the linkage seems
   to be lost"). Root cause: `refreshSmfretPairingLive()` (fires on a Distance/Angle field's own
-  `change` event, including the one **Position donor?** dispatches onto `sSmlmAngleCenter`) calls
+  `change` event, including the one **Position donor** dispatches onto `sSmlmAngleCenter`) calls
   `pairSSmlm(cfg)`, which WHOLESALE OVERWRITES `lastResult.locs` with the fresh, full, unfiltered
   pair set for the new window — silently discarding whatever narrower subset **Link channels** had
   previously written there, with no way to tell "just moved the window" from "start over" was ever
@@ -2905,7 +2934,7 @@ relevant one before editing rather than scrolling:
   and the fresh re-pair produced any pairs — calls `linkSmfretChannels()` again right after marking,
   which re-runs its own independent acceptor-channel check against the NEW pairing and re-sets the
   flag itself (idempotent, no double-bookkeeping needed here). Verified via Playwright on the real
-  ALEX dataset: Pair DD + DA (79 pairs) → Link channels (kept 71) → switch **Position donor?** to
+  ALEX dataset: Pair DD + DA (79 pairs) → Link channels (kept 71) → switch **Position donor** to
   the other candidate bearing (a genuinely different Primary angle, 91° vs. −89°) → the re-pair at
   the new bearing (78 raw pairs) is automatically re-linked (`smfretChannelsLinked` stays `true`,
   `lastResult.locs.length` and `smfretPairedSoiKeys.locKeys.size` both land on 78, matching exactly
@@ -2968,14 +2997,14 @@ relevant one before editing rather than scrolling:
   renaming some parts is in place"). Cross-checked every current sSMLM/smFRET button id and label in
   `webSMLM.html` against `docs/DOCUMENTATION.md`/`README.md`/`docs/REFACTOR_PLAN.md` — the actual
   live UI naming turned out already consistent (Filter SOIs, Pair DD + DA, Pair & plot sSMLM,
-  Position donor?, Link channels — no lingering "Get from pairing"/"Channels to show"/"Linking
+  Position donor, Link channels — no lingering "Get from pairing"/"Channels to show"/"Linking
   SOIs"/"Fit dist. & angle" in current-facing text anywhere in the app itself), so no code-level
   renaming was warranted; the staleness was entirely in the PROSE, not the names. Fixed in
   `docs/DOCUMENTATION.md`: (1) §3's own sSMLM prose (below the already-current `.hint` marker) still
   described a removed **Fit dist. & angle** button as something to click — 2 spots, rewritten to
   describe **Preview pairs**' own automatic fit instead; 6 more spots said bare **Pair** instead of
   the actual **Pair & plot sSMLM** label. (2) §2's **Single-molecule FRET** section (848 onward) had
-  fallen well behind the shipped feature set — no mention of **Pair DD + DA**, **Position donor?**,
+  fallen well behind the shipped feature set — no mention of **Pair DD + DA**, **Position donor**,
   **Link channels**, the dark-orange pairing marks, or the ROI-thumbnail insets at all, one lingering
   "**Spectral SMLM analysis**" old-name reference, a stale **Filter SOIs** description that hadn't
   caught up with AA/pairing decoupling, and — worst — a "Still not implemented... linking a
@@ -3035,7 +3064,7 @@ relevant one before editing rather than scrolling:
   unverified). Fixed the actual complaint (discoverability, not a missing behaviour) instead: both
   `smfretTimeTracesBtn`'s own tooltip and the `hint-smfret` popup now say outright that Get time
   traces works on whatever's currently loaded and does NOT run Link channels for you.
-  (4) **`smfretDonorAngle`** ("Position donor?") stayed enabled/clickable even after its pairing was
+  (4) **`smfretDonorAngle`** ("Position donor") stayed enabled/clickable even after its pairing was
   later undone (Unpair, a fresh Localize SOI, or unchecking Fix sites of interest (SOI)) — reported:
   "people might start clicking on it nonetheless ... wondering why nothing is happening." A plain
   `smfretHasDDDAPairing()`-tracks-enablement approach was tried first and rejected: **Preview pairs**
@@ -3054,7 +3083,7 @@ relevant one before editing rather than scrolling:
   attribute correctly the whole time, but it was invisible: the element's own explicit
   `color:var(--fg)` defeats a browser's native disabled-dimming, and this codebase never gave
   `select.sel` its own `:disabled` style the way `button:disabled{opacity:.45;cursor:not-allowed}`
-  already has. Reported via a screenshot showing "Position donor?" looking fully active BEFORE
+  already has. Reported via a screenshot showing "Position donor" looking fully active BEFORE
   **Localize SOI** had even run. Fixed with one shared rule, `select.sel:disabled{opacity:.45;
   cursor:not-allowed}` — the same convention buttons already use — which also retroactively makes
   every EARLIER disable point (the page-load seed, Unpair, a fresh Localize SOI, unchecking Fix
@@ -3076,7 +3105,7 @@ relevant one before editing rather than scrolling:
   automatic way to tell which of the two bearings is correct at all. Verified precisely on the real
   dataset: default bearing kept 82/84; the flipped one kept 0/84; switching back restored 82/84
   exactly. Documented this explicitly (a new log line fires on a 0-kept result: `↳ 0 kept usually
-  means "Position donor?" is set to the physically wrong bearing — try the other option above.`)
+  means "Position donor" is set to the physically wrong bearing — try the other option above.`)
   rather than leaving a correct-but-alarming result unexplained. Renamed **Link channels** →
   first **"Link DD, DA and AA"** (as requested), then shortened to **`Link DD/DA/AA`** one round
   later after it wrapped to two lines at the sidebar's real 300px-fixed width (`.wrap{grid-
@@ -3099,7 +3128,7 @@ relevant one before editing rather than scrolling:
   (4) **`smfretTimeTracesBtn` now stays disabled until `linkSmfretChannels()` has actually
   succeeded, but only with ALEX on** (requested, "to be really safe") — previously **Get time
   traces** only ever checked `smfretSOI.length`, letting a user trace a pairing whose acceptor
-  position was never independently confirmed (or built on the wrong "Position donor?" bearing
+  position was never independently confirmed (or built on the wrong "Position donor" bearing
   entirely, see above — the one check that would have caught it was skippable). New shared
   `refreshSmfretTimeTracesBtn()` (next to `refreshSmfretLinkChannelsBtn()`, same pattern) —
   `disabled = !haveSites || (alex && !(smfretChannelsLinked && lastResult.locs.length>0))` — wired
@@ -3107,7 +3136,7 @@ relevant one before editing rather than scrolling:
   paths, `getSmfretPairingFromDonor()`'s start, `linkSmfretChannels()`'s own `finally`) plus
   `toggleAlexEnabled()` itself (flipping ALEX changes whether the extra requirement even applies).
   **The `lastResult.locs.length>0` half is not redundant** — caught in testing, not assumed: after a
-  successful link, flipping **Position donor?** re-applies **Link DD/DA/AA** live (see this
+  successful link, flipping **Position donor** re-applies **Link DD/DA/AA** live (see this
   module's own `refreshSmfretPairingLive()` paragraph above) and can legitimately drop the kept
   count to zero (the "wrong bearing" case just above) — `smfretChannelsLinked` alone would still
   read `true` then (linking DID run, it just kept nothing), so checking it in isolation left **Get
@@ -6071,11 +6100,51 @@ in the repo.
   either. `hint-detectfit` covers **export**'s own Gain/Camera offset fields
   too (v0.12.5-dev, moved to the top of Localisation settings and merged in
   when the standalone `hint-export` button was removed alongside them — see
-  **pipeline**'s own paragraph on the move below); there is no separate
-  `hint-export` any more — see **params**'s own paragraph on the move below.
-  Each
+  **params**'s own paragraph on the move, and its own follow-up reordering
+  the merged content to lead with Gain/Camera offset rather than trail with
+  it, matching the fields' new position); there is no separate `hint-export`
+  any more. Each
   marker is placed as the INTRO to its DOCUMENTATION.md section, right after the PARAMS table — the
   surrounding prose picks up only where the popup leaves off, not restating it.
+
+  **A full audit of all 10 popups' own internal paragraph order against their sidebar's own
+  top-to-bottom field order** (v0.12.5-dev, prompted directly by the `hint-detectfit` reorder above
+  — "check the other 'more info…' sites whether their internal order matches the input values and
+  flow of parameters") found 4 real mismatches, confirmed against the live HTML before fixing any of
+  them (not assumed from the prose alone):
+  - **`hint-drift`**: the "AIM's own settings" bullet explained **AIM sample %** before **Correct z
+    too (3D)**, but the sidebar itself shows `driftZRow` before `driftSamplePctRow` — swapped the two
+    clauses within that one bullet.
+  - **`hint-sSMLM`**: **Background profile** (a sidebar row sitting BETWEEN Distance max and Primary
+    angle) had its own dedicated explanatory paragraph placed AFTER the **Preview pairs** paragraph,
+    even though Preview pairs itself comes later in the sidebar (it's a button, at the bottom) —
+    moved the Background-profile paragraph to sit directly before Preview pairs.
+  - **`hint-smfret`**: **Position donor** (row 5 in the sidebar, right under **First frame**) had its
+    dedicated paragraph placed near the very END of the popup — after **Save FRET data**, **Load
+    FRET data**, and **E(S) histogram**, all much later workflow steps. Since Position donor's own
+    text genuinely depends on **Pair DD + DA** already being explained (it only exists to disambiguate
+    a bearing that pairing itself can't resolve), it couldn't move all the way to the top either —
+    moved it to sit directly after the **Pair DD + DA** paragraph instead (before **Get FRET data**),
+    the earliest point where it both makes sense AND doesn't run past several unrelated, later
+    controls first.
+  - **`hint-spt`** (the largest mismatch): **Apply segmentation**/**Load segm. image**/**Show
+    image**/**Min./Max. cell area (px)** are the literal FIRST four rows in the sidebar (confirmed via
+    a direct grep of `sptBox`'s own HTML, in document order), yet their three explanatory paragraphs
+    sat at the very END of the popup — after Search range/Memory/Localization error/Min track
+    length/D plot/Show tracks/Show track data had all already been covered. Moved all three
+    segmentation paragraphs to the very front of `hint-spt`, before the Search range/Memory
+    paragraph.
+
+  The other 6 (`hint-memory`, `hint-simulation`, `hint-pcfo`, `hint-calibration`, `hint-render`, and
+  the newly-merged `hint-detectfit` itself) were confirmed ALREADY correctly ordered — some have a
+  paragraph that legitimately groups two adjacent sidebar rows together, or a general/citation
+  paragraph with no single controlling field, neither of which counts as a real ordering problem;
+  only a paragraph's own controlling field appearing meaningfully out of sequence relative to the
+  sidebar's own physical flow was treated as a fixable mismatch. Verified via Playwright after
+  syncing: each of the 4 fixed popups' own paragraph list, read via `querySelectorAll('p,li')`, now
+  has the reordered topic in its expected position (e.g. `hint-spt`'s first three blocks are all
+  Apply-segmentation-related; `hint-smfret`'s Position-donor paragraph sits at index 7, directly
+  after Pair DD + DA at index 6 and before Get FRET data at index 8).
 - **Quick guide** (the in-app modal, `helpBtn`) is deliberately thin: just the intro blurb, the
   5-step **Guided workflow** (step 2 briefly names the fit-method families and points at the docs
   for depth), **Acknowledgements**, and **License & author** — no per-module walkthrough, no
