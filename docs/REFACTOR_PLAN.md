@@ -136,9 +136,12 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     checkbox at export time (default OFF) rather than baking it in unconditionally, and store it
     base64-encoded binary (Float32Array bytes) rather than a raw JSON number array to keep the size
     hit down.
-  - **Molecules that aren't perfectly immobilised** (tethered particle motion) could reuse **spt**'s
-    own `linkTracks()` instead of a fixed-xy assumption — a distinct, later option, not needed for a
-    genuinely immobilised-molecule dataset.
+  - **Molecules that aren't perfectly immobilised** (tethered particle motion, or genuinely freely
+    diffusing molecules) could reuse **spt**'s own `linkTracks()` instead of a fixed-xy assumption —
+    a distinct, later option, not needed for a genuinely immobilised-molecule dataset. Reiterated
+    directly ("FRET calculation can and should be available for freely diffusing molecules, but that
+    is another can of worms") alongside the FRET?/module-rename round (v0.12.5-dev, see **Single-
+    molecule FRET** in `CLAUDE.md`) — still just a "keep in mind for later" note, not scoped further.
   - **Dual-channel PIXEL input for an image-splitter or two-camera setup** — narrower than it used
     to be: **Via channel matching** (`alignSmfretChannels()`) already solves the single-camera
     dual-view/image-splitter PAIRING problem directly on the one already-loaded movie (splitting

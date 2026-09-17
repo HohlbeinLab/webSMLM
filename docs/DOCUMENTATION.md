@@ -159,10 +159,15 @@ says.
   general-purpose technique — same prefix on **Single-molecule FRET** and
   **Single particle tracking** below, for the same reason. See
   [§3](#ssmlm-params)/[§2](#ssmlm).
-- **(Caution!) Single-molecule FRET** (`smfretBox`) — **Localize SOI**/**Pair
-  DD + DA**/**Get FRET data**; enabled as soon as a movie is loaded, not
-  gated on any Localize result. Same "(Caution!)" reasoning as **Pairing
-  (sSMLM & FRET)** above. See [§3](#smfret-params)/[§2](#smfret).
+- **(Caution!) Single-molecule traces and FRET** (`smfretBox`) — **Localize
+  SOI**/**Pair DD + DA**/**Get (FRET) data**; enabled as soon as a movie is
+  loaded, not gated on any Localize result. The **FRET?** checkbox (default
+  on) is this module's own discoverability switch — unticking it disables
+  **Pair DD + DA** while leaving everything else (plain intensity-vs-time
+  traces, with **Alternating laser excitation?** on and no pairing, DD and
+  AA both) fully usable — see [§2](#smfret) for the full explanation. Same
+  "(Caution!)" reasoning as **Pairing (sSMLM & FRET)** above. See
+  [§3](#smfret-params)/[§2](#smfret).
 - **(Caution!) Single particle tracking** (`sptBox`) — links localizations into
   trajectories and computes a per-track diffusion coefficient; enabled as
   soon as there are localizations, same gating as Pairing (sSMLM & FRET).
@@ -924,7 +929,7 @@ button works on them directly — no separate table for sSMLM. **Headless**
 drift/NeNA/FRC; `config.sSmlmPreview` (v0.12.1-dev) runs Preview pairs' own
 wide diagnostic scan independently of it — see §8 for both.
 
-### Single-molecule FRET (`smFRET`) {#smfret}
+### Single-molecule traces and FRET (`smFRET`) {#smfret}
 
 Single-molecule FRET (donor/acceptor pair analysis) — **experimental**,
 still v1 in scope (no E_raw/S_raw computation yet, see the end of this
@@ -942,6 +947,24 @@ that is NOT a 0th/1st order in sSMLM's sense) and a different purpose from
 reuses the exact same underlying mechanism, and pairing itself reuses
 **Pairing (sSMLM & FRET)**'s own directional distance+bearing-angle
 matching directly (see below).
+
+**FRET?** (`smfretFretEnabled`, default checked) makes explicit that this
+module is also a plain single-molecule traces tool, not only a FRET one —
+requested after noticing that analysing time traces without ever pairing a
+FRET pair was "somewhat hidden" behind a module named only for FRET.
+Unticking it disables/greys out **Pair DD + DA** (the one control that only
+makes sense once a real donor/acceptor pair is actually wanted); every
+other control — **Localize SOI**, **Get (FRET) data**, **Load/Save (FRET)
+data** — stays fully usable regardless, since none of them require a
+pairing to produce something meaningful. With **Alternating laser
+excitation?** on and **FRET?** off (no pairing), **Get (FRET) data** still
+plots real **DD** and **AA** (AA falls back to sampling at the site's own
+position — see that control's own paragraph below) — there is simply no
+donor→acceptor distance/bearing to derive an **E**/**S** value from, so the
+**E(S) histogram** stays unavailable, exactly as it already is for any
+other unpaired result. The three trace buttons carry a "(FRET)" in
+brackets specifically to flag that pairing is optional, not a
+prerequisite, without a more disruptive rename.
 
 **Localize SOI** (`locateSmfretSOI()`, wrapping the pure `smfretSOICore()`)
 averages the first **Average # of frames** frames (from frame 1, or —
@@ -2388,7 +2411,7 @@ peak, then commit with **Pair & plot sSMLM**. See
 and why this workflow — rather than automatic angle detection — was chosen
 for the first implementation.
 
-### Single-molecule FRET settings (`smFRET`) {#smfret-params}
+### Single-molecule traces and FRET settings (`smFRET`) {#smfret-params}
 
 **Experimental** — see [§2](#smfret) for the full write-up (v1 scope, what
 `Localize SOI` reuses from 3D calibration, what's not implemented yet).
@@ -2397,6 +2420,7 @@ for the first implementation.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
+| `smfretFretEnabled` | FRET? | bool | — | — | — | true |
 | `smfretAvgFrames` | Average # of frames | number (int) | 1 | 100000 | 10 | 100 |
 | `alexEnabled` | Alternating laser excitation? | bool | — | — | — | false |
 | `alexFirstFrame` | First frame | enum (`dirDonorExc`, `dirAcceptorExc`) | — | — | — | `dirDonorExc` |
@@ -2417,6 +2441,7 @@ for the first implementation.
 
 <!-- HINT:smfret -->
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
+<p><b>FRET?</b> (default checked) makes explicit that this module also works as a plain single-molecule traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Load/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating laser excitation?</b> on and <b>FRET?</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
 <p><b>Alternating laser excitation?</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
 <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating laser excitation?</b> checked, the log line also breaks the total down by channel: it reports the candidate count on the channel just localized AND runs a second, on-demand detect+fit pass on the OTHER channel purely to report its own independent count too (no pairing has run yet at this point, so there's no real donor/acceptor IDENTITY to split by — see below).</p>
 <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own). Each of the two channels (<b>DD+DA</b>/<b>AA</b>, or <b>Donor</b>/<b>Acceptor dir. exc.</b> before Localize SOI) remembers its own Contrast range independently — the first time a channel's composite is shown it's auto-estimated, but a by-hand adjustment sticks: toggling to the other channel and back does not silently reset it. Clicking <b>Auto</b> explicitly reverts the CURRENT channel back to auto-estimating on future toggles.</p>
@@ -2529,6 +2554,7 @@ Written by **Save settings**, read by **Load settings**.
 {
   "format": "webSMLM-settings",
   "version": 2,
+  "appVersion": "0.12.5",
   "created": "2026-08-08T12:00:00.000Z",
   "values": { "pxnm": 160, "gain": 0.1248, "camoffset": 100, "winr": 4, "...": "..." }
 }
@@ -2537,6 +2563,10 @@ Written by **Save settings**, read by **Load settings**.
 - `values` is `{id: value}` for **every** `PARAMS` entry (not just ones with
   a page control) — the only way to set the no-page-control entries
   (`workerBatch*`, `srPreview*`, etc.) is a loaded file like this.
+- `version` is the settings-file **format/schema** version (bumped only when
+  the JSON's own wrapper shape changes) — a different thing from
+  `appVersion` (v0.12.5-dev), the actual webSMLM release that wrote the
+  file, parsed live from the running page's own version at save time.
 - On load, unrecognised keys are logged (`"not recognised — ignored"`) and
   skipped rather than erroring — old files stay loadable across versions.
   One exception: a file with `sptFrameTime` (renamed to the global
@@ -2544,6 +2574,17 @@ Written by **Save settings**, read by **Load settings**.
   key aliased to `frametime` before the loop runs, not silently dropped —
   a TEMPORARY back-compat step, removed once old saved files have had time
   to migrate (a fresh **Save settings** always writes `frametime`).
+- **Version-mismatch advisory** (v0.12.5-dev): if the loaded file's own
+  `appVersion` is NEWER than the running page's, a warning names both
+  versions, lists the unrecognised key(s) that came with it, and points at
+  the GitHub releases page — the usual real-world cause of an unrecognised
+  key is a settings file saved by a newer webSMLM that added a setting this
+  build doesn't have yet. An older file with no `appVersion` at all (saved
+  before this check existed) still gets a softer "possibly saved by a newer
+  version" advisory whenever it carries any unrecognised key, since there's
+  no version number to be definite about. Either way this is advisory
+  only — every recognised key still applies exactly as before; nothing is
+  ever rejected or blocked because of a version mismatch.
 - DOM-backed entries dispatch a real `change` event when set, so any
   existing listener (live preview, "Fix bead x,y" retrigger, …) reacts
   exactly as if the user had edited the control by hand.

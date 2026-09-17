@@ -4190,6 +4190,49 @@ relevant one before editing rather than scrolling:
   Auto-equivalent for AA correctly makes a SUBSEQUENT round trip re-auto-estimate instead of restoring
   the old manual value.
 
+  **Module renamed "(Caution!) Single-molecule traces and FRET", with a new "FRET?" checkbox** (v0.12.5-
+  dev, requested — "with the FRET module it is also possible just to analyse time traces witout FRET.
+  This is currently somewhat hidden"). Discussed docs-only vs. a UI-level change first; the user's own
+  4-part counter-proposal was implemented directly: (1) the sidebar summary text gained "traces and"
+  (`(Caution!) Single-molecule FRET` → `(Caution!) Single-molecule traces and FRET`) — kept the existing
+  "!" for consistency with sSMLM/spt's own identical prefix, even though the request's own wording
+  dropped it (a judgement call, not flagged back, since every other module's "(Caution!)" is spelled the
+  same way). (2) New `PARAMS.smfretFretEnabled` ("FRET?", bool, default `true`) — a plain sidebar
+  checkbox right after `<summary>`, the clearest entry-point position for a control that changes how the
+  whole module reads. `refreshSmfretPairingBtn()` (next to the pre-existing `refreshSmfretTimeTracesBtn()`)
+  is the single shared function deciding `smfretPairingBtn`'s enabled state — `!(smfretSOI &&
+  smfretSOI.length) || !paramValue('smfretFretEnabled')` — replacing the 3 separate call sites that used
+  to compute `!(smfretSOI&&smfretSOI.length)` inline (`locateSmfretSOI()`'s own success path, and both
+  pairing methods' own `finally` blocks); `smfretFretEnabled`'s own `change` listener calls it directly,
+  so toggling the checkbox live-updates the button even with sites already found and no other action
+  taken. (3) The three trace buttons gained a "(FRET)" in brackets — **Get FRET data** → **Get (FRET)
+  data**, **Load FRET data** → **Load (FRET) data**, **Save FRET data** → **Save (FRET) data** —
+  deliberately ONLY the visible button text; the `title=` tooltips and `docs/DOCUMENTATION.md`'s own
+  extensive `<b>Get FRET data</b>`-style cross-references were left as the un-bracketed name throughout,
+  keeping this the "easy change" it was pitched as rather than a full rename sweep — the two stayed
+  consistent with each other before this round and still do after it, so there's no real drift, just a
+  visible/prose split that was already the case for other compact button labels elsewhere in this app.
+
+  **The user's own completeness clarification — "if 'Alternating laser excitation' is on, 'Get (FRET)
+  data' would simply plot DD and AA. No ES plot is derivable and could be left blank" — needed one real
+  code change, not just documentation**: `getSmfretTimeTraces()`'s `showAA` gate was `alex && paired`
+  (deliberately simplified to that, dropping an earlier unpaired-position fallback, in an EARLIER round
+  of this same file — see this module's own "drop all other options" paragraph above), which meant AA
+  was never sampled at all without a committed pairing — exactly the case FRET? off now creates on
+  purpose. Widened back to `alex` alone; the per-frame AA extraction branch now computes
+  `cx2=paired?Math.round(s.x2-ddx):cx, cy2=paired?Math.round(s.y2-ddy):cy` — falling back to the site's
+  own donor position (the only one available) when unpaired, same reasoning DD's own pairing check
+  already uses. `drawSmfretRoiThumbnails()` (already reads `isFinite(site.x2)?site.x2:site.x`) and
+  `smfretCanShowEHist()` (already gates on a real `photonsDA`/pairing) both needed zero changes — they
+  already composed correctly with this reinstated fallback, confirmed by re-reading each rather than
+  assumed. (4) The user's own point about FRET on freely-diffusing molecules being "another can of
+  worms" was logged as a forward-looking note in `docs/REFACTOR_PLAN.md`, not implemented.
+
+  Verified via Playwright: the summary text, checkbox, and all three renamed button labels read
+  correctly on load; after **Simulate movie** → **Localize SOI**, `Pair DD + DA` is enabled (sites
+  exist, FRET? checked); unchecking **FRET?** disables it with sites still present; re-checking
+  re-enables it — confirming the checkbox alone, not a stale sites check, drives the button.
+
 - **spt** (single particle tracking, v0.11.2) — links per-frame localizations into trajectories and
   computes a per-track diffusion coefficient. The sidebar label carries the same **"(Caution!)"**
   prefix as **sSMLM**/**smFRET** (see sSMLM's own paragraph on this — id stays `sptBox`), since the
@@ -5080,6 +5123,40 @@ relevant one before editing rather than scrolling:
   side. Verified via Playwright: `saveSettingsJson()` is a real top-level function, and calling it
   directly (native picker stubbed away, matching this app's own `file://` download fallback) produces
   a `logCmd` entry with `jsOverride==='saveSettingsJson()'`.
+
+  **Settings JSON gained a version-compatibility fail-safe** (v0.12.5-dev, asked directly — "if a new
+  settings json is loaded that contains new parameters that are not (yet) compatible with an older
+  version of webSMLM, is a message thrown to check for the latest available version?"). Answer before
+  this round was no: `loadSettingsJson()`'s own per-key loop already silently `continue`s past any
+  `id` with no matching `PARAMS` entry (a real, deliberate "unknown/legacy key — ignore" choice, so a
+  file with SOME unrecognised keys still applies everything it CAN), and the settings file's own
+  `version:2` field is a schema/wrapper-shape version (bumped only when the JSON's own shape changes),
+  not the webSMLM app release that wrote it — so there was no signal available to distinguish "this key
+  is a harmless typo" from "this file was saved by a newer webSMLM that added a setting this build
+  doesn't know about yet." Fixed with two independent additions rather than one: (1) `buildSettingsJson()`
+  now also stamps `appVersion` (parsed live from the `<h1>` pill via a new shared `currentAppVersion()`,
+  reusing the exact same `/v(\d+\.\d+\.\d+)/` idiom `webSMLM_lastVersion` already established — not
+  duplicated as a second regex); (2) `loadSettingsJson()` collects every skipped key into `unknownKeys`
+  (previously just silently dropped) and, after its existing "N of M values applied" line, checks BOTH:
+  if the loaded file's own `appVersion` compares strictly NEWER than the running page's (`compareSemver()`,
+  a plain 3-component tuple compare — app versions here are always bare `X.Y.Z`, no pre-release suffix
+  to handle), logs a clear warning naming both versions, listing (up to 5) the actual unrecognised keys,
+  and pointing at the GitHub releases page; else, if `unknownKeys.length` alone is nonzero (an OLDER
+  settings file predating this fix has no `appVersion` at all, so the version compare can't fire, but
+  can still legitimately carry keys a much-older build never had), logs a softer "possibly saved by a
+  newer version" advisory instead — same information, hedged, since there's no version number to be
+  definite about here. Deliberately does NOT block or reject the load either way — every recognised key
+  still applies exactly as before (this is a "check for updates" advisory only, not a hard
+  compatibility gate) — matching the file's own long-standing "warn, don't block" convention elsewhere
+  (a movie/segmentation-mask size mismatch, an ND2/FITS edge case, etc.). No corresponding check exists
+  for `loadCalibrationJson()`/CSV load — a calibration file's own shape is validated structurally
+  already (`calMethods` inference, "no recognised calibration model" throw) and a CSV's columns are
+  read individually with no fixed schema to drift against, so neither has the same "silently-ignored
+  key" failure mode this fix addresses. Verified via Playwright: a synthetic file with `appVersion:
+  '99.0.0'` and one made-up key produces the version-mismatch warning naming both versions and the
+  unrecognised key; the same file with `appVersion` OMITTED produces the softer "possibly newer"
+  advisory instead; a file stamped with the CURRENT running version and only real, recognised keys
+  produces neither warning.
 
   **The timing table's own label→number gap was still too wide** (follow-up, same round, reported —
   no literal tabs anywhere, just plain spaces: each row's label is hardcoded-padded to 12 chars in
