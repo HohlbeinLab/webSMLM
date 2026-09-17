@@ -242,7 +242,14 @@ in a module.
   font (iOS auto-zooms below that) while `label.row` text stays at 12px — a deliberate size mismatch,
   not a bug.
 
-- **workers** — frame-parallel detect/fit; see the Web Worker gotcha below.
+- **workers** — frame-parallel detect/fit; see the Web Worker gotcha below. `getPool()`'s own worker
+  COUNT is capped at `2` on a memory-constrained device (`isMemoryConstrainedDevice()`), not the
+  desktop `min(12, hardwareConcurrency)` — a real, reported gap: each worker receives its own
+  postMessage-CLONED copy of every frame batch dispatched to it (no transfer list), so pool size
+  directly multiplies how much raw frame data is resident at once, completely independent of and
+  unmonitored by `checkLocsMemory()` (MODULE: pipeline, which only estimates the growing locs array).
+  A phone reporting `hardwareConcurrency=6-8` (common) previously had that many× a batch's own frame
+  memory in flight simultaneously with no budget check on it at all.
 
 - **export** — ThunderSTORM-compatible CSV. `photons`/`bg`/`bgstd` are already true photon units by
   export time (gain/offset applied inside the fit). `sigma_x`/`sigma_y`, `angle`, `x2`/`y2`/
@@ -475,12 +482,22 @@ in a module.
   after destructuring the hook — every existing `shouldStop()` call site (worker dispatch loops, the
   serial yield loop, the FTM barrier phase) picks up a memory-triggered stop for free, with the exact
   same "stop mid-way, keep the partial locs found so far" handling a manual Stop click already gets.
-  `checkLocsMemory()` warns once at 70% of budget, then sets `memStopTriggered=true` (and logs a
-  distinct message) at 95% — deliberately tight, since the `200` bytes/row estimate (same one
-  `checkTableSize()` uses) likely UNDERESTIMATES a real loc object's V8 footprint (15+ own
-  properties), so erring toward stopping a little early is safer than not stopping at all. This also
-  means a headless `analyze()` call (which passes no `shouldStop` hook at all) now gets this same
-  protection, a genuine improvement there, not just interactively.
+  This also means a headless `analyze()` call (which passes no `shouldStop` hook at all) now gets
+  this same protection, a genuine improvement there, not just interactively.
+
+  **`checkLocsMemory()`'s own WARN/STOP fractions are deliberately well below "leave a little
+  headroom"** (`0.35`/`0.55` of `memgb`, not the first-shipped `0.7`/`0.95`) — this check only ever
+  estimates the LOCS ARRAY's own footprint (`200` bytes/row, the same estimate `checkTableSize()`
+  uses, likely itself an UNDERESTIMATE of a real 15-own-property loc object's V8 footprint), but
+  that's far from the only thing consuming `memgb`'s budget during a Run: in-flight frame batches
+  (`BATCH` frames × `pool.length` workers, each holding its own postMessage-CLONED copy — see
+  **workers** below) and periodic SR-preview render buffers (`checkRenderSize()`, MODULE: render —
+  a SEPARATE per-feature check against the SAME budget number, not a shared running total with this
+  one) can all be resident AT THE SAME TIME as a locs array that hasn't reached the old 70% mark yet.
+  Reported: a real ~30k-frame mobile MLE-spherical Run still crashed with NO warning EVER logged at
+  the old fractions — consistent with the total (locs + frames + render + overhead) already
+  exceeding the device's true ceiling well before locs alone crossed 70%. Still an estimate, not a
+  guarantee — no client-side JS can detect or prevent an OS-level tab kill for certain.
 
   **Standing rule — every actionable GUI control needs a plain top-level function behind it.** A
   button click, checkbox change, or any control that actually computes or changes data must call ONE
