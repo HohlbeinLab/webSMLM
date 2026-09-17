@@ -5937,6 +5937,61 @@ all now compute the identical `-apple-system, system-ui, Segoe UI, Roboto, Helve
 sans-serif` stack `body`/`label.row` already use, and a side-by-side screenshot of a Pixel size (nm)
 row shows the label and its input now sharing one visually consistent typeface.
 
+**Follow-up: a real Safari screenshot (260% zoom, on this exact build) still looked different —
+investigated further, no additional code bug found.** Two more rounds of verification, both
+NEGATIVE for a code-level cause: (1) a 13-property computed-style diff between `#pxnm` and its own
+`label.row` in Chromium found every property identical except `lineHeight` (label `18px`, input
+`normal`) — affects vertical spacing, not glyph shape, so unlikely to explain a visibly different
+typeface. (2) Installed Playwright's WebKit engine specifically to approximate Safari
+(`npx playwright install webkit`) and re-ran the same diff there: `fontFamily`/`fontWeight`/
+`fontSize` all matched exactly; only `appearance`/`-webkit-appearance` differed (`textfield` on the
+input, expected — that's what suppresses the native number spinner, see `input.num`'s own comment).
+Formed a hypothesis that `appearance:textfield` (vs. `appearance:none`) might retain enough native
+WebKit form-control theming to substitute a different font specifically in real Safari, invisible to
+`getComputedStyle().fontFamily`. **Tested directly, not just reasoned about**: (a) toggling
+`input#pxnm` from `appearance:textfield` to `appearance:none` in WebKit changed nothing about its
+computed `fontFamily` — the two are provably identical. (b) A pixel-level bitmap diff — screenshot
+the real input's own rendered "100" vs. an overlay `<span>` given the identical computed font,
+positioned to exactly overlap it, then diffed via an in-page canvas (mean/max absolute luminance
+diff) — found the SAME small, purely positional discrepancy (mean ≈11/255, a 1-2px baseline/
+vertical-centering difference between a `<span>` and a native `<input>`'s own text layout) in BOTH
+Chromium (11.20) and WebKit (11.16), nearly identical between engines. If WebKit were substituting a
+genuinely different font for the real control, this diff would be expected to differ meaningfully
+between the two engines, not match within noise. **Conclusion: the `font-family:inherit` fix is
+correct and complete; ruled out `appearance:textfield` as a contributing cause with direct evidence,
+not just by matching computed style.** Whatever the user's own real-Safari screenshot shows at 260%
+zoom did not reproduce in either Chromium or Playwright's bundled WebKit build — plausibly a
+real-Safari-specific rendering nuance neither test engine reproduces, or a perceptual effect at that
+zoom level, not something further code archaeology in this file is likely to resolve without a
+report reproducible in an engine available here.
+
+### The sidebar-hidden left/right panel gap must stay symmetric (a real, reported layout bug)
+
+Reported directly, with a screenshot: "when hiding the parameter panel, the left gap between data
+window and browser panel is too small not matching the gap between the data panel's and the right
+panel's right side to the browser window." Root cause: `.main{padding:10px 12px 10px 0}` has
+DELIBERATELY zero left padding — correct when the sidebar is visible, since the visual gap on that
+side is meant to come from `.sidebar`'s own `padding-left:18px` plus `.wrap`'s own 6px grid gap, not
+from `.main` itself. But `body.side-hidden .sidebar{display:none}` removes the sidebar from the grid
+entirely (`.wrap` collapses to one track) with nothing else restoring that space — `.main`'s own
+left padding stayed 0 regardless, so the raw panel's own left gap shrank to just its `.card`'s own
+6px inner padding, while the SR panel's right gap stayed at `.main`'s 12px + `.card`'s 6px = 18px.
+Confirmed via Playwright before fixing (measuring both canvases' own `getBoundingClientRect()`
+against the viewport, not just eyeballing): `6px` left vs. `18px` right with the sidebar hidden,
+`312px`/`18px` with it visible (asymmetric by design there — the left figure includes the whole
+sidebar column). Fixed with one added rule, `body.side-hidden .main{padding-left:12px}` — mirrors
+`.main`'s own existing right padding, closing the gap to the identical 18px/18px on both sides.
+**Deliberately scoped inside `@media (min-width:861px)`, not left bare** — on mobile the sidebar is
+a `position:fixed` overlay drawer, never actually part of the grid at all (`.main{padding:14px 14px}`
+there is already unconditionally symmetric regardless of drawer open/closed state), but
+`body.side-hidden .main` has HIGHER CSS specificity (two classes + one element) than the plain
+`.main{padding:14px 14px}` mobile rule (one class + one element) — left unscoped, it would have won
+over the mobile rule too and reintroduced an asymmetry (12px/14px) the mobile layout never had.
+Verified via Playwright at both breakpoints: desktop sidebar-hidden now reads `18px`/`18px` (was
+`6px`/`18px`); mobile reads `20px`/`20px` in both drawer states, byte-identical before and after this
+fix — confirming the media-query scoping actually keeps mobile untouched, not just assumed from the
+selector specificity reasoning alone.
+
 ### `<noscript>` + `.textContent +=` gotcha
 
 Never put a `<noscript>` inside an element that JS later reads via `.textContent` (especially
