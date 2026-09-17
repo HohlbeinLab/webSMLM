@@ -66,8 +66,15 @@ in a module.
   UTIF returns one EMPTY ifd object, no exception, on non-TIFF bytes) → whole-file
   (`file.arrayBuffer()`) vs. streamed (`loadMultiIfdStreaming()`), gated by
   `effSliceMin=min(SLICE_MIN≈1.5GB, readBudget())` — ties the streaming threshold to **Memory budget
-  (GB)** (`memgb`), which itself defaults to `0.5` (not `3`) on a narrow/mobile viewport
-  (`isMobileViewport()`, `syncParamControls()`).
+  (GB)** (`memgb`), which itself defaults to `0.5` (not `3`) on a memory-constrained device
+  (`isMemoryConstrainedDevice()`, `syncParamControls()`). **Deliberately checks the SMALLER of
+  `window.innerWidth`/`innerHeight`, not width alone** — a real, reported bug: a phone held in
+  landscape swaps its two CSS dimensions, so its WIDTH commonly exceeds the 860px threshold even
+  though the device itself hasn't changed (a large iPhone's landscape viewport is ~926px wide),
+  silently keeping the desktop 3 GB default and risking exactly the crash this default exists to
+  prevent. `isMobileViewport()` (width alone) is a SEPARATE function, still correct for its own
+  purpose — the sidebar-drawer layout decision, which only cares about available horizontal space,
+  not device class.
 
   A multi-file selection (`loadTiffFilesAuto()`) auto-detects strategy from `files[0]`'s own frame
   count: exactly 1 frame/file → `loadTiffSequence()` (file-per-frame, natural-sorted); more than 1 →

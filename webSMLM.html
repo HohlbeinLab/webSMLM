@@ -21,16 +21,17 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3126   PARAMS registry, single source of truth for params;
+    params          3135   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
-                           isMobileViewport() (memgb's own lower default on
-                           a narrow viewport); log()/logCmd() — prose gets a
+                           isMemoryConstrainedDevice() (memgb's own lower
+                           default on a phone/tablet-class device, orientation-
+                           independent); log()/logCmd() — prose gets a
                            per-line "// "/"# " comment marker (js/cli, see
                            #logCmdStyleBtn), commands stay bare so a whole
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4126   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4151   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +44,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4425   synthetic stack generator ("Simulate movie")
-    detect          5518   per-frame band-pass + local-maxima detection
-    fit             5795   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4450   synthetic stack generator ("Simulate movie")
+    detect          5543   per-frame band-pass + local-maxima detection
+    fit             5820   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +71,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6434   accumulate to offscreen buffer; view/colour/blur;
+    render          6459   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +101,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7976   frame-parallel detect/fit worker pool; dedicated
+    workers         8001   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8303   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8631   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8328   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8656   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +119,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9113   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9138   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -142,9 +143,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9908   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9933   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10642   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10667   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -354,7 +355,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14403   single particle tracking, trackpy-inspired;
+    spt             14428   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -385,7 +386,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15941  top-level orchestration, *Core()/wrapper split;
+    pipeline        15966  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -446,7 +447,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16642  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16667  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -500,14 +501,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19367  localizations table, filtering, histograms;
+    table           19394  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20108  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20135  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2405,8 +2406,16 @@ X.B(E,Y);return E}return J}())
        first written, missed then, reported) is a DELIBERATELY separate class
        from .num (so addNumberSteppers() skips it, see .numflat's own comment)
        but needs the identical mobile-zoom fix — it's still a real, focusable
-       number input, the class split was only ever about the +/- steppers. */
-    input.num,select.sel,.numflat{font-size:16px}
+       number input, the class split was only ever about the +/- steppers.
+       #logTerminal is the same gap again: a real, focusable text input
+       (the log terminal, reported — "the fontsize of the terminal input
+       window should be set to min 16 to avoid the awkward zoom in") whose
+       own font comes from .logTerminalRow's 12px monospace shorthand, not
+       from .num/.numflat/select.sel at all, so it was missed by this same
+       rule for the same reason .numflat was. Only font-SIZE is overridden
+       here — #logTerminal's own font:inherit still inherits the monospace
+       family/line-height from .logTerminalRow. */
+    input.num,select.sel,.numflat,#logTerminal{font-size:16px}
     /* No physical ↑/↓ keys on an on-screen keyboard (reported) — these
        mirror the keyboard shortcut exactly (see logTerminalUpBtn/DownBtn's
        own click wiring, next to the terminal's keydown listener). */
@@ -2452,7 +2461,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.5 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-17a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3728,17 +3737,33 @@ function buildSettingsJson(values){
 // drawer uses (breakpoint 860, kept in sync with that CSS). A plain width
 // check, not UA/device-memory sniffing (`navigator.deviceMemory` doesn't
 // exist in Safari, so it can't help on iOS, the case that matters most).
+// WIDTH ALONE, deliberately — this drives the sidebar layout decision,
+// which only cares about available horizontal space.
 function isMobileViewport(){ return window.innerWidth<=860; }
+// A real, reported bug: a user on a genuinely memory-constrained phone
+// still saw memgb default to 3 GB (the desktop value) — traced to
+// isMobileViewport()'s own WIDTH-ONLY check failing in landscape. A phone
+// held sideways swaps its two CSS dimensions, so its WIDTH commonly
+// exceeds 860 even though the device itself hasn't changed (e.g. a large
+// iPhone's landscape viewport is ~926px wide) — exactly backwards for a
+// device-class check, which should be orientation-independent. Taking the
+// SMALLER of the two viewport dimensions fixes this: a phone's shorter
+// edge stays under the threshold in either orientation, while an ordinary
+// desktop/laptop window would need to be resized small in BOTH dimensions
+// at once to false-trigger it. Still viewport-based, not UA/device-memory
+// sniffing, same reasoning as isMobileViewport() above — just the
+// dimension that actually tracks device class rather than current layout.
+function isMemoryConstrainedDevice(){ return Math.min(window.innerWidth, window.innerHeight)<=860; }
 // Registry → DOM: writes each PARAMS entry's min/max/step/value (or
 // checked, for booleans) onto its bound control, so the registry stays
 // authoritative over the static HTML's own (matching but redundant)
 // attributes. Runs once at startup. Special case: `memgb` defaults to 0.5
-// (its own UI minimum) instead of 3 on a narrow viewport — mobile Safari's
-// real per-tab memory ceiling is well under desktop assumptions with no
-// JS-visible OOM signal, and loadTiffFile()'s whole-file-vs-streamed
-// threshold ties to this same setting. Only the INITIAL
-// value changes (a later resize doesn't re-trigger it); a loaded settings
-// JSON's own memgb still overrides it as normal.
+// (its own UI minimum) instead of 3 on a memory-constrained device —
+// mobile Safari's real per-tab memory ceiling is well under desktop
+// assumptions with no JS-visible OOM signal, and loadTiffFile()'s
+// whole-file-vs-streamed threshold ties to this same setting. Only the
+// INITIAL value changes (a later resize/rotation doesn't re-trigger it);
+// a loaded settings JSON's own memgb still overrides it as normal.
 function syncParamControls(){
   for(const id in PARAMS){
     const spec=PARAMS[id]; if(!spec.id) continue;
@@ -3746,7 +3771,7 @@ function syncParamControls(){
     // Local override, not `spec.default=...` — PARAMS[id] is a shared
     // reference, so mutating it here would permanently corrupt the
     // registry's own default the first time this runs on a narrow viewport.
-    const def = (id==='memgb' && isMobileViewport()) ? 0.5 : spec.default;
+    const def = (id==='memgb' && isMemoryConstrainedDevice()) ? 0.5 : spec.default;
     if(spec.type==='bool'){ el.checked=def; continue; }
     if(spec.type==='enum'){ el.value=def; continue; }
     el.min = spec.min==null ? '' : spec.min;
@@ -17188,7 +17213,7 @@ $('rawFtmBtn').addEventListener('click',()=>{
 // small screens so the images are visible without scrolling past the controls.
 (function(){ const b=$('sideToggle'); if(!b) return;
   const body=document.body, pin=$('sidePin'), scrim=$('scrim');
-  const isMobile=isMobileViewport;   // same narrow-viewport check syncParamControls() now also uses for memgb's own default
+  const isMobile=isMobileViewport;   // layout-only (width alone) — memgb's own default uses the orientation-independent isMemoryConstrainedDevice() instead, see that function's own comment
   const refit=()=>window.dispatchEvent(new Event('resize'));   // re-fit canvases if the grid width changed
   // Floating/mobile-drawer sidebar is position:fixed, so it needs the header's
   // real rendered height (font metrics vary by OS/zoom — a guessed px value
@@ -19241,11 +19266,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.5 — form controls (button/input/select) now inherit the
-app's own font instead of the browser's default; the sidebar-hidden layout
-no longer leaves the raw panel's left gap narrower than the reconstruction
-panel's right gap; smFRET time-trace/FRET analysis renamed and a "FRET?"
-toggle added; several sSMLM/smFRET/spt label and popup-ordering fixes.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-17a — fixed a real bug: the
+memory-budget mobile default (0.5 GB) only ever checked window width
+alone, so a phone held in landscape (width > 860px in that orientation)
+kept the desktop 3 GB default and could crash on a large dataset;
+isMemoryConstrainedDevice() now checks the SMALLER of width/height,
+orientation-independent. Also: the log terminal's input font was still
+12px on mobile (iOS auto-zooms below 16px) — now 16px there, matching
+every other mobile-adapted input.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
