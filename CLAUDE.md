@@ -467,6 +467,31 @@ relevant one before editing rather than scrolling:
   identical logic `updateMethodUI()` already had, rather than a second copy. Headless `analyze()`
   sets `winr` directly, same as always — this auto-apply is interactive-UI-only.
 
+  **`applyWinrDefault()` used to dispatch a spurious `#winr` `change` event even when the value
+  didn't actually change — a real, reported bug** ("Rerunning 3D calibration does not update the
+  Calibration graph, in fact the Bead Composite is shown", screenshot). Root-caused, not guessed:
+  `runCalibration()`'s own success path is `updateCalStatus() → srFull=null; srIsPlot=true; ...;
+  drawCalibration();` — `updateCalStatus()` calls `updateMethodUI()`, which unconditionally calls
+  `applyWinrDefault(is3d)`. The old implementation set `$('winr').value=want` and dispatched
+  `change` on it EVERY time this guard-clause let it through, regardless of whether `want` actually
+  differed from the current value — the common case, since nothing about the 2D/3D context changed
+  between a Calibrate click and its own completion. `#winr` is one of the 8 fields wired (MODULE:
+  pipeline) to re-run `locateBeadsForCalib()` whenever **Fix bead x,y** is checked — so that spurious
+  event kicked off an ASYNC `locateBeadsForCalib()` run, which — because `runCalibration()`'s own
+  `drawCalibration()` call is synchronous and runs to completion first — only overwrote the SR panel
+  back to "Bead composite" a moment LATER, once `locateBeadsForCalib()`'s own `await`s resolved.
+  Confirmed precisely before fixing: dispatching `applyWinrDefault(currentIs3d())` with `winr`
+  already at its correct auto-set value fired a real `change` event anyway (`changeFired:true`)
+  despite `+$('winr').value===want` (`wouldActuallyChange:false`). Fixed by computing whether the
+  value is genuinely changing BEFORE assigning it, and only dispatching `change` when it is — a
+  genuine 2D↔3D method switch (where `want` really differs, e.g. 3→4) still fires the event exactly
+  as before, verified directly (`before:3, after:4, changeFired:true`), so no regression to the
+  mechanism this function exists for. Verified end-to-end against the real bundled
+  `experimental_data/Z calibration (step 10nm).tif` with **Fix bead x,y** checked: pre-fix, BOTH a
+  first Calibrate click and a rerun left `#srTitle` reading "Bead composite"; post-fix, both
+  correctly read "3D calibration" — confirmed via a git-stash A/B comparison of the same Playwright
+  script against the unfixed vs. fixed code, not just reasoning about the mechanism.
+
   **`methodResetsLutToFire(method)`** (v0.12.1-dev, extracted from `updateMethodUI()`'s own
   else-branch — `m==='phasor'||m==='gaussmle'||m==='mle3d'||m==='gaussmleEll'`, deliberately NOT
   `gaussls`, see that branch's own comment) is now also checked by `run()` itself, right before

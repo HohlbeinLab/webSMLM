@@ -500,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19308  localizations table, filtering, histograms;
+    table           19321  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20049  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20062  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2419,7 +2419,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -17663,8 +17663,21 @@ let _winrAutoSetValue=PARAMS.winr.default;
 function applyWinrDefault(is3d){
   const want=is3d?paramValue('winr3d'):paramValue('winr2d');
   if(+$('winr').value!==_winrAutoSetValue) return;   // manually edited since the last auto-set — leave it
-  $('winr').value=want; $('winr').dispatchEvent(new Event('change'));
+  // Only dispatch 'change' when the value is ACTUALLY changing — a real,
+  // reported bug otherwise: updateMethodUI() (called from updateCalStatus()
+  // right after a successful Calibrate) calls this unconditionally, and it
+  // used to fire a 'change' on #winr even when `want` already equalled the
+  // current value (the common case — nothing about the 2D/3D context
+  // changed). #winr is one of the fields whose own 'change' listener
+  // re-runs locateBeadsForCalib() while "Fix bead x,y" is checked — that
+  // async re-run's own LATER completion (after Calibrate's own synchronous
+  // drawCalibration() call had already painted the calibration graph)
+  // silently overwrote the SR panel back to the Bead composite, so the
+  // freshly-computed calibration plot never stayed on screen.
+  const changed = +$('winr').value !== want;
+  $('winr').value=want;
   _winrAutoSetValue=want;
+  if(changed) $('winr').dispatchEvent(new Event('change'));
 }
 $('winr2d').addEventListener('change',()=>applyWinrDefault(currentIs3d()));
 $('winr3d').addEventListener('change',()=>applyWinrDefault(currentIs3d()));
@@ -19180,14 +19193,12 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.5-dev · build 2026-09-17c — checkbox labels no longer end
-in a "?" (tickboxes are self-explanatory): Analyse FRET, Apply segmentation,
-3D localisation, Enable live streaming, and Alternating-laser excitation
-(now hyphenated too); Load settings/Load calibration now log a real,
-recallable terminal command the same way Load data/Save settings already
-do; and in Localisation settings, Gain (photons/ADU)/Camera offset (ADU)/
-Get estimate moved to the top (right below Real-time update), with the
-module's two "more info…" popups merged into one.`);
+log(`webSMLM v0.12.5-dev · build 2026-09-17d — fixed a real bug: rerunning
+Calibrate could silently leave the reconstruction panel showing the old
+Bead composite instead of the fresh Calibration graph, whenever Fix bead
+x,y was checked — a spurious change event fired on an internal field even
+when nothing actually changed, kicking off an unrelated async re-run that
+overwrote the plot a moment after it was drawn.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
