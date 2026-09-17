@@ -5910,6 +5910,33 @@ Below the 860px breakpoint, `input.num`/`select.sel` jump to 16px (iOS auto-zoom
 smaller input; 16px is the threshold that stops it) while `label.row` text stays at the base 12px
 — a real, known, deliberate size mismatch, not a bug to "fix" by shrinking the input back down.
 
+### Form controls need an explicit `font-family:inherit` — browsers don't give them one for free
+
+A real, reported bug, asked directly as a plain question ("are the numbers and letters the same
+font/font size?" — screenshot showing `input.num` numerals visibly in a different, plainer typeface
+than the `label.row` text right next to it): NO, they weren't, at ANY viewport width, and it had
+nothing to do with the already-documented mobile 16px/12px size split above (a genuinely separate,
+narrower issue). Every browser's own UA stylesheet gives `button`/`input`/`select`/`textarea` a
+non-inheriting default font (Chromium: plain Arial) — ordinary elements (`label`, `div`, `span`, …)
+inherit `body`'s own `font:14px/1.5 -apple-system,...` stack automatically via normal CSS
+inheritance, but form controls never have, and nothing in this file's own `button{...}`/
+`input.num{...}`/`select.sel{...}` rules ever set `font-family` — only `font-size` — so every single
+button, input, and select in the whole app had silently been rendering in the browser's own default
+form-control font this entire time, not the app's intended system-ui stack. Confirmed directly via
+Playwright before fixing (not assumed from the screenshot alone): `getComputedStyle(...).fontFamily`
+read `"Arial"` for a button/select/input, vs. the correct system-ui stack for `body`/`label.row`.
+Fixed with one shared rule, `button,input,select,textarea{font-family:inherit}`, placed right after
+the `*{box-sizing:border-box}` reset at the very top of the stylesheet — inherits from whatever
+ancestor actually has a real font stack (`body`, in every real case) rather than hand-patching
+`font-family` onto each of the ~15 individual button/input/select CSS rules in this file
+separately, and automatically covers any future one too. `#logTerminal`'s own deliberate monospace
+`font:12px/1.5 ui-monospace,...` shorthand (an ID selector, higher specificity) is unaffected —
+confirmed via Playwright that it still computes to the monospace stack, not the new inherited one.
+Verified via Playwright across `button`/`select`/`input.num`/`.numflat`/a filter `input[type=text]`:
+all now compute the identical `-apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial,
+sans-serif` stack `body`/`label.row` already use, and a side-by-side screenshot of a Pixel size (nm)
+row shows the label and its input now sharing one visually consistent typeface.
+
 ### `<noscript>` + `.textContent +=` gotcha
 
 Never put a `<noscript>` inside an element that JS later reads via `.textContent` (especially
