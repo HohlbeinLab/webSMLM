@@ -204,13 +204,13 @@ don't) letterboxes a fixed 4/3 sub-rectangle centred within the panel's own
 colour first so the letterbox bars are invisible, then translating so the
 plot's own drawing code (unaware of any of this) draws into the sub-rect as
 if it were the whole canvas. 4/3 matches matplotlib's own default figure
-size. Each canvas's own controls (`#scrubRow`/`#srFilterNote`/`#calViewRow`)
-are wrapped with it in a `.panel-body` div, which is top-aligned (NOT
+size. Each canvas's own controls (`#scrubRow`/`#srFilterNote`) are wrapped
+with it in a `.panel-body` div, which is top-aligned (NOT
 centered) — since raw/sr canvases are now always exactly the same height,
 centering each panel's own canvas+controls group independently used to
 shift the two canvases out of alignment with each other by roughly half of
 whichever trailing control only one panel has (raw's `#scrubRow` has no sr
-equivalent when `#srFilterNote`/`#calViewRow` are both hidden). Top-aligning
+equivalent when `#srFilterNote` is hidden). Top-aligning
 keeps both canvases flush against their own title row always, so they start
 at the same y regardless of what trailing content either panel has.
 
@@ -278,8 +278,11 @@ dark to match the rest of the UI.
   (same carve-out as UI theme/panel-layout choice, [§3](#3-parameters-params-registry)).
 - **SMLM reconstruction** (`sr` canvas) — the accumulated super-resolution
   render, or (before a Run) a quick averaged data projection, or the 3D
-  calibration curve plot (`srIsPlot`). `calViewBtn` toggles that plot between
-  σ-width and phasor-magnitude views (3D calibration only).
+  calibration curve plot (`srIsPlot`). `calViewBtn` (next to the panel
+  title, alongside every other reconstruction-panel view toggle — see
+  below) cycles that plot between σ-width, phasor-magnitude, and
+  phasor-ratio views (3D calibration only), labelled with whichever view
+  clicking it switches TO.
 
 ### Log window
 

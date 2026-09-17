@@ -30,7 +30,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4092   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4088   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Memory budget (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -43,9 +43,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4391   synthetic stack generator ("Simulate movie")
-    detect          5484   per-frame band-pass + local-maxima detection
-    fit             5761   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4387   synthetic stack generator ("Simulate movie")
+    detect          5480   per-frame band-pass + local-maxima detection
+    fit             5757   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -70,7 +70,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6400   accumulate to offscreen buffer; view/colour/blur;
+    render          6396   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -100,14 +100,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         7927   frame-parallel detect/fit worker pool; dedicated
+    workers         7923   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8254   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8582   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8250   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8578   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -118,7 +118,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9065   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9060   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -142,9 +142,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9860   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9855   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10594   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10589   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -354,7 +354,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14355   single particle tracking, trackpy-inspired;
+    spt             14350   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -385,7 +385,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15893  top-level orchestration, *Core()/wrapper split;
+    pipeline        15888  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -446,7 +446,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16594  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16589  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -500,14 +500,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19321  localizations table, filtering, histograms;
+    table           19314  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20062  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20055  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2142,13 +2142,13 @@ X.B(E,Y);return E}return J}())
   /* Both canvases always track --frame-ar (even for a plot — see
      setupPlot()'s own letterboxing in the render module of the main
      script), so raw/sr are ALWAYS the same height, full stop — .panel-body
-     (canvas + its own controls: scrubRow/srFilterNote/calViewRow, and now
+     (canvas + its own controls: scrubRow/srFilterNote, and now
      the title bar h4 too — see below) stays top-aligned (flex's own
      default), NOT centred: centring each panel's own canvas+controls GROUP
      independently used to shift the two canvases out of vertical alignment
      with each other by (roughly) half of whichever trailing control only
      ONE of the two panels has (raw's scrubRow has no sr equivalent when
-     srFilterNote/calViewRow are both hidden) — a real, reported "the two
+     srFilterNote is hidden) — a real, reported "the two
      panels don't line up" regression. Top-aligning puts both canvases
      flush against the top of their own panel-body always, so they always
      start at the same y regardless of what trailing content either panel
@@ -2419,7 +2419,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.5-dev · build 2026-09-17e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2955,7 +2955,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <h4><span id="rawTitle">Raw frame</span></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
-          <h4><span style="display:flex;align-items:center;gap:6px"><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="smfretTraceModeBtn" class="logbtn" style="display:none" title="Toggle between the time trace plot and the live raw frame — sites of interest stay fixed either way">Show raw frame</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+          <h4><span style="display:flex;align-items:center;gap:6px"><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="smfretTraceModeBtn" class="logbtn" style="display:none" title="Toggle between the time trace plot and the live raw frame — sites of interest stay fixed either way">Show raw frame</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Show track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Show angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Show area histogram</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:6px">
             <span class="scrublabel" style="color:var(--muted);font-size:12px">Frame</span>
             <input type="range" id="scrub" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
@@ -2999,12 +2999,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <h4><span id="srTitle">SMLM reconstruction</span></h4>
         <div class="panel-body">
           <canvas id="sr"></canvas>
-          <h4><span style="display:flex;align-items:center;gap:6px"><button id="alexProjToggleBtn" class="logbtn" style="display:none" title="Before Localize SOI: toggles the Data projection between averaging only direct donor- and only direct acceptor-excitation frames. Once sites of interest exist: cycles the reconstruction panel between the DD+DA composite, the AA composite, and — once Get FRET data has produced real DD+DA data — the E (or E vs S) histogram.">Acceptor dir. exc.</button><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance) — also switches the Colour map between whichever you had on Standard and the spectral convention (HSV blue loop)">Show spectral</button><button id="smfretAlignOverlayBtn" class="logbtn" style="display:none" title="Swap between the SOI composite and a registration check: the donor channel (green) warped through the fitted transform, overlaid on the acceptor/DA channel (magenta) — genuine overlap reads white, a real misalignment shows as separated green/magenta fringes.">Show alignment</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
+          <h4><span style="display:flex;align-items:center;gap:6px"><button id="alexProjToggleBtn" class="logbtn" style="display:none" title="Before Localize SOI: toggles the Data projection between averaging only direct donor- and only direct acceptor-excitation frames. Once sites of interest exist: cycles the reconstruction panel between the DD+DA composite, the AA composite, and — once Get FRET data has produced real DD+DA data — the E (or E vs S) histogram.">Show acceptor dir. exc.</button><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance) — also switches the Colour map between whichever you had on Standard and the spectral convention (HSV blue loop)">Show spectral</button><button id="smfretAlignOverlayBtn" class="logbtn" style="display:none" title="Swap between the SOI composite and a registration check: the donor channel (green) warped through the fitted transform, overlaid on the acceptor/DA channel (magenta) — genuine overlap reads white, a real misalignment shows as separated green/magenta fringes.">Show alignment</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="calViewBtn" class="logbtn" style="display:none" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
           <div id="srFilterNote" style="display:none;margin-top:8px;color:var(--accent2);font-size:12px"></div>
-          <div id="calViewRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
-            <span style="color:var(--muted);font-size:12px">Calibration graph</span>
-            <button id="calViewBtn" class="logbtn" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button>
-          </div>
           <!-- Same row structure as #scrubRow (raw panel), but visibility:hidden
                rather than display:none, purely so it occupies the SAME height —
                keeps #srContrastRow below at the same horizontal level as the raw
@@ -7090,7 +7086,7 @@ let renderLocs=null;   // subset shown in the reconstruction (null = all) — dr
 function drawView(){
   const d=$('sr'); const {ctx,W:DW,H:DH}=setupPlot(d);   // backing = CSS×dpr, drawn in CSS px → crisp overlays at any window size
   _plotHover.sr=null; _replotSr=null;   // reconstruction now owns this panel — no plot readout/replot
-  { const r=$('calViewRow'); if(r) r.style.display='none'; }   // calibration-only toggle
+  { const b=$('calViewBtn'); if(b) b.style.display='none'; }   // calibration-only toggle
   $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none';   // E/E-S-plot-only rows — a real reconstruction/composite reclaiming this panel supersedes them
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
   syncSaveImg();
@@ -9000,8 +8996,7 @@ function drawCalibration(){
   $('srTitle').textContent='3D calibration';
   $('srInfo').textContent=`${calib.pts.length} points · z-step ${calib.step} nm · ${methodLbl} · scroll the raw panel to inspect frames`;
   { const n=$('srFilterNote'); if(n) n.style.display='none'; }   // calibration owns the panel — hide the filter note
-  { const row=$('calViewRow'); if(row) row.style.display='flex';
-    const tgl=$('calViewBtn'); if(tgl) tgl.textContent = mode==='sigma'?'Show phasor mag.' : mode==='mag'?'Show ratio' : 'Show σ widths'; }
+  { const tgl=$('calViewBtn'); if(tgl){ tgl.style.display=''; tgl.textContent = mode==='sigma'?'Show phasor mag.' : mode==='mag'?'Show ratio' : 'Show σ widths'; } }
   registerPlotHover('sr',{mL,mT,pw,ph,xA:zmin,xB:zmax,yTop:vmax,yBot:vmin,
     fmt:(vx,vy)=> mode==='sigma' ? `z ${vx.toFixed(0)} nm · σ ${vy.toFixed(1)} nm`
                : mode==='ratio' ? `z ${vx.toFixed(0)} nm · ratio ${vy.toFixed(3)}`
@@ -10964,7 +10959,7 @@ function drawSSmlmHist(){
   $('rawTitle').textContent='Pairing histogram';
   hideOtherRawToggleBtns('sSmlmHistModeBtn');
   const btn=$('sSmlmHistModeBtn');
-  if(btn){ btn.style.display=''; btn.textContent = sSmlmHistMode==='dist' ? 'Angles' : 'Distances'; }
+  if(btn){ btn.style.display=''; btn.textContent = sSmlmHistMode==='dist' ? 'Show angles' : 'Show distances'; }
 }
 // Draws the sSMLM angle histogram as a polar (rose) plot instead of a
 // cartesian bar chart — angle data is circular, so a linear x-axis awkwardly
@@ -11891,7 +11886,7 @@ async function locateSmfretSOI(preservePairing=false){
       // From AA, the next stop is E/S (or plain E) once that data actually
       // exists — folds into the same 3-way cycle toggleAlexProjChannel()
       // implements; falls back to the plain 2-way "DD+DA" otherwise.
-      $('alexProjToggleBtn').textContent = cfg.smfretSoiChannel==='donor' ? 'AA' : (smfretCanShowEHist() ? 'E/S' : 'DD+DA');
+      $('alexProjToggleBtn').textContent = cfg.smfretSoiChannel==='donor' ? 'Show AA' : (smfretCanShowEHist() ? 'Show E/S' : 'Show DD+DA');
     }else{
       $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
       $('alexProjToggleBtn').style.display='none';
@@ -12450,7 +12445,7 @@ function toggleSmfretAlignOverlay(){
     srIsPlot=false; setSrRecon(false);
     $('srTitle').textContent='SOI composite';
     $('smfretAlignOverlayBtn').textContent='Show alignment';
-    if(alex){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='AA'; }
+    if(alex){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='Show AA'; }
     setSrContrastRowVisible(true);
   }
   clampView(); drawView();
@@ -13632,7 +13627,7 @@ function showSmfretEHist(){
   // matching toggleAlexProjChannel()'s own "E/S -> DD+DA" step. Only
   // meaningful with ALEX on (without it there's no DD+DA/AA composite
   // distinction — the button stays hidden entirely, same as always).
-  if(alex){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='DD+DA'; }
+  if(alex){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='Show DD+DA'; }
   smfretEHistLogIfShown();
 }
 // Two-way dual-range<->numflat-pair binding for the DD+DA/AA burst-selection
@@ -15222,7 +15217,7 @@ function refreshSptMsdIfShown(){
 // clicking it switches TO), generalizing driftPlotModeBtn's original
 // "names the other mode" convention to more than one alternative.
 const SPT_HIST_MODES=['D','length','msd'];
-const SPT_HIST_LABELS={D:'Diffusion', length:'Track length', msd:'MSD vs lag'};
+const SPT_HIST_LABELS={D:'Show diffusion', length:'Show track length', msd:'Show MSD vs lag'};
 function nextSptHistMode(m){ return SPT_HIST_MODES[(SPT_HIST_MODES.indexOf(m)+1)%SPT_HIST_MODES.length]; }
 function drawSptHist(){
   if(sptHistMode==='length') drawSptTrackLenHist();
@@ -15823,7 +15818,7 @@ let segShowMode='image';
 function syncSegShowModeBtn(){
   hideOtherRawToggleBtns('segShowModeBtn');
   const btn=$('segShowModeBtn');
-  if(btn){ btn.style.display=''; btn.textContent = segShowMode==='hist' ? 'Segmentation image' : 'Area histogram'; }
+  if(btn){ btn.style.display=''; btn.textContent = segShowMode==='hist' ? 'Show segmentation image' : 'Show area histogram'; }
 }
 function drawSegShow(){
   if(!segmentedImageLabels) return;
@@ -17232,7 +17227,7 @@ async function showStackProjection(){
     const chLabel={dirDonorExc:'direct donor excitation',dirAcceptorExc:'direct acceptor excitation'}[alexProjChannel];
     $('srInfo').textContent=`— average of ${used}/${st.n} ${chLabel} frames · run localisation to reconstruct`;
     $('alexProjToggleBtn').style.display='';
-    $('alexProjToggleBtn').textContent = alexProjChannel==='dirDonorExc' ? 'Acceptor dir. exc.' : 'Donor dir. exc.';
+    $('alexProjToggleBtn').textContent = alexProjChannel==='dirDonorExc' ? 'Show acceptor dir. exc.' : 'Show donor dir. exc.';
   }else{
     $('srInfo').textContent=`— average of ${used}/${st.n} frame${used>1?'s':''} · run localisation to reconstruct`;
     $('alexProjToggleBtn').style.display='none';
@@ -19193,12 +19188,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.5-dev · build 2026-09-17d — fixed a real bug: rerunning
-Calibrate could silently leave the reconstruction panel showing the old
-Bead composite instead of the fresh Calibration graph, whenever Fix bead
-x,y was checked — a spurious change event fired on an internal field even
-when nothing actually changed, kicking off an unrelated async re-run that
-overwrote the plot a moment after it was drawn.`);
+log(`webSMLM v0.12.5-dev · build 2026-09-17e — the 3D calibration graph's
+own view toggle moved next to the reconstruction panel title, alongside
+every other view toggle there, and its old "Calibration graph" label
+dropped as redundant; every reconstruction/raw-panel view toggle whose
+label previously showed a bare mode name (Diffusion/Track length, Angles/
+Distances, Segmentation image/Area histogram, AA/DD+DA/E/S/Acceptor dir.
+exc./Donor dir. exc.) now reads "Show …", so a click's own effect is never
+ambiguous with what's currently on screen.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

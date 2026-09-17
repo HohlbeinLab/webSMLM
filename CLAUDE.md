@@ -492,6 +492,56 @@ relevant one before editing rather than scrolling:
   correctly read "3D calibration" — confirmed via a git-stash A/B comparison of the same Playwright
   script against the unfixed vs. fixed code, not just reasoning about the mechanism.
 
+  **`#calViewRow`/"Calibration graph" removed — `calViewBtn` moved into the SR-panel title, next to
+  every other reconstruction-view toggle** (v0.12.5-dev, reported with a screenshot: "strange
+  placement of the toggle, best to place it next to the title on top and remove 'Calibration
+  graph'"). `calViewBtn` used to sit in its own dedicated row (`#calViewRow`, `display:none` unless
+  calibration owns the panel) BELOW the canvas, next to a plain `<span>` reading "Calibration
+  graph" — the one reconstruction-panel view toggle NOT living alongside `alexProjToggleBtn`/
+  `sSmlmColorBtn`/`smfretAlignOverlayBtn`/`srSegOverlayBtn`/`srTracksOverlayBtn`, all of which
+  already sit in the SR panel's own icon-button `<span>` inside its second `<h4>` (right after the
+  canvas). Moved `calViewBtn` into that same `<span>` (right after `srTracksOverlayBtn`, before the
+  line-profile/crop tool icons) and deleted `#calViewRow`/its label span entirely — `drawView()`'s
+  own "reclaim the panel" line and `drawCalibration()`'s own "show the toggle" line both switched
+  from touching `#calViewRow`'s `style.display` to touching `#calViewBtn`'s directly (a plain
+  button, same convention every other toggle in that group already uses — no separate label span
+  needed, since the button's OWN text already says what it does). `.panel-body`'s own top-alignment
+  comment (MODULE: render) and its DOCUMENTATION.md mirror both had their `#calViewRow` mentions
+  removed too — it no longer exists as a layout consideration.
+
+  **While fixing this, a related and more general labelling inconsistency was flagged directly**:
+  "I like [`calViewBtn`], that [it] says 'Show ratio' etc... many other graphs and plot toggles do
+  not use that, making a toggle with 'DD + DA' not clear that that [is] not what is shown but what
+  would be shown if I actually press the toggle." A full audit of every `.logbtn` sitting in either
+  panel's own title row found 4 real offenders whose label showed the bare TARGET-mode name with no
+  verb at all (ambiguous: is the label describing the CURRENT view or what pressing it switches TO?)
+  — every other one already followed the "label = what clicking it switches TO, prefixed 'Show '"
+  convention this codebase's own comments already describe for `driftPlotModeBtn`/`calViewBtn`, it
+  just hadn't been applied uniformly:
+  - `sptHistModeBtn` — `SPT_HIST_LABELS` (`'Diffusion'`/`'Track length'`/`'MSD vs lag'`) → `'Show
+    diffusion'`/`'Show track length'`/`'Show MSD vs lag'`.
+  - `sSmlmHistModeBtn` — `'Angles'`/`'Distances'` → `'Show angles'`/`'Show distances'`.
+  - `segShowModeBtn` — `'Segmentation image'`/`'Area histogram'` → `'Show segmentation image'`/
+    `'Show area histogram'`.
+  - `alexProjToggleBtn` — all 4 of its own separate write sites (`getSmfretPairingFromDonor()`,
+    `linkSmfretChannels()`'s ALEX-on branch, `toggleAlexProjChannel()`'s 3-way E/S cycle,
+    `refreshAlexProjectionIfShown()`'s Data-projection donor/acceptor label) — `'AA'`/`'DD+DA'`/
+    `'E/S'`/`'Acceptor dir. exc.'`/`'Donor dir. exc.'` → `'Show AA'`/`'Show DD+DA'`/`'Show E/S'`/
+    `'Show acceptor dir. exc.'`/`'Show donor dir. exc.'` — including its own static pre-JS HTML
+    label. Every OTHER toggle in the same two title rows (`rawFtmBtn`, `smfretTraceModeBtn`,
+    `driftPlotModeBtn`, `sSmlmColorBtn`, `smfretAlignOverlayBtn`, `srSegOverlayBtn`,
+    `srTracksOverlayBtn`, `calViewBtn` itself) was confirmed ALREADY compliant, not just assumed —
+    checked directly against every `.textContent=` write site in the file, not only the visible
+    default. `srTracksOverlayBtn`'s own `'Hide tracks'` (the ON-state label) was left as-is
+    deliberately — "Hide X" is the same self-documenting shape as "Show X" (a plain verb naming the
+    action a click performs), just the opposite action, not a bare state name.
+
+  Verified via Playwright: every one of the 12 title-row toggle buttons' own STATIC (pre-JS) label
+  starts with "Show "/"Hide "; `#calViewBtn` is confirmed to live inside an `<h4>` (not a separate
+  row) and `#calViewRow` is confirmed absent from the DOM; a real Calibrate run against the bundled
+  Z-calibration stack still ends with `#calViewBtn` visible, correctly labelled "Show phasor mag.",
+  sitting in the title row next to "3D calibration".
+
   **`methodResetsLutToFire(method)`** (v0.12.1-dev, extracted from `updateMethodUI()`'s own
   else-branch — `m==='phasor'||m==='gaussmle'||m==='mle3d'||m==='gaussmleEll'`, deliberately NOT
   `gaussls`, see that branch's own comment) is now also checked by `run()` itself, right before
@@ -683,8 +733,8 @@ relevant one before editing rather than scrolling:
   same offset into the `mL`/`mT` a caller hands it, since `drawPlotHover()`'s hit-testing reads
   real, untranslated `clientX`/`Y`. `drawRawView()`/`drawView()` never pass `isPlot`.
 
-  `.panel-body` (wrapping a canvas with its trailing controls — `#scrubRow`/`#srFilterNote`/
-  `#calViewRow`) is top-aligned, NOT centred, since raw/sr canvases are always the same height
+  `.panel-body` (wrapping a canvas with its trailing controls — `#scrubRow`/`#srFilterNote`) is
+  top-aligned, NOT centred, since raw/sr canvases are always the same height
   (both track `--frame-ar` unconditionally) — centring each panel's canvas+controls group
   independently shifted the two canvases out of vertical alignment by roughly half of whichever
   trailing control only one panel has. Top-aligning puts both canvases flush against the top of
