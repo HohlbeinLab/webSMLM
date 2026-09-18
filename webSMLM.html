@@ -23,18 +23,18 @@
   ============================================================================
     params          3164   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
-                           isMemoryConstrainedDevice() (drives the worker-pool
-                           size cap on a phone/tablet-class device, orientation
-                           -independent); memBudgetGB/memgb — a split opt-in
-                           TOTAL ceiling (default Infinity) vs. the flat
-                           "Budget raw movies" cache/stream threshold; log()/
-                           logCmd() — prose gets a
+                           isMemoryConstrainedDevice() (worker-pool size cap +
+                           MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
+                           chunkmb starting profile on a phone/tablet-class
+                           device); memBudgetGB/memgb — a split opt-in TOTAL
+                           ceiling vs. the "Budget raw movies" cache/stream
+                           threshold; log()/logCmd() — prose gets a
                            per-line "// "/"# " comment marker (js/cli, see
                            #logCmdStyleBtn), commands stay bare so a whole
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4204   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4228   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -47,9 +47,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4503   synthetic stack generator ("Simulate movie")
-    detect          5620   per-frame band-pass + local-maxima detection
-    fit             5897   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4527   synthetic stack generator ("Simulate movie")
+    detect          5644   per-frame band-pass + local-maxima detection
+    fit             5921   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -74,7 +74,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6536   accumulate to offscreen buffer; view/colour/blur;
+    render          6560   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -104,14 +104,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8154   frame-parallel detect/fit worker pool; dedicated
+    workers         8178   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8495   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8823   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8519   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8847   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -122,7 +122,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9305   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9329   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -146,9 +146,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10100   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10124   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10834   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10858   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -358,7 +358,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14595   single particle tracking, trackpy-inspired;
+    spt             14619   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -389,7 +389,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16133  top-level orchestration, *Core()/wrapper split;
+    pipeline        16157  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -450,7 +450,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16921  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16945  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -504,14 +504,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19722  localizations table, filtering, histograms;
+    table           19751  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20464  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20493  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2478,7 +2478,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2763,7 +2763,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
         <label class="row" title="Opt-in total-memory safety ceiling — leave blank (∞) unless a Run has actually crashed or warned on this device.">Total memory budget (GB) <input type="number" id="memBudgetGB" min="0.1" step="0.5" placeholder="∞" class="num"></label>
-        <label class="row">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0.5" max="64" step="0.5" class="num"></label>
+        <label class="row">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0" max="64" step="0.5" class="num"></label>
         <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
         <label class="row">Enable live streaming <input type="checkbox" id="liveStreamEnabled"></label>
         <label class="row" id="liveStreamUrlRow" style="display:none" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" class="num" style="width:150px"></label>
@@ -2775,9 +2775,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-memory"><span class="pill">module: in/out &amp; liveStreaming</span>
           <ul>
-          <li><b>Total memory budget</b> — an opt-in overall safety ceiling, blank (∞) by default. With no number set, nothing here warns or auto-stops on memory use — most setups don't need it for the file sizes this app is typically used with. Set a real number only if a Run has actually crashed or warned on this device; the existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) then compares its own real, combined memory estimate against it.</li>
-          <li><b>Budget raw movies</b> — a separate, always-on setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above.</li>
-          <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
+          <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>1 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
+          <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
+          <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
           </ul>
           <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
           <p><b>Enable live streaming</b> reveals <b>WebSocket URL</b> and the <b>Connect</b>/<b>Clear</b> buttons — hidden otherwise, since this path is rarely used compared to a normal file load. Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
@@ -3601,8 +3601,15 @@ const PARAMS = {
   // the RAM budget for caching decoded frames before falling back to
   // streaming — a real, still-useful per-load decision independent of
   // whether a total ceiling exists, so it keeps its own always-on default.
+  // These three `default:` values are the DESKTOP/LAPTOP starting point —
+  // `MOBILE_MEM_DEFAULTS` (right above isMemoryConstrainedDevice(), MODULE:
+  // params) substitutes a stricter profile for all three on a genuinely
+  // memory-constrained device instead.
   memBudgetGB: { type:'number', id:'memBudgetGB', label:'Total memory budget (GB)', min:0.1, max:null, step:0.5, default:Infinity, int:false },
-  memgb: { type:'number', id:'memgb', label:'Budget raw movies (GB)', min:0.5, max:64, step:0.5, default:3, int:false },
+  // min:0, not 0.5 — 0 is now a real, legitimate value (see
+  // MOBILE_MEM_DEFAULTS above isMemoryConstrainedDevice()): it means "never
+  // whole-file-cache, always stream," not "no budget at all."
+  memgb: { type:'number', id:'memgb', label:'Budget raw movies (GB)', min:0, max:64, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
   chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
 
@@ -3793,38 +3800,55 @@ function isMobileViewport(){ return window.innerWidth<=860; }
 // sniffing, same reasoning as isMobileViewport() above — just the
 // dimension that actually tracks device class rather than current layout.
 // `memgb`'s own device-specific default (the bug this function was built to
-// fix) was later REMOVED entirely (see syncParamControls()'s own comment) —
-// once checkLocsMemory()/checkRenderSize() did real combined accounting
-// instead of guessing a safety fraction, a defensive lower default for every
-// mobile visitor stopped being warranted. This function's one remaining
+// fix) was later REMOVED entirely once checkLocsMemory()/checkRenderSize()
+// did real combined accounting instead of guessing a safety fraction — a
+// defensive lower default for every mobile visitor seemed like overreach at
+// that point. Continued real-world mobile crash reports afterward showed
+// that reasoning was too optimistic: an opt-in Infinity ceiling protects
+// nobody who never thinks to set it, and a phone/tablet genuinely doesn't
+// have the headroom a desktop does regardless of how good the accounting
+// is — see MOBILE_MEM_DEFAULTS/syncParamControls()'s own comment for the
+// reinstated (broader, three-field) mobile profile. This function's other
 // caller is getPool()'s own worker-count cap (MODULE: workers).
 function isMemoryConstrainedDevice(){ return Math.min(window.innerWidth, window.innerHeight)<=860; }
+// A deliberately STRICT starting profile for a memory-constrained device —
+// requested directly, after the "opt-in ceiling, same default everywhere"
+// design above still left mobile visitors exposed by default: **Total
+// memory budget** 1 GB (was `Infinity`/unset — a real, enforced ceiling
+// from the first load, not something a mobile user has to know to set
+// themselves after already hitting trouble); **Budget raw movies** 0 GB
+// (was `3` — `readBudget()`'s own `effSliceMin=min(SLICE_MIN,readBudget())`
+// then floors at 0, so EVERY load on a constrained device takes the
+// streamed, chunk-at-a-time path — see MODULE: in/out — never the
+// whole-file-cached one, regardless of file size: "movies always read in
+// [stream] heaps"); **Stream heap** 250 MB (was `500` — a smaller working
+// set per streamed chunk, since streaming is now the ONLY path on these
+// devices, not an occasional fallback). Desktop/laptop keeps every one of
+// these three fields' own existing default (`Infinity`/`3`/`500`) —
+// unaffected, this table only ever substitutes on `isMemoryConstrainedDevice()`.
+const MOBILE_MEM_DEFAULTS = { memBudgetGB:1, memgb:0, chunkmb:250 };
 // Registry → DOM: writes each PARAMS entry's min/max/step/value (or
 // checked, for booleans) onto its bound control, so the registry stays
 // authoritative over the static HTML's own (matching but redundant)
 // attributes. Runs once at startup.
 //
-// `memgb`/`memBudgetGB` DELIBERATELY have NO memory-constrained-device
-// special case here any more (there used to be one, lowering `memgb`'s own
-// default) — requested directly, after real combined accounting made both
-// settings trustworthy on their own: "most computers won't have a problem
-// for the kind of file sizes we're currently using," so a defensive lower
-// default for every mobile visitor was overreach once the checks that
-// actually consume these budgets got real math instead of a guessed
-// safety margin. `memgb` ("Budget raw movies") keeps a flat, always-on
-// default (3 GB) — it's a genuinely useful per-load decision (whole-file
-// cache vs. streamed) independent of any TOTAL ceiling. `memBudgetGB`
-// ("Total memory budget") defaults to `Infinity` for every device — an
-// explicit opt-in: nothing warns or auto-stops until a user actually sets
-// a real number (typically after hitting real trouble on a genuinely
-// memory-constrained device), at which point `checkLocsMemory()`/
-// `checkRenderSize()`/`checkTableSize()` (MODULE: pipeline/render/table)
-// start comparing their own combined estimates against it.
+// `memBudgetGB`/`memgb`/`chunkmb` are the one remaining device-specific
+// special case: `MOBILE_MEM_DEFAULTS` (right above `isMemoryConstrainedDevice()`)
+// substitutes a strict mobile profile on a memory-constrained device only —
+// every OTHER PARAMS entry, and these same three fields on a normal
+// desktop/laptop, use `spec.default` unconditionally, exactly as if this
+// special case didn't exist. Local override, not `spec.default=...` —
+// `PARAMS[id]` is a shared reference, so mutating it here would permanently
+// corrupt the registry's own default the first time this runs on a narrow
+// viewport. Only the INITIAL value changes (a later resize/rotation doesn't
+// re-trigger it); a loaded settings JSON's own value for any of these three
+// still overrides it as normal.
 function syncParamControls(){
+  const mobile = isMemoryConstrainedDevice();
   for(const id in PARAMS){
     const spec=PARAMS[id]; if(!spec.id) continue;
     const el=$(spec.id); if(!el) continue;
-    const def = spec.default;
+    const def = (mobile && MOBILE_MEM_DEFAULTS[id]!==undefined) ? MOBILE_MEM_DEFAULTS[id] : spec.default;
     if(spec.type==='bool'){ el.checked=def; continue; }
     if(spec.type==='enum'){ el.value=def; continue; }
     el.min = spec.min==null ? '' : spec.min;
@@ -17178,12 +17202,17 @@ async function liveStreamPushChunkFile(file){
   // to whatever fits in Budget raw movies (GB) (readBudget(), the SAME
   // ceiling a loaded stack's own frame cache uses — an independent
   // per-feature budget, not a shared pool, matching that control's
-  // existing convention), sized
-  // once real frame dimensions are known (first chunk) and evicted oldest-
-  // first past that cap. Evicting the raw pixel data does NOT touch
-  // liveStreamState.allLocs — every accepted localization from the whole
-  // acquisition stays in the reconstruction regardless of whether its own
-  // raw frame is still retained for scrubbing.
+  // existing convention), sized once real frame dimensions are known
+  // (first chunk) and evicted oldest-first past that cap. `Math.max(1,...)`
+  // means a memory-constrained device's own `memgb=0` default
+  // (MOBILE_MEM_DEFAULTS, MODULE: params) reduces this to exactly 1 frame
+  // of scroll-back — an accepted, deliberate trade-off (the whole point of
+  // that default is "never hold more raw pixel data resident than
+  // strictly necessary"), not a bug; the reconstruction itself is
+  // unaffected either way (see below). Evicting the raw pixel data does
+  // NOT touch liveStreamState.allLocs — every accepted localization from
+  // the whole acquisition stays in the reconstruction regardless of
+  // whether its own raw frame is still retained for scrubbing.
   const chunkFrames=await chunkStack.getFrames(0,chunkStack.n);
   if(liveStreamState.rawFrameCap===null){
     liveStreamState.w=r.w; liveStreamState.h=r.h;
@@ -19594,14 +19623,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-18e — split "Memory budget (GB)"
-into two independent settings, as requested: Total memory budget (GB)
-is now an opt-in safety ceiling (blank/∞ by default — most setups
-never need one), while Budget raw movies (GB) keeps its own flat 3 GB
-default and stays the ONLY thing governing whether a loaded movie is
-cached whole or streamed. The Localize/render/table memory guards and
-the live Mem readout now compare against the new Total memory budget
-instead, gracefully doing nothing until one is actually set.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-18f — reinstated a stricter
+mobile memory profile, requested: on a phone/tablet-class device,
+Total memory budget now defaults to 1 GB (was unset/∞), Budget raw
+movies to 0 GB (was 3 — every movie load there now streams frame-by-
+frame, never caching a whole file), and Stream heap to 250 MB (was
+500). Desktop/laptop keeps the unset/3 GB/500 MB defaults from the
+previous build unchanged.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
