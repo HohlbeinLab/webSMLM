@@ -101,14 +101,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8015   frame-parallel detect/fit worker pool; dedicated
+    workers         8050   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8356   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8684   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8391   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8719   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -119,7 +119,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9166   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9201   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -143,9 +143,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    9961   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    9996   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10695   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10730   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -355,7 +355,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14456   single particle tracking, trackpy-inspired;
+    spt             14491   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -386,7 +386,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        15994  top-level orchestration, *Core()/wrapper split;
+    pipeline        16029  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -447,7 +447,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16737  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16774  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -501,14 +501,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19464  localizations table, filtering, histograms;
+    table           19503  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20205  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20244  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2475,7 +2475,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-17c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -6597,6 +6597,17 @@ function displayMax(buf,pct){
 // the SAME user-facing "Memory budget (GB)" control rather than a second,
 // separate setting.
 const CANVAS_MAX_DIM=16384;
+// Shared rough per-localization-object byte estimate — used by every memory
+// guard that needs to reason about the growing `locs` array's own footprint
+// (checkTableSize() below, runCore()'s own checkLocsMemory() and the render-
+// worker-skip check right below): ONE constant, not three independently
+// re-typed "200"s that could silently drift apart. Likely an UNDERESTIMATE
+// of a real 15-own-property loc object's footprint in Safari's
+// JavaScriptCore specifically (see checkLocsMemory()'s own comment) —
+// consistently biasing every guard that uses it toward acting too LATE
+// rather than too early, which is why each one's own threshold is set well
+// below 100% of budget rather than trusting this number at face value.
+const LOC_ROW_BYTES=200;
 function checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode='fixed'){
   if(W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM)
     throw new Error(`Reconstruction would be ${W}×${H} px (frame ${w}×${h} × ${mag}×) — exceeds the ~${CANVAS_MAX_DIM}px per-side canvas limit most browsers enforce. Lower Magnification or crop the region first.`);
@@ -6839,7 +6850,31 @@ function getOrMakeSrCanvas(W,H){
 async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,renderMode='fixed'){
   const W=w*mag, H=h*mag;
   checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode);
-  const worker=await getRenderWorker();
+  // A real, reported crash — an auto-stopped mobile Run (checkLocsMemory(),
+  // MODULE: pipeline) still sometimes crashed shortly AFTER its own graceful
+  // "Stopping now, N localizations kept" message, right when the panel's
+  // own reconstruction re-render ran. Root cause: dispatchRenderWorker()
+  // sends `locs` to the render worker via plain postMessage — a STRUCTURED
+  // CLONE, no transfer list — so EVERY render (every throttled live preview
+  // during a Run, and the final one) transiently holds BOTH the original
+  // locs array AND a freshly-cloned copy in memory at once, on top of
+  // whatever checkRenderSize() above already accounts for (which has no
+  // idea the locs array itself exists, let alone that this dispatch is
+  // about to double it). Worst exactly when it matters most: right at a
+  // Run's own peak loc count, the same moment checkLocsMemory() already
+  // flags as memory-tight. On a memory-constrained device, skip the worker
+  // (and its clone) once the array's OWN estimated footprint alone would
+  // already claim a meaningful share of budget — the single-threaded
+  // fallback below reads `locs` BY REFERENCE, no clone, at the cost of
+  // blocking the main thread a little longer for this one render (an
+  // accepted trade against silently doubling memory at the worst moment).
+  // 0.15 (not checkLocsMemory()'s own 0.35 WARN fraction) leaves headroom
+  // for the fact that dispatching anyway would roughly DOUBLE this specific
+  // number for the duration of the clone.
+  const locsBytes=locs.length*LOC_ROW_BYTES;
+  const skipWorkerForMemory = isMemoryConstrainedDevice() &&
+    locsBytes > paramValue('memgb')*1073741824*0.15;
+  const worker=skipWorkerForMemory ? null : await getRenderWorker();
   if(worker){
     try{
       const {imageBitmap,satCount}=await dispatchRenderWorker(worker,{
@@ -16103,12 +16138,14 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // real room for those other, unmonitored sinks rather than assuming locs
   // are the only consumer — still an estimate, not a guarantee (see this
   // file's own long-standing note: no client-side JS can detect or prevent
-  // an OS-level tab kill for certain).
-  const LOC_MEM_ROW_BYTES=200, LOC_MEM_WARN_FRACTION=0.35, LOC_MEM_STOP_FRACTION=0.55;
+  // an OS-level tab kill for certain). `LOC_ROW_BYTES` (MODULE: render) is
+  // the shared per-row estimate every one of these guards uses — not
+  // re-typed here independently.
+  const LOC_MEM_WARN_FRACTION=0.35, LOC_MEM_STOP_FRACTION=0.55;
   let locsMemWarned=false, locsMemStopLogged=false;
   const checkLocsMemory=()=>{
     if(locsMemStopLogged) return;   // already stopping — nothing more to say
-    const budget=config.memgb*1073741824, bytes=locs.length*LOC_MEM_ROW_BYTES;
+    const budget=config.memgb*1073741824, bytes=locs.length*LOC_ROW_BYTES;
     if(bytes > budget*LOC_MEM_STOP_FRACTION){
       locsMemStopLogged=true; memStopTriggered=true;
       onLog(`⚠ Auto-stopping: ${locs.length.toLocaleString()} localizations so far are estimated at `+
@@ -19336,16 +19373,17 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-17c — two more real mobile-
-memory fixes: the auto-stop from the last build was still only ever
-watching the locs array, not the worker pool's own frame-batch memory
-(each worker clones its own copy — pool size is now capped to 2 on a
-memory-constrained device, was up to 12), and its own warn/stop
-thresholds were too close to the budget to leave room for that and
-render-buffer memory (now 35%/55% of budget, was 70%/95%). Also: the
-log terminal's own max-height is now tighter on mobile, and its
-placeholder shorter, so a long recalled command no longer crowds the
-History buttons below it.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-18a — found the reason a
+mobile Run could still crash right AFTER its own graceful
+"Stopping now" message: every reconstruction render (each live
+preview, and the final one) sends the whole locs array to a separate
+render worker via postMessage, which CLONES it — transiently doubling
+that array's own memory right at a Run's own peak loc count, on top of
+whatever checkRenderSize()'s own separate budget check already allows.
+On a memory-constrained device, a large-enough locs array now skips
+the render worker entirely (single-threaded fallback reads it by
+reference, no clone) once it alone would already claim a meaningful
+share of Memory budget.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -19615,12 +19653,12 @@ function rebuildTableData(){
 }
 // Same "check before allocating, throw with a clear message" philosophy as
 // checkRenderSize() (MODULE: render) — the table's memory scales with
-// LOCALIZATION COUNT instead, ~200 bytes/row (a conservative estimate for a
-// small JS object's real V8 overhead, not a precise guarantee). Reuses
-// `memgb` as a rough PER-FEATURE ceiling, same as every other memory check
-// in this file, not a pool shared/subtracted across features.
+// LOCALIZATION COUNT instead, LOC_ROW_BYTES/row (MODULE: render's own shared
+// estimate, not a precise guarantee). Reuses `memgb` as a rough PER-FEATURE
+// ceiling, same as every other memory check in this file, not a pool
+// shared/subtracted across features.
 function checkTableSize(n){
-  const estBytes=n*200, budget=paramValue('memgb')*1073741824;
+  const estBytes=n*LOC_ROW_BYTES, budget=paramValue('memgb')*1073741824;
   if(estBytes>budget)
     throw new Error(`View data/filtering would need ~${fmtBytes(estBytes)} for ${n.toLocaleString()} rows, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Raise the budget if you have the RAM, or narrow the result first (a table/crop filter, or temporal clustering) before opening it.`);
 }

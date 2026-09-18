@@ -180,7 +180,26 @@ in a module.
   `renderSuperRes()`'s accumulator buffers are DENSE (O(w·h·mag²), independent of localization
   count). `checkRenderSize()` refuses (throws) before any allocation if either side would exceed
   `CANVAS_MAX_DIM`(16384) or the estimated concurrent footprint exceeds `memgb`; `rerender()` leaves
-  the PREVIOUS `srFull` on screen on failure rather than blanking.
+  the PREVIOUS `srFull` on screen on failure rather than blanking. `LOC_ROW_BYTES` (right above
+  `checkRenderSize()`) is the ONE shared per-localization-object byte estimate every memory guard in
+  the app uses (`checkTableSize()`, MODULE: table; `checkLocsMemory()`, MODULE: pipeline; the
+  render-worker-skip check below) — not three independently-typed copies that could drift apart.
+
+  **`renderSuperRes()` skips the render worker (falls back to the single-threaded path) on a
+  memory-constrained device once the `locs` array's own estimated footprint is already a meaningful
+  share of `memgb`** — a real, reported crash: an auto-stopped mobile Run (`checkLocsMemory()`)
+  still sometimes crashed right AFTER its own graceful "Stopping now, N localizations kept" message,
+  exactly when the panel's own reconstruction re-render ran next. Root cause: `dispatchRenderWorker()`
+  sends `locs` to the render worker via plain `postMessage` — a STRUCTURED CLONE, no transfer list —
+  so EVERY render (every throttled live preview during a Run, and the final one) transiently holds
+  BOTH the original locs array AND a freshly-cloned copy at once, on top of whatever
+  `checkRenderSize()` already accounts for (which has no idea the locs array itself exists, let alone
+  that this dispatch is about to double it) — worst exactly at a Run's own peak loc count, the same
+  moment `checkLocsMemory()` already flags as tight. The single-threaded fallback reads `locs` BY
+  REFERENCE (no clone) at the cost of blocking the main thread a little longer for that one render —
+  an accepted trade against silently doubling memory at the worst possible moment. Threshold
+  deliberately lower (0.15 of `memgb`) than `checkLocsMemory()`'s own 0.35 WARN fraction, since
+  dispatching anyway would roughly DOUBLE this specific number for the clone's duration.
 
   `renderMode` (default `'fixed'`): `'fixed'` bins then applies one uniform blur (`rblur`, cost ∝
   buffer area); `'precision'` splats each loc as its own CRLB-sized Gaussian (`lpx`/`lpy`, capped at
