@@ -1572,7 +1572,7 @@ its own raw-frame history cache.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `memBudgetGB` | Total memory budget (GB) | number | 0.1 | none | 0.5 | ∞ on desktop/laptop, **1** on a memory-constrained device |
+| `memBudgetGB` | Total memory budget (GB) | number | 0.1 | none | 0.5 | ∞ on desktop/laptop, **0.5** on a memory-constrained device |
 | `memgb` | Budget raw movies (GB) | number | 0 | 64 | 0.5 | 3 on desktop/laptop, **0** on a memory-constrained device |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 on desktop/laptop, **250** on a memory-constrained device |
 
@@ -1592,8 +1592,9 @@ real-world mobile crash reports showed that an opt-in-only ceiling protects nobo
 to set it, and a phone genuinely doesn't have the headroom a desktop does regardless of how good the
 memory accounting is:
 
-- **Total memory budget** defaults to **1 GB** (a real, enforced ceiling from the very first load,
-  not something a mobile user has to already know to turn on).
+- **Total memory budget** defaults to **0.5 GB** (a real, enforced ceiling from the very first load,
+  not something a mobile user has to already know to turn on — lowered from an initial 1 GB after
+  real-world reports of crashes even at that value).
 - **Budget raw movies** defaults to **0 GB** — `readBudget()`'s own effective threshold then floors
   at 0, so **every** movie load on a memory-constrained device takes the streamed, chunk-at-a-time
   path (never the whole-file-cached one), regardless of file size.
@@ -1602,6 +1603,16 @@ memory accounting is:
 
 Only the INITIAL default changes (a later resize/rotation doesn't re-trigger it); a loaded settings
 JSON's own value for any of these three fields always overrides its default, mobile or not.
+
+**Even with this profile applied, no client-side JS can fully guarantee no OOM tab-kill** on a
+sufficiently large/dense movie — mobile browsers give a page no way to detect memory pressure in
+advance, and simply reload it blank with no JS-visible error at all. **Loading a movie on a
+memory-constrained device shows a one-time pop-up** (`maybeShowMemWarning()`, at most once per page
+load — a crash reloads the page anyway, which naturally re-arms it) restating the three settings
+above with their current live values, and pointing at what to try next if analysis keeps failing:
+lower **Total memory budget** further, narrow the analysed frame range (**First frame**/**Last
+frame**), lower **Magnification**, or use a smaller/cropped file. A button on the pop-up itself
+(**Open Memory & streaming**) scrolls to and expands that sidebar section directly.
 
 **Enable live streaming** (`liveStreamEnabled`, a plain UI-reveal checkbox, not a `PARAMS` entry —
 same "pure display/layout" carve-out as UI theme/sidebar collapse state) shows/hides **WebSocket
@@ -1621,9 +1632,10 @@ elapsed time instead.
 
 <!-- HINT:memory -->
 <ul>
-  <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>1 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
+  <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>0.5 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
   <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
   <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
+  <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
 </ul>
 <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
 <p><b>Enable live streaming</b> reveals <b>WebSocket URL</b> and the <b>Connect</b>/<b>Clear</b> buttons — hidden otherwise, since this path is rarely used compared to a normal file load. Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>

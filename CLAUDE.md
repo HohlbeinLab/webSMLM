@@ -65,16 +65,19 @@ in a module.
   byte) → ND2 (`isNd2File()`, magic `0x0ABECEDA`) → TIFF-in-disguise (`t256`/`t257` sanity-checked —
   UTIF returns one EMPTY ifd object, no exception, on non-TIFF bytes) → whole-file
   (`file.arrayBuffer()`) vs. streamed (`loadMultiIfdStreaming()`), gated by
-  `effSliceMin=min(SLICE_MIN≈1.5GB, readBudget())` — ties the streaming threshold to **Memory budget
-  (GB)** (`memgb`), which itself defaults to `0.5` (not `3`) on a memory-constrained device
-  (`isMemoryConstrainedDevice()`, `syncParamControls()`). **Deliberately checks the SMALLER of
-  `window.innerWidth`/`innerHeight`, not width alone** — a real, reported bug: a phone held in
-  landscape swaps its two CSS dimensions, so its WIDTH commonly exceeds the 860px threshold even
-  though the device itself hasn't changed (a large iPhone's landscape viewport is ~926px wide),
-  silently keeping the desktop 3 GB default and risking exactly the crash this default exists to
-  prevent. `isMobileViewport()` (width alone) is a SEPARATE function, still correct for its own
-  purpose — the sidebar-drawer layout decision, which only cares about available horizontal space,
-  not device class.
+  `effSliceMin=min(SLICE_MIN≈1.5GB, readBudget())` — ties the streaming threshold to **Budget raw
+  movies (GB)** (`memgb`), which defaults to `0` (not `3`) on a memory-constrained device
+  (`isMemoryConstrainedDevice()`, `MOBILE_MEM_DEFAULTS`/`syncParamControls()`, MODULE: params) — a
+  `0` budget floors `effSliceMin` at `0`, so EVERY movie load on such a device takes the streamed
+  path regardless of file size, never the whole-file-cached one. **`isMemoryConstrainedDevice()`
+  deliberately checks the SMALLER of `window.innerWidth`/`innerHeight`, not width alone** — a phone
+  held in landscape swaps its two CSS dimensions, so its WIDTH commonly exceeds the 860px threshold
+  even though the device itself hasn't changed (a large iPhone's landscape viewport is ~926px wide) —
+  exactly backwards for a device-class check, which should be orientation-independent.
+  `isMobileViewport()` (width alone) is a SEPARATE function, still correct for its own purpose — the
+  sidebar-drawer layout decision, which only cares about available horizontal space, not device
+  class. See **pipeline**'s own paragraph below for the full `memBudgetGB`/`memgb`/`chunkmb` picture
+  and the one-time mobile memory warning pop-up.
 
   A multi-file selection (`loadTiffFilesAuto()`) auto-detects strategy from `files[0]`'s own frame
   count: exactly 1 frame/file → `loadTiffSequence()` (file-per-frame, natural-sorted); more than 1 →
@@ -182,7 +185,10 @@ in a module.
   this — callable from `runCore()` (MODULE: pipeline) too, so a Run can reserve room for the render
   that will follow it BEFORE it happens, not just guess. `checkRenderSize()` is the thin wrapper that
   actually throws: refuses before any allocation if either side would exceed `CANVAS_MAX_DIM`(16384),
-  or if `estimateRenderBytes(...) + reserveBytes` exceeds `memgb` — `reserveBytes` (default 0) is
+  or if `estimateRenderBytes(...) + reserveBytes` exceeds `memBudgetGB` — the opt-in TOTAL memory
+  ceiling (default `Infinity`/unset on desktop, `0.5` on a memory-constrained device — see
+  **pipeline**'s own paragraph for the full picture), a no-op until one is actually set on desktop.
+  `reserveBytes` (default 0) is
   memory ALREADY committed elsewhere that this render has to coexist with (see below); `rerender()`
   leaves the PREVIOUS `srFull` on screen on failure rather than blanking. `LOC_ROW_BYTES` (right
   above `estimateRenderBytes()`) is the ONE shared per-localization-object byte estimate every memory
@@ -196,7 +202,7 @@ in a module.
   an auto-stopped mobile Run (`checkLocsMemory()`) still sometimes crashed right AFTER its own
   graceful "Stopping now, N localizations kept" message, exactly when the panel's own reconstruction
   re-render ran next. Three compounding root causes: (1) `checkRenderSize()` used to compare the
-  render buffer's own cost ALONE against `memgb`, with no idea a large, already-resident `locs`
+  render buffer's own cost ALONE against `memBudgetGB`, with no idea a large, already-resident `locs`
   array existed at all — fixed by threading `reserveBytes` through it. (2) `dispatchRenderWorker()`
   sends `locs` to the render worker via plain `postMessage` — a STRUCTURED CLONE, no transfer list —
   so EVERY render (every throttled live preview during a Run, and the final one) transiently holds
@@ -214,10 +220,10 @@ in a module.
   `analyze()`, whose own `stack` is a function-local variable shadowing the module-level one; reading
   the global here would silently use the wrong stack in that context, the exact gotcha
   `smfretSOICore()`'s own `checkStack` fix already ran into elsewhere). Every comparison uses
-  whatever `memgb` is ACTUALLY set to — this naturally never triggers on a desktop-sized budget and
-  correctly does on a small one, on ANY device, with no `isMemoryConstrainedDevice()` heuristic
-  needed for this specific decision at all (that check is
-  still used elsewhere — see **workers**).
+  whatever `memBudgetGB` is ACTUALLY set to — this naturally never triggers on a desktop-sized (or
+  unset) budget and correctly does on a small one, on ANY device, with no `isMemoryConstrainedDevice()`
+  heuristic needed for THIS specific decision at all (that check still drives `memBudgetGB`'s own
+  device-specific default, and is used elsewhere too — see **workers**).
 
   `renderMode` (default `'fixed'`): `'fixed'` bins then applies one uniform blur (`rblur`, cost ∝
   buffer area); `'precision'` splats each loc as its own CRLB-sized Gaussian (`lpx`/`lpy`, capped at
@@ -518,9 +524,9 @@ in a module.
 
   **`runCore()`'s own `checkLocsMemory()` genuinely STOPS a Run, not just warns** — a real, reported
   gap: an earlier warn-only version logged a message once the growing `locs` array crossed 70% of
-  **Memory budget (memgb)**, but nothing actually halted the Run, so a real ~30k-frame mobile Run
-  still "silently crashed" (total data loss) even at the correct memory-constrained `memgb` default.
-  `runCore()` now shadows its own `shouldStop` with `()=>shouldStopHook()||memStopTriggered` right
+  **Total memory budget (`memBudgetGB`)**, but nothing actually halted the Run, so a real ~30k-frame
+  mobile Run still "silently crashed" (total data loss). `runCore()` now shadows its own `shouldStop`
+  with `()=>shouldStopHook()||memStopTriggered` right
   after destructuring the hook — every existing `shouldStop()` call site (worker dispatch loops, the
   serial yield loop, the FTM barrier phase) picks up a memory-triggered stop for free, with the exact
   same "stop mid-way, keep the partial locs found so far" handling a manual Stop click already gets.
@@ -528,7 +534,7 @@ in a module.
   this same protection, a genuine improvement there, not just interactively.
 
   **`checkLocsMemory()`'s own STOP point is a CALCULATED reserve, not a guessed fraction of
-  `memgb`** — first shipped at flat fractions (`0.95`, then `0.7`/`0.55` — each one just another
+  `memBudgetGB`** — first shipped at flat fractions (`0.95`, then `0.7`/`0.55` — each one just another
   guess, no more principled than the last, and asked about directly: "what is the reasoning behind
   the 55%?" didn't have a solid answer). Now: `stopAt = budget − renderBytesEstimate −
   frameBatchReserve − stackResidentBytes`, all three terms REAL numbers computed from THIS run's own
@@ -566,11 +572,30 @@ in a module.
   fix). Still an estimate, not a guarantee — no client-side JS can detect or prevent an OS-level tab
   kill for certain.
 
-  **`memgb`'s own memory-constrained-device DEFAULT raised from `0.5` to `1` GB** — once the checks
-  that actually consume this budget did real combined accounting instead of guessing a safety
-  fraction, a real device has more genuine headroom to work with before those checks act, so a more
-  generous starting point no longer trades away the safety margin those checks used to need to
-  provide by themselves.
+  **`memBudgetGB`/`memgb`/`chunkmb` are three independent settings** ("Total memory budget (GB)",
+  "Budget raw movies (GB)", "Stream heap (MB)", all under "Memory & streaming"): `memBudgetGB` is the
+  OPT-IN total-memory ceiling `checkLocsMemory()`/`checkRenderSize()`/`checkTableSize()` all compare
+  against (default `Infinity`/unset on desktop — most setups never need one for the file sizes this
+  app is typically used with); `memgb` only ever decides whole-file-cache-vs-stream at load time
+  (`readBudget()`, MODULE: in/out), unrelated to the ceiling. `MOBILE_MEM_DEFAULTS`
+  (`syncParamControls()`, MODULE: params) substitutes a much stricter profile for all three on a
+  memory-constrained device only (`isMemoryConstrainedDevice()`) — `memBudgetGB:0.5` (a real,
+  enforced ceiling from the very first load, not something a mobile user has to already know to set;
+  tuned down from an initial `1` after real-world crash reports even at that value), `memgb:0` (floors
+  `readBudget()` at 0, so EVERY movie load on such a device streams, never whole-file-caches,
+  regardless of size), `chunkmb:250` (a smaller per-chunk working set, since streaming is the only
+  path there, not an occasional fallback). Desktop/laptop keeps every one of these three fields' own
+  ordinary default, completely unaffected by this table.
+
+  **`maybeShowMemWarning()`** (declared right before `loadMovieFiles()`) is the complementary piece —
+  no client-side JS can fully guarantee no OOM tab-kill on a sufficiently large/dense movie regardless
+  of how conservative the starting defaults are, so on a memory-constrained device, loading a movie
+  also shows a one-time (`_memWarnShown`, at most once per PAGE LOAD — a crash reloads the whole page
+  anyway, which is itself a fresh load and naturally re-arms this) pop-up (`#memWarnModal`, wired in
+  `wireHelp()` alongside the app's other modals) restating the three live values above and pointing at
+  what to try next if analysis keeps failing (lower `memBudgetGB` further, narrow the analysed frame
+  range, lower Magnification, use a smaller/cropped file); its own **Open Memory & streaming** button
+  expands and scrolls to `#memBox` directly. Purely informational — never blocks the load itself.
 
   **A live "Mem: ..." readout** sits in the Log card's own title row (`#memReadout`, a
   `updateMemReadout()` polled every 2s via `setInterval` — "dynamic" here means "polled regularly,"
@@ -706,8 +731,8 @@ in a module.
   needed yet, matching spt's own Hungarian-vs-greedy "don't optimize for a scale nobody's hit"
   precedent.
 
-  `checkTableSize()` guards `locTableData()` against `memgb` the same way `checkRenderSize()` guards
-  render buffers (each row estimated at ~200 bytes).
+  `checkTableSize()` guards `locTableData()` against `memBudgetGB` the same way `checkRenderSize()`
+  guards render buffers (each row estimated at ~200 bytes).
 
 ## Web Worker gotcha (read before touching detect/fit/workers)
 
