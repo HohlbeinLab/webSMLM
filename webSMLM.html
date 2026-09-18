@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3210   PARAMS registry, single source of truth for params;
+    params          3220   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -34,7 +34,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4281   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4291   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -47,9 +47,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4580   synthetic stack generator ("Simulate movie")
-    detect          5697   per-frame band-pass + local-maxima detection
-    fit             5974   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4590   synthetic stack generator ("Simulate movie")
+    detect          5707   per-frame band-pass + local-maxima detection
+    fit             5984   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -74,7 +74,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6613   accumulate to offscreen buffer; view/colour/blur;
+    render          6623   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -104,14 +104,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8231   frame-parallel detect/fit worker pool; dedicated
+    workers         8241   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8572   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8900   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8582   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8910   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -122,7 +122,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9382   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9392   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -146,9 +146,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10177   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10187   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10911   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10921   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -358,7 +358,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14672   single particle tracking, trackpy-inspired;
+    spt             14682   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -389,7 +389,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16210  top-level orchestration, *Core()/wrapper split;
+    pipeline        16220  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -450,7 +450,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16998  Micro-Manager/pycromanager camera bridge
+    liveStreaming   17008  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -504,14 +504,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19837  localizations table, filtering, histograms;
+    table           19847  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20589  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20599  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2157,7 +2157,16 @@ X.B(E,Y);return E}return J}())
   /* a module's controls sit indented under its header bar, so they read as
      belonging to it (box-sizing:border-box keeps rows/buttons from overflowing) */
   details.sim>*:not(summary){padding-left:14px}
-  details.sim>label.row{padding-right:4px}
+  /* REMOVED (was padding-right:4px) — a real, reported alignment bug: this
+     was meant to keep a row's own value control (numstep input, select,
+     checkbox) flush with a button's own right edge, but measured directly
+     it did the OPPOSITE — a plain button (no such padding) has its own
+     right edge at the details.sim content box's own right edge, while
+     EVERY label.row child (numstep/select/checkbox alike) sat a
+     consistent 4px short of it. Whatever box-model quirk this 4px was
+     originally calibrated to compensate for no longer applies (or never
+     really did) — removing it entirely now puts every row's own value
+     control flush with buttons, verified directly via computed rects. */
   /* "more info…" trigger: a plain button styled to read as a secondary
      text toggle (right-aligned, muted, small), not a primary action — opens
      #infoModal with this button's paired (hidden) .hint content instead of
@@ -2523,7 +2532,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2601,13 +2610,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            still finds it by id, nothing else needed to change. Gain/Camera offset
            deliberately stay inside Localisation settings for this first pass — open
            question whether they should move too, see CLAUDE.md. -->
-      <label class="row" style="padding-right:4px" title="Camera pixel size (nm) — physical scale for the scale bar, z, and exported CSV coordinates">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
+      <label class="row" title="Camera pixel size (nm) — physical scale for the scale bar, z, and exported CSV coordinates">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <!-- Pinned alongside pxnm above, same reasoning (v0.12.1-dev): a per-dataset acquisition
            property, not something specific to Single-particle tracking despite only that module
            currently reading it — used to live inside sptBox (collapsed by default). Renamed from
            sptFrameTime at the same time (id="frametime" now) — see the PARAMS registry's own
            comment for the full reasoning and the temporary sptFrameTime back-compat alias. -->
-      <label class="row" style="padding-right:4px" title="Seconds per frame — used by Single-particle tracking's diffusion-coefficient calculation">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
+      <label class="row" title="Seconds per frame — used by Single-particle tracking's diffusion-coefficient calculation">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
       <details class="sim" id="locBox">
         <summary>Localisation settings</summary>
         <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
@@ -3008,14 +3017,15 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <!-- Deliberately NOT nested inside #segLoadRow (unlike the buttons above) —
              a label.row needs to be a DIRECT child of details.sim to pick up its own
-             padding-right:4px rule (keeps the numstep +/- buttons flush with every
-             other row's), the same reason ftmWindowRow (Temporal median filtering's
-             own indented sub-row, right above Localisation settings' own hr.sep) is a
-             direct sibling rather than wrapped — nesting one level deeper inside a div
-             loses that rule silently (a real, reported bug: these two rows drifted a
-             few px right of every other input while ALSO looking under-indented
-             relative to ftmWindowRow's own explicit padding-left, not fixed by
-             padding-left alone). Toggled together with #segLoadRow by the same
+             padding-left:14px indent rule at all (a `details.sim>*:not(summary)`
+             selector, matched only one level deep) — nesting inside a wrapper div
+             would leave it flush against details.sim's own left edge with NO
+             indent at all, unless the wrapper itself separately supplied one. The
+             deliberate EXTRA indent past that baseline 14px (these two rows read as
+             belonging to "Apply segmentation" specifically) still needs its own
+             explicit padding-left:40px, same as ftmWindowRow (Temporal median
+             filtering's own indented sub-row) right above Localisation settings'
+             own hr.sep. Toggled together with #segLoadRow by the same
              applySegmentation handler (three elements now, not one). -->
         <label class="row" id="segAreaMinRow" style="display:none;padding-left:40px">Min. cell area (px) <input type="number" id="segAreaMin" value="50" min="0" step="1" class="num"></label>
         <label class="row" id="segAreaMaxRow" style="display:none;padding-left:40px">Max. cell area (px) <input type="number" id="segAreaMax" min="0" step="1" class="num" title="Blank = no upper limit"></label>
@@ -19711,12 +19721,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-18i — fixed a real sidebar
-alignment bug, found via a real mobile screenshot: dropdowns rendered
-visibly taller (29px) than value inputs (25px) with identical padding
-— select.sel now sets an explicit height, and the page opts out of
-mobile Safari/Chrome's own text-autosizing so a dropdown's own text
-can no longer render larger than its neighbours'.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-18j — fixed a real, sidebar-
+wide right-edge alignment bug: an old details.sim>label.row
+padding-right:4px rule, meant to keep a row's own value box (numstep
+input/dropdown/checkbox) flush with plain buttons, actually did the
+opposite — measured directly, every one was landing 4px short.
+Removed; every value control across the whole sidebar (68 checked)
+now shares the exact same right edge as the buttons around it.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

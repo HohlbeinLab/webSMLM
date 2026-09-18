@@ -301,6 +301,12 @@ in a module.
   `box-sizing:border-box` reset) additionally opts the whole page out of mobile Safari/Chrome's own
   text-autosizing heuristic — confirmed via a real mobile screenshot to inflate a `<select>`'s own
   rendered text size above its neighbours' despite sharing the identical `font-size:12px` rule.
+  **Every row's own value control shares one common RIGHT edge with plain buttons** (numstep input,
+  `select.sel`, checkbox alike) — `details.sim` only ever pads its children on the LEFT (the indent
+  read as "belonging to" the section), never the right, so nothing needs a special right-alignment
+  rule at all; see the `label.row` nesting-depth gotcha below for a real, reported case where an
+  extra `padding-right:4px` rule was removed after it turned out to cause exactly the misalignment
+  it was meant to prevent.
 
 - **workers** — frame-parallel detect/fit; see the Web Worker gotcha below. `getPool()`'s own worker
   COUNT is capped at `2` on a memory-constrained device (`isMemoryConstrainedDevice()`), not the
@@ -800,15 +806,19 @@ labels read `Word/word` with no surrounding spaces (**Save plot/image**, **View 
 
 ## `label.row` nesting-depth gotcha (indented sidebar sub-rows)
 
-`details.sim>label.row{padding-right:4px}` (keeps a row's numstep +/- buttons flush with every other
-row's own right edge) is a DIRECT-CHILD selector — it only matches a `label.row` immediately inside a
-`details.sim`, not one nested a level deeper inside a wrapping `<div>`. Such a nested row still LOOKS
-indented (inherits left padding from the wrapper), so the missing right-padding is easy to miss until
-compared pixel-for-pixel against a properly-indented row. An indented sidebar sub-row should instead
-be a DIRECT child of its `details.sim`, given its own `id` + inline
-`style="display:none;padding-left:40px"`, shown/hidden by the same handler that toggles its sibling
-group. The opposite direction breaks the same way: a row placed OUTSIDE any `details.sim` (e.g.
-`pxnm`, pinned always-visible) also needs its own explicit `style="padding-right:4px"`.
+`details.sim>*:not(summary){padding-left:14px}` is a DIRECT-CHILD selector — it only matches an
+element immediately inside a `details.sim`, not one nested a level deeper inside a wrapping `<div>`.
+A `label.row` nested that way gets NO indent at all (flush against the details.sim's own left edge)
+unless the wrapper itself separately supplies one — easy to miss since a nested row can still look
+plausible at a glance. An indented sidebar sub-row should instead be a DIRECT child of its
+`details.sim`, given its own `id` + inline `style="display:none;padding-left:40px"` (the extra push
+past the baseline 14px, since it's a step further indented than an ordinary row), shown/hidden by the
+same handler that toggles its sibling group. **Right-edge alignment needs no special-casing at all**
+— `details.sim` only ever sets `padding-left`, never `padding-right`, so a row's own value control
+(numstep input, `select.sel`, checkbox) naturally lands flush with a plain button's own right edge
+regardless of nesting depth or indentation (a `details.sim>label.row{padding-right:4px}` rule used to
+exist here specifically to "fix" this, but measured directly it caused the exact misalignment it
+claimed to prevent — removed entirely, see the CSS conventions paragraph above).
 
 ## Syntax gotcha
 
