@@ -142,7 +142,7 @@ says.
   [§3](#drift-params)/[§2](#drift)/[§2](#locprecision).
 - **Simulation settings** (`simBox`) — only relevant when using **Simulate
   movie**. See [§3](#simulation-params)/[§2](#simulation).
-- **Memory & streaming** (`memBox`) — `memgb`/`chunkmb`. See
+- **Memory & streaming** (`memBox`) — `memBudgetGB`/`memgb`/`chunkmb`. See
   [§3](#in-out-params)/[§2](#in-out).
 - **Gain & offset estimation** (`pcfoBox`) — **Estimate**/**Transfer
   estimates**. Placed here, before **3D calibration**, since both are
@@ -657,9 +657,10 @@ allocation and throws if either side would exceed `CANVAS_MAX_DIM`
 or if the estimated peak concurrent footprint (the count accumulator +
 an optional z-accumulator with `zcolor` + `blur()`'s own transient
 dst/tmp scratch with `rblur>0` + the final `ImageData` output + the
-canvas's own backing store) exceeds `memgb` — the *same* Memory budget
-control stack loading already uses (§3, Memory & streaming), not a
-second, separate setting. `rerender()` (interactive) catches the throw,
+canvas's own backing store) exceeds `memBudgetGB` — the opt-in Total
+memory budget (§3, Memory & streaming; default unset, so this check is a
+no-op until one is configured), a genuinely separate setting from `memgb`
+(the stack-loading cache/stream threshold). `rerender()` (interactive) catches the throw,
 logs what to change (lower Magnification, crop the region, or raise the
 budget), and leaves whatever reconstruction was already on screen in
 place rather than blanking the panel or crashing the tab; the headless
@@ -1571,16 +1572,29 @@ its own raw-frame history cache.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `memgb` | Memory budget (GB) | number | 0.5 | 64 | 0.5 | 3 (0.5 on a narrow/mobile viewport) |
+| `memBudgetGB` | Total memory budget (GB) | number | 0.1 | none | 0.5 | ∞ (unset) |
+| `memgb` | Budget raw movies (GB) | number | 0.5 | 64 | 0.5 | 3 |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 |
 
-`memgb`'s own default is lowered to its own UI minimum (0.5 GB) on a narrow viewport (`window.
-innerWidth<=860`, the same signal the mobile/floating sidebar drawer uses) rather than the desktop
-3 GB — a real, reported bug otherwise: mobile Safari's real per-tab memory ceiling is well under
-3 GB with no JS-visible OOM signal, so a moderate TIFF (hundreds of MB) could crash the tab on
-first load before a user had any reason to know to lower this setting themselves. Only the initial
-default changes (resizing the window afterward doesn't re-trigger it); a loaded settings JSON's own
-`memgb` value still overrides it as always.
+Two genuinely separate settings, deliberately split apart (an earlier version used one shared
+`memgb` field for both, with a lower mobile-only default — removed once the checks below did real
+combined accounting instead of guessing a safety fraction, making a defensive lower default for
+every mobile visitor unnecessary overreach):
+
+- **Total memory budget (GB)** (`memBudgetGB`) is an **opt-in** overall safety ceiling — blank
+  (∞) by default, since most setups never need one for the file sizes this app is typically used
+  with. `checkLocsMemory()` (a growing Localize run), `checkRenderSize()` (the reconstruction
+  buffers), and `checkTableSize()` (the locs table) all compare their own real, combined memory
+  estimates against it — with no budget set, none of them warn or auto-stop at all. Set a real
+  number here only after actually hitting trouble on a memory-constrained device (a phone/tablet,
+  or a desktop already under memory pressure from other tabs); the existing graceful warn/stop
+  behaviour then kicks back in automatically, no other setting needs to change.
+- **Budget raw movies (GB)** (`memgb`) is unrelated to the ceiling above — it only ever governs
+  whether a loaded movie is decoded and cached whole in RAM (fast re-runs) or streamed frame-by-
+  frame from disk instead (bounded memory, slower re-runs), via `readBudget()`. It keeps its own
+  flat, always-on 3 GB default regardless of device.
+
+A loaded settings JSON's own values for either field always override these defaults, as usual.
 
 **Enable live streaming** (`liveStreamEnabled`, a plain UI-reveal checkbox, not a `PARAMS` entry —
 same "pure display/layout" carve-out as UI theme/sidebar collapse state) shows/hides **WebSocket
@@ -1600,7 +1614,8 @@ elapsed time instead.
 
 <!-- HINT:memory -->
 <ul>
-  <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
+  <li><b>Total memory budget</b> — an opt-in overall safety ceiling, blank (∞) by default. With no number set, nothing here warns or auto-stops on memory use — most setups don't need it for the file sizes this app is typically used with. Set a real number only if a Run has actually crashed or warned on this device; the existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) then compares its own real, combined memory estimate against it.</li>
+  <li><b>Budget raw movies</b> — a separate, always-on setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above.</li>
   <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
 </ul>
 <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
@@ -1611,7 +1626,7 @@ elapsed time instead.
 </ul>
 <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) is the one control that ends an active streaming session from either path — closing the WebSocket first if one is open — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect of its own to click. (An earlier version of this sidebar had a separate Disconnect button; folded into Stop and removed, since Stop does everything it did and also covers the bridge path.)</p>
 <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. That repaint (and milestone line) is throttled adaptively by elapsed time, not a frame count — frequent while cheap, self-throttling once the growing dataset makes a render expensive — the same mechanism a normal Localize run's own live preview uses.</p>
-<p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
+<p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Budget raw movies (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
 <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
 <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
 <!-- /HINT:memory -->
@@ -1926,10 +1941,11 @@ more than a bounded amount of raw/corrected data at once:
   MB for FTM's own working set, plus the already-decoded stack's size if
   `memgb` let the whole thing cache in RAM — a **separate** budget that
   adds on top of `chunkmb`, not a shared ceiling with it) with an advisory
-  above ~800 MB combined — gated on `memgb` staying at/below 8 GB (its old
-  ceiling before [§3](#3-parameters-params-registry) raised the max to 64 GB
-  for workstation-scale caching), so a desktop user who's deliberately raised
-  it isn't nagged every Run once they've already said they have headroom.
+  above ~800 MB combined — gated on `memBudgetGB` (the opt-in Total memory
+  budget) staying at/below 8 GB, OR still at its own unset default (nobody's
+  told us they have headroom yet), so a desktop user who's deliberately
+  raised it past 8 GB isn't nagged every Run once they've already said they
+  have headroom.
   This is visibility only, not prevention: a mobile tab killed for memory
   pressure gets **no** JS-visible error at all (no exception, no `onerror`,
   the page just reloads blank) — there is no reliable way to detect or head
@@ -2608,15 +2624,16 @@ Opened by **View data/filtering**. Base row set is `getBaseLocs()` — raw
 localizations, or (if a `tempClusteringXY`/`tempClusteringZ` clause is
 active) merged events from `clusterEvents()`.
 
-Building the table's rows is checked against the **Memory budget (GB)**
+Building the table's rows is checked against the **Total memory budget (GB)**
 setting first (`checkTableSize()`, ~200 bytes/row estimated — a small JS
 object per row costs meaningfully more than its raw numeric fields once V8's
 own per-object overhead is counted) — the same size-before-allocating
 philosophy the **render** module's reconstruction buffers use, reusing the
-same `memgb` control rather than a second, separate one. If a huge
-localization count would exceed it, the table doesn't open (or, if already
-open, doesn't rebuild) and a log line explains why, rather than risking a
-tab crash — raise the budget, or narrow the result with a filter/crop/
+same opt-in `memBudgetGB` control (default unset, so this is a no-op until
+one is configured) rather than a second, separate one. If a huge
+localization count would exceed a configured budget, the table doesn't open
+(or, if already open, doesn't rebuild) and a log line explains why, rather
+than risking a tab crash — raise the budget, or narrow the result with a filter/crop/
 temporal-clustering clause first.
 
 **Columns** (present depends on the result): `id`, `frame`, `x`, `y`, `z`

@@ -17,23 +17,26 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.5-dev; may drift
+  MODULE INDEX — line numbers as of v0.12.6-dev; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3159   PARAMS registry, single source of truth for params;
+    params          3164   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
-                           isMemoryConstrainedDevice() (memgb's own lower
-                           default on a phone/tablet-class device, orientation-
-                           independent); log()/logCmd() — prose gets a
+                           isMemoryConstrainedDevice() (drives the worker-pool
+                           size cap on a phone/tablet-class device, orientation
+                           -independent); memBudgetGB/memgb — a split opt-in
+                           TOTAL ceiling (default Infinity) vs. the flat
+                           "Budget raw movies" cache/stream threshold; log()/
+                           logCmd() — prose gets a
                            per-line "// "/"# " comment marker (js/cli, see
                            #logCmdStyleBtn), commands stay bare so a whole
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4179   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4204   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
-                           vs-streamed threshold to Memory budget (memgb);
+                           vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
                            checks the RESOLVED nm value (1-100000), not just
                            tag>0 — a real 0xFFFFFFFF "unset" XResolution
@@ -44,9 +47,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4478   synthetic stack generator ("Simulate movie")
-    detect          5593   per-frame band-pass + local-maxima detection
-    fit             5870   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4503   synthetic stack generator ("Simulate movie")
+    detect          5620   per-frame band-pass + local-maxima detection
+    fit             5897   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -71,7 +74,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6509   accumulate to offscreen buffer; view/colour/blur;
+    render          6536   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -101,14 +104,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8124   frame-parallel detect/fit worker pool; dedicated
+    workers         8154   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8465   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8793   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8495   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8823   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -119,7 +122,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9275   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9305   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -143,9 +146,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10070   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10100   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10804   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10834   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -355,7 +358,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14565   single particle tracking, trackpy-inspired;
+    spt             14595   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -386,7 +389,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16103  top-level orchestration, *Core()/wrapper split;
+    pipeline        16133  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -447,7 +450,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16879  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16921  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -466,7 +469,7 @@
                            lines quieted to one periodic milestone line; raw
                            panel gets its own scrubbable frame history (liveStreamShowRawFrame),
                            auto-following the newest frame unless paused by a
-                           manual scrub, capped to Memory budget (GB) via a
+                           manual scrub, capped to Budget raw movies (GB) via a
                            ring buffer (liveStreamState.rawFrames) since an open-
                            ended acquisition can't keep every raw frame;
                            periodic cadence render is a real, full-quality
@@ -501,14 +504,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19672  localizations table, filtering, histograms;
+    table           19722  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20413  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20464  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2475,7 +2478,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2759,7 +2762,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="memBox">
         <summary>Memory &amp; streaming</summary>
-        <label class="row">Memory budget (GB) <input type="number" id="memgb" value="3" min="0.5" max="64" step="0.5" class="num"></label>
+        <label class="row" title="Opt-in total-memory safety ceiling — leave blank (∞) unless a Run has actually crashed or warned on this device.">Total memory budget (GB) <input type="number" id="memBudgetGB" min="0.1" step="0.5" placeholder="∞" class="num"></label>
+        <label class="row">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0.5" max="64" step="0.5" class="num"></label>
         <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
         <label class="row">Enable live streaming <input type="checkbox" id="liveStreamEnabled"></label>
         <label class="row" id="liveStreamUrlRow" style="display:none" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" class="num" style="width:150px"></label>
@@ -2771,7 +2775,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-memory"><span class="pill">module: in/out &amp; liveStreaming</span>
           <ul>
-          <li><b>Budget</b> — if the decoded stack fits, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode.</li>
+          <li><b>Total memory budget</b> — an opt-in overall safety ceiling, blank (∞) by default. With no number set, nothing here warns or auto-stops on memory use — most setups don't need it for the file sizes this app is typically used with. Set a real number only if a Run has actually crashed or warned on this device; the existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) then compares its own real, combined memory estimate against it.</li>
+          <li><b>Budget raw movies</b> — a separate, always-on setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above.</li>
           <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder. Contiguous ImageJ stacks decode one frame at a time and ignore this.</li>
           </ul>
           <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
@@ -2782,7 +2787,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           </ul>
           <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) is the one control that ends an active streaming session from either path — closing the WebSocket first if one is open — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect of its own to click. (An earlier version of this sidebar had a separate Disconnect button; folded into Stop and removed, since Stop does everything it did and also covers the bridge path.)</p>
           <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. That repaint (and milestone line) is throttled adaptively by elapsed time, not a frame count — frequent while cheap, self-throttling once the growing dataset makes a render expensive — the same mechanism a normal Localize run's own live preview uses.</p>
-          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Memory budget (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
+          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Budget raw movies (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
           <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
           <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
         </div>
@@ -3586,8 +3591,18 @@ const PARAMS = {
   segAreaMax: { type:'number', id:'segAreaMax', label:'Max. cell area (px)', min:0, max:null, step:1, default:Infinity, int:true },
 
   // ---- memory / streaming ----
-  // memgb = RAM budget for caching decoded frames before falling back to streaming
-  memgb: { type:'number', id:'memgb', label:'Memory budget (GB)', min:0.5, max:64, step:0.5, default:3, int:false },
+  // Two genuinely separate concerns, requested to be split apart (previously
+  // both done by memgb alone): memBudgetGB is an OPT-IN total-memory safety
+  // ceiling (checkLocsMemory()/checkRenderSize()/checkTableSize(), MODULE:
+  // pipeline/render/table) — default:Infinity ("most computers won't have a
+  // problem for the kind of file sizes we're currently using" — no hard
+  // ceiling, no warnings/auto-stop, until a user actually sets one, e.g.
+  // after hitting real trouble on a memory-constrained device). memgb stays
+  // the RAM budget for caching decoded frames before falling back to
+  // streaming — a real, still-useful per-load decision independent of
+  // whether a total ceiling exists, so it keeps its own always-on default.
+  memBudgetGB: { type:'number', id:'memBudgetGB', label:'Total memory budget (GB)', min:0.1, max:null, step:0.5, default:Infinity, int:false },
+  memgb: { type:'number', id:'memgb', label:'Budget raw movies (GB)', min:0.5, max:64, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
   chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
 
@@ -3777,29 +3792,39 @@ function isMobileViewport(){ return window.innerWidth<=860; }
 // at once to false-trigger it. Still viewport-based, not UA/device-memory
 // sniffing, same reasoning as isMobileViewport() above — just the
 // dimension that actually tracks device class rather than current layout.
+// `memgb`'s own device-specific default (the bug this function was built to
+// fix) was later REMOVED entirely (see syncParamControls()'s own comment) —
+// once checkLocsMemory()/checkRenderSize() did real combined accounting
+// instead of guessing a safety fraction, a defensive lower default for every
+// mobile visitor stopped being warranted. This function's one remaining
+// caller is getPool()'s own worker-count cap (MODULE: workers).
 function isMemoryConstrainedDevice(){ return Math.min(window.innerWidth, window.innerHeight)<=860; }
 // Registry → DOM: writes each PARAMS entry's min/max/step/value (or
 // checked, for booleans) onto its bound control, so the registry stays
 // authoritative over the static HTML's own (matching but redundant)
-// attributes. Runs once at startup. Special case: `memgb` defaults to 1
-// (raised from its own UI minimum, 0.5, once the checks that actually
-// consume this budget — checkLocsMemory()/checkRenderSize(), MODULE:
-// pipeline/render — did real combined accounting instead of guessing a
-// safety fraction, giving a real device more genuine headroom to work
-// with before those checks act) instead of 3 on a memory-constrained
-// device — mobile Safari's real per-tab memory ceiling is well under
-// desktop assumptions with no JS-visible OOM signal, and loadTiffFile()'s
-// whole-file-vs-streamed threshold ties to this same setting. Only the
-// INITIAL value changes (a later resize/rotation doesn't re-trigger it);
-// a loaded settings JSON's own memgb still overrides it as normal.
+// attributes. Runs once at startup.
+//
+// `memgb`/`memBudgetGB` DELIBERATELY have NO memory-constrained-device
+// special case here any more (there used to be one, lowering `memgb`'s own
+// default) — requested directly, after real combined accounting made both
+// settings trustworthy on their own: "most computers won't have a problem
+// for the kind of file sizes we're currently using," so a defensive lower
+// default for every mobile visitor was overreach once the checks that
+// actually consume these budgets got real math instead of a guessed
+// safety margin. `memgb` ("Budget raw movies") keeps a flat, always-on
+// default (3 GB) — it's a genuinely useful per-load decision (whole-file
+// cache vs. streamed) independent of any TOTAL ceiling. `memBudgetGB`
+// ("Total memory budget") defaults to `Infinity` for every device — an
+// explicit opt-in: nothing warns or auto-stops until a user actually sets
+// a real number (typically after hitting real trouble on a genuinely
+// memory-constrained device), at which point `checkLocsMemory()`/
+// `checkRenderSize()`/`checkTableSize()` (MODULE: pipeline/render/table)
+// start comparing their own combined estimates against it.
 function syncParamControls(){
   for(const id in PARAMS){
     const spec=PARAMS[id]; if(!spec.id) continue;
     const el=$(spec.id); if(!el) continue;
-    // Local override, not `spec.default=...` — PARAMS[id] is a shared
-    // reference, so mutating it here would permanently corrupt the
-    // registry's own default the first time this runs on a narrow viewport.
-    const def = (id==='memgb' && isMemoryConstrainedDevice()) ? 1 : spec.default;
+    const def = spec.default;
     if(spec.type==='bool'){ el.checked=def; continue; }
     if(spec.type==='enum'){ el.value=def; continue; }
     el.min = spec.min==null ? '' : spec.min;
@@ -4173,7 +4198,7 @@ let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for
 // activation ({x,y,tStart,tEnd,photonsTotal}, frame units) — kept for later comparison against
 // recovered localizations; not consumed anywhere yet.
 let groundTruthEvents=null;
-const readBudget = ()=> paramValue('memgb')*1073741824;   // frame-cache memory budget
+const readBudget = ()=> paramValue('memgb')*1073741824;   // frame-cache budget ("Budget raw movies") — deliberately independent of memBudgetGB, the opt-in TOTAL ceiling
 
 /* ===========================================================================
    MODULE: in/out
@@ -5059,7 +5084,7 @@ async function loadTiffFile(file, onLog=log){
   // Files under effSliceMin go through the cached whole-file path (faster,
   // correct multi-IFD handling); larger ones stream via File.slice() instead.
   // effSliceMin ties SLICE_MIN's ~1.5 GB desktop ceiling to readBudget() (the
-  // same Memory budget (GB) control frame-caching already uses) rather than
+  // same Budget raw movies (GB) control frame-caching already uses) rather than
   // a fixed number — on a memory-constrained device the whole-file path's
   // real cost (the ENTIRE file resident, plus every frame's IFD indexed,
   // both before any budget check runs) can make a moderate file riskier
@@ -5103,10 +5128,11 @@ async function loadTiffFile(file, onLog=log){
       onLog(`File: ${declared} frames · ${w}×${h} · ${fmtBytes(fileSize)} on disk`);
       onLog(`Contiguous ImageJ stack — reading frames on demand; the file is never held in memory.`);
       // Same budget-driven-streaming advisory as the multi-IFD fallback below —
-      // only fires when it's the tightened Memory budget forcing this, not a
-      // genuinely huge file (which would take this path regardless of budget).
+      // only fires when it's the tightened Budget raw movies setting forcing
+      // this, not a genuinely huge file (which would take this path regardless
+      // of budget).
       if(effSliceMin<SLICE_MIN && fileSize<=SLICE_MIN){
-        onLog(`(Below the ${fmtBytes(SLICE_MIN)} size where this is required regardless — the ${fmtBytes(effSliceMin)} Memory budget is what pushed it here; raise it if you have the RAM to load faster.)`);
+        onLog(`(Below the ${fmtBytes(SLICE_MIN)} size where this is required regardless — the ${fmtBytes(effSliceMin)} Budget raw movies setting is what pushed it here; raise it if you have the RAM to load faster.)`);
       }
       const hint=tiffScaleHint(hifds[0], dv('t270')); if(hint) onLog(hint);
       const mmHint=mmMetadataHint([hifds[0]]); if(mmHint) onLog(mmHint);
@@ -5150,15 +5176,16 @@ async function loadTiffFile(file, onLog=log){
   // frames at a varying stride) — index the IFD chain and stream frames.
   if(fileSize>effSliceMin){
     // A file that would have fit under the old fixed SLICE_MIN but not under
-    // the current (tighter) Memory budget — worth a clear one-line "why",
-    // matching checkRenderSize()/checkTableSize()'s own advisory style,
-    // since otherwise this is an invisible path change: same result, just
-    // slower (re-reads a slice per frame batch instead of caching once).
-    // Genuinely huge files (over SLICE_MIN regardless of budget) already get
-    // their own "Large multi-IFD stack…" line from loadMultiIfdStreaming()
-    // itself, so this only fires for the budget-driven case specifically.
+    // the current (tighter) Budget raw movies setting — worth a clear
+    // one-line "why", matching checkRenderSize()/checkTableSize()'s own
+    // advisory style, since otherwise this is an invisible path change: same
+    // result, just slower (re-reads a slice per frame batch instead of
+    // caching once). Genuinely huge files (over SLICE_MIN regardless of
+    // budget) already get their own "Large multi-IFD stack…" line from
+    // loadMultiIfdStreaming() itself, so this only fires for the
+    // budget-driven case specifically.
     if(effSliceMin<SLICE_MIN && fileSize<=SLICE_MIN){
-      onLog(`Streaming instead of loading whole: ${fmtBytes(fileSize)} file exceeds the ${fmtBytes(effSliceMin)} Memory budget (Memory & streaming) — raise it if you have the RAM to load faster.`);
+      onLog(`Streaming instead of loading whole: ${fmtBytes(fileSize)} file exceeds the ${fmtBytes(effSliceMin)} Budget raw movies setting (Memory & streaming) — raise it if you have the RAM to load faster.`);
     }
     return loadMultiIfdStreaming(file, fileSize, onLog);
   }
@@ -6628,10 +6655,10 @@ function displayMax(buf,pct){
 // tens of GB with nothing to stop it otherwise. CANVAS_MAX_DIM is a
 // conservative per-side cap most browsers enforce on canvas creation
 // regardless of available memory (a hard technical wall, not a soft
-// budget); the memgb check is the same philosophy as the stack-loading
-// memory budget (readBudget()), just applied to rendering instead — reusing
-// the SAME user-facing "Memory budget (GB)" control rather than a second,
-// separate setting.
+// budget); the memBudgetGB check below is the opt-in TOTAL-memory safety
+// net (default Infinity, a no-op until a user actually sets one) — a
+// genuinely separate concern from readBudget()'s own memgb-driven
+// whole-file-vs-streamed loading decision.
 const CANVAS_MAX_DIM=16384;
 // Shared rough per-localization-object byte estimate — used by every memory
 // guard that needs to reason about the growing `locs` array's own footprint
@@ -6669,21 +6696,24 @@ function estimateRenderBytes(W,H,zColor,blurPx,renderMode){
 // array — see renderSuperRes()'s own call site, which passes its own
 // `locs.length*LOC_ROW_BYTES`) — a real, reported gap otherwise: this check
 // used to compare the render buffer's own cost ALONE against the full
-// `memgb`, with no idea a large, already-resident locs array existed at
+// budget, with no idea a large, already-resident locs array existed at
 // all, so it could "pass" even when the COMBINED total (locs + this render)
 // would exceed the device's real ceiling — exactly what caused a mobile Run
 // to sometimes crash right after its own graceful "Stopping now" message
 // (checkLocsMemory(), MODULE: pipeline), the moment the very next
-// reconstruction render ran.
+// reconstruction render ran. `budget` reads `memBudgetGB` (default
+// Infinity), NOT `memgb` — this is the opt-in total-memory ceiling, a
+// separate concern from `memgb`'s own "cache the whole movie or stream it"
+// decision (readBudget()) — so with no ceiling set, this check is a no-op.
 function checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode='fixed',reserveBytes=0){
   if(W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM)
     throw new Error(`Reconstruction would be ${W}×${H} px (frame ${w}×${h} × ${mag}×) — exceeds the ~${CANVAS_MAX_DIM}px per-side canvas limit most browsers enforce. Lower Magnification or crop the region first.`);
   const bytes=estimateRenderBytes(W,H,zColor,blurPx,renderMode);
-  const budget=paramValue('memgb')*1073741824;
+  const budget=paramValue('memBudgetGB')*1073741824;
   if(bytes+reserveBytes>budget)
     throw new Error(`Reconstruction at ${W}×${H} px (frame ${w}×${h} × ${mag}×) would need ~${fmtBytes(bytes)}`+
       (reserveBytes>0 ? ` (plus ~${fmtBytes(reserveBytes)} already committed to the current localizations)` : '')+
-      `, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Lower Magnification, crop the region, narrow the frame range, or raise the budget if you have the RAM.`);
+      `, over the ${fmtBytes(budget)} Total memory budget (Memory & streaming). Lower Magnification, crop the region, narrow the frame range, or raise the budget if you have the RAM.`);
 }
 // Persistent acc/zacc/blur scratch for the single-threaded FALLBACK path —
 // single last-size slot (reallocated only when W×H or zColor changes), same
@@ -6936,16 +6966,16 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
   // confirmed already fits (the loaded stack's own cache is never cloned
   // for this dispatch, so it's added only once here, not doubled). Skip the
   // worker whenever dispatching would exceed budget ONLY because of that
-  // transient doubling — real math against whatever `memgb` is actually
-  // set to, not a device-class guess: this naturally never triggers on a
-  // desktop-sized budget and correctly does on a small one, on ANY device.
+  // transient doubling — real math against whatever `memBudgetGB` is
+  // actually set to (default Infinity, so this never triggers until a
+  // user sets a real ceiling), not a device-class guess.
   // The single-threaded fallback below reads `locs` BY REFERENCE (no
   // clone) at the cost of blocking the main thread a little longer for
   // that one render — an accepted trade against silently doubling memory
   // at the worst possible moment (a Run's own peak loc count, exactly when
   // checkLocsMemory() already flags things as tight).
   const renderBytes=estimateRenderBytes(W,H,zColor,blurPx,renderMode);
-  const budget=paramValue('memgb')*1073741824;
+  const budget=paramValue('memBudgetGB')*1073741824;
   const skipWorkerForMemory = (renderBytes + 2*locsBytes + stackResidentBytes) > budget;
   const worker=skipWorkerForMemory ? null : await getRenderWorker();
   if(worker){
@@ -7629,7 +7659,7 @@ async function rerender(keepView,isPreview){
     // checkRenderSize() in renderSuperRes) — keep showing whatever was
     // there before rather than crashing or blanking the panel; the log
     // message already says what to change (lower Magnification, crop, or
-    // raise the Memory budget).
+    // raise the Total memory budget).
     log(`⚠ Reconstruction not updated: ${err.message}`);
     return;
   }
@@ -16172,7 +16202,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
   // First WARNS, then genuinely STOPS (a real, reported gap in the original
   // warn-only version: a real ~30k-frame MLE-spherical mobile Run, even at
-  // the correct memory-constrained 0.5 GB memgb default, still "silently
+  // a memory-constrained device's own tighter budget, still "silently
   // crashed" — the warning fired, logged, and changed nothing, since
   // nothing actually halted the Run; the locs array just kept growing past
   // it, unattended, until the tab was killed with total data loss). Before
@@ -16193,15 +16223,26 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // reusing every existing "stop mid-way, keep the partial locs found so
   // far" finalization a manual Stop click already gets, unchanged.
   //
+  // Reads `config.memBudgetGB` — the OPT-IN total-memory ceiling, default
+  // Infinity, a genuinely separate setting from `config.memgb` ("Budget raw
+  // movies", which only ever governs the whole-file-vs-streamed loading
+  // decision, readBudget()) — most setups never need a hard ceiling at all
+  // ("most computers won't have a problem for the kind of file sizes we're
+  // currently using," the direct request that split this out of a single
+  // combined field), so this whole check, and the render/table checks
+  // sharing the same field, are a no-op (`bytes>Infinity` is always false)
+  // until a user actually sets a real number, typically after hitting real
+  // trouble on a genuinely memory-constrained device.
+  //
   // The STOP point is a real, CALCULATED reserve, not a guessed fraction of
   // the raw budget (0.55, tried first, then reported as still not solid
   // enough — the fraction was itself just another guess, no more principled
-  // than the 0.95 it replaced). Instead: reserve exactly enough of `memgb`
-  // for the reconstruction render that WILL run right after this Run stops
-  // or finishes — `estimateRenderBytes()` (MODULE: render, the exact
-  // formula `checkRenderSize()` itself checks against) computed ONCE up
-  // front from this Run's own known mag/zcolor/blur/renderMode — plus
-  // `frameBatchReserve`, a real (not guessed) upper bound on in-flight
+  // than the 0.95 it replaced). Instead: reserve exactly enough of
+  // `memBudgetGB` for the reconstruction render that WILL run right after
+  // this Run stops or finishes — `estimateRenderBytes()` (MODULE: render,
+  // the exact formula `checkRenderSize()` itself checks against) computed
+  // ONCE up front from this Run's own known mag/zcolor/blur/renderMode —
+  // plus `frameBatchReserve`, a real (not guessed) upper bound on in-flight
   // worker frame-batch memory (each worker's own postMessage-cloned batch,
   // set right after `pool`/`BATCH` are resolved below — 0 until then, i.e.
   // on the serial no-worker path). `locs` may use whatever's left of
@@ -16235,7 +16276,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   let locsMemWarned=false, locsMemStopLogged=false;
   const checkLocsMemory=()=>{
     if(locsMemStopLogged) return;   // already stopping — nothing more to say
-    const budget=config.memgb*1073741824, bytes=locs.length*LOC_ROW_BYTES;
+    const budget=config.memBudgetGB*1073741824, bytes=locs.length*LOC_ROW_BYTES;
     const reserved=renderBytesEstimate+frameBatchReserve+stackResidentBytes;
     const stopAt=budget-reserved;
     if(bytes > stopAt){
@@ -16243,15 +16284,15 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       onLog(`⚠ Auto-stopping: ${locs.length.toLocaleString()} localizations so far are estimated at `+
             `~${fmtBytes(bytes)}, leaving less than the ~${fmtBytes(reserved)} the reconstruction render, `+
             `any in-flight frame batches, and the loaded movie's own ${fmtBytes(stackResidentBytes)} cache `+
-            `(if any) still need from the ${fmtBytes(budget)} Memory budget (Memory & streaming) — on a `+
+            `(if any) still need from the ${fmtBytes(budget)} Total memory budget (Memory & streaming) — on a `+
             `memory-constrained device this Run could otherwise silently crash the tab with total data loss. `+
             `Stopping now with the ${locs.length.toLocaleString()} localizations already found kept as a `+
-            `partial result. Raise Memory budget, narrow the frame range, lower Magnification, or raise the `+
-            `detection threshold to reduce candidates, then re-run if you need the rest.`);
+            `partial result. Raise Total memory budget, narrow the frame range, lower Magnification, or raise `+
+            `the detection threshold to reduce candidates, then re-run if you need the rest.`);
     } else if(!locsMemWarned && bytes > stopAt*0.8){
       locsMemWarned=true;
       onLog(`⚠ ${locs.length.toLocaleString()} localizations so far already use a large share of the `+
-            `${fmtBytes(budget)} Memory budget (Memory & streaming) — this Run will auto-stop (keeping `+
+            `${fmtBytes(budget)} Total memory budget (Memory & streaming) — this Run will auto-stop (keeping `+
             `what's found so far) if it keeps growing much further.`);
     }
   };
@@ -16314,17 +16355,18 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       // number alone. Advisory threshold (~800 MB combined) is a rough,
       // deliberately conservative line for what a mobile Safari/Chrome tab can be
       // trusted with under real-world (multi-tab/background-app) memory pressure —
-      // gated on config.memgb staying at/below its old 8 GB ceiling, so a desktop/
-      // workstation user who has deliberately raised it (up to the new 64 GB max)
-      // has already told us they have headroom and doesn't get nagged every Run.
-      // Nothing here can detect or prevent a mobile OOM kill, only make a risky
-      // config visible before it happens instead of after.
+      // gated on `config.memBudgetGB` (the opt-in TOTAL ceiling, default Infinity)
+      // staying at/below 8 GB OR still at its own default (nobody's told us they
+      // have headroom yet), so a desktop/workstation user who has deliberately
+      // raised it past 8 GB has already told us they have headroom and doesn't
+      // get nagged every Run. Nothing here can detect or prevent a mobile OOM
+      // kill, only make a risky config visible before it happens instead of after.
       const stackResidentMB = stack.streaming ? 0 : Math.round(nStack*w*h*4/1e6);
       const totalMB = stackResidentMB + config.chunkmb;
-      const looksRisky = config.memgb<=8 && totalMB>800;
+      const looksRisky = (config.memBudgetGB===Infinity || config.memBudgetGB<=8) && totalMB>800;
       onLog(`Estimated peak memory: ~${config.chunkmb} MB for FTM's own chunk working set`+
             (stackResidentMB ? ` + ~${stackResidentMB} MB for the already-cached stack = ~${totalMB} MB total` : '')+
-            `.`+(looksRisky ? ` ⚠ That's a lot for a browser tab, especially on mobile — if a Run stops with no further log line, lower Stream heap (chunkmb) and/or Memory budget (memgb) first.` : ''));
+            `.`+(looksRisky ? ` ⚠ That's a lot for a browser tab, especially on mobile — if a Run stops with no further log line, lower Stream heap (chunkmb) and/or set a Total memory budget first.` : ''));
     }
   }
   const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
@@ -17133,9 +17175,10 @@ async function liveStreamPushChunkFile(file){
   // fetched once here (reused for the auto-follow display below, avoiding a
   // second fetch of the same chunk's pixel data). Unlike a loaded file this
   // can't all stay resident forever for an open-ended acquisition: capped
-  // to whatever fits in Memory budget (GB) (readBudget(), the SAME ceiling a
-  // loaded stack's own frame cache uses — an independent per-feature budget,
-  // not a shared pool, matching that control's existing convention), sized
+  // to whatever fits in Budget raw movies (GB) (readBudget(), the SAME
+  // ceiling a loaded stack's own frame cache uses — an independent
+  // per-feature budget, not a shared pool, matching that control's
+  // existing convention), sized
   // once real frame dimensions are known (first chunk) and evicted oldest-
   // first past that cap. Evicting the raw pixel data does NOT touch
   // liveStreamState.allLocs — every accepted localization from the whole
@@ -17425,7 +17468,7 @@ $('rawFtmBtn').addEventListener('click',()=>{
 // small screens so the images are visible without scrolling past the controls.
 (function(){ const b=$('sideToggle'); if(!b) return;
   const body=document.body, pin=$('sidePin'), scrim=$('scrim');
-  const isMobile=isMobileViewport;   // layout-only (width alone) — memgb's own default uses the orientation-independent isMemoryConstrainedDevice() instead, see that function's own comment
+  const isMobile=isMobileViewport;   // layout-only (width alone) — getPool()'s own worker-count cap uses the orientation-independent isMemoryConstrainedDevice() instead, see that function's own comment
   const refit=()=>window.dispatchEvent(new Event('resize'));   // re-fit canvases if the grid width changed
   // Floating/mobile-drawer sidebar is position:fixed, so it needs the header's
   // real rendered height (font metrics vary by OS/zoom — a guessed px value
@@ -18556,7 +18599,12 @@ $('exportLogBtn').addEventListener('click',async()=>{
 // seconds," not "recomputed on every possible triggering event."
 function updateMemReadout(){
   const el=$('memReadout'); if(!el) return;
-  const budget=paramValue('memgb')*1073741824;
+  // `memBudgetGB` (the opt-in TOTAL ceiling) defaults to Infinity — most
+  // setups never set one at all, so the readout must degrade gracefully
+  // rather than showing a literal "Infinity GB" denominator/percentage
+  // (fmtBytes(Infinity) itself would render exactly that).
+  const budget=paramValue('memBudgetGB')*1073741824;
+  const budgetSet=isFinite(budget);
   // A real, reported gap: this readout still showed ~0 right after loading a
   // real multi-GB movie ("Decoded working set if fully cached: ~2.50 GB" —
   // onLog'd, but never fed back into this estimate at all) — the biggest
@@ -18578,12 +18626,13 @@ function updateMemReadout(){
   // those two guards already answer.
   const renderBytes = lastResult ? estimateRenderBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode')) : 0;
   const estBytes = stackBytes+locsBytes+renderBytes;
-  const pct = budget>0 ? Math.round(100*estBytes/budget) : 0;
+  const pct = budgetSet ? Math.round(100*estBytes/budget) : null;
   let text, title =
     `Estimated memory in use: ~${fmtBytes(stackBytes)} (the loaded movie, if cached) + `+
     `~${fmtBytes(locsBytes)} (${locsN.toLocaleString()} localizations) + `+
-    `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification) ≈ ${fmtBytes(estBytes)}, `+
-    `${pct}% of the ${fmtBytes(budget)} Memory budget (Memory & streaming).\n`+
+    `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification) ≈ ${fmtBytes(estBytes)}`+
+    (budgetSet ? `, ${pct}% of the ${fmtBytes(budget)} Total memory budget (Memory & streaming).\n`
+                : ` (no Total memory budget set — see Memory & streaming to set one).\n`)+
     `This is webSMLM's own ESTIMATE, not a real measurement`;
   // performance.memory (Chrome/Edge only, non-standard) — real JS heap
   // usage; navigator.deviceMemory (same browsers only) — an approximate
@@ -18598,7 +18647,7 @@ function updateMemReadout(){
     text = `Mem: ~${fmtBytes(estBytes)} est. · ${fmtBytes(used)} used`;
   } else {
     title += ` — ${/Safari/.test(navigator.userAgent)&&!/Chrome/.test(navigator.userAgent) ? 'Safari' : 'this browser'} exposes no real memory-usage API at all (by design), so no measured figure is available to compare it against.`;
-    text = `Mem (est.): ~${fmtBytes(estBytes)} / ${fmtBytes(budget)}`;
+    text = budgetSet ? `Mem (est.): ~${fmtBytes(estBytes)} / ${fmtBytes(budget)}` : `Mem (est.): ~${fmtBytes(estBytes)}`;
   }
   el.textContent=text; el.title=title;
 }
@@ -19545,14 +19594,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-18d — closed a real gap asked
-about directly: with a big movie already filling most of Memory
-budget, the Localize memory guard still computed its own reserve
-against the FULL budget, with no idea that cache already existed — so
-combined memory really could grow well past the configured budget
-depending on localization count. Both the Localize guard and the
-reconstruction-render guard now subtract the loaded movie's own
-cached size first.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-18e — split "Memory budget (GB)"
+into two independent settings, as requested: Total memory budget (GB)
+is now an opt-in safety ceiling (blank/∞ by default — most setups
+never need one), while Budget raw movies (GB) keeps its own flat 3 GB
+default and stays the ONLY thing governing whether a loaded movie is
+cached whole or streamed. The Localize/render/table memory guards and
+the live Mem readout now compare against the new Total memory budget
+instead, gracefully doing nothing until one is actually set.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -19823,13 +19872,14 @@ function rebuildTableData(){
 // Same "check before allocating, throw with a clear message" philosophy as
 // checkRenderSize() (MODULE: render) — the table's memory scales with
 // LOCALIZATION COUNT instead, LOC_ROW_BYTES/row (MODULE: render's own shared
-// estimate, not a precise guarantee). Reuses `memgb` as a rough PER-FEATURE
-// ceiling, same as every other memory check in this file, not a pool
-// shared/subtracted across features.
+// estimate, not a precise guarantee). Reuses `memBudgetGB` (the opt-in TOTAL
+// ceiling, default Infinity) as a rough PER-FEATURE ceiling, same as every
+// other memory check in this file, not a pool shared/subtracted across
+// features — a no-op until a user actually sets one.
 function checkTableSize(n){
-  const estBytes=n*LOC_ROW_BYTES, budget=paramValue('memgb')*1073741824;
+  const estBytes=n*LOC_ROW_BYTES, budget=paramValue('memBudgetGB')*1073741824;
   if(estBytes>budget)
-    throw new Error(`View data/filtering would need ~${fmtBytes(estBytes)} for ${n.toLocaleString()} rows, over the ${fmtBytes(budget)} Memory budget (Memory & streaming). Raise the budget if you have the RAM, or narrow the result first (a table/crop filter, or temporal clustering) before opening it.`);
+    throw new Error(`View data/filtering would need ~${fmtBytes(estBytes)} for ${n.toLocaleString()} rows, over the ${fmtBytes(budget)} Total memory budget (Memory & streaming). Raise the budget if you have the RAM, or narrow the result first (a table/crop filter, or temporal clustering) before opening it.`);
 }
 // Builds the {cols,dec,unit,rows} shape the locs table renders from —
 // column list adapts to what's actually present (z, sSMLM dist, sx/sy,
