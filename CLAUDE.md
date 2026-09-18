@@ -289,6 +289,18 @@ in a module.
   deliberately accepted trade-off: a handful of longer option labels (e.g. "Gauss MLE spherical",
   "Wavelet (B-spline)", "Via distances and angles") truncate in the closed dropdown at this width
   (no ellipsis, native `<select>` clipping) — the full label is always readable once opened.
+  `select.sel` also sets an EXPLICIT `height:25px` (with `padding:2px 6px`) — a real, reported
+  alignment bug: with just padding matching `button`'s own (no explicit height), a `<select>`
+  rendered visibly taller (29px) than a `.numstep`-wrapped `input.num` (25px) or a `button` (27px),
+  even with identical padding/font-size/border — neither `appearance:none` nor tightening the
+  padding alone closed the gap, confirming the extra height was `<select>`'s own internal default
+  line-height/box-model quirk, not native dropdown-arrow chrome; only overriding `height` directly
+  fixes it. Matched to `input.num`'s own 25px (not button's 27px) since select and numstep-wrapped
+  inputs are the two control types that actually interleave row-by-row within one `details.sim`
+  section. `html{-webkit-text-size-adjust:100%;text-size-adjust:100%}` (right after the
+  `box-sizing:border-box` reset) additionally opts the whole page out of mobile Safari/Chrome's own
+  text-autosizing heuristic — confirmed via a real mobile screenshot to inflate a `<select>`'s own
+  rendered text size above its neighbours' despite sharing the identical `font-size:12px` rule.
 
 - **workers** — frame-parallel detect/fit; see the Web Worker gotcha below. `getPool()`'s own worker
   COUNT is capped at `2` on a memory-constrained device (`isMemoryConstrainedDevice()`), not the
