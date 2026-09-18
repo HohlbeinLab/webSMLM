@@ -178,28 +178,36 @@ in a module.
   continuous data; `hsvBlue` is a cyclic full hue loop (**Pair** auto-selects it).
 
   `renderSuperRes()`'s accumulator buffers are DENSE (O(w·h·mag²), independent of localization
-  count). `checkRenderSize()` refuses (throws) before any allocation if either side would exceed
-  `CANVAS_MAX_DIM`(16384) or the estimated concurrent footprint exceeds `memgb`; `rerender()` leaves
-  the PREVIOUS `srFull` on screen on failure rather than blanking. `LOC_ROW_BYTES` (right above
-  `checkRenderSize()`) is the ONE shared per-localization-object byte estimate every memory guard in
-  the app uses (`checkTableSize()`, MODULE: table; `checkLocsMemory()`, MODULE: pipeline; the
-  render-worker-skip check below) — not three independently-typed copies that could drift apart.
+  count). `estimateRenderBytes(W,H,zColor,blurPx,renderMode)` is the pure, no-throw formula behind
+  this — callable from `runCore()` (MODULE: pipeline) too, so a Run can reserve room for the render
+  that will follow it BEFORE it happens, not just guess. `checkRenderSize()` is the thin wrapper that
+  actually throws: refuses before any allocation if either side would exceed `CANVAS_MAX_DIM`(16384),
+  or if `estimateRenderBytes(...) + reserveBytes` exceeds `memgb` — `reserveBytes` (default 0) is
+  memory ALREADY committed elsewhere that this render has to coexist with (see below); `rerender()`
+  leaves the PREVIOUS `srFull` on screen on failure rather than blanking. `LOC_ROW_BYTES` (right
+  above `estimateRenderBytes()`) is the ONE shared per-localization-object byte estimate every memory
+  guard in the app uses (`checkTableSize()`, MODULE: table; `checkLocsMemory()`, MODULE: pipeline;
+  `renderSuperRes()` below) — not independently-typed copies that could drift apart.
 
-  **`renderSuperRes()` skips the render worker (falls back to the single-threaded path) on a
-  memory-constrained device once the `locs` array's own estimated footprint is already a meaningful
-  share of `memgb`** — a real, reported crash: an auto-stopped mobile Run (`checkLocsMemory()`)
-  still sometimes crashed right AFTER its own graceful "Stopping now, N localizations kept" message,
-  exactly when the panel's own reconstruction re-render ran next. Root cause: `dispatchRenderWorker()`
-  sends `locs` to the render worker via plain `postMessage` — a STRUCTURED CLONE, no transfer list —
-  so EVERY render (every throttled live preview during a Run, and the final one) transiently holds
-  BOTH the original locs array AND a freshly-cloned copy at once, on top of whatever
-  `checkRenderSize()` already accounts for (which has no idea the locs array itself exists, let alone
-  that this dispatch is about to double it) — worst exactly at a Run's own peak loc count, the same
-  moment `checkLocsMemory()` already flags as tight. The single-threaded fallback reads `locs` BY
-  REFERENCE (no clone) at the cost of blocking the main thread a little longer for that one render —
-  an accepted trade against silently doubling memory at the worst possible moment. Threshold
-  deliberately lower (0.15 of `memgb`) than `checkLocsMemory()`'s own 0.35 WARN fraction, since
-  dispatching anyway would roughly DOUBLE this specific number for the clone's duration.
+  **`renderSuperRes()` passes its own `locs.length*LOC_ROW_BYTES` into `checkRenderSize()` as
+  `reserveBytes`, and separately skips the render worker (falls back to the single-threaded path)
+  whenever dispatching would exceed budget ONLY because of the worker's own clone** — real,
+  calculated combined accounting, not a device-class guess. A real, reported crash: an auto-stopped
+  mobile Run (`checkLocsMemory()`) still sometimes crashed right AFTER its own graceful "Stopping
+  now, N localizations kept" message, exactly when the panel's own reconstruction re-render ran
+  next. Two compounding root causes: (1) `checkRenderSize()` used to compare the render buffer's own
+  cost ALONE against `memgb`, with no idea a large, already-resident `locs` array existed at all —
+  fixed by threading `reserveBytes` through it. (2) `dispatchRenderWorker()` sends `locs` to the
+  render worker via plain `postMessage` — a STRUCTURED CLONE, no transfer list — so EVERY render
+  (every throttled live preview during a Run, and the final one) transiently holds BOTH the original
+  locs array AND a freshly-cloned copy at once, a SECOND, temporary `locsBytes` on top of whatever
+  the first fix already confirmed fits — fixed by comparing `renderBytes + 2*locsBytes` against
+  `budget` to decide worker-vs-single-threaded (the single-threaded fallback reads `locs` BY
+  REFERENCE, no clone, at the cost of blocking the main thread a little longer for that one render).
+  Both comparisons use whatever `memgb` is ACTUALLY set to — this naturally never triggers on a
+  desktop-sized budget and correctly does on a small one, on ANY device, with no
+  `isMemoryConstrainedDevice()` heuristic needed for this specific decision at all (that check is
+  still used elsewhere — see **workers**).
 
   `renderMode` (default `'fixed'`): `'fixed'` bins then applies one uniform blur (`rblur`, cost ∝
   buffer area); `'precision'` splats each loc as its own CRLB-sized Gaussian (`lpx`/`lpy`, capped at
@@ -504,19 +512,58 @@ in a module.
   This also means a headless `analyze()` call (which passes no `shouldStop` hook at all) now gets
   this same protection, a genuine improvement there, not just interactively.
 
-  **`checkLocsMemory()`'s own WARN/STOP fractions are deliberately well below "leave a little
-  headroom"** (`0.35`/`0.55` of `memgb`, not the first-shipped `0.7`/`0.95`) — this check only ever
-  estimates the LOCS ARRAY's own footprint (`200` bytes/row, the same estimate `checkTableSize()`
-  uses, likely itself an UNDERESTIMATE of a real 15-own-property loc object's V8 footprint), but
-  that's far from the only thing consuming `memgb`'s budget during a Run: in-flight frame batches
-  (`BATCH` frames × `pool.length` workers, each holding its own postMessage-CLONED copy — see
-  **workers** below) and periodic SR-preview render buffers (`checkRenderSize()`, MODULE: render —
-  a SEPARATE per-feature check against the SAME budget number, not a shared running total with this
-  one) can all be resident AT THE SAME TIME as a locs array that hasn't reached the old 70% mark yet.
-  Reported: a real ~30k-frame mobile MLE-spherical Run still crashed with NO warning EVER logged at
-  the old fractions — consistent with the total (locs + frames + render + overhead) already
-  exceeding the device's true ceiling well before locs alone crossed 70%. Still an estimate, not a
+  **`checkLocsMemory()`'s own STOP point is a CALCULATED reserve, not a guessed fraction of
+  `memgb`** — first shipped at flat fractions (`0.95`, then `0.7`/`0.55` — each one just another
+  guess, no more principled than the last, and asked about directly: "what is the reasoning behind
+  the 55%?" didn't have a solid answer). Now: `stopAt = budget − renderBytesEstimate −
+  frameBatchReserve`, both terms REAL numbers computed from THIS run's own configuration, not
+  arbitrary safety margins —
+  - `renderBytesEstimate` = `estimateRenderBytes(w*config.mag, h*config.mag, config.zcolor,
+    config.rblur, config.renderMode)` (MODULE: render), computed ONCE up front: exactly what the
+    reconstruction render that WILL run right after this Run stops or finishes will cost.
+  - `frameBatchReserve` = `2*pool.length*BATCH*w*h*4` (0 on the serial no-worker path), set once
+    `pool`/`BATCH` are resolved: decoded frames are always `Float32Array(w*h)` regardless of the
+    source file's own bit depth (`decodeInto()`, MODULE: in/out), and every worker's own in-flight
+    batch is postMessage-CLONED (main thread's own copy + each worker's clone, worst case across all
+    workers at once) — the SAME clone cost `renderSuperRes()` accounts for, just for frame data
+    instead of locs.
+
+  `locs` may use whatever's left of `budget` after those two reservations — still an ESTIMATE (`200`
+  bytes/row, `LOC_ROW_BYTES`, likely itself an UNDERESTIMATE of a real 15-own-property loc object's
+  V8 footprint — biasing this toward acting a little late, not early), but no longer an arbitrary
+  safety margin: it's a real answer to "how much room does THIS run's own render + in-flight frame
+  batches actually need," computed from THIS run's own settings. A WARN heads-up fires at 80% of
+  that SAME calculated `stopAt` — still one real number, just an earlier point on it. Reported: a
+  real ~30k-frame mobile MLE-spherical Run crashed even at flat-fraction thresholds, right after
+  auto-stopping's own graceful message — the render step right after a stop had no idea how much
+  the already-resident locs array was using, which the calculated reserve now directly prevents (see
+  **render**'s own paragraph on `checkRenderSize()`'s matching fix). Still an estimate, not a
   guarantee — no client-side JS can detect or prevent an OS-level tab kill for certain.
+
+  **`memgb`'s own memory-constrained-device DEFAULT raised from `0.5` to `1` GB** — once the checks
+  that actually consume this budget did real combined accounting instead of guessing a safety
+  fraction, a real device has more genuine headroom to work with before those checks act, so a more
+  generous starting point no longer trades away the safety margin those checks used to need to
+  provide by themselves.
+
+  **A live "Mem: ..." readout** sits in the Log card's own title row (`#memReadout`, a
+  `updateMemReadout()` polled every 2s via `setInterval` — "dynamic" here means "polled regularly,"
+  not "recomputed on every triggering event") — asked directly: "can you dynamically display how
+  much memory webSMLM is using, or is that off limits?" Honest answer, and what got built: on Safari
+  it genuinely IS off limits — no `performance.memory` (Chrome/Edge-only, never implemented by
+  WebKit, deliberately, for fingerprinting/side-channel reasons) and no `navigator.deviceMemory`
+  (same) exist there, so there is no real number this page can ever read on that browser. The
+  readout always shows webSMLM's own ESTIMATE (the exact same `LOC_ROW_BYTES`/`estimateRenderBytes()`
+  math the guards above use, clearly labelled as an estimate in its own tooltip) and, only on
+  browsers that actually expose them, the REAL measured JS heap usage plus an approximate total
+  device RAM to genuinely rate it against — never fabricates either figure when unavailable.
+  **A real, caught-before-shipping layout bug**: `.card h4 > span:first-child` (MODULE: params)
+  gives a card's own FIRST `<h4>` child `white-space:nowrap`/`overflow:hidden`/ellipsis, meant for a
+  short plain title — bundling the Log card's own buttons AND this new readout into that same first
+  span (tried first) got squashed onto one unwrapping, clipped line the moment the readout made the
+  row too long for a narrow viewport. Fixed by giving the Log h4 a SECOND child span (buttons +
+  readout, own `flex-wrap:wrap`) instead of stuffing everything into the first — not subject to that
+  rule at all, so it can actually wrap on a narrow screen instead of overflowing.
 
   **Standing rule — every actionable GUI control needs a plain top-level function behind it.** A
   button click, checkbox change, or any control that actually computes or changes data must call ONE
