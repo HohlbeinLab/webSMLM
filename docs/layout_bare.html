@@ -23,10 +23,14 @@
   input.num in a always-visible −/+ pair — Inkscape-style, not the
   browser's own hover-only native spinner, which is unreachable on a
   touchscreen), one labeled select, two display windows (canvas
-  placeholders, each wrapped in a top-aligned .panel-body so a real
-  project's own per-panel trailing controls — a scrub slider, a filter
-  note, … — never throw the two canvases out of vertical alignment with
-  each other), a side-by-side/stacked panel layout toggle (layoutToggleBtn
+  placeholders, each with its own title (a direct .card child, above the
+  canvas) and a second h4 for icon buttons/a caption (inside .panel-body,
+  right after the canvas — the two live in separate h4s so icon buttons
+  read as belonging to the data they act on, not the title), each wrapped
+  in a top-aligned .panel-body so a real project's own per-panel trailing
+  controls — a scrub slider, a filter note, … — never throw the two
+  canvases out of vertical alignment with each other), a side-by-side/
+  stacked panel layout toggle (layoutToggleBtn
   — see applyLayout() — auto-hidden below the mobile breakpoint, where
   .canvases is forced to one column anyway so the toggle would have
   nothing left to do), a persistent dark/light/high-contrast THEME
@@ -42,6 +46,23 @@
   panel (clear / export as .txt). All font sizes, colours and CSS custom
   properties are unchanged from webSMLM. No detect/fit/render/TIFF logic
   is included — this is chrome only.
+
+  Re-synced 2026-09-18 against webSMLM's own accumulated drift since the
+  last sync (v0.12.3): the app-wide flat-outline pass (buttons, module
+  headers, icon buttons, and the two data-window canvases all have their
+  resting-state border colour-matched to their own background instead of
+  a visible outline — value inputs are the one deliberate exception,
+  keeping a real border, since an editable box needs its own visible edge
+  to read as clickable at a glance), the numstep group's own combined
+  focus-highlight glow, the select's own fixed 127px width + explicit
+  25px height (matching input.num's own height — a bare `<select>`
+  otherwise renders visibly taller even with identical padding), input.num
+  narrowed to fit 5 digits instead of 6, `text-size-adjust:100%` +
+  `font-family:inherit` (both real, reported cross-browser/mobile
+  rendering-consistency fixes), and the sidebar-collapsed page-margin
+  symmetry fix. A details.sim>label.row padding-right rule that used to
+  exist here (and in webSMLM) is gone entirely — measured directly, it
+  caused the exact right-edge misalignment it was meant to prevent.
 -->
 <html lang="en">
 <head>
@@ -90,6 +111,19 @@
     --accent-tint:rgba(51,153,255,.25);
   }
   *{box-sizing:border-box}
+  /* Mobile Safari/Chrome's own "font boosting"/text-autosizing heuristic can
+     inflate some elements' rendered text size above their own CSS font-size
+     to keep body copy readable after a pinch-zoom, applying unevenly across
+     a page's own controls (a real, reported webSMLM bug: a <select>
+     rendered visibly larger than an adjacent input despite an identical
+     font-size). Opts the whole page out of it — safe everywhere, since
+     every font size here is already set explicitly. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  /* Browsers give form controls (button/input/select/textarea) their OWN
+     non-inheriting default font via the UA stylesheet (a well-known CSS
+     quirk) — ordinary elements inherit body's own font stack automatically,
+     these four never do, unless told to. */
+  button,input,select,textarea{font-family:inherit}
   body{margin:0;background:var(--bg);color:var(--fg);min-height:100vh;
     display:flex;flex-direction:column;            /* no hard-coded header height */
     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -124,9 +158,14 @@
      a second, smaller size for later in-panel tool buttons this bare shell
      doesn't have yet; reuse it rather than inventing a third size. */
   :root{ --icon-radius:5px; --icon-size:26px; --icon-size-sm:20px; }
+  /* Flat outline: resting-state border colour-matched to the element's own
+     background (not var(--line)) — a button/icon button is already
+     clickable-looking from its own shape, so a visible outline is
+     redundant chrome. Hover/focus/active border-colour cues (below) stay
+     untouched — the one remaining use of colour on a border. */
   .theme-btn,#sideToggle,#sidePin{display:flex;align-items:center;
     justify-content:center;padding:0;margin:0;background:var(--surface);
-    border:1px solid var(--line);border-radius:var(--icon-radius);
+    border:1px solid var(--surface);border-radius:var(--icon-radius);
     color:var(--muted);cursor:pointer;line-height:1;
     width:var(--icon-size);height:var(--icon-size);font-size:13px}
   .theme-btn:hover,#sideToggle:hover,#sidePin:hover{border-color:var(--accent);color:var(--fg)}
@@ -181,6 +220,21 @@
      hide the canvases — one 1fr track puts .main full-width. */
   body.side-hidden .wrap{grid-template-columns:minmax(0,1fr)}
   body.side-hidden .sidebar{display:none}
+  /* A real, reported bug in webSMLM: .main's own left padding is
+     deliberately 0 (see its own rule above) — correct while the sidebar is
+     visible, since the visual gap on that side is meant to come from
+     .sidebar's own padding + the .wrap grid gap, not .main itself. But with
+     .sidebar display:none and the grid collapsed to one track (right
+     above), the left canvas's own left gap shrank to just its .card's own
+     padding while the right canvas's own right gap stayed at .main's full
+     right padding — an asymmetric page margin. Mirroring .main's own right
+     padding here on the left makes both sides match. Scoped to desktop —
+     on mobile the sidebar is a floating overlay drawer, never part of the
+     grid at all, so .main's own padding is already unconditionally
+     symmetric there (see its own @media rule below) regardless of
+     side-hidden; this higher-specificity selector would otherwise win over
+     that mobile rule too and reintroduce an asymmetry mobile doesn't have. */
+  @media (min-width:861px){ body.side-hidden .main{padding-left:12px} }
   /* Desktop only: after the first collapse, re-opening the panel "floats" it as an
      overlay drawer over the now-full-width canvases, so toggling it never resizes the
      two display windows. The pin button docks it back (the one intentional resize).
@@ -202,12 +256,14 @@
      separate stacked sections (a real project with several groups per
      module just needs consecutive .group blocks, no divider element). */
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
-  button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--line);
+  /* Flat outline (same reasoning as the icon-button rule above) — border
+     colour-matched to the button's own background at rest. */
+  button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--surface);
     background:var(--surface);color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
   button:hover{border-color:var(--accent)}
   button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
   button:disabled{opacity:.45;cursor:not-allowed}
-  button:disabled:hover{border-color:var(--line)}
+  button:disabled:hover{border-color:var(--surface)}
   /* Single shared progress bar (#bar/#prog) — one permanently-visible indicator
      for every long-running operation, not a bar per operation. Width is set via
      setProg(pct) in the script below; 0% collapses to an empty track, not hidden,
@@ -225,7 +281,13 @@
      native spinner so it doesn't ALSO show up alongside the custom one.
      Left-aligned (not right) to match the −/+ pair's own reading order —
      value, then the control that changes it, left to right. */
-  input.num{width:64px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+  /* width:58px — room for 5 digits, not 6 (measured via canvas
+     measureText() at this exact font/size: "99999" ~38px vs "999999"
+     ~46px, at this rule's own 9px+9px padding). Border stays a real,
+     visible var(--line) (NOT flat-outline-matched like buttons/headers
+     above) — an editable value box needs its own visible edge to read as
+     clickable/typable, unlike a button already shaped like one. */
+  input.num{width:58px;background:var(--bg);color:var(--fg);border:1px solid var(--line);
     border-radius:6px;padding:4px 9px;font-size:12px;text-align:left;
     -moz-appearance:textfield;appearance:textfield}
   input.num::-webkit-inner-spin-button,
@@ -237,7 +299,7 @@
      there's no visible seam between "the value" and "the control". Sized
      off --icon-size-sm's own small-icon-button footprint (see the header's
      icon-button system above) rather than inventing a new size. */
-  .numstep{display:inline-flex;align-items:stretch;vertical-align:middle}
+  .numstep{display:inline-flex;align-items:stretch;vertical-align:middle;border-radius:6px}
   .numstep input.num{border-radius:6px 0 0 6px;border-right:none}
   .numstep-btns{display:flex;border:1px solid var(--line);border-radius:0 6px 6px 0;overflow:hidden}
   .numstep-btns button{all:unset;box-sizing:border-box;width:18px;display:flex;
@@ -246,6 +308,17 @@
   .numstep-btns button:not(:last-child){border-right:1px solid var(--line)}
   .numstep-btns button:hover{background:var(--surface-hover);color:var(--fg)}
   .numstep-btns button:active{background:var(--accent-tint);color:var(--accent)}
+  /* Focus highlight covers the COMBINED input+stepper-buttons area as one
+     box (:focus-within), not just the native per-input outline, which
+     otherwise leaves the +/- buttons looking like a separate, unrelated
+     control the moment the input is focused — undermining the "together
+     they read as ONE control" design above. Scoped to .numstep specifically
+     (not a bare input.num:focus) since .num can be used by fields
+     addNumberSteppers() never wraps, which still need their own native
+     outline. */
+  .numstep input.num:focus{outline:none}
+  .numstep-btns button:focus-visible{outline:none}
+  .numstep:focus-within{box-shadow:0 0 0 2px var(--accent)}
   /* two equal buttons side by side */
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
   .btnrow button{margin:0;padding:5px 6px;font-size:12px}
@@ -254,9 +327,11 @@
   /* section header: deliberately NOT the raised button skin — a slim, flat
      (unfilled/outlined) bar with an oversized leading triangle, so it reads as
      an expandable section rather than an action. 12px label; button spacing. */
+  /* Flat outline at rest (background is already transparent, so the border
+     just matches that) — hover/open still get a real accent border. */
   details.sim>summary{display:flex;align-items:center;gap:8px;
     cursor:pointer;list-style:none;user-select:none;color:var(--fg);font-size:12px;line-height:1;
-    background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 10px;margin:4px 0}
+    background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 10px;margin:4px 0}
   details.sim>summary::-webkit-details-marker{display:none}
   details.sim>summary:hover{border-color:var(--accent)}
   details.sim[open]>summary{border-color:var(--accent)}
@@ -266,7 +341,15 @@
   /* a module's controls sit indented under its header bar, so they read as
      belonging to it (box-sizing:border-box keeps rows/buttons from overflowing) */
   details.sim>*:not(summary){padding-left:14px}
-  details.sim>label.row{padding-right:4px}
+  /* No padding-right here (a details.sim>label.row{padding-right:4px} rule
+     used to exist, meant to keep a row's own value control flush with a
+     plain button's right edge) — measured directly in webSMLM, it caused
+     the exact misalignment it was meant to prevent: a button (no such
+     padding) reaches the details.sim content box's own right edge exactly,
+     while every label.row child was landing 4px short of it. details.sim
+     only ever pads its children on the LEFT; a row's own value control
+     (numstep input, select, checkbox) needs no special-casing at all to
+     land flush with buttons around it. */
   details.info{margin:6px 0 2px}
   /* right-aligned so it reads as a secondary info toggle, not an expandable panel */
   details.info>summary{cursor:pointer;list-style:none;color:var(--muted);font-size:11px;
@@ -274,9 +357,23 @@
   details.info>summary::-webkit-details-marker{display:none}
   details.info>summary:hover{color:var(--accent);opacity:1}
   details.info .hint{margin-top:2px;text-align:left}
-  /* flex:1 (not width:100%) so the select shares one line with its label */
-  /* fixed 60% of the row so all selects line up right-aligned (label takes the rest) */
-  select.sel{flex:0 0 60%;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px}
+  /* A fixed PIXEL width (not a % of the row) — 127px matches a lone
+     half-width button in a 2-col .btnrow inside a details.sim section (see
+     .btnrow below) — a row-relative % basis renders WIDER than any button
+     nearby, at any row width. label.row's own justify-content:space-between
+     still pushes the select flush against the row's own right edge
+     regardless of this width — position is unaffected either way, only the
+     width needed fixing. height:25px is EXPLICIT, not left to padding/
+     line-height: with just padding matching a button's own, a <select>
+     still renders visibly taller than a same-padding input/button (its own
+     internal line-height default, not native dropdown-arrow chrome) —
+     matched to input.num's own height, the control type a select most
+     often sits directly next to row-by-row. */
+  select.sel{flex:0 0 127px;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;height:25px;font-size:12px}
+  /* Same opacity/cursor convention button:disabled uses — without this, a
+     disabled select looks identical to an enabled one (the explicit
+     color:var(--fg) above defeats a browser's own native disabled dimming). */
+  select.sel:disabled{opacity:.45;cursor:not-allowed}
   .hint{color:var(--muted);font-size:11px;margin:6px 0 0;line-height:1.4}
   /* 6px, matching .wrap's own gap above — together with .card's own 6px
      padding on each side (below), the canvas-to-canvas gap nets to the
@@ -302,12 +399,22 @@
      each panel's own canvas+controls group independently shifts the two canvases
      out of vertical alignment with each other by roughly half of whichever
      trailing control only ONE of the two panels happens to have. Top-aligning puts
-     both canvases flush against their own h4 always, so they start at the same y
-     regardless of what trailing content either panel has; any leftover height from
-     that difference lands invisibly at the bottom of the shorter card instead. */
+     both canvases flush against the top of their own panel-body always, so they
+     start at the same y regardless of what trailing content either panel has; any
+     leftover height from that difference lands invisibly at the bottom of the
+     shorter card instead. */
   .canvases > .card{display:flex;flex-direction:column}
-  .canvases > .card > h4{flex:0 0 auto}
   .canvases > .card > .panel-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  /* Each card has TWO h4s: a title-only one (a direct .card child, ABOVE
+     .panel-body — its own top edge then lands level with the sidebar's own
+     first button row, since .sidebar/.main+.card share the same top
+     padding) and an icon-buttons/caption one (INSIDE .panel-body, right
+     after the canvas — icon buttons here so they read as belonging to the
+     data they act on, not the title). .panel-body>h4{flex:0 0 auto} keeps
+     it from being squeezed by panel-body's own flex-column sizing; its own
+     margin flips to space ABOVE (not below, like the title h4 uses) since
+     it now sits below its own canvas. */
+  .panel-body > h4{flex:0 0 auto;margin:8px 0 0}
   /* one-line headers: title kept intact, caption truncates with an ellipsis, so a
      long caption can never wrap to a 2nd line and make a panel taller than its
      neighbour (both panels then stay the same height without any coupling). */
@@ -315,7 +422,12 @@
   .card h4 > span:first-child{flex:0 0 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card h4 small{color:var(--muted);font-weight:400}
   #leftInfo,#rightInfo{flex:1 1 auto;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  canvas{width:100%;image-rendering:pixelated;background:#000;border:1px solid var(--line);border-radius:6px;display:block}
+  /* No border at all (not even colour-matched to the canvas's own black
+     fill) — matching it to #000 still leaves a visible ring, since the
+     surrounding card background isn't pure black in any theme; only
+     actually removing the border blends it away regardless of what's
+     outside. */
+  canvas{width:100%;image-rendering:pixelated;background:#000;border:none;border-radius:6px;display:block}
   /* Both panels share one aspect ratio so they're always the same size (height:auto
      otherwise derives from each canvas's backing store, which can drift apart on
      resize / DPR re-render). --frame-ar would be set to a loaded dataset's w/h in a
@@ -464,17 +576,19 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
   <main class="main">
     <div class="canvases" id="canvases">
       <div class="card">
-        <h4><span id="leftTitle">leftwindow</span> <small id="leftInfo">— placeholder caption</small></h4>
+        <h4><span id="leftTitle">leftwindow</span></h4>
         <div class="panel-body">
           <canvas id="left"></canvas>
+          <h4><span style="display:flex;align-items:center;gap:6px"><!-- per-panel icon buttons go here, e.g. <button class="logbtn">Show X</button> --></span> <small id="leftInfo">— placeholder caption</small></h4>
           <!-- a real project's own per-panel trailing controls (a scrub slider, a
-               filter note, …) go here, inside .panel-body, below the canvas -->
+               filter note, …) go here, inside .panel-body, below this h4 -->
         </div>
       </div>
       <div class="card">
-        <h4><span id="rightTitle">rightwindow</span> <small id="rightInfo">— placeholder caption</small></h4>
+        <h4><span id="rightTitle">rightwindow</span></h4>
         <div class="panel-body">
           <canvas id="right"></canvas>
+          <h4><span style="display:flex;align-items:center;gap:6px"></span> <small id="rightInfo">— placeholder caption</small></h4>
         </div>
       </div>
     </div>
