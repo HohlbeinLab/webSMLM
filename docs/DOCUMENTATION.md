@@ -680,13 +680,6 @@ same reconstructed pixel) — the increment is guarded explicitly
 single warning is logged per render if any pixel actually saturates,
 rather than risking that silent corruption.
 
-### Localisation settings (`export`) {#export}
-
-ThunderSTORM-compatible CSV, see [§6](#6-csv-export-format).
-`photons`/`bg`/`bgstd` are already true photon units by the time they
-reach export (conversion happens inside the fit) — export does no further
-conversion, only warns when gain/offset look like they were never set.
-
 ### Worker dispatch (`workers`) {#workers}
 
 Frame-parallel detect/fit. Workers are **not** separate
@@ -695,6 +688,13 @@ functions the main thread uses, so any module-level `let`/`const` a
 stringified function reads must also be re-declared in `WORKER_PRELUDE`, or
 the worker throws and silently falls back to single-threaded. Batch sizing
 is controlled by the `workerBatch*`/`workerMin*` params above.
+
+### Localisation settings (`export`) {#export}
+
+ThunderSTORM-compatible CSV, see [§6](#6-csv-export-format).
+`photons`/`bg`/`bgstd` are already true photon units by the time they
+reach export (conversion happens inside the fit) — export does no further
+conversion, only warns when gain/offset look like they were never set.
 
 ### 3D calibration (`3D calibration`) {#3d-calibration}
 
@@ -2193,29 +2193,6 @@ rescanning every localization on every pan/zoom redraw; falls back to the
 bare top-right corner if there's no cached extent (e.g. a plot, not a real
 reconstruction).
 
-### Localisation settings (`export`) {#export-params}
-
-Camera ADU→photon conversion fields specifically.
-
-*Module:* **export** — see [§2](#export).
-
-| id | Label | Type | Min | Max | Step | Default |
-|---|---|---|---|---|---|---|
-| `gain` | Camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 1 |
-| `camoffset` | Camera offset (ADU) | number | 0 | 65535 | 1 | 0 |
-
-**In-app "more info…" popup**: `hint-export` no longer exists as its own
-div — Gain/Camera offset now sit right below **Real-time update**, at the
-TOP of Localisation settings (moved there, along with **Get estimate**,
-requested — the three most-consulted controls in the whole module), and
-their own "more info…" content was merged into `hint-detectfit` (shared with
-**Detect**/**Fit method** above) rather than keeping a second button in the
-same collapsed section — see that section's own marker for the current text.
-
-Applied inside every fit function itself — `(raw−camoffset)×gain` — before
-the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
-CRLB) are already true photon units. See the **fit** module.
-
 ### Worker dispatch (`workers`) {#workers-params}
 
 No page control — settings-JSON only.
@@ -2243,6 +2220,29 @@ one. See the **workers** module.
 preview can refresh during a worker-parallel Run: a batch's fit results only
 become available once the whole batch completes, so batch size is a hard
 floor on preview freshness independent of `rawPreviewMs` below.
+
+### Localisation settings (`export`) {#export-params}
+
+Camera ADU→photon conversion fields specifically.
+
+*Module:* **export** — see [§2](#export).
+
+| id | Label | Type | Min | Max | Step | Default |
+|---|---|---|---|---|---|---|
+| `gain` | Camera gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 1 |
+| `camoffset` | Camera offset (ADU) | number | 0 | 65535 | 1 | 0 |
+
+**In-app "more info…" popup**: `hint-export` no longer exists as its own
+div — Gain/Camera offset now sit right below **Real-time update**, at the
+TOP of Localisation settings (moved there, along with **Get estimate**,
+requested — the three most-consulted controls in the whole module), and
+their own "more info…" content was merged into `hint-detectfit` (shared with
+**Detect**/**Fit method** above) rather than keeping a second button in the
+same collapsed section — see that section's own marker for the current text.
+
+Applied inside every fit function itself — `(raw−camoffset)×gain` — before
+the pixel is used, so `photons`/`bg`/`bgstd` downstream (table, CSV, MLE's
+CRLB) are already true photon units. See the **fit** module.
 
 ### 3D calibration (`3D calibration`) {#3d-calibration-params}
 
