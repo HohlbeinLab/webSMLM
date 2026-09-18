@@ -189,24 +189,34 @@ in a module.
   guard in the app uses (`checkTableSize()`, MODULE: table; `checkLocsMemory()`, MODULE: pipeline;
   `renderSuperRes()` below) — not independently-typed copies that could drift apart.
 
-  **`renderSuperRes()` passes its own `locs.length*LOC_ROW_BYTES` into `checkRenderSize()` as
-  `reserveBytes`, and separately skips the render worker (falls back to the single-threaded path)
-  whenever dispatching would exceed budget ONLY because of the worker's own clone** — real,
-  calculated combined accounting, not a device-class guess. A real, reported crash: an auto-stopped
-  mobile Run (`checkLocsMemory()`) still sometimes crashed right AFTER its own graceful "Stopping
-  now, N localizations kept" message, exactly when the panel's own reconstruction re-render ran
-  next. Two compounding root causes: (1) `checkRenderSize()` used to compare the render buffer's own
-  cost ALONE against `memgb`, with no idea a large, already-resident `locs` array existed at all —
-  fixed by threading `reserveBytes` through it. (2) `dispatchRenderWorker()` sends `locs` to the
-  render worker via plain `postMessage` — a STRUCTURED CLONE, no transfer list — so EVERY render
-  (every throttled live preview during a Run, and the final one) transiently holds BOTH the original
-  locs array AND a freshly-cloned copy at once, a SECOND, temporary `locsBytes` on top of whatever
-  the first fix already confirmed fits — fixed by comparing `renderBytes + 2*locsBytes` against
-  `budget` to decide worker-vs-single-threaded (the single-threaded fallback reads `locs` BY
-  REFERENCE, no clone, at the cost of blocking the main thread a little longer for that one render).
-  Both comparisons use whatever `memgb` is ACTUALLY set to — this naturally never triggers on a
-  desktop-sized budget and correctly does on a small one, on ANY device, with no
-  `isMemoryConstrainedDevice()` heuristic needed for this specific decision at all (that check is
+  **`renderSuperRes()` passes its own `locs.length*LOC_ROW_BYTES + stackResidentBytes` into
+  `checkRenderSize()` as `reserveBytes`, and separately skips the render worker (falls back to the
+  single-threaded path) whenever dispatching would exceed budget ONLY because of the worker's own
+  clone** — real, calculated combined accounting, not a device-class guess. A real, reported crash:
+  an auto-stopped mobile Run (`checkLocsMemory()`) still sometimes crashed right AFTER its own
+  graceful "Stopping now, N localizations kept" message, exactly when the panel's own reconstruction
+  re-render ran next. Three compounding root causes: (1) `checkRenderSize()` used to compare the
+  render buffer's own cost ALONE against `memgb`, with no idea a large, already-resident `locs`
+  array existed at all — fixed by threading `reserveBytes` through it. (2) `dispatchRenderWorker()`
+  sends `locs` to the render worker via plain `postMessage` — a STRUCTURED CLONE, no transfer list —
+  so EVERY render (every throttled live preview during a Run, and the final one) transiently holds
+  BOTH the original locs array AND a freshly-cloned copy at once, a SECOND, temporary `locsBytes` on
+  top of whatever the first fix already confirmed fits — fixed by comparing `renderBytes +
+  2*locsBytes + stackResidentBytes` against `budget` to decide worker-vs-single-threaded (the
+  single-threaded fallback reads `locs` BY REFERENCE, no clone, at the cost of blocking the main
+  thread a little longer for that one render; the loaded stack's own cache is never cloned for this
+  dispatch, so it's added only once, not doubled). (3) asked about directly ("if a 3GB file is
+  loaded, does memory consumption increase well above 3GB depending on loc count, or is 3GB only the
+  file-size limit?") — a large whole-file-cached movie can itself already consume most of `memgb`
+  (MODULE: in/out's own `loadTiff()` caching decision), invisible to BOTH checks above until
+  `stackResidentBytes` (`stack.residentBytes||0`) was threaded through as an explicit parameter (NOT
+  read from the module-level `stack` global — this function is also called headlessly from
+  `analyze()`, whose own `stack` is a function-local variable shadowing the module-level one; reading
+  the global here would silently use the wrong stack in that context, the exact gotcha
+  `smfretSOICore()`'s own `checkStack` fix already ran into elsewhere). Every comparison uses
+  whatever `memgb` is ACTUALLY set to — this naturally never triggers on a desktop-sized budget and
+  correctly does on a small one, on ANY device, with no `isMemoryConstrainedDevice()` heuristic
+  needed for this specific decision at all (that check is
   still used elsewhere — see **workers**).
 
   `renderMode` (default `'fixed'`): `'fixed'` bins then applies one uniform blur (`rblur`, cost ∝
@@ -516,8 +526,8 @@ in a module.
   `memgb`** — first shipped at flat fractions (`0.95`, then `0.7`/`0.55` — each one just another
   guess, no more principled than the last, and asked about directly: "what is the reasoning behind
   the 55%?" didn't have a solid answer). Now: `stopAt = budget − renderBytesEstimate −
-  frameBatchReserve`, both terms REAL numbers computed from THIS run's own configuration, not
-  arbitrary safety margins —
+  frameBatchReserve − stackResidentBytes`, all three terms REAL numbers computed from THIS run's own
+  configuration, not arbitrary safety margins —
   - `renderBytesEstimate` = `estimateRenderBytes(w*config.mag, h*config.mag, config.zcolor,
     config.rblur, config.renderMode)` (MODULE: render), computed ONCE up front: exactly what the
     reconstruction render that WILL run right after this Run stops or finishes will cost.
@@ -527,18 +537,29 @@ in a module.
     batch is postMessage-CLONED (main thread's own copy + each worker's clone, worst case across all
     workers at once) — the SAME clone cost `renderSuperRes()` accounts for, just for frame data
     instead of locs.
+  - `stackResidentBytes` = `stack.residentBytes||0` — `stack` is already `runCore()`'s own explicit
+    parameter, so this reads correctly in both the interactive and headless case with no shadowing
+    risk. Asked about directly: "if a 3GB file is loaded, is memory consumption then increasing well
+    above 3GB depending on loc count, or is 3GB only the limit for file size?" — a fair question that
+    exposed a real, still-standing gap even after the render/frame-batch reserves above:
+    `loadTiff()`'s own whole-file caching decision (MODULE: in/out) can let a single decoded movie
+    consume most of `memgb` on its own (a real ~2.5 GB cache against a 3 GB budget is a normal,
+    correctly-logged outcome), but this check used to compute its OWN reserve against the FULL
+    nominal budget with no idea that cache already existed — so yes, combined peak memory COULD run
+    well above the configured budget depending on loc count, until this term closed it.
 
-  `locs` may use whatever's left of `budget` after those two reservations — still an ESTIMATE (`200`
-  bytes/row, `LOC_ROW_BYTES`, likely itself an UNDERESTIMATE of a real 15-own-property loc object's
-  V8 footprint — biasing this toward acting a little late, not early), but no longer an arbitrary
-  safety margin: it's a real answer to "how much room does THIS run's own render + in-flight frame
-  batches actually need," computed from THIS run's own settings. A WARN heads-up fires at 80% of
-  that SAME calculated `stopAt` — still one real number, just an earlier point on it. Reported: a
-  real ~30k-frame mobile MLE-spherical Run crashed even at flat-fraction thresholds, right after
-  auto-stopping's own graceful message — the render step right after a stop had no idea how much
-  the already-resident locs array was using, which the calculated reserve now directly prevents (see
-  **render**'s own paragraph on `checkRenderSize()`'s matching fix). Still an estimate, not a
-  guarantee — no client-side JS can detect or prevent an OS-level tab kill for certain.
+  `locs` may use whatever's left of `budget` after those three reservations — still an ESTIMATE
+  (`200` bytes/row, `LOC_ROW_BYTES`, likely itself an UNDERESTIMATE of a real 15-own-property loc
+  object's V8 footprint — biasing this toward acting a little late, not early), but no longer an
+  arbitrary safety margin: it's a real answer to "how much room does THIS run's own render,
+  in-flight frame batches, and already-loaded movie actually need," computed from THIS run's own
+  settings. A WARN heads-up fires at 80% of that SAME calculated `stopAt` — still one real number,
+  just an earlier point on it. Reported: a real ~30k-frame mobile MLE-spherical Run crashed even at
+  flat-fraction thresholds, right after auto-stopping's own graceful message — the render step right
+  after a stop had no idea how much the already-resident locs array was using, which the calculated
+  reserve now directly prevents (see **render**'s own paragraph on `checkRenderSize()`'s matching
+  fix). Still an estimate, not a guarantee — no client-side JS can detect or prevent an OS-level tab
+  kill for certain.
 
   **`memgb`'s own memory-constrained-device DEFAULT raised from `0.5` to `1` GB** — once the checks
   that actually consume this budget did real combined accounting instead of guessing a safety

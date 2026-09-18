@@ -101,14 +101,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8106   frame-parallel detect/fit worker pool; dedicated
+    workers         8124   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8447   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8775   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8465   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8793   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -119,7 +119,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9257   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9275   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -143,9 +143,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10052   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10070   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10786   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10804   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -355,7 +355,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14547   single particle tracking, trackpy-inspired;
+    spt             14565   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -386,7 +386,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16085  top-level orchestration, *Core()/wrapper split;
+    pipeline        16103  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -447,7 +447,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16839  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16879  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -501,14 +501,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19635  localizations table, filtering, histograms;
+    table           19672  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20376  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20413  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2475,7 +2475,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -6904,32 +6904,49 @@ function getOrMakeSrCanvas(W,H){
 // exact same single-threaded algorithm (via the SAME renderSuperResPixels(),
 // against the main-thread _sr* buffers) when no worker is available at all,
 // or if a specific dispatch unexpectedly errors.
-async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,renderMode='fixed'){
+// `stackResidentBytes` (default 0) — the CURRENTLY LOADED movie's own
+// cached-in-memory footprint (`stack.residentBytes`, MODULE: in/out), a
+// real, reported gap otherwise: a big whole-file-cached movie (e.g. a
+// 3 GB memgb budget almost entirely spent on a ~2.5 GB decoded cache) left
+// nothing to stop `checkRenderSize()`/`checkLocsMemory()` from EACH
+// independently treating the FULL nominal budget as available on top of
+// that — real combined peak memory could then run well ABOVE the
+// configured budget depending on loc count, exactly the failure mode this
+// whole accounting pass was meant to close. Threaded through as an
+// explicit PARAMETER (not read from the module-level `stack` global
+// directly) because this function is also called headlessly from
+// `analyze()` (MODULE: headless API), whose OWN `stack` is a
+// function-local variable that shadows the module-level one — reading the
+// global here would silently use the WRONG (or a stale, unrelated) stack
+// in that context, the exact "module-level global invisible to a headless
+// caller" gotcha this codebase has hit before (`smfretSOICore()`).
+async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,renderMode='fixed',stackResidentBytes=0){
   const W=w*mag, H=h*mag;
   const locsBytes=locs.length*LOC_ROW_BYTES;
-  checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode,locsBytes);
+  checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode,locsBytes+stackResidentBytes);
   // A real, reported crash — an auto-stopped mobile Run (checkLocsMemory(),
   // MODULE: pipeline) still sometimes crashed shortly AFTER its own graceful
   // "Stopping now, N localizations kept" message, right when the panel's
   // own reconstruction re-render ran. Root cause: dispatchRenderWorker()
-  // sends `locs` to the render worker via plain postMessage — a STRUCTURED
+  // sends `locs` to the render worker via plain `postMessage` — a STRUCTURED
   // CLONE, no transfer list — so EVERY render (every throttled live preview
   // during a Run, and the final one) transiently holds BOTH the original
   // locs array AND a freshly-cloned copy in memory at once — a SECOND,
   // temporary `locsBytes` on top of whatever checkRenderSize() above just
-  // confirmed already fits. Skip the worker whenever dispatching would
-  // exceed budget ONLY because of that transient doubling — real math
-  // against whatever `memgb` is actually set to, not a device-class guess:
-  // this naturally never triggers on a desktop-sized budget and correctly
-  // does on a small one, on ANY device. The single-threaded fallback below
-  // reads `locs` BY REFERENCE (no clone) at the cost of blocking the main
-  // thread a little longer for this one render — an accepted trade against
-  // silently doubling memory at the worst possible moment (a Run's own
-  // peak loc count, exactly when checkLocsMemory() already flags things as
-  // tight).
+  // confirmed already fits (the loaded stack's own cache is never cloned
+  // for this dispatch, so it's added only once here, not doubled). Skip the
+  // worker whenever dispatching would exceed budget ONLY because of that
+  // transient doubling — real math against whatever `memgb` is actually
+  // set to, not a device-class guess: this naturally never triggers on a
+  // desktop-sized budget and correctly does on a small one, on ANY device.
+  // The single-threaded fallback below reads `locs` BY REFERENCE (no
+  // clone) at the cost of blocking the main thread a little longer for
+  // that one render — an accepted trade against silently doubling memory
+  // at the worst possible moment (a Run's own peak loc count, exactly when
+  // checkLocsMemory() already flags things as tight).
   const renderBytes=estimateRenderBytes(W,H,zColor,blurPx,renderMode);
   const budget=paramValue('memgb')*1073741824;
-  const skipWorkerForMemory = (renderBytes + 2*locsBytes) > budget;
+  const skipWorkerForMemory = (renderBytes + 2*locsBytes + stackResidentBytes) > budget;
   const worker=skipWorkerForMemory ? null : await getRenderWorker();
   if(worker){
     try{
@@ -7605,7 +7622,8 @@ async function rerender(keepView,isPreview){
   try{
     newSrFull=await renderSuperRes(rlocs, lastResult.w, lastResult.h, mag, rblur,
                           paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
-                          lastResult.locs, colorField||'z', log, paramValue('renderMode'));   // colour scale always pinned to the full dataset, see renderSuperRes
+                          lastResult.locs, colorField||'z', log, paramValue('renderMode'),
+                          stack ? (stack.residentBytes||0) : 0);   // colour scale always pinned to the full dataset, see renderSuperRes
   }catch(err){
     // Magnification/frame-size combination too big to render (see
     // checkRenderSize() in renderSuperRes) — keep showing whatever was
@@ -16191,23 +16209,45 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // configuration, not an arbitrary safety margin. A shorter WARN heads-up
   // fires at 80% of that same calculated reserve — still one real number,
   // just an earlier point on it, not an independent guess of its own.
+  //
+  // `stackResidentBytes` — a real, reported gap caught by direct
+  // questioning ("if a 3GB file is loaded, does memory consumption then
+  // increase well above 3GB depending on loc count, or is 3GB only the
+  // limit for file size?"): YES, it could — `loadTiff()`'s own whole-file
+  // caching decision (MODULE: in/out) already lets a single decoded movie
+  // consume most of `memgb` on its own (a real ~2.5 GB cache against a 3 GB
+  // budget is a normal, correctly-logged outcome, not a bug), but this
+  // check used to compute its own reserve against the FULL nominal budget
+  // with no idea that cache already existed — so locs could keep growing
+  // until THIS check's own math said "safe," even though the movie's own
+  // cache had already claimed most of the real budget, pushing genuine
+  // combined peak memory well past what was configured. Fixed the same
+  // way as the render-buffer reserve: subtract the loaded stack's own
+  // `residentBytes` (0 for a streamed/never-cached load) from what's left
+  // for locs, using `stack` — already `runCore()`'s own explicit
+  // parameter, correct in both the interactive and headless case, unlike
+  // reading the module-level `stack` global directly (see
+  // `renderSuperRes()`'s own matching comment on why that would be wrong
+  // headlessly).
   const renderBytesEstimate = estimateRenderBytes(w*config.mag, h*config.mag, config.zcolor, config.rblur, config.renderMode);
+  const stackResidentBytes = stack.residentBytes||0;
   let frameBatchReserve=0;   // set below, once pool/BATCH are known (worker paths only)
   let locsMemWarned=false, locsMemStopLogged=false;
   const checkLocsMemory=()=>{
     if(locsMemStopLogged) return;   // already stopping — nothing more to say
     const budget=config.memgb*1073741824, bytes=locs.length*LOC_ROW_BYTES;
-    const stopAt=budget-renderBytesEstimate-frameBatchReserve;
+    const reserved=renderBytesEstimate+frameBatchReserve+stackResidentBytes;
+    const stopAt=budget-reserved;
     if(bytes > stopAt){
       locsMemStopLogged=true; memStopTriggered=true;
       onLog(`⚠ Auto-stopping: ${locs.length.toLocaleString()} localizations so far are estimated at `+
-            `~${fmtBytes(bytes)}, leaving less than the ~${fmtBytes(renderBytesEstimate+frameBatchReserve)} the `+
-            `reconstruction render (and any in-flight frame batches) still need from the ${fmtBytes(budget)} `+
-            `Memory budget (Memory & streaming) — on a memory-constrained device this Run could otherwise `+
-            `silently crash the tab with total data loss. Stopping now with the ${locs.length.toLocaleString()} `+
-            `localizations already found kept as a partial result. Raise Memory budget, narrow the frame range, `+
-            `lower Magnification, or raise the detection threshold to reduce candidates, then re-run if you `+
-            `need the rest.`);
+            `~${fmtBytes(bytes)}, leaving less than the ~${fmtBytes(reserved)} the reconstruction render, `+
+            `any in-flight frame batches, and the loaded movie's own ${fmtBytes(stackResidentBytes)} cache `+
+            `(if any) still need from the ${fmtBytes(budget)} Memory budget (Memory & streaming) — on a `+
+            `memory-constrained device this Run could otherwise silently crash the tab with total data loss. `+
+            `Stopping now with the ${locs.length.toLocaleString()} localizations already found kept as a `+
+            `partial result. Raise Memory budget, narrow the frame range, lower Magnification, or raise the `+
+            `detection threshold to reduce candidates, then re-run if you need the rest.`);
     } else if(!locsMemWarned && bytes > stopAt*0.8){
       locsMemWarned=true;
       onLog(`⚠ ${locs.length.toLocaleString()} localizations so far already use a large share of the `+
@@ -19505,13 +19545,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-18c — fixed the new "Mem: ..."
-readout still showing ~0 right after loading a real multi-GB movie:
-it only ever looked at localizations/reconstruction, with no idea a
-loaded movie itself could be holding gigabytes (loadTiff()'s own
-"Decoded working set if fully cached" line was never fed back into
-it). Every load path that caches decoded frames in memory now tags
-its own stack with that same figure, so the readout reflects it too.`);
+log(`webSMLM v0.12.6-dev · build 2026-09-18d — closed a real gap asked
+about directly: with a big movie already filling most of Memory
+budget, the Localize memory guard still computed its own reserve
+against the FULL budget, with no idea that cache already existed — so
+combined memory really could grow well past the configured budget
+depending on localization count. Both the Localize guard and the
+reconstruction-render guard now subtract the loaded movie's own
+cached size first.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -20754,7 +20795,7 @@ async function analyze(config){
   const colorField = hasZ ? 'z' : (hasDist ? 'dist' : 'z');
   const zc = cfg.zcolor && (hasZ || hasDist);
   const zr = zc ? (zRange(locs, colorField)||{lo:0,hi:1}) : {lo:0,hi:1};
-  const cv = await renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog, cfg.renderMode);
+  const cv = await renderSuperRes(locs, r.w, r.h, cfg.mag, cfg.rblur, cfg.lut, +cfg.lutpct, zc, zr.lo, zr.hi, undefined, colorField, onLog, cfg.renderMode, stack ? (stack.residentBytes||0) : 0);
   // config.exportPlots: renders whichever of drift/NeNA/FRC/PCFO/calibration
   // were actually computed above as BOTH a PNG and an SVG (renderPlotBothFormats(),
   // via the same _plotTarget redirection "Save plot/image" uses interactively
