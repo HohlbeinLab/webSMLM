@@ -557,6 +557,23 @@ in a module.
   math the guards above use, clearly labelled as an estimate in its own tooltip) and, only on
   browsers that actually expose them, the REAL measured JS heap usage plus an approximate total
   device RAM to genuinely rate it against — never fabricates either figure when unavailable.
+
+  **`stack.residentBytes` closes a real, reported gap in the readout: it still showed ~0 right after
+  loading a real multi-GB movie**, even though `loadTiff()` (MODULE: in/out) had just onLog'd its own
+  "Decoded working set if fully cached: ~2.50 GB" line — the biggest single memory consumer for a
+  whole-file-cached load, invisible to the readout because it only ever looked at
+  `lastResult`/`locs`, with no idea a loaded STACK itself could be holding gigabytes. Every
+  `loadTiff()` branch that actually decides to cache decoded frames now tags its own returned stack
+  object with `residentBytes` — the SAME number it already computed and logged, not a second,
+  independently-derived estimate: `needC`/`need` for the two full-cache branches; `fileSize` for the
+  "exceeds budget, decode-per-frame from the still-resident raw buffer" branch; a live
+  `get residentBytes(){return fileSize+cf*frameBytes}` on the internal streaming FALLBACK (`cf` can
+  shrink after an allocation failure, so a plain property would go stale). `updateMemReadout()` reads
+  `stack.residentBytes||0`. **Known, NOT-yet-covered gap**: `loadTiffSequence()`/`makeConcatStack()`
+  (multi-file loads), `loadNd2File()`, and `loadFitsFile()` don't tag `residentBytes` yet — the
+  readout under-reports for those specific load paths until they get the same treatment; the
+  genuinely disk-backed `loadMultiIfdStreaming()` (MODULE: in/out) correctly has none to report (no
+  persistent cache exists there at all).
   **A real, caught-before-shipping layout bug**: `.card h4 > span:first-child` (MODULE: params)
   gives a card's own FIRST `<h4>` child `white-space:nowrap`/`overflow:hidden`/ellipsis, meant for a
   short plain title — bundling the Log card's own buttons AND this new readout into that same first

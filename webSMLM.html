@@ -45,8 +45,8 @@
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
     simulation      4478   synthetic stack generator ("Simulate movie")
-    detect          5571   per-frame band-pass + local-maxima detection
-    fit             5848   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    detect          5593   per-frame band-pass + local-maxima detection
+    fit             5870   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -71,7 +71,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6487   accumulate to offscreen buffer; view/colour/blur;
+    render          6509   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -101,14 +101,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8084   frame-parallel detect/fit worker pool; dedicated
+    workers         8106   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8425   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8753   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8447   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8775   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -119,7 +119,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9235   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9257   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -143,9 +143,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10030   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10052   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10764   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10786   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -355,7 +355,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14525   single particle tracking, trackpy-inspired;
+    spt             14547   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -386,7 +386,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16063  top-level orchestration, *Core()/wrapper split;
+    pipeline        16085  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -447,7 +447,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   16817  Micro-Manager/pycromanager camera bridge
+    liveStreaming   16839  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -501,14 +501,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19601  localizations table, filtering, histograms;
+    table           19635  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20342  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20376  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2475,7 +2475,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.6-dev · build 2026-09-18c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5504,15 +5504,27 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
           }
           setProg(null);
           onLog('Loaded into memory — re-runs will not re-decode.');
-          return makeStack(w,h,usable,px, fi=>frames[fi]);
+          // A real, reported gap: the live "Mem: ..." readout (MODULE: pipeline,
+          // updateMemReadout()) still showed ~0 right after loading a real
+          // multi-GB movie, even though THIS exact line just logged its own
+          // "Decoded working set" figure a moment ago — the readout only ever
+          // knew about locs/render buffers, with no visibility into the loaded
+          // stack's own (often dominant) resident memory at all. Stashing the
+          // SAME number this function already computed and logged onto the
+          // returned stack object (`residentBytes`) lets the readout include
+          // it, rather than inventing a second, independent estimate.
+          const st=makeStack(w,h,usable,px, fi=>frames[fi]); st.residentBytes=needC; return st;
         }catch(err){
           setProg(null); if(!isAlloc(err)) throw err;
           onLog(`⚠ In-memory load hit a memory limit; decoding on demand instead.`);
         }
       }
       // Random access is O(1) here, so no heaps are needed — decode per frame.
+      // The whole raw file (fileSize) stays resident either way (`fileBuf`,
+      // this whole-file load path's own reason for existing) — readFrame()
+      // decodes ON TOP of it per call, without a persistent decoded cache.
       onLog(`Exceeds budget — decoding frames on demand (no re-decode penalty: it is a plain byte read).`);
-      return makeStack(w,h,usable,px, readFrame);
+      { const st=makeStack(w,h,usable,px, readFrame); st.residentBytes=fileSize; return st; }
     }
     onLog(`⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
     onLog(`only ${n} of ${declared} frames will be analysed.`);
@@ -5537,7 +5549,17 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
         catch(err){ if(!isAlloc(err)||cf<=1) throw err;
           heap=[]; cf=Math.max(1,cf>>1); s=Math.floor(fi/cf)*cf;
           onLog(`heap too large — shrinking to ${cf} frame(s)/heap.`); } } };
+    // get residentBytes(){...}, not a plain property — cf can shrink at
+    // runtime (the retry loop right above, on an allocation failure), so a
+    // live getter keeps updateMemReadout() (MODULE: pipeline) honest about
+    // the CURRENT heap size rather than whatever it was at stack creation.
+    // `fileBuf`/`ifds` stay resident in this closure regardless of `cf` —
+    // this is loadTiff()'s own internal streaming FALLBACK, reached only
+    // after the whole file was already read into memory (unlike the
+    // genuinely disk-backed loadMultiIfdStreaming(), MODULE: in/out) — so
+    // fileSize is the real floor, with the live heap on top of it.
     return { w,h,n,px, streaming:true, get chunkFrames(){return cf;},
+      get residentBytes(){ return fileSize+cf*frameBytes; },
       getFrame(fi){ ensure(fi); return heap[fi-start]; },
       async getFrames(s,e){ e=Math.min(e,n); const out=[];
         for(let i=s;i<e;i++){ ensure(i); out.push(heap[i-start]); } return out; } };
@@ -5555,7 +5577,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
       }
       setProg(null);
       onLog('Loaded into memory — re-runs will not re-decode.');
-      return makeStack(w,h,n,px, fi=>frames[fi]);
+      { const st=makeStack(w,h,n,px, fi=>frames[fi]); st.residentBytes=need; return st; }
     }catch(err){
       setProg(null);
       for(let i=0;i<n;i++) if(ifds[i]) ifds[i].data=null;   // drop partial raw data
@@ -18495,6 +18517,18 @@ $('exportLogBtn').addEventListener('click',async()=>{
 function updateMemReadout(){
   const el=$('memReadout'); if(!el) return;
   const budget=paramValue('memgb')*1073741824;
+  // A real, reported gap: this readout still showed ~0 right after loading a
+  // real multi-GB movie ("Decoded working set if fully cached: ~2.50 GB" —
+  // onLog'd, but never fed back into this estimate at all) — the biggest
+  // single consumer for a whole-file-cached load, entirely invisible here
+  // until now. `stack.residentBytes` (set at the point each in-memory-caching
+  // loadTiff() branch actually decides to cache, MODULE: in/out; a live
+  // getter on the internal streaming-fallback branch, since its own heap
+  // size can shrink after an allocation failure) is 0/undefined for the
+  // genuinely disk-backed loadMultiIfdStreaming() path (no persistent cache
+  // there at all) and for anything that isn't a loaded movie yet (`stack`
+  // itself null) — `||0` covers both.
+  const stackBytes = stack ? (stack.residentBytes||0) : 0;
   const locsN = (lastResult && lastResult.locs) ? lastResult.locs.length : 0;
   const locsBytes = locsN*LOC_ROW_BYTES;
   // Same prospective formula checkRenderSize()/checkLocsMemory() already use
@@ -18503,10 +18537,11 @@ function updateMemReadout(){
   // consistent with "what would the next render cost," the same question
   // those two guards already answer.
   const renderBytes = lastResult ? estimateRenderBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode')) : 0;
-  const estBytes = locsBytes+renderBytes;
+  const estBytes = stackBytes+locsBytes+renderBytes;
   const pct = budget>0 ? Math.round(100*estBytes/budget) : 0;
   let text, title =
-    `Estimated memory in use: ~${fmtBytes(locsBytes)} (${locsN.toLocaleString()} localizations) + `+
+    `Estimated memory in use: ~${fmtBytes(stackBytes)} (the loaded movie, if cached) + `+
+    `~${fmtBytes(locsBytes)} (${locsN.toLocaleString()} localizations) + `+
     `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification) ≈ ${fmtBytes(estBytes)}, `+
     `${pct}% of the ${fmtBytes(budget)} Memory budget (Memory & streaming).\n`+
     `This is webSMLM's own ESTIMATE, not a real measurement`;
@@ -19470,16 +19505,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6-dev · build 2026-09-18b — replaced the guessed
-55%/35% memory-budget fractions with real, calculated accounting: the
-Localize memory guard now reserves exactly what the reconstruction
-render and any in-flight worker frame batches will actually need
-(computed from this Run's own settings), leaving the rest for
-localizations — no arbitrary safety margin. The mobile Memory budget
-default is raised 0.5→1 GB now that the accounting behind it is
-solid. Also added a live "Mem: ..." readout next to the Log window's
-buttons — webSMLM's own estimate always, plus real measured usage on
-browsers that expose it (not Safari, which exposes none at all).`);
+log(`webSMLM v0.12.6-dev · build 2026-09-18c — fixed the new "Mem: ..."
+readout still showing ~0 right after loading a real multi-GB movie:
+it only ever looked at localizations/reconstruction, with no idea a
+loaded movie itself could be holding gigabytes (loadTiff()'s own
+"Decoded working set if fully cached" line was never fed back into
+it). Every load path that caches decoded frames in memory now tags
+its own stack with that same figure, so the readout reflects it too.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
