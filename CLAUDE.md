@@ -277,7 +277,12 @@ in a module.
   the CSS value by hand, since a native thumb's centre travels within `[thumbW/2, trackW-thumbW/2]`,
   not the full track. Below the 860px breakpoint, `input.num`/`select.sel`/`.numflat` jump to 16px
   font (iOS auto-zooms below that) while `label.row` text stays at 12px — a deliberate size mismatch,
-  not a bug.
+  not a bug. `select.sel` is a FIXED `127px` (not a `%` of the row — matches the established
+  half-width-button figure inside a `details.sim` section; `justify-content:space-between` on
+  `label.row` still pushes it flush against the row's own right edge regardless of this width) —
+  deliberately accepted trade-off: a handful of longer option labels (e.g. "Gauss MLE spherical",
+  "Wavelet (B-spline)", "Via distances and angles") truncate in the closed dropdown at this width
+  (no ellipsis, native `<select>` clipping) — the full label is always readable once opened.
 
 - **workers** — frame-parallel detect/fit; see the Web Worker gotcha below. `getPool()`'s own worker
   COUNT is capped at `2` on a memory-constrained device (`isMemoryConstrainedDevice()`), not the
