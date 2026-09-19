@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.6; may drift
+  MODULE INDEX — line numbers as of v0.12.7-dev; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3232   PARAMS registry, single source of truth for params;
+    params          3267   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -34,7 +34,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4303   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4338   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -47,9 +47,9 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4602   synthetic stack generator ("Simulate movie")
-    detect          5719   per-frame band-pass + local-maxima detection
-    fit             5996   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    simulation      4637   synthetic stack generator ("Simulate movie")
+    detect          5754   per-frame band-pass + local-maxima detection
+    fit             6031   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -74,7 +74,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6635   accumulate to offscreen buffer; view/colour/blur;
+    render          6670   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -104,14 +104,14 @@
                            Time trace's current site on the SOI composite
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
-    workers         8253   frame-parallel detect/fit worker pool; dedicated
+    workers         8288   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    export          8594   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8922   astigmatic sigma_x/sigma_y vs z bead curves;
+    export          8629   ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  8957   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -122,7 +122,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9404   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9439   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -146,9 +146,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10199   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10234   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10933   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10968   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -358,7 +358,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14694   single particle tracking, trackpy-inspired;
+    spt             14729   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -389,7 +389,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16232  top-level orchestration, *Core()/wrapper split;
+    pipeline        16267  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -450,7 +450,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   17020  Micro-Manager/pycromanager camera bridge
+    liveStreaming   17055  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -504,14 +504,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19863  localizations table, filtering, histograms;
+    table           19894  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20615  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20646  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2021,7 +2021,42 @@ X.B(E,Y);return E}return J}())
      positions .dualrange-fill to stay glued to the (now smaller) thumbs. */
   .dualrange input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:5px}
   .dualrange input[type=range]::-moz-range-thumb{pointer-events:auto;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
-  input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent);cursor:pointer}
+  /* Modern toggle switch instead of a native checkbox — requested,
+     "blueish when on and greyish when off," reusing the existing theme
+     tokens rather than inventing new ones. appearance:none turns the
+     checkbox into a blank pill-shaped canvas; ::before is the sliding
+     knob — no wrapper <span> markup needed, generated content on an
+     appearance:none <input> renders reliably in every current evergreen
+     engine. The knob stays a fixed light colour in BOTH states (only the
+     TRACK communicates on/off — the standard iOS/Material convention);
+     a var(--muted) ring + a small drop shadow give it its own edge
+     definition even against light theme's own near-white "off" track,
+     where a plain white-on-near-white fill alone would be hard to see.
+     Semantics are completely unchanged — still a real <input
+     type="checkbox">, so every existing :checked/change-event listener
+     keeps working exactly as before; only its paint changed.
+     box-sizing:border-box on the ::before is REQUIRED, not redundant with
+     the app-wide `*{box-sizing:border-box}` reset — a bare `*` selector
+     never matches ::before/::after at all (they're not real DOM elements;
+     reaching them needs `*::before`, which this app's reset doesn't do),
+     so without this the knob's own 1px border was added ON TOP of its
+     12px, making it 14px and pushing it 1px off-centre in the track —
+     a real, visible asymmetry caught by measuring the actual rendered
+     box, not just eyeballing it. */
+  input[type=checkbox]{appearance:none;-webkit-appearance:none;
+    width:34px;height:18px;margin:0;flex-shrink:0;
+    background:var(--surface);border:1px solid var(--line);border-radius:9px;
+    position:relative;cursor:pointer;vertical-align:middle;
+    transition:background .15s,border-color .15s}
+  input[type=checkbox]::before{content:'';position:absolute;top:2px;left:2px;
+    box-sizing:border-box;width:12px;height:12px;border-radius:50%;background:#fff;
+    border:1px solid var(--muted);box-shadow:0 1px 2px var(--shadow);
+    transition:transform .15s,border-color .15s}
+  input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+  input[type=checkbox]:checked::before{transform:translateX(16px);border-color:var(--accent)}
+  input[type=checkbox]:hover{border-color:var(--accent)}
+  input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
   button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--surface);
     background:var(--surface);color:var(--fg);border-radius:7px;cursor:pointer;font-size:12px}
   button:hover{border-color:var(--accent)}
@@ -2544,7 +2579,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.6 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -19733,16 +19768,12 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.6 — a real mobile-memory-safety pass: "Memory
-budget (GB)" is now two independent settings, Total memory budget
-(an opt-in overall ceiling, unset by default) and Budget raw movies
-(governs only whole-file-vs-streamed loading), with a much stricter
-profile auto-applied on a memory-constrained device and a one-time
-warning pop-up when loading a movie there. Localize's own memory guard
-now genuinely stops a Run instead of just warning, using a real
-calculated reserve instead of a guessed fraction. Also: a sidebar-wide
-alignment fix (every value box/select/checkbox now shares one exact
-right edge with the buttons around it) and smaller select/input boxes.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19a — cosmetics: every
+tickbox in the sidebar is now a modern toggle switch (blue when on,
+grey when off) instead of the browser's native checkbox, reusing the
+existing theme colours — no new markup, just a real <input
+type="checkbox"> repainted with CSS, so every existing listener keeps
+working unchanged.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

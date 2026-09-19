@@ -308,6 +308,19 @@ in a module.
   extra `padding-right:4px` rule was removed after it turned out to cause exactly the misalignment
   it was meant to prevent.
 
+  **`input[type=checkbox]` renders as a modern toggle switch, not the native tickbox** — requested,
+  "blueish when on and greyish when off." Pure CSS on the real `<input type="checkbox">` itself
+  (`appearance:none` turns it into a blank pill; `::before` is the sliding knob) — no wrapper
+  markup, so every existing `:checked`/`change`-event listener keeps working unchanged. The knob
+  stays a fixed light colour in BOTH states (only the TRACK changes colour — the standard iOS/
+  Material convention), with a `var(--muted)` ring + a small drop shadow for its own edge
+  definition against light theme's own near-white "off" track. **`box-sizing:border-box` on the
+  `::before` is required, not redundant with the app-wide `*{box-sizing:border-box}` reset** — a
+  bare `*` selector never matches `::before`/`::after` (they aren't real DOM elements; reaching
+  them needs `*::before`, which this reset doesn't do) — without it, the knob's own border was
+  added ON TOP of its size instead of inside it, pushing it 1px off-centre in the track, a real,
+  reported bug caught by measuring the actual rendered box, not just eyeballing it.
+
 - **workers** — frame-parallel detect/fit; see the Web Worker gotcha below. `getPool()`'s own worker
   COUNT is capped at `2` on a memory-constrained device (`isMemoryConstrainedDevice()`), not the
   desktop `min(12, hardwareConcurrency)` — a real, reported gap: each worker receives its own
