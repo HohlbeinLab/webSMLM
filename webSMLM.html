@@ -111,7 +111,7 @@
                            fit pool — never shares it, see that code's own
                            comment for why)
     export          8629   ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  8957   astigmatic sigma_x/sigma_y vs z bead curves;
+    3D calibration  8970   astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -122,7 +122,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           9439   AIM drift correction (2D+z); drift-vs-frame or
+    drift           9452   AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -146,9 +146,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    10234   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    10247   NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           10968   spectrally resolved SMLM pair-finding; renamed
+    sSMLM           10981   spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -358,7 +358,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             14729   single particle tracking, trackpy-inspired;
+    spt             14742   single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -389,7 +389,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        16267  top-level orchestration, *Core()/wrapper split;
+    pipeline        16280  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -450,7 +450,7 @@
                            Load data (.csv) and Simulate movie never had
                            this bug (isCsv skips Localize entirely; Simulate
                            logs no command at all)
-    liveStreaming   17055  Micro-Manager/pycromanager camera bridge
+    liveStreaming   17068  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -504,14 +504,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           19894  localizations table, filtering, histograms;
+    table           19905  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    20646  window.webSMLM.analyze()/analyzeBatch();
+    headless API    20657  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2579,7 +2579,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -8896,7 +8896,20 @@ async function exportPanel(which){
 // exportPlotEither().
 function saveImageClicked(){
   const L=windowContent('raw'), R=windowContent('sr');
-  if(L&&R) $('saveImgModal').classList.add('open');
+  if(L&&R){
+    // Reported directly ("thought we once fixed that already?" — checked;
+    // this was never actually done): the two labels below said "Left
+    // window"/"Right window" unconditionally, even while .canvases.stacked
+    // (applyLayout(), MODULE: pipeline) has them arranged one ABOVE the
+    // other, not side by side — reading "Left"/"Right" against a vertical
+    // layout is just wrong, not merely inconsistent. Same DOM order either
+    // way (raw first, sr second), so "stacked" only changes the WORDING,
+    // never which button maps to which exportPanel() call.
+    const stacked=$('canvases').classList.contains('stacked');
+    $('saveImgRaw').textContent = stacked ? 'Top window' : 'Left window';
+    $('saveImgSR').textContent = stacked ? 'Bottom window' : 'Right window';
+    $('saveImgModal').classList.add('open');
+  }
   else if(R) exportPanel('sr');
   else if(L) exportPanel('raw');
   else log('Nothing to save yet.');
@@ -19768,12 +19781,10 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19a — cosmetics: every
-tickbox in the sidebar is now a modern toggle switch (blue when on,
-grey when off) instead of the browser's native checkbox, reusing the
-existing theme colours — no new markup, just a real <input
-type="checkbox"> repainted with CSS, so every existing listener keeps
-working unchanged.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19b — fixed a real bug: "Save
+plot/image"'s window-picker always said "Left window"/"Right window",
+even while Stack panels has them arranged one above the other — it now
+reads "Top window"/"Bottom window" whenever the panels are stacked.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
