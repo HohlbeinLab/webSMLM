@@ -196,11 +196,22 @@ in a module.
   `r+2.5` px, WIDER than the K×K fit window this kernel (or any other GPU-fit kernel) ever sees, so
   they're computed once per candidate on the CPU/worker side during seed-building
   (`buildFitSeedRowPhasor()`) and passed straight through as plain numbers — no new GPU buffer type
-  needed. Measured (`tests/gpu/bench-fit.mjs`): 1.5×–35× speedup depending on candidate density and
-  fit window size, comparable to or exceeding several MLE cases despite phasor doing genuinely less
-  arithmetic per candidate — GPU dispatch overhead is amortized the same way across either kind of
-  fit, by batching many frames' worth of candidates into one dispatch (`makeGpuFitAccumulator()`,
-  MODULE: gpu).
+  needed. `tests/gpu/bench-fit.mjs` reports a large (1.5×–35×) speedup for this ISOLATED fit sub-stage
+  alone — but that number is misleading as a headline: asked directly to compare it against Gauss MLE
+  spherical's own overall Run time, a controlled A/B (same synthetic data, same page, pipeline already
+  warmed so no one-time compile cost skews it) showed TOTAL Run wall time within ~3–8% between the two
+  methods, even though the isolated fit sub-timer itself differs ~6× (e.g. 9ms vs 60ms out of a ~130ms
+  total). The fit stage was never the bottleneck for Phasor to begin with — CPU-side detection (8
+  worker threads, identical regardless of fit method) dominates a Run's wall time, so cutting an
+  already-small slice by 6× barely moves the total. Phasor's GPU path is still a real, non-negative
+  improvement (never slower once warmed up, see the cold-start note below), just not the dramatic
+  practical win the isolated benchmark number alone suggests — report the OVERALL Run time difference,
+  not the isolated fit-stage speedup, when asked how much Phasor's own GPU support actually helps.
+  Separately, the very FIRST phasor GPU dispatch in a page session pays a one-time WGSL pipeline-compile
+  cost gaussmle's own kernel doesn't pay at that point (`tuneGpuWorkgroup()`'s own startup auto-tune
+  already exercises and compiles the spherical kernel, not phasor's) — a single, one-off Localize click
+  can show phasor's Run as flat or even slightly SLOWER than gaussmle for exactly this reason, not a
+  real per-dispatch cost.
 
   `winr2d`/`winr3d` are the fields actually shown in the sidebar; the underlying `winr` (still what
   every `$('winr')`-based mechanism — PARAMS, live-preview listeners, worker dispatch — reads) is
