@@ -162,10 +162,21 @@ in a module.
   `apertureGeometry(win)`/`percentile(sortedVals,p)` are a shared aperture-photometry helper: a
   circular signal disk (`r=(win-1)/2`) plus a separate background annulus (`r < distance <= r+2.5`),
   background estimated via that annulus's 56th percentile — published method (Martens et al., *J.
-  Chem. Phys.* 148, 123311 (2018), SI §S11, adapting Preus, Hildebrandt & Birkedal, *Biophys. J.* 111,
-  1278 (2016)), reverse-engineered pixel-exact from the SI's own reference figure maps, not its prose
-  (which states a "ROI radius" 2px larger than the window's real half-width, unexplained). Used by
-  both `phasorFit()` and smFRET's `apertureIntensity()` — one implementation, not two.
+  Chem. Phys.* 148, 123311 (2018), SI §S11, "Aperture photometry to assess intensity and background
+  levels," adapting Preus, Hildebrandt & Birkedal, *Biophys. J.* 111, 1278 (2016)), and this IS the
+  paper's own intended background/intensity method for phasor's own values, not a separate
+  smFRET-only technique (SI §S10 covers the phasor DFT itself; §S11 immediately follows it for
+  exactly this purpose) — confirmed directly by the paper's co-author, resolving an earlier round's
+  mistaken back-and-forth over whether phasor's own background should instead be some other,
+  narrower, ROI-only estimate. The SI's own prose ("pixels with distance to the ROI center smaller
+  than the ROI radius minus 2" = signal, "between [ROI radius minus 2] and [ROI radius plus 0.5]" =
+  background, else excluded) uses "ROI radius" to mean `r+2`, NOT this codebase's own `r` — solving
+  for `r` directly reproduces `apertureGeometry()`'s exact geometry (signal ≤ `r`, background out to
+  `r+2.5`), independently cross-checked against the SI's own Figure S11: only its 15×15-pixel panel
+  shows any EXCLUDED (black) corner pixels, which only happens when the background cutoff is `r+2.5`
+  (a 15×15 box's own corner distance, 7·√2≈9.90, just exceeds `r+2.5=9.5` at that one size — every
+  smaller panel's own corner distance stays under its own `r+2.5`, matching zero exclusions there).
+  Used by both `phasorFit()` and smFRET's `apertureIntensity()` — one implementation, not two.
   `phasorApertureIntensity(img,w,h,cx,cy,win,gain,camoffset)` is this piece extracted out of
   `phasorFit()` (pure refactor, behavior unchanged) so the GPU-fit seed builder below can call it
   directly.

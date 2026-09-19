@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19i; may drift
+  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19k; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -597,14 +597,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23977  localizations table, filtering, histograms;
+    table           23972  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24729  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24724  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2672,7 +2672,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -23836,9 +23836,14 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19i — Phasor fitting is now
+log(`webSMLM v0.12.7-dev · build 2026-09-19k — Phasor fitting is now
 GPU-accelerated (Fit method: Phasor 2D / Phasor 3D), alongside the existing
-Gauss MLE methods.
+Gauss MLE methods. Its own background/intensity estimate is unchanged from
+before: the published aperture-photometry method (Martens et al. 2018 SI
+S11) already used by phasorFit() and smFRET, confirmed directly by the
+paper's own co-author to be the correct method for phasor's own values too
+(not a separate, narrower estimate — an earlier build briefly second-guessed
+this, incorrectly).
 
 Phasor was CPU-only until now — a straightforward gap, not a deliberate
 choice. It's actually the simplest fit method to run on the GPU: unlike the
@@ -23847,7 +23852,7 @@ first-harmonic Fourier coefficient), with no iteration and no accept/reject
 decision at all — every detected candidate becomes a localization, on both
 CPU and GPU. Verified: bench-fit.mjs shows exact CPU/GPU candidate-count
 agreement (zero discordance, expected given no accept/reject step exists)
-and a 1.5x-35x speedup depending on candidate density and fit window size.
+and up to ~30x speedup depending on candidate density and fit window size.
 
 (For context, build 2026-09-19h's own two fixes remain in effect: the
 missing GPU-fit raw-panel crosshair fix, and quieting the repeated SR-render
