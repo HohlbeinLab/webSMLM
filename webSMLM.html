@@ -183,9 +183,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13049  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13067  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           14009  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14027  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -395,7 +395,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             17770  single particle tracking, trackpy-inspired;
+    spt             17788  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -426,7 +426,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19308  top-level orchestration, *Core()/wrapper split;
+    pipeline        19326  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -492,7 +492,7 @@
                            methods to a batched, cross-frame GPU dispatch path
                            alongside the existing worker-pool/single-threaded
                            ones — see MODULE: gpu
-    liveStreaming   20779  Micro-Manager/pycromanager camera bridge
+    liveStreaming   20797  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -546,14 +546,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23626  localizations table, filtering, histograms;
+    table           23641  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24378  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24393  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2621,7 +2621,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -12795,6 +12795,24 @@ async function driftCore(locs, px, config, hooks={}){
     for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
       L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0))]; }
   }
+  // A real, reported bug: the GPU render's own accumulate cache (_gpuAccumCache,
+  // MODULE: gpu) keys a cache HIT purely on `locs===cachedLocs && n===cachedN` —
+  // correct for the case it was built for (an unrelated setting changing with
+  // the SAME locs untouched), but drift correction mutates x/y (and z, above)
+  // IN PLACE on the SAME array at the SAME length, which that key can't tell
+  // apart from "nothing changed at all". Without this, rerender(true) right
+  // after correctDrift() applies the fix would silently keep showing the
+  // STALE, pre-correction accumulated image — position/precision/NeNA/FRC all
+  // correctly reflect the corrected coordinates (they read `locs` directly,
+  // no cache), so only the GPU-rendered reconstruction itself goes stale,
+  // exactly the "still looks washed out/motion-blurred after Drift correction"
+  // report this fixes. Toggling render mode away and back "fixed" it before
+  // this, purely because renderMode IS part of the cache key — busting it as
+  // a side effect, not a real fix. The CPU render path never had this problem:
+  // its own persistent buffers (_srAcc etc.) are reused for MEMORY only, keyed
+  // on dimensions, not on locs identity — the actual accumulate loop over
+  // `locs` always reruns in full regardless.
+  if(_gpuAccumCache) destroyGpuAccumCache();
   let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
   for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
     if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
@@ -23492,17 +23510,21 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19e — cleaned up the Log window's
-own GPU-fit diagnostic report: it used to be a dozen separate log lines,
-each hand-padded with just enough leading spaces to align under a shared
-label — looked fine in-app, but fell apart into a wall of misaligned
-fragments the moment it was copied out (reported directly). Each related
-cluster is now one message with a plain, short indent instead. Also fixed
-a real, reported readability bug: a logged command (e.g. "analyze({...})")
-printed with a spurious blank line before its own first result line,
-making it ambiguous which command a given comment belonged to — that
-blank line is now suppressed specifically when it would duplicate the
-separator already printed before a command/terminal entry.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19f — fixed a real, reported bug:
+the reconstruction stayed visibly stale (washed-out/motion-blurred) after
+Drift correction whenever GPU rendering was active. Cause: driftCore()
+corrects positions by mutating L.x/L.y IN PLACE on the SAME locs array —
+correct and reversible, but the GPU render's own accumulate cache keys a
+cache hit purely on "same locs array, same length", which can't tell that
+apart from "nothing changed at all". Position/NeNA/FRC read locs directly
+and were always correct; only the GPU-rendered image itself went stale.
+Switching render mode away and back "fixed" it before, purely because
+render mode happens to share the same cache key — not a real fix. Now
+driftCore() itself busts that cache the moment it mutates positions, so
+the very next render is forced back onto its full-rebuild path. That
+rebuild is inherently slower than an incremental append (every position
+changed, not just new locs added) — a real cost, not a regression: it is
+the work the stale cache used to skip.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

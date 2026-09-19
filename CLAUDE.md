@@ -390,6 +390,25 @@ in a module.
   re-estimated, unlike AIM's own two-round refinement) — it must NOT be zero-meaned the way AIM's own
   output is; smFRET's own drift correction depends on this exact frame-0 anchoring.
 
+  **`driftCore()` applies the correction by mutating `L.x`/`L.y`/`L.z` IN PLACE on the SAME loc
+  objects/array** (reversibly — the original values are stashed in `L.x0`/`L.y0`/`L.z0` first, restored
+  before every fresh estimate so re-running with different settings always estimates from the raw
+  data). This collided with a real, reported bug in the GPU render's own accumulate cache
+  (`_gpuAccumCache`, MODULE: gpu): its cache-HIT check is `locs===cachedLocs && n===cachedN` — correct
+  for "an unrelated setting changed but locs itself is untouched," but unable to tell that apart from
+  "the SAME array, SAME length, but every position was just rewritten" — so `rerender(true)` right
+  after Drift correction silently kept showing the STALE, pre-correction accumulated image (position/
+  NeNA/FRC all read `locs` directly and were correctly up to date, so only the rendered reconstruction
+  itself went stale — a real reported symptom: "still looks washed out/motion-blurred after Drift
+  correction," "fixed" by toggling render mode away and back only because `renderMode` happens to be
+  part of the SAME cache key). The CPU render path never had this problem — its own persistent scratch
+  buffers (`_srAcc` etc., MODULE: render) are reused for memory only, keyed on dimensions, and the
+  accumulate loop over `locs` always reruns in full regardless. Fixed by having `driftCore()` itself
+  call `destroyGpuAccumCache()` right after mutating positions, so the very next render is forced back
+  onto its full-rebuild path — necessarily slower than an incremental append (every position changed,
+  not just new locs added, so there is nothing to append onto), but that cost is unavoidable, not a
+  regression: it is the real, previously-skipped work the stale cache was hiding.
+
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution, inline
   radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s green (full Endesfelder fit)/magenta (signal-Rayleigh term alone) pairing is the
