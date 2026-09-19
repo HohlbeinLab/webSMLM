@@ -2178,13 +2178,15 @@ offsets are seeded
 (not `Math.random()`), so the same localizations always dither identically
 — panning/zooming or reopening the same dataset doesn't flicker.
 
-`useGpu` is an opt-in WebGPU accelerator for supported heavy stages: MLE
-fitting, reconstruction rendering, AIM drift correction and FRC. Each stage
-decides independently whether the GPU is available and large enough to be
-worth using; otherwise it logs a CPU fallback and keeps the same result shape.
-GPU arithmetic is f32, so outputs are expected to be scientifically equivalent,
-not byte-identical, to the CPU f64 path; candidates near an accept/reject
-boundary can differ slightly.
+`useGpu` is an opt-in WebGPU accelerator for supported heavy stages: fitting
+(MLE and Phasor), reconstruction rendering, AIM drift correction and FRC.
+Each stage decides independently whether the GPU is available and large
+enough to be worth using; otherwise it logs a CPU fallback and keeps the same
+result shape. GPU arithmetic is f32, so outputs are expected to be
+scientifically equivalent, not byte-identical, to the CPU f64 path;
+candidates near an MLE fitter's own accept/reject boundary can differ
+slightly (Phasor has no such boundary — it never rejects a candidate, on
+either path).
 
 `hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)

@@ -166,6 +166,30 @@ in a module.
   1278 (2016)), reverse-engineered pixel-exact from the SI's own reference figure maps, not its prose
   (which states a "ROI radius" 2px larger than the window's real half-width, unexplained). Used by
   both `phasorFit()` and smFRET's `apertureIntensity()` — one implementation, not two.
+  `phasorApertureIntensity(img,w,h,cx,cy,win,gain,camoffset)` is this piece extracted out of
+  `phasorFit()` (pure refactor, behavior unchanged) so the GPU-fit seed builder below can call it
+  directly.
+
+  **Phasor/Phasor 3D are GPU-accelerated** (`WGSL_FIT_PHASOR`, MODULE: gpu) — a real gap closed, not a
+  deliberate exclusion (`GPU_FIT_METHODS` was just missing `'phasor'`/`'phasor3d'`). Unlike the
+  Newton-iterated MLE kernels, Phasor is the one CLOSED-FORM fit here: no iteration, no Fisher matrix,
+  and — since `phasorFit()` never returns `null` — no accept/reject gate at all, so CPU and GPU produce
+  IDENTICAL candidate counts by construction (verified: `tests/gpu/bench-fit.mjs` shows exact zero
+  discordance across every phasor case, unlike every MLE method's own inherent f32/f64 boundary
+  noise). The row/col Fourier sums `phasorFit()` builds via two intermediate K-length arrays are
+  algebraically equivalent to one direct double sum over the K×K window with per-pixel trig weights
+  (swapping summation order, Σ_dx Σ_dy = Σ_dy Σ_dx — verified numerically to ~1e-14) — this removes the
+  need for ANY per-candidate temporary array in the WGSL kernel, so it needs no per-Run kernel
+  regeneration the way `wgslGaussJordan(n)` genuinely does for its own matrix size. Photons/bg/bgstd
+  are NOT computed on the GPU at all: `phasorApertureIntensity()`'s own background annulus reaches
+  `r+2.5` px, WIDER than the K×K fit window this kernel (or any other GPU-fit kernel) ever sees, so
+  they're computed once per candidate on the CPU/worker side during seed-building
+  (`buildFitSeedRowPhasor()`) and passed straight through as plain numbers — no new GPU buffer type
+  needed. Measured (`tests/gpu/bench-fit.mjs`): 1.5×–35× speedup depending on candidate density and
+  fit window size, comparable to or exceeding several MLE cases despite phasor doing genuinely less
+  arithmetic per candidate — GPU dispatch overhead is amortized the same way across either kind of
+  fit, by batching many frames' worth of candidates into one dispatch (`makeGpuFitAccumulator()`,
+  MODULE: gpu).
 
   `winr2d`/`winr3d` are the fields actually shown in the sidebar; the underlying `winr` (still what
   every `$('winr')`-based mechanism — PARAMS, live-preview listeners, worker dispatch — reads) is

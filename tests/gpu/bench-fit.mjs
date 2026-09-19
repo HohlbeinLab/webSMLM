@@ -70,6 +70,21 @@ const CASES = [
   // this bug crosses these thresholds naturally) without needing a
   // multi-thousand-frame synthetic stack just to prove it.
   { label: 'FTM + GPU fit (mle3d)', dens: 0.05, phot: 900, frames: 300, winr: 4, method: 'mle3d', localize3D: false, ftmEnabled: true, ftmWindow: 15, forceWorkers: true },
+  // Phasor (WGSL_FIT_PHASOR) — the only NON-ITERATIVE GPU-fit kernel here (a
+  // closed-form first-harmonic Fourier calculation, no Newton loop, no
+  // accept/reject gate at all: phasorFit() itself never returns null, so
+  // CPU/GPU candidate counts should match EXACTLY, unlike every MLE method's
+  // own inherent f32/f64 accept/reject boundary noise). 2D only — phasor3d
+  // needs a real z(ratio) calibration this synthetic-only harness has no
+  // mechanism to supply (same limitation noted for gaussmleEll free-angle
+  // below); phasor3d shares this exact same GPU kernel/dispatch code, only
+  // adding the SAME already-existing, unmodified CPU-path z-calibration step
+  // on top, so 2D coverage here already exercises everything this round
+  // actually changed.
+  { label: 'phasor (baseline)',      dens: 0.05, phot: 900, frames: 300, winr: 4, method: 'phasor', localize3D: false },
+  { label: 'phasor (high density)',  dens: 0.5,  phot: 900, frames: 300, winr: 4, method: 'phasor', localize3D: false },
+  { label: 'phasor (large window)',  dens: 0.5,  phot: 900, frames: 300, winr: 8, method: 'phasor', localize3D: false },
+  { label: 'phasor (long stack)',    dens: 0.5,  phot: 900, frames: 800, winr: 4, method: 'phasor', localize3D: false },
   // gaussmleEll free-angle (WGSL_FIT_ROT_FREE) has NO case here on purpose:
   // localize3D:true makes run()'s own needCal guard (webSMLM.html ~line
   // 11953) require a loaded gaussian_width calibration before it will even
@@ -116,6 +131,7 @@ async function runLocalize(page, useGpu) {
       sigma: L.sigma, sx: L.sx, sy: L.sy,
       angle: L.angle, lpx: L.lpx, lpy: L.lpy,
       lpsx: L.lpsx, lpsy: L.lpsy, lpangle: L.lpangle,
+      pmagX: L.pmagX, pmagY: L.pmagY, pratio: L.pratio,
     }));
     return {
       timings: captured.timings, execution: captured.execution, stageTimings: captured.stageTimings,
