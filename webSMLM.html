@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19g; may drift
+  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19h; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3310   PARAMS registry, single source of truth for params;
+    params          3345   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -49,7 +49,7 @@
                            own blank-line separator — otherwise a command and
                            its own first result line print with a spurious
                            blank line between them
-    in/out          4438   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4473   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -62,12 +62,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4737   synthetic stack generator ("Simulate movie")
-    detect          5887   per-frame band-pass + local-maxima detection
+    simulation      4772   synthetic stack generator ("Simulate movie")
+    detect          5922   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6164   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6199   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -92,7 +92,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6803   accumulate to offscreen buffer; view/colour/blur;
+    render          6838   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -123,14 +123,21 @@
                            (blue circles + connecting line), wired into both
                            drawSpotOverlays() SOI-composite call sites
                            renderSuperResGpu() (MODULE: gpu) is an opt-in
-                           GPU-accelerated equivalent, called from rerender()
-    workers         8582   frame-parallel detect/fit worker pool; dedicated
+                           GPU-accelerated equivalent, called from rerender();
+                           rerenderNow()'s own "SR render ... s" timing log
+                           line is now gated on !isPreview — a long Run's
+                           periodic mid-Run preview re-renders (isPreview:true,
+                           see MODULE: pipeline's onSrPreview) used to each
+                           print their own line, several back-to-back in the
+                           log for no actionable reason; the final render
+                           still logs it
+    workers         8626   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             8990   shared WebGPU compute engine (experimental,
+    gpu             9034   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all 4 MLE
                            methods), 'precision'-mode render, AIM drift
                            correction, and FRC; each stage uses the GPU only
@@ -153,8 +160,8 @@
                            non-separable O(nx*ny) exp() recompute instead of
                            precomputed separable rows/columns) — both fixed,
                            see MODULE: render's own paragraph
-    export          11364  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11716  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11408  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11760  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -165,7 +172,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12198  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12242  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -189,9 +196,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13130  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13174  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           14090  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14134  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -401,7 +408,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             17851  single particle tracking, trackpy-inspired;
+    spt             17895  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -432,7 +439,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19389  top-level orchestration, *Core()/wrapper split;
+    pipeline        19433  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -506,8 +513,21 @@
                            object (measured ~2x memory for the whole locs
                            array); undefined is behaviorally identical (every
                            reader already treats it as "not audited") but
-                           keeps every loc on its fast hidden class
-    liveStreaming   20876  Micro-Manager/pycromanager camera bridge
+                           keeps every loc on its fast hidden class; the
+                           useGpuFit branch's own raw-panel preview
+                           (refreshRawPreview()) now keeps a small bounded
+                           ring of recently-detected frames instead of only
+                           the latest one — a real, reported bug: magenta fit
+                           crosshairs stopped appearing during a fast-
+                           detecting, GPU-fit-bound Run, because GPU fitting
+                           is a batched async pipeline with no back-pressure
+                           on detection (makeGpuFitSlotPool() hands out
+                           overflow slots rather than blocking it), so the
+                           just-detected frame's own candidates essentially
+                           never have fit results back in time; the ring lets
+                           the preview fall back to the newest frame that IS
+                           ready instead
+    liveStreaming   20947  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -561,14 +581,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23724  localizations table, filtering, histograms;
+    table           23802  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24476  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24554  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2636,7 +2656,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -8077,8 +8097,17 @@ async function rerenderNow(keepView,isPreview,mySeq){
       // rMode IS the user's setting now (see above) — kept as its own name
       // rather than re-reading paramValue('renderMode') here, so the line can
       // never report a different mode from the one actually handed to the
-      // renderer a few lines up.
-      if(e) log(`SR render   ${(e.ms/1000).toFixed(2)} s   (${e.gpuFailed?'GPU failed, used CPU':e.path==='gpu'?'GPU':'CPU'}, ${rMode} mode · ${e.reasons.join(', ')})`); }
+      // renderer a few lines up. Gated on !isPreview (a real, reported
+      // complaint): a long Run fires this same render path many times over
+      // for its own periodic mid-Run preview (see run()'s onSrPreview hook,
+      // isPreview=true there) — each one used to print its own "SR render
+      // ... s" line, several of which show up back-to-back in the log for no
+      // actionable reason (the number itself isn't wrong, it's just noise —
+      // nobody needs a timing history of throwaway preview renders). The
+      // FINAL render (a plain interactive Localize/settings-change/Run-
+      // completion rerender(), isPreview unset/false) still logs it — that
+      // one number is the real, load-bearing diagnostic.
+      if(e && !isPreview) log(`SR render   ${(e.ms/1000).toFixed(2)} s   (${e.gpuFailed?'GPU failed, used CPU':e.path==='gpu'?'GPU':'CPU'}, ${rMode} mode · ${e.reasons.join(', ')})`); }
   }catch(err){
     // Magnification/frame-size combination too big to render (see
     // checkRenderSize() in renderSuperRes) — keep showing whatever was
@@ -20061,11 +20090,31 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     // Raw-frame preview: same independent setTimeout ticker useWorkers uses
     // below (re-detects on demand rather than depending on fit timing being
     // in sync with detection — necessary here since GPU fit results now lag
-    // detection by up to one batch). The accepted-fit overlay is filtered
-    // out of `locs` fresh on every tick instead of tracked incrementally —
-    // cheap even at large loc counts, and correctly shows nothing yet for a
-    // frame whose GPU batch hasn't returned.
+    // detection by up to one batch).
     let latestFi=-1, latestImg=null, rawTimerDone=false;
+    // Bounded ring of recently detected (frame, image, candidates) triples,
+    // newest last. GPU fitting is a batched, ASYNCHRONOUS pipeline
+    // (makeGpuFitAccumulator() above: candidates from many frames pile up
+    // in one accumulator slot before a single GPU dispatch fires, then that
+    // dispatch itself takes real wall time) with no back-pressure on
+    // detection at all — acquire() in makeGpuFitSlotPool() hands out a
+    // temporary overflow slot rather than ever blocking the detector, so
+    // detection can run arbitrarily far ahead of fitting. A real, reported
+    // bug: the raw panel's magenta fit crosshairs stopped appearing during a
+    // fast-detecting, GPU-fit-bound Run, because the preview always showed
+    // the JUST-detected frame — whose own candidates essentially never have
+    // fit results back yet by the time the next preview tick fires. This
+    // ring lets refreshRawPreview() below fall back to the newest frame that
+    // IS ready (already fit, or had no candidates to begin with) instead,
+    // showing its image/boxes/crosshairs together so they stay consistent.
+    // Deliberately capped SMALL and FIXED, not sized to the true backlog
+    // (which is unbounded in principle, per the no-back-pressure note above)
+    // — if the real lag ever exceeds this many preview ticks' worth of
+    // frames, this just degrades to the pre-fix behaviour (latest frame,
+    // crosshairs pending) for whichever frame is currently shown, rather
+    // than let retained preview images grow without bound.
+    const PREVIEW_LOOKBACK=Math.max(4, pool?pool.length*2:4);
+    let previewRing=[];
     // Shared by the ticker below AND the final refresh at the end of this
     // branch — same re-detect + filter-locs-by-frame + onRawPreview shape
     // either way, just triggered on a timer vs once after everything's done.
@@ -20073,9 +20122,16 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       lastPreviewFi=fi; lastRawMs=performance.now();
       const tp=performance.now();
       const mx=detectSpots(img,w,h,sigma,exactBP,mode,k,border).maxima;
-      lastSpots=mx; lastFrame=img; lastFrameIdx=fi;
-      const shownLocs=locs.filter(L=>L.frame===fi).map(L=>({x:L.x,y:L.y}));
-      onRawPreview(img,w,h,mx,shownLocs,fi,nStack);
+      previewRing.push({fi,img,mx});
+      if(previewRing.length>PREVIEW_LOOKBACK) previewRing.shift();
+      let shown=null;
+      for(let i=previewRing.length-1;i>=0;i--){
+        const c=previewRing[i], cLocs=locs.filter(L=>L.frame===c.fi);
+        if(cLocs.length || !c.mx.length){ shown={fi:c.fi,img:c.img,mx:c.mx,shownLocs:cLocs.map(L=>({x:L.x,y:L.y}))}; break; }
+      }
+      if(!shown) shown={fi,img,mx,shownLocs:[]};   // nothing in the ring is ready yet (e.g. start of Run) — same as before this fix
+      lastSpots=shown.mx; lastFrame=shown.img; lastFrameIdx=shown.fi;
+      onRawPreview(shown.img,w,h,shown.mx,shown.shownLocs,shown.fi,nStack);
       previewMs+=performance.now()-tp;
     };
     const scheduleRawPreview=()=>{
@@ -23604,28 +23660,27 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19g — two real, reported bugs fixed.
+log(`webSMLM v0.12.7-dev · build 2026-09-19h — two more real, reported bugs
+fixed, both specific to a GPU-fit Run on a long/dense real dataset.
 
-(1) GPU "precision" render mode was both visibly wrong and slower than it
-should be. It point-sampled the Gaussian PDF per pixel instead of
-integrating the true pixel mass (only 66% of a localization's mass was
-captured at a typical in-focus sigma, vs. 100% on the CPU path, which
-already had this fix) — this alone could wash out a reconstruction's fine
-structure. It also recomputed a full exp() for every pixel in each
-localization's splat footprint (up to ~1369 calls) instead of precomputing
-separable per-row/per-column weights first (~76 calls), the same approach
-the CPU path already uses. Both are fixed; GPU precision-mode speedup over
-CPU on realistic cases improved to roughly 1.7x-4.3x.
+(1) The raw panel's magenta fit crosshairs stopped appearing inside the
+green detection boxes during Localize. Cause: GPU fitting batches
+candidates from MANY frames before firing one dispatch, with no back-
+pressure on detection — so on a fast-detecting, GPU-fit-bound Run,
+whichever frame the raw-panel preview was showing almost never had its own
+fit results back yet, and the crosshair overlay just stayed empty. Fixed by
+letting the live preview fall back to the newest recently-detected frame
+whose results HAVE already landed, instead of insisting on the very latest
+one.
 
-(2) tests/gpu/bench-real-data.mjs --full reliably crashed partway through
-a true full-scale (~4 million localization) run. Root cause was in
-webSMLM.html, not the test script: an audit-only cleanup step did
-"delete loc._candidatePixel" on every accepted localization, which forces
-the JS engine to convert that object onto a much slower, much larger
-internal representation — roughly doubling memory for the whole
-localizations array. Fixed by assigning undefined instead of deleting the
-property (identical behaviour for every reader). The full real-dataset
-benchmark now completes end-to-end on both CPU and GPU.`);
+(2) The "SR render ... s" timing line was printing over and over during a
+single long Run — every periodic mid-Run preview render logged its own
+line, several back-to-back for no actionable reason. That line is now only
+printed for the final render; the number itself was never wrong, just noise.
+
+(For context, build 2026-09-19g's own two fixes remain in effect: the GPU
+"precision" render mode's pixel-integration/performance fix, and the
+audit-cleanup memory crash fix for tests/gpu/bench-real-data.mjs --full.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

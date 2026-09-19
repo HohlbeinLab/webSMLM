@@ -258,6 +258,16 @@ in a module.
   the more expensive but exact CAS loop is a documented, necessary trade-off, not something this fix
   should touch.
 
+  **`rerenderNow()`'s own `"SR render ... s"` timing log line is gated on `!isPreview`** — a real,
+  reported complaint: a long Run fires this same render path many times over for its own periodic
+  mid-Run preview (`run()`'s `onSrPreview` hook, `isPreview:true` there), so each one used to print its
+  own line — several showing up back-to-back in the log for no actionable reason (the number itself
+  was never wrong, it's just noise nobody needs a timing history of throwaway preview renders for).
+  `isPreview` already existed as a parameter (used to gate the zmin/zmax auto-fill a few lines above,
+  see that code's own comment) but this specific log line wasn't gated on it. The final render — a
+  plain interactive Localize/settings-change/Run-completion `rerender()`, `isPreview` unset/false —
+  still logs it; that one number is the real, load-bearing diagnostic.
+
   `setupPlot(cv, isPlot=false)` letterboxes a fixed 4:3 sub-rectangle for the ~13 non-frame plots this
   app draws on the raw/SR canvases (drift, NeNA, FRC, PCFO, line-profile, calibration, the shared
   histogram, spt's D/track-length/MSD plots, sSMLM's distance/angle histograms, smFRET's time
@@ -683,6 +693,29 @@ in a module.
   objects (e.g. a single settings-migration object), never on a large homogeneous array of hot
   objects the app already relies on staying monomorphic (matching `LOC_ROW_BYTES`'s own fast-shape
   assumption above).
+
+  **The `useGpuFit` branch's raw-panel live preview (`refreshRawPreview()`) keeps a small, bounded
+  ring of recently-detected frames, not just the latest one.** A real, reported bug: the raw panel's
+  magenta fit crosshairs stopped appearing inside the green detection boxes during a fast-detecting,
+  GPU-fit-bound Run (dense real data, many CPU detect workers feeding one shared GPU fit pipeline).
+  Root cause: `makeGpuFitAccumulator()` batches candidates from MANY frames into one accumulator slot
+  before firing a single GPU dispatch (by design — see that function's own comment on why a
+  one-dispatch-per-frame granularity was too small to pay off), and `makeGpuFitSlotPool()`'s own
+  `acquire()` never blocks the detector — it hands out a temporary overflow slot rather than ever
+  applying back-pressure — so detection can run arbitrarily far ahead of fitting with no natural
+  limit. `refreshRawPreview()` used to always show the JUST-detected frame, filtering `locs` for an
+  exact frame match — but that frame's own candidates essentially never have fit results back by the
+  time the next preview tick fires, so the crosshair overlay stayed empty almost continuously on
+  exactly the kind of Run where you'd most want to see it working. Fixed by retaining a small ring of
+  `{fi, img, mx}` triples (one per recently-detected frame) and, on each preview tick, searching it
+  backward for the newest frame that's either already fit (has entries in `locs`) or genuinely had no
+  candidates to begin with (`mx.length===0`, nothing to wait for) — showing that frame's own image,
+  boxes, and crosshairs together keeps them visually consistent, at the cost of the raw panel lagging
+  slightly behind "now" while GPU fitting catches up. Deliberately capped SMALL and FIXED (`max(4,
+  pool.length*2)`), not sized to the true backlog (unbounded in principle, per the no-back-pressure
+  note above) — if the real lag ever exceeds the ring's depth, this just degrades to the pre-fix
+  behaviour (latest frame, crosshairs pending) rather than let retained preview images grow without
+  bound.
 
   **`memBudgetGB`/`memgb`/`chunkmb` are three independent settings** ("Total memory budget (GB)",
   "Budget raw movies (GB)", "Stream heap (MB)", all under "Memory & streaming"): `memBudgetGB` is the
