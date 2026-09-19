@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19l; may drift
+  MODULE INDEX — line numbers as of v0.12.7; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -602,14 +602,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23990  localizations table, filtering, histograms;
+    table           23989  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24742  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24741  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2677,7 +2677,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19l</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7 · proof-of-concept</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -23841,35 +23841,34 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19l — Phasor fitting is now
-GPU-accelerated (Fit method: Phasor 2D / Phasor 3D), alongside the existing
-Gauss MLE methods. Its own background/intensity estimate is unchanged from
-before: the published aperture-photometry method (Martens et al. 2018 SI
-S11) already used by phasorFit() and smFRET, confirmed directly by the
-paper's own co-author to be the correct method for phasor's own values too
-(not a separate, narrower estimate — an earlier build briefly second-guessed
-this, incorrectly).
+log(`webSMLM v0.12.7 — experimental opt-in WebGPU acceleration ("Use GPU
+acceleration") across fitting, reconstruction rendering, AIM drift
+correction, and FRC, plus a long list of real crashes and correctness bugs
+found and fixed while stress-testing it against true full-scale real
+datasets, not just synthetic benchmarks. See CHANGELOG.md's own v0.12.7
+entry for the complete write-up.
 
-Phasor was CPU-only until now — a straightforward gap, not a deliberate
-choice. It's actually the simplest fit method to run on the GPU: unlike the
-Newton-iterated MLE fitters, Phasor is a single closed-form calculation (a
-first-harmonic Fourier coefficient), with no iteration and no accept/reject
-decision at all — every detected candidate becomes a localization, on both
-CPU and GPU. Verified: bench-fit.mjs shows exact CPU/GPU candidate-count
-agreement (zero discordance, expected given no accept/reject step exists).
+GPU fit now covers every MLE method (Gauss MLE spherical/elliptical/rotated)
+plus, new this release, Phasor and Phasor 3D — a closed-form calculation
+with no iteration and no accept/reject decision at all, so CPU and GPU
+produce identical candidate counts by construction. Its own
+background/intensity estimate uses the same published aperture-photometry
+method already used elsewhere in this app (Martens et al. 2018, J. Chem.
+Phys. 148, 123311, SI S11). Honest performance note: an isolated GPU-fit
+microbenchmark can look dramatically faster, but CPU-side spot detection
+dominates a real Localize Run's wall time regardless of fit method, so the
+actual, measured difference on a full Run is modest (roughly 5-10% faster)
+— not the large multiple an isolated fit-stage number alone would suggest.
 
-Honest expectation-setting on speed, corrected after direct testing: the
-isolated GPU fit step alone can look dramatically faster in a
-microbenchmark, but that is not representative of a real Localize Run —
-CPU-side spot detection (unaffected by fit method) dominates a Run's wall
-time regardless, so the actual, measured difference between Phasor and
-Gauss MLE spherical on a full Run is modest (roughly 5-10% faster in a
-controlled A/B test), not the large multiple an isolated fit-stage number
-alone would suggest.
-
-(For context, build 2026-09-19h's own two fixes remain in effect: the
-missing GPU-fit raw-panel crosshair fix, and quieting the repeated SR-render
-timing log line.)`);
+Also this release: real crashes found and fixed at full scale — a GPU
+render dispatch that crashed past a few million localizations, a headless
+CSV export that crashed on a large enough result, a stale GPU-rendered
+reconstruction after Drift correction, a GPU precision-render kernel that
+lost real signal mass, a V8 dictionary-mode memory blowup during an
+audit-only cleanup step, and missing raw-panel fit crosshairs during a
+fast-detecting GPU-fit Run. Plus: checkboxes now render as modern toggle
+switches, and the "Save plot/image" window picker's labels match whichever
+panel layout is active.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
