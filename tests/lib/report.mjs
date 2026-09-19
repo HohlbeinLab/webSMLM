@@ -123,7 +123,15 @@ const p99=values=>{
   const s=[...values].sort((a,b)=>a-b);
   return s[Math.min(s.length-1,Math.floor(s.length*.99))];
 };
-const p99Typed=(values,n)=>{
+// Exported (not just module-local) so a caller with a truly huge loc count
+// can .toString() this alongside diffLocsExact() and eval() both INSIDE the
+// page — computing the diff there and returning only the small resulting
+// metrics object, never shipping millions of loc objects back across the
+// Playwright/CDP boundary as a page.evaluate() return value (see
+// bench-real-data.mjs's own runAnalyze() for the reference pattern; the
+// "never let a large blob cross as one return value" rule this whole file's
+// helpers already follow for pcfo.pts/sSmlmPair.locs-style trims).
+export const p99Typed=(values,n)=>{
   if(!n)return 0;
   const s=values.subarray(0,n).slice();
   s.sort();

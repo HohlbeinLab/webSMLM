@@ -722,6 +722,23 @@ in a module.
   key with no matching element, e.g. a bookkeeping marker or `<input type=file>`) — recalling this
   loads the whole line into the terminal already editable, change a value, press Enter.
 
+  **A multi-fact `onLog()` message is ONE call with embedded `"\n"`s and a plain, short `"  "`
+  (2-space) continuation indent — never several separate `onLog()` calls hand-padded with just enough
+  leading spaces to visually align under a shared label.** `wrapCommentLine()` (MODULE: params) marks
+  and word-wraps every `"\n"`-split line independently at 80 columns, so a hand-counted indent only
+  survives until that specific line is long enough to wrap a SECOND time — the wrapped remainder then
+  starts flush after the marker with no indent at all, and outside this app's own monospace log box
+  (a copy-paste, an exported log) the indent has nothing to align against regardless. A real, reported
+  case: the GPU-fit diagnostic block (MODULE: pipeline, `runCore()`'s own "who actually did the work"
+  section) used to be a dozen separate `onLog()` calls each padded to align under `"GPU fit:       "`
+  — reads as a broken wall of misaligned fragments once copied out. Fixed by combining each related
+  cluster into one call. Separately, `formatLogEntry()` strips a prose message's own leading `"\n"`
+  (used by many action-start messages, e.g. `onLog('\nRun: ...')`, to open a visual gap before a new
+  action's header) specifically when that entry lands right after a `cmd`/`term` entry, which already
+  prints its own blank-line separator — without this a command and its own first result line printed
+  with a spurious blank line between them, making it ambiguous which command a given comment actually
+  belonged to (also reported directly).
+
   **`_sessionEpoch`/`newEpoch()`/`staleEpoch()`** — every long-running, state-writing action (Run,
   drift, calibration, spt, sSMLM/smFRET pairing, crop, load, simulate) captures
   `const myEpoch=newEpoch()` right after its own preconditions and checks `staleEpoch(myEpoch)`

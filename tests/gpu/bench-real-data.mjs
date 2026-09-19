@@ -15,7 +15,7 @@
 // Usage: cd tests && npm install (once), then node bench-real-data.mjs [--full]
 import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
-import { diffLocsExact, expectGpuUsed, printTable, speedup, verdict, writeResults } from '../lib/report.mjs';
+import { diffLocsExact, expectGpuUsed, p99Typed, printTable, speedup, verdict, writeResults } from '../lib/report.mjs';
 import { resolveDataFile } from '../lib/data.mjs';
 
 const FULL = process.argv.includes('--full');
@@ -25,7 +25,20 @@ if (!TARGET) { console.log('Skipping real-data benchmark.'); process.exit(0); }
 const BASE_CONFIG = {
   method: 'gaussmle',   // the only GPU-fit-accelerated method
   pxnm: 160, gain: 0.1248, camoffset: 100,   // this dataset's real camera parameters
-  ...(FULL ? {} : { fitFirstFrame: 1, fitLastFrame: 5000 }),
+  ...(FULL
+    // --full genuinely needs a real ceiling: the desktop default (unset,
+    // i.e. Infinity) leaves checkLocsMemory()'s own auto-stop as a no-op,
+    // and this run additionally keeps BOTH passes' full loc sets resident
+    // in-page at once for the diff (window._cpuLocs + the GPU pass's own
+    // result) — confirmed directly this session: an uncapped --full run on
+    // this exact ~40,000-frame/~3.3M-localization dataset reliably crashed
+    // the tab (no RangeError, no catchable error — a real OOM tab kill) on
+    // a 16GB machine; capping memBudgetGB well under total system RAM lets
+    // the Run's own real, calculated-reserve stop trigger instead of
+    // crashing outright. Raise/lower to match the machine actually running
+    // this — 8 is what was verified here, not a universal constant.
+    ? { memBudgetGB: 8 }
+    : { fitFirstFrame: 1, fitLastFrame: 5000 }),
 };
 
 console.log(`Target: ${TARGET}`);
@@ -35,41 +48,76 @@ const { browser, page } = await launchPage();
 try {
   await page.setInputFiles('#analyzeFileInput', TARGET);
 
-  async function runAnalyze(useGpu) {
+  // Both passes' locs/auditCandidatePixels stay IN-PAGE (window._cpuLocs/
+  // _cpuPixels), never returned — a real dataset at this scale (the
+  // ~40,000-frame/~4.9GB stack this script targets) produces millions of
+  // loc objects, and returning that many (even trimmed to 16 fields each)
+  // as a page.evaluate() return value reliably crashes the tab: confirmed
+  // directly this session on a SECOND, denser real dataset (~1.2M locs from
+  // just 5000 frames) — the crash traced to the return-value construction
+  // itself, not analyze() or auditCandidates, both of which complete fine
+  // when nothing large crosses back over CDP. diffLocsExact()/p99Typed()
+  // (MODULE: tests/lib/report.mjs, both plain/dependency-free) are shipped
+  // into the page via .toString()+eval() so the SAME exact-audit algorithm
+  // Node would run executes there instead — only the small resulting
+  // metrics object crosses back.
+  async function runCpuPass() {
     let lastPct = -10;
     page.removeAllListeners('console');
     page.on('console', msg => {
       const m = msg.text().match(/^\[progress\](\d+(?:\.\d+)?)/);
-      if (m) { const pct = +m[1]; if (pct - lastPct >= 5) { process.stdout.write(`\r  ${useGpu ? 'GPU' : 'CPU'} run: ${pct.toFixed(0)}%  `); lastPct = pct; } }
+      if (m) { const pct = +m[1]; if (pct - lastPct >= 5) { process.stdout.write(`\r  CPU run: ${pct.toFixed(0)}%  `); lastPct = pct; } }
       else if (msg.type() === 'error') console.error('  [page error]', msg.text());
     });
-    const result = await page.evaluate(async ({ cfg, useGpu, fileInputId }) => {
-      const config = Object.assign({}, cfg, { useGpu, auditCandidates: true });
+    const result = await page.evaluate(async ({ cfg, fileInputId }) => {
+      const config = Object.assign({}, cfg, { useGpu: false, auditCandidates: true });
       config.file = document.getElementById(fileInputId).files[0];
       config.onProgress = pct => console.log('[progress]' + pct);
       const r = await window.webSMLM.analyze(config);
-      return {
-        nLocalizations: r.locs.length, timings: r.timings, execution: r.execution, logText: r.logText,
-        auditCandidatePixels: Array.from(r.auditCandidatePixels || []),
-        locs: r.locs.map(L => ({
-          x: L.x, y: L.y, z: L.z, frame: L.frame,
-          photons: L.photons, bg: L.bg, bgstd: L.bgstd,
-          sigma: L.sigma, sx: L.sx, sy: L.sy,
-          angle: L.angle, lpx: L.lpx, lpy: L.lpy,
-          lpsx: L.lpsx, lpsy: L.lpsy, lpangle: L.lpangle,
-        })),
-      };
-    }, { cfg: BASE_CONFIG, useGpu, fileInputId: 'analyzeFileInput' });
+      window._cpuLocs = r.locs;
+      window._cpuPixels = r.auditCandidatePixels;
+      return { nLocalizations: r.locs.length, timings: r.timings };
+    }, { cfg: BASE_CONFIG, fileInputId: 'analyzeFileInput' });
+    process.stdout.write('\n');
+    return result;
+  }
+
+  async function runGpuPassAndDiff(diffSrc, p99Src) {
+    let lastPct = -10;
+    page.removeAllListeners('console');
+    page.on('console', msg => {
+      const m = msg.text().match(/^\[progress\](\d+(?:\.\d+)?)/);
+      if (m) { const pct = +m[1]; if (pct - lastPct >= 5) { process.stdout.write(`\r  GPU run: ${pct.toFixed(0)}%  `); lastPct = pct; } }
+      else if (msg.type() === 'error') console.error('  [page error]', msg.text());
+    });
+    const result = await page.evaluate(async ({ cfg, fileInputId, diffSrc, p99Src, nCandidates }) => {
+      const config = Object.assign({}, cfg, { useGpu: true, auditCandidates: true });
+      config.file = document.getElementById(fileInputId).files[0];
+      config.onProgress = pct => console.log('[progress]' + pct);
+      const r = await window.webSMLM.analyze(config);
+      // Wrapped in parens: p99Typed.toString()/diffLocsExact.toString() give
+      // back a bare function expression/declaration TEXT, with no variable
+      // binding of its own — eval-ing that text directly (as a statement)
+      // would silently discard an arrow function (p99Typed) as an unused
+      // expression. Parens force both into an EXPRESSION eval() actually
+      // returns, uniformly for a `const x=(...)=>{}` arrow or a plain
+      // `function x(){}` declaration alike.
+      const p99Typed = eval('(' + p99Src + ')');
+      const diffLocsExact = eval('(' + diffSrc + ')');
+      const diff = diffLocsExact(window._cpuLocs, r.locs, window._cpuPixels, r.auditCandidatePixels, nCandidates);
+      delete window._cpuLocs; delete window._cpuPixels;
+      return { nLocalizations: r.locs.length, timings: r.timings, execution: r.execution, logText: r.logText, diff };
+    }, { cfg: BASE_CONFIG, fileInputId: 'analyzeFileInput', diffSrc, p99Src, nCandidates: cpu.timings.nCand });
     process.stdout.write('\n');
     return result;
   }
 
   console.log('\nRunning CPU pass...');
-  const cpu = await runAnalyze(false);
+  const cpu = await runCpuPass();
   console.log(`CPU: ${cpu.nLocalizations} localizations in ${Math.round(cpu.timings.runMs)} ms (fit ${Math.round(cpu.timings.tFit)} ms).`);
 
   console.log('\nRunning GPU pass...');
-  const gpuRun = await runAnalyze(true);
+  const gpuRun = await runGpuPassAndDiff(diffLocsExact.toString(), p99Typed.toString());
   console.log(`GPU: ${gpuRun.nLocalizations} localizations in ${Math.round(gpuRun.timings.runMs)} ms (fit ${Math.round(gpuRun.timings.tFit)} ms).`);
   // method:'gaussmle' + useGpu:true is the one case where GPU fit SHOULD
   // engage (webSMLM.html runCore(), ~line 10764) — turns the already-inferred
@@ -77,7 +125,7 @@ try {
   expectGpuUsed(gpuRun.logText, true);
   console.log('  (confirmed: logText contains a "GPU fit: ..." line)');
 
-  const diff = diffLocsExact(cpu.locs, gpuRun.locs, cpu.auditCandidatePixels, gpuRun.auditCandidatePixels, cpu.timings.nCand);
+  const diff = gpuRun.diff;
   // A dataset this size clears runCore()'s worker-pool threshold on the CPU
   // side, so cpu.timings.tFit is SUMMED ACROSS EVERY WORKER THREAD (see
   // runCore()'s own comment on this — it "legitimately exceeds the wall

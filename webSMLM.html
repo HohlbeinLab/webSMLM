@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3295   PARAMS registry, single source of truth for params;
+    params          3310   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -31,10 +31,25 @@
                            threshold; log()/logCmd() — prose gets a
                            per-line "// "/"# " comment marker (js/cli, see
                            #logCmdStyleBtn), commands stay bare so a whole
-                           log stretch pastes as valid code; #logText's
-                           text-indent:hanging each-line keeps a wrapped
-                           line's continuation aligned under the text
-    in/out          4407   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+                           log stretch pastes as valid code; wrapCommentLine()
+                           hard-wraps prose at real newlines to 80 columns,
+                           marking every resulting row — a multi-fact onLog()
+                           message uses a plain, short "  " (2-space)
+                           continuation indent baked into its own embedded
+                           "\n"s, NOT hand-counted spaces trying to align
+                           under a label (each "\n"-split line is wrapped
+                           independently, so a hand-counted indent survives
+                           only until a line is long enough to wrap a SECOND
+                           time, then vanishes on the wrapped remainder — a
+                           real, reported readability bug); formatLogEntry()
+                           also strips a prose message's own leading "\n"
+                           (used to open a visual gap before a new action's
+                           header) specifically when it lands right after a
+                           command/terminal entry, which already prints its
+                           own blank-line separator — otherwise a command and
+                           its own first result line print with a spurious
+                           blank line between them
+    in/out          4438   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -47,12 +62,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4706   synthetic stack generator ("Simulate movie")
-    detect          5856   per-frame band-pass + local-maxima detection
+    simulation      4737   synthetic stack generator ("Simulate movie")
+    detect          5887   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6133   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6164   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -77,7 +92,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6772   accumulate to offscreen buffer; view/colour/blur;
+    render          6803   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -109,13 +124,13 @@
                            drawSpotOverlays() SOI-composite call sites
                            renderSuperResGpu() (MODULE: gpu) is an opt-in
                            GPU-accelerated equivalent, called from rerender()
-    workers         8551   frame-parallel detect/fit worker pool; dedicated
+    workers         8582   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             8959   shared WebGPU compute engine (experimental,
+    gpu             8990   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all 4 MLE
                            methods), 'precision'-mode render, AIM drift
                            correction, and FRC; each stage uses the GPU only
@@ -132,8 +147,8 @@
                            real, reported crash near a real dataset's own
                            multi-million-localization scale traced to exactly
                            this being unchunked
-    export          11270  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11622  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11301  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11653  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -144,7 +159,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12104  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12135  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -168,9 +183,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13018  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13049  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           13978  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14009  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -380,7 +395,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             17739  single particle tracking, trackpy-inspired;
+    spt             17770  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -411,7 +426,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19277  top-level orchestration, *Core()/wrapper split;
+    pipeline        19308  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -477,7 +492,7 @@
                            methods to a batched, cross-frame GPU dispatch path
                            alongside the existing worker-pool/single-threaded
                            ones — see MODULE: gpu
-    liveStreaming   20731  Micro-Manager/pycromanager camera bridge
+    liveStreaming   20779  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -531,14 +546,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23576  localizations table, filtering, histograms;
+    table           23626  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24328  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24378  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2606,7 +2621,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -4158,7 +4173,7 @@ function wrapCommentLine(line, marker, width=80){
 // whole log (nothing to separate FROM yet) — every other entry, including a
 // log() message that embeds its OWN leading "\n" for a paragraph break (see
 // logCmd()'s own comment on that convention), is untouched.
-function formatLogEntry(e, isFirst){
+function formatLogEntry(e, isFirst, prevEntry){
   if(e.type==='cmd'){
     // e.jsOverride (see logCmd()'s own comment) wins in JS style — CLI has
     // no equivalent (tools/webSMLM-cli.mjs only ever drives analyze(), one
@@ -4180,14 +4195,30 @@ function formatLogEntry(e, isFirst){
     return (isFirst?'':'\n\n')+withPrompt;
   }
   const marker = logCmdStyle==='cli' ? '# ' : '// ';
-  const commented = String(e.text).split('\n').map(line => wrapCommentLine(line, marker)).join('\n');
+  // Many onLog() call sites (run()'s own "Run: N frames…", calibration/
+  // drift/PCFO/sSMLM/spt's own headers) open with a literal leading "\n" —
+  // meant to visually separate a NEW action's own output block from
+  // whatever came before it. That separation already exists for free
+  // whenever this entry lands right after a command/terminal statement (the
+  // cases above already print their own blank line before themselves) —
+  // keeping the embedded "\n" too then prints a genuinely blank line
+  // between a command and its own first result line, making it ambiguous
+  // which command a given comment actually belongs to (reported directly).
+  // Stripped ONLY in that specific case — the same leading "\n" still does
+  // real, wanted work separating one action's tail from an unrelated NEXT
+  // action's own header the rest of the time (e.g. two Runs in a row with
+  // no command logged between them, or a headless analyze() call's own
+  // flat logText, which has no cmd/term concept at all).
+  let text = String(e.text);
+  if(prevEntry && (prevEntry.type==='cmd'||prevEntry.type==='term') && text.startsWith('\n')) text=text.slice(1);
+  const commented = text.split('\n').map(line => wrapCommentLine(line, marker)).join('\n');
   return (isFirst?'':'\n')+commented;
 }
 // Full rebuild from logHistory, under whichever logCmdStyle is current —
 // only called on the (rare) style toggle; every other log()/logCmd() call
 // just appends its own one new line via the cheaper fast path below.
 function renderLogText(){
-  $('logText').textContent = logHistory.map((e,i)=>formatLogEntry(e,i===0)).join('');
+  $('logText').textContent = logHistory.map((e,i)=>formatLogEntry(e,i===0,logHistory[i-1])).join('');
   const l=$('log'); l.scrollTop=l.scrollHeight;
 }
 // atBottom: only auto-scroll if the log was already scrolled to (near) the
@@ -4199,7 +4230,7 @@ function renderLogText(){
 const log = m => {
   logHistory.push({type:'log', text:m});
   const l=$('log'); const atBottom = l.scrollHeight-l.scrollTop-l.clientHeight<24;
-  $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1);
+  $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]);
   if(atBottom) l.scrollTop=l.scrollHeight;
   $('exportLogBtn').disabled=false;
 };
@@ -20486,19 +20517,32 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // pool in BOTH modes, so "12 workers" appeared identically in a CPU run and a
   // GPU run with nothing saying why (reported directly — "how can that be
   // exactly the same as CPU"). Only the FIT step moves to the GPU.
+  // Each block below is now ONE onLog() call with embedded "\n"s, a plain
+  // 2-space indent on every continuation line, rather than the many
+  // separate onLog() calls this used to be, each hand-padded with just
+  // enough leading spaces to visually align under the first line's own
+  // label. That alignment only ever worked by coincidence: wrapCommentLine()
+  // (MODULE: params) marks and re-wraps EVERY line independently at 80
+  // columns, so (1) a hand-counted indent survives only as long as nothing
+  // wraps a second time — once a line is long enough to wrap again, the
+  // wrapped remainder starts flush after the marker with no indent at all,
+  // and (2) outside this app's own monospace 80ch log box (a copy-paste, an
+  // exported log file) the indent has nothing to visually align against
+  // regardless. A plain, short, constant indent degrades the same way in
+  // the worst case (loses 2 columns, not a whole label's worth) and reads
+  // fine as flat prose either way (reported directly).
   if(poolUsed){
     // Utilisation is summed worker work divided by worker count and the actual
     // localization wall. Overlapping preview/I/O occupancy is not subtracted.
     const wall=Math.max(dt,1e-9);
     if(gpuFitActive){
       const util=100*tDetect/Math.max(pool.length*wall,1e-9);
-      onLog(`CPU detection: ${pool.length} Web Workers · ${util.toFixed(0)}% utilisation (${secs(tDetect)} s worker CPU / ${pool.length}×${secs(wall)} s localization wall)`);
-      onLog(`               (a low share is EXPECTED here — fitting moved to the GPU, so detection stops being the bottleneck)`);
+      onLog(`CPU detection: ${pool.length} Web Workers, ${util.toFixed(0)}% utilisation (${secs(tDetect)} s worker CPU / ${pool.length}×${secs(wall)} s localization wall).\n`+
+            `  A low share here is expected — fitting moved to the GPU, so detection stops being the bottleneck.`);
     } else {
       const cpu=tDetect+tFit, util=100*cpu/Math.max(pool.length*wall,1e-9);
-      onLog(`CPU detect+fit: ${pool.length} Web Workers · ${util.toFixed(0)}% utilisation (${secs(cpu)} s worker CPU / ${pool.length}×${secs(wall)} s wall)`);
-      onLog(`                Near 100% means workers stayed fed; low would mean they starved.`);
-      onLog(`                Note E-cores inflate measured CPU, so this is an upper bound.`);
+      onLog(`CPU detect+fit: ${pool.length} Web Workers, ${util.toFixed(0)}% utilisation (${secs(cpu)} s worker CPU / ${pool.length}×${secs(wall)} s wall).\n`+
+            `  Near 100% means workers stayed fed; low would mean they starved. Note E-cores inflate measured CPU, so this is an upper bound.`);
     }
   }
   // Drain whatever timestamps are still queued from the final batches before
@@ -20512,20 +20556,20 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     // build from whatever is non-empty rather than printing a row of separators.
     const who=[inf&&inf.vendor, inf&&inf.architecture, inf&&inf.device, inf&&inf.description]
       .filter(s=>s&&String(s).trim()).join(' · ') || 'adapter details not exposed by this browser';
-    onLog(`GPU fit:       ${who}`);
     const tuned=gpuEngine.tune
       ? (gpuEngine.tune.chosen===gpuEngine.tune.heuristic ? 'auto-tuned, matched the device heuristic' : 'auto-tuned, heuristic was '+gpuEngine.tune.heuristic)
       : 'device heuristic';
-    onLog(`               workgroup ${gpuEngine.wg1D} (${tuned}) · ${st.dispatches.toLocaleString()} dispatches · ${st.workgroups.toLocaleString()} workgroups`);
+    const thr=st.candidates/Math.max(gpuFitSpanMs/1000,1e-9);
+    const sub=(lim.minSubgroupSize&&lim.maxSubgroupSize)?`, subgroup ${lim.minSubgroupSize}–${lim.maxSubgroupSize}`:'';
     // "logical shader invocations" = workgroups × workgroup size: how many shader
     // instances were LAUNCHED. Deliberately NOT called cores/SMs/EUs — WebGPU
     // exposes neither the physical execution-unit count nor how many run at any
     // instant, and pretending otherwise is what this block exists to stop.
-    onLog(`               ${st.invocations.toLocaleString()} logical shader invocations for ${st.candidates.toLocaleString()} candidates (not a core count — WebGPU does not expose one)`);
-    const thr=st.candidates/Math.max(gpuFitSpanMs/1000,1e-9);
-    onLog(`               ${secs(gpuFitSpanMs)} s first submit through final readback · ${Math.round(thr).toLocaleString()} candidates/s · ${(gpuFitSpanMs*1000/Math.max(1,st.candidates)).toFixed(1)} µs/candidate`);
-    const sub=(lim.minSubgroupSize&&lim.maxSubgroupSize)?` · subgroup ${lim.minSubgroupSize}–${lim.maxSubgroupSize}`:'';
-    onLog(`               limits: ${lim.maxComputeInvocationsPerWorkgroup} invocations/workgroup · workgroup ${lim.maxComputeWorkgroupSizeX}×${lim.maxComputeWorkgroupSizeY}${sub}`);
+    onLog(`GPU fit: ${who}\n`+
+          `  Workgroup ${gpuEngine.wg1D} (${tuned}), ${st.dispatches.toLocaleString()} dispatches, ${st.workgroups.toLocaleString()} workgroups.\n`+
+          `  ${st.invocations.toLocaleString()} logical shader invocations for ${st.candidates.toLocaleString()} candidates (not a core count — WebGPU does not expose one).\n`+
+          `  ${secs(gpuFitSpanMs)} s first submit through final readback, ${Math.round(thr).toLocaleString()} candidates/s, ${(gpuFitSpanMs*1000/Math.max(1,st.candidates)).toFixed(1)} µs/candidate.\n`+
+          `  Limits: ${lim.maxComputeInvocationsPerWorkgroup} invocations/workgroup, workgroup ${lim.maxComputeWorkgroupSizeX}×${lim.maxComputeWorkgroupSizeY}${sub}.`);
     // ---- occupancy + churn (Phase 0 instrumentation) ------------------------
     // The numbers that answer "is the GPU actually working, or waiting on us?".
     // busyWall is wall time with at least one submission in flight; gpuNs is the
@@ -20536,15 +20580,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       const busyMs=st.busyWallMs, kernelMs=st.gpuNs/1e6;
       const span=busyMs+st.idleMs;
       const occ=span>0 ? (busyMs/span*100) : 0;
+      const occLines=[];
       if(st.gpuNs>0){
         const byLabel=Object.entries(st.byLabel).sort((a,b)=>b[1]-a[1])
-          .map(([k,v])=>`${k} ${(v/1e6).toFixed(1)} ms`).join(' · ');
-        onLog(`               device-measured kernel time ${kernelMs.toFixed(1)} ms (${byLabel})`);
-        if(st.passesUntimed) onLog(`               (${st.passesTimed} of ${st.passesTimed+st.passesUntimed} passes timed; the rest were not written by the driver)`);
+          .map(([k,v])=>`${k} ${(v/1e6).toFixed(1)} ms`).join(', ');
+        occLines.push(`Device-measured kernel time: ${kernelMs.toFixed(1)} ms (${byLabel}).`);
+        if(st.passesUntimed) occLines.push(`(${st.passesTimed} of ${st.passesTimed+st.passesUntimed} passes timed; the rest were not written by the driver.)`);
       } else {
-        onLog(`               device-measured kernel time unavailable (adapter lacks timestamp-query) — falling back to wall clock`);
+        occLines.push(`Device-measured kernel time unavailable (adapter lacks timestamp-query) — falling back to wall clock.`);
       }
-      onLog(`               in-flight ${secs(busyMs)} s vs idle ${secs(st.idleMs)} s → GPU busy ${occ.toFixed(1)}% of its own span${st.gpuNs>0?` · kernels were ${(kernelMs/Math.max(busyMs,1e-9)*100).toFixed(1)}% of in-flight time`:''}`);
+      occLines.push(`In-flight ${secs(busyMs)} s vs idle ${secs(st.idleMs)} s → GPU busy ${occ.toFixed(1)}% of its own span${st.gpuNs>0?`, kernels were ${(kernelMs/Math.max(busyMs,1e-9)*100).toFixed(1)}% of in-flight time`:''}.`);
+      onLog(occLines.map((l,i)=>i===0?l:'  '+l).join('\n'));
     }
     // Per-batch churn. Every one of these is created and destroyed again for the
     // NEXT batch — the reason this is reported is that it is the cheapest thing
@@ -20558,15 +20604,17 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     // Batch/pool sizing, so the two knobs that most affect the numbers above
     // (PARAMS.gpuBatchMb / PARAMS.gpuInflight) are visible next to their effect
     // rather than having to be inferred from the churn figures.
-    if(gpuAccInfo) onLog(`               ${gpuAccInfo.summary}`);
     // Buffers/bind groups are now a ONE-TIME pool allocation, so a per-batch
     // average of them is no longer a meaningful number — slot reuse is. A
     // nonzero slotWaits means every slot was busy and a batch had to fall back
     // to allocating its own: the GPU is behind the detector, raise gpuInflight.
+    const churnLines=[];
+    if(gpuAccInfo) churnLines.push(gpuAccInfo.summary);
     if(st.slotsReused||st.slotWaits)
-      onLog(`               slots: ${st.slotsReused.toLocaleString()} batches from the persistent pool · ${st.slotWaits.toLocaleString()} overflow (all slots busy)`);
-    onLog(`               allocation: ${st.buffersCreated.toLocaleString()} buffers · ${st.bindGroupsCreated.toLocaleString()} bind groups (mostly the one-time slot pool above) · ${st.submits.toLocaleString()} submits · ${st.mapReads.toLocaleString()} readbacks`);
-    onLog(`               traffic: ${fmtBytes(st.bytesUp)} uploaded · ${fmtBytes(st.bytesDown)} read back · ${fmtBytes(st.bytesAllocated)} allocated`);
+      churnLines.push(`Slots: ${st.slotsReused.toLocaleString()} batches from the persistent pool, ${st.slotWaits.toLocaleString()} overflow (all slots busy).`);
+    churnLines.push(`Allocation: ${st.buffersCreated.toLocaleString()} buffers, ${st.bindGroupsCreated.toLocaleString()} bind groups (mostly the one-time slot pool above), ${st.submits.toLocaleString()} submits, ${st.mapReads.toLocaleString()} readbacks.`);
+    churnLines.push(`Traffic: ${fmtBytes(st.bytesUp)} uploaded, ${fmtBytes(st.bytesDown)} read back, ${fmtBytes(st.bytesAllocated)} allocated.`);
+    onLog(churnLines.map((l,i)=>i===0?l:'  '+l).join('\n'));
   }
   if(stopped) onLog('Partial result shown — press “Localize” to start over.');
 
@@ -23444,20 +23492,17 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19d — headless analyze() no longer
-crashes on a genuinely huge result. Real ~50,000-frame/~12-million-
-localization test data (found while validating last build's GPU-render
-crash fix) hit a SEPARATE, real bug: analyze()'s own csvText:parts.join('')
-forced the whole CSV through one JS string, well past V8's real per-string
-ceiling (measured directly: 2**29-24 = 536,870,888 characters, identical in
-Node and Chrome) — "RangeError: Invalid string length". Fixed two ways:
-analyze() now always returns csvParts (buildCsvText()'s own already-chunked
-array, safe at any scale — interactive Save data already builds its export
-this same way) alongside csvText, which is null instead of a broken string
-once it would exceed that ceiling; and a new config.exportCsvRows streams
-the same chunks through onRecord instead of the return value at all —
-tools/webSMLM-cli.mjs now uses this unconditionally, so a CLI run's own
-result.csv is never at risk regardless of dataset size.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19e — cleaned up the Log window's
+own GPU-fit diagnostic report: it used to be a dozen separate log lines,
+each hand-padded with just enough leading spaces to align under a shared
+label — looked fine in-app, but fell apart into a wall of misaligned
+fragments the moment it was copied out (reported directly). Each related
+cluster is now one message with a plain, short indent instead. Also fixed
+a real, reported readability bug: a logged command (e.g. "analyze({...})")
+printed with a spurious blank line before its own first result line,
+making it ambiguous which command a given comment belonged to — that
+blank line is now suppressed specifically when it would duplicate the
+separator already printed before a command/terminal entry.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
