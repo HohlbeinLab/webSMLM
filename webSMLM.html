@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.7-dev; may drift
+  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19g; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -146,9 +146,15 @@
                            instead of a single all-or-nothing dispatch — a
                            real, reported crash near a real dataset's own
                            multi-million-localization scale traced to exactly
-                           this being unchunked
-    export          11301  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11653  astigmatic sigma_x/sigma_y vs z bead curves;
+                           this being unchunked; WGSL_RENDER_PRECISION had
+                           TWO bugs vs. the CPU splatGaussianLoc() it mirrors
+                           (point-sampled PDF instead of pixel-integrated
+                           mass, 66.4% mass capture at sigma=0.3 SR-px; a
+                           non-separable O(nx*ny) exp() recompute instead of
+                           precomputed separable rows/columns) — both fixed,
+                           see MODULE: render's own paragraph
+    export          11364  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11716  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -159,7 +165,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12135  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12198  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -183,9 +189,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13067  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13130  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           14027  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14090  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -395,7 +401,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             17788  single particle tracking, trackpy-inspired;
+    spt             17851  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -426,7 +432,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19326  top-level orchestration, *Core()/wrapper split;
+    pipeline        19389  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -491,8 +497,17 @@
                            routes the MLE fit
                            methods to a batched, cross-frame GPU dispatch path
                            alongside the existing worker-pool/single-threaded
-                           ones — see MODULE: gpu
-    liveStreaming   20797  Micro-Manager/pycromanager camera bridge
+                           ones — see MODULE: gpu; config.auditCandidates'
+                           own post-Localize cleanup now sets
+                           L._candidatePixel=undefined instead of
+                           `delete`-ing it — a real, reported crash at true
+                           full scale (~4M real localizations) traced to
+                           `delete` forcing V8 dictionary-mode on every loc
+                           object (measured ~2x memory for the whole locs
+                           array); undefined is behaviorally identical (every
+                           reader already treats it as "not audited") but
+                           keeps every loc on its fast hidden class
+    liveStreaming   20876  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -546,14 +561,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23641  localizations table, filtering, histograms;
+    table           23724  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24393  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24476  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2621,7 +2636,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19f</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19g</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9673,8 +9688,41 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // bin-then-blur-the-whole-buffer. Ported line-for-line from those two functions:
 // same +/-3 sigma window arithmetic, same 1/(2*pi*sx*sy) normalisation, same
 // MAX_SPLAT_SIGMA_PX cap, same NaN-safe range rejection. A divergence here is a
-// different IMAGE, not a slower one, so the port is deliberately literal rather
-// than restructured for the GPU.
+// different IMAGE, not a slower one — this comment's own original point, which
+// the first version of this kernel did not actually live up to (see the two
+// fixes below), caught by tests/gpu/bench-render.mjs's own correctness gate
+// (up to 15% of pixels beyond tolerance, worst on exactly the cases that
+// perturb lpx/lpy) and independently confirmed by hand: at sigma=0.3 SR-px (a
+// realistic, common value for a well-localized emitter), a point-sampled peak
+// captures only ~66% of the true per-pixel mass a pixel-integrated one does —
+// the SAME real, reported bug splatGaussianLoc()'s own comment already
+// documents being fixed on the CPU side ("silently discards almost an entire
+// localization's own mass once sigma drops well under 1 SR-px"), just never
+// ported to this kernel.
+//
+// TWO fixes, both restoring what the comment above always claimed this kernel
+// did:
+// (1) Correctness — each pixel's weight is now the Gaussian's own INTEGRATED
+//     probability mass over that pixel's footprint (gInt(), the exact
+//     erf-based pixel-integration mleGInt()/splatGaussianLoc() use, MODULE:
+//     fit/render — erfApprox() itself already exists in WGSL, reused
+//     verbatim from WGSL_FIT_SPHERICAL), not a point-sample of the PDF at the
+//     pixel centre.
+// (2) Performance — gx[]/gy[] (each pixel COLUMN's/ROW's own share of the
+//     mass) are each computed ONCE per column/row into small per-invocation
+//     local arrays (O(nx+ny) erf() calls total, the SAME separable structure
+//     splatGaussianLoc() already uses on the CPU), not once per PIXEL in the
+//     window the way the first version of this kernel recomputed dx's own
+//     exp() term on every inner-loop iteration despite it only depending on
+//     the column — an O(nx*ny) cost regardless of what weight formula is
+//     used, up to ~1,369 erf/exp calls per localization at the
+//     MAX_SPLAT_SIGMA_PX cap (37x37) versus ~76 separable ones. WGSL has no
+//     dynamic-length function-scope array, so MAX_WIN(40) below is a fixed
+//     upper bound derived from that same cap (2*ceil(3*MAX_SPLAT_SIGMA_PX)+2
+//     = 38 in the worst case, checked directly) — WebGPU's own mandatory
+//     buffer/array robustness guarantees a stray out-of-bounds index clamps
+//     rather than corrupting memory even if that bound were ever wrong, but
+//     it never should be while MAX_SPLAT_SIGMA_PX stays at 6.
 //
 // Note the bounds test uses the UNROUNDED px/py against W/H, unlike
 // WGSL_RENDER_ACCUMULATE above which rounds first — that difference is in the
@@ -9704,9 +9752,29 @@ struct Params { W:f32, H:f32, mag:f32, zColorFlag:f32, zlo:f32, zhi:f32, zscale:
 @group(0) @binding(3) var<storage, read_write> acc: array<atomic<u32>>;
 @group(0) @binding(4) var<storage, read_write> zacc: array<atomic<u32>>;
 override WG: u32 = 64u;
+const MAX_WIN: u32 = 40u;
 // WGSL has no isFinite(): NaN fails v==v, and both infinities fail the magnitude
 // test. Same expression the fit kernels use.
 fn isFin(v: f32) -> bool { return v == v && abs(v) < 3.4e38; }
+// Same erf approximation WGSL_FIT_SPHERICAL already uses (Abramowitz & Stegun
+// 7.1.26) — copied rather than shared, same reason addAcc/addZacc below are
+// two near-identical functions rather than one: WGSL has no cross-shader-
+// string sharing mechanism here, each compiled kernel string is self-contained.
+fn erfApprox(xIn: f32) -> f32 {
+  let s = select(1.0, -1.0, xIn < 0.0); let x = abs(xIn);
+  let t = 1.0 / (1.0 + 0.3275911*x);
+  let y = 1.0 - (((((1.061405429*t - 1.453152027)*t) + 1.421413741)*t - 0.284496736)*t + 0.254829592) * t * exp(-x*x);
+  return s*y;
+}
+// Pixel-INTEGRATED probability mass over [pix-0.5, pix+0.5] — the exact
+// erf-based integration mleGInt()/splatGaussianLoc() use on the CPU (MODULE:
+// fit/render), not a point-sample of the PDF at the pixel centre. See this
+// kernel's own top-of-block comment for why that distinction is a real
+// correctness bug, not a style choice.
+fn gInt(pix: f32, mu: f32, sig: f32) -> f32 {
+  let sn = 0.7071067811865476 / sig; let d = pix - mu;
+  return 0.5 * (erfApprox((d+0.5)*sn) - erfApprox((d-0.5)*sn));
+}
 // Two near-identical functions rather than one taking a pointer: a
 // ptr<storage,...> function parameter needs the unrestricted_pointer_parameters
 // language feature, which is not universally available, so each one indexes its
@@ -9750,18 +9818,28 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let jMin = max(0, i32(floor(px - 3.0 * sx)));
   let jMax = min(Wi, i32(ceil(px + 3.0 * sx)) + 1);
   if (jMax <= jMin || iMax <= iMin) { return; }
-  let inv2sx2 = 1.0 / (2.0 * sx * sx);
-  let inv2sy2 = 1.0 / (2.0 * sy * sy);
-  let norm = 1.0 / (6.283185307179586 * sx * sy);
+  // Separable: gx[]/gy[] (each pixel COLUMN's/ROW's own share of the mass) are
+  // each computed ONCE per column/row into these small per-invocation local
+  // arrays — O(nx+ny) erf() calls total — instead of once per PIXEL in the
+  // window (O(nx*ny)), the same separable structure splatGaussianLoc() already
+  // uses on the CPU (MODULE: render). nx/ny are clamped to MAX_WIN as a
+  // defensive belt-and-suspenders measure — MAX_SPLAT_SIGMA_PX(6) already
+  // bounds the true worst case to 38, checked directly — WebGPU's own mandatory
+  // array-access robustness means a stray out-of-range index would clamp rather
+  // than corrupt memory even if that bound were ever wrong.
+  let nx = min(MAX_WIN, u32(jMax - jMin));
+  let ny = min(MAX_WIN, u32(iMax - iMin));
+  var gx: array<f32, 40>;
+  var gy: array<f32, 40>;
+  for (var jj: u32 = 0u; jj < nx; jj = jj + 1u) { gx[jj] = gInt(f32(jMin) + f32(jj) + 0.5, px, sx); }
+  for (var ii: u32 = 0u; ii < ny; ii = ii + 1u) { gy[ii] = gInt(f32(iMin) + f32(ii) + 0.5, py, sy); }
   let zval = select(0.0, L.z, p.zColorFlag > 0.5);
-  for (var yy = iMin; yy < iMax; yy = yy + 1) {
-    let dy = f32(yy) + 0.5 - py;
-    let gy = exp(-(dy * dy) * inv2sy2) * norm;
-    let row = yy * Wi;
-    for (var xx = jMin; xx < jMax; xx = xx + 1) {
-      let dx = f32(xx) + 0.5 - px;
-      let w = gy * exp(-(dx * dx) * inv2sx2);
-      let idx = u32(row + xx);
+  for (var ii: u32 = 0u; ii < ny; ii = ii + 1u) {
+    let row = (iMin + i32(ii)) * Wi;
+    let gyi = gy[ii];
+    for (var jj: u32 = 0u; jj < nx; jj = jj + 1u) {
+      let w = gyi * gx[jj];
+      let idx = u32(row + jMin + i32(jj));
       addAcc(idx, w);
       // No p.zscale here, unlike WGSL_RENDER_ACCUMULATE: that factor exists only
       // to give the integer z-sum some sub-unit resolution, and this accumulator
@@ -20638,10 +20716,26 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 
   // Headless certification seam only: one integer per accepted localization,
   // aligned with `locs`, so CPU/GPU results join exactly by (frame,pixel)
-  // without nearest-neighbour ambiguity. The temporary object field is removed
-  // before any UI/table/export consumer can see it.
+  // without nearest-neighbour ambiguity. The temporary object field is
+  // cleared to `undefined`, NOT deleted, before any UI/table/export consumer
+  // can see it — a real, reported crash: `delete` forces V8 to convert an
+  // object off its fast hidden-class representation onto a slow, dictionary-
+  // mode one (a well-known engine behavior, confirmed directly here: 3M
+  // loc-shaped objects measured at 675MB retained, ballooning to 1682MB —
+  // +150% — from `delete` alone, nothing else changed). A real ~40,000-frame
+  // Run producing ~4M localizations hit this exactly: Localize itself
+  // finished cleanly and fast, then the tab crashed moments later, right in
+  // this cleanup line, once combined heap usage crossed the browser's own
+  // ceiling — auditCandidates is headless/test-only, but the bug is here in
+  // the app itself, not in whatever script happened to set the flag.
+  // Setting to `undefined` is exactly equivalent for every real reader: every
+  // other `_candidatePixel` write site already treats `undefined` as its own
+  // "not audited" value (see the `candidatePixels?candidatePixels[m]:undefined`
+  // pattern the object literals above use), and it keeps every loc on the
+  // SAME hidden class throughout, so this line costs nothing extra instead of
+  // doubling the whole array's real memory footprint.
   const auditCandidatePixels=config.auditCandidates?Int32Array.from(locs,L=>L._candidatePixel):undefined;
-  if(config.auditCandidates) for(const L of locs) delete L._candidatePixel;
+  if(config.auditCandidates) for(const L of locs) L._candidatePixel=undefined;
 
   return { locs, w, h, n, px, mag:config.mag, det:{sigma,k,win,border,exactBP,mode},
            method, label, processed, stopped, useWorkers,
@@ -23510,21 +23604,28 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19f — fixed a real, reported bug:
-the reconstruction stayed visibly stale (washed-out/motion-blurred) after
-Drift correction whenever GPU rendering was active. Cause: driftCore()
-corrects positions by mutating L.x/L.y IN PLACE on the SAME locs array —
-correct and reversible, but the GPU render's own accumulate cache keys a
-cache hit purely on "same locs array, same length", which can't tell that
-apart from "nothing changed at all". Position/NeNA/FRC read locs directly
-and were always correct; only the GPU-rendered image itself went stale.
-Switching render mode away and back "fixed" it before, purely because
-render mode happens to share the same cache key — not a real fix. Now
-driftCore() itself busts that cache the moment it mutates positions, so
-the very next render is forced back onto its full-rebuild path. That
-rebuild is inherently slower than an incremental append (every position
-changed, not just new locs added) — a real cost, not a regression: it is
-the work the stale cache used to skip.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19g — two real, reported bugs fixed.
+
+(1) GPU "precision" render mode was both visibly wrong and slower than it
+should be. It point-sampled the Gaussian PDF per pixel instead of
+integrating the true pixel mass (only 66% of a localization's mass was
+captured at a typical in-focus sigma, vs. 100% on the CPU path, which
+already had this fix) — this alone could wash out a reconstruction's fine
+structure. It also recomputed a full exp() for every pixel in each
+localization's splat footprint (up to ~1369 calls) instead of precomputing
+separable per-row/per-column weights first (~76 calls), the same approach
+the CPU path already uses. Both are fixed; GPU precision-mode speedup over
+CPU on realistic cases improved to roughly 1.7x-4.3x.
+
+(2) tests/gpu/bench-real-data.mjs --full reliably crashed partway through
+a true full-scale (~4 million localization) run. Root cause was in
+webSMLM.html, not the test script: an audit-only cleanup step did
+"delete loc._candidatePixel" on every accepted localization, which forces
+the JS engine to convert that object onto a much slower, much larger
+internal representation — roughly doubling memory for the whole
+localizations array. Fixed by assigning undefined instead of deleting the
+property (identical behaviour for every reader). The full real-dataset
+benchmark now completes end-to-end on both CPU and GPU.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

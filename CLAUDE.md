@@ -231,7 +231,32 @@ in a module.
   from precision-aware splatting; `'dither'` stochastically jitters+bins for large/dense datasets.
   `splatGaussianLoc()` integrates the Gaussian's true probability mass over each pixel's footprint via
   `mleGInt()` (MODULE: fit) rather than point-sampling the PDF — point-sampling can lose almost an
-  entire dataset's mass once σ<<1 SR-px (an uncalibrated `gain=1` sample can produce this).
+  entire dataset's mass once σ<<1 SR-px (an uncalibrated `gain=1` sample can produce this). It's also
+  SEPARABLE: per-row/per-column weight arrays (`gx[]`/`gy[]`, `O(nx+ny)` erf calls) are precomputed
+  once, then the `O(nx·ny)` inner loop is a cheap multiply, not a repeated transcendental call.
+
+  **`WGSL_RENDER_PRECISION`** (the GPU path for `'precision'` mode) had BOTH of these bugs until a
+  real, reported "reconstruction looks washed out compared to a past run" investigation found it had
+  silently diverged from the CPU `splatGaussianLoc()` it's supposed to mirror: (1) **correctness** —
+  it point-sampled the Gaussian PDF (`exp(-(dx)²/2σ²)`) per pixel instead of integrating pixel mass,
+  measured to capture only 66.4% of true mass at σ=0.3 SR-px (a common regime for real, well-focused
+  data) vs. the CPU path's 100% — the exact bug the CPU path's own `mleGInt()` comment already
+  documents as fixed, just never ported to the WGSL kernel; (2) **performance** — it recomputed a full
+  `exp()` for both x and y on EVERY inner-loop pixel (true `O(nx·ny)` transcendental calls, up to
+  ~1369 at the `MAX_SPLAT_SIGMA_PX`(6) cap) instead of the CPU path's separable precomputed rows/
+  columns. Fixed by porting the same `gInt()` (erf-based pixel-integrated mass, reusing the same
+  `erfApprox()` already duplicated into `WGSL_FIT_SPHERICAL` — WGSL kernel strings can't share
+  functions across separately-compiled sources) and the same separable `gx[]`/`gy[]` precompute
+  pattern into the WGSL kernel, bounded by a fixed-size `array<f32,40>` local (`MAX_WIN`, matching
+  `MAX_SPLAT_SIGMA_PX`'s own derived worst case, `2·3·6+2=38` window cells/side). Verified via
+  `tests/gpu/bench-render.mjs`: all 14 cases now pass pixel-exact (previously several MISMATCHed),
+  precision-mode GPU speedup over CPU improved to 1.66×–4.32× across realistic cases (mean 4.77×; the
+  smallest synthetic case, mag 5, still shows GPU dispatch overhead dominating at real scale — 0.37×,
+  expected and unrelated to this fix). The CAS-loop float-atomic accumulation itself (`addAcc()`/
+  `addZacc()` via `atomicCompareExchangeWeak`) was deliberately left UNCHANGED — a fixed-point `i32`
+  alternative was already tried and found to introduce a real 6.5–7.1% pixel-value rounding bias, so
+  the more expensive but exact CAS loop is a documented, necessary trade-off, not something this fix
+  should touch.
 
   `setupPlot(cv, isPlot=false)` letterboxes a fixed 4:3 sub-rectangle for the ~13 non-frame plots this
   app draws on the raw/SR canvases (drift, NeNA, FRC, PCFO, line-profile, calibration, the shared
@@ -640,6 +665,24 @@ in a module.
   reserve now directly prevents (see **render**'s own paragraph on `checkRenderSize()`'s matching
   fix). Still an estimate, not a guarantee — no client-side JS can detect or prevent an OS-level tab
   kill for certain.
+
+  **Never `delete` a property off a loc object post-hoc — set it to `undefined` instead.**
+  `config.auditCandidates` (headless/test-only, keeps each accepted loc's originating detection-pixel
+  index for cross-checking) used to `delete L._candidatePixel` on every loc once no longer needed. A
+  real, reported crash at TRUE full scale (`tests/gpu/bench-real-data.mjs --full`, ~4M real
+  localizations) traced to this: `delete` forces V8 to convert that object off its fast, shared,
+  shape-based hidden-class representation onto a slow, per-object dictionary-mode (hash-table)
+  representation — measured directly to roughly DOUBLE memory for a large loc array (675.2MB→
+  1682.3MB, +150%, for 3M loc-shaped objects in isolation), which at true full scale pushed
+  `totalJSHeap` to the tab's own heap limit right after Localize finished. Fixed by
+  `L._candidatePixel=undefined` instead — behaviorally identical (every construction site already
+  treats `undefined` as the "not audited" sentinel, never distinguishes it from "property absent"),
+  but keeps every loc on its existing fast hidden class. General rule going forward: post-hoc-clearing
+  a property that WAS present on a hot, large-N object array should always assign `undefined` (or a
+  suitable sentinel), never `delete` — `delete` is fine on small, one-off, or genuinely short-lived
+  objects (e.g. a single settings-migration object), never on a large homogeneous array of hot
+  objects the app already relies on staying monomorphic (matching `LOC_ROW_BYTES`'s own fast-shape
+  assumption above).
 
   **`memBudgetGB`/`memgb`/`chunkmb` are three independent settings** ("Total memory budget (GB)",
   "Budget raw movies (GB)", "Stream heap (MB)", all under "Memory & streaming"): `memBudgetGB` is the
