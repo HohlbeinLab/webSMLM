@@ -340,6 +340,25 @@ in a module.
   it's silently dropped for that path only (the single-threaded fallback keeps it for free, so the bug
   is easy to miss).
 
+  `buildCsvText()` returns `parts` — ~5000-row string chunks, never one joined string — specifically
+  so a huge export never forces a single JS string through concatenation; interactive **Save data**
+  already consumes this correctly (`new Blob(parts,...)`). `analyze()` (MODULE: headless API) used to
+  undo that safety by returning `csvText:parts.join('')` unconditionally — a real, reported crash on a
+  real ~12-million-localization dataset (`RangeError: Invalid string length`, measured directly against
+  both Node's and Chrome's own V8: the real hard ceiling is `2**29-24 = 536,870,888` characters,
+  identical in both). Fixed two ways: `analyze()` now always returns `csvParts` (always safe, any
+  scale) alongside `csvText`, which is `null` instead of a broken/truncated string once the joined
+  length would exceed `CSV_TEXT_MAX_CHARS` (a margin below that measured ceiling, not the ceiling
+  itself — `parts.join('')` needs to allocate the whole result on top of `parts` already in memory, so
+  joining right up to the hard number risks an allocation failure before the length check even helps).
+  Separately, `config.exportCsvRows` streams `parts` through `config.onRecord('csv', [chunk])` instead
+  of the return value at all — the same reasoning as `exportTrackData`/`exportSSmlmCandidates`/
+  `exportCalibrationPoints`/`exportPcfoTiles` below (a headless caller's return value crosses the
+  DevTools Protocol as one JSON blob), just applied to the one export every run produces rather than
+  an opt-in analysis step's side output. `tools/webSMLM-cli.mjs` sets this unconditionally (not a CLI
+  flag — every run wants its CSV written safely) and special-cases the `'csv'` `onRecord` kind to write
+  each chunk verbatim into `result.csv` rather than NDJSON-wrapping it like the other four kinds.
+
 - **3D calibration** — astigmatic σx/σy-vs-z bead curves, JSON save/load; the only 3D method
   implemented. `calibrationCore()`/`runCalibration()` follow the same `*Core()`+wrapper split as
   Localize, including Stop support.

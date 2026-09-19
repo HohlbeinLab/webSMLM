@@ -3114,18 +3114,33 @@ const result = await window.webSMLM.analyze({
   (`sptTrack`/`sSmlmPair`/a fresh calibration build or `calibrationOnly`/
   `estimateGainOffset` respectively) — on its own it does nothing, there
   being no dataset yet to stream records from.
-- `config.onRecord(kind, batch)` — optional, paired with the four flags
+- `config.exportCsvRows` — boolean, not a `PARAMS` entry. Streams
+  `buildCsvText()`'s own already-chunked CSV text (§2's **export** module,
+  ~5000 rows/chunk) through `config.onRecord('csv', [chunk])` instead of
+  returning `csvText`/`csvParts` below — for a headless caller whose own
+  return-value channel (a DevTools-Protocol JSON blob, for a Playwright-
+  driven script) shouldn't carry a truly huge CSV (a real ~12-million-
+  localization dataset produces a CSV well past a gigabyte). Unlike the four
+  export flags above, this needs no companion analysis step — every run
+  already produces `locs`, hence a CSV. `tools/webSMLM-cli.mjs` sets this
+  unconditionally (not a `--exportCsvRows` CLI flag) and writes each
+  streamed chunk straight to `result.csv`, verbatim (not NDJSON-wrapped —
+  see **Streaming per-record exports** below).
+- `config.onRecord(kind, batch)` — optional, paired with the five flags
   above. `kind` is one of `'spt_tracks'`/`'sSmlm_candidates'`/
-  `'calibration_beads'`/`'pcfo_tiles'`; `batch` is a plain array of up to
-  2000 plain objects (`makeRecordEmitter()`'s default batch size — not
-  load-bearing, just a write/memory tradeoff). Called zero or more times per
-  export flag as the underlying computation produces records — never
-  accumulated anywhere in-page, so a real dataset's worth of tracks/
-  candidates/bead points (thousands to low millions) never needs to fit in
-  one JS array or cross back through this function's own return value at
-  all. A caller with no `onRecord` gets no records for these flags, silently
-  — no error, since "didn't ask for the records" and "asked but got zero"
-  need to look the same.
+  `'calibration_beads'`/`'pcfo_tiles'`/`'csv'`; `batch` is a plain array —
+  up to 2000 plain objects for the first four (`makeRecordEmitter()`'s
+  default batch size — not load-bearing, just a write/memory tradeoff), or
+  a single already-formatted multi-row CSV text chunk for `'csv'` (which
+  reuses `buildCsvText()`'s own chunking directly rather than re-batching
+  through `makeRecordEmitter()`). Called zero or more times per export flag
+  as the underlying computation produces records — never accumulated
+  anywhere in-page, so a real dataset's worth of tracks/candidates/bead
+  points/CSV rows (thousands to low millions) never needs to fit in one JS
+  array or cross back through this function's own return value at all. A
+  caller with no `onRecord` gets no records for these flags, silently — no
+  error, since "didn't ask for the records" and "asked but got zero" need to
+  look the same.
 - `config.onProgress(pct)` — optional, called the same way `setProg()` would
   be interactively (0–100), for a driving script's own progress reporting.
 - `config.onLog(msg)` — optional, called for every line `analyze()` would
@@ -3142,7 +3157,7 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, performance, execution, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
+**Returns** `{locs, csvText, csvParts, logText, settingsText, timings, performance, execution, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
 - `performance` is a phase-timing object for the whole `analyze()` call
   (`inputMs`, `localizationMs`, `postprocessMs`, `csvMs`, `renderMs`,
   `pngEncodeMs`, `plotsMs`, etc.).
@@ -3171,7 +3186,22 @@ const result = await window.webSMLM.analyze({
 - `csvText`/`settingsText`/`logText` are ready-to-write strings — the same
   three artifacts (§4, §6) a UI session produces by hand via Save
   settings/Save data/Export log, assembled without ever touching those
-  buttons.
+  buttons. `csvText` is `null` instead of a truncated/broken string once the
+  full CSV would exceed a safe per-string character count (measured
+  directly against both Node's and Chrome's own V8: `2**29-24 =
+  536,870,888` is the real hard ceiling — `CSV_TEXT_MAX_CHARS` in
+  `webSMLM.html` stays a margin below that) — `csvParts` (below) is always
+  present regardless, so a caller doesn't lose the data, only the
+  single-string convenience. Also `null` (both `csvText` and `csvParts`)
+  when `config.exportCsvRows` streamed the CSV via `onRecord` instead — see
+  that flag above.
+- `csvParts` is the same array `buildCsvText()` returns internally — ~5000-
+  row string chunks, never joined into one string by this function.
+  Interactive **Save data** already builds its CSV export this same way
+  (`new Blob(parts, {...})`, MODULE: export) — a headless caller with a
+  genuinely huge result should do the same rather than relying on `csvText`,
+  which this function may leave `null` (see above) specifically for that
+  case.
 - `reconstructionPng` is a `data:image/png;base64,...` URL, rendered via
   `renderSuperRes()` — which already creates its own detached `<canvas>`
   internally, so this needs no page canvas element at all, headless or not.
@@ -3283,7 +3313,26 @@ CLI never buffers a large array to hand back over CDP:
 | `calibration_beads` | a fresh calibration build (`calibrationFile`/`Files`, or `calibrationOnly`) | detected bead per calibration frame | `fi` (0-indexed frame), `x`, `y` (px), `sx`, `sy` (elliptical-fit widths, px), `pr` (phasor magnitude ratio), `mx`, `my` (phasor magnitudes), `rrel` (fit relative residual) |
 | `pcfo_tiles` | `estimateGainOffset` | image tile per sampled frame | `imsig` (mean tile signal, ADU), `noisevar` (high-frequency noise variance, ADU²) — the same points PCFO's own gain/offset regression fits |
 
-Each is deliberately **export-only** — none round-trips back into a load
+**`csv` is a fifth `onRecord` kind, deliberately outside this table** — it
+carries `buildCsvText()`'s own already-chunked CSV **text** (one complete,
+newline-terminated ~5000-row string per batch, `batch=[chunk]`), not a JSON
+record, and requires only `config.exportCsvRows` (every run already has
+`locs` to export; no companion analysis-step flag needed the way the four
+above each need one). It exists for the same reason as the other four —
+`analyze()`'s return value crossing the DevTools Protocol as one JSON
+blob — but at a scale the others were designed for from the start and CSV
+export wasn't: a real ~12-million-localization dataset (measured directly
+this session) produces CSV text past 1 GB, comfortably over both a
+reasonable return-value size AND V8's own hard per-string character
+ceiling (`csvText` handles the latter case on its own — see `analyze()`'s
+own Returns section above — but only `exportCsvRows` avoids the return
+value entirely). `tools/webSMLM-cli.mjs` sets it unconditionally (there is
+no `--exportCsvRows` flag) and writes each streamed chunk straight into
+`result.csv` **verbatim** — no `JSON.stringify()`, no NDJSON schema
+line — since a real CSV file needs its own header row (already the first
+chunk `buildCsvText()` produces), not a JSON marker line.
+
+Each of the other four is deliberately **export-only** — none round-trips back into a load
 path the way CSV/settings/calibration JSON do; there's no "load calibration
 bead points" or "load PCFO tiles" feature, and none is planned. The schema
 is intentionally narrow (a handful of numeric fields) rather than mirroring
@@ -3299,8 +3348,13 @@ use — `page.on('console')` sees it well before `analyze()`'s own return
 value arrives) to a Node-side listener that appends straight to a
 newline-delimited JSON file (NDJSON — one compact JSON object per line, not
 one big array) via `fs.createWriteStream()`: `spt_tracks.ndjson`,
-`sSmlm_candidates.ndjson`, `calibration_beads.ndjson`, `pcfo_tiles.ndjson`,
-written alongside the usual `result.csv`/`summary.json`/etc. output. NDJSON
+`sSmlm_candidates.ndjson`, `calibration_beads.ndjson`, `pcfo_tiles.ndjson`.
+The CLI sets `config.exportCsvRows` unconditionally alongside these (not a
+flag the user passes) and routes the `'csv'` kind through the SAME
+listener, into `result.csv` itself rather than a `.ndjson` file — the one
+kind written verbatim instead of JSON-per-line, per its own entry above.
+Every one of these is written alongside the usual `settings.json`/`log.txt`/
+`summary.json`/etc. output. NDJSON
 over a single JSON array specifically because it's writable AND readable
 incrementally (a consumer — `pandas.read_json(path, lines=True)`, or a
 line-by-line reader for anything larger — never needs the whole file parsed

@@ -55,6 +55,17 @@
 // this script's page.evaluate() return value (docs/DOCUMENTATION.md §8 has
 // the full design rationale and schema).
 //
+// result.csv itself is ALWAYS streamed the same way (config.exportCsvRows,
+// set unconditionally below, not a CLI flag) — no --exportCsvRows needed:
+// every run produces a CSV, unlike the four optional exports above, and a
+// real ~50,000-frame/~12M-localization dataset (measured this session)
+// would otherwise put ~1GB+ of CSV text through the return value's own JSON
+// blob, or even past V8's own per-string character ceiling entirely
+// (2^29-24 — see CSV_TEXT_MAX_CHARS's own comment in webSMLM.html). Written
+// to result.csv via the SAME recordStreams/writeRecordBatch() machinery as
+// the four NDJSON exports, just without the JSON encoding — see the 'csv'
+// special case there.
+//
 // --calibration accepts EITHER a *.json (used as-is, today's behaviour) or a
 // *.tif/*.tiff bead z-stack — dispatched on file extension. A .tif builds a
 // fresh calibration via calibrationCore() before the main run (and writes it
@@ -239,6 +250,7 @@ const RECORD_FILENAMES = {
   sSmlm_candidates: 'sSmlm_candidates.ndjson',
   calibration_beads: 'calibration_beads.ndjson',
   pcfo_tiles: 'pcfo_tiles.ndjson',
+  csv: 'result.csv',
 };
 const recordStreams = new Map();   // kind -> {stream, count}
 function writeRecordBatch(kind, batch) {
@@ -246,11 +258,17 @@ function writeRecordBatch(kind, batch) {
   if (!entry) {
     const name = RECORD_FILENAMES[kind] || `${kind}.ndjson`;
     const stream = createWriteStream(join(outDir, name));
-    stream.write(JSON.stringify({ _schema: `webSMLM.${kind}.v1` }) + '\n');
+    // 'csv': each batch item is already one of buildCsvText()'s own
+    // complete, newline-terminated multi-row chunks (webSMLM.html,
+    // MODULE: export) — written verbatim, not as an NDJSON record. A real
+    // CSV file needs its own header row (already the very first chunk),
+    // not a JSON schema line.
+    if (kind !== 'csv') stream.write(JSON.stringify({ _schema: `webSMLM.${kind}.v1` }) + '\n');
     entry = { stream, count: 0 };
     recordStreams.set(kind, entry);
   }
-  for (const rec of batch) entry.stream.write(JSON.stringify(rec) + '\n');
+  if (kind === 'csv') { for (const chunk of batch) entry.stream.write(chunk); }
+  else for (const rec of batch) entry.stream.write(JSON.stringify(rec) + '\n');
   entry.count += batch.length;
 }
 // Node's own fs.WriteStream buffers internally and flushes async — 'finish'
@@ -375,12 +393,19 @@ try {
     // BATCH (not per record) keeps the console-message count reasonable even
     // for a real dataset's worth of tracks/candidates/bead points.
     config.onRecord = (kind, batch) => console.log(recordTag + JSON.stringify({ kind, batch }));
+    // Always on for the CLI, not user-facing — see this file's own top-of-file
+    // comment on why result.csv itself is unconditionally streamed the same
+    // way the four optional NDJSON exports above are opted into.
+    config.exportCsvRows = true;
     const r = await window.webSMLM.analyze(config);
     if (config.calibrationOnly) return { calibrationOnly: true, calibJsonText: r.calibJsonText, logText: r.logText, plots: r.plots };
-    // Trim: locs itself can be large and is redundant with csvText for file
-    // output — keep only what a CLI run actually needs to write out.
+    // Trim: locs itself can be large and is redundant with result.csv (now
+    // streamed via onRecord, see config.exportCsvRows above) for file
+    // output — keep only what a CLI run actually needs to write out. r.csvText/
+    // r.csvParts are both undefined here since exportCsvRows routed the CSV
+    // through onRecord instead of the return value.
     return {
-      nLocalizations: r.locs.length, csvText: r.csvText, settingsText: r.settingsText,
+      nLocalizations: r.locs.length, settingsText: r.settingsText,
       logText: r.logText, reconstructionPng: r.reconstructionPng, timings: r.timings,
       drift: r.drift, nena: r.nena, frc: r.frc, calibJsonText: r.calibJsonText,
       // pts (one point per tile per sampled frame) is redundant with the log's
@@ -406,7 +431,11 @@ try {
   // reporting what was written — otherwise the tail of a large .ndjson file
   // can still be in flight when the process exits.
   await closeRecordStreams();
-  const recordFiles = [...recordStreams.entries()].map(([kind, { count }]) =>
+  // 'csv' excluded here — its own count is buildCsvText()'s CHUNK count
+  // (~5000 rows each), not a row count, which would read as a bizarrely
+  // small "record" total; result.csv gets its own explicit line below,
+  // using result.nLocalizations (the real row count) instead.
+  const recordFiles = [...recordStreams.entries()].filter(([kind]) => kind !== 'csv').map(([kind, { count }]) =>
     `${RECORD_FILENAMES[kind] || kind + '.ndjson'} (${count.toLocaleString()} record${count === 1 ? '' : 's'})`);
 
   const calibOutName = (calibPath ? basename(calibPath).replace(/\.(ome\.)?tiff?$/i, '') : 'webSMLM') + '_calib.json';
@@ -434,7 +463,10 @@ try {
     const extra = [...plotFiles, ...recordFiles];
     printLine(`Done: calibration written to ${join(outDir, calibOutName)}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
   } else {
-    writeFileSync(join(outDir, 'result.csv'), result.csvText);
+    // result.csv itself was already written incrementally via onRecord/
+    // writeRecordBatch() (config.exportCsvRows, set unconditionally above) —
+    // fully flushed by closeRecordStreams() before this point, nothing left
+    // to write here.
     writeFileSync(join(outDir, 'settings.json'), result.settingsText);
     writeFileSync(join(outDir, 'log.txt'), result.logText);
     const pngData = result.reconstructionPng.replace(/^data:image\/png;base64,/, '');
@@ -451,7 +483,7 @@ try {
     // timings is null for a CSV input (analyze() skips Localize entirely — no
     // Run to time, see webSMLM.html's own analyze() comment on isCsv).
     const timingNote = result.timings ? ` in ${Math.round(result.timings.runMs)} ms` : '';
-    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations${timingNote}. Output in ${outDir}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
+    printLine(`Done: ${result.nLocalizations.toLocaleString()} localizations${timingNote} written to ${join(outDir, 'result.csv')}${extra.length ? ` (+ ${extra.join(', ')})` : ''}`);
   }
 } catch (err) {
   if (barActive) { process.stdout.write('\n'); barActive = false; }

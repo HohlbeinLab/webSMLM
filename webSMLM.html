@@ -133,7 +133,7 @@
                            multi-million-localization scale traced to exactly
                            this being unchunked
     export          11270  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11611  astigmatic sigma_x/sigma_y vs z bead curves;
+    3D calibration  11622  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -144,7 +144,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12093  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12104  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -168,9 +168,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13007  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13018  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           13967  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           13978  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -380,7 +380,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             17728  single particle tracking, trackpy-inspired;
+    spt             17739  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -411,7 +411,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19266  top-level orchestration, *Core()/wrapper split;
+    pipeline        19277  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -477,7 +477,7 @@
                            methods to a batched, cross-frame GPU dispatch path
                            alongside the existing worker-pool/single-threaded
                            ones — see MODULE: gpu
-    liveStreaming   20720  Micro-Manager/pycromanager camera bridge
+    liveStreaming   20731  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -531,14 +531,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23557  localizations table, filtering, histograms;
+    table           23576  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24309  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24328  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2606,7 +2606,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -11336,6 +11336,17 @@ function precisionNm(sNm,aNm,N,bPh){
   const s2=sNm*sNm, a2=aNm*aNm;
   return Math.sqrt((s2+a2/12)/N + (8*Math.PI*s2*s2*bPh*bPh)/(a2*N*N));
 }
+// V8's real per-string character ceiling — measured directly (both Node and
+// Chrome agree exactly): 'x'.repeat(2**29-24) succeeds, 2**29-23 throws
+// "Invalid string length". A margin below that raw number, not the number
+// itself: parts.join('') needs to allocate the WHOLE joined string in one
+// shot on top of the parts array already in memory, so joining right up to
+// the hard ceiling risks an allocation failure before the RangeError guard
+// even gets a chance to fire. Used by analyze() (MODULE: headless API)
+// deciding whether to also return the joined csvText or leave it null;
+// csvParts (buildCsvText()'s own chunked parts, below) is always safe
+// regardless of this limit.
+const CSV_TEXT_MAX_CHARS=500_000_000;
 // Pure: builds ThunderSTORM-compatible CSV text from a locs array. Returns
 // `parts` — an array of ~5000-row chunk strings, not one joined string, so
 // building a huge export never forces one giant string through JS string
@@ -23433,18 +23444,20 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19c — merged experimental WebGPU
-acceleration (opt-in "Use GPU acceleration", MODULE: gpu): all four MLE fit
-variants, fixed/precision rendering, AIM drift, and FRC route through the
-GPU when available and above a measured crossover, CPU fallback otherwise.
-Fixed a real, reported crash found while testing it against a real
-~40,000-frame/multi-million-localization dataset: the GPU render's own
-accumulate step dispatched every localization in ONE shot, gated only by a
-hard per-adapter ceiling (this session's own machine: ~4.19M) that threw
-cleanly in isolation but could crash mid-Run under real GPU memory
-pressure — now chunks any count past that ceiling into sequential, awaited
-pieces (safe because the accumulate kernel's atomicAdd is commutative),
-each freeing its own upload buffers before the next chunk starts.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19d — headless analyze() no longer
+crashes on a genuinely huge result. Real ~50,000-frame/~12-million-
+localization test data (found while validating last build's GPU-render
+crash fix) hit a SEPARATE, real bug: analyze()'s own csvText:parts.join('')
+forced the whole CSV through one JS string, well past V8's real per-string
+ceiling (measured directly: 2**29-24 = 536,870,888 characters, identical in
+Node and Chrome) — "RangeError: Invalid string length". Fixed two ways:
+analyze() now always returns csvParts (buildCsvText()'s own already-chunked
+array, safe at any scale — interactive Save data already builds its export
+this same way) alongside csvText, which is null instead of a broken string
+once it would exceed that ceiling; and a new config.exportCsvRows streams
+the same chunks through onRecord instead of the return value at all —
+tools/webSMLM-cli.mjs now uses this unconditionally, so a CLI run's own
+result.csv is never at risk regardless of dataset size.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -24741,6 +24754,34 @@ async function analyze(config){
   const {parts} = await runStage('exportCsv', stageCtx,
     () => buildCsvText(locs, cfg.pxnm, cfg.psf), null);
   phases.csvMs=performance.now()-csvT0;
+  // config.exportCsvRows (docs/DOCUMENTATION.md §8): streams buildCsvText()'s
+  // own ~5000-row chunks through onRecord instead of ever putting them in
+  // this function's own return value — same reasoning as exportTrackData/
+  // exportSSmlmCandidates/exportCalibrationPoints/exportPcfoTiles above
+  // (makeRecordEmitter()'s own comment, MODULE: params): a headless caller's
+  // return value crosses the DevTools Protocol as one JSON blob, so a large
+  // array there just moves the memory problem rather than solving it — a
+  // real ~50,000-frame/~12M-localization Run measured this session would
+  // put ~1GB+ of CSV text through that one blob. Unlike those four exports,
+  // `parts` is already chunked by buildCsvText() itself, so this streams the
+  // existing chunks directly (one onRecord call per chunk) rather than
+  // re-batching through makeRecordEmitter().
+  let csvText, csvParts;
+  if(cfg.exportCsvRows && cfg.onRecord){
+    for(const part of parts) cfg.onRecord('csv', [part]);
+  } else {
+    // csvParts is ALWAYS safe to hand to `new Blob(csvParts,...)` regardless
+    // of scale — interactive Save data (exportCSV(), MODULE: export) already
+    // does exactly this. csvText additionally joins them into one string
+    // ONLY when that stays under CSV_TEXT_MAX_CHARS (a margin below V8's
+    // real, measured per-string ceiling — see that constant's own comment),
+    // so a genuinely huge result returns csvParts (still fully usable) and a
+    // null csvText instead of throwing "Invalid string length" — a real,
+    // reported crash this replaces.
+    const totalChars=parts.reduce((a,p)=>a+p.length,0);
+    csvParts=parts;
+    csvText=totalChars<=CSV_TEXT_MAX_CHARS ? parts.join('') : null;
+  }
   // Same check exportCSV()'s wrapper does interactively (only reachable
   // there via a separate Save-data click) — analyze() builds the CSV as
   // part of the same call, so without this the warning would just never
@@ -24845,7 +24886,7 @@ async function analyze(config){
   const performanceResult={schemaVersion:1,analyzeWallMs:performance.now()-analyzeT0,phases,overlap};
   const execution={gpuRequested:!!cfg.useGpu,gpuAvailable:_gpuEngine===undefined?null:!!_gpuEngine.available,
     adapter,stages:executionFromStages(mergedStages,!!cfg.useGpu)};
-  return { locs, auditCandidatePixels:r&&r.auditCandidatePixels, csvText:parts.join(''), logText:logLines.join('\n'),
+  return { locs, auditCandidatePixels:r&&r.auditCandidatePixels, csvText, csvParts, logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
            timings:r.timings, reconstructionPng, performance:performanceResult, execution,
            // runCore()'s own per-stage record (detect/fit/ftm/…) merged with the
