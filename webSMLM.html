@@ -21,7 +21,7 @@
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3288   PARAMS registry, single source of truth for params;
+    params          3295   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -34,7 +34,7 @@
                            log stretch pastes as valid code; #logText's
                            text-indent:hanging each-line keeps a wrapped
                            line's continuation aligned under the text
-    in/out          4400   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4407   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -47,12 +47,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4699   synthetic stack generator ("Simulate movie")
-    detect          5849   per-frame band-pass + local-maxima detection
+    simulation      4706   synthetic stack generator ("Simulate movie")
+    detect          5856   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6126   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6133   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -77,7 +77,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6765   accumulate to offscreen buffer; view/colour/blur;
+    render          6772   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -109,13 +109,13 @@
                            drawSpotOverlays() SOI-composite call sites
                            renderSuperResGpu() (MODULE: gpu) is an opt-in
                            GPU-accelerated equivalent, called from rerender()
-    workers         8544   frame-parallel detect/fit worker pool; dedicated
+    workers         8551   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             8952   shared WebGPU compute engine (experimental,
+    gpu             8959   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all 4 MLE
                            methods), 'precision'-mode render, AIM drift
                            correction, and FRC; each stage uses the GPU only
@@ -124,9 +124,16 @@
                            results are scientifically equivalent, not
                            bit-identical, to CPU f64 ones. A WebGPU detect port
                            was tried and REMOVED (2x slower than the worker
-                           pool) — see the detect entry above
-    export          11193  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11534  astigmatic sigma_x/sigma_y vs z bead curves;
+                           pool) — see the detect entry above; renderSuperResGpuNow()'s
+                           accumulate step chunks any locs count past this
+                           adapter's own per-dispatch/per-buffer ceilings
+                           (maxLocsPerChunk) into sequential, awaited pieces
+                           instead of a single all-or-nothing dispatch — a
+                           real, reported crash near a real dataset's own
+                           multi-million-localization scale traced to exactly
+                           this being unchunked
+    export          11270  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11611  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -137,7 +144,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12016  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12093  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -161,9 +168,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    12930  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13007  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           13890  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           13967  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -373,7 +380,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             17651  single particle tracking, trackpy-inspired;
+    spt             17728  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -404,7 +411,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19189  top-level orchestration, *Core()/wrapper split;
+    pipeline        19266  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -470,7 +477,7 @@
                            methods to a batched, cross-frame GPU dispatch path
                            alongside the existing worker-pool/single-threaded
                            ones — see MODULE: gpu
-    liveStreaming   20643  Micro-Manager/pycromanager camera bridge
+    liveStreaming   20720  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -524,14 +531,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23480  localizations table, filtering, histograms;
+    table           23557  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24232  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24309  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2599,7 +2606,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9916,7 +9923,7 @@ let _gpuAccumCache=null, _gpuNormCache=null;
 // buffers) needs no change for this.
 function destroyGpuAccumCache(){
   const c=_gpuAccumCache;
-  if(c) [c.accF,c.zaccF,c.accBuf,c.zaccBuf,c.accParamsBuf,c.widenParamsBuf].forEach(b=>{ if(b) b.destroy(); });
+  if(c) [c.accF,c.zaccF,c.accBuf,c.zaccBuf,c.widenParamsBuf].forEach(b=>{ if(b) b.destroy(); });
   if(_gpuNormCache&&_gpuNormCache.naccF) _gpuNormCache.naccF.destroy();
   _gpuAccumCache=null; _gpuNormCache=null;
 }
@@ -9975,16 +9982,24 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   // and the workgroup COUNT ceiling (maxComputeWorkgroupsPerDimension) are
   // read once in initGpuEngine(), never assumed to be the WebGPU spec's
   // minimums — so this ceiling scales with the real adapter on both axes,
-  // not just the axis fixed this session. Real datasets can run into the
-  // low millions (see CLAUDE.md's fit module notes), so this is a real, if
-  // rare, ceiling — throw and let the caller's existing CPU fallback take
-  // over rather than silently dispatch too few workgroups and drop the tail
-  // of the dataset (the exact class of bug the widen/colormap fix above
-  // just fixed, here guarded instead of 2D-tiled). Checked against normLocs
-  // too, whenever the full (unfiltered) dataset it carries is the larger one.
+  // not just the axis fixed this session. Real datasets routinely run WELL
+  // past this in the low millions (see CLAUDE.md's fit module notes) — on
+  // this session's own dev machine wg1D auto-tuned to 64, giving a ceiling
+  // of 65,535*64 = 4,194,240, and a real ~40,000-frame/4M-localization Run
+  // crossing it mid-preview is a real, reported crash, not a hypothetical:
+  // the render worked fine in isolation right up to the boundary (throwing
+  // cleanly one loc past it), but during a live Run the SAME boundary
+  // crossing, competing with other already-resident GPU state (the fit
+  // slot pool, a retained accumulator from the previous preview tick), is
+  // a plausible way that clean JS throw never gets the chance to happen at
+  // all. Fixed properly below: dispatchAccumulateChunk() splits any
+  // accumulate pass wider than this ceiling into multiple sequential
+  // dispatches into the SAME accumulator buffer — safe specifically because
+  // WGSL_RENDER_ACCUMULATE/WGSL_RENDER_PRECISION write via atomicAdd, so
+  // accumulation is commutative and order/grouping cannot change the
+  // result (the exact same property the append-cache path above already
+  // relies on for a live-preview's incremental locs[cache.n…nLocs) top-up).
   const maxLocsPerCall=engine.limits.maxComputeWorkgroupsPerDimension*engine.wg1D;
-  if(nLocs > maxLocsPerCall) throw new Error(`GPU reconstruction: ${nLocs.toLocaleString()} localizations exceeds this adapter's ~${maxLocsPerCall.toLocaleString()}-per-call accumulate limit.`);
-  if(hasNorm && normLocs.length > maxLocsPerCall) throw new Error(`GPU reconstruction: ${normLocs.length.toLocaleString()} localizations (full-dataset colour-scale normalization) exceeds this adapter's ~${maxLocsPerCall.toLocaleString()}-per-call accumulate limit.`);
   let renderBufferId=0;
   const created=new Set();
   const U=GPUBufferUsage, mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label||`render:${++renderBufferId}`); created.add(b); return b; };
@@ -10048,26 +10063,50 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   // producer of `locs` does.
   const canAppend = keyMatch && nLocs > _gpuAccumCache.n && _gpuAccumCache.accBuf;
   let accF, zaccF, accBuf, zaccBuf;
-  // Packs locs[from…nLocs) and dispatches accumulate + widen. Shared by the
-  // full-rebuild and append paths so the two can't drift; `from` is 0 for a
-  // rebuild. Widen always re-runs over the WHOLE grid — it reads the complete
-  // accumulator, and it is a cheap 2D pass next to re-uploading every loc.
-  const accumulateFrom=(from, accParamsBuf, accBufL, zaccBufL, widenBind)=>{
-    const cnt=nLocs-from;
-    const locData=new Float32Array(Math.max(1,cnt)*4);
+  // maxLocsPerCall alone (the workgroup-DISPATCH-count ceiling) is not the
+  // only limit a chunk has to respect — locData is 4 floats/loc (16 bytes),
+  // uploaded into its own STORAGE buffer, which is separately capped by this
+  // adapter's real maxStorageBufferBindingSize. The two ceilings are
+  // independent and neither one dominates on every adapter: on this
+  // session's own dev machine one run tuned wg1D to 64 (workgroup ceiling
+  // ~4.19M, well under a 128MB-buffer's ~8.39M loc capacity), while another
+  // run tuned wg1D to 256 (workgroup ceiling ~16.78M — now the buffer's own
+  // ~8.39M is the tighter one). A chunk size that only checked the
+  // workgroup ceiling passed validation on one run and threw a real
+  // "Binding size ... larger than the maximum storage buffer binding size"
+  // error on the other — this is why both are taken here, not just one.
+  const maxLocsPerChunk=Math.min(maxLocsPerCall, Math.floor(engine.limits.maxStorageBufferBindingSize/16));
+  // Uploads+dispatches+AWAITS ONE chunk of at most maxLocsPerChunk
+  // localizations (locs[from…from+cnt)) into accBufL/zaccBufL, then destroys
+  // its own upload buffers before returning — no widen here, that runs once
+  // after every chunk in a call has landed (see accumulateFrom below).
+  // Awaiting completion (onSubmittedWorkDone) before destroying is
+  // deliberate, not just tidy cleanup: an EARLIER version of this function
+  // created every chunk's buffers via the shared mkT() helper, which only
+  // destroys them in this whole render call's own `finally` block at the
+  // very end — for a many-chunk dataset that held EVERY chunk's own upload
+  // buffers live simultaneously, multiplying real GPU memory use by the
+  // chunk count and defeating the entire point of chunking. A real, caught-
+  // before-shipping crash: a 40M-loc synthetic render (comfortably within
+  // both ceilings above, taken one chunk at a time) reliably crashed the
+  // page under that first version and does not under this one.
+  const dispatchAccumulateChunk=async(from, cnt, accBufL, zaccBufL)=>{
+    const locData=new Float32Array(cnt*4);
     for(let i=0;i<cnt;i++){ const L=locs[from+i];
       locData[i*4]=L.x; locData[i*4+1]=L.y; locData[i*4+2]=zColor?L[colorField]:0; locData[i*4+3]=0; }
-    const locsBuf=mkT(locData.byteLength, U.STORAGE|U.COPY_DST); device.queue.writeBuffer(locsBuf,0,locData);
+    const locsBuf=engine.mkBuf(locData.byteLength, U.STORAGE|U.COPY_DST, 'render:chunk-locs'); device.queue.writeBuffer(locsBuf,0,locData);
+    const accParamsBuf=engine.mkBuf(48, U.UNIFORM|U.COPY_DST, 'render:chunk-params');
     const accEntries=[{binding:0,resource:{buffer:accParamsBuf}},{binding:1,resource:{buffer:locsBuf}}];
+    let precBuf=null;
     if(isPrecision){
       // Per-loc CRLB precision in its OWN vec2f buffer rather than widened into
       // the vec4f above, so 'fixed' mode's upload volume is untouched. A loc
       // with no lpx/lpy at all (phasor) writes undefined -> NaN, which the
       // kernel's isFin() test rejects into the blurPx fallback — exactly what
       // renderSuperResPixels()'s isFinite(L.lpx) check does on the CPU.
-      const precData=new Float32Array(Math.max(1,cnt)*2);
+      const precData=new Float32Array(cnt*2);
       for(let i=0;i<cnt;i++){ const L=locs[from+i]; precData[i*2]=L.lpx; precData[i*2+1]=L.lpy; }
-      const precBuf=mkT(precData.byteLength, U.STORAGE|U.COPY_DST); device.queue.writeBuffer(precBuf,0,precData);
+      precBuf=engine.mkBuf(precData.byteLength, U.STORAGE|U.COPY_DST, 'render:chunk-prec'); device.queue.writeBuffer(precBuf,0,precData);
       device.queue.writeBuffer(accParamsBuf,0,new Float32Array([W,H,mag,zColor?1:0, zlo,zhi,GPU_Z_FIXED_SCALE, cnt,
                                                                 blurPx, MAX_SPLAT_SIGMA_PX, 0, 0]));
       accEntries.push({binding:2,resource:{buffer:precBuf}},
@@ -10079,7 +10118,29 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
     const accBind=device.createBindGroup({layout:primaryAccPipe.getBindGroupLayout(0), entries:accEntries});
     const enc=device.createCommandEncoder();
     const p=enc.beginComputePass();
-    p.setPipeline(primaryAccPipe); p.setBindGroup(0,accBind); p.dispatchWorkgroups(Math.max(1,Math.ceil(cnt/engine.wg1D)));
+    p.setPipeline(primaryAccPipe); p.setBindGroup(0,accBind); p.dispatchWorkgroups(Math.ceil(cnt/engine.wg1D));
+    p.end();
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    locsBuf.destroy(); accParamsBuf.destroy(); if(precBuf) precBuf.destroy();
+  };
+  // Packs+accumulates locs[from…nLocs) in <=maxLocsPerChunk pieces, ONE AT A
+  // TIME (awaited in sequence — see dispatchAccumulateChunk's own comment on
+  // why), then widens ONCE. Shared by the full-rebuild and append paths so
+  // the two can't drift; `from` is 0 for a rebuild. Widen always re-runs over
+  // the WHOLE grid — it reads the complete accumulator (whatever chunk(s)
+  // just landed via atomicAdd, plus anything already there from a previous
+  // call), so it only needs to run after the LAST chunk, not per chunk.
+  const accumulateFrom=async(from, accBufL, zaccBufL, widenBind)=>{
+    const total=nLocs-from;
+    let done=0;
+    do{   // a 0-loc call (nothing new to append) still needs its widen pass skipped, not a 0-sized dispatch
+      const cnt=Math.min(maxLocsPerChunk, total-done);
+      if(cnt>0) await dispatchAccumulateChunk(from+done, cnt, accBufL, zaccBufL);
+      done+=cnt;
+    }while(done<total);
+    const enc=device.createCommandEncoder();
+    const p=enc.beginComputePass();
     p.setPipeline(widenPipe); p.setBindGroup(0,widenBind); p.dispatchWorkgroups(wgX,wgY);
     p.end();
     device.queue.submit([enc.finish()]);
@@ -10089,16 +10150,10 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   } else if(canAppend){
     const c=_gpuAccumCache;
     ({accF,zaccF,accBuf,zaccBuf}=c);
-    accumulateFrom(c.n, c.accParamsBuf, accBuf, zaccBuf, c.widenBind);
+    await accumulateFrom(c.n, accBuf, zaccBuf, c.widenBind);
     c.n=nLocs;
   } else {
     if(_gpuAccumCache) destroyGpuAccumCache();
-    // 48 bytes, not 32: WGSL_RENDER_PRECISION's Params carries four more f32
-    // (blurPx, maxSigma, densScale, pad) than WGSL_RENDER_ACCUMULATE's. Sized
-    // for the larger of the two unconditionally — a uniform buffer bigger than
-    // the struct that reads it is valid, and one size means the append path
-    // cannot inherit a too-small buffer from a differently-moded earlier render.
-    const accParamsBuf=mk(48, U.UNIFORM|U.COPY_DST);
     // accBuf/zaccBuf are RETAINED now (not mkT/toDestroy): they are the raw
     // pre-widen accumulator the append path adds into. accF/zaccF are the
     // post-widen result and were already retained.
@@ -10120,10 +10175,10 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
     const widenBind=device.createBindGroup({layout:widenPipe.getBindGroupLayout(0), entries:[
       {binding:0,resource:{buffer:widenParamsBuf}},{binding:1,resource:{buffer:accBuf}},
       {binding:2,resource:{buffer:zaccBuf}},{binding:3,resource:{buffer:accF}},{binding:4,resource:{buffer:zaccF}}]});
-    accumulateFrom(0, accParamsBuf, accBuf, zaccBuf, widenBind);
+    await accumulateFrom(0, accBuf, zaccBuf, widenBind);
 
     _gpuAccumCache={engine,locs,n:nLocs,w,h,mag,zColor,colorField,zlo,zhi,renderMode,blurPx,
-                    accF,zaccF,accBuf,zaccBuf,accParamsBuf,widenParamsBuf,widenBind};
+                    accF,zaccF,accBuf,zaccBuf,widenParamsBuf,widenBind};
   }
 
   // Independent second accumulate+widen pass for normLocs — same cache-split
@@ -10147,17 +10202,40 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
       naccF=_gpuNormCache.naccF;
     } else {
       if(_gpuNormCache){ _gpuNormCache.naccF.destroy(); _gpuNormCache=null; }
-      const normLocData=new Float32Array(Math.max(1,nLocsNorm)*4);
-      for(let i=0;i<nLocsNorm;i++){ const L=normLocs[i];
-        normLocData[i*4]=L.x; normLocData[i*4+1]=L.y; normLocData[i*4+2]=zColor?L[colorField]:0; normLocData[i*4+3]=0; }
-      const nAccParamsBuf=mkT(32, U.UNIFORM|U.COPY_DST);
-      device.queue.writeBuffer(nAccParamsBuf,0,new Float32Array([W,H,mag,zColor?1:0, zlo,zhi,GPU_Z_FIXED_SCALE, nLocsNorm]));
-      const nLocsBuf=mkT(normLocData.byteLength, U.STORAGE|U.COPY_DST); device.queue.writeBuffer(nLocsBuf,0,normLocData);
       const nAccBuf=mkT(N*4, U.STORAGE|U.COPY_DST); device.queue.writeBuffer(nAccBuf,0,new Uint32Array(N));
       const nZaccBuf=mkT(N*4, U.STORAGE|U.COPY_DST); if(zColor) device.queue.writeBuffer(nZaccBuf,0,new Int32Array(N));
-      const nAccBind=device.createBindGroup({layout:accPipe.getBindGroupLayout(0), entries:[
-        {binding:0,resource:{buffer:nAccParamsBuf}},{binding:1,resource:{buffer:nLocsBuf}},
-        {binding:2,resource:{buffer:nAccBuf}},{binding:3,resource:{buffer:nZaccBuf}}]});
+      // Same maxLocsPerChunk chunking (both the workgroup-dispatch-count AND
+      // per-buffer byte-size ceilings — see its own comment above) as the
+      // primary accumulate above, and the same immediate-destroy-per-chunk
+      // discipline (each chunk awaits GPU completion before its own upload
+      // buffers are freed, so at most one chunk's worth is ever resident at
+      // once) — normLocs is typically the FULL, unfiltered dataset (pinning
+      // the colour scale while `locs` itself is a crop/table-filtered
+      // subset), so it is often the LARGER of the two and was, if anything,
+      // MORE likely to hit the old hard ceiling first.
+      let nDone=0;
+      do{
+        const cnt=Math.min(maxLocsPerChunk, nLocsNorm-nDone);
+        if(cnt>0){
+          const normLocData=new Float32Array(cnt*4);
+          for(let i=0;i<cnt;i++){ const L=normLocs[nDone+i];
+            normLocData[i*4]=L.x; normLocData[i*4+1]=L.y; normLocData[i*4+2]=zColor?L[colorField]:0; normLocData[i*4+3]=0; }
+          const nAccParamsBuf=engine.mkBuf(32, U.UNIFORM|U.COPY_DST, 'render:norm-chunk-params');
+          device.queue.writeBuffer(nAccParamsBuf,0,new Float32Array([W,H,mag,zColor?1:0, zlo,zhi,GPU_Z_FIXED_SCALE, cnt]));
+          const nLocsBuf=engine.mkBuf(normLocData.byteLength, U.STORAGE|U.COPY_DST, 'render:norm-chunk-locs'); device.queue.writeBuffer(nLocsBuf,0,normLocData);
+          const nAccBind=device.createBindGroup({layout:accPipe.getBindGroupLayout(0), entries:[
+            {binding:0,resource:{buffer:nAccParamsBuf}},{binding:1,resource:{buffer:nLocsBuf}},
+            {binding:2,resource:{buffer:nAccBuf}},{binding:3,resource:{buffer:nZaccBuf}}]});
+          const nAccEncoder=device.createCommandEncoder();
+          const nAccPass=nAccEncoder.beginComputePass();
+          nAccPass.setPipeline(accPipe); nAccPass.setBindGroup(0,nAccBind); nAccPass.dispatchWorkgroups(Math.ceil(cnt/engine.wg1D));
+          nAccPass.end();
+          device.queue.submit([nAccEncoder.finish()]);
+          await device.queue.onSubmittedWorkDone();
+          nAccParamsBuf.destroy(); nLocsBuf.destroy();
+        }
+        nDone+=cnt;
+      }while(nDone<nLocsNorm);
       const nWidenParamsBuf=mkT(16, U.UNIFORM|U.COPY_DST);
       // accIsFloat is 0 here, NOT the primary block's: the norm accumulator is
       // always the 'fixed' integer hit count, whatever renderMode is.
@@ -10167,12 +10245,11 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
       const nWidenBind=device.createBindGroup({layout:widenPipe.getBindGroupLayout(0), entries:[
         {binding:0,resource:{buffer:nWidenParamsBuf}},{binding:1,resource:{buffer:nAccBuf}},
         {binding:2,resource:{buffer:nZaccBuf}},{binding:3,resource:{buffer:naccF}},{binding:4,resource:{buffer:nZaccF}}]});
-      const nAccEncoder=device.createCommandEncoder();
-      const nAccPass=nAccEncoder.beginComputePass();
-      nAccPass.setPipeline(accPipe); nAccPass.setBindGroup(0,nAccBind); nAccPass.dispatchWorkgroups(Math.max(1,Math.ceil(nLocsNorm/engine.wg1D)));
-      nAccPass.setPipeline(widenPipe); nAccPass.setBindGroup(0,nWidenBind); nAccPass.dispatchWorkgroups(wgX,wgY);
-      nAccPass.end();
-      device.queue.submit([nAccEncoder.finish()]);
+      const nWidenEncoder=device.createCommandEncoder();
+      const nWidenPass=nWidenEncoder.beginComputePass();
+      nWidenPass.setPipeline(widenPipe); nWidenPass.setBindGroup(0,nWidenBind); nWidenPass.dispatchWorkgroups(wgX,wgY);
+      nWidenPass.end();
+      device.queue.submit([nWidenEncoder.finish()]);
       _gpuNormCache={engine,normLocs,n:nLocsNorm,w,h,mag,zColor,colorField,zlo,zhi,naccF};
     }
   }
@@ -10324,10 +10401,10 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
     const retained=new Set();
     if(renderComplete){
       const a=_gpuAccumCache,n=_gpuNormCache;
-      if(a) for(const key of ['accF','zaccF','accBuf','zaccBuf','accParamsBuf','widenParamsBuf']) if(a[key]) retained.add(a[key]);
+      if(a) for(const key of ['accF','zaccF','accBuf','zaccBuf','widenParamsBuf']) if(a[key]) retained.add(a[key]);
       if(n&&n.naccF) retained.add(n.naccF);
     }else{
-      if(_gpuAccumCache && ['accF','zaccF','accBuf','zaccBuf','accParamsBuf','widenParamsBuf'].some(k=>created.has(_gpuAccumCache[k]))) _gpuAccumCache=null;
+      if(_gpuAccumCache && ['accF','zaccF','accBuf','zaccBuf','widenParamsBuf'].some(k=>created.has(_gpuAccumCache[k]))) _gpuAccumCache=null;
       if(_gpuNormCache && created.has(_gpuNormCache.naccF)) _gpuNormCache=null;
     }
     for(const b of created) if(!retained.has(b)){ try{ if(b.mapState==='mapped') b.unmap(); b.destroy(); }catch(_){} }
@@ -23356,10 +23433,18 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19b — fixed a real bug: "Save
-plot/image"'s window-picker always said "Left window"/"Right window",
-even while Stack panels has them arranged one above the other — it now
-reads "Top window"/"Bottom window" whenever the panels are stacked.`);
+log(`webSMLM v0.12.7-dev · build 2026-09-19c — merged experimental WebGPU
+acceleration (opt-in "Use GPU acceleration", MODULE: gpu): all four MLE fit
+variants, fixed/precision rendering, AIM drift, and FRC route through the
+GPU when available and above a measured crossover, CPU fallback otherwise.
+Fixed a real, reported crash found while testing it against a real
+~40,000-frame/multi-million-localization dataset: the GPU render's own
+accumulate step dispatched every localization in ONE shot, gated only by a
+hard per-adapter ceiling (this session's own machine: ~4.19M) that threw
+cleanly in isolation but could crash mid-Run under real GPU memory
+pressure — now chunks any count past that ceiling into sequential, awaited
+pieces (safe because the accumulate kernel's atomicAdd is commutative),
+each freeing its own upload buffers before the next chunk starts.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

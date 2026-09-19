@@ -31,7 +31,16 @@ export async function launchPage({ headless = false } = {}) {
     console.error(`(couldn't launch system Chrome (${err.message}) — trying Playwright's own Chromium. If that also fails: cd tools && npm install)`);
     browser = await chromium.launch({ headless });
   }
-  const page = await browser.newPage();
+  // Explicit desktop-sized viewport: Playwright's own default (1280x720) has
+  // a height of 720px, at or under isMemoryConstrainedDevice()'s own
+  // min(innerWidth,innerHeight)<=860 threshold (webSMLM.html, MODULE: params)
+  // — that check exists to catch a PHONE held in landscape (wide but short),
+  // but a plain, unconfigured desktop test window is wide-but-short in
+  // exactly the same way, and gets misclassified into it too. A real,
+  // confirmed failure: bench-real-data.mjs --full on the ~4.9GB Leterrier
+  // dataset hit "over the 512 MB Total memory budget" (the mobile default)
+  // instead of the desktop default (Infinity/unset) purely because of this.
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   page.on('console', msg => { if (msg.type() === 'error') console.error('  [page error]', msg.text()); });
   page.on('pageerror', err => console.error('  [page exception]', err.message));
   await page.goto(htmlUrl);
