@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19i; may drift
+  MODULE INDEX — line numbers as of v0.12.7-dev build 2026-09-19j; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3361   PARAMS registry, single source of truth for params;
+    params          3367   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -49,7 +49,7 @@
                            own blank-line separator — otherwise a command and
                            its own first result line print with a spurious
                            blank line between them
-    in/out          4489   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4495   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -62,12 +62,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4788   synthetic stack generator ("Simulate movie")
-    detect          5938   per-frame band-pass + local-maxima detection
+    simulation      4794   synthetic stack generator ("Simulate movie")
+    detect          5944   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6215   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6221   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -92,7 +92,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6910   accumulate to offscreen buffer; view/colour/blur;
+    render          6920   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -131,13 +131,13 @@
                            print their own line, several back-to-back in the
                            log for no actionable reason; the final render
                            still logs it
-    workers         8698   frame-parallel detect/fit worker pool; dedicated
+    workers         8708   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             9109   shared WebGPU compute engine (experimental,
+    gpu             9117   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all
                            4 MLE methods plus phasor/phasor3d — the one
                            non-iterative kernel, a closed-form Fourier
@@ -167,17 +167,23 @@
                            (previously CPU-only, an oversight rather than a
                            deliberate exclusion) — the one NON-iterative fit
                            kernel here, a closed-form first-harmonic Fourier
-                           calculation instead of a Newton loop; its own
-                           aperture-photometry photons/bg/bgstd (which need
-                           pixels wider than the fit window) are computed on
-                           the CPU/worker side during seed-building instead of
-                           uploaded, so the GPU kernel needs no new buffer
-                           type; verified: bench-fit.mjs shows exact CPU/GPU
+                           calculation instead of a Newton loop, computing
+                           EVERYTHING (position, magnitude, photons/bg/bgstd)
+                           from the same K×K window, no seed builder needed;
+                           phasorFit()'s own background/photons are bounded to
+                           that SAME win×win ROI (mean of the window's own
+                           outermost ring), matching the Phasor paper and
+                           supplement — corrected after briefly using the
+                           wider aperture-photometry method (MODULE: fit's own
+                           comment has the full story); photons computed as
+                           Σ(v-bg), not tot-bg·N², for f32 numerical
+                           conditioning (large-window subtraction of two big
+                           near-equal numbers loses precision badly);
+                           verified: bench-fit.mjs shows exact CPU/GPU
                            candidate-count agreement (phasorFit() never
-                           rejects a candidate, unlike every MLE method) and
-                           1.5x-35x speedup across 4 cases
-    export          11572  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11924  astigmatic sigma_x/sigma_y vs z bead curves;
+                           rejects a candidate, unlike every MLE method)
+    export          11590  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11942  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -188,7 +194,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12406  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12424  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -212,9 +218,9 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13338  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13356  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config)
-    sSMLM           14298  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14316  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -424,7 +430,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18059  single particle tracking, trackpy-inspired;
+    spt             18077  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -455,7 +461,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19597  top-level orchestration, *Core()/wrapper split;
+    pipeline        19615  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -543,7 +549,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21123  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21141  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -597,14 +603,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23977  localizations table, filtering, histograms;
+    table           23990  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24729  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24742  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2672,7 +2678,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19i</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.7-dev · build 2026-09-19j</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -6808,41 +6814,48 @@ function percentile(sortedVals,p){
    offset only contributes to the DC (k=0) Fourier term, never the first
    harmonic (k=1) that ax/ay/magX/magY are built from, and a uniform
    multiplicative scale cancels in both atan2() and the magY/magX ratio. */
-// Aperture-photometry intensity/background estimate (Martens 2018 SI §S11) —
-// extracted out of phasorFit() below so the GPU-fit seed builder
-// (buildFitSeedRowPhasor(), MODULE: gpu) can call it directly: it needs
-// pixels out to the aperture's own background-annulus radius (r+2.5, WIDER
-// than the win×win fit window — see apertureGeometry()'s own comment),
-// which the GPU kernel's packed window never carries, so this piece has to
-// run on the CPU/worker side regardless of where the fit itself runs. Pure
-// extraction — phasorFit()'s own behavior below is unchanged.
-function phasorApertureIntensity(img,w,h,cx,cy,win,gain,camoffset){
-  apertureGeometry(win);
-  let sigSum=0; const bgVals=[];
-  for(const [dx,dy] of _apSignal){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; sigSum+=(img[y*w+x]-camoffset)*gain; }
-  for(const [dx,dy] of _apBackground){ const x=cx+dx,y=cy+dy; if(x<0||x>=w||y<0||y>=h) continue; bgVals.push((img[y*w+x]-camoffset)*gain); }
-  bgVals.sort((a,b)=>a-b);
-  const bg=percentile(bgVals,0.56);
-  let bgSum=0,bgSq=0; for(const v of bgVals){ bgSum+=v; bgSq+=v*v; }
-  const bgMean=bgVals.length?bgSum/bgVals.length:0;
-  const bgstd=Math.sqrt(Math.max(0,(bgVals.length?bgSq/bgVals.length:0)-bgMean*bgMean));
-  const photons=Math.max(0, sigSum-bg*_apSignal.length);
-  return {photons,bg,bgstd};
-}
+// Background/intensity: the MEAN (bg) and std (bgstd) of the win×win fit
+// window's own OUTERMOST RING — bounded strictly to the SAME ROI the
+// Fourier position/magnitude math below already uses, matching the Phasor
+// method's own paper and supplement (Martens et al. 2018, J. Chem. Phys.
+// 148, 123311) — NOT the wider aperture-photometry background annulus
+// (apertureGeometry()/percentile(), that same paper's separate SI §S11
+// "Aperture photometry" method, which reaches past the fit window to r+2.5
+// px). A prior round briefly consolidated phasorFit() onto that wider
+// method, believing it to be the same paper's own phasor background —
+// corrected on direct author review: SI §S11 is a distinct, general-purpose
+// intensity/background technique (used elsewhere in this file by smFRET's
+// own apertureIntensity() for extracting a KNOWN, already-located site's
+// intensity — a genuinely different use case), not the one the Phasor
+// method itself specifies. photons = tot − bg·N² (window sum minus the
+// estimated background level over the whole window area).
 let _pcol=null,_prow=null,_pN=0;
 function phasorFit(img,w,h,cx,cy,win,gain=1,camoffset=0){
   const N=win, r=(N-1)/2;
   if(N!==_pN){ _pcol=new Float64Array(N); _prow=new Float64Array(N); _pN=N; }
   const col=_pcol, row=_prow; col.fill(0); row.fill(0);
-  let tot=0;
+  let bgSum=0,bgSq=0,bgN=0,tot=0;
   for(let dy=0;dy<N;dy++){
-    const base=(cy-r+dy)*w+cx-r;
+    const base=(cy-r+dy)*w+cx-r, edgeY=(dy===0||dy===N-1);
     for(let dx=0;dx<N;dx++){
       const v=(img[base+dx]-camoffset)*gain;
       col[dx]+=v; row[dy]+=v; tot+=v;
+      if(edgeY||dx===0||dx===N-1){ bgSum+=v; bgSq+=v*v; bgN++; }
     }
   }
-  const {photons,bg,bgstd}=phasorApertureIntensity(img,w,h,cx,cy,win,gain,camoffset);
+  const bg=bgSum/bgN, bgstd=Math.sqrt(Math.max(0,bgSq/bgN-bg*bg));
+  // photons = Σ(v-bg) over the whole window, accumulated as a sum of already-
+  // small per-pixel residuals — needs bg first, hence its own pass — rather
+  // than tot-bg*N*N: identical in exact arithmetic, but far better
+  // conditioned once N is large enough that bg*N² and tot are both large,
+  // near-equal numbers (subtracting them directly loses precision to
+  // catastrophic cancellation, amplified badly in the GPU kernel's f32 vs
+  // this function's own f64).
+  let photons=0;
+  for(let dy=0;dy<N;dy++){
+    const base=(cy-r+dy)*w+cx-r;
+    for(let dx=0;dx<N;dx++) photons+=(img[base+dx]-camoffset)*gain-bg;
+  }
   let reX=0,imX=0,reY=0,imY=0;
   for(let k=0;k<N;k++){ const a=2*Math.PI*k/N,c=Math.cos(a),s=Math.sin(a);
     reX+=col[k]*c; imX-=col[k]*s; reY+=row[k]*c; imY-=row[k]*s; }
@@ -6863,47 +6876,44 @@ function phasorFit(img,w,h,cx,cy,win,gain=1,camoffset=0){
 }
 // GPU-fit CPU FALLBACK for phasor/phasor3d (used only when the GPU itself is
 // unavailable or a batch fails mid-Run, MODULE: gpu's makeGpuFitAccumulator()
-// fitPackedOnCpu()): the same Fourier/position math as phasorFit() above, but
-// working from an ALREADY-EXTRACTED, ALREADY gain/offset-corrected flat K×K
-// window (the same convention `windows[]` uses for every other GPU-fit
-// method's own CPU fallback) instead of reading a full frame at absolute
-// (cx,cy) — calling phasorFit() itself here would be wrong: its own
-// phasorApertureIntensity() call needs pixels out to the WIDER background-
-// annulus radius, which this small window never carries (see
-// buildFitSeedRowPhasor(), MODULE: gpu, for why photons/bg/bgstd are
-// computed once during seed-building instead and passed straight through).
-// Returns x,y in the SAME window-relative convention gaussianMLEspheric's
-// own fallback call uses (candidate placed at the window's centre, r,r) —
-// verified algebraically against phasorFit()'s own x formula
-// (`cx-r+abs(ax)/(2π/N)`): calling this with a window whose own (cx-r) term
-// is implicitly 0 leaves exactly `abs(ax)/(2π/N)`, so the SAME
+// fitPackedOnCpu()): the SAME algorithm as phasorFit() above (position,
+// magnitude, AND background/photons — all bounded to the same K×K window,
+// so unlike an earlier version of this fallback there is nothing left that
+// needs data wider than the window WGSL_FIT_PHASOR itself already sees),
+// just working from an ALREADY-EXTRACTED, ALREADY gain/offset-corrected
+// flat K×K window (the same convention `windows[]` uses for every other
+// GPU-fit method's own CPU fallback) instead of reading a full frame at
+// absolute (cx,cy). Returns x,y in the SAME window-relative convention
+// gaussianMLEspheric's own fallback call uses (candidate placed at the
+// window's centre, r,r) — verified algebraically against phasorFit()'s own
+// x formula (`cx-r+abs(ax)/(2π/N)`): calling this with a window whose own
+// (cx-r) term is implicitly 0 leaves exactly `abs(ax)/(2π/N)`, so the SAME
 // `L.x+=cx-r` line every other fallback branch already applies recovers the
 // identical absolute position phasorFit() would compute directly.
-function phasorPositionFromWindow(win,K,r){
-  let tot=0,reX=0,imX=0,reY=0,imY=0;
+function phasorFromWindow(win,K,r){
+  let tot=0,reX=0,imX=0,reY=0,imY=0,bgSum=0,bgSq=0,bgN=0;
   for(let iy=0;iy<K;iy++){
+    const edgeY=(iy===0||iy===K-1);
     const ay=2*Math.PI*iy/K, cay=Math.cos(ay), say=Math.sin(ay);
     for(let ix=0;ix<K;ix++){
       const v=win[iy*K+ix]; tot+=v;
       const ax=2*Math.PI*ix/K;
       reX+=v*Math.cos(ax); imX-=v*Math.sin(ax);
       reY+=v*cay; imY-=v*say;
+      if(edgeY||ix===0||ix===K-1){ bgSum+=v; bgSq+=v*v; bgN++; }
     }
   }
   let ax0=Math.atan2(imX,reX); if(ax0>0)ax0-=2*Math.PI;
   let ay0=Math.atan2(imY,reY); if(ay0>0)ay0-=2*Math.PI;
   const magX=Math.hypot(reX,imX)/Math.max(1,tot), magY=Math.hypot(reY,imY)/Math.max(1,tot);
-  return { x:Math.abs(ax0)/(2*Math.PI/K), y:Math.abs(ay0)/(2*Math.PI/K), sigma:0,
+  const bg=bgSum/bgN, bgstd=Math.sqrt(Math.max(0,bgSq/bgN-bg*bg));
+  // photons = Σ(v-bg), not tot-bg*K*K — see phasorFit()'s own comment
+  // (MODULE: fit) on why this ordering matters for numerical conditioning.
+  let photons=0;
+  for(let i=0;i<K*K;i++) photons+=win[i]-bg;
+  return { x:Math.abs(ax0)/(2*Math.PI/K), y:Math.abs(ay0)/(2*Math.PI/K),
+           photons, bg, bgstd, sigma:0,
            pmagX:magX, pmagY:magY, pratio:magY/Math.max(1e-9,magX) };
-}
-// Merges phasorPositionFromWindow()'s own GPU-mirroring position/magnitude
-// result with the photons/bg/bgstd already computed and stashed in seedsA
-// during seed-building — the fallback-path equivalent of what
-// fitBatchGpuFlatPhasor()'s own readback does after a real GPU dispatch.
-function phasorResultFromSlot(win,K,r,seedsA,m){
-  const p=phasorPositionFromWindow(win,K,r);
-  p.photons=seedsA[m*4]; p.bg=seedsA[m*4+1]; p.bgstd=seedsA[m*4+2];
-  return p;
 }
 
 /* ===========================================================================
@@ -8714,7 +8724,6 @@ const WORKER_PRELUDE=[
   "let _ufW=0,_ufH=0,_ufDil=null,_ufTmp=null;",
   "let _mdCap=0,_mdPos=null,_mdVal=null;",
   "let _pcol=null,_prow=null,_pN=0;",
-  "let _apWin=-1,_apSignal=null,_apBackground=null;",   // phasorFit()'s own aperture-photometry geometry cache (MODULE: fit)
   "const _SQ2PI=Math.sqrt(2*Math.PI);",   // mleModelSpherical/mleModelElliptical (MODULE: fit) read this
   "const FIT_MAX_DRIFT_SIGMA_MULT=2;",    // all 5 fitters' own accept/reject drift gate (MODULE: fit) reads this
   "const MLE_MIN_SIGMA=0.5;",             // the 3 MLE fitters' own σ-floor clamp + pinned-at-floor reject (MODULE: fit) reads this
@@ -8739,14 +8748,14 @@ function workerSource(){
     // Seed builders: the GPU-fit path packs candidates HERE now, in the worker
     // that already holds the frames, instead of on the main thread. The
     // legacy message flag is named gpuDetect, but detection remains CPU-side.
-    buildFitSeedRow.toString(), buildFitSeedRowEll.toString(), buildFitSeedRowPhasor.toString(),
-    // apertureGeometry/percentile: phasorFit() and smFRET's apertureIntensity()
-    // both call these — required here, not just a nice-to-have, since phasorFit
-    // itself runs inside this stringified worker environment (see its own
-    // self-test in onmessage below). phasorApertureIntensity() is the piece
-    // phasorFit() itself now calls (MODULE: fit) AND what buildFitSeedRowPhasor()
-    // above calls directly for the GPU-fit path.
-    zFromWidths.toString(), apertureGeometry.toString(), percentile.toString(), phasorApertureIntensity.toString(), phasorFit.toString(), polyEval.toString(),
+    buildFitSeedRow.toString(), buildFitSeedRowEll.toString(),
+    // phasorFit() itself runs inside this stringified worker environment
+    // (see its own self-test in onmessage below) — its own background/
+    // photons are bounded to the same win×win window it already reads, so
+    // (unlike an earlier round) it needs no separate aperture-photometry
+    // helper here at all; apertureGeometry()/percentile() stay defined only
+    // on the main thread now, for smFRET's own apertureIntensity().
+    zFromWidths.toString(), phasorFit.toString(), polyEval.toString(),
     ftmSeriesGlobal.toString(),
     `onmessage=function(e){
       const d=e.data;
@@ -8845,8 +8854,7 @@ function workerSource(){
             // needs the asymmetric 1.05x/0.95x split.
             if(seedMode==='ell')            buildFitSeedRowEll(img,w,mm[0],mm[1],r,K,k2,sigma,sigma,gain,camoffset,seedsA,seedsB,windows,m);
             else if(seedMode==='ellRotFree') buildFitSeedRowEll(img,w,mm[0],mm[1],r,K,k2,sigma*1.05,sigma*0.95,gain,camoffset,seedsA,seedsB,windows,m);
-            else if(seedMode==='phasor')     buildFitSeedRowPhasor(img,w,h,mm[0],mm[1],r,K,k2,gain,camoffset,seedsA,seedsB,windows,m);
-            else                             buildFitSeedRow(img,w,mm[0],mm[1],r,K,k2,sigma,gain,camoffset,seedsA,seedsB,windows,m);
+            else                             buildFitSeedRow(img,w,mm[0],mm[1],r,K,k2,sigma,gain,camoffset,seedsA,seedsB,windows,m);   // also phasor/phasor3d (seedMode 'sph')
             frameIdx[m]=start+i; if(auditCandidates) candidatePixels[m]=mm[1]*w+mm[0]; m++;
           }
         }
@@ -10751,24 +10759,14 @@ function buildFitSeedRow(img,w,cx,cy,r,K,k2,sigma0,gain,camoffset,seedsA,seedsB,
   seedsB[m*4]=sigma0; seedsB[m*4+1]=cx; seedsB[m*4+2]=cy;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++) windows[m*k2+(dy+r)*K+(dx+r)]=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain;
 }
-// GPU-fit seed builder for phasor/phasor3d. Unlike every other method here,
-// phasor is NON-ITERATIVE — its own position/width come from a closed-form
-// first-harmonic Fourier coefficient of the plain K×K fit window (exactly
-// what `windows[]` below already carries), so WGSL_FIT_PHASOR (MODULE: gpu)
-// needs no seed guess at all, only cx,cy (to reattach the result afterward).
-// photons/bg/bgstd are different: phasorApertureIntensity() (MODULE: fit)
-// needs pixels out to the aperture's own background-annulus radius (r+2.5),
-// WIDER than the K×K fit window ever is — rather than upload a second,
-// larger per-candidate window just for that, they're computed HERE, once
-// per candidate, straight from the full frame `img` (identical to what
-// phasorFit()'s own main-thread call already does) and packed into seedsA
-// as plain pass-through numbers; the GPU kernel never touches them.
-function buildFitSeedRowPhasor(img,w,h,cx,cy,r,K,k2,gain,camoffset,seedsA,seedsB,windows,m){
-  const {photons,bg,bgstd}=phasorApertureIntensity(img,w,h,cx,cy,K,gain,camoffset);
-  seedsA[m*4]=photons; seedsA[m*4+1]=bg; seedsA[m*4+2]=bgstd;
-  seedsB[m*4+1]=cx; seedsB[m*4+2]=cy;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++) windows[m*k2+(dy+r)*K+(dx+r)]=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain;
-}
+// phasor/phasor3d need no dedicated seed builder: now that background/photons
+// are bounded to the SAME K×K fit window (MODULE: fit's own phasorFit()
+// comment explains why — matching the Phasor paper/supplement, not the
+// wider aperture-photometry method), WGSL_FIT_PHASOR (MODULE: gpu) computes
+// EVERYTHING from that one window, so this plain buildFitSeedRow() (whose
+// own seedsA center-of-mass guess phasor simply never reads) already packs
+// exactly what's needed — cx,cy plus the window itself. Phasor uses the
+// same 'sph' seedMode as gaussmle below for this reason.
 // GPU fit dispatch over a FLAT batch of already-seeded candidates that can
 // span MANY frames, not just one — this is what fixes the useGpuFit
 // serialization/under-utilization bug (one tiny GPU dispatch per frame):
@@ -11046,12 +11044,13 @@ async function fitBatchGpuFlat(engine, seedsA, seedsB, windows, frameIdx, nMax, 
 // -- GPU fit path, phasor/phasor3d (Martens 2018: first Fourier coefficient,
 // no iteration). Unlike every other kernel here, this one is CLOSED-FORM —
 // no Newton loop, no Fisher matrix, no convergence gate — so the WGSL side
-// only ever computes position (x,y) and phasor magnitude (pmagX,pmagY) from
-// the plain K×K window; photons/bg/bgstd are pass-through values already
-// computed on the CPU/worker side during seed-building
-// (buildFitSeedRowPhasor() above — see its own comment for why: the
-// aperture-photometry background annulus needs pixels wider than the fit
-// window this kernel ever sees).
+// computes EVERYTHING (position, phasor magnitude, AND background/photons)
+// from the one plain K×K window; no seed guess, no separate buffer, nothing
+// pass-through — see buildFitSeedRow's own comment above for why phasor
+// needs no dedicated seed builder either. Background here matches
+// phasorFit()'s own algorithm exactly (MODULE: fit's own comment there has
+// the full citation/rationale for why it's the win×win window's own
+// outermost-ring mean, not the wider aperture-photometry annulus).
 //
 // The row/col Fourier sums phasorFit() (MODULE: fit) builds via two
 // intermediate K-length arrays are mathematically equivalent to one direct
@@ -11068,6 +11067,7 @@ struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32 };
 @group(0) @binding(2) var<storage, read> seedsB: array<vec4f>;
 @group(0) @binding(3) var<storage, read> windows: array<f32>;
 @group(0) @binding(4) var<storage, read_write> resultsA: array<vec4f>;
+@group(0) @binding(5) var<storage, read_write> resultsB: array<vec4f>;
 const TWO_PI: f32 = 6.283185307179586;
 override WG: u32 = 64u;
 @compute @workgroup_size(WG)
@@ -11077,7 +11077,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let r = i32(fp.r); let K = 2*r+1; let base = i32(m)*K*K;
   let sB = seedsB[m]; let cx = sB.y; let cy = sB.z;
   var tot=0.0; var reX=0.0; var imX=0.0; var reY=0.0; var imY=0.0;
+  var bgSum=0.0; var bgSq=0.0; var bgN=0.0;
   for (var iy=0; iy<K; iy=iy+1) {
+    let edgeY = (iy==0) || (iy==K-1);
     let ay = TWO_PI*f32(iy)/f32(K); let cay=cos(ay); let say=sin(ay);
     for (var ix=0; ix<K; ix=ix+1) {
       let v = windows[base+iy*K+ix];
@@ -11085,6 +11087,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       let ax = TWO_PI*f32(ix)/f32(K);
       reX = reX + v*cos(ax); imX = imX - v*sin(ax);
       reY = reY + v*cay; imY = imY - v*say;
+      if (edgeY || ix==0 || ix==K-1) { bgSum = bgSum + v; bgSq = bgSq + v*v; bgN = bgN + 1.0; }
     }
   }
   var ax0 = atan2(imX, reX); if (ax0 > 0.0) { ax0 = ax0 - TWO_PI; }
@@ -11093,12 +11096,26 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let y = cy - f32(r) + abs(ay0)/(TWO_PI/f32(K));
   let magX = sqrt(reX*reX+imX*imX)/max(1.0, tot);
   let magY = sqrt(reY*reY+imY*imY)/max(1.0, tot);
+  let bg = bgSum/bgN;
+  let bgstd = sqrt(max(0.0, bgSq/bgN - bg*bg));
+  // photons = Σ(v-bg), a SECOND pass over the same window now that bg is
+  // known — not tot-bg*K² (mathematically identical, but subtracting two
+  // large near-equal f32 numbers there loses precision to catastrophic
+  // cancellation; see phasorFit()'s own comment, MODULE: fit, for the full
+  // rationale and a measured f32-emulated comparison).
+  var photons = 0.0;
+  for (var iy2=0; iy2<K; iy2=iy2+1) {
+    for (var ix2=0; ix2<K; ix2=ix2+1) {
+      photons = photons + (windows[base+iy2*K+ix2] - bg);
+    }
+  }
   resultsA[m] = vec4f(x, y, magX, magY);
+  resultsB[m] = vec4f(photons, bg, bgstd, 0.0);
 }`;
-const GPU_FIT_SPEC_PHASOR={key:'fit-phasor', wgsl:WGSL_FIT_PHASOR, maxIter:0, results:[16]};
+const GPU_FIT_SPEC_PHASOR={key:'fit-phasor', wgsl:WGSL_FIT_PHASOR, maxIter:0, results:[16,16]};
 async function fitBatchGpuFlatPhasor(engine, seedsA, seedsB, windows, frameIdx, nMax, r, eps, slot, candidatePixels){
   if(!nMax) return [];
-  const [rA]=await runGpuFitBatch(engine, GPU_FIT_SPEC_PHASOR, seedsA, seedsB, windows, nMax, r, eps, slot);
+  const [rA,rB]=await runGpuFitBatch(engine, GPU_FIT_SPEC_PHASOR, seedsA, seedsB, windows, nMax, r, eps, slot);
   // No accept/reject gate — phasorFit() (MODULE: fit) never rejects a
   // candidate either, so keeping none here too is what makes CPU/GPU
   // candidate counts identical by construction for this method, unlike the
@@ -11107,7 +11124,8 @@ async function fitBatchGpuFlatPhasor(engine, seedsA, seedsB, windows, frameIdx, 
   const out=[];
   for(let m=0;m<nMax;m++){
     const x=rA[m*4],y=rA[m*4+1],pmagX=rA[m*4+2],pmagY=rA[m*4+3];
-    out.push({x,y,photons:seedsA[m*4],bg:seedsA[m*4+1],bgstd:seedsA[m*4+2],sigma:0,pmagX,pmagY,
+    const photons=rB[m*4],bg=rB[m*4+1],bgstd=rB[m*4+2];
+    out.push({x,y,photons,bg,bgstd,sigma:0,pmagX,pmagY,
                pratio:pmagY/Math.max(1e-9,pmagX),frame:frameIdx[m],
                _candidatePixel:candidatePixels?candidatePixels[m]:undefined});
   }
@@ -20101,7 +20119,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         const cx=slot.seedsB[m*4+(ell?2:1)],cy=slot.seedsB[m*4+(ell?3:2)];
         const L=method==='gaussmle'?gaussianMLEspheric(img,K,K,r,r,K,sigma,1,0,eps)
           :method==='mle3d'?gaussianMLEelliptic(img,K,K,r,r,K,sigma,1,0,eps)
-          :(method==='phasor'||method==='phasor3d')?phasorResultFromSlot(img,K,r,slot.seedsA,m)
+          :(method==='phasor'||method==='phasor3d')?phasorFromWindow(img,K,r)
           :gaussianMLEellipticangled(img,K,K,r,r,K,sigma,1,0,eps,sSmlmAngleRad);
         if(!L) continue;
         L.x+=cx-r; L.y+=cy-r; L.frame=slot.frameIdx[m];
@@ -20208,19 +20226,19 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         // replicating gaussianMLEellipticangled's own degeneracy-breaking
         // seed exactly — see buildFitSeedRowEll's own comment for why.
         buildFitSeedRowEll(img,w,cx,cy,r,K,k2,sigma*1.05,sigma*0.95,gain,camoffset,cur.seedsA,cur.seedsB,cur.windows,cur.n);
-      } else if(method==='phasor'||method==='phasor3d'){
-        buildFitSeedRowPhasor(img,w,h,cx,cy,r,K,k2,gain,camoffset,cur.seedsA,cur.seedsB,cur.windows,cur.n);
       } else {
+        // Also covers phasor/phasor3d — see buildFitSeedRow's own comment
+        // just above for why they need no dedicated seed builder.
         buildFitSeedRow(img,w,cx,cy,r,K,k2,sigma,gain,camoffset,cur.seedsA,cur.seedsB,cur.windows,cur.n);
       }
       cur.frameIdx[cur.n]=fi; cur.candidatePixels[cur.n]=cy*w+cx; cur.n++;
     };
     // seedMode tells the worker which seed builder to use, so the branch that
     // used to live in appendCandidate below travels with the dispatch instead
-    // of being re-decided per candidate on the main thread.
+    // of being re-decided per candidate on the main thread. phasor/phasor3d
+    // fall into 'sph' (the default) — same reasoning.
     const seedMode = (method==='mle3d' || (method==='gaussmleEll' && !gpuEllRotFreeEligible)) ? 'ell'
-                   : gpuEllRotFreeEligible ? 'ellRotFree'
-                   : (method==='phasor'||method==='phasor3d') ? 'phasor' : 'sph';
+                   : gpuEllRotFreeEligible ? 'ellRotFree' : 'sph';
     return {
       appendCandidate, appendBlock, seedMode, flushGpuBatch, gpuBatchSize,
       get gpuFailed(){return gpuFailed;}, get fallbackBatches(){return fallbackBatches;},
@@ -23836,18 +23854,22 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7-dev · build 2026-09-19i — Phasor fitting is now
-GPU-accelerated (Fit method: Phasor 2D / Phasor 3D), alongside the existing
-Gauss MLE methods.
+log(`webSMLM v0.12.7-dev · build 2026-09-19j — corrects Phasor's own
+background/photon estimate (build 2026-09-19i's new GPU acceleration stays,
+fixed alongside it).
 
-Phasor was CPU-only until now — a straightforward gap, not a deliberate
-choice. It's actually the simplest fit method to run on the GPU: unlike the
-Newton-iterated MLE fitters, Phasor is a single closed-form calculation (a
-first-harmonic Fourier coefficient), with no iteration and no accept/reject
-decision at all — every detected candidate becomes a localization, on both
-CPU and GPU. Verified: bench-fit.mjs shows exact CPU/GPU candidate-count
-agreement (zero discordance, expected given no accept/reject step exists)
-and a 1.5x-35x speedup depending on candidate density and fit window size.
+Phasor's background/photons are now bounded to the SAME fit window its own
+position/magnitude math already uses (the mean of the window's own
+outermost ring) — matching the Phasor method's own paper and supplement
+exactly. A prior round had briefly computed them via a WIDER background
+region instead (a separate, published aperture-photometry technique from
+the same paper's Supplementary Information, used elsewhere in this app for
+a genuinely different purpose) — corrected on direct author review.
+
+Photons are now also computed as a sum of small per-pixel residuals rather
+than one large subtraction, avoiding a real floating-point precision loss
+that showed up specifically in the GPU kernel's f32 arithmetic on larger
+fit windows.
 
 (For context, build 2026-09-19h's own two fixes remain in effect: the
 missing GPU-fit raw-panel crosshair fix, and quieting the repeated SR-render
