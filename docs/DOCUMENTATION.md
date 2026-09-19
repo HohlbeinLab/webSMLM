@@ -2068,6 +2068,7 @@ headless equivalent.
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
 | `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
 | `renderMode` | Render mode | enum | — | — | — | `fixed` (options: `precision`, `fixed`, `dither`) |
+| `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | false |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
 | `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `hsvBlue`, `grey`) |
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
@@ -2176,6 +2177,14 @@ session, works exactly as it would for a normal Localize result.) The random
 offsets are seeded
 (not `Math.random()`), so the same localizations always dither identically
 — panning/zooming or reopening the same dataset doesn't flicker.
+
+`useGpu` is an opt-in WebGPU accelerator for supported heavy stages: MLE
+fitting, reconstruction rendering, AIM drift correction and FRC. Each stage
+decides independently whether the GPU is available and large enough to be
+worth using; otherwise it logs a CPU fallback and keeps the same result shape.
+GPU arithmetic is f32, so outputs are expected to be scientifically equivalent,
+not byte-identical, to the CPU f64 path; candidates near an accept/reject
+boundary can differ slightly.
 
 `hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
@@ -2879,6 +2888,9 @@ const result = await window.webSMLM.analyze({
 - `config` is **partial** — only values that differ from the `PARAMS`
   registry defaults need to appear; `defaultConfig()` (also exposed) fills
   the rest with `PARAMS[id].default`, no DOM read at all.
+- `config.useGpu` is the headless form of **Use GPU acceleration
+  (experimental)**. It is opt-in and per-stage adaptive; unsupported or small
+  workloads fall back to CPU and report that path in `result.execution`.
 - `config.file`/`config.files` — a `File` or an array of `File`s (same
   multi-file support as Ctrl/Cmd+click **Load movie**, including the
   auto-detected "several single-frame files" vs. "several chunks of one
@@ -3130,7 +3142,12 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, logText, settingsText, timings, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
+**Returns** `{locs, csvText, logText, settingsText, timings, performance, execution, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
+- `performance` is a phase-timing object for the whole `analyze()` call
+  (`inputMs`, `localizationMs`, `postprocessMs`, `csvMs`, `renderMs`,
+  `pngEncodeMs`, `plotsMs`, etc.).
+- `execution` records whether GPU was requested/available plus each measured
+  stage's CPU/GPU path and fallback reason.
 - `plots` is `null` unless `config.exportPlots` and/or `config.exportHistograms`
   were set; otherwise an object with only the keys for what was actually
   computed/requested this run — e.g. `{drift, nena}` if only

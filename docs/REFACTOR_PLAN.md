@@ -6,6 +6,15 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **WebGPU follow-ups** — the shipped path is opt-in and CPU-fallback safe, but a few GPU-specific
+  limits remain worth revisiting:
+  - Candidate acceptance differs slightly near the CPU f64 / GPU f32 boundary; current tests guard
+    exact detection count and bounded accepted-set drift, not bit-identical accepted sets.
+  - Detection was tried on WebGPU and removed after measuring slower than the worker-pool CPU path;
+    only revisit with a different algorithm, not a straight port.
+  - GPU batch sizing (`gpuBatchMb`/`gpuInflight`/`gpuFlushMs`) is settings-JSON/headless tunable for
+    benchmarking, but intentionally has no sidebar UI until real users need it.
+
 - **Cubic-spline PSF fitting** (`picasso/fitting/splinefit.py`) for PSFs that deviate from
   Gaussian — meaningfully bigger scope than the rotated-elliptical MLE fitter (shipped): its own
   3D calibration volume and PSF-model representation, not just another free parameter. Key
