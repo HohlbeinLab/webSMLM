@@ -53,7 +53,7 @@ in a module.
   `pxnm` ("Pixel size (nm)") and `frametime` ("Frame time (s)") are pinned always-visible near the
   top of the sidebar, outside any collapsible section — both are per-dataset acquisition properties
   several modules (spt, smFRET) depend on, not settings local to one module. `gain`/`camoffset`/**Get
-  estimate** sit at the top of **Localisation settings**, right below **Real-time update**.
+  estimate** sit at the top of **Localisation**, right below **Real-time update**.
 
   **No checkbox or control label ends in "?"** — a plain house-style convention (e.g. **Apply
   segmentation**, **3D localisation**, **Analyse FRET**, **Position donor**). `select.sel:disabled`
@@ -212,6 +212,13 @@ in a module.
   already exercises and compiles the spherical kernel, not phasor's) — a single, one-off Localize click
   can show phasor's Run as flat or even slightly SLOWER than gaussmle for exactly this reason, not a
   real per-dispatch cost.
+
+  **`useGpu`'s own checkbox ("Use GPU acceleration") physically sits in the sidebar's Memory, GPU &
+  streaming section, NOT in Localisation** — same "controls live somewhere other than their declaring
+  module's own sidebar" precedent as FTM's `ftmEnabled`/`ftmWindow` (MODULE: in/out, physically shown
+  in Localisation instead) — since this one flag is genuinely shared by **fit** (all four MLE/Phasor
+  methods), **render** (precision-mode splatting), and **locprecision** (FRC), not specific to any one
+  of the three sections a user might otherwise look for it under.
 
   `winr2d`/`winr3d` are the fields actually shown in the sidebar; the underlying `winr` (still what
   every `$('winr')`-based mechanism — PARAMS, live-preview listeners, worker dispatch — reads) is
@@ -837,7 +844,7 @@ in a module.
   bound.
 
   **`memBudgetGB`/`memgb`/`chunkmb` are three independent settings** ("Total memory budget (GB)",
-  "Budget raw movies (GB)", "Stream heap (MB)", all under "Memory & streaming"): `memBudgetGB` is the
+  "Budget raw movies (GB)", "Stream heap (MB)", all under "Memory, GPU & streaming"): `memBudgetGB` is the
   OPT-IN total-memory ceiling `checkLocsMemory()`/`checkRenderSize()`/`checkTableSize()` all compare
   against (default `Infinity`/unset on desktop — most setups never need one for the file sizes this
   app is typically used with); `memgb` only ever decides whole-file-cache-vs-stream at load time
@@ -858,7 +865,7 @@ in a module.
   anyway, which is itself a fresh load and naturally re-arms this) pop-up (`#memWarnModal`, wired in
   `wireHelp()` alongside the app's other modals) restating the three live values above and pointing at
   what to try next if analysis keeps failing (lower `memBudgetGB` further, narrow the analysed frame
-  range, lower Magnification, use a smaller/cropped file); its own **Open Memory & streaming** button
+  range, lower Magnification, use a smaller/cropped file); its own **Open Memory, GPU & streaming** button
   expands and scrolls to `#memBox` directly. Purely informational — never blocks the load itself.
 
   **A live "Mem: ..." readout** sits in the Log card's own title row (`#memReadout`, a
@@ -983,7 +990,7 @@ in a module.
   corner/point.
 
 - **liveStreaming** (`window.webSMLM.liveStream`) — Marked **experimental**. A Micro-Manager/
-  pycromanager camera bridge; two ways in, both nested inside "Memory & streaming": an opt-in
+  pycromanager camera bridge; two ways in, both nested inside "Memory, GPU & streaming": an opt-in
   WebSocket the page connects OUT to (never listens), or an external Playwright-driven bridge
   (`tools/webSMLM-livestream-bridge.mjs`) pushing chunks via `window.webSMLM.liveStream.pushChunk()`.
   Each chunk is localized independently via `runCore()` (no cross-chunk context — FTM is unsupported
@@ -1325,7 +1332,7 @@ have users run the `mvn package` command themselves.
   of the synced content (fixed markup in `webSMLM.html`). The 10 `.hint` divs are
   `hint-memory` (also covers live streaming — no separate `hint-liveStreaming`),
   `hint-simulation`, `hint-pcfo`, `hint-calibration`, `hint-detectfit` (also covers **export**'s own
-  Gain/Camera offset fields, moved to the top of Localisation settings — no separate `hint-export`),
+  Gain/Camera offset fields, moved to the top of Localisation — no separate `hint-export`),
   `hint-render`, `hint-drift` (also covers Localization precision/NeNA/FRC — no separate
   `hint-locprecision`), `hint-sSMLM`, `hint-smfret`, `hint-spt`. Each marker is placed as the INTRO to
   its DOCUMENTATION.md section, right after the PARAMS table — the surrounding prose picks up only
