@@ -1023,6 +1023,23 @@ in a module.
   empty message under direct testing, so this stays a defensive hardening rather than a confirmed
   root-cause fix — worth revisiting if it recurs on a build after this one).
 
+  **`renderTable()`/`renderTrackTable()` use `topKSorted(arr, k, cmp)` — a bounded max-heap selection,
+  O(n log k) — instead of a full `Array.prototype.sort()`, O(n log n), before slicing to `TABLE_CAP`
+  (3000) rows for display.** A real, reported symptom this fixes: on an 11M-loc dataset, a crop
+  applied fine, but "uncrop" (Reset filter) followed by a second crop attempt looked permanently
+  stuck — no error, no progress, indefinitely. Root cause: a crop's own `renderTable()` call sorts the
+  already-much-smaller FILTERED subset (fast), but "uncrop" clears `_tableFilters` first, so its own
+  `renderTable()` call sorts the FULL, unfiltered row set just to throw away everything past row
+  3000 — measured directly, a full `sort()` over 10-15M rows costs ~6-10s **by itself**, on top of
+  `locTableData()`'s own cost (~1.3-1.4s at that scale, not the bottleneck) — and since JS is
+  single-threaded, any crop-2 clicks made during that stall just queue silently, with no way to tell
+  a slow operation from a hung one. `topKSorted()` cut the 15M-row case from ~9.7s to ~65ms (measured)
+  — the crop→uncrop→crop-again sequence at 11M locs now completes in ~6s per step (still the real,
+  remaining `locTableData()`/render cost) instead of stalling on a sort nobody would ever see the
+  results of. `_tableFiltered`/`_trackTableFiltered` (the FULL filtered set, used only for `.length`
+  and `plotColumnHistogram()`'s own per-row VALUES) are left deliberately UNSORTED — nothing reads
+  their order, only `shown` (the actual TABLE_CAP-capped DOM slice) needs real sort order.
+
   **The SR-panel crop tool draws its full rectangle (both corners + outline) the INSTANT the second
   corner is clicked, before `commitSrCrop()` runs — mirroring the line-profile tool's own "show the
   whole shape, then compute" ordering.** A real, reported symptom on a large dataset (the same one
