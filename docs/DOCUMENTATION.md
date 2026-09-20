@@ -1583,8 +1583,12 @@ Two genuinely separate settings (an earlier version used one shared `memgb` fiel
 
 - **Total memory budget (GB)** (`memBudgetGB`) is an overall safety ceiling.
   `checkLocsMemory()` (a growing Localize run), `checkRenderSize()` (the reconstruction buffers), and
-  `checkTableSize()` (the locs table) all compare their own real, combined memory estimates against
-  it — with no budget set (blank/∞, the desktop default), none of them warn or auto-stop at all.
+  `checkTableSize()` (the locs table/crop filter) all compare their own real, combined memory
+  estimates against it. With no budget set (blank/∞, the desktop default), these no longer skip the
+  check entirely: on a browser that reports its own heap limit (Chrome/Edge, via
+  `performance.memory.jsHeapSizeLimit`), they fall back to 80% of that real number instead, so a
+  genuinely oversized operation still refuses with a clear message rather than risking an out-of-memory
+  tab crash. Safari (no such API) still gets no automatic ceiling here — set one by hand if needed.
 - **Budget raw movies (GB)** (`memgb`) is unrelated to the ceiling above — it only ever governs
   whether a loaded movie is decoded and cached whole in RAM (fast re-runs) or streamed frame-by-
   frame from disk instead (bounded memory, slower re-runs), via `readBudget()`.

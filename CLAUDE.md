@@ -238,15 +238,19 @@ in a module.
   this — callable from `runCore()` (MODULE: pipeline) too, so a Run can reserve room for the render
   that will follow it BEFORE it happens, not just guess. `checkRenderSize()` is the thin wrapper that
   actually throws: refuses before any allocation if either side would exceed `CANVAS_MAX_DIM`(16384),
-  or if `estimateRenderBytes(...) + reserveBytes` exceeds `memBudgetGB` — the opt-in TOTAL memory
-  ceiling (default `Infinity`/unset on desktop, `0.5` on a memory-constrained device — see
-  **pipeline**'s own paragraph for the full picture), a no-op until one is actually set on desktop.
-  `reserveBytes` (default 0) is
+  or if `estimateRenderBytes(...) + reserveBytes` exceeds `effectiveMemBudgetBytes(memBudgetGB)` — see
+  that function's own comment for the opt-in-ceiling-plus-real-heap-fallback picture (also used by
+  `checkTableSize()`, MODULE: table, and `runCore()`'s own `checkLocsMemory()`, MODULE: pipeline) — a
+  genuine, if generous, ceiling even on a desktop where `memBudgetGB` itself is left unset (`0.5` GB is
+  set explicitly on a memory-constrained device instead — see **pipeline**'s own paragraph for the
+  full picture). `reserveBytes` (default 0) is
   memory ALREADY committed elsewhere that this render has to coexist with (see below); `rerender()`
   leaves the PREVIOUS `srFull` on screen on failure rather than blanking. `LOC_ROW_BYTES` (right
-  above `estimateRenderBytes()`) is the ONE shared per-localization-object byte estimate every memory
-  guard in the app uses (`checkTableSize()`, MODULE: table; `checkLocsMemory()`, MODULE: pipeline;
-  `renderSuperRes()` below) — not independently-typed copies that could drift apart.
+  above `estimateRenderBytes()`) is the shared per-localization-OBJECT byte estimate `checkLocsMemory()`
+  (MODULE: pipeline) and `renderSuperRes()` (below) both use for the real `locs` array's own footprint
+  — `checkTableSize()` (MODULE: table) uses its OWN, much smaller `TABLE_FILTER_ROW_BYTES` instead
+  since a table filter/crop no longer copies full loc-shaped rows at all (see that module's own
+  comment on why reusing `LOC_ROW_BYTES` there after that refactor became wrong, not just imprecise).
 
   **`renderSuperRes()` passes its own `locs.length*LOC_ROW_BYTES + stackResidentBytes` into
   `checkRenderSize()` as `reserveBytes`, and separately skips the render worker (falls back to the
@@ -767,7 +771,9 @@ in a module.
   `memBudgetGB`** — first shipped at flat fractions (`0.95`, then `0.7`/`0.55` — each one just another
   guess, no more principled than the last, and asked about directly: "what is the reasoning behind
   the 55%?" didn't have a solid answer). Now: `stopAt = budget − renderBytesEstimate −
-  frameBatchReserve − stackResidentBytes`, all three terms REAL numbers computed from THIS run's own
+  frameBatchReserve − stackResidentBytes`, where `budget` is `effectiveMemBudgetBytes(config.memBudgetGB).bytes`
+  (MODULE: render — a real browser-heap-based fallback when `memBudgetGB` itself is unset, not
+  `Infinity` outright) and the other three terms are REAL numbers computed from THIS run's own
   configuration, not arbitrary safety margins —
   - `renderBytesEstimate` = `estimateRenderBytes(w*config.mag, h*config.mag, config.zcolor,
     config.rblur, config.renderMode)` (MODULE: render), computed ONCE up front: exactly what the
@@ -1019,16 +1025,64 @@ in a module.
   needed yet, matching spt's own Hungarian-vs-greedy "don't optimize for a scale nobody's hit"
   precedent.
 
-  `checkTableSize()` guards `locTableData()` against `memBudgetGB` the same way `checkRenderSize()`
-  guards render buffers (each row estimated at ~200 bytes). All three `locTableData()` call sites
-  (the SR-panel crop tool, `rebuildTableData()`, `openTable()`) catch its own thrown `Error` and log
-  it via `${(err&&err.message)||err}`, not a bare `${err.message}` — the same defensive fallback the
-  GPU-fit-failure log already uses elsewhere — so a non-`Error` thrown value (or a genuinely
-  `undefined` `.message`) still surfaces something readable instead of a bare, confusing
-  `"undefined"` in the log (reported directly: **Crop** logged exactly that after its own size check
-  should have fired a real message; the size-check path itself couldn't be reproduced producing an
-  empty message under direct testing, so this stays a defensive hardening rather than a confirmed
-  root-cause fix — worth revisiting if it recurs on a build after this one).
+  **Column-oriented model — filtering/plotting never materializes a full row anymore.**
+  `locTableData()` used to EAGERLY build one full multi-column row object (up to ~20 own properties)
+  for the WHOLE base array, just so a filter predicate or a "how many pass" count could test a
+  handful of columns. At real scale (10-20M+ locs) that's a second full-sized copy of the entire
+  dataset, on top of the raw locs array and the render buffers — a real, reported crash: the SR-panel
+  crop tool's own table build **crashed the tab outright** (not just slowly) around 20M
+  localizations, with no error, log line, or way to tell a hang from a crash.
+
+  Fixed by splitting what used to be one function into three: `tableColumnInfo(baseLocs, isClustered,
+  px)` — the cheap part, a handful of O(n) boolean-only `.some()` scans deciding which OPTIONAL
+  columns exist (z, sSMLM dist, sx/sy, track_id/D_coeff, cell_id, …) plus dec/unit metadata, no
+  allocation at all; `tableColumnValue(L, i, col, info)` — computes ONE column's own display value for
+  ONE raw loc (`i` is only needed by `id`, a synthetic row number, not a loc property); and
+  `tableRowFromLoc(L, i, info)` — the full multi-column row, called ONLY for the up-to-`TABLE_CAP`
+  (3000) rows `renderTable()` actually displays, AFTER filtering/sorting has already narrowed things
+  down — bounded cost regardless of how many localizations exist. `locTableData()` itself survives as
+  a thin wrapper over these three (same `{cols,dec,unit,rows}` shape) for terminal/debugging use — no
+  interactive call site (`commitSrCrop()`, `openTable()`, `rebuildTableData()`) eagerly builds the
+  whole table anymore; each now builds only `tableColumnInfo()` and stores it in `_tableData` alongside
+  `base` (the array itself) for `renderTable()`/`applyFilterToReconstruction()` to read on demand.
+
+  Every `_tableFilters[].fn` closure now has the signature `(L, i) => boolean` — tests a RAW loc (+ its
+  index in `base`) via `tableColumnValue()`, never a pre-built row. `parseFilter(str, cols, valueOf)`
+  takes a GENERIC `valueOf(item, i, colName)` accessor rather than hardcoding this — the main locs
+  table passes `(L,i,f)=>tableColumnValue(L,i,f,info)`; the SPT track table (a separate, much smaller,
+  already-materialized-row shape — never at risk of this scale problem) passes a plain `(r,i,f)=>r[f]`,
+  unchanged from before this split. `applyFilterToReconstruction()` (the crop tool's own hot path)
+  filters `base` DIRECTLY with these closures — a crop is now a plain reference-array `.filter()` over
+  the ORIGINAL locs, never a second full-column copy. `renderTable()` filters/sorts `base`'s own
+  INDICES (an index array, not row objects — `id`'s own "position in `base`" meaning is preserved this
+  way), uses `topKSorted(filteredIdx, TABLE_CAP, cmp)` (below) to pick the visible slice, and only THEN
+  calls `tableRowFromLoc()` — for at most 3000 indices, however large `base` is.
+  `plotColumnHistogram()` similarly reads `_tableFiltered.map(i=>tableColumnValue(base[i],i,col,info))`
+  — one column's value per index, never a full row. Verified against the OLD implementation directly:
+  column list/dec/unit, every column's value for every row, full row objects, the `locTableData()`
+  wrapper, and five different filter expressions all matched exactly, byte-for-byte, across a
+  synthetic dataset exercising every optional column.
+
+  `checkTableSize()` still guards `tableColumnInfo()` — the `.some()` scans plus any later
+  reference-array filter/index/topK are real, if far cheaper than the old full-row-copy cost this
+  guard was originally sized for. **Its own byte-per-row estimate had to change too**: reusing
+  `LOC_ROW_BYTES` (~200 bytes, MODULE: render's own estimate for a FULL loc-shaped object) after this
+  refactor landed made this very guard start refusing a 20M-loc crop the refactor had just made
+  complete in ~1ms — caught directly by re-testing at the exact scale that used to crash. Replaced
+  with `TABLE_FILTER_ROW_BYTES` (32, a ~4× safety margin over two ~8-bytes/row reference arrays —
+  `filteredIdx` and `renderLocs`, the actual worst-case downstream allocation now).
+
+  **`effectiveMemBudgetBytes(memBudgetGB)`** (MODULE: render, shared by `checkRenderSize()`,
+  `checkTableSize()`, and `runCore()`'s own `checkLocsMemory()`) closes the OTHER half of the same
+  crash: `memBudgetGB` defaults to `Infinity` (unset) on desktop, so a user who never sets one gets NO
+  protection from any of these guards at all — nothing was ever going to refuse before the crop's own
+  crash-causing allocation ran. When unset, this now falls back to `MEM_CEILING_FALLBACK_FRACTION`
+  (0.8) of THIS BROWSER'S OWN reported `performance.memory.jsHeapSizeLimit` (Chrome/Edge only — same
+  real-vs-estimate distinction `updateMemReadout()` already draws) rather than no ceiling at all; a
+  real, browser-reported number is worth acting on automatically, a guessed one isn't, so Safari (no
+  `performance.memory`) still gets `Infinity` here, unchanged. Returns `{bytes, source}` —
+  `source:'set'`/`'fallback'` — so `memCeilingSuffix()` can tell a user which kind of ceiling they hit
+  (their own configured number, vs. this browser's own auto-detected one) in the error message.
 
   **`renderTable()`/`renderTrackTable()` use `topKSorted(arr, k, cmp)` — a bounded max-heap selection,
   O(n log k) — instead of a full `Array.prototype.sort()`, O(n log n), before slicing to `TABLE_CAP`
@@ -1036,16 +1090,17 @@ in a module.
   applied fine, but "uncrop" (Reset filter) followed by a second crop attempt looked permanently
   stuck — no error, no progress, indefinitely. Root cause: a crop's own `renderTable()` call sorts the
   already-much-smaller FILTERED subset (fast), but "uncrop" clears `_tableFilters` first, so its own
-  `renderTable()` call sorts the FULL, unfiltered row set just to throw away everything past row
-  3000 — measured directly, a full `sort()` over 10-15M rows costs ~6-10s **by itself**, on top of
-  `locTableData()`'s own cost (~1.3-1.4s at that scale, not the bottleneck) — and since JS is
-  single-threaded, any crop-2 clicks made during that stall just queue silently, with no way to tell
-  a slow operation from a hung one. `topKSorted()` cut the 15M-row case from ~9.7s to ~65ms (measured)
-  — the crop→uncrop→crop-again sequence at 11M locs now completes in ~6s per step (still the real,
-  remaining `locTableData()`/render cost) instead of stalling on a sort nobody would ever see the
-  results of. `_tableFiltered`/`_trackTableFiltered` (the FULL filtered set, used only for `.length`
-  and `plotColumnHistogram()`'s own per-row VALUES) are left deliberately UNSORTED — nothing reads
-  their order, only `shown` (the actual TABLE_CAP-capped DOM slice) needs real sort order.
+  `renderTable()` call sorts the FULL, unfiltered index set just to throw away everything past row
+  3000 — measured directly, a full `sort()` over 10-15M rows costs ~6-10s **by itself**, and since JS
+  is single-threaded, any crop-2 clicks made during that stall just queue silently, with no way to
+  tell a slow operation from a hung one. `topKSorted()` cut the 15M-row case from ~9.7s to ~65ms
+  (measured). Combined with the column-model refactor above, the full crop→uncrop→crop-again sequence
+  now completes reliably at 11M, 20M, and 30M locs alike (a few seconds per step at 30M — real,
+  remaining render cost, not table cost) instead of crashing or stalling on work nobody would ever
+  see the results of. `_tableFiltered`/`_trackTableFiltered` (the FULL filtered set — now an INDEX
+  array for the main table, still row objects for the much-smaller track table) are left deliberately
+  UNSORTED — nothing reads their order, only `shown` (the actual `TABLE_CAP`-capped DOM slice) needs
+  real sort order.
 
   **The SR-panel crop tool draws its full rectangle (both corners + outline) the INSTANT the second
   corner is clicked, before `commitSrCrop()` runs — mirroring the line-profile tool's own "show the
