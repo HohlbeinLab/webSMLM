@@ -1023,6 +1023,23 @@ in a module.
   empty message under direct testing, so this stays a defensive hardening rather than a confirmed
   root-cause fix — worth revisiting if it recurs on a build after this one).
 
+  **The SR-panel crop tool draws its full rectangle (both corners + outline) the INSTANT the second
+  corner is clicked, before `commitSrCrop()` runs — mirroring the line-profile tool's own "show the
+  whole shape, then compute" ordering.** A real, reported symptom on a large dataset (the same one
+  behind the "undefined" hardening above): clicking the second corner appeared to do nothing at all.
+  Root cause: `commitSrCrop()`'s own `locTableData()` call can genuinely block the main thread for
+  seconds at real scale, and the OLD code cleared the first corner's dot (`cropPt0=null`) without
+  drawing anything to replace it until `commitSrCrop()` itself finished — on a slow OR a silently
+  failing commit, the panel just sat there with no visual change at all. `cropRect` (a new module-level
+  var, alongside `cropPt0`) now holds the pending rectangle; the click handler sets it and calls
+  `drawView()` immediately, THEN calls `commitSrCrop()`. `commitSrCrop()` clears `cropRect` itself
+  right before its own final `drawView()` on SUCCESS (the real cropped/zoomed reconstruction replaces
+  it — on a small dataset this happens fast enough that the rectangle only flashes briefly, which is
+  fine); on any FAILURE path (the invalid-region guard, or `locTableData()` throwing) it deliberately
+  leaves `cropRect` untouched, so the attempted region stays visible next to the error log instead of
+  vanishing along with the explanation of why it didn't work. Every other `cropPt0=null` reset site
+  (mode toggle, streaming lock, dataset/session reset) also resets `cropRect` alongside it.
+
 ## Web Worker gotcha (read before touching detect/fit/workers)
 
 Workers are **not** separate files. `workerSource()` builds worker code by calling `.toString()` on
