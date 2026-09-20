@@ -327,7 +327,13 @@ in a module.
   two silently cancelling if either is edited). `hideOtherRawToggleBtns(exceptId)` keeps the raw-panel
   mode toggles (drift/spt/sSMLM histogram mode, segmentation image/hist) mutually exclusive — any new
   raw-panel toggle must call it too, or switching directly between two plot dispatchers with no
-  "reclaim point" in between can leave a stale toggle button stranded.
+  "reclaim point" in between can leave a stale toggle button stranded. **A real, reported instance of
+  exactly this**: `drawFrcPlot()` and `drawNenaPlot()` — the raw panel's own two plot dispatchers with
+  no toggle button of their own — never called `hideOtherRawToggleBtns(null)` at all (every other
+  dispatcher does, including the plain live-frame view and smFRET's own trace mode). Computing **Drift
+  correction** (shows "Show x/y path", `driftPlotModeBtn`) and then **FRC** or **NeNA** left that
+  drift-specific toggle stuck visible on top of the unrelated plot — fixed by adding the same
+  `hideOtherRawToggleBtns(null)` call both already needed.
 
   `redrawRawContrast()` (the Contrast slider's own drag handler) must never call `drawRaw()`
   unconditionally — `if(!rawPixelData || rawSegView || rawIsPlot) return;` guards against dragging

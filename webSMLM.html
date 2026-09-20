@@ -17,11 +17,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.7; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20a; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3366   PARAMS registry, single source of truth for params;
+    params          3371   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -49,7 +49,7 @@
                            own blank-line separator — otherwise a command and
                            its own first result line print with a spurious
                            blank line between them
-    in/out          4494   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4499   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -62,12 +62,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4793   synthetic stack generator ("Simulate movie")
-    detect          5943   per-frame band-pass + local-maxima detection
+    simulation      4798   synthetic stack generator ("Simulate movie")
+    detect          5948   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6220   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6225   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -92,7 +92,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6915   accumulate to offscreen buffer; view/colour/blur;
+    render          6920   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -131,13 +131,13 @@
                            print their own line, several back-to-back in the
                            log for no actionable reason; the final render
                            still logs it
-    workers         8703   frame-parallel detect/fit worker pool; dedicated
+    workers         8708   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             9114   shared WebGPU compute engine (experimental,
+    gpu             9119   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all
                            4 MLE methods plus phasor/phasor3d — the one
                            non-iterative kernel, a closed-form Fourier
@@ -181,8 +181,8 @@
                            between the two, since CPU-side detection (not
                            fit) dominates a Run's wall time regardless of
                            method (see CLAUDE.md's own fit-module paragraph)
-    export          11577  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11929  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11582  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11934  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -193,7 +193,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12411  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12416  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -217,9 +217,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13343  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
-                           {computeFRC:true} on success (no other config)
-    sSMLM           14303  spectrally resolved SMLM pair-finding; renamed
+    locprecision    13348  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+                           {computeFRC:true} on success (no other config);
+                           drawNenaPlot()/drawFrcPlot() now call
+                           hideOtherRawToggleBtns(null) like every other raw-
+                           panel display already does — a real, reported bug:
+                           Drift correction's own "Show x/y path" toggle stayed
+                           stuck visible over NeNA/FRC's own plot afterward
+    sSMLM           14310  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -429,7 +434,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18064  single particle tracking, trackpy-inspired;
+    spt             18071  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -460,7 +465,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19602  top-level orchestration, *Core()/wrapper split;
+    pipeline        19609  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -548,7 +553,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21128  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21135  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -2677,7 +2682,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.7 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13459,6 +13464,7 @@ async function nenaPrecision(locs, px, onProgress, onLog){
 function drawNenaPlot(res){
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; setRawPlot(true); rawPlotName='nena'; $('rawTitle').textContent='NeNA: NN distances';
+  hideOtherRawToggleBtns(null);   // NeNA owns none of the four toggles (drift/spt/sSMLM/segmentation) — a real, reported bug: switching from Drift (which shows "Show x/y path") straight to NeNA left that stale toggle visible, since this dispatcher never hid it
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=56,mR=14,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
@@ -13928,6 +13934,7 @@ async function runFrcStage(ctx,locs,px,mag,onProgress=p=>setProg(100*p),onLog=lo
 function drawFrcPlot(r){
   const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
   rawFull=null; setRawPlot(true); rawPlotName='frc'; $('rawTitle').textContent='FRC';
+  hideOtherRawToggleBtns(null);   // FRC owns none of the four toggles (drift/spt/sSMLM/segmentation) — a real, reported bug: computing Drift correction (shows "Show x/y path") then FRC left that stale toggle visible on top of the FRC plot, since this dispatcher never hid it
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=52,mR=14,mT=30,mB=48, pw=W-mL-mR, ph=H-mT-mB;
@@ -23841,34 +23848,27 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.7 — experimental opt-in WebGPU acceleration ("Use GPU
-acceleration") across fitting, reconstruction rendering, AIM drift
-correction, and FRC, plus a long list of real crashes and correctness bugs
-found and fixed while stress-testing it against true full-scale real
-datasets, not just synthetic benchmarks. See CHANGELOG.md's own v0.12.7
-entry for the complete write-up.
+log(`webSMLM v0.12.8-dev · build 2026-09-20a — fixed a real, reported bug:
+the raw panel's own mode-toggle buttons (e.g. "Show x/y path", Drift
+correction's own toggle) could get stuck visible on top of an unrelated
+plot afterward.
 
-GPU fit now covers every MLE method (Gauss MLE spherical/elliptical/rotated)
-plus, new this release, Phasor and Phasor 3D — a closed-form calculation
-with no iteration and no accept/reject decision at all, so CPU and GPU
-produce identical candidate counts by construction. Its own
-background/intensity estimate uses the same published aperture-photometry
-method already used elsewhere in this app (Martens et al. 2018, J. Chem.
-Phys. 148, 123311, SI S11). Honest performance note: an isolated GPU-fit
-microbenchmark can look dramatically faster, but CPU-side spot detection
-dominates a real Localize Run's wall time regardless of fit method, so the
-actual, measured difference on a full Run is modest (roughly 5-10% faster)
-— not the large multiple an isolated fit-stage number alone would suggest.
+drawNenaPlot() and drawFrcPlot() — the raw panel's two plot dispatchers
+with no toggle button of their own — never called the standard cleanup
+(hideOtherRawToggleBtns(null)) every other raw-panel display already does.
+Computing Drift correction (shows "Show x/y path") and then NeNA or FRC
+left that drift-specific toggle stuck on screen, since neither of those
+two dispatchers ever hid it. Fixed by adding the same call both already
+needed.
 
-Also this release: real crashes found and fixed at full scale — a GPU
-render dispatch that crashed past a few million localizations, a headless
-CSV export that crashed on a large enough result, a stale GPU-rendered
-reconstruction after Drift correction, a GPU precision-render kernel that
-lost real signal mass, a V8 dictionary-mode memory blowup during an
-audit-only cleanup step, and missing raw-panel fit crosshairs during a
-fast-detecting GPU-fit Run. Plus: checkboxes now render as modern toggle
-switches, and the "Save plot/image" window picker's labels match whichever
-panel layout is active.`);
+For clarity, since it came up while investigating this: the SR
+(reconstruction) panel's own Crop/Measure tools are independent of
+whatever the raw (left) panel happens to be showing (a live frame, Drift,
+NeNA, FRC, …) — they don't need to, and don't, "replace" it; both panels
+display simultaneously. Crop's own second click doesn't draw a second dot
+either, by design — it immediately commits the crop as a filter and the
+view zooms/pans to fit the new region, so the view visibly jumping IS the
+confirmation.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
