@@ -1152,6 +1152,20 @@ in a module.
   width/height directly, so it still fires), just not a sibling-only layout shift that never actually
   touched either canvas's own box.
 
+  **STILL OPEN, despite the fix above**: the same "crop zoom briefly jumps in, then reverts" symptom
+  was reported AGAIN on the build containing this exact fix. Extensive repro attempts here (large and
+  small viewports, a genuinely present page scrollbar, GPU rendering enabled) all show the canvas's
+  own `getBoundingClientRect()` staying byte-identical across a crop, and `view.zoom` set exactly
+  once, correctly, with no revert — the fix behaves as designed in every scenario tried. Rather than
+  guess further, `refitCanvases()` now logs a `(diagnostic) reconstruction auto-refit — trigger: ...`
+  line (MODULE: pipeline, `_refitTriggerReason`) whenever it's about to discard a real (non-`atFit`)
+  zoom, naming which of the three call sites triggered it (window `resize`, the canvas
+  `ResizeObserver`, or `layoutToggleBtn`) plus the canvas's own live `clientWidth`/`clientHeight` and
+  the zoom being discarded — meant to be temporary, remove once the NEXT real occurrence's own log
+  line reveals whether the canvas is genuinely resizing in that environment (a real resize this app
+  should still honor, needing a different fix) or something is calling this with no size change at
+  all (a genuinely different bug from the one already fixed here).
+
 ## Web Worker gotcha (read before touching detect/fit/workers)
 
 Workers are **not** separate files. `workerSource()` builds worker code by calling `.toString()` on
