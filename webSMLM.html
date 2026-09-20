@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20l; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20m; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24224  localizations table, filtering, histograms;
+    table           24253  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25123  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25152  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20l</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -23537,7 +23537,7 @@ function commitSrCrop(x0, y0, x1, y1){
   log(`Crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm — added as a filter (see View data/filtering; Reset filter to undo).`);
   recomputeIfShown();
 }
-$('sr').addEventListener('click',e=>{
+$('sr').addEventListener('click',async e=>{
   if(!srFull||(!measureMode&&!cropMode&&!srTracksOverlayOn)||srWasDrag()) return;
   const {fx,fy}=srClickToFull(e);
   if(!measureMode&&!cropMode&&srTracksOverlayOn){
@@ -23572,14 +23572,27 @@ $('sr').addEventListener('click',e=>{
   // the line-profile tool's own "show the whole shape on the second click,
   // THEN compute" ordering (see measureLine's own branch above) —
   // commitSrCrop() below can genuinely block the main thread for seconds on
-  // a large dataset (locTableData()'s own cost at scale, MODULE: table),
-  // during which the only visible feedback used to be the first corner's dot
-  // silently vanishing with nothing replacing it — a real, reported "did my
-  // click even register?" symptom. cropRect stays up through a slow OR a
-  // failed commit (a visual reference next to the error log on failure);
-  // commitSrCrop() itself clears it on success, right before its own final
-  // re-render.
+  // a large dataset, during which the only visible feedback used to be the
+  // first corner's dot silently vanishing with nothing replacing it — a
+  // real, reported "did my click even register?" symptom. cropRect stays up
+  // through a slow OR a failed commit (a visual reference next to the error
+  // log on failure); commitSrCrop() itself clears it on success, right
+  // before its own final re-render.
+  //
+  // `await tick()` here is NOT optional — commitSrCrop() is a plain
+  // (non-async) function with no `await` of its own anywhere in its body, so
+  // without this yield, the drawView() just above and commitSrCrop()'s own
+  // FINAL drawView() (clearing cropRect) both run inside the SAME
+  // synchronous JS turn: the browser never actually gets a chance to PAINT
+  // the intermediate "rectangle visible" frame at all — a real, reported
+  // regression from this fix's own first version (the rectangle only ever
+  // rendered when commitSrCrop() failed and returned early, never on a fast
+  // success, which — after MODULE: table's own crop-speed fix — is now most
+  // of the time). tick() yields via a MessageChannel round-trip (a real
+  // macrotask, not a microtask), which DOES let the browser paint before
+  // continuing, unlike Promise.resolve() or requestAnimationFrame() alone.
   cropRect={x0:fx0,y0:fy0,x1:fx1,y1:fy1}; drawView();
+  await tick();
   commitSrCrop(fx0*nmPerPx, fy0*nmPerPx, fx1*nmPerPx, fy1*nmPerPx);
 });
 // If the raw panel is already showing FRC or NeNA when the crop filter changes
@@ -24076,34 +24089,30 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-20l — found and fixed the REAL
-crash behind the crop tool's own remaining "does nothing" reports: at
-true scale (20M+ locs), committing a crop crashed the tab outright — the
-table build behind it made a full second copy of every localization as
-a multi-column row, just to test an x/y range. Split that into cheap
-per-column accessors (tableColumnInfo()/tableColumnValue()) so filtering
-and the crop tool now test values directly off the raw locs — no second
-copy, ever. Also added a real memory-ceiling fail-safe
-(effectiveMemBudgetBytes()): when Total memory budget is left unset, the
-three memory guards now fall back to 80% of this browser's own reported
-heap limit (Chrome/Edge) instead of no ceiling at all. Verified byte-for-
-byte against the old implementation across every column/filter
-combination, then re-tested the exact crop→uncrop→crop-again sequence
-that used to crash — it now completes reliably at 11M, 20M, and 30M locs
-alike (a few seconds per step, dominated by the real render cost, not
-table cost).
+log(`webSMLM v0.12.8-dev · build 2026-09-20m — fixed two more real crop
+bugs, both surfaced directly by testing the previous build's own fixes
+at scale: (1) the zoom would briefly jump to the crop rect, then silently
+revert to the whole frame ~120-400ms later — a "Table filter active" note
+appearing changed the panel's own layout, tripping a ResizeObserver that
+unconditionally re-fit the view; that observer now watches the two canvas
+elements directly, not their shared container, so an unrelated sibling's
+layout change can't trigger it anymore. (2) the crop rectangle (added
+last build) never actually painted on a fast/successful crop — commitSrCrop()
+has no await of its own, so the rectangle's draw and its own final
+"cleared" draw ran in the same synchronous turn with no chance for the
+browser to paint in between; the click handler now awaits one real
+tick() (a macrotask) between them. Verified directly: a real, measured
+gap between the two draws, and the whole crop→uncrop→crop-again sequence
+still works end to end with the zoom now staying correctly locked in.
 
-(build 2026-09-20k's own fix remains in effect: "Use GPU acceleration"
-moved to Memory, GPU & streaming, and the redundant word "settings" is
-gone from every section name that had it; build 2026-09-20j's own fix
-remains in effect: the table's own row selection uses a bounded top-3000
-instead of a full sort; build 2026-09-20i's own fix remains in effect:
-the crop tool draws its full rectangle immediately on the second click;
-build 2026-09-20g's own fix remains in effect: FRC always runs on the
-full loc set; build 2026-09-20c's own fix remains in effect: FRC's
-inline FFT is now radix-4; build 2026-09-20a's fix also remains in
-effect: the raw panel's mode-toggle buttons no longer get stuck visible
-over an unrelated NeNA/FRC plot.)`);
+(build 2026-09-20l's own fix remains in effect: committing a crop no
+longer builds a full second copy of the dataset — it crashed the tab
+outright at 20M+ locs; a real memory-ceiling fail-safe now backs up
+Total memory budget when left unset; build 2026-09-20j's own fix remains
+in effect: the table's own row selection uses a bounded top-3000 instead
+of a full sort; build 2026-09-20g's own fix remains in effect: FRC always
+runs on the full loc set; build 2026-09-20c's own fix remains in effect:
+FRC's inline FFT is now radix-4.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -24191,11 +24200,30 @@ $('layoutToggleBtn').addEventListener('click', ()=>{
 // resize behind them (sidebar dock/float toggle, the aspect-ratio-driven
 // side-by-side/stacked switch above, a scrollbar appearing/disappearing) — those
 // used to only self-correct on the next unrelated redraw (e.g. scrubbing a
-// frame), which reads as "the window didn't resize the panels". A ResizeObserver
-// on #canvases (the shared grid — covers both panels' boxes with one observer)
-// fires for the actual cause, not a proxy for it, so it catches all of the above
-// natively; window's own resize listener is kept alongside it as a belt-and-braces
-// fallback (harmless overlap — both funnel through the same debounce timer).
+// frame), which reads as "the window didn't resize the panels". A
+// ResizeObserver on EACH CANVAS ELEMENT ITSELF (#raw/#sr) — not their shared
+// #canvases grid container — fires for the actual cause, not a proxy for it,
+// so it catches all of the above natively; window's own resize listener is
+// kept alongside it as a belt-and-braces fallback (harmless overlap — both
+// funnel through the same debounce timer).
+//
+// Observing #canvases itself (an earlier version) was a real, reported bug:
+// #srFilterNote (a trailing sibling of #sr INSIDE the same .panel-body, only
+// shown once a crop/table filter is active) growing the panel's own total
+// height on its FIRST appearance changes #canvases' own bounding box even
+// though the CANVAS's own rendered dimensions never moved (aspect-ratio-
+// locked, independent of trailing content below it — see the CSS comment on
+// why .panel-body stays top-aligned). That spurious resize event, after its
+// own 120ms debounce, called fitView() UNCONDITIONALLY (correct for a REAL
+// resize, see below) and silently discarded whatever zoom the crop tool had
+// JUST set — "crop briefly zooms in correctly, then jumps back to the whole
+// frame" a few hundred ms later, reproduced directly: right after a crop's
+// own render, `view.zoom` was correctly the zoomed-in value; ~120-400ms
+// later (past the debounce), it had reverted to `fitZoom()`'s own whole-FOV
+// value, with #srFilterNote now visible. Observing the canvases directly
+// still catches every genuine case the container-level observer did (a
+// sidebar/stacked-layout change alters the CANVAS's own width/height
+// directly), just not a sibling-only layout shift that never touched it.
 // ALWAYS re-fit on an actual window/panel resize (not gated on atFit) — a real,
 // reported bug/request: atFit turns false the moment a user scrolls to zoom or
 // drags to pan (see those handlers below), so on any REAL dataset (someone
@@ -24216,7 +24244,8 @@ const refitCanvases=()=>{ clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()
   else if(srFull){ fitView(); clampView(); drawView(); }
 }, 120); };
 window.addEventListener('resize', refitCanvases);
-if(typeof ResizeObserver!=='undefined') new ResizeObserver(refitCanvases).observe($('canvases'));
+if(typeof ResizeObserver!=='undefined'){ const _canvasResizeObs=new ResizeObserver(refitCanvases);
+  _canvasResizeObs.observe($('raw')); _canvasResizeObs.observe($('sr')); }
 
 // help modal — wire after full DOM parse (the modal markup follows this script,
 // so its elements don't exist yet at first execution).

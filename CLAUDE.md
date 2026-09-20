@@ -1119,6 +1119,39 @@ in a module.
   vanishing along with the explanation of why it didn't work. Every other `cropPt0=null` reset site
   (mode toggle, streaming lock, dataset/session reset) also resets `cropRect` alongside it.
 
+  **The SR click handler is `async`, and awaits `tick()` between drawing `cropRect` and calling
+  `commitSrCrop()` — this is NOT optional.** `commitSrCrop()` is a plain (non-async) function with no
+  `await` anywhere in its own body, so without this yield, the rectangle's own `drawView()` and
+  `commitSrCrop()`'s own FINAL `drawView()` (clearing `cropRect` on success) both run inside the SAME
+  synchronous JS turn — the browser never gets a chance to actually PAINT the intermediate "rectangle
+  visible" frame at all, regardless of how the state machine above is designed. A real, reported
+  regression from the FIRST version of this fix: it worked (rendered) only when `commitSrCrop()`
+  failed and returned early (the function actually paused there, between turns, before its own next
+  action); on a fast SUCCESS — which is now most crops, after the column-model refactor above made
+  `commitSrCrop()` itself cheap — the rectangle never visibly appeared at all, since nothing ever
+  yielded control back to the browser between the two draws. Verified directly (not just by
+  reasoning about the JS event loop): spied on `commitSrCrop()` itself and measured a real, non-zero
+  gap between the rectangle's own `drawView()` call and `commitSrCrop()` actually starting — `tick()`
+  (MODULE: params) yields via a MessageChannel round-trip specifically because that's a real
+  macrotask ("paint/input still run" per its own comment), unlike a bare `Promise.resolve()` or
+  `setTimeout(0)` alone crossing a browser-throttled interval.
+
+  **`refitCanvases()`'s own `ResizeObserver` watches the TWO CANVAS ELEMENTS (`#raw`/`#sr`) directly,
+  not their shared `#canvases` grid container.** A real, reported regression, reproduced directly:
+  right after a crop's own zoom-fit ran, `view.zoom` was correctly the zoomed-in value; ~120-400ms
+  later it had silently reverted to `fitZoom()`'s own whole-FOV value — "crop briefly zooms in
+  correctly, then jumps back to the full frame." Root cause: `#srFilterNote` (MODULE: pipeline, a
+  trailing SIBLING of `#sr` inside the same `.panel-body`, shown only once a crop/table filter is
+  active) growing the panel's own total height on its FIRST appearance changes `#canvases`' own
+  bounding box — even though the CANVAS's own rendered dimensions never moved at all (aspect-ratio-
+  locked, independent of trailing content below it). That spurious resize event, after
+  `refitCanvases()`'s own 120ms debounce, called `fitView()` UNCONDITIONALLY (correct behavior for a
+  REAL resize — see that function's own comment) and silently discarded whatever zoom the crop tool
+  had JUST set. Observing the canvases directly instead of their container still catches every
+  genuine resize case the old target did (a sidebar/stacked-layout change alters the CANVAS's own
+  width/height directly, so it still fires), just not a sibling-only layout shift that never actually
+  touched either canvas's own box.
+
 ## Web Worker gotcha (read before touching detect/fit/workers)
 
 Workers are **not** separate files. `workerSource()` builds worker code by calling `.toString()` on
@@ -1212,7 +1245,10 @@ unconditionally on a resize, regardless of `view.atFit`/`rawView.atFit` — `atF
 moment a user zooms or pans once, which is almost always, so gating a resize's own re-fit on it would
 stop re-fitting for the rest of the session after the first zoom/pan. A resize reshapes the PANEL, a
 distinct action from zoom/pan, so the two must not share a gate. `atFit` is still set correctly by
-`fitView()`/pan/zoom, it just doesn't gate the resize handler.
+`fitView()`/pan/zoom, it just doesn't gate the resize handler. This unconditional behavior is
+deliberate and correct for a REAL resize — see **pipeline**'s own paragraph on the `ResizeObserver`'s
+own TARGET (the two canvas elements, not their shared grid container) for a real bug this same
+unconditional `fitView()` call caused when fired by an unrelated SIBLING layout change instead.
 
 ## Form controls need an explicit `font-family:inherit`
 
