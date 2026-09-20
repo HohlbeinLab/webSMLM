@@ -474,19 +474,21 @@ in a module.
   (seeded, deterministic — `mulberry32`) before AIM's shift search; a real precision/speed trade (noisier
   histogram-intersection counts), not cosmetic, floored at `AIM_SAMPLE_FLOOR`(200).
   `subsampleSegments()`'s own per-item Bernoulli-trial logic is factored out into a shared
-  `subsampleArray(arr, frac, rng, floor)` (v0.12.8, on request — "take sampling out of AIM and have it
-  applied to all, AIM, NeNA and FRC") — `rng` is an ALREADY-CONSTRUCTED generator, not a seed,
-  preserving `subsampleSegments()`'s own "one shared stream across all segments in a call" behavior;
-  **locprecision**'s own `subsampleLocs()` reuses it with a distinct seed for a single flat-array
-  application instead. `samplePct` is a SINGLE shared PARAMS entry, not one field per module — first
-  shipped as two separate fields (`driftSamplePct` + `locPrecisionSamplePct`), then collapsed into one
-  once the user pointed out they were "defining the same thing twice": one percentage value feeds
-  AIM's, NeNA's, and FRC's own independent sampling calls alike, each still drawing from its OWN
-  seeded RNG stream (AIM_SAMPLE_SEED vs. LOCPREC_SAMPLE_SEED) so the three don't interfere with each
-  other's random draws. The control itself lives ABOVE **Average # of frames** in the sidebar (applies
-  regardless of which drift method or downstream computation is chosen), not nested under AIM's own
-  conditional settings — Cross correlation has nothing of its own to subsample, but NeNA/FRC still
-  read the same value regardless of which drift method is active.
+  `subsampleArray(arr, frac, rng, floor)` (v0.12.8, on request — originally "take sampling out of AIM
+  and have it applied to all, AIM, NeNA and FRC") — `rng` is an ALREADY-CONSTRUCTED generator, not a
+  seed, preserving `subsampleSegments()`'s own "one shared stream across all segments in a call"
+  behavior; **locprecision**'s own `subsampleLocs()` reuses it with a distinct seed for a single
+  flat-array application instead (NeNA only — see below, FRC deliberately does NOT use it). `samplePct`
+  is a SINGLE shared PARAMS entry, not one field per module — first shipped as two separate fields
+  (`driftSamplePct` + `locPrecisionSamplePct`), then collapsed into one once the user pointed out they
+  were "defining the same thing twice": one percentage value feeds AIM's and NeNA's own independent
+  sampling calls alike, each still drawing from its OWN seeded RNG stream (AIM_SAMPLE_SEED vs.
+  LOCPREC_SAMPLE_SEED) so the two don't interfere with each other's random draws. The control itself
+  lives ABOVE **Average # of frames** in the sidebar (applies regardless of which drift method is
+  chosen), not nested under AIM's own conditional settings — Cross correlation has nothing of its own
+  to subsample, but NeNA still reads the same value regardless of which drift method is active. FRC was
+  ALSO wired to this control initially, then removed (see **locprecision**'s own paragraph below) once
+  it turned out FRC's resolution is fundamentally density-dependent, not just noisier when subsampled.
 
   `correlationDrift2D()`'s segment 0 is ALWAYS the fixed reference by construction (never
   re-estimated, unlike AIM's own two-round refinement) — it must NOT be zero-meaned the way AIM's own
@@ -540,16 +542,29 @@ in a module.
   radix-4-over-radix-2 textbook expectation (~4x fewer complex multiplies) because the FFT itself is
   one part of FRC's total cost (binning, Hann windowing, ring-averaging).
 
-  **NeNA/FRC's own use of `samplePct`** (drift's shared "Sampling of locs %" — see its own
-  comment, MODULE: drift): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to the
-  whole flat loc array (not per-segment — NeNA/FRC have no segments), with its own seed
-  (`LOCPREC_SAMPLE_SEED`, distinct from `AIM_SAMPLE_SEED`) and the same `AIM_SAMPLE_FLOOR`(200) guard.
-  `nenaPrecision(locs,px,onProgress,onLog,samplePct=100)` and `prepareFrc(...,samplePct=100)` each
-  apply it at their own top — every call site (interactive `computeNeNA()`/`computeFRC()`, headless
-  `analyze()`) threads `paramValue('samplePct')`/`cfg.samplePct` through, same as AIM's own threading.
-  `prepareFrc()`'s internal `nenaPrecision()` call (used only to
-  pick FRC's own target pixel size) reuses the ALREADY-sampled `locs` with `samplePct` left at its
-  default 100 — subsampling twice would silently shrink the effective fraction to `samplePct²`.
+  **NeNA's own use of `samplePct`** (drift's shared "Sampling of locs %" — see its own comment,
+  MODULE: drift): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to the whole flat
+  loc array (not per-segment — NeNA has no segments), with its own seed (`LOCPREC_SAMPLE_SEED`,
+  distinct from `AIM_SAMPLE_SEED`) and the same `AIM_SAMPLE_FLOOR`(200) guard.
+  `nenaPrecision(locs,px,onProgress,onLog,samplePct=100)` applies it at its own top — every call site
+  (interactive `computeNeNA()`, headless `analyze()`) threads `paramValue('samplePct')`/`cfg.samplePct`
+  through, same as AIM's own threading.
+
+  **`prepareFrc()` deliberately does NOT take a `samplePct` at all** (reported: FRC's own resolution
+  number seemed to "double" at 10% sampling — an earlier version DID apply `subsampleLocs()` here,
+  reusing the already-sampled `locs` for its own internal `nenaPrecision()` call at `samplePct=100` to
+  avoid double-sampling). Measured directly on synthetic data with a known 8nm true precision: FRC's
+  reported resolution went 36nm→375nm→4395nm→20848nm at 100%/50%/25%/10% sampling, while NeNA's own σ
+  over the SAME subsampled sets stayed close to 8-11nm throughout. This is a REAL, qualitative
+  difference, not a bug to fix by tuning a floor or seed: NeNA's σ is an estimate of a fixed physical
+  quantity (localization precision) that gets NOISIER with fewer pairs but stays centered on the truth
+  — a genuine speed/precision trade. FRC's resolution is *defined by* localization density
+  (Nieuwenhuizen et al. 2013) — there is no fixed "true" density-independent value being estimated
+  with more or less noise; a sparser sample simply achieves a worse resolution, full stop. Subsampling
+  FRC for speed would silently report the resolution of a degraded dataset instead of a faster
+  measurement of the real one, so it was removed entirely — FRC always runs on the full `locs` it's
+  given, and `computeFRC()` logs an explicit note when `samplePct<100` so a user who set it expecting
+  it to also speed up FRC understands why the FRC number didn't change.
 
 - **sSMLM** ("(Caution!) Pairing (sSMLM & FRET)") — pairs 0th/1st-order localizations from a
   diffraction grating (or, via smFRET, a donor/acceptor prism split). "(Caution!)" flags this as one
