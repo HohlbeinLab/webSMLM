@@ -21,11 +21,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20d; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20e; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3378   PARAMS registry, single source of truth for params;
+    params          3376   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -53,7 +53,7 @@
                            own blank-line separator — otherwise a command and
                            its own first result line print with a spurious
                            blank line between them
-    in/out          4517   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4511   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -66,12 +66,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4816   synthetic stack generator ("Simulate movie")
-    detect          5966   per-frame band-pass + local-maxima detection
+    simulation      4810   synthetic stack generator ("Simulate movie")
+    detect          5960   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6243   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6237   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -96,7 +96,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6938   accumulate to offscreen buffer; view/colour/blur;
+    render          6932   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -135,13 +135,13 @@
                            print their own line, several back-to-back in the
                            log for no actionable reason; the final render
                            still logs it
-    workers         8726   frame-parallel detect/fit worker pool; dedicated
+    workers         8720   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             9137   shared WebGPU compute engine (experimental,
+    gpu             9131   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all
                            4 MLE methods plus phasor/phasor3d — the one
                            non-iterative kernel, a closed-form Fourier
@@ -185,8 +185,8 @@
                            between the two, since CPU-side detection (not
                            fit) dominates a Run's wall time regardless of
                            method (see CLAUDE.md's own fit-module paragraph)
-    export          11600  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11952  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11594  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11946  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -197,14 +197,14 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12434  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12428  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
                            run restricted to First frame>1 used to corrupt
                            the whole estimate via empty leading segments;
-                           driftSamplePct (AIM sample %) subsamples each
-                           segment's own points before the intersection
+                           samplePct (Sampling AIM/NeNA/FRC %) subsamples
+                           each segment's own points before the intersection
                            search (subsampleSegments(), AIM_SAMPLE_FLOOR-
                            guarded) — speed vs. estimation precision;
                            round 2's own reference used to include the
@@ -221,14 +221,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13379  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13375  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config);
                            drawNenaPlot()/drawFrcPlot() now call
                            hideOtherRawToggleBtns(null) like every other raw-
                            panel display already does — a real, reported bug:
                            Drift correction's own "Show x/y path" toggle stayed
                            stuck visible over NeNA/FRC's own plot afterward
-    sSMLM           14436  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14433  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18197  single particle tracking, trackpy-inspired;
+    spt             18194  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19735  top-level orchestration, *Core()/wrapper split;
+    pipeline        19732  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21261  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21258  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24109  localizations table, filtering, histograms;
+    table           24106  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24861  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24858  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2893,7 +2893,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="driftBox">
         <summary>Drift correction &amp; precision</summary>
-        <label class="row" style="margin-top:6px" title="Shared by both methods below: for AIM, how many already-fitted localizations' own frames go into one drift-estimation segment; for Cross correlation, how many raw frames get averaged into one segment's own representative image.">Average # of frames
+        <label class="row" style="margin-top:6px" title="One shared speed/precision trade for AIM's own shift search, NeNA, and FRC alike — subsample once before each, on a large dataset where any of them is slow. 100% = no change.">Sampling (AIM/NeNA/FRC) %
+          <input type="number" id="samplePct" value="100" min="5" max="100" step="5" class="num"></label>
+        <label class="row" title="Shared by both methods below: for AIM, how many already-fitted localizations' own frames go into one drift-estimation segment; for Cross correlation, how many raw frames get averaged into one segment's own representative image.">Average # of frames
           <input type="number" id="driftSeg" value="100" min="5" max="2000" step="5" class="num"></label>
         <label class="row">Drift correction method
           <select id="driftMethod" class="sel">
@@ -2904,26 +2906,23 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
         <label class="row" id="driftZRow" style="display:none;padding-left:40px">Correct z too (3D)
           <input type="checkbox" id="driftZ" checked></label>
-        <label class="row" id="driftSamplePctRow" style="padding-left:40px" title="Subsample each segment's own localizations before the search, on a large dataset where AIM is slow — trades some estimation precision for speed. 100% = no change.">AIM sample %
-          <input type="number" id="driftSamplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <div class="btnrow">
           <button id="driftBtn" disabled>Correct drift</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
         </div>
         <label class="row" id="frc3dRow" style="display:none;margin-top:6px">3D shells (FSC)
           <input type="checkbox" id="frc3d"></label>
-        <label class="row" style="margin-top:6px" title="Subsample the whole loc set once before NeNA/FRC, on a large dataset where either is slow — trades some estimation precision for speed. 100% = no change.">NeNA/FRC sample %
-          <input type="number" id="locPrecisionSamplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="nenaBtn" disabled title="Empirical per-localization precision (nearest-neighbour)">NeNA</button>
           <button id="frcBtn" disabled title="Image resolution via Fourier Ring Correlation (1/7 threshold)">FRC</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-drift"><span class="pill">module: drift &amp; locprecision</span>
+          <p><b>Sampling (AIM/NeNA/FRC) %</b> is one shared speed/precision trade for every subsamplable computation below — AIM's own shift search, NeNA, and FRC each deterministically subsample once via their own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where any of the three is slow.</p>
           <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
           <ul>
           <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
-          <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only); <b>AIM sample %</b> deterministically subsamples each segment's own localizations before the search on a large, slow dataset (100% = no change, the default; a segment that's already small is never subsampled further).</li>
+          <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
           <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
           <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
@@ -2931,7 +2930,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <ul>
           <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
           <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
-          <li><b>NeNA/FRC sample %</b> is the same speed/precision trade as <b>AIM sample %</b> above, applied once to the whole loc set before either computation (100% = no change, the default) — useful on a large dataset where NeNA/FRC are slow.</li>
           </ul>
           <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
           <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
@@ -3588,6 +3586,26 @@ const PARAMS = {
   calFixedXY: { type:'bool', id:'calFixedXY', label:'Fix bead x,y', default:false },
 
   // ---- drift ----
+  // samplePct = ONE shared speed/precision trade for every subsamplable
+  // computation in this section — AIM's own shift search, NeNA, and FRC
+  // (v0.12.8, on request: "take sampling out of AIM and have it applied to
+  // all, AIM, NeNA and FRC" — originally shipped as two separate fields,
+  // driftSamplePct + locPrecisionSamplePct, then collapsed into this ONE
+  // control since both were the identical speed/precision idea shown
+  // twice). AIM's own cost scales with the number of OCCUPIED bins in the
+  // segment being aligned (subsampleSegments(), per-segment); NeNA's scales
+  // with the per-frame candidate count gridNN() searches; FRC's scales with
+  // the number of locs binned into each N×N grid (subsampleLocs(), the
+  // whole flat array at once) — all three cut roughly proportional to this
+  // one percentage, each via its OWN independent seeded RNG stream (see
+  // subsampleArray()'s own comment, MODULE: drift) so setting it doesn't
+  // couple AIM's own random draws to NeNA/FRC's. Default 100 (no behaviour
+  // change) — a real precision trade (noisier AIM histogram-intersection
+  // counts / NeNA fit / sparser FRC image), not cosmetic, so opt-in rather
+  // than a silently-safe default; floored at `AIM_SAMPLE_FLOOR`(200) in
+  // every use (a sparse segment/dataset is never subsampled below
+  // usefulness).
+  samplePct: { type:'number', id:'samplePct', label:'Sampling (AIM/NeNA/FRC) %', min:5, max:100, step:5, default:100, int:true },
   // driftSeg = number of frames per drift-estimation segment — SHARED by
   // both driftMethod options (requested): for AIM, how many already-fitted
   // LOCALIZATIONS' own frames go into one segment (unchanged meaning); for
@@ -3604,34 +3622,10 @@ const PARAMS = {
   driftRoi: { type:'number', id:'driftRoi', label:'Drift search radius (nm)', min:10, max:1000, step:10, default:120, int:false },
   // driftZ = also run the 1-D z-drift correction alongside the 2-D x/y correction
   driftZ: { type:'bool', id:'driftZ', label:'Correct z too (3D)', default:true },
-  // driftSamplePct = deterministically subsample each segment's own locs before
-  // the AIM histogram-intersection search (v0.11.11, on request) — bestShift()'s
-  // cost scales with the number of OCCUPIED bins in the segment being aligned,
-  // not with `ref`'s size, so fewer locs per segment directly cuts both the
-  // per-segment bin-map build and the (2R+1)² shift-search loop, roughly
-  // proportional to this percentage. Default 100 (no behaviour change) — this
-  // trades estimation precision for speed (fewer points per segment means
-  // noisier histogram-intersection counts feeding the sub-pixel parabolic peak
-  // fit), unlike the tracks-overlay's own seeded-percentage sampling (a
-  // display-only convenience with no correctness cost) — so it's opt-in, not a
-  // silently-safe default. See subsampleSegments()'s own floor guard (MODULE:
-  // drift) for why a sparse segment is never subsampled below usefulness.
-  driftSamplePct: { type:'number', id:'driftSamplePct', label:'AIM sample % (speed vs. precision)', min:5, max:100, step:5, default:100, int:true },
 
   // ---- precision ----
   // frc3d = compute FRC over spherical shells instead of 2D rings (not yet implemented — UI placeholder)
   frc3d: { type:'bool', id:'frc3d', label:'3D shells (FSC)', default:false },
-  // locPrecisionSamplePct — the same speed/precision trade as driftSamplePct
-  // above (v0.12.8, on request), applied once to the WHOLE flat loc array via
-  // subsampleLocs() (own seed, MODULE: locprecision) rather than per-segment.
-  // NeNA's own cost scales with the per-frame candidate count gridNN()
-  // searches; FRC's scales with the number of locs binned into each N×N grid
-  // — fewer locs cuts both, roughly proportional to this percentage. Default
-  // 100 (no behaviour change) — same opt-in-not-silently-safe framing as
-  // driftSamplePct, since fewer points means a noisier NeNA fit / sparser FRC
-  // image. FRC's own internal NeNA call (for target pixel size) reuses the
-  // SAME already-sampled loc set rather than sampling twice.
-  locPrecisionSamplePct: { type:'number', id:'locPrecisionSamplePct', label:'NeNA/FRC sample % (speed vs. precision)', min:5, max:100, step:5, default:100, int:true },
 
   // ---- sSMLM (spectrally resolved SMLM, diffraction-grating pair finding) ----
   // sSmlmDistMin/Max = the 0th/1st-order pair search window (nm). Defaults
@@ -12449,8 +12443,9 @@ async function exportCalibration(){
 function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
   for(let k=1;k<a.length-1;k++) a[k]=0.25*p[k-1]+0.5*p[k]+0.25*p[k+1]; }
 
-// AIM sample % (v0.11.11, on request): deterministically subsample each
-// segment's own points BEFORE the histogram-intersection search — bestShift()
+// Sampling (AIM/NeNA/FRC) % (v0.11.11, on request; generalized to NeNA/FRC in
+// v0.12.8 — see PARAMS.samplePct's own comment): deterministically subsample
+// each segment's own points BEFORE the histogram-intersection search — bestShift()
 // (below, in both aimDrift2D() and aimDriftZ()) iterates the shift-search grid
 // once per OCCUPIED BIN of the segment actually being aligned (not per raw
 // point, and not against `ref`'s own size, which is a plain O(1) hashmap
@@ -13039,7 +13034,7 @@ async function driftCore(locs, px, config, hooks={}){
   const segF=config.driftSeg, roiNm=config.driftRoi, intD=15;
   // 100 when unset — headless callers/CLI scripts predating this option get
   // the exact original (unsampled) behaviour, no config change required.
-  const samplePct = config.driftSamplePct==null ? 100 : config.driftSamplePct;
+  const samplePct = config.samplePct==null ? 100 : config.samplePct;
   // Each run is INDEPENDENT: always estimate from the raw, uncorrected
   // localizations. If a previous correction is in place, restore the raw
   // coordinates first — otherwise a second run would estimate the residual of
@@ -13133,13 +13128,15 @@ async function driftCore(locs, px, config, hooks={}){
   return { drift:d, nFrames, frame0, ms:Math.round(performance.now()-t0) };
 }
 
-// Shows/hides AIM's own settings (Search radius, AIM sample %, Correct z
-// too) — indented sub-rows under the "Drift correction method" selector,
-// same "conditional settings pop up under a selection" convention
-// smfretAlignTolRow/sSmlmAlignTolRow etc. already use — hidden entirely
-// while "Cross correlation" is selected, since none of the three apply to
-// it (that method has no search-radius concept, no locs to subsample, and
-// no z equivalent at all — see correlationDrift2D()'s own module comment).
+// Shows/hides AIM's own settings (Search radius, Correct z too) — indented
+// sub-rows under the "Drift correction method" selector, same "conditional
+// settings pop up under a selection" convention smfretAlignTolRow/
+// sSmlmAlignTolRow etc. already use — hidden entirely
+// while "Cross correlation" is selected, since neither applies to it (that
+// method has no search-radius concept and no z equivalent at all — see
+// correlationDrift2D()'s own module comment). The shared Sampling %
+// control ABOVE this section stays visible regardless — Cross correlation
+// itself has nothing to subsample, but NeNA/FRC still read the same value.
 // hasZ is optional — rerender() already has it computed from the CURRENT
 // result and passes it straight through; the driftMethod select's own
 // change listener (below) has no result-refresh reason to run, so it
@@ -13147,7 +13144,6 @@ async function driftCore(locs, px, config, hooks={}){
 function refreshDriftMethodUI(hasZ){
   const isAim = paramValue('driftMethod')==='aim';
   $('driftRoiRow').style.display = isAim ? '' : 'none';
-  $('driftSamplePctRow').style.display = isAim ? '' : 'none';
   if(hasZ===undefined) hasZ = !!(lastResult && lastResult.locs && lastResult.locs.some(L=>isFinite(L.z)));
   $('driftZRow').style.display = (isAim && hasZ) ? 'flex' : 'none';
 }
@@ -13175,7 +13171,7 @@ async function correctDrift(){
   $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
     const driftMethod=paramValue('driftMethod');
-    const config={driftSeg:paramValue('driftSeg'), driftMethod, driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), driftSamplePct:paramValue('driftSamplePct'), stack};
+    const config={driftSeg:paramValue('driftSeg'), driftMethod, driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), samplePct:paramValue('samplePct'), stack};
     // Logged BEFORE driftCore() starts — see run()'s own comment on this
     // ordering (command announces what's about to run, prose narrates what
     // happened) — safe this early since config is already fully resolved.
@@ -13188,7 +13184,7 @@ async function correctDrift(){
     // ever corrects ITS drift — it never re-Localizes anything itself.
     // correctDrift() is a no-arg, reads-live-state function, same override
     // shape as applyCropToRaw()'s own.
-    const cmdCfg={correctDrift:true, driftSeg:config.driftSeg, driftMethod, driftRoi:config.driftRoi, driftZ:config.driftZ, driftSamplePct:config.driftSamplePct};
+    const cmdCfg={correctDrift:true, driftSeg:config.driftSeg, driftMethod, driftRoi:config.driftRoi, driftZ:config.driftZ, samplePct:config.samplePct};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'correctDrift()'));
     const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg, shouldStop:()=>stopRequested});
     // A newer action superseded this one while driftCore() was still
@@ -13460,13 +13456,14 @@ function fitNeNA(d,y){
 // rather than reflect real localization precision. NENA_ZERO_DIST_NM is the
 // cutoff below which a pair is treated as such a duplicate and excluded.
 const NENA_ZERO_DIST_NM=1e-3;
-// Sampling-percentage speed/precision trade for NeNA/FRC, mirroring AIM's own
-// driftSamplePct/subsampleSegments() (MODULE: drift) — same subsampleArray()
-// mechanism and floor guard, just applied ONCE to the whole flat loc array
-// rather than per-segment. Own seed (distinct from AIM_SAMPLE_SEED) so the
-// two features draw independent random streams even set to the same
-// percentage on the same dataset; same floor as AIM's own (no principled
-// reason for a different number — see AIM_SAMPLE_FLOOR's own comment).
+// NeNA/FRC's own use of the shared samplePct value (PARAMS, one control for
+// AIM/NeNA/FRC alike — see its own comment), mirroring AIM's own
+// subsampleSegments() (MODULE: drift) — same subsampleArray() mechanism and
+// floor guard, just applied ONCE to the whole flat loc array rather than
+// per-segment. Own seed (distinct from AIM_SAMPLE_SEED) so the two features
+// draw independent random streams even at the same percentage on the same
+// dataset; same floor as AIM's own (no principled reason for a different
+// number — see AIM_SAMPLE_FLOOR's own comment).
 const LOCPREC_SAMPLE_SEED = 0x4e454e41, LOCPREC_SAMPLE_FLOOR = AIM_SAMPLE_FLOOR;
 function subsampleLocs(locs, samplePct){
   if(samplePct==null || samplePct>=100) return locs;
@@ -13571,17 +13568,17 @@ async function computeNeNA(){
   $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
     // Logged BEFORE nenaPrecision() runs — see run()'s own comment on this
-    // ordering. Only one live config value (locPrecisionSamplePct), included
-    // explicitly the same way correctDrift() includes driftSamplePct, so a
-    // recalled command captures the EXACT value used, not "whatever live
-    // state happens to be currently."
+    // ordering. Only one live config value (the shared samplePct), included
+    // explicitly the same way correctDrift() includes it, so a recalled
+    // command captures the EXACT value used, not "whatever live state
+    // happens to be currently."
     //
     // jsOverride (reported — same bug class as applyCropToRaw()'s own fix):
     // analyze({computeNeNA:true}) always ALSO runs a full Localize first;
     // this button requires an EXISTING lastResult and never Localizes
     // itself. computeNeNA() is a no-arg, reads-live-state function.
-    const samplePct=paramValue('locPrecisionSamplePct');
-    const cmdCfg={computeNeNA:true, locPrecisionSamplePct:samplePct};
+    const samplePct=paramValue('samplePct');
+    const cmdCfg={computeNeNA:true, samplePct};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'computeNeNA()'));
     // Leading "\n" opens a second blank line after the command logCmd() just
     // wrote — same convention *Core() functions use on their own first
@@ -14097,14 +14094,14 @@ async function computeFRC(){
   $('frcBtn').disabled=true;
   try{
     // Logged BEFORE frcResolution() runs — see run()'s own comment on this
-    // ordering. Only one live config value (locPrecisionSamplePct), included
+    // ordering. Only one live config value (the shared samplePct), included
     // explicitly — same reasoning as computeNeNA()'s own comment — one call
     // covers both outcome branches below (previously duplicated at each, now
     // moot since logging happens before either is reached).
     //
     // jsOverride — same bug class as computeNeNA()'s own fix, see its comment.
-    const samplePct=paramValue('locPrecisionSamplePct');
-    const cmdCfg={computeFRC:true, locPrecisionSamplePct:samplePct};
+    const samplePct=paramValue('samplePct');
+    const cmdCfg={computeFRC:true, samplePct};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'computeFRC()'));
     // Leading "\n" — same reasoning as computeNeNA()'s own comment.
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
@@ -16725,7 +16722,7 @@ async function smfretComputeDrift(){
   const cfg=Object.assign(buildConfigFromParams(), {fitFirstFrame:1, fitLastFrame:Infinity});
   const r=await runCore(cfg, stack, {zcal:null, wcal:null}, {onLog:()=>{}, onProgress:p=>setProg(p)});
   if(!r.locs.length){ log('⚠ Apply drift correction: the silent Localize pass found no localizations — skipping drift correction for this run.'); return null; }
-  const roiNm=paramValue('driftRoi'), samplePct=paramValue('driftSamplePct');
+  const roiNm=paramValue('driftRoi'), samplePct=paramValue('samplePct');
   const d=await aimDrift2D(r.locs, stack.n, paramValue('pxnm'), segF, 15, roiNm, samplePct, 0, p=>setProg(p), ()=>false);
   const f0x=d.fdx[0], f0y=d.fdy[0];
   const fdx=d.fdx.map(v=>v-f0x), fdy=d.fdy.map(v=>v-f0y);
@@ -23974,12 +23971,12 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-20d — NeNA and FRC now have their
-own sample-percentage speed/precision trade ("NeNA/FRC sample %", under
-Drift correction & precision), mirroring AIM's own "AIM sample %": on a
-large, slow dataset, subsample the whole loc set once before either
-computation (100% = no change, the default). Own seed, independent of
-AIM's own subsampling.
+log(`webSMLM v0.12.8-dev · build 2026-09-20e — "AIM sample %" and "NeNA/FRC
+sample %" (added in the previous build) were the same speed/precision idea
+shown twice, so they're now ONE shared control: "Sampling (AIM/NeNA/FRC)
+%", moved above "Average # of frames". Same behaviour either way — AIM,
+NeNA, and FRC each still subsample via their own independent random
+stream, just driven by one percentage now instead of two.
 
 (build 2026-09-20c's own fix remains in effect: FRC's inline FFT is now
 radix-4, ~1.14x-1.34x faster end-to-end on the CPU path, same power-of-2
@@ -25221,9 +25218,9 @@ async function analyze(config){
   // passing it bare here would have silently sent 0..1 values to a caller
   // (e.g. the CLI) expecting 0..100, reading as permanently ~0%.
   if(cfg.computeNeNA && locs.length) nena = await runStage('nena', stageCtx,
-    () => nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p), onLog, cfg.locPrecisionSamplePct), null);
+    () => nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p), onLog, cfg.samplePct), null);
   if(cfg.computeFRC && locs.length) frc = await runFrcStage(stageCtx,locs,cfg.pxnm,cfg.mag,
-    p=>onProgress(100*p),onLog,cfg.locPrecisionSamplePct);
+    p=>onProgress(100*p),onLog,cfg.samplePct);
   // config.sptTrack — the headless equivalent of clicking Track (MODULE:
   // spt). Unlike sSmlmPair, runs AFTER drift/NeNA/FRC rather than before:
   // sptCore() never drops rows (track_id/D_coeff are added columns, every

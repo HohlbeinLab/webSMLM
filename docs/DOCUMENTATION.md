@@ -2293,23 +2293,23 @@ the corrected result's own precision/resolution).
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
+| `samplePct` | Sampling (AIM/NeNA/FRC) % | number (int) | 5 | 100 | 5 | 100 |
 | `driftSeg` | Average # of frames | number (int) | 5 | 2000 | 5 | 100 |
 | `driftMethod` | Drift correction method | enum (`aim`, `correlation`) | — | — | — | `aim` |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
-| `driftSamplePct` | AIM sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
-| `locPrecisionSamplePct` | NeNA/FRC sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
 
 **In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 `.hint` div directly):
 
 <!-- HINT:drift -->
+<p><b>Sampling (AIM/NeNA/FRC) %</b> is one shared speed/precision trade for every subsamplable computation below — AIM's own shift search, NeNA, and FRC each deterministically subsample once via their own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where any of the three is slow.</p>
 <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
 <ul>
   <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
-  <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only); <b>AIM sample %</b> deterministically subsamples each segment's own localizations before the search on a large, slow dataset (100% = no change, the default; a segment that's already small is never subsampled further).</li>
+  <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
   <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
   <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
   <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
@@ -2317,7 +2317,6 @@ the corrected result's own precision/resolution).
 <ul>
   <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
   <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
-  <li><b>NeNA/FRC sample %</b> is the same speed/precision trade as <b>AIM sample %</b> above, applied once to the whole loc set before either computation (100% = no change, the default) — useful on a large dataset where NeNA/FRC are slow.</li>
 </ul>
 <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
 <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>

@@ -469,14 +469,23 @@ in a module.
   shift at 0 and spuriously resolves to the search window's own corner. Both the 2D and z passes need
   this — the z pass has the identical self-inclusion bug, not covered by any upstream fix.
 
-  `driftSamplePct` subsamples a segment's own points (seeded, deterministic — `mulberry32`) before
-  AIM's shift search; a real precision/speed trade (noisier histogram-intersection counts), not
-  cosmetic, floored at `AIM_SAMPLE_FLOOR`(200). `subsampleSegments()`'s own per-item Bernoulli-trial
-  logic is factored out into a shared `subsampleArray(arr, frac, rng, floor)` (v0.12.8, on request —
-  "take sampling out of AIM and have it applied to all, AIM, NeNA and FRC") — `rng` is an
-  ALREADY-CONSTRUCTED generator, not a seed, preserving `subsampleSegments()`'s own "one shared stream
-  across all segments in a call" behavior; **locprecision**'s own `subsampleLocs()` reuses it with a
-  distinct seed for a single flat-array application instead.
+  **`samplePct`** ("Sampling (AIM/NeNA/FRC) %") subsamples a segment's own points (seeded,
+  deterministic — `mulberry32`) before AIM's shift search; a real precision/speed trade (noisier
+  histogram-intersection counts), not cosmetic, floored at `AIM_SAMPLE_FLOOR`(200).
+  `subsampleSegments()`'s own per-item Bernoulli-trial logic is factored out into a shared
+  `subsampleArray(arr, frac, rng, floor)` (v0.12.8, on request — "take sampling out of AIM and have it
+  applied to all, AIM, NeNA and FRC") — `rng` is an ALREADY-CONSTRUCTED generator, not a seed,
+  preserving `subsampleSegments()`'s own "one shared stream across all segments in a call" behavior;
+  **locprecision**'s own `subsampleLocs()` reuses it with a distinct seed for a single flat-array
+  application instead. `samplePct` is a SINGLE shared PARAMS entry, not one field per module — first
+  shipped as two separate fields (`driftSamplePct` + `locPrecisionSamplePct`), then collapsed into one
+  once the user pointed out they were "defining the same thing twice": one percentage value feeds
+  AIM's, NeNA's, and FRC's own independent sampling calls alike, each still drawing from its OWN
+  seeded RNG stream (AIM_SAMPLE_SEED vs. LOCPREC_SAMPLE_SEED) so the three don't interfere with each
+  other's random draws. The control itself lives ABOVE **Average # of frames** in the sidebar (applies
+  regardless of which drift method or downstream computation is chosen), not nested under AIM's own
+  conditional settings — Cross correlation has nothing of its own to subsample, but NeNA/FRC still
+  read the same value regardless of which drift method is active.
 
   `correlationDrift2D()`'s segment 0 is ALWAYS the fixed reference by construction (never
   re-estimated, unlike AIM's own two-round refinement) — it must NOT be zero-meaned the way AIM's own
@@ -530,14 +539,14 @@ in a module.
   radix-4-over-radix-2 textbook expectation (~4x fewer complex multiplies) because the FFT itself is
   one part of FRC's total cost (binning, Hann windowing, ring-averaging).
 
-  **`locPrecisionSamplePct`** ("NeNA/FRC sample %") is drift's own `driftSamplePct` generalized to
-  NeNA/FRC (v0.12.8, on request): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to
-  the whole flat loc array (not per-segment — NeNA/FRC have no segments), with its own seed
+  **NeNA/FRC's own use of `samplePct`** (drift's shared "Sampling (AIM/NeNA/FRC) %" — see its own
+  comment, MODULE: drift): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to the
+  whole flat loc array (not per-segment — NeNA/FRC have no segments), with its own seed
   (`LOCPREC_SAMPLE_SEED`, distinct from `AIM_SAMPLE_SEED`) and the same `AIM_SAMPLE_FLOOR`(200) guard.
   `nenaPrecision(locs,px,onProgress,onLog,samplePct=100)` and `prepareFrc(...,samplePct=100)` each
   apply it at their own top — every call site (interactive `computeNeNA()`/`computeFRC()`, headless
-  `analyze()`) threads `paramValue('locPrecisionSamplePct')`/`cfg.locPrecisionSamplePct` through, same
-  as `driftSamplePct`'s own threading. `prepareFrc()`'s internal `nenaPrecision()` call (used only to
+  `analyze()`) threads `paramValue('samplePct')`/`cfg.samplePct` through, same as AIM's own threading.
+  `prepareFrc()`'s internal `nenaPrecision()` call (used only to
   pick FRC's own target pixel size) reuses the ALREADY-sampled `locs` with `samplePct` left at its
   default 100 — subsampling twice would silently shrink the effective fraction to `samplePct²`.
 
