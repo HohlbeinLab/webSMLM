@@ -17,7 +17,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20a; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20b; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -607,14 +607,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23989  localizations table, filtering, histograms;
+    table           23988  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24741  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24740  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2682,7 +2682,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -23285,7 +23285,7 @@ function commitSrCrop(x0, y0, x1, y1){
   // every row).
   const base=getBaseLocs();
   try{ _tableData=locTableData(base, base!==lastResult.locs); }
-  catch(err){ log(`⚠ Crop filter not applied: ${err.message}`); return; }   // stay in crop mode — the user can try a smaller region
+  catch(err){ log(`⚠ Crop filter not applied: ${(err&&err.message)||err}`); return; }   // stay in crop mode — the user can try a smaller region; (err&&err.message)||err (same defensive pattern as the GPU-fit-failure log below) covers a thrown non-Error value too, rather than printing a bare "undefined"
   // .expr is a pretty DISPLAY string (shown in the filter chip) — not valid
   // filter syntax parseFilter() could re-parse, unlike an ordinary or
   // tempClustering entry's own .expr. .exprCLI is the equivalent REPLAYABLE
@@ -23848,27 +23848,26 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-20a — fixed a real, reported bug:
-the raw panel's own mode-toggle buttons (e.g. "Show x/y path", Drift
-correction's own toggle) could get stuck visible on top of an unrelated
-plot afterward.
+log(`webSMLM v0.12.8-dev · build 2026-09-20b — confirmed real: the Crop
+tool's own "Crop filter not applied" message could print a bare
+"undefined" instead of an actual reason.
 
-drawNenaPlot() and drawFrcPlot() — the raw panel's two plot dispatchers
-with no toggle button of their own — never called the standard cleanup
-(hideOtherRawToggleBtns(null)) every other raw-panel display already does.
-Computing Drift correction (shows "Show x/y path") and then NeNA or FRC
-left that drift-specific toggle stuck on screen, since neither of those
-two dispatchers ever hid it. Fixed by adding the same call both already
-needed.
+All three places that catch locTableData()'s own thrown Error (the SR-panel
+Crop tool, and the two internal table-rebuild paths) used to log a bare
+\`\${err.message}\`. If anything ever throws a non-Error value there — or an
+Error with a genuinely empty/undefined .message — that prints literally as
+"undefined" instead of a real reason. Fixed with the same defensive
+fallback this app's own GPU-fit-failure log already uses:
+\`\${(err&&err.message)||err}\`. The size-check path itself (checkTableSize(),
+the only intended throw source) could not be reproduced actually producing
+an empty message under direct testing, so this is hardening against the
+symptom rather than a confirmed root-cause fix — if a bare "undefined"
+still shows up after this build, please report the exact dataset
+size/steps so it can be tracked down further.
 
-For clarity, since it came up while investigating this: the SR
-(reconstruction) panel's own Crop/Measure tools are independent of
-whatever the raw (left) panel happens to be showing (a live frame, Drift,
-NeNA, FRC, …) — they don't need to, and don't, "replace" it; both panels
-display simultaneously. Crop's own second click doesn't draw a second dot
-either, by design — it immediately commits the crop as a filter and the
-view zooms/pans to fit the new region, so the view visibly jumping IS the
-confirmation.`);
+(build 2026-09-20a's own fix remains in effect: the raw panel's mode-toggle
+buttons — e.g. Drift correction's "Show x/y path" — no longer get stuck
+visible over an unrelated NeNA/FRC plot.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -24132,7 +24131,7 @@ function rebuildTableData(){
   if(!lastResult) return;
   const base=getBaseLocs();
   try{ _tableData=locTableData(base, base!==lastResult.locs); }
-  catch(err){ log(`⚠ Table not updated: ${err.message}`); return; }   // leaves the previous _tableData/table view in place
+  catch(err){ log(`⚠ Table not updated: ${(err&&err.message)||err}`); return; }   // leaves the previous _tableData/table view in place; (err&&err.message)||err covers a thrown non-Error value too
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
   renderTable(); applyFilterToReconstruction();
 }
@@ -24239,7 +24238,7 @@ function openTable(){
   if(!lastResult||!lastResult.locs.length){ log('Localize first — nothing to tabulate.'); return; }
   const base=getBaseLocs();
   try{ _tableData=locTableData(base, base!==lastResult.locs); }
-  catch(err){ log(`⚠ Table not opened: ${err.message}`); return; }   // modal stays closed rather than opening on incomplete data
+  catch(err){ log(`⚠ Table not opened: ${(err&&err.message)||err}`); return; }   // modal stays closed rather than opening on incomplete data; (err&&err.message)||err covers a thrown non-Error value too
   $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
   $('tableHistCol').innerHTML=_tableData.cols.filter(c=>c!=='id'&&c!=='frame').map(c=>`<option value="${c}"${c==='intensity'?' selected':''}>${c}</option>`).join('');
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';

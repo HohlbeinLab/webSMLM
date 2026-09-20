@@ -946,7 +946,15 @@ in a module.
   precedent.
 
   `checkTableSize()` guards `locTableData()` against `memBudgetGB` the same way `checkRenderSize()`
-  guards render buffers (each row estimated at ~200 bytes).
+  guards render buffers (each row estimated at ~200 bytes). All three `locTableData()` call sites
+  (the SR-panel crop tool, `rebuildTableData()`, `openTable()`) catch its own thrown `Error` and log
+  it via `${(err&&err.message)||err}`, not a bare `${err.message}` — the same defensive fallback the
+  GPU-fit-failure log already uses elsewhere — so a non-`Error` thrown value (or a genuinely
+  `undefined` `.message`) still surfaces something readable instead of a bare, confusing
+  `"undefined"` in the log (reported directly: **Crop** logged exactly that after its own size check
+  should have fired a real message; the size-check path itself couldn't be reproduced producing an
+  empty message under direct testing, so this stays a defensive hardening rather than a confirmed
+  root-cause fix — worth revisiting if it recurs on a build after this one).
 
 ## Web Worker gotcha (read before touching detect/fit/workers)
 
