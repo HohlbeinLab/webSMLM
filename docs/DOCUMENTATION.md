@@ -2293,7 +2293,7 @@ the corrected result's own precision/resolution).
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `samplePct` | Sampling (AIM/NeNA/FRC) % | number (int) | 5 | 100 | 5 | 100 |
+| `samplePct` | Sampling of locs % | number (int) | 5 | 100 | 5 | 100 |
 | `driftSeg` | Average # of frames | number (int) | 5 | 2000 | 5 | 100 |
 | `driftMethod` | Drift correction method | enum (`aim`, `correlation`) | — | — | — | `aim` |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
@@ -2305,7 +2305,7 @@ the corrected result's own precision/resolution).
 `.hint` div directly):
 
 <!-- HINT:drift -->
-<p><b>Sampling (AIM/NeNA/FRC) %</b> is one shared speed/precision trade for every subsamplable computation below — AIM's own shift search, NeNA, and FRC each deterministically subsample once via their own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where any of the three is slow.</p>
+<p><b>Sampling of locs %</b> is one shared speed/precision trade for every subsamplable computation below — AIM's own shift search, NeNA, and FRC each deterministically subsample once via their own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where any of the three is slow.</p>
 <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
 <ul>
   <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>

@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20e; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20f; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24106  localizations table, filtering, histograms;
+    table           24108  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24858  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24860  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2893,7 +2893,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="driftBox">
         <summary>Drift correction &amp; precision</summary>
-        <label class="row" style="margin-top:6px" title="One shared speed/precision trade for AIM's own shift search, NeNA, and FRC alike — subsample once before each, on a large dataset where any of them is slow. 100% = no change.">Sampling (AIM/NeNA/FRC) %
+        <label class="row" style="margin-top:6px" title="One shared speed/precision trade for AIM's own shift search, NeNA, and FRC alike — subsample once before each, on a large dataset where any of them is slow. 100% = no change.">Sampling of locs %
           <input type="number" id="samplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <label class="row" title="Shared by both methods below: for AIM, how many already-fitted localizations' own frames go into one drift-estimation segment; for Cross correlation, how many raw frames get averaged into one segment's own representative image.">Average # of frames
           <input type="number" id="driftSeg" value="100" min="5" max="2000" step="5" class="num"></label>
@@ -2918,7 +2918,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-drift"><span class="pill">module: drift &amp; locprecision</span>
-          <p><b>Sampling (AIM/NeNA/FRC) %</b> is one shared speed/precision trade for every subsamplable computation below — AIM's own shift search, NeNA, and FRC each deterministically subsample once via their own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where any of the three is slow.</p>
+          <p><b>Sampling of locs %</b> is one shared speed/precision trade for every subsamplable computation below — AIM's own shift search, NeNA, and FRC each deterministically subsample once via their own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where any of the three is slow.</p>
           <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
           <ul>
           <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
@@ -3605,7 +3605,7 @@ const PARAMS = {
   // than a silently-safe default; floored at `AIM_SAMPLE_FLOOR`(200) in
   // every use (a sparse segment/dataset is never subsampled below
   // usefulness).
-  samplePct: { type:'number', id:'samplePct', label:'Sampling (AIM/NeNA/FRC) %', min:5, max:100, step:5, default:100, int:true },
+  samplePct: { type:'number', id:'samplePct', label:'Sampling of locs %', min:5, max:100, step:5, default:100, int:true },
   // driftSeg = number of frames per drift-estimation segment — SHARED by
   // both driftMethod options (requested): for AIM, how many already-fitted
   // LOCALIZATIONS' own frames go into one segment (unchanged meaning); for
@@ -12443,7 +12443,7 @@ async function exportCalibration(){
 function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
   for(let k=1;k<a.length-1;k++) a[k]=0.25*p[k-1]+0.5*p[k]+0.25*p[k+1]; }
 
-// Sampling (AIM/NeNA/FRC) % (v0.11.11, on request; generalized to NeNA/FRC in
+// Sampling of locs % (v0.11.11, on request; generalized to NeNA/FRC in
 // v0.12.8 — see PARAMS.samplePct's own comment): deterministically subsample
 // each segment's own points BEFORE the histogram-intersection search — bestShift()
 // (below, in both aimDrift2D() and aimDriftZ()) iterates the shift-search grid
@@ -23971,21 +23971,23 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-20e — "AIM sample %" and "NeNA/FRC
-sample %" (added in the previous build) were the same speed/precision idea
-shown twice, so they're now ONE shared control: "Sampling (AIM/NeNA/FRC)
-%", moved above "Average # of frames". Same behaviour either way — AIM,
-NeNA, and FRC each still subsample via their own independent random
-stream, just driven by one percentage now instead of two.
+log(`webSMLM v0.12.8-dev · build 2026-09-20f — the shared sampling control
+(previous build) is renamed "Sampling of locs %" — the old
+"Sampling (AIM/NeNA/FRC) %" label wrapped to two lines in the sidebar.
+Same field, same behaviour, just a shorter label.
 
-(build 2026-09-20c's own fix remains in effect: FRC's inline FFT is now
-radix-4, ~1.14x-1.34x faster end-to-end on the CPU path, same power-of-2
-grid and GPU/CPU structure; build 2026-09-20b's own fix remains in effect:
-Crop/table-rebuild error logging no longer prints a bare "undefined" when
-\`err.message\` itself is missing — though the underlying case that first
-reported "undefined" is still not confirmed root-caused; build
-2026-09-20a's fix also remains in effect: the raw panel's mode-toggle
-buttons no longer get stuck visible over an unrelated NeNA/FRC plot.)`);
+(build 2026-09-20e's own fix remains in effect: "AIM sample %" and
+"NeNA/FRC sample %" are now ONE shared control instead of two, moved
+above "Average # of frames" — AIM, NeNA, and FRC each still subsample via
+their own independent random stream; build 2026-09-20c's own fix remains
+in effect: FRC's inline FFT is now radix-4, ~1.14x-1.34x faster
+end-to-end on the CPU path; build 2026-09-20b's own fix remains in
+effect: Crop/table-rebuild error logging no longer prints a bare
+"undefined" when \`err.message\` itself is missing — though the
+underlying case that first reported "undefined" is still not confirmed
+root-caused; build 2026-09-20a's fix also remains in effect: the raw
+panel's mode-toggle buttons no longer get stuck visible over an
+unrelated NeNA/FRC plot.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

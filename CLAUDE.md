@@ -469,8 +469,9 @@ in a module.
   shift at 0 and spuriously resolves to the search window's own corner. Both the 2D and z passes need
   this — the z pass has the identical self-inclusion bug, not covered by any upstream fix.
 
-  **`samplePct`** ("Sampling (AIM/NeNA/FRC) %") subsamples a segment's own points (seeded,
-  deterministic — `mulberry32`) before AIM's shift search; a real precision/speed trade (noisier
+  **`samplePct`** ("Sampling of locs %" — the label was originally "Sampling (AIM/NeNA/FRC) %," but
+  that wrapped to two lines in the sidebar, so it was shortened) subsamples a segment's own points
+  (seeded, deterministic — `mulberry32`) before AIM's shift search; a real precision/speed trade (noisier
   histogram-intersection counts), not cosmetic, floored at `AIM_SAMPLE_FLOOR`(200).
   `subsampleSegments()`'s own per-item Bernoulli-trial logic is factored out into a shared
   `subsampleArray(arr, frac, rng, floor)` (v0.12.8, on request — "take sampling out of AIM and have it
@@ -539,7 +540,7 @@ in a module.
   radix-4-over-radix-2 textbook expectation (~4x fewer complex multiplies) because the FFT itself is
   one part of FRC's total cost (binning, Hann windowing, ring-averaging).
 
-  **NeNA/FRC's own use of `samplePct`** (drift's shared "Sampling (AIM/NeNA/FRC) %" — see its own
+  **NeNA/FRC's own use of `samplePct`** (drift's shared "Sampling of locs %" — see its own
   comment, MODULE: drift): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to the
   whole flat loc array (not per-segment — NeNA/FRC have no segments), with its own seed
   (`LOCPREC_SAMPLE_SEED`, distinct from `AIM_SAMPLE_SEED`) and the same `AIM_SAMPLE_FLOOR`(200) guard.
