@@ -471,7 +471,12 @@ in a module.
 
   `driftSamplePct` subsamples a segment's own points (seeded, deterministic — `mulberry32`) before
   AIM's shift search; a real precision/speed trade (noisier histogram-intersection counts), not
-  cosmetic, floored at `AIM_SAMPLE_FLOOR`(200).
+  cosmetic, floored at `AIM_SAMPLE_FLOOR`(200). `subsampleSegments()`'s own per-item Bernoulli-trial
+  logic is factored out into a shared `subsampleArray(arr, frac, rng, floor)` (v0.12.8, on request —
+  "take sampling out of AIM and have it applied to all, AIM, NeNA and FRC") — `rng` is an
+  ALREADY-CONSTRUCTED generator, not a seed, preserving `subsampleSegments()`'s own "one shared stream
+  across all segments in a call" behavior; **locprecision**'s own `subsampleLocs()` reuses it with a
+  distinct seed for a single flat-array application instead.
 
   `correlationDrift2D()`'s segment 0 is ALWAYS the fixed reference by construction (never
   re-estimated, unlike AIM's own two-round refinement) — it must NOT be zero-meaned the way AIM's own
@@ -524,6 +529,17 @@ in a module.
   speedup claim applies here too) is a modest ~1.14x-1.34x across N=256/512/1024, below the
   radix-4-over-radix-2 textbook expectation (~4x fewer complex multiplies) because the FFT itself is
   one part of FRC's total cost (binning, Hann windowing, ring-averaging).
+
+  **`locPrecisionSamplePct`** ("NeNA/FRC sample %") is drift's own `driftSamplePct` generalized to
+  NeNA/FRC (v0.12.8, on request): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to
+  the whole flat loc array (not per-segment — NeNA/FRC have no segments), with its own seed
+  (`LOCPREC_SAMPLE_SEED`, distinct from `AIM_SAMPLE_SEED`) and the same `AIM_SAMPLE_FLOOR`(200) guard.
+  `nenaPrecision(locs,px,onProgress,onLog,samplePct=100)` and `prepareFrc(...,samplePct=100)` each
+  apply it at their own top — every call site (interactive `computeNeNA()`/`computeFRC()`, headless
+  `analyze()`) threads `paramValue('locPrecisionSamplePct')`/`cfg.locPrecisionSamplePct` through, same
+  as `driftSamplePct`'s own threading. `prepareFrc()`'s internal `nenaPrecision()` call (used only to
+  pick FRC's own target pixel size) reuses the ALREADY-sampled `locs` with `samplePct` left at its
+  default 100 — subsampling twice would silently shrink the effective fraction to `samplePct²`.
 
 - **sSMLM** ("(Caution!) Pairing (sSMLM & FRET)") — pairs 0th/1st-order localizations from a
   diffraction grating (or, via smFRET, a donor/acceptor prism split). "(Caution!)" flags this as one

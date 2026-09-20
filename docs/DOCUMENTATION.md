@@ -2299,6 +2299,7 @@ the corrected result's own precision/resolution).
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
 | `driftSamplePct` | AIM sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
+| `locPrecisionSamplePct` | NeNA/FRC sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
 
 **In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
@@ -2316,6 +2317,7 @@ the corrected result's own precision/resolution).
 <ul>
   <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
   <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
+  <li><b>NeNA/FRC sample %</b> is the same speed/precision trade as <b>AIM sample %</b> above, applied once to the whole loc set before either computation (100% = no change, the default) — useful on a large dataset where NeNA/FRC are slow.</li>
 </ul>
 <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
 <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>

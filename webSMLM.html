@@ -21,11 +21,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20c; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20d; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3375   PARAMS registry, single source of truth for params;
+    params          3378   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -53,7 +53,7 @@
                            own blank-line separator — otherwise a command and
                            its own first result line print with a spurious
                            blank line between them
-    in/out          4503   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4517   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -66,12 +66,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4802   synthetic stack generator ("Simulate movie")
-    detect          5952   per-frame band-pass + local-maxima detection
+    simulation      4816   synthetic stack generator ("Simulate movie")
+    detect          5966   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6229   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6243   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -96,7 +96,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6924   accumulate to offscreen buffer; view/colour/blur;
+    render          6938   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -135,13 +135,13 @@
                            print their own line, several back-to-back in the
                            log for no actionable reason; the final render
                            still logs it
-    workers         8712   frame-parallel detect/fit worker pool; dedicated
+    workers         8726   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             9123   shared WebGPU compute engine (experimental,
+    gpu             9137   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all
                            4 MLE methods plus phasor/phasor3d — the one
                            non-iterative kernel, a closed-form Fourier
@@ -185,8 +185,8 @@
                            between the two, since CPU-side detection (not
                            fit) dominates a Run's wall time regardless of
                            method (see CLAUDE.md's own fit-module paragraph)
-    export          11586  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11938  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11600  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11952  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -197,7 +197,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12420  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12434  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -221,14 +221,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13352  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13379  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config);
                            drawNenaPlot()/drawFrcPlot() now call
                            hideOtherRawToggleBtns(null) like every other raw-
                            panel display already does — a real, reported bug:
                            Drift correction's own "Show x/y path" toggle stayed
                            stuck visible over NeNA/FRC's own plot afterward
-    sSMLM           14388  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14436  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18149  single particle tracking, trackpy-inspired;
+    spt             18197  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19687  top-level orchestration, *Core()/wrapper split;
+    pipeline        19735  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21213  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21261  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24062  localizations table, filtering, histograms;
+    table           24109  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24814  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24861  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2912,6 +2912,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <label class="row" id="frc3dRow" style="display:none;margin-top:6px">3D shells (FSC)
           <input type="checkbox" id="frc3d"></label>
+        <label class="row" style="margin-top:6px" title="Subsample the whole loc set once before NeNA/FRC, on a large dataset where either is slow — trades some estimation precision for speed. 100% = no change.">NeNA/FRC sample %
+          <input type="number" id="locPrecisionSamplePct" value="100" min="5" max="100" step="5" class="num"></label>
         <div class="btnrow" style="margin-top:6px">
           <button id="nenaBtn" disabled title="Empirical per-localization precision (nearest-neighbour)">NeNA</button>
           <button id="frcBtn" disabled title="Image resolution via Fourier Ring Correlation (1/7 threshold)">FRC</button>
@@ -2929,6 +2931,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <ul>
           <li><b>NeNA</b> estimates the mean per-localization precision from the nearest-neighbour distance distribution — data-driven, and the honest single number for the phasor fit (which has no per-localization uncertainty). It assumes the labelled structure is <b>static</b>: consecutive-frame displacements must be localization error, not motion. A <b>diffusing probe</b> — e.g. Nile Red and similar solvatochromic dyes that partition into and move within membranes — adds diffusion to the distance and <b>inflates σ</b>. Fixed-target methods like <b>DNA-PAINT</b> (imager binding a static docking strand, as in the GATTAquant nanorulers) satisfy the assumption.</li>
           <li><b>FRC</b> reports image resolution at the <b>1/7</b> threshold by splitting the localisations into two independent halves (odd/even frames), rendering each and correlating over Fourier rings; <b>FSC</b> is the 3D shell version, once z exists.</li>
+          <li><b>NeNA/FRC sample %</b> is the same speed/precision trade as <b>AIM sample %</b> above, applied once to the whole loc set before either computation (100% = no change, the default) — useful on a large dataset where NeNA/FRC are slow.</li>
           </ul>
           <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
           <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
@@ -3618,6 +3621,17 @@ const PARAMS = {
   // ---- precision ----
   // frc3d = compute FRC over spherical shells instead of 2D rings (not yet implemented — UI placeholder)
   frc3d: { type:'bool', id:'frc3d', label:'3D shells (FSC)', default:false },
+  // locPrecisionSamplePct — the same speed/precision trade as driftSamplePct
+  // above (v0.12.8, on request), applied once to the WHOLE flat loc array via
+  // subsampleLocs() (own seed, MODULE: locprecision) rather than per-segment.
+  // NeNA's own cost scales with the per-frame candidate count gridNN()
+  // searches; FRC's scales with the number of locs binned into each N×N grid
+  // — fewer locs cuts both, roughly proportional to this percentage. Default
+  // 100 (no behaviour change) — same opt-in-not-silently-safe framing as
+  // driftSamplePct, since fewer points means a noisier NeNA fit / sparser FRC
+  // image. FRC's own internal NeNA call (for target pixel size) reuses the
+  // SAME already-sampled loc set rather than sampling twice.
+  locPrecisionSamplePct: { type:'number', id:'locPrecisionSamplePct', label:'NeNA/FRC sample % (speed vs. precision)', min:5, max:100, step:5, default:100, int:true },
 
   // ---- sSMLM (spectrally resolved SMLM, diffraction-grating pair finding) ----
   // sSmlmDistMin/Max = the 0th/1st-order pair search window (nm). Defaults
@@ -12453,6 +12467,21 @@ function _smoothSeg(a){ if(a.length<3) return; const p=a.slice();
 // aimDrift2D()'s own comment documents — below the floor, the segment is left
 // untouched rather than thinned further.
 const AIM_SAMPLE_SEED = 0x41494d31, AIM_SAMPLE_FLOOR = 200;
+// Shared Bernoulli-per-item subsample, extracted from AIM's own logic below
+// so NeNA/FRC (MODULE: locprecision) can reuse the identical mechanism on a
+// single flat array instead of per-segment. `rng` is an ALREADY-CONSTRUCTED
+// generator (mulberry32(seed)), not a seed, so a caller sampling several
+// arrays in one call (like subsampleSegments() below) can share ONE stream
+// across all of them; a caller sampling just one array passes a fresh
+// mulberry32(seed) each time. `floor`: below it, return `arr` UNCHANGED
+// rather than a further-thinned (or empty) result — same reasoning as
+// AIM_SAMPLE_FLOOR's own comment.
+function subsampleArray(arr, frac, rng, floor){
+  if(frac>=1) return arr;
+  const kept=[];
+  for(let i=0;i<arr.length;i++){ if(rng()<frac) kept.push(arr[i]); }
+  return kept.length>=floor ? kept : arr;
+}
 // Dense-reference-grid bounds (see aimDrift2D()'s own block comment for why the
 // reference histogram is a flat typed array rather than a Map).
 // MARGIN_NM: how far the accumulated drift may walk beyond the localization
@@ -12474,11 +12503,9 @@ function subsampleSegments(seg, samplePct){
   if(samplePct>=100) return;
   const rng=mulberry32(AIM_SAMPLE_SEED), frac=samplePct/100;
   for(let s=0;s<seg.length;s++){
-    const full=seg[s], n=full.length;
-    if(n<=AIM_SAMPLE_FLOOR) continue;
-    const kept=[];
-    for(let i=0;i<n;i++){ if(rng()<frac) kept.push(full[i]); }
-    if(kept.length>=AIM_SAMPLE_FLOOR) seg[s]=kept;
+    const full=seg[s];
+    if(full.length<=AIM_SAMPLE_FLOOR) continue;   // skip WITHOUT drawing from rng — keeps the shared stream's draw order identical regardless of how many tiny segments precede a given one
+    seg[s]=subsampleArray(full, frac, rng, AIM_SAMPLE_FLOOR);
   }
 }
 
@@ -13433,12 +13460,26 @@ function fitNeNA(d,y){
 // rather than reflect real localization precision. NENA_ZERO_DIST_NM is the
 // cutoff below which a pair is treated as such a duplicate and excluded.
 const NENA_ZERO_DIST_NM=1e-3;
+// Sampling-percentage speed/precision trade for NeNA/FRC, mirroring AIM's own
+// driftSamplePct/subsampleSegments() (MODULE: drift) — same subsampleArray()
+// mechanism and floor guard, just applied ONCE to the whole flat loc array
+// rather than per-segment. Own seed (distinct from AIM_SAMPLE_SEED) so the
+// two features draw independent random streams even set to the same
+// percentage on the same dataset; same floor as AIM's own (no principled
+// reason for a different number — see AIM_SAMPLE_FLOOR's own comment).
+const LOCPREC_SAMPLE_SEED = 0x4e454e41, LOCPREC_SAMPLE_FLOOR = AIM_SAMPLE_FLOOR;
+function subsampleLocs(locs, samplePct){
+  if(samplePct==null || samplePct>=100) return locs;
+  return subsampleArray(locs, samplePct/100, mulberry32(LOCPREC_SAMPLE_SEED), LOCPREC_SAMPLE_FLOOR);
+}
 // NeNA: mean single-localization precision (nm). onProgress(0..1) optional;
 // onLog(msg) optional — reports how many near-zero-distance pairs (see
 // NENA_ZERO_DIST_NM above) were excluded, with the unique frames they occur
 // on, so a duplicate-row problem in the input data is visible rather than
-// silently biasing the fit.
-async function nenaPrecision(locs, px, onProgress, onLog){
+// silently biasing the fit. samplePct (default 100 = no change) subsamples
+// `locs` ONCE up front via subsampleLocs() — see its own comment.
+async function nenaPrecision(locs, px, onProgress, onLog, samplePct=100){
+  locs=subsampleLocs(locs, samplePct);
   const byF=new Map();
   for(const L of locs){ const f=L.frame|0; let a=byF.get(f); if(!a){a=[];byF.set(f,a);} a.push(L); }
   const frames=[...byF.keys()].sort((a,b)=>a-b);
@@ -13530,14 +13571,18 @@ async function computeNeNA(){
   $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
     // Logged BEFORE nenaPrecision() runs — see run()'s own comment on this
-    // ordering. No config to speak of (NeNA takes none), so this is just the
-    // bare flag, same as the CLI's own --computeNeNA.
+    // ordering. Only one live config value (locPrecisionSamplePct), included
+    // explicitly the same way correctDrift() includes driftSamplePct, so a
+    // recalled command captures the EXACT value used, not "whatever live
+    // state happens to be currently."
     //
     // jsOverride (reported — same bug class as applyCropToRaw()'s own fix):
     // analyze({computeNeNA:true}) always ALSO runs a full Localize first;
     // this button requires an EXISTING lastResult and never Localizes
     // itself. computeNeNA() is a no-arg, reads-live-state function.
-    logCmd({computeNeNA:true}, overrideWithFields({computeNeNA:true}, 'computeNeNA()'));
+    const samplePct=paramValue('locPrecisionSamplePct');
+    const cmdCfg={computeNeNA:true, locPrecisionSamplePct:samplePct};
+    logCmd(cmdCfg, overrideWithFields(cmdCfg, 'computeNeNA()'));
     // Leading "\n" opens a second blank line after the command logCmd() just
     // wrote — same convention *Core() functions use on their own first
     // onLog message (see logCmd()'s own comment), even though this function
@@ -13546,7 +13591,7 @@ async function computeNeNA(){
     log('\nNeNA precision (nearest-neighbour, consecutive frames)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
-    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p), log);
+    const r=await nenaPrecision(renderLocs||lastResult.locs, lastResult.px, p=>setProg(100*p), log, samplePct);
     setProg(null);
     if(r.err){ log(r.err+'.'); return; }
     lastNena=r;
@@ -13701,7 +13746,8 @@ function modeUncertaintyNm(locs, px){
 // FRC setup stays on the CPU: physical sampling, exact ring membership and the
 // compact metadata are small, deterministic, and shared by both execution
 // paths. Scaling work starts with split/binning in frcResolution*Prepared().
-async function prepareFrc(locs, px, mag, onProgress=p=>setProg(100*p), onLog=log){
+async function prepareFrc(locs, px, mag, onProgress=p=>setProg(100*p), onLog=log, samplePct=100){
+  locs=subsampleLocs(locs, samplePct);
   if(locs.length<200) return {err:`only ${locs.length.toLocaleString()} localizations — too few for FRC`};
   let xmin=Infinity,ymin=Infinity,xmax=-Infinity,ymax=-Infinity;
   for(const L of locs){ if(L.x<xmin)xmin=L.x; if(L.x>xmax)xmax=L.x; if(L.y<ymin)ymin=L.y; if(L.y>ymax)ymax=L.y; }
@@ -13988,14 +14034,14 @@ async function frcResolutionGpuPrepared(engine,prepared,onProgress=p=>setProg(10
 }
 
 // Public CPU reference retained for compatibility and certification tests.
-async function frcResolution(locs,px,mag,onProgress=p=>setProg(100*p),onLog=log){
-  const prepared=await prepareFrc(locs,px,mag,onProgress,onLog);
+async function frcResolution(locs,px,mag,onProgress=p=>setProg(100*p),onLog=log,samplePct=100){
+  const prepared=await prepareFrc(locs,px,mag,onProgress,onLog,samplePct);
   return frcResolutionCpuPrepared(prepared,onProgress);
 }
 const FRC_GPU_WARM_MIN_N=512, FRC_GPU_COLD_MIN_N=1024;
-async function runFrcStage(ctx,locs,px,mag,onProgress=p=>setProg(100*p),onLog=log){
+async function runFrcStage(ctx,locs,px,mag,onProgress=p=>setProg(100*p),onLog=log,samplePct=100){
   let preparedPromise=null,prepared=null,engine=null;
-  const getPrepared=async()=>prepared||(prepared=await (preparedPromise||(preparedPromise=prepareFrc(locs,px,mag,onProgress,onLog))));
+  const getPrepared=async()=>prepared||(prepared=await (preparedPromise||(preparedPromise=prepareFrc(locs,px,mag,onProgress,onLog,samplePct))));
   const warm=!!(_gpuEngine&&_gpuEngine.available);
   return runStage('frc',ctx,
     async()=>frcResolutionCpuPrepared(await getPrepared(),onProgress),
@@ -14051,20 +14097,22 @@ async function computeFRC(){
   $('frcBtn').disabled=true;
   try{
     // Logged BEFORE frcResolution() runs — see run()'s own comment on this
-    // ordering. No config to speak of (FRC takes none), so this is just the
-    // bare flag, same as the CLI's own --computeFRC — one call covers both
-    // outcome branches below (previously duplicated at each, now moot since
-    // logging happens before either is reached).
+    // ordering. Only one live config value (locPrecisionSamplePct), included
+    // explicitly — same reasoning as computeNeNA()'s own comment — one call
+    // covers both outcome branches below (previously duplicated at each, now
+    // moot since logging happens before either is reached).
     //
     // jsOverride — same bug class as computeNeNA()'s own fix, see its comment.
-    logCmd({computeFRC:true}, overrideWithFields({computeFRC:true}, 'computeFRC()'));
+    const samplePct=paramValue('locPrecisionSamplePct');
+    const cmdCfg={computeFRC:true, locPrecisionSamplePct:samplePct};
+    logCmd(cmdCfg, overrideWithFields(cmdCfg, 'computeFRC()'));
     // Leading "\n" — same reasoning as computeNeNA()'s own comment.
     log('\nFRC resolution (Fourier ring correlation, 1/7 threshold)…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} ${renderLocs[0]&&renderLocs[0].nMerged!==undefined?'events':'localizations'} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
     const stageTimings=newStageTimings();
     const r=await runFrcStage({useGpu:paramValue('useGpu'),stageTimings,onLog:log},renderLocs||lastResult.locs,
-      lastResult.px,lastResult.mag||10,p=>setProg(100*p),log);
+      lastResult.px,lastResult.mag||10,p=>setProg(100*p),log,samplePct);
     setProg(null);
     const frcStage=stageTimings.frc;
     if(frcStage) log(`FRC execution: ${frcStage.path} (${frcStage.reasons.join(', ')}) · ${Math.round(frcStage.ms)} ms stage wall.`);
@@ -23926,22 +23974,21 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-20c — FRC's inline FFT is now
-radix-4 (with a radix-2 fallback stage where the grid size isn't a pure
-power of 4), replacing the previous plain radix-2. Same power-of-2 grid,
-same GPU/CPU structure — this is a CPU-side speed change only, verified
-bit-exact against an independent DFT reference. Real end-to-end CPU FRC
-speedup measured directly (not just the isolated FFT stage): ~1.14x-1.34x
-across the 256²-1024² grids FRC actually uses, consistent with the
-isolated-FFT-only measurement — this app's own past lesson about not
-reporting an isolated stage's speedup as if it were the whole operation.
+log(`webSMLM v0.12.8-dev · build 2026-09-20d — NeNA and FRC now have their
+own sample-percentage speed/precision trade ("NeNA/FRC sample %", under
+Drift correction & precision), mirroring AIM's own "AIM sample %": on a
+large, slow dataset, subsample the whole loc set once before either
+computation (100% = no change, the default). Own seed, independent of
+AIM's own subsampling.
 
-(build 2026-09-20b's own fix remains in effect: Crop/table-rebuild error
-logging no longer prints a bare "undefined" when \`err.message\` itself is
-missing — though the underlying case that first reported "undefined" is
-still not confirmed root-caused; build 2026-09-20a's fix also remains in
-effect: the raw panel's mode-toggle buttons no longer get stuck visible
-over an unrelated NeNA/FRC plot.)`);
+(build 2026-09-20c's own fix remains in effect: FRC's inline FFT is now
+radix-4, ~1.14x-1.34x faster end-to-end on the CPU path, same power-of-2
+grid and GPU/CPU structure; build 2026-09-20b's own fix remains in effect:
+Crop/table-rebuild error logging no longer prints a bare "undefined" when
+\`err.message\` itself is missing — though the underlying case that first
+reported "undefined" is still not confirmed root-caused; build
+2026-09-20a's fix also remains in effect: the raw panel's mode-toggle
+buttons no longer get stuck visible over an unrelated NeNA/FRC plot.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -25174,9 +25221,9 @@ async function analyze(config){
   // passing it bare here would have silently sent 0..1 values to a caller
   // (e.g. the CLI) expecting 0..100, reading as permanently ~0%.
   if(cfg.computeNeNA && locs.length) nena = await runStage('nena', stageCtx,
-    () => nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p), onLog), null);
+    () => nenaPrecision(locs, cfg.pxnm, p=>onProgress(100*p), onLog, cfg.locPrecisionSamplePct), null);
   if(cfg.computeFRC && locs.length) frc = await runFrcStage(stageCtx,locs,cfg.pxnm,cfg.mag,
-    p=>onProgress(100*p),onLog);
+    p=>onProgress(100*p),onLog,cfg.locPrecisionSamplePct);
   // config.sptTrack — the headless equivalent of clicking Track (MODULE:
   // spt). Unlike sSmlmPair, runs AFTER drift/NeNA/FRC rather than before:
   // sptCore() never drops rows (track_id/D_coeff are added columns, every
