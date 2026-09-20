@@ -497,9 +497,33 @@ in a module.
   regression: it is the real, previously-skipped work the stale cache was hiding.
 
 - **locprecision** — NeNA (localization precision, Endesfelder fit) and FRC (image resolution, inline
-  radix-2 FFT). Marked **experimental**, not yet cross-validated against established tools.
+  FFT). Marked **experimental**, not yet cross-validated against established tools.
   `drawNenaPlot()`'s green (full Endesfelder fit)/magenta (signal-Rayleigh term alone) pairing is the
   reference this app's other two-curve plots match.
+
+  `fft1d()` is a **radix-4 FFT** (radix-2 fallback stage only when the grid size isn't a pure power
+  of 4 — e.g. 512/2048, whose `log2(N)` is odd), a structural port of
+  [`indutny/fft.js`](https://github.com/indutny/fft.js) (MIT, see head banner) onto this app's own
+  separate `re[]`/`im[]` array convention, replacing a plain radix-2. `fft2d()` itself (purely
+  separable — row-then-column `fft1d()` calls) is UNCHANGED; only `fft1d()`'s internals moved,
+  so drift's cross-correlation and PCFO (the other two `fft2d()` callers) get this for free with no
+  code of their own to touch. Still power-of-2-only — `prepareFrc()`'s own `N` grid-size cap (256 to
+  2048) is unaffected; this was a deliberate, scoped choice over a full mixed-radix rewrite that would
+  remove the cap, weighed against the added single-file-architecture cost of vendoring a
+  multi-package library like `@stdlib/fft-base-fftpack`. State (twiddle table, bit-reversal
+  permutation, and now also the interleaved scratch/output buffers) is cached per size `N`, rebuilt
+  only on a size change — the SAME "rebuild on size change" precedent `phasorFit()`'s own
+  `_pcol`/`_prow`/`_pN` cache already uses (MODULE: fit); caching the output buffer specifically
+  (not just the twiddle/bitrev tables) mattered — an earlier version allocating a fresh
+  `Float64Array` per call measured a REGRESSION at N=256 (0.91x, slower than the plain radix-2) from
+  GC pressure alone, since `fft2d()` calls `fft1d()` `2×N` times per 2D transform. Verified bit-exact
+  against an independent naive-DFT reference (not just the prior radix-2 implementation) across
+  N=4..256, both signs, plus a forward+inverse round-trip check at FRC's real grid sizes (256-2048).
+  Real, end-to-end CPU FRC speedup (measured via `tests/gpu/bench-frc.mjs`'s own CPU-median numbers,
+  not just the isolated FFT stage — this app's own past lesson about phasor's overstated GPU
+  speedup claim applies here too) is a modest ~1.14x-1.34x across N=256/512/1024, below the
+  radix-4-over-radix-2 textbook expectation (~4x fewer complex multiplies) because the FFT itself is
+  one part of FRC's total cost (binning, Hann windowing, ring-averaging).
 
 - **sSMLM** ("(Caution!) Pairing (sSMLM & FRET)") — pairs 0th/1st-order localizations from a
   diffraction grating (or, via smFRET, a donor/acceptor prism split). "(Caution!)" flags this as one

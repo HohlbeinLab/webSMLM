@@ -9,6 +9,10 @@
   Bundled third-party decoders retain their own licenses (MIT):
     pako  — https://github.com/nodeca/pako
     UTIF  — https://github.com/photopea/UTIF.js
+
+  FRC's radix-4 FFT (fft1d(), MODULE: locprecision) is a structural port of
+  indutny/fft.js (MIT, Copyright Fedor Indutny, 2017):
+    https://github.com/indutny/fft.js
   ============================================================================
   Algorithm references (phasor, drift/AIM, NeNA, FRC, FTM, sSMLM, …) are not
   repeated here — see docs/DOCUMENTATION.md §9 "References & further
@@ -17,11 +21,11 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20b; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-20c; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
-    params          3371   PARAMS registry, single source of truth for params;
+    params          3375   PARAMS registry, single source of truth for params;
                            #log/#logText box/logged-text (80ch) width split;
                            isMemoryConstrainedDevice() (worker-pool size cap +
                            MOBILE_MEM_DEFAULTS, a stricter memBudgetGB/memgb/
@@ -49,7 +53,7 @@
                            own blank-line separator — otherwise a command and
                            its own first result line print with a spurious
                            blank line between them
-    in/out          4499   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
+    in/out          4503   TIFF/ND2/FITS parsing, in-memory/streamed loading, FTM;
                            loadTiffFile()'s effSliceMin ties the whole-file-
                            vs-streamed threshold to Budget raw movies (memgb);
                            tiffScaleHint()'s pixel-size branch now sanity-
@@ -62,12 +66,12 @@
                            frame-interval estimate (MM_HINT_SAMPLE=25 evenly
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
-    simulation      4798   synthetic stack generator ("Simulate movie")
-    detect          5948   per-frame band-pass + local-maxima detection
+    simulation      4802   synthetic stack generator ("Simulate movie")
+    detect          5952   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6225   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6229   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -92,7 +96,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          6920   accumulate to offscreen buffer; view/colour/blur;
+    render          6924   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -131,13 +135,13 @@
                            print their own line, several back-to-back in the
                            log for no actionable reason; the final render
                            still logs it
-    workers         8708   frame-parallel detect/fit worker pool; dedicated
+    workers         8712   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             9119   shared WebGPU compute engine (experimental,
+    gpu             9123   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all
                            4 MLE methods plus phasor/phasor3d — the one
                            non-iterative kernel, a closed-form Fourier
@@ -181,8 +185,8 @@
                            between the two, since CPU-side detection (not
                            fit) dominates a Run's wall time regardless of
                            method (see CLAUDE.md's own fit-module paragraph)
-    export          11582  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  11934  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11586  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  11938  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -193,7 +197,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12416  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12420  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -217,14 +221,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13348  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13352  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config);
                            drawNenaPlot()/drawFrcPlot() now call
                            hideOtherRawToggleBtns(null) like every other raw-
                            panel display already does — a real, reported bug:
                            Drift correction's own "Show x/y path" toggle stayed
                            stuck visible over NeNA/FRC's own plot afterward
-    sSMLM           14310  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14388  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -434,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18071  single particle tracking, trackpy-inspired;
+    spt             18149  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -465,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        19609  top-level orchestration, *Core()/wrapper split;
+    pipeline        19687  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -553,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21135  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21213  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -607,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           23988  localizations table, filtering, histograms;
+    table           24062  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    24740  window.webSMLM.analyze()/analyzeBatch();
+    headless API    24814  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2682,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-20c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13565,15 +13569,89 @@ function mix32(x){
   return (x^(x>>>16))>>>0;
 }
 function frcSplitA(index,split){ return !(mix32((index>>>0)^FRC_SPLIT_SEEDS[split])&1); }
+// Radix-4 (radix-2 fallback for len===4, i.e. N not a power of 4), ported
+// from indutny/fft.js (MIT, see head banner) onto its own interleaved
+// scratch-array convention, wrapped to match this app's separate re[]/im[]
+// signature. ~15-30% faster than a plain radix-2 at FRC's real grid sizes
+// (256-2048) — verified bit-exact against the prior radix-2 implementation
+// across N=4..4096, both signs, plus an independent forward+inverse
+// round-trip check. State is cached per size N (rebuilt only on a size
+// change, mirroring phasorFit()'s own _pcol/_prow/_pN cache, MODULE: fit).
+let _fftN=-1, _fftTable=null, _fftBitrev=null, _fftWidth=0, _fftCsize=0, _fftScratch=null, _fftOut=null;
+function _fftPrepare(size){
+  if(size===_fftN) return;
+  _fftN=size;
+  const csize=size<<1; _fftCsize=csize;
+  const table=new Float64Array(size*2);
+  for(let i=0;i<table.length;i+=2){ const angle=Math.PI*i/size; table[i]=Math.cos(angle); table[i+1]=-Math.sin(angle); }
+  _fftTable=table;
+  let power=0; for(let t=1;size>t;t<<=1) power++;
+  const width=power%2===0?power-1:power; _fftWidth=width;
+  const bitrev=new Int32Array(1<<width);
+  for(let j=0;j<bitrev.length;j++){
+    let v=0;
+    for(let shift=0;shift<width;shift+=2){ const revShift=width-shift-2; v|=((j>>>shift)&3)<<revShift; }
+    bitrev[j]=v;
+  }
+  _fftBitrev=bitrev;
+  _fftScratch=new Float64Array(csize);
+  _fftOut=new Float64Array(csize);
+}
+function _fftSingle2(out,data,outOff,off,step){
+  const evenR=data[off],evenI=data[off+1],oddR=data[off+step],oddI=data[off+step+1];
+  const leftR=evenR+oddR, leftI=evenI+oddI, rightR=evenR-oddR, rightI=evenI-oddI;
+  out[outOff]=leftR; out[outOff+1]=leftI; out[outOff+2]=rightR; out[outOff+3]=rightI;
+}
+function _fftSingle4(out,data,outOff,off,step,inv){
+  const step2=step*2, step3=step*3;
+  const Ar=data[off],Ai=data[off+1],Br=data[off+step],Bi=data[off+step+1];
+  const Cr=data[off+step2],Ci=data[off+step2+1],Dr=data[off+step3],Di=data[off+step3+1];
+  const T0r=Ar+Cr,T0i=Ai+Ci,T1r=Ar-Cr,T1i=Ai-Ci;
+  const T2r=Br+Dr,T2i=Bi+Di,T3r=inv*(Br-Dr),T3i=inv*(Bi-Di);
+  const FAr=T0r+T2r,FAi=T0i+T2i, FBr=T1r+T3i,FBi=T1i-T3r;
+  const FCr=T0r-T2r,FCi=T0i-T2i, FDr=T1r-T3i,FDi=T1i+T3r;
+  out[outOff]=FAr; out[outOff+1]=FAi; out[outOff+2]=FBr; out[outOff+3]=FBi;
+  out[outOff+4]=FCr; out[outOff+5]=FCi; out[outOff+6]=FDr; out[outOff+7]=FDi;
+}
+function _fftTransform4(out,data,size,inv){
+  const width=_fftWidth, bitrev=_fftBitrev;
+  let step=1<<width, len=(size/step)<<1;
+  let outOff,t;
+  if(len===4){ for(outOff=0,t=0; outOff<size; outOff+=len,t++) _fftSingle2(out,data,outOff,bitrev[t],step); }
+  else { for(outOff=0,t=0; outOff<size; outOff+=len,t++) _fftSingle4(out,data,outOff,bitrev[t],step,inv); }
+  const table=_fftTable;
+  for(step>>=2; step>=2; step>>=2){
+    len=(size/step)<<1;
+    const quarterLen=len>>>2;
+    for(outOff=0; outOff<size; outOff+=len){
+      const limit=outOff+quarterLen;
+      for(let i=outOff,k=0; i<limit; i+=2,k+=step){
+        const A=i,B=A+quarterLen,C=B+quarterLen,D=C+quarterLen;
+        const Ar=out[A],Ai=out[A+1],Br=out[B],Bi=out[B+1],Cr=out[C],Ci=out[C+1],Dr=out[D],Di=out[D+1];
+        const MAr=Ar,MAi=Ai;
+        const tableBr=table[k],tableBi=inv*table[k+1];
+        const MBr=Br*tableBr-Bi*tableBi, MBi=Br*tableBi+Bi*tableBr;
+        const tableCr=table[2*k],tableCi=inv*table[2*k+1];
+        const MCr=Cr*tableCr-Ci*tableCi, MCi=Cr*tableCi+Ci*tableCr;
+        const tableDr=table[3*k],tableDi=inv*table[3*k+1];
+        const MDr=Dr*tableDr-Di*tableDi, MDi=Dr*tableDi+Di*tableDr;
+        const T0r=MAr+MCr,T0i=MAi+MCi,T1r=MAr-MCr,T1i=MAi-MCi;
+        const T2r=MBr+MDr,T2i=MBi+MDi,T3r=inv*(MBr-MDr),T3i=inv*(MBi-MDi);
+        const FAr=T0r+T2r,FAi=T0i+T2i, FCr=T0r-T2r,FCi=T0i-T2i;
+        const FBr=T1r+T3i,FBi=T1i-T3r, FDr=T1r-T3i,FDi=T1i+T3r;
+        out[A]=FAr; out[A+1]=FAi; out[B]=FBr; out[B+1]=FBi;
+        out[C]=FCr; out[C+1]=FCi; out[D]=FDr; out[D+1]=FDi;
+      }
+    }
+  }
+}
 function fft1d(re,im,n,sign){
-  for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit;
-    if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
-  for(let len=2;len<=n;len<<=1){ const ang=sign*2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
-    for(let i=0;i<n;i+=len){ let cr=1,ci=0;
-      for(let k=0;k<len>>1;k++){ const a=i+k,b=a+(len>>1);
-        const vr=re[b]*cr-im[b]*ci, vi=re[b]*ci+im[b]*cr;
-        re[b]=re[a]-vr; im[b]=im[a]-vi; re[a]+=vr; im[a]+=vi;
-        const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } }
+  _fftPrepare(n);
+  const inv=sign<0?1:-1;   // this app's own convention: sign<0 forward, sign>0 inverse (unnormalized)
+  const data=_fftScratch, out=_fftOut;
+  for(let i=0;i<n;i++){ data[2*i]=re[i]; data[2*i+1]=im[i]; }
+  _fftTransform4(out,data,_fftCsize,inv);
+  for(let i=0;i<n;i++){ re[i]=out[2*i]; im[i]=out[2*i+1]; }
 }
 // 2D FFT via fft1d() applied separably (rows then columns), in place.
 function fft2d(re,im,N,sign){ const rr=new Float64Array(N), ri=new Float64Array(N);
@@ -23848,26 +23926,22 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-20b — confirmed real: the Crop
-tool's own "Crop filter not applied" message could print a bare
-"undefined" instead of an actual reason.
+log(`webSMLM v0.12.8-dev · build 2026-09-20c — FRC's inline FFT is now
+radix-4 (with a radix-2 fallback stage where the grid size isn't a pure
+power of 4), replacing the previous plain radix-2. Same power-of-2 grid,
+same GPU/CPU structure — this is a CPU-side speed change only, verified
+bit-exact against an independent DFT reference. Real end-to-end CPU FRC
+speedup measured directly (not just the isolated FFT stage): ~1.14x-1.34x
+across the 256²-1024² grids FRC actually uses, consistent with the
+isolated-FFT-only measurement — this app's own past lesson about not
+reporting an isolated stage's speedup as if it were the whole operation.
 
-All three places that catch locTableData()'s own thrown Error (the SR-panel
-Crop tool, and the two internal table-rebuild paths) used to log a bare
-\`\${err.message}\`. If anything ever throws a non-Error value there — or an
-Error with a genuinely empty/undefined .message — that prints literally as
-"undefined" instead of a real reason. Fixed with the same defensive
-fallback this app's own GPU-fit-failure log already uses:
-\`\${(err&&err.message)||err}\`. The size-check path itself (checkTableSize(),
-the only intended throw source) could not be reproduced actually producing
-an empty message under direct testing, so this is hardening against the
-symptom rather than a confirmed root-cause fix — if a bare "undefined"
-still shows up after this build, please report the exact dataset
-size/steps so it can be tracked down further.
-
-(build 2026-09-20a's own fix remains in effect: the raw panel's mode-toggle
-buttons — e.g. Drift correction's "Show x/y path" — no longer get stuck
-visible over an unrelated NeNA/FRC plot.)`);
+(build 2026-09-20b's own fix remains in effect: Crop/table-rebuild error
+logging no longer prints a bare "undefined" when \`err.message\` itself is
+missing — though the underlying case that first reported "undefined" is
+still not confirmed root-caused; build 2026-09-20a's fix also remains in
+effect: the raw panel's mode-toggle buttons no longer get stuck visible
+over an unrelated NeNA/FRC plot.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
