@@ -555,6 +555,42 @@ in a module.
   re-estimated, unlike AIM's own two-round refinement) — it must NOT be zero-meaned the way AIM's own
   output is; smFRET's own drift correction depends on this exact frame-0 anchoring.
 
+  **`correlationDrift2D()` rounds an odd requested segment length up to the next even one — the one
+  real failure mode of cross-correlating whole per-segment AVERAGED images (`_correlationSegmentImage()`,
+  a plain per-pixel mean over every raw frame in the segment) rather than AIM's own per-point
+  registration.** Raised directly, questioning the smFRET module's earlier "Cross correlation has the
+  identical ALEX-blindness problem AIM did" note: "for cross correlation we are merging frames, aren't
+  we? I would not expect ALEX to matter much" — a fair intuition, since whole-image correlation is
+  fundamentally different from AIM's per-point histogram intersection, which genuinely broke under
+  pooled channels (see smFRET's own paragraph above). Investigated directly rather than just reasoned
+  about: pooling both excitation channels into one composite is harmless whenever that composite is a
+  STABLE, consistent blend across segments — true for an EVEN segment length (both channels always
+  contribute an equal, constant share every segment) or whenever one channel's own total intensity
+  dominates the other's enough that a 1-frame count difference doesn't move the composite (verified: a
+  5x brightness ratio between channels already erases the effect entirely — directly the "acceptor
+  always present, rare donor" case raised for the AIM fix above). The one genuine failure mode is an
+  ODD segment length under roughly BALANCED channel intensities: since a segment starting at frame
+  `k*segFrames` has starting parity `k*segFrames mod 2`, an ODD `segFrames` makes that parity
+  ALTERNATE segment-to-segment, so consecutive segments' own composites get an alternating 1-frame
+  MAJORITY toward one channel — a systematic, oscillating bias the FFT correlation peak reads as the
+  sample jumping between the two channels' own (spatially disjoint, for a spectrally-split setup)
+  positions every segment. Verified directly on synthetic data (two spatially-disjoint, equal-intensity
+  patterns 32px apart, a few px of real injected drift): every odd segment length tried (9, 11, 15, 25,
+  51, 95, 99, 101, 105) gave ~16-19px spurious drift (order the channel separation, not the true
+  drift), while every even length gave <0.5px — and this was NOT a narrow "segFrames=1" edge case, it
+  persisted at every odd value tried up to 105. The default **Average # of frames** (100) happens to
+  already be even, which is why ordinary use never surfaced this — but the sidebar's own stepper
+  (`min:5, step:5`) reaches odd values (5, 15, 25, …) just as easily as even ones, with nothing warning
+  against them. Fixed by rounding an odd requested length up to the next even one inside
+  `correlationDrift2D()` itself (`segFramesUsed` in its return value, vs. the caller's own requested
+  `segFrames`) — a two-line fix needing no ALEX-specific knowledge at all ("avoid odd segment lengths"
+  is correct regardless of why a movie might have period-2 structure), a no-op for an already-even
+  request, and immaterial for non-periodic data (worst case one extra frame per segment). Both call
+  sites (`driftCore()`'s own Cross correlation branch and smFRET's `smfretComputeDrift()`) log a
+  follow-up note when the rounding actually changes anything, so the log always matches what was
+  really used. Verified the fix directly: every previously-failing odd case above now matches the
+  even-length baseline (<0.5px RMSE).
+
   **`driftCore()` applies the correction by mutating `L.x`/`L.y`/`L.z` IN PLACE on the SAME loc
   objects/array** (reversibly — the original values are stashed in `L.x0`/`L.y0`/`L.z0` first, restored
   before every fresh estimate so re-running with different settings always estimates from the raw
@@ -932,14 +968,34 @@ in a module.
   channel's own result directly, no merge to do). Verified on synthetic data replicating the raised
   scenario (3 rare donor sites at 1-5% per-frame occupancy vs. 40 acceptor sites present every frame,
   many segments with zero donor localizations): donor-only tracked a known injected drift to ~41 nm
-  RMSE; the merged estimate matched acceptor-only's own ~5 nm RMSE. **Known, NOT yet fixed**: the
-  Cross correlation drift method (`correlationDrift2D()`) has the identical underlying problem — it
-  compares consecutive segments' own averaged RAW images directly, with no ALEX awareness at all —
-  but that function is also the main **Drift correction** module's own estimator, so making it
-  ALEX-aware needs its own careful, separately-tested change rather than a quick patch bundled into
-  this smFRET-specific fix; prefer AIM for ALEX'd smFRET data until this is addressed. Also raised, not
-  yet addressed: AIM's own per-segment estimate gets less reliable later in a long acquisition as
-  emitters photobleach and thin out (noted in `docs/REFACTOR_PLAN.md`).
+  RMSE; the merged estimate matched acceptor-only's own ~5 nm RMSE. The Cross correlation drift method
+  (`correlationDrift2D()`) needed no smFRET-specific fix at all here — see **drift**'s own paragraph
+  below for why whole-image correlation (unlike AIM's per-point registration) is largely ALEX-agnostic
+  by construction, and the one real failure mode that IS fixed there (odd segment lengths). Also
+  raised, not yet addressed: AIM's own per-segment estimate gets less reliable later in a long
+  acquisition as emitters photobleach and thin out (noted in `docs/REFACTOR_PLAN.md`).
+
+  **The donor+acceptor merge above did NOT close the real "0/536,250 accepted" report** — confirmed by
+  a direct retest on the same real dataset after the merge shipped, still 0 accepted. Two specific
+  leading suspects were checked and ruled out directly rather than guessed at: (1) a scale bug in
+  `smfretExtractTracesGpu()` itself — the real case needs ~131 GPU dispatches (`GPU_SMFRET_BATCH_TARGET`
+  =4096), ~20x more than any prior verification reached; tested at the SAME candidate count (536,250,
+  confirmed to fall out of `143 sites x 2500 frames` independent of any real-data specifics) with a
+  DIRECTLY-SUPPLIED, known-correct drift curve (bypassing estimation entirely): got a real 17.7%
+  acceptance rate, not 0% — ruling out a pure dispatch-count/scale bug in extraction. (2) a units/sign
+  mismatch between the estimated drift and the extraction step consuming it — checked and consistent:
+  both operate in the same native camera-pixel units sites' own x,y already use. The remaining leading
+  suspect is the AIM estimate ITSELF being genuinely wrong for this specific real, dense dataset (~59
+  localizations/frame per channel, far denser than anything tested synthetically) — not a code bug a
+  static read can confirm or rule out. `smfretLogDriftDiagnostic()` (new, called from every
+  `smfretComputeDrift()` return path) permanently logs the drift curve's own peak magnitude in nm/px
+  right after every estimate — a `winr=3` fit window (3x3 px) needs the correction within about a
+  pixel of the truth on EVERY frame, so an implausibly large number here on the next real run would
+  directly confirm this. **Also flagged, not yet addressed**: the merge doubles AIM's own
+  already-largest-single-pipeline-cost runtime (two full `aimDrift2D()` calls instead of one) — a real,
+  separately reported "freeze" on a REPEATED run of the same dataset may be this added cost compounding
+  with an already-heavy silent Localize pass rather than a true hang, but this isn't confirmed either
+  way yet.
 
   The SOI composite marks (never filters — an earlier, stricter "remove the box" design was reverted)
   a paired site's ROI dark-orange (`#d2691e`, `markSmfretSoiPairedKeys()`) or gold (`#e8b400`) for an

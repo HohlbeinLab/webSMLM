@@ -739,8 +739,12 @@ irrelevant to a reconstruction's own image quality).
 **Cross correlation** (`correlationDrift2D()`), image-based — works
 directly off the raw movie, no Localize needed to ESTIMATE the drift
 (applying a correction still needs existing localizations, same as AIM).
-Averages `driftSeg` raw frames into one representative image per segment,
-then finds each segment's own (dx,dy) shift relative to the FIRST segment
+Averages `driftSeg` raw frames into one representative image per segment
+(rounded up to the next even number if odd — an odd segment length can bias
+this method under any strictly period-2 frame alternation baked into the
+raw movie itself, e.g. ALEX; a log line notes it when the rounding actually
+changes anything), then finds each segment's own (dx,dy) shift relative to
+the FIRST segment
 via FFT-based cross-correlation (`fft2d()`, the same radix-2 implementation
 FRC already uses, applied here to a zero-padded, mean-subtracted camera
 frame rather than a rendered reconstruction) with a parabolic sub-pixel

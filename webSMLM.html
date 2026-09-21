@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21j; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21k; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -221,14 +221,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13547  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13583  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config);
                            drawNenaPlot()/drawFrcPlot() now call
                            hideOtherRawToggleBtns(null) like every other raw-
                            panel display already does — a real, reported bug:
                            Drift correction's own "Show x/y path" toggle stayed
                            stuck visible over NeNA/FRC's own plot afterward
-    sSMLM           14639  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14675  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18834  single particle tracking, trackpy-inspired;
+    spt             18906  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20376  top-level orchestration, *Core()/wrapper split;
+    pipeline        20448  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21902  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21974  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24895  localizations table, filtering, histograms;
+    table           24968  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25799  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25872  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -13114,11 +13114,46 @@ function _fftCrossCorrPeak(imgA, imgB, N){
 // since aimDrift2D()'s own version is entangled with its own `stopped`
 // partial-completion bookkeeping in a way that's clearer kept separate for
 // each method's own comment/reasoning to sit next to its own code).
-async function correlationDrift2D(st, nFrames, segFrames, frame0, onProgress, shouldStop=()=>false){
+async function correlationDrift2D(st, nFrames, segFramesReq, frame0, onProgress, shouldStop=()=>false){
   let _yld=performance.now();
   const yieldMaybe=async()=>{ if(performance.now()-_yld>50){ await tick(); _yld=performance.now(); } };
   const {w,h}=st;
   const N=_nextPow2(Math.max(w,h));
+  // ODD segment lengths silently corrupt this method under ALEX (or any other
+  // strict period-2 alternation baked into the raw movie itself): each
+  // segment's own composite (_correlationSegmentImage(), a plain per-pixel
+  // MEAN over every raw frame in the segment, no channel awareness at all)
+  // ends up with a 1-frame majority toward whichever excitation channel got
+  // the extra frame — and since consecutive ODD-length segments start on
+  // alternating frame parity (segment k starts at frame k*segFrames, and
+  // segFrames odd means k*segFrames mod 2 = k mod 2), that majority
+  // ALTERNATES segment-to-segment. When both channels contribute comparable
+  // total intensity to the composite (a real, common case — not just a
+  // contrived equal-brightness one), this majority flip is a systematic,
+  // OSCILLATING bias the FFT correlation peak reads as if the sample itself
+  // jumps back and forth between the two channels' own (spatially disjoint,
+  // for a spectrally-split setup) positions every segment — completely
+  // swamping any real few-pixel drift. Verified directly on synthetic data:
+  // equal-intensity donor/acceptor patterns 32px apart, true drift a few px
+  // over the movie — EVERY odd segFrames tried (9, 11, 15, 25, 51, 95, 99,
+  // 101, 105) gave ~16-19px RMSE (order the channel SEPARATION, not the true
+  // drift), while every even value tried gave <0.5px. The bias vanishes when
+  // one channel dominates the other's intensity enough (e.g. 5x) that a
+  // 1-frame count wobble stops mattering relative to its own total signal —
+  // exactly the "acceptor always present, rare donor" case this app's own
+  // smFRET module raised directly — but nothing guarantees that ratio in
+  // general, and the DEFAULT "Average # of frames" (100) happens to already
+  // be even, so this was never caught by ordinary use. Rounding UP to the
+  // next even number removes the alternation entirely (every segment then
+  // gets an EQUAL split of both channels, constant across segments) at the
+  // cost of at most one extra frame per segment — negligible, and a no-op
+  // for data with no such periodic structure at all (an already-even
+  // request is untouched; a genuinely non-periodic, non-ALEX movie sees no
+  // difference either way beyond that same +/-1 frame). `segFramesUsed` is
+  // returned so a caller that already logged the REQUESTED value can note
+  // the adjustment afterward rather than silently disagreeing with its own
+  // pre-call log line.
+  const segFrames = segFramesReq%2 ? segFramesReq+1 : segFramesReq;
   const nSeg=Math.max(1, Math.ceil(nFrames/segFrames));
   const dx=new Float64Array(nSeg), dy=new Float64Array(nSeg);
   let stopped=false, completed=1;   // segment 0 needs no estimation (it IS the reference, drift 0)
@@ -13170,7 +13205,7 @@ async function correlationDrift2D(st, nFrames, segFrames, frame0, onProgress, sh
     fdx[f]=dx2[k]+(dx2[k+1]-dx2[k])*t; fdy[f]=dy2[k]+(dy2[k+1]-dy2[k])*t;
   }
   return {fdx, fdy, segCenters:centersEff, segdx:dx2, segdy:dy2, nSeg:nSegEff, nSegRequested:nSeg, stopped,
-    stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null};
+    stoppedAtFrame: stopped ? centersEff[nSegEff-1] : null, segFramesUsed:segFrames};
 }
 
 // Pure: runs AIM drift correction on `locs`, MUTATED IN PLACE (reversibly —
@@ -13229,6 +13264,7 @@ async function driftCore(locs, px, config, hooks={}){
     onLog(`\nDrift correction (cross correlation): ${segF}-frame segments`+
           (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
     d=await correlationDrift2D(config.stack, nFrames, segF, frame0, p=>onProgress(100*p), shouldStop);
+    if(d.segFramesUsed!==segF) onLog(`(rounded segment length from ${segF} to ${d.segFramesUsed} frames — an odd segment length can bias this method under any strictly periodic frame alternation in the raw movie, e.g. ALEX.)`);
   }else{
     onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
           (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
@@ -16968,20 +17004,35 @@ async function smfretComputeDrift(){
   const alex=paramValue('alexEnabled');
   const donorParity = alex ? (paramValue('alexFirstFrame')==='dirDonorExc' ? 0 : 1) : 0;
   if(method==='correlation'){
-    // KNOWN, NOT-yet-fixed gap: correlationDrift2D() cross-correlates
-    // CONSECUTIVE segments' own averaged raw images directly, with no ALEX
-    // awareness at all — under ALEX, each segment's own average mixes
-    // donor- and acceptor-excitation frames together (or, if segF is even
-    // and aligned, could average two DIFFERENT-looking composites against
-    // each other), the same fundamental problem the AIM path below is
-    // fixed for. Not addressed here: this function is also the main Drift
-        // correction feature's own estimator (MODULE: drift), so making it
-    // ALEX-aware needs its own careful, separately-tested change, not a
-    // quick patch bundled into this smFRET-specific fix. Prefer AIM
-    // (`driftMethod`) for ALEX'd smFRET data until this is addressed.
+    // correlationDrift2D() cross-correlates CONSECUTIVE segments' own
+    // averaged raw images directly, with no per-frame ALEX awareness at all
+    // — under ALEX, each segment's own composite mixes donor- and
+    // acceptor-excitation frames together. Investigated directly (raised:
+    // "for cross correlation we are merging frames, aren't we? I would not
+    // expect ALEX to matter much" — a fair intuition, since this is
+    // whole-IMAGE correlation, not AIM's own per-point registration): pooling
+    // itself is harmless whenever each segment's own composite is a STABLE,
+    // consistent blend across segments — true for an EVEN segment length
+    // (both channels always contribute an equal, constant share) or whenever
+    // one channel's total intensity dominates the other's enough that a
+    // 1-frame count wobble doesn't move the composite (verified: real for a
+    // 5x brightness ratio in a synthetic test). The one genuine failure mode
+    // is an ODD segment length under roughly BALANCED channel intensities —
+    // verified directly: equal-intensity synthetic donor/acceptor patterns
+    // gave ~16-19px spurious drift (order the channel separation) at every
+    // odd segment length tried, vs. <0.5px at every even one — because an odd
+    // length gives consecutive segments an ALTERNATING 1-frame majority
+    // toward one channel, which the FFT peak reads as the sample itself
+    // jumping between the two channels' own positions every segment. Fixed
+    // at the source in correlationDrift2D() itself (rounds an odd segment
+    // length up to the next even one — a two-line, ALEX-unaware fix, since
+    // "avoid odd segment lengths" needs no knowledge of ALEX specifically and
+    // is a no-op for already-even requests or non-periodic data).
     log(`smFRET: Apply drift correction — cross-correlation on the raw movie (${segF}-frame segments)…`);
     const d=await correlationDrift2D(stack, stack.n, segF, 0, p=>setProg(p), ()=>false);
+    if(d.segFramesUsed!==segF) log(`(rounded segment length from ${segF} to ${d.segFramesUsed} frames — see the note above on odd segment lengths under ALEX.)`);
     log(`smFRET: drift estimated — ${d.nSeg} segment(s).`);
+    smfretLogDriftDiagnostic(d.fdx, d.fdy, paramValue('pxnm'));
     return {fdx:d.fdx, fdy:d.fdy};
   }
   // AIM needs real localizations across the WHOLE movie first — a silent,
@@ -17000,6 +17051,7 @@ async function smfretComputeDrift(){
     const f0x=d.fdx[0], f0y=d.fdy[0];
     const fdx=d.fdx.map(v=>v-f0x), fdy=d.fdy.map(v=>v-f0y);
     log(`smFRET: drift estimated via AIM — ${r.locs.length.toLocaleString()} localization(s), ${d.nSeg} segment(s).`);
+    smfretLogDriftDiagnostic(fdx, fdy, px);
     return {fdx, fdy};
   }
   // A real, reported bug: feeding EVERY frame's localizations (both
@@ -17064,7 +17116,27 @@ async function smfretComputeDrift(){
   const f0x=fdxRaw[0], f0y=fdyRaw[0];
   const fdx=fdxRaw.map(v=>v-f0x), fdy=fdyRaw.map(v=>v-f0y);
   log(`smFRET: drift estimated via AIM — ${donorLocs.length.toLocaleString()} donor-excitation + ${acceptorLocs.length.toLocaleString()} acceptor-excitation localization(s)${(dDonor&&dAcceptor)?' (merged per segment, weighted by point count)':dDonor?' (donor-excitation channel only, no acceptor-excitation localizations found)':' (acceptor-excitation channel only, no donor-excitation localizations found)'}, ${nSegEff} segment(s).`);
+  smfretLogDriftDiagnostic(fdx, fdy, px);
   return {fdx, fdy};
+}
+// Diagnostic-only summary of a computed drift curve's own magnitude — added
+// directly in response to a real report ("0/536,250 candidate fit(s)
+// accepted" persisting even after the donor+acceptor merge above), to find
+// out whether the estimate ITSELF is implausibly large for the real dataset
+// (as opposed to a units/sign bug in how it's later applied — dimensionally
+// checked and consistent: aimDrift2D()/correlationDrift2D() both operate in
+// the SAME native camera-pixel units sites' own x,y already use). A fit
+// window as narrow as `winr=3` (a 3x3 window, r=1px) needs the corrected
+// position to land within about a pixel of the true PSF on EVERY single
+// frame — an estimate that's merely a few px off in the WRONG direction
+// (not a units bug, just genuinely wrong for this dataset — e.g. AIM
+// struggling on unusually dense, real data) would plausibly zero out
+// candidates uniformly across the whole movie the way the report shows,
+// which a correctness check on the CODE alone cannot rule out or confirm.
+function smfretLogDriftDiagnostic(fdx, fdy, px){
+  let maxAbsPx=0; for(let i=0;i<fdx.length;i++){ const a=Math.abs(fdx[i]); if(a>maxAbsPx)maxAbsPx=a; const b=Math.abs(fdy[i]); if(b>maxAbsPx)maxAbsPx=b; }
+  const win=2*paramValue('winr')+1;
+  log(`(diagnostic) drift correction magnitude: up to ${(maxAbsPx*px).toFixed(1)} nm (${maxAbsPx.toFixed(2)} px) over the movie — a ${win}x${win} fit window needs this within about a pixel of the truth on every frame to keep extracting real signal.`);
 }
 // GPU-batched equivalent of getSmfretTimeTraces()'s own CPU per-candidate
 // loop below (requested — smFRET's own extraction never used the GPU at
@@ -24669,36 +24741,56 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21j — AIM drift correction, in
-ALEX mode, now estimates drift from BOTH excitation channels and merges
-them per segment (weighted by each channel's own point count) instead
-of using donor-excitation frames alone. Raised directly: an acceptor
-permanently present (e.g. on DNA) waiting for a rare donor-labelled
-binding partner (e.g. on a protein) can leave whole segments with zero
-donor-excitation localizations at all — build 2026-09-21i's donor-only
-fix left those segments' drift pinned to whatever the previous segment
-estimated (AIM's own "no evidence, don't move it" guard), silently
-wrong whenever the sample was genuinely still drifting. Both channels
-see the SAME physical stage drift, just at very different point
-densities, so each excitation channel's own histogram-intersection
-search still runs independently (never mixing donor- and acceptor-side
-emission, which a spectrally-split/grating setup images at genuinely
-different sensor positions — the same reason donor-only was fixed to
-begin with), and the two per-segment estimates are then combined by
-point-count weight (falling back to whichever channel actually has data
-when the other is empty for that segment). Verified on synthetic data
-replicating exactly this scenario (3 rare donor sites at 1-5%
-per-frame occupancy vs. 40 acceptor sites present every frame):
-donor-only tracked a known injected drift to ~41 nm RMSE (many segments
-frozen at zero evidence); the merged estimate matched acceptor-only's
-own ~5 nm RMSE. Non-ALEX runs and single-channel-only data are
-unaffected (a no-op merge, or the existing single-call path).
+log(`webSMLM v0.12.8-dev · build 2026-09-21k — the donor+acceptor AIM
+merge (build j) did NOT fix the real "0/536,250 accepted" report —
+confirmed by a direct retest on the same real dataset, still 0
+accepted after the merge. Investigated two specific leading suspects
+directly rather than guessing further: (1) a GPU-dispatch-scale bug in
+smfretExtractTracesGpu() itself (the real case needs ~131 GPU
+dispatches, ~20x more than any prior verification reached) — tested at
+the SAME candidate count (536,250, confirmed to fall out of 143
+sites x 2500 frames independent of any real-data specifics) with a
+DIRECTLY-SUPPLIED, known-correct drift curve (bypassing estimation
+entirely): got a real, non-zero 17.7% acceptance rate, not 0% — this
+rules out a pure scale/dispatch-count bug in extraction itself. (2)
+correlationDrift2D() (Cross correlation, the OTHER driftMethod) — a
+real, separate bug found while investigating a fair question raised
+about it ("we're merging frames anyway, why would ALEX matter?"): an
+ODD segment length gives consecutive segments an alternating 1-frame
+majority toward one excitation channel, which the FFT correlation
+peak reads as the sample jumping between the two channels' own
+positions — verified directly (~16-19px spurious drift at every odd
+segment length tried, vs. <0.5px at every even one) and fixed
+(rounds up to the next even segment length; not the driftMethod in
+the original report, but a real bug closed either way).
 
-(build 2026-09-21i's own fix remains in effect: donor-excitation-only
-filtering closed the real "0/536,250 accepted" report — mixing both
-excitation channels' localizations together let AIM read the
-donor/acceptor alternation itself as spurious per-frame motion; build
-2026-09-21h's own fixes remain in effect: a GPU device lost
+Since neither of those explains the original AIM-path report, the
+remaining leading suspect is the AIM drift ESTIMATE ITSELF being
+genuinely wrong for this specific real, dense dataset (~59
+localizations/frame per channel — far denser than anything tested
+synthetically), not a units/sign bug downstream (checked: aimDrift2D()
+and the extraction step it feeds both operate in the same native
+camera-pixel units). Added a permanent diagnostic log line —
+"(diagnostic) drift correction magnitude: up to N nm (M px)..." right
+after every drift estimate — since a fit window as narrow as winr=3
+(3x3 px) needs the correction within about a pixel of the truth on
+EVERY frame; if that number comes back implausibly large on the next
+real run, that pinpoints the estimate itself as the problem. Also
+flagged, not yet addressed: build j's own donor+acceptor merge
+doubles AIM's already-largest-single-cost-in-the-pipeline runtime (two
+full aimDrift2D() calls instead of one) — a real, reported "freeze" on
+a REPEATED run of the same dataset may be this added cost compounding
+with an already-heavy silent Localize pass, not a true hang; needs
+confirming whether the tab was genuinely unresponsive or just slow
+with no visible progress.
+
+(build 2026-09-21j's own donor+acceptor AIM merge remains in effect
+for the sparse-one-channel case it was built for, even though it did
+not close the 0/536,250 report on its own; build 2026-09-21i's own fix
+remains in effect: donor-excitation-only filtering closed an ALSO-real,
+separate bug — mixing both excitation channels' localizations together
+let AIM read the donor/acceptor alternation itself as spurious
+per-frame motion; build 2026-09-21h's own fixes remain in effect: a GPU device lost
 mid-extraction now throws a clear, logged error instead of silently
 returning all-zero results; the ROI thumbnail row puts each channel's
 label inline to the left of its thumbnail (DD, DA, AA order) instead of
