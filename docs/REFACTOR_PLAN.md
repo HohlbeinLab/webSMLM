@@ -6,6 +6,27 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **`mleNewtonFit()`'s own convergence check ignores everything but x,y — a real, discovered gap
+  affecting every free-angle elliptical MLE fit, not yet fixed.** Found while validating smFRET's
+  new sigma-vs-time plot (see CLAUDE.md's own smFRET paragraph for the full writeup and the exact
+  synthetic-data verification that exposed it). The per-iteration loop
+  (`if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps){ converged=true; break; }`) declares
+  "converged" purely from position stability — since a well-seeded centroid estimate for x,y usually
+  stabilizes within 1-2 iterations, the OTHER parameters (amplitude, background, and especially σx/σy/
+  angle in `gaussianMLEellipticangled()`'s free-angle 7-parameter mode) can still be far from their
+  own optimum when the loop exits. Verified directly: fitting a noiseless, exactly-representable
+  synthetic elliptical PSF barely moves σx/σy/angle away from wherever they were SEEDED, regardless of
+  how far the seed starts from the true shape — not a wrong-local-optimum problem, a genuinely
+  premature-exit one. This is the shared accumulator behind `gaussianMLEspheric`/`gaussianMLEelliptic`/
+  `gaussianMLEellipticangled` alike (real, validated production paths: sSMLM's fixed-angle mode, 3D
+  calibration, ordinary Localize) — likely low-impact for the axis-aligned/spherical cases (fewer,
+  better-conditioned parameters that tend to co-converge with x,y), but real and current for the
+  free-angle elliptical mode specifically. Needs its own scoped fix (the convergence check should test
+  every parameter's own step size, not just x,y) plus a proper regression check against synthetic
+  ground truth across a range of aspect ratios/angles/seed distances — not attempted yet, since it
+  touches a widely-shared, already-validated core fitter and deserves dedicated attention rather than
+  a fix bundled into an unrelated change.
+
 - **WebGPU follow-ups** — the shipped path is opt-in and CPU-fallback safe, but a few GPU-specific
   limits remain worth revisiting:
   - Candidate acceptance differs slightly near the CPU f64 / GPU f32 boundary; current tests guard

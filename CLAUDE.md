@@ -694,16 +694,64 @@ in a module.
     success. The winning transform's own match set IS the pairing — no separate distance/angle
     `pairCore()` step afterward.
 
-  **Extraction** (`getSmfretTimeTraces()`): either a free-position MLE fit (default,
-  `gaussianMLEspheric`, x,y merely SEEDED at the known position — correctly fails/rejects on a frame
-  with no real molecule) or aperture photometry (`smfretApertureMode`, no fit, the shared
-  `apertureGeometry()`/`percentile()` from **fit**). A rejected/non-converged fit writes a real,
-  meaningful `0` (not `NaN`) — the reject logic already IS the judgement that no molecule was on;
-  `NaN` is reserved for "too close to this frame's own edge, no window to fit at all." The MLE default
-  additionally rejects a result whose σ exceeds `2×σ_PSF` (smFRET-specific, on top of the shared
-  `MLE_MAX_SIGMA` — a wide, dim, diffuse blob otherwise integrates a large spurious photon count with
-  no localized bright pixel needed; kept local to smFRET since 3D calibration's own astigmatic fits
-  legitimately need σ to range far more widely away from focus).
+  **Extraction** (`getSmfretTimeTraces()`): either a free-position MLE fit — spherical
+  (`gaussianMLEspheric`, the default) or, when the sidebar's **Fit method** is set to **Gauss MLE
+  rotated elliptical**, `gaussianMLEellipticangled()` in its free-angle mode (`useElliptical`,
+  `smfretExtractIntensity()`) — x,y merely SEEDED at the known position either way, correctly fails/
+  rejects on a frame with no real molecule — or aperture photometry (`smfretApertureMode`, no fit,
+  the shared `apertureGeometry()`/`percentile()` from **fit**). A rejected/non-converged fit writes a
+  real, meaningful `0` (not `NaN`) — the reject logic already IS the judgement that no molecule was
+  on; `NaN` is reserved for "too close to this frame's own edge, no window to fit at all." Both MLE
+  methods additionally reject a result whose width exceeds `2×σ_PSF` on EITHER axis (smFRET-specific,
+  on top of the shared `MLE_MAX_SIGMA` — a wide, dim, diffuse blob otherwise integrates a large
+  spurious photon count with no localized bright pixel needed; kept local to smFRET since 3D
+  calibration's own astigmatic fits legitimately need σ to range far more widely away from focus).
+  `smfretExtractIntensity()` returns `{photons, width}` rather than a plain number — `width` is a
+  scalar sigma (spherical) or `{sx,sy,angle}` (elliptical), consumed by the sigma-vs-time plot below;
+  `getSmfretTimeTraces()`'s own `$('method')` change listener re-extracts an already-shown result the
+  same way its `smfretApertureMode`/`smfretFloorZero`/`smfretApplyDrift` listeners already do.
+
+  **Sigma-vs-time plot** (`drawSmfretTrace()`, requested — a third stacked plot below the ROI
+  thumbnail row, sharing the shared time x-axis, colours reused directly from the intensity plot's
+  own `curves` array so DD/AA/DA read consistently across both): plots each channel's own fitted PSF
+  width (px) per frame — `site.sigmaDD`/`sigmaAA`/`sigmaDA`, `null` under `useAperture` (no fitted
+  width exists at all there) or on a `loadSmfretTraces()`-restored session predating this field
+  (shows a placeholder message either way, not a blank plot). For the elliptical fitter specifically,
+  a rotated ellipse has no single width without picking a direction — `smfretWidthValue()`/
+  `smfretWidthAlongBearing()` project each channel's own independently-fitted `{sx,sy,angle}` onto
+  the site's FIXED donor→acceptor bearing (`Math.atan2(y2-y,x2-x)`, computed once per site, reused
+  for all three channels since the donor/acceptor dipole axis is the one direction this app otherwise
+  cares about), falling back to the plain mean `(sx+sy)/2` for an unpaired site (no bearing to
+  project onto). The projection formula (`phi=bearing+angle; 1/sqrt(cos²(phi)/sx²+sin²(phi)/sy²)`) —
+  note `+angle`, not `-angle`, since `mleModelRotated()`'s own `arga/argb` rotate a world-frame ray by
+  `+angle` before applying sx/sy (MODULE: fit) — was verified two ways before shipping: independently
+  re-derived and checked numerically against `mleModelRotated()`'s own exponent directly (probing the
+  model at `r=`this formula's own output reproduces `exp(-0.5)` exactly, the defining 1-σ property, at
+  several `(sx,sy,angle,bearing)` combinations), and end-to-end against a real elliptical fit's actual
+  `{sx,sy,angle}` output (not synthetic ground truth — see the next paragraph for why) via Playwright.
+
+  **A real, discovered-but-NOT-fixed gap in `mleNewtonFit()`'s own convergence check (MODULE: fit),
+  found while validating the plot above — affects every free-angle elliptical fit, not just
+  smFRET's.** `mleNewtonFit()`'s per-iteration loop breaks as soon as `Math.abs(th[0]-ox)<eps &&
+  Math.abs(th[1]-oy)<eps` — i.e. it declares "converged" purely from x,y (position) stability,
+  completely ignoring whether amp/bg/σx/σy/angle have stabilized too. Verified directly: fitting a
+  synthetic, EXACT (noiseless, point-sampled to `mleModelRotated()`'s own formula — an exact
+  representable optimum exists) elliptical PSF with `gaussianMLEellipticangled()`'s free-angle mode
+  barely moves σx/σy/angle away from whatever they were SEEDED at, regardless of how far the seed is
+  from the true shape (seeding near the true σx converges near σx on BOTH axes; seeding near σy
+  converges near σy on both; a geometric-mean seed lands in between) — because x,y itself (from the
+  seed's own already-good centroid estimate) typically stabilizes within 1-2 iterations, long before
+  the `mstep`-clamped (0.4 px/iteration for σx/σy, 0.2 rad for angle) shape parameters have travelled
+  anywhere near the true optimum, and the loop exits right there anyway. This directly limits how
+  accurate the sigma-vs-time plot's own elliptical mode can be for a real, strongly non-circular or
+  far-from-the-seed-angle PSF — the wiring/projection math above is verified correct given WHATEVER
+  the fit produces, but the fit itself under-converges in exactly this scenario. Not fixed here:
+  `mleNewtonFit()` is the SHARED accumulator behind `gaussianMLEspheric`/`gaussianMLEelliptic`/
+  `gaussianMLEellipticangled` (the "Shared MLE accumulator" paragraph, MODULE: fit) — its own
+  convergence check likely needs to test EVERY parameter's own step size, not just x,y, but that
+  touches real, validated production paths (sSMLM's fixed-angle mode, 3D calibration) well beyond
+  this smFRET-specific change's own scope, and deserves its own dedicated fix + regression check
+  rather than a quick patch bundled in here.
 
   **E(S) histogram**: 1D (`E=DA/(DD+DA)`) or 2D E-vs-S (`(DD+DA)/(AA+DD+DA)`, needs ALEX+AA), pooled
   across all sites/time, with `Min`/`Max DD+DA` and `Min`/`Max AA` burst-selection ranges (each
