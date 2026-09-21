@@ -899,6 +899,32 @@ in a module.
   reproduces the old bug exactly (button stuck disabled, exception escapes the function) and confirms
   the fix (exception caught internally, button re-enabled, no escape) via a stashed-baseline A/B.
 
+  **`smfretComputeDrift()`'s own AIM path now filters to donor-excitation-frame localizations ONLY
+  before estimating drift — a real, reported bug: with ALEX on, the silent whole-movie Localize pass
+  fed EVERY frame's own localizations (both excitation channels mixed together) into `aimDrift2D()`,
+  even though a spectrally-split/grating smFRET setup images donor- and acceptor-side emission at
+  genuinely DIFFERENT sensor positions, not just the same molecules dimmer.** Pooling both channels
+  together let AIM interpret the donor/acceptor-excitation alternation itself as spurious per-frame
+  motion. Reported directly on a real dataset (143 sites, 2500 frames, ALEX + grating): the new "M/N
+  candidate fit(s) accepted" summary (see the GPU extraction paragraph above) showed `0/536,250` —
+  every single extraction rejected, on the CPU path too (this was never a GPU-specific bug; the GPU
+  device-loss guard added alongside that summary line was the right robustness fix for a different,
+  real risk, but not the cause here). Fixed by filtering `r.locs` to `L.frame%2===donorParity` before
+  calling `aimDrift2D()` (`L.frame` is 0-based, matching `fitFrameRange()`'s own convention and
+  `getSmfretTimeTraces()`'s own `fi` exactly, so no offset is needed) — keeps the drift estimate
+  anchored to the SAME donor-excitation coordinate reference `getSmfretTimeTraces()` already uses for
+  DD/DA extraction, instead of a reference contaminated by an entirely different channel's own
+  spatial pattern. A no-op when ALEX is off (every frame already satisfies the filter there).
+  `aimDrift2D()` itself needed no change — its own per-frame `fdx`/`fdy` interpolation is purely
+  positional between segment centers, not conditional on every individual frame having contributed a
+  localization, so a segment with only half its frames (the donor-excitation half) represented still
+  interpolates a well-defined value for every frame index. **Known, NOT yet fixed**: the Cross
+  correlation drift method (`correlationDrift2D()`) has the identical underlying problem — it
+  compares consecutive segments' own averaged RAW images directly, with no ALEX awareness at all —
+  but that function is also the main **Drift correction** module's own estimator, so making it
+  ALEX-aware needs its own careful, separately-tested change rather than a quick patch bundled into
+  this smFRET-specific fix; prefer AIM for ALEX'd smFRET data until this is addressed.
+
   The SOI composite marks (never filters — an earlier, stricter "remove the box" design was reverted)
   a paired site's ROI dark-orange (`#d2691e`, `markSmfretSoiPairedKeys()`) or gold (`#e8b400`) for an
   AA-SOURCED (channel-matching) match specifically — a real but structurally weaker guarantee than a

@@ -111,6 +111,18 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   needed. Not a gap; don't re-add without a fresh, specific reason.
 
   **Still open**:
+  - **AIM drift correction's own reliability degrades over the course of a long acquisition as
+    emitters photobleach — raised directly, alongside the ALEX-pooling fix above** (see CLAUDE.md's
+    own smFRET paragraph on `smfretComputeDrift()`): AIM estimates each segment's own shift from
+    whatever real localizations exist within it, so a segment late in a long movie — after
+    substantial photobleaching has thinned out the population — has genuinely less/noisier evidence
+    to register against than an early one, making the per-segment shift estimate progressively less
+    reliable exactly when cumulative real sample drift is often largest. Not scoped further yet:
+    possible directions include a bleaching-aware/adaptive segment length (widening segments later in
+    the movie to maintain a comparable localization count per segment) or flagging segments whose own
+    localization count falls below some confidence floor rather than silently trusting a
+    poorly-supported estimate — needs real bleaching-affected data to characterize before choosing
+    an approach, not a change to make blind.
   - **Accurate/corrected FRET.** RAW E (= DA/(DD+DA)) and S (= (DD+DA)/(AA+DD+DA)) are already
     computed and shown — per-sample in the pooled **E(S) histogram**, per-site-per-time in the Time
     trace plot's own E/S-vs-time subplot, and now saved directly in **Export traces & E/S**'s own

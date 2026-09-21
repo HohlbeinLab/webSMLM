@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21h; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21i; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18730  single particle tracking, trackpy-inspired;
+    spt             18763  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20272  top-level orchestration, *Core()/wrapper split;
+    pipeline        20305  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21798  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21831  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24769  localizations table, filtering, histograms;
+    table           24811  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25673  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25715  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21h</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -16939,7 +16939,28 @@ function smfretWidthValue(width,useElliptical,bearing){
 async function smfretComputeDrift(){
   if(!stack) return null;
   const method=paramValue('driftMethod'), segF=paramValue('driftSeg');
+  // ALEX: donor-excitation and acceptor-excitation frames can show a
+  // SPATIALLY DIFFERENT localization pattern — a spectrally-split (grating/
+  // prism) setup images donor- and acceptor-side emission at genuinely
+  // different sensor positions, not just the same molecules a little
+  // dimmer. Below, the AIM path is fixed to estimate drift from
+  // donor-excitation frames ONLY (matching the SAME reference frame
+  // getSmfretTimeTraces() already anchors DD/DA extraction to); see that
+  // fix's own comment for the real, reported bug this closes.
+  const alex=paramValue('alexEnabled');
+  const donorParity = alex ? (paramValue('alexFirstFrame')==='dirDonorExc' ? 0 : 1) : 0;
   if(method==='correlation'){
+    // KNOWN, NOT-yet-fixed gap: correlationDrift2D() cross-correlates
+    // CONSECUTIVE segments' own averaged raw images directly, with no ALEX
+    // awareness at all — under ALEX, each segment's own average mixes
+    // donor- and acceptor-excitation frames together (or, if segF is even
+    // and aligned, could average two DIFFERENT-looking composites against
+    // each other), the same fundamental problem the AIM path below is
+    // fixed for. Not addressed here: this function is also the main Drift
+        // correction feature's own estimator (MODULE: drift), so making it
+    // ALEX-aware needs its own careful, separately-tested change, not a
+    // quick patch bundled into this smFRET-specific fix. Prefer AIM
+    // (`driftMethod`) for ALEX'd smFRET data until this is addressed.
     log(`smFRET: Apply drift correction — cross-correlation on the raw movie (${segF}-frame segments)…`);
     const d=await correlationDrift2D(stack, stack.n, segF, 0, p=>setProg(p), ()=>false);
     log(`smFRET: drift estimated — ${d.nSeg} segment(s).`);
@@ -16954,12 +16975,24 @@ async function smfretComputeDrift(){
   log('smFRET: Apply drift correction — running a full Localize pass first (AIM needs real localizations)…');
   const cfg=Object.assign(buildConfigFromParams(), {fitFirstFrame:1, fitLastFrame:Infinity});
   const r=await runCore(cfg, stack, {zcal:null, wcal:null}, {onLog:()=>{}, onProgress:p=>setProg(p)});
-  if(!r.locs.length){ log('⚠ Apply drift correction: the silent Localize pass found no localizations — skipping drift correction for this run.'); return null; }
+  // A real, reported bug: with ALEX on, feeding EVERY frame's localizations
+  // (both excitation channels mixed together) into aimDrift2D() let it
+  // interpret the donor/acceptor-excitation ALTERNATION itself as "the
+  // sample keeps jumping every frame" — a real dataset (143 sites, 2500
+  // frames, ALEX+grating) produced a drift estimate wrong enough to shift
+  // EVERY extraction window off-target, uniformly (0 of 536,250 candidate
+  // fits accepted, on both the CPU and GPU path alike — this was never a
+  // GPU-specific bug). `L.frame` is 0-based (fitFrameRange()'s own
+  // convention), matching getSmfretTimeTraces()'s own `fi` exactly, so the
+  // SAME `donorParity` check applies with no offset. A no-op when ALEX is
+  // off (every frame already has isDonorExc===true there).
+  const locsForDrift = alex ? r.locs.filter(L=>L.frame%2===donorParity) : r.locs;
+  if(!locsForDrift.length){ log(`⚠ Apply drift correction: the silent Localize pass found no localizations${alex?' on the donor-excitation frames':''} — skipping drift correction for this run.`); return null; }
   const roiNm=paramValue('driftRoi'), samplePct=paramValue('samplePct');
-  const d=await aimDrift2D(r.locs, stack.n, paramValue('pxnm'), segF, 15, roiNm, samplePct, 0, p=>setProg(p), ()=>false);
+  const d=await aimDrift2D(locsForDrift, stack.n, paramValue('pxnm'), segF, 15, roiNm, samplePct, 0, p=>setProg(p), ()=>false);
   const f0x=d.fdx[0], f0y=d.fdy[0];
   const fdx=d.fdx.map(v=>v-f0x), fdy=d.fdy.map(v=>v-f0y);
-  log(`smFRET: drift estimated via AIM — ${r.locs.length.toLocaleString()} localization(s), ${d.nSeg} segment(s).`);
+  log(`smFRET: drift estimated via AIM — ${locsForDrift.length.toLocaleString()} localization(s)${alex?' (donor-excitation frames only)':''}, ${d.nSeg} segment(s).`);
   return {fdx, fdy};
 }
 // GPU-batched equivalent of getSmfretTimeTraces()'s own CPU per-candidate
@@ -24565,27 +24598,40 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21h — two smFRET fixes: (1) a
-real reported case — GPU-accelerated extraction at true scale (143
-sites x 2500 frames, ALEX + drift correction) completed with NO error
-but every channel came back entirely zero, despite the ROI thumbnails
-showing real, bright PSFs. Not reproduced in a synthetic test; the
-leading suspect is a GPU device-lost event partway through hundreds of
-dispatches (a real risk right after drift correction's own already-
-heavy silent Localize pass) — per spec, operations on a lost device
-typically RESOLVE rather than reject, so this silently produced
-"completed successfully, all zero" with nothing to log. Now checked
-explicitly before/after every dispatch: a lost device throws a clear,
-logged error ("GPU device lost during this dispatch...") instead. Also
-added a permanent summary log line ("smFRET: GPU extraction — M/N
-candidate fit(s) accepted") so a genuine near-total rejection (if this
-recurs and ISN'T a device loss) is visible too, not silent. (2) The ROI
-thumbnail row now puts each channel's own label INLINE to the left of
-its thumbnail (DD, DA, AA order) instead of stacked above it, coloured
-to match that channel's curve in the intensity plot — frees up real
-vertical room for the sigma-vs-time plot below.
+log(`webSMLM v0.12.8-dev · build 2026-09-21i — found the real cause of
+the "0 accepted" smFRET report: with ALEX on, smfretComputeDrift()'s
+AIM path fed EVERY frame's localizations (both excitation channels
+mixed together) into the drift estimator, even though a spectrally-
+split/grating setup images donor- and acceptor-side emission at
+genuinely different sensor positions — pooling them let AIM read the
+donor/acceptor alternation itself as spurious per-frame motion. The
+"M/N candidate fit(s) accepted" diagnostic added last round confirmed
+this wasn't GPU-specific (0/536,250 on a real dataset) — the device-
+loss guard from that round was a real, separate fix, just not the
+cause here. Fixed by estimating drift from donor-excitation-frame
+localizations only, matching the SAME reference frame DD/DA extraction
+already uses. Verified end-to-end (real, unstubbed drift estimation,
+not synthetic-drift shortcuts) that ALEX + AIM drift correction now
+matches the no-drift baseline. Honesty check: I could not get a
+synthetic test to reproduce total (0%) rejection the way the real
+report showed — this fix addresses a genuine, real bug either way (the
+old behavior was never correct for a spectrally-split setup), but if
+"0/N accepted" recurs after this, please paste the new number and the
+Log's own "drift estimated via AIM — ... (donor-excitation frames
+only)" line. Also flagged, not fixed: the Cross correlation drift
+method has the identical ALEX-blindness (it's also the main Drift
+correction module's own estimator, so fixing it needs its own careful
+change) — prefer AIM for ALEX'd smFRET data for now. Separately raised:
+AIM's own per-segment estimate gets less reliable later in a long
+acquisition as emitters photobleach and thin out — a real, valid
+concern, noted in docs/REFACTOR_PLAN.md, not yet addressed.
 
-(build 2026-09-21g's own feature remains in effect: "Get FRET data" is
+(build 2026-09-21h's own fixes remain in effect: a GPU device lost
+mid-extraction now throws a clear, logged error instead of silently
+returning all-zero results; the ROI thumbnail row puts each channel's
+label inline to the left of its thumbnail (DD, DA, AA order) instead of
+stacked above it; build 2026-09-21g's own feature remains in effect:
+"Get FRET data" is
 GPU-accelerated — works for both the spherical and "Gauss MLE rotated
 elliptical" fit methods, verified against the CPU reference to ~2e-7
 max relative difference; build 2026-09-21f's own fix remains in effect:
