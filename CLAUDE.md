@@ -975,27 +975,29 @@ in a module.
   raised, not yet addressed: AIM's own per-segment estimate gets less reliable later in a long
   acquisition as emitters photobleach and thin out (noted in `docs/REFACTOR_PLAN.md`).
 
-  **The donor+acceptor merge above did NOT close the real "0/536,250 accepted" report** — confirmed by
-  a direct retest on the same real dataset after the merge shipped, still 0 accepted. Two specific
-  leading suspects were checked and ruled out directly rather than guessed at: (1) a scale bug in
-  `smfretExtractTracesGpu()` itself — the real case needs ~131 GPU dispatches (`GPU_SMFRET_BATCH_TARGET`
-  =4096), ~20x more than any prior verification reached; tested at the SAME candidate count (536,250,
-  confirmed to fall out of `143 sites x 2500 frames` independent of any real-data specifics) with a
-  DIRECTLY-SUPPLIED, known-correct drift curve (bypassing estimation entirely): got a real 17.7%
-  acceptance rate, not 0% — ruling out a pure dispatch-count/scale bug in extraction. (2) a units/sign
-  mismatch between the estimated drift and the extraction step consuming it — checked and consistent:
-  both operate in the same native camera-pixel units sites' own x,y already use. The remaining leading
-  suspect is the AIM estimate ITSELF being genuinely wrong for this specific real, dense dataset (~59
-  localizations/frame per channel, far denser than anything tested synthetically) — not a code bug a
-  static read can confirm or rule out. `smfretLogDriftDiagnostic()` (new, called from every
-  `smfretComputeDrift()` return path) permanently logs the drift curve's own peak magnitude in nm/px
-  right after every estimate — a `winr=3` fit window (3x3 px) needs the correction within about a
-  pixel of the truth on EVERY frame, so an implausibly large number here on the next real run would
-  directly confirm this. **Also flagged, not yet addressed**: the merge doubles AIM's own
-  already-largest-single-pipeline-cost runtime (two full `aimDrift2D()` calls instead of one) — a real,
-  separately reported "freeze" on a REPEATED run of the same dataset may be this added cost compounding
-  with an already-heavy silent Localize pass rather than a true hang, but this isn't confirmed either
-  way yet.
+  **The real "0/536,250 accepted" report is FIXED — root cause confirmed as a GPU worker-dispatch bug
+  in `runCore()` itself (MODULE: pipeline), not the drift estimate at all; see that module's own
+  `framesTransferable` paragraph for the full writeup.** The diagnostic added while chasing this
+  (`smfretLogDriftDiagnostic()`, reporting a drift curve's own peak magnitude in nm/px right after
+  every estimate) turned out to show a TINY, entirely plausible correction (0.37 px max on the real
+  dataset) — ruling out "the AIM estimate is badly wrong" directly, which redirected the investigation
+  toward the drift-corrected code PATH itself rather than the numbers it computes. "Apply drift
+  correction" always runs one silent, whole-movie `runCore()` Localize pass first (to feed AIM) on the
+  SAME stack object `smfretExtractTracesGpu()` reads again right afterward — that silent pass's own
+  GPU-fit worker dispatch was unconditionally TRANSFERRING (not cloning) every fetched frame's
+  ArrayBuffer to its worker, which silently DETACHES it forever in a whole-file-cached stack's own
+  persistent frame cache (no exception anywhere — a detached buffer read by index just yields
+  `0`/`undefined`). The very next stage then fed the GPU fitter all-zero image data for literally every
+  candidate on literally every frame — a uniform, total failure with no error to log, exactly matching
+  the report, and completely independent of the drift estimate's own correctness (which is why the
+  donor+acceptor merge, however sound on its own terms, could never have fixed this). Diagnosed by
+  directly reproducing the exact failure shape (a real GPU-fit `runCore()` pass immediately followed by
+  `smfretExtractTracesGpu()` on the same synthetic stack: 0% acceptance and a detached-buffer exception
+  on the old code) and permanently guarded by `tests/gpu/test-frame-cache-integrity.mjs`. Still
+  flagged, not yet addressed: the donor+acceptor merge doubles AIM's own already-largest-single-
+  pipeline-cost runtime (two full `aimDrift2D()` calls instead of one) — a real, separately reported
+  "freeze" on a REPEATED run of the same dataset may be this added cost compounding with an
+  already-heavy silent Localize pass rather than a true hang, but this isn't confirmed either way yet.
 
   The SOI composite marks (never filters — an earlier, stricter "remove the box" design was reverted)
   a paired site's ROI dark-orange (`#d2691e`, `markSmfretSoiPairedKeys()`) or gold (`#e8b400`) for an
@@ -1150,6 +1152,38 @@ in a module.
   note above) — if the real lag ever exceeds the ring's depth, this just degrades to the pre-fix
   behaviour (latest frame, crosshairs pending) rather than let retained preview images grow without
   bound.
+
+  **The `useGpuFit` branch's own worker dispatch used to TRANSFER every fetched frame's ArrayBuffer
+  unconditionally — silently corrupting any stack whose own `getFrame()` returns a PERSISTENT, reused
+  reference (a whole-file-cached load or `generateSynthetic()`'s "Simulate movie" stack), not just the
+  "decode fresh per call" stack this optimization was written for.** `postMessage(msg, transferList)`
+  DETACHES the named buffers from the caller — fine when nothing else will ever need that exact array
+  again (the "decode per frame from the still-resident raw file" stack, MODULE: in/out: `readFrame(fi)`
+  allocates a brand-new `Float32Array` straight off the raw bytes on every call, so a transferred-away
+  result costs nothing — the same frame decoded again later is fresh, correct data regardless), but a
+  whole-file-cached stack's own `getFrame()` (`fi=>frames[fi]`) returns the SAME array reference every
+  time BY DESIGN ("re-runs will not re-decode") — transferring that array's buffer away detaches it in
+  the stack's own persistent cache FOREVER, with no exception raised anywhere (reading a detached
+  buffer by index silently yields `0`/`undefined`, it doesn't throw). This is exactly how smFRET's own
+  "0/536,250 candidate fit(s) accepted" report happened (see **smFRET**'s own paragraph): "Apply drift
+  correction" runs one silent, whole-movie `runCore()` Localize pass first (to feed AIM) on the SAME
+  stack object `smfretExtractTracesGpu()` reads again right afterward — whenever this branch's own
+  eligibility conditions were met (GPU fit + a worker pool + `fetchStack===stack`, i.e. no FTM
+  wrapping — true for an ordinary drift-correction pass), that silent pass permanently zeroed the
+  stack's own cached frames, and the very next stage fed the GPU fitter all-zero image data for every
+  single candidate — several rounds of unrelated drift-ESTIMATION fixes never touched this because the
+  real cause was never the drift estimate at all. Every OTHER worker dispatch in this file already got
+  this right (the non-`useGpuFit` detect/fit path a few hundred lines below has its own comment: "no
+  transfer list: frames are cloned, so any RAM cache survives") — this one dispatch was the sole
+  outlier. Fixed with a `framesTransferable` flag set ONLY on the genuinely safe "decode per frame"
+  stack; the dispatch now transfers only when `fetchStack.framesTransferable` is true, falling back to
+  an ordinary (cloning) `postMessage` otherwise — matching the safe default every other dispatch here
+  already used. Verified two ways: `tests/gpu/test-frame-cache-integrity.mjs` (a stack shaped exactly
+  like the whole-file cache, re-reading an already-Localized frame afterward — fails with a corrupted
+  (zeroed) frame on the old code, passes on the fix) and a direct reproduction of the real symptom (a
+  synthetic GPU-fit `runCore()` pass immediately followed by `smfretExtractTracesGpu()` on the SAME
+  stack: 0% acceptance and a detached-buffer exception on the old code, a healthy ~29% acceptance rate
+  with no error on the fix).
 
   **`memBudgetGB`/`memgb`/`chunkmb` are three independent settings** ("Total memory budget (GB)",
   "Budget raw movies (GB)", "Stream heap (MB)", all under "Memory, GPU & streaming"): `memBudgetGB` is the

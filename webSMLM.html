@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21k; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21l; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -67,11 +67,11 @@
                            -spaced frames, not every one) — wired alongside
                            tiffScaleHint() at all 3 load call sites
     simulation      4822   synthetic stack generator ("Simulate movie")
-    detect          5972   per-frame band-pass + local-maxima detection
+    detect          5979   per-frame band-pass + local-maxima detection
                            (detectSpots() and its three filters) — CPU only; a
                            WebGPU port was tried and REMOVED (measured 2x slower
                            than the worker pool), see MODULE: gpu
-    fit             6249   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
+    fit             6256   phasor / LS / Poisson-MLE 2D/3D elliptical/rotated
                            localization; shared mleNewtonFit() driver;
                            separable Fisher-build fast path for spherical/
                            axis-aligned-elliptical MLE (PR #7, Hazen Babcock)
@@ -96,7 +96,7 @@
                            shared by phasorFit()'s own intensity/background and
                            smFRET's apertureIntensity() — one implementation,
                            not two
-    render          7005   accumulate to offscreen buffer; view/colour/blur;
+    render          7012   accumulate to offscreen buffer; view/colour/blur;
                            SvgRecordingContext, renderPlotBothFormats()
                            (headless + interactive plot export), raw-frame
                            Contrast (Black/White) slider; hideOtherRawToggleBtns()
@@ -135,13 +135,13 @@
                            print their own line, several back-to-back in the
                            log for no actionable reason; the final render
                            still logs it
-    workers         8850   frame-parallel detect/fit worker pool; dedicated
+    workers         8857   frame-parallel detect/fit worker pool; dedicated
                            SR-render Worker (RENDER_WORKER_PRELUDE/
                            renderWorkerSource()/getRenderWorker()/
                            dispatchRenderWorker(), separate from the detect/
                            fit pool — never shares it, see that code's own
                            comment for why)
-    gpu             9262   shared WebGPU compute engine (experimental,
+    gpu             9269   shared WebGPU compute engine (experimental,
                            opt-in via "Use GPU acceleration"); covers fit (all
                            4 MLE methods plus phasor/phasor3d — the one
                            non-iterative kernel, a closed-form Fourier
@@ -185,8 +185,8 @@
                            between the two, since CPU-side detection (not
                            fit) dominates a Run's wall time regardless of
                            method (see CLAUDE.md's own fit-module paragraph)
-    export          11748  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  12100  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11755  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  12107  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -197,7 +197,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12582  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12589  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -221,14 +221,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13583  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13590  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config);
                            drawNenaPlot()/drawFrcPlot() now call
                            hideOtherRawToggleBtns(null) like every other raw-
                            panel display already does — a real, reported bug:
                            Drift correction's own "Show x/y path" toggle stayed
                            stuck visible over NeNA/FRC's own plot afterward
-    sSMLM           14675  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14682  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18906  single particle tracking, trackpy-inspired;
+    spt             18913  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20448  top-level orchestration, *Core()/wrapper split;
+    pipeline        20455  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21974  Micro-Manager/pycromanager camera bridge
+    liveStreaming   22006  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24968  localizations table, filtering, histograms;
+    table           25048  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25872  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25952  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21k</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21l</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3348,7 +3348,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
            second, later span for the buttons/readout isn't subject to that
            rule at all, so ITS OWN flex-wrap:wrap can actually wrap them
            beside/below "Log" on a narrow screen instead of overflowing. -->
-      <h4><span>Log</span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are shown as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Show as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><span id="memReadout" class="pill" style="cursor:default"></span></span></h4>
+      <h4><span>Log</span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are shown as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Show as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="copyLogBtn" class="logbtn" title="Copy the entire log window to the clipboard">Copy log</button><span id="memReadout" class="pill" style="cursor:default"></span></span></h4>
       <div class="log" id="log"><div id="logText"></div></div>
       <div class="logTerminalRow" title="Type or paste a JS statement (e.g. a logged analyze({...}) call, edited or as-is) and press Enter to run it. ↑/↓ recalls previous statements — both ones you've run here and every action's own logged command.">
         <textarea id="logTerminal" rows="1" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — ↑/↓ history"></textarea>
@@ -5903,7 +5903,14 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
       // this whole-file load path's own reason for existing) — readFrame()
       // decodes ON TOP of it per call, without a persistent decoded cache.
       onLog(`Exceeds budget — decoding frames on demand (no re-decode penalty: it is a plain byte read).`);
-      { const st=makeStack(w,h,usable,px, readFrame); st.residentBytes=fileSize; return st; }
+      // framesTransferable=true: readFrame() allocates a BRAND NEW Float32Array
+      // straight off the still-resident fileBuf on every single call, never
+      // caching or reusing it — so a caller (runCore()'s own useGpuFit+pool
+      // dispatch, MODULE: pipeline) that TRANSFERS a returned frame away
+      // loses nothing: the exact same frame decoded again later is fresh,
+      // correct data regardless. See runCore()'s own comment on this flag for
+      // the real, opposite case this guards against.
+      { const st=makeStack(w,h,usable,px, readFrame); st.residentBytes=fileSize; st.framesTransferable=true; return st; }
     }
     onLog(`⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
     onLog(`only ${n} of ${declared} frames will be analysed.`);
@@ -21187,15 +21194,40 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
           catch(ex){ err=ex; inflight--; finish(); return; }
           tGet+=performance.now()-ta;
           wk._pendStart=s;
-          // TRANSFERRED, not cloned. postMessage without a transfer list
-          // structure-clones every frame — on a 40,000-frame 256x256 run that
-          // is ~10 GB of memcpy, plus the main thread had to retain its own
-          // copy (_pendFrames) because it still did the seed-building. The
-          // worker packs seeds now, so nothing here needs the frames
-          // afterwards and they can simply move. Deduped because a wrapped
-          // stack (crop/FTM) may hand back several views over one buffer, and
-          // transferring the same ArrayBuffer twice throws.
-          const xfer=[...new Set(frames.map(f=>f.buffer))];
+          // TRANSFERRED, not cloned — ONLY when fetchStack itself says its
+          // own getFrames() output is safe to give away
+          // (framesTransferable, set only on the "decode fresh from the
+          // still-resident raw file on every call" stack, MODULE: in/out).
+          // postMessage without a transfer list structure-clones every
+          // frame — on a 40,000-frame 256x256 run that is ~10 GB of memcpy,
+          // plus the main thread had to retain its own copy (_pendFrames)
+          // because it still did the seed-building; the worker packs seeds
+          // now, so transferring is a real win THERE. But a whole-file
+          // CACHED stack's own getFrame() (fi=>frames[fi], MODULE: in/out —
+          // also generateSynthetic()'s "Simulate movie" stack) returns the
+          // SAME persistent array reference on every call, explicitly so a
+          // later re-read never re-decodes — transferring THAT array's
+          // buffer away DETACHES it in the stack's own cache forever, with
+          // no exception raised anywhere (a detached-buffer read just
+          // silently yields 0/undefined). A real, reported bug found
+          // exactly this way: smFRET's own "Apply drift correction" runs
+          // one silent, whole-movie runCore() Localize pass first (to feed
+          // AIM), which — whenever this branch's own eligibility conditions
+          // were met — silently detached EVERY frame in the stack's
+          // persistent cache; the very next stage (smfretExtractTracesGpu(),
+          // reading the SAME stack object again) then fed the GPU fitter
+          // all-zero image data for every single candidate, with no thrown
+          // error anywhere — a "0/536,250 candidate fit(s) accepted"
+          // report that survived multiple unrelated drift-estimation fixes
+          // because the real cause was never the estimate at all. Deduped
+          // (Set) because a wrapped stack (crop/FTM) may hand back several
+          // views over one buffer, and transferring the same ArrayBuffer
+          // twice throws — moot when framesTransferable is unset, since
+          // xfer is then simply empty (an ordinary clone, exactly matching
+          // this SAME function's own non-useGpuFit dispatch further below,
+          // which was never affected by this bug: "no transfer list: frames
+          // are cloned, so any RAM cache survives").
+          const xfer = fetchStack.framesTransferable ? [...new Set(frames.map(f=>f.buffer))] : [];
           wk.postMessage({gpuDetect:1,frames,start:s,w,h,sigma,k,border,exact:exactBP,mode,
                           win,gain,camoffset,seedMode:acc.seedMode,auditCandidates:!!config.auditCandidates}, xfer);
         };
@@ -23673,6 +23705,34 @@ $('exportLogBtn').addEventListener('click',async()=>{
   const saved=await saveBlob(new Blob([txt+'\n'],{type:'text/plain;charset=utf-8'}), name, 'Log (text)', 'text/plain', '.txt');
   if(saved) log(`Exported log as ${saved}.`);
 });
+// Copy log (requested, alongside Clear log/Export log): copies the WHOLE
+// log window's own text in one click, for pasting into a bug report/chat
+// without going through a file save. navigator.clipboard.writeText() can be
+// unavailable or silently refused on a file:// origin (this app's own
+// primary launch method, per README) in some browsers even from a real
+// click — falls back to the classic select+execCommand('copy') approach,
+// which still works from this button's own user gesture regardless.
+async function copyLogToClipboard(){
+  const txt=$('logText').textContent.replace(/^\n+/,'');
+  if(!txt){ log('Log is empty.'); return; }
+  try{
+    await navigator.clipboard.writeText(txt);
+    log('Copied log to clipboard.');
+  }catch(err){
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok) log('Copied log to clipboard.');
+      else log(`⚠ Copy log failed: ${err.name}: ${err.message}`);
+    }catch(err2){
+      log(`⚠ Copy log failed: ${err2.name}: ${err2.message}`);
+    }
+  }
+}
+$('copyLogBtn').addEventListener('click',copyLogToClipboard);
 // A real, direct question: "can you dynamically display/evaluate how much
 // memory webSMLM is using... or is that off limits?" Answer, honestly: on
 // Safari (this project's own primary mobile target) it genuinely IS off
@@ -24741,56 +24801,54 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21k — the donor+acceptor AIM
-merge (build j) did NOT fix the real "0/536,250 accepted" report —
-confirmed by a direct retest on the same real dataset, still 0
-accepted after the merge. Investigated two specific leading suspects
-directly rather than guessing further: (1) a GPU-dispatch-scale bug in
-smfretExtractTracesGpu() itself (the real case needs ~131 GPU
-dispatches, ~20x more than any prior verification reached) — tested at
-the SAME candidate count (536,250, confirmed to fall out of 143
-sites x 2500 frames independent of any real-data specifics) with a
-DIRECTLY-SUPPLIED, known-correct drift curve (bypassing estimation
-entirely): got a real, non-zero 17.7% acceptance rate, not 0% — this
-rules out a pure scale/dispatch-count bug in extraction itself. (2)
-correlationDrift2D() (Cross correlation, the OTHER driftMethod) — a
-real, separate bug found while investigating a fair question raised
-about it ("we're merging frames anyway, why would ALEX matter?"): an
-ODD segment length gives consecutive segments an alternating 1-frame
-majority toward one excitation channel, which the FFT correlation
-peak reads as the sample jumping between the two channels' own
-positions — verified directly (~16-19px spurious drift at every odd
-segment length tried, vs. <0.5px at every even one) and fixed
-(rounds up to the next even segment length; not the driftMethod in
-the original report, but a real bug closed either way).
+log(`webSMLM v0.12.8-dev · build 2026-09-21l — found and fixed the REAL
+cause of "0/536,250 candidate fit(s) accepted": a GPU worker-dispatch
+bug in runCore() itself, not the drift estimate at all. The new
+diagnostic added last round showed a TINY, entirely plausible drift
+correction (0.37 px max on the real dataset) — ruling out "AIM's own
+estimate is badly wrong" directly, which redirected the search toward
+the drift-corrected code PATH rather than the numbers it computes.
+"Apply drift correction" always runs one silent, whole-movie runCore()
+Localize pass first (to feed AIM) on the SAME stack object
+smfretExtractTracesGpu() reads again right afterward — that silent
+pass's own GPU-fit worker dispatch was unconditionally TRANSFERRING
+(not cloning) every fetched frame's own ArrayBuffer to its worker,
+which silently DETACHES it forever in a whole-file-cached stack's own
+persistent frame cache (no exception anywhere — a detached buffer read
+by index just yields 0/undefined). The very next stage then fed the
+GPU fitter all-zero image data for literally every candidate on every
+frame — a uniform, total failure with no error to log, completely
+independent of the drift estimate's own correctness, exactly matching
+the report. Confirmed directly: reproducing a real GPU-fit runCore()
+pass immediately followed by smfretExtractTracesGpu() on the same
+stack gave 0% acceptance (and a detached-buffer exception) on the OLD
+code, a healthy ~29% acceptance rate with no error on the fix. Fixed
+with a framesTransferable flag — only the "decode fresh per call"
+stack sets it; the dispatch now transfers only when the stack says
+it's safe, cloning otherwise (matching every OTHER worker dispatch in
+this file, which already did this correctly). Permanently guarded by
+tests/gpu/test-frame-cache-integrity.mjs. Also added, alongside the
+Log card's existing Clear log/Export log buttons: Copy log, for
+pasting the whole log window straight into a bug report.
 
-Since neither of those explains the original AIM-path report, the
-remaining leading suspect is the AIM drift ESTIMATE ITSELF being
-genuinely wrong for this specific real, dense dataset (~59
-localizations/frame per channel — far denser than anything tested
-synthetically), not a units/sign bug downstream (checked: aimDrift2D()
-and the extraction step it feeds both operate in the same native
-camera-pixel units). Added a permanent diagnostic log line —
-"(diagnostic) drift correction magnitude: up to N nm (M px)..." right
-after every drift estimate — since a fit window as narrow as winr=3
-(3x3 px) needs the correction within about a pixel of the truth on
-EVERY frame; if that number comes back implausibly large on the next
-real run, that pinpoints the estimate itself as the problem. Also
-flagged, not yet addressed: build j's own donor+acceptor merge
-doubles AIM's already-largest-single-cost-in-the-pipeline runtime (two
-full aimDrift2D() calls instead of one) — a real, reported "freeze" on
-a REPEATED run of the same dataset may be this added cost compounding
-with an already-heavy silent Localize pass, not a true hang; needs
-confirming whether the tab was genuinely unresponsive or just slow
-with no visible progress.
+Still flagged, not yet addressed: build j's own donor+acceptor AIM
+merge doubles AIM's already-largest-single-cost-in-the-pipeline
+runtime (two full aimDrift2D() calls instead of one) — a real,
+separately reported "freeze" on a REPEATED run of the same dataset may
+be this added cost compounding with an already-heavy silent Localize
+pass, not a true hang; still not confirmed either way.
 
-(build 2026-09-21j's own donor+acceptor AIM merge remains in effect
-for the sparse-one-channel case it was built for, even though it did
-not close the 0/536,250 report on its own; build 2026-09-21i's own fix
-remains in effect: donor-excitation-only filtering closed an ALSO-real,
-separate bug — mixing both excitation channels' localizations together
-let AIM read the donor/acceptor alternation itself as spurious
-per-frame motion; build 2026-09-21h's own fixes remain in effect: a GPU device lost
+(build 2026-09-21k's own correlationDrift2D() fix remains in effect: an
+ODD segment length under roughly balanced ALEX channel intensities
+biased the Cross correlation drift method (~16-19px spurious drift at
+every odd length tried, vs. <0.5px at every even one) — fixed by
+rounding up to the next even segment length; build 2026-09-21j's own
+donor+acceptor AIM merge remains in effect for the sparse-one-channel
+case it was built for; build 2026-09-21i's own fix remains in effect:
+donor-excitation-only filtering closed an ALSO-real, separate bug —
+mixing both excitation channels' localizations together let AIM read
+the donor/acceptor alternation itself as spurious per-frame motion;
+build 2026-09-21h's own fixes remain in effect: a GPU device lost
 mid-extraction now throws a clear, logged error instead of silently
 returning all-zero results; the ROI thumbnail row puts each channel's
 label inline to the left of its thumbnail (DD, DA, AA order) instead of
