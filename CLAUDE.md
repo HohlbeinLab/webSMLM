@@ -152,6 +152,54 @@ in a module.
   needed a real directional PSF-width measurement, not a symmetric-fit proxy. Point-sampled, not
   pixel-integrated, matching Picasso's own `_accumulate_rotated`.
 
+  **`mleNewtonFit()`'s own convergence check used to test ONLY x,y position stability — a real,
+  reported gap fixed via `MLE_CONV_DECREMENT_TOL`, now checking a proper Newton decrement instead.**
+  Found while validating smFRET's new sigma-vs-time plot (MODULE: smFRET): `gaussianMLEellipticangled()`'s
+  free-angle mode barely moved σx/σy/angle away from wherever they were SEEDED, regardless of the true
+  shape, because x,y (from the seed's own already-good centroid estimate) typically stabilizes within
+  1-2 Newton iterations, long before the `mstep`-clamped shape parameters travel anywhere near their
+  own optimum — and the old check declared "converged" the moment x,y stopped moving, discarding
+  every later iteration's own progress on amp/bg/σx/σy/angle. Verified directly against a noiseless,
+  exactly-representable synthetic ellipse before fixing: fitted σx/σy/angle tracked the SEED, not the
+  truth, across a range of aspect ratios and angles. Reported directly, with a real, related concern:
+  prism-geometry smFRET data needing Aperture photometry instead of a fit because "the fits are not
+  great," and "fitting should be robust also at low SNR with close to zero amplitude."
+
+  A first fix attempt used a per-parameter RELATIVE step-size check (require every non-position
+  parameter's own step under 0.1% of its current value) — scale-free across amplitude/background/
+  width/angle's very different natural units, but a real, MEASURED regression against
+  `tests/gpu/bench-fit.mjs`'s own CPU/GPU accepted-candidate-count parity: it made CPU reject
+  noticeably more real candidates than GPU, and doubling the iteration budget made it WORSE, not
+  better. Root cause: real (Poisson-noisy) data has no exact optimum the way the noiseless synthetic
+  test does — amplitude and background in particular can sit in a nearly FLAT, poorly-separated
+  likelihood direction at low SNR (small true amplitude against a comparable background — precisely
+  the regime just reported), where the Newton step keeps hunting by a small but genuinely non-zero
+  relative amount indefinitely, never settling under any FIXED relative bound. Exactly the case this
+  fitter needs to handle robustly, not reject.
+
+  Fixed instead with the **Newton decrement** (`λ²=g·d`, equivalently `d^T M d` since `M d = g` — a
+  standard, dimensionless Newton's-method stopping measure, Boyd & Vandenberghe, *Convex
+  Optimization* §9.5.1): roughly twice the log-likelihood improvement still expected from the
+  UNCLAMPED step just computed, calculated from the RAW gradient/step (`g`/`d`) before `mstep`
+  clamping or `clampFn()` — a genuinely large remaining step stays correctly "not converged" even
+  while `mstep` limits how much of it gets APPLIED this iteration, and a flat/poorly-determined
+  direction (large step, tiny associated gradient) contributes little to `λ²` regardless of the
+  step's own raw size, so it doesn't block convergence the way a per-parameter relative check would.
+  x,y (index 0,1) additionally keep the caller's own absolute `eps` (px, `PARAMS.mleEps`'s documented
+  meaning) alongside the decrement check. `MLE_CONV_DECREMENT_TOL`(0.05) was chosen empirically
+  against `bench-fit.mjs`: the CPU/GPU accepted-candidate-count discordance this test already showed
+  BEFORE this fix (confirmed via a stashed-baseline A/B run — a pre-existing characteristic of
+  running real-density detect/fit on this machine's own GPU adapter, matching the already-documented
+  "candidate acceptance differs slightly near the CPU f64/GPU f32 boundary" caveat below, NOT
+  something either fix attempt introduced) stayed essentially unchanged in magnitude after this fix,
+  while the free-angle elliptical fitter now reproduces a synthetic ground-truth ellipse to ~1e-4
+  relative accuracy or tighter, INCLUDING at deliberately very low SNR (near-zero true amplitude) —
+  directly the robustness asked for. Ported identically to all four GPU fit kernels
+  (`WGSL_FIT_SPHERICAL`/`WGSL_FIT_ELL3D`/`WGSL_FIT_ROT_FIXED`/`WGSL_FIT_ROT_FREE`) so CPU and GPU stay
+  on the same convergence rule; `MLE_CONV_DECREMENT_TOL`'s own value (`0.05`) is duplicated as a plain
+  WGSL literal in each (no way to interpolate a JS module-level const into a separately-compiled WGSL
+  string), and into `WORKER_PRELUDE` for the CPU side's own stringified-worker copy.
+
   **Accept/reject drift gate** for all 5 fitters is bounded by `FIT_MAX_DRIFT_SIGMA_MULT`(2)×the SEED
   σ_PSF (`sigma0`, never the fit's own output — that would be circular), not by Fit radius (`winr`)
   — coupling the two gave different accepted counts at `winr` 3 vs 4 on identical, real crowded data.
@@ -730,28 +778,13 @@ in a module.
   several `(sx,sy,angle,bearing)` combinations), and end-to-end against a real elliptical fit's actual
   `{sx,sy,angle}` output (not synthetic ground truth — see the next paragraph for why) via Playwright.
 
-  **A real, discovered-but-NOT-fixed gap in `mleNewtonFit()`'s own convergence check (MODULE: fit),
-  found while validating the plot above — affects every free-angle elliptical fit, not just
-  smFRET's.** `mleNewtonFit()`'s per-iteration loop breaks as soon as `Math.abs(th[0]-ox)<eps &&
-  Math.abs(th[1]-oy)<eps` — i.e. it declares "converged" purely from x,y (position) stability,
-  completely ignoring whether amp/bg/σx/σy/angle have stabilized too. Verified directly: fitting a
-  synthetic, EXACT (noiseless, point-sampled to `mleModelRotated()`'s own formula — an exact
-  representable optimum exists) elliptical PSF with `gaussianMLEellipticangled()`'s free-angle mode
-  barely moves σx/σy/angle away from whatever they were SEEDED at, regardless of how far the seed is
-  from the true shape (seeding near the true σx converges near σx on BOTH axes; seeding near σy
-  converges near σy on both; a geometric-mean seed lands in between) — because x,y itself (from the
-  seed's own already-good centroid estimate) typically stabilizes within 1-2 iterations, long before
-  the `mstep`-clamped (0.4 px/iteration for σx/σy, 0.2 rad for angle) shape parameters have travelled
-  anywhere near the true optimum, and the loop exits right there anyway. This directly limits how
-  accurate the sigma-vs-time plot's own elliptical mode can be for a real, strongly non-circular or
-  far-from-the-seed-angle PSF — the wiring/projection math above is verified correct given WHATEVER
-  the fit produces, but the fit itself under-converges in exactly this scenario. Not fixed here:
-  `mleNewtonFit()` is the SHARED accumulator behind `gaussianMLEspheric`/`gaussianMLEelliptic`/
-  `gaussianMLEellipticangled` (the "Shared MLE accumulator" paragraph, MODULE: fit) — its own
-  convergence check likely needs to test EVERY parameter's own step size, not just x,y, but that
-  touches real, validated production paths (sSMLM's fixed-angle mode, 3D calibration) well beyond
-  this smFRET-specific change's own scope, and deserves its own dedicated fix + regression check
-  rather than a quick patch bundled in here.
+  **Validating the plot above surfaced, and led directly to fixing, a real convergence gap in
+  `mleNewtonFit()` itself — see `MLE_CONV_DECREMENT_TOL`'s own comment (MODULE: fit) for the full
+  writeup.** The elliptical fitter's free-angle mode used to barely move σx/σy/angle away from
+  wherever they were seeded, which would have made this plot's own elliptical mode largely
+  reproduce the seed rather than a real fitted shape — now fixed at the source, verified to
+  reproduce a synthetic ground-truth ellipse to ~1e-4 relative accuracy or better, including at
+  very low SNR (near-zero amplitude).
 
   **E(S) histogram**: 1D (`E=DA/(DD+DA)`) or 2D E-vs-S (`(DD+DA)/(AA+DD+DA)`, needs ALEX+AA), pooled
   across all sites/time, with `Min`/`Max DD+DA` and `Min`/`Max AA` burst-selection ranges (each
