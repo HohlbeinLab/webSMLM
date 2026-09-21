@@ -14,6 +14,15 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     only revisit with a different algorithm, not a straight port.
   - GPU batch sizing (`gpuBatchMb`/`gpuInflight`/`gpuFlushMs`) is settings-JSON/headless tunable for
     benchmarking, but intentionally has no sidebar UI until real users need it.
+  - **Profile CPU-side detection to find a real overall-Run speedup** — asked directly why GPU phasor
+    is only ~10% faster overall than GPU MLE despite a large (1.5x-35x) isolated fit-stage speedup:
+    per **fit**'s own paragraph in CLAUDE.md, CPU-side detection (8 worker threads, identical cost
+    regardless of fit method) already dominates a Run's wall time, so fitting was never the bottleneck
+    for either method — no amount of smarter GPU auto-tuning/dispatch for phasor's own fit stage can
+    move the *overall* number much further (Amdahl's law: the piece being sped up is already small).
+    Detection itself was already tried on GPU and found slower (see the bullet above), so the
+    remaining lever is profiling/optimizing the CPU band-pass + local-maxima detection path itself
+    (`detectSpots()`, MODULE: detect) to find where its own real cost actually goes — not yet started.
 
 - **Cubic-spline PSF fitting** (`picasso/fitting/splinefit.py`) for PSFs that deviate from
   Gaussian — meaningfully bigger scope than the rotated-elliptical MLE fitter (shipped): its own

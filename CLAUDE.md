@@ -555,6 +555,35 @@ in a module.
   radix-4-over-radix-2 textbook expectation (~4x fewer complex multiplies) because the FFT itself is
   one part of FRC's total cost (binning, Hann windowing, ring-averaging).
 
+  **GPU FRC's binning kernel (`WGSL_FRC_BIN`, MODULE: gpu) dispatches 2D (`binWgX x binWgY`), not
+  1D** — a real, reported case: FRC on an ~11-12M-loc dataset logged `⚠ GPU FRC failed (FFT 2048²
+  exceeds this adapter's dispatch limits) — falling back to CPU`, silently losing GPU acceleration
+  for the whole stage (slow at that scale — "already time consuming"). Root cause: binning is the
+  ONE dispatch in `frcResolutionGpuPrepared()` whose SIZE scales with loc count rather than the FFT
+  grid `N` (every other dispatch — Hann, FFT rows/columns, transpose, ring-averaging — scales with
+  `N`≤2048 or the small ring count `nR`, never anywhere near an adapter's own
+  `maxComputeWorkgroupsPerDimension`, spec-guaranteed minimum 65535). At real scale, the number of
+  1D workgroups needed to cover every localization (`ceil(nLoc/wg1D)`) can exceed that SAME 65535
+  limit well before the loc count gets absurd — `wg1D` is a per-adapter AUTO-TUNED value
+  (`tuneGpuWorkgroup()`), so the exact threshold varies, but a mid-size `wg1D` (order 128-256) with
+  a real multi-million-loc dataset crosses it directly. Fixed by reshaping the bin dispatch into 2D
+  (`binWgX=min(totalBinWG,maxWG)`, `binWgY=ceil(totalBinWG/binWgX)`) and threading a `rowStride`
+  uniform (repurposing the bin kernel's own previously-unused `outOffset` struct field — a
+  same-name-but-different-struct field local to `WGSL_FRC_BIN`, not shared with `WGSL_FRC_RING`'s
+  own genuinely-used `outOffset`) so the shader recovers a flat loc index as
+  `id.y*rowStride+id.x` — identical to the old `id.x` when `binWgY==1` (the common, small-scale
+  case: `rowStride` degenerates to the same total workgroup count as before). This raises the real
+  capacity to `maxWG²` before the same error can fire again — comfortably beyond any real dataset.
+  The `N`-only half of the original limit check (`N>maxWG`) is kept, since the FFT's own
+  `dispatchWorkgroups(N)` row/column passes stay genuinely 1D — effectively unreachable given
+  `prepareFrc()`'s own 2048 cap, but real and correct to keep. Verified two ways:
+  `tests/gpu/test-frc-gpu.mjs` still passes at normal scale (confirms `binWgY==1` behaves exactly as
+  before), and a targeted scratch test forcing `engine.wg1D=1` with 100,000 synthetic locs (cheaply
+  reproducing the same "way more 1D workgroups than `maxWG`" shape the real 11-12M-loc case hits,
+  without needing millions of points or a slow CPU-reference run) confirmed: the OLD code throws the
+  exact reported error in that scenario, the FIXED code doesn't, and its GPU FRC curve/resolution
+  match the CPU reference to the same tight tolerance `test-frc-gpu.mjs` already enforces.
+
   **NeNA's own use of `samplePct`** (drift's shared "Sampling (AIM & NeNA) %" — see its own comment,
   MODULE: drift): `subsampleLocs()` applies drift's shared `subsampleArray()` ONCE to the whole flat
   loc array (not per-segment — NeNA has no segments), with its own seed (`LOCPREC_SAMPLE_SEED`,
