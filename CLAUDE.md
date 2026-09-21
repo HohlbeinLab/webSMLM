@@ -762,9 +762,21 @@ in a module.
   **Sigma-vs-time plot** (`drawSmfretTrace()`, requested — a third stacked plot below the ROI
   thumbnail row, sharing the shared time x-axis, colours reused directly from the intensity plot's
   own `curves` array so DD/AA/DA read consistently across both): plots each channel's own fitted PSF
-  width (px) per frame — `site.sigmaDD`/`sigmaAA`/`sigmaDA`, `null` under `useAperture` (no fitted
-  width exists at all there) or on a `loadSmfretTraces()`-restored session predating this field
-  (shows a placeholder message either way, not a blank plot). For the elliptical fitter specifically,
+  width in nm — `site.sigmaDD`/`sigmaAA`/`sigmaDA` are stored in native camera PX (the fit's own
+  units, matching x,y elsewhere) and converted to nm only at plot time via the pinned Pixel size
+  (nm) field, the same "store in px, display in nm" split the main locs table already uses for its
+  own sigma column; `null` under `useAperture` (no fitted width exists at all there) or on a
+  `loadSmfretTraces()`-restored session predating this field (shows a placeholder message either way,
+  not a blank plot). **Drawn in a SQUARE letterbox (`setupPlot(cv,true,1)`), not the shared 4:3 every
+  other plot here defaults to** — reported: adding this third plot squeezed the intensity plot
+  above it noticeably shorter than before, since the canvas itself stayed the same 4:3-bounded
+  height while a third stacked plot's own space had to come out of the same total. `setupPlot()`
+  already supported a per-caller `targetRatio` override (`drawSSmlmAnglePolar()`'s own square plot,
+  for an unrelated reason — a circular plot wastes room in a 4:3 box); reusing it here gives real
+  extra height at the same canvas width with no other layout change, verified directly: at an
+  identical canvas footprint, the usable plot rectangle grew from *width* × 0.75·*width* (4:3) to
+  *width* × *width* (square) — restoring room for the intensity plot instead of shrinking it. For
+  the elliptical fitter specifically,
   a rotated ellipse has no single width without picking a direction — `smfretWidthValue()`/
   `smfretWidthAlongBearing()` project each channel's own independently-fitted `{sx,sy,angle}` onto
   the site's FIXED donor→acceptor bearing (`Math.atan2(y2-y,x2-x)`, computed once per site, reused

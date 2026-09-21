@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21d; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21e; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18532  single particle tracking, trackpy-inspired;
+    spt             18547  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20074  top-level orchestration, *Core()/wrapper split;
+    pipeline        20089  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21600  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21615  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24575  localizations table, filtering, histograms;
+    table           24588  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25479  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25492  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3160,7 +3160,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Load FRET data</b> reverses this — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
           <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. Both ranges default to 0–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
-          <p>Below the ROI thumbnail row, a third stacked plot (sharing the same time x-axis as the two above it) shows the CURRENT site's own fitted PSF width — sigma, in camera px — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load FRET data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
+          <p>Below the ROI thumbnail row, a third stacked plot (sharing the same time x-axis as the two above it, drawn in a square, not the usual 4:3, letterbox specifically so this extra plot doesn't squeeze the intensity plot above it shorter) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load FRET data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -18024,7 +18024,15 @@ function drawSmfretTrace(idx){
   const curves=[{ys:site.photonsDD, color:split?'#0a7d32':'#c81cc8', label:split?'DD':null, parity: alex?donorParity:null}];
   if(site.photonsAA) curves.push({ys:site.photonsAA, color:'#3572b0', label:'AA', parity:acceptorParity});
   if(site.photonsDA) curves.push({ys:site.photonsDA, color:'#c81cc8', label:'DA', parity: alex?donorParity:null});
-  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true);
+  // Square (1:1), not the shared 4/3 default every other plot here uses —
+  // reported: adding the sigma-vs-time plot (below) squeezed the intensity
+  // plot noticeably shorter than before, since the canvas itself stayed the
+  // same 4:3-letterboxed height while a THIRD stacked plot's own space had
+  // to come out of the SAME total. A square canvas gives real extra height
+  // at the same width (setupPlot()'s own targetRatio param, already used by
+  // drawSSmlmAnglePolar() for a different reason) without shrinking the
+  // panel or its neighbours.
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true,1);
   rawFull=null; setRawPlot(true); rawPlotName='smfretTrace';
   hideOtherRawToggleBtns(null);   // smfretTraceModeBtn isn't in that mutual-exclusion list (see its own comment) — untouched by this call
   $('rawTitle').textContent='Time trace';
@@ -18226,10 +18234,17 @@ function drawSmfretTrace(idx){
   // otherwise cares about (donor/acceptor dipole orientation).
   const hasSigma=!!site.sigmaDD;
   if(hasSigma){
+    // site.sigmaDD/AA/DA are stored in native camera px (the fit's own
+    // units, same as x,y elsewhere) — converted to nm here, at plot time
+    // only, via the pinned Pixel size (nm) field, same "store in px, show
+    // in nm at the UI layer" convention the main locs table already uses
+    // for its own sigma column.
+    const pxnm=paramValue('pxnm');
+    const toNm=arr=>arr ? Array.from(arr,v=>v*pxnm) : null;
     const aaC=curves.find(c=>c.label==='AA'), daC=curves.find(c=>c.label==='DA');
-    const sigmaCurves=[{ys:site.sigmaDD, color:curves[0].color, label:curves[0].label, parity:curves[0].parity}];
-    if(site.sigmaAA && aaC) sigmaCurves.push({ys:site.sigmaAA, color:aaC.color, label:'AA', parity:aaC.parity});
-    if(site.sigmaDA && daC) sigmaCurves.push({ys:site.sigmaDA, color:daC.color, label:'DA', parity:daC.parity});
+    const sigmaCurves=[{ys:toNm(site.sigmaDD), color:curves[0].color, label:curves[0].label, parity:curves[0].parity}];
+    if(site.sigmaAA && aaC) sigmaCurves.push({ys:toNm(site.sigmaAA), color:aaC.color, label:'AA', parity:aaC.parity});
+    if(site.sigmaDA && daC) sigmaCurves.push({ys:toNm(site.sigmaDA), color:daC.color, label:'DA', parity:daC.parity});
     let sLo=Infinity,sHi=-Infinity;
     for(const c of sigmaCurves) for(let f=0;f<n;f++){ const v=c.ys[f]; if(isFinite(v)){ if(v<sLo)sLo=v; if(v>sHi)sHi=v; } }
     if(!isFinite(sLo)){ sLo=0; sHi=1; }   // no accepted fit anywhere — still draw empty axes
@@ -18239,7 +18254,7 @@ function drawSmfretTrace(idx){
     ctx.textAlign='right'; ctx.textBaseline='middle';
     for(const v of niceTicks(sLo,sHi,3)){ const y=YC(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
       ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
-      ctx.fillText(v.toFixed(2),mL-9,y); }
+      ctx.fillText(v.toFixed(v<10?1:0),mL-9,y); }   // nm values run into the hundreds — no decimals needed past a few nm
     ctx.textAlign='center'; ctx.textBaseline='top';
     for(const {t,x} of xTicks){
       ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,yBotC); ctx.lineTo(x,yBotC+5); ctx.stroke();   // major tick, outward
@@ -18269,7 +18284,7 @@ function drawSmfretTrace(idx){
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('time (s)', mL+pw/2, yBotC+28);
   ctx.save(); ctx.translate(14,yTopC+phC/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle';
-  ctx.fillText(smfretTraces.useElliptical?'width along D–A (px)':'sigma (px)',0,0); ctx.restore();
+  ctx.fillText(smfretTraces.useElliptical?'width along D–A (nm)':'sigma (nm)',0,0); ctx.restore();
   // Count gaps only over DD's OWN applicable frames — with ALEX on, every
   // other frame is NaN by construction (not this channel's turn, see
   // above), not a real "not fit" gap; counting those too would wildly
@@ -24367,42 +24382,32 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21d — fixed a real MLE fitting
-gap, reported directly: prism smFRET data needing Aperture photometry
-instead of a fit because "the fits are not great," plus a general ask
-for fitting to stay robust at low SNR/near-zero amplitude. Root cause:
-the shared Newton solver behind every MLE fitter (spherical, MLE 3D,
-Gauss MLE rotated elliptical) declared "converged" purely from x,y
-position settling, ignoring amplitude/background/width/angle — position
-typically settles in 1-2 iterations, long before those other parameters
-do, so the fit could stop with amp/bg/width/angle still far from their
-own true value, especially for the free-angle elliptical fitter (the
-sigma-vs-time plot below feeds it). Fixed with a proper Newton-decrement
-stopping criterion (standard, scale-invariant — Boyd & Vandenberghe,
-Convex Optimization) instead of naive per-parameter tolerances, which
-made things WORSE at low SNR when tried first (amplitude/background sit
-in a nearly flat likelihood direction there and never settle under a
-fixed relative bound). Verified: the elliptical fitter now reproduces a
-synthetic ground-truth ellipse to ~1e-4 relative accuracy or tighter,
-INCLUDING at deliberately very low SNR/near-zero amplitude; CPU/GPU
-accepted-candidate parity (tests/gpu/bench-fit.mjs) unchanged from its
-own pre-existing baseline on this hardware. Applied identically to all
-4 GPU fit kernels, not just CPU.
+log(`webSMLM v0.12.8-dev · build 2026-09-21e — smFRET Time trace fixes:
+(1) the sigma-vs-time plot (added last round) now shows width in nm, not
+camera px; (2) that plot's own canvas is now letterboxed SQUARE, not the
+usual 4:3 — reported: adding it squeezed the intensity plot above it
+noticeably shorter than before, since a third stacked plot's own space
+used to come out of the SAME 4:3-bounded canvas height. A square canvas
+gives real extra height at the same width with no other layout change —
+verified: at an identical canvas footprint, the usable plot rectangle
+grew from width×0.75·width to width×width.
 
-(build 2026-09-21c's own feature remains in effect: Time trace (smFRET)
-has a third stacked plot below the ROI thumbnails — fitted PSF width vs
-time for DD/DA/AA, same colours as the intensity plot; with Fit method
-set to "Gauss MLE rotated elliptical," each channel's ellipse is now
-projected onto the site's donor->acceptor bearing using the ACTUALLY-
-CONVERGED fit from the change above, not a seed-dominated one. Build
-2026-09-21b's own fix remains in effect: GPU FRC no longer fails
-outright on a large (~11-12M loc) dataset; build 2026-09-21a's own fix
-remains in effect: a crop's zoom-fit no longer paints against the OLD
-unfiltered buffer while the real filtered render is still in flight;
-"Use GPU acceleration" still defaults ON for this testing round,
-normally off by default — see Memory, GPU & streaming — untick it there
-for a CPU-only baseline. The "crop zoom briefly jumps in, then silently
-reverts" diagnostic added in build 2026-09-20n is still in place and
+(build 2026-09-21d's own fix remains in effect: the shared Newton MLE
+solver (spherical, MLE 3D, Gauss MLE rotated elliptical) now checks a
+proper convergence criterion (Newton decrement) instead of declaring
+"converged" from x,y position alone — fixes real under-convergence in
+the free-angle elliptical fitter (this same sigma-vs-time plot's own
+elliptical mode), including at low SNR/near-zero amplitude; build
+2026-09-21c's own feature remains in effect: Time trace (smFRET) has a
+third stacked plot below the ROI thumbnails; build 2026-09-21b's own
+fix remains in effect: GPU FRC no longer fails outright on a large
+(~11-12M loc) dataset; build 2026-09-21a's own fix remains in effect: a
+crop's zoom-fit no longer paints against the OLD unfiltered buffer
+while the real filtered render is still in flight; "Use GPU
+acceleration" still defaults ON for this testing round, normally off by
+default — see Memory, GPU & streaming — untick it there for a CPU-only
+baseline. The "crop zoom briefly jumps in, then silently reverts"
+diagnostic added in build 2026-09-20n is still in place and
 unaddressed. Build 2026-09-20m's own fix remains in effect: the crop
 rectangle paints correctly before a fast crop completes; build
 2026-09-20l's own fix remains in effect: committing a crop no longer
