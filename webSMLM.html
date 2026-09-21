@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21g; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21h; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18681  single particle tracking, trackpy-inspired;
+    spt             18730  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20223  top-level orchestration, *Core()/wrapper split;
+    pipeline        20272  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21749  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21798  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24721  localizations table, filtering, histograms;
+    table           24769  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25625  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25673  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -16997,7 +16997,7 @@ async function smfretExtractTracesGpu({stack,w,h,n,sites,traces,alex,donorParity
   for(let i=0;i<cap;i++) rowIdx[i]=i;   // identity — a row's own index IS its position in this batch, always
   const meta=new Array(cap);
   const eps=paramValue('mleEps');
-  let m=0;
+  let m=0, totalPushed=0, totalAccepted=0;
   const writeTraceResult=(mt,photons,width)=>{
     const {j,fi,ch}=mt;
     traces[j][`photons${ch}`][fi]=photons;
@@ -17006,10 +17006,31 @@ async function smfretExtractTracesGpu({stack,w,h,n,sites,traces,alex,donorParity
   };
   const flush=async()=>{
     if(!m) return;
+    // A real, reported case at scale (143 sites x 2500 frames, ALEX+drift):
+    // the Run COMPLETED (no thrown error, no log line at all) but every
+    // channel came back entirely zero despite the ROI thumbnails showing
+    // real, bright PSFs — meaning every dispatch's own candidates were
+    // silently rejected, not that no signal existed. Not yet reproduced in
+    // a synthetic test (multi-batch + ALEX + drift + both fit methods all
+    // individually verified correct); the leading suspect is a GPU device-
+    // lost event mid-extraction (a real risk at hundreds of dispatches,
+    // right after smfretComputeDrift()'s own already-heavy silent Localize
+    // pass) — per-spec, operations on a lost device typically resolve
+    // rather than reject, so a loss partway through would previously have
+    // silently produced exactly this "completed successfully, all zero"
+    // symptom with nothing to log. Checked explicitly here (before AND
+    // after the dispatch, since the loss can happen mid-flight) so this
+    // now throws a clear, catchable error instead — getSmfretTimeTraces()'s
+    // own catch logs it as "⚠ Get FRET data failed: ...". If this reproduces
+    // again and ISN'T a device loss, the thrown totalPushed/totalAccepted
+    // tally pinpoints exactly which batch broke.
+    if(!engine.available) throw new Error(`GPU device unavailable mid-extraction (after ${totalPushed} candidate(s), ${totalAccepted} accepted) — the GPU context was likely lost during this Run; try again, or untick "Use GPU acceleration" for this dataset.`);
     for(let row=0;row<m;row++) writeTraceResult(meta[row],0,null);   // default every row to "rejected" first — see this function's own comment
     const results = useElliptical
       ? await fitBatchGpuFlatRotFree(engine, seedsA, seedsB, windows, frameIdx, m, r, eps, undefined, rowIdx)
       : await fitBatchGpuFlat(engine, seedsA, seedsB, windows, frameIdx, m, r, eps, undefined, rowIdx);
+    if(!engine.available) throw new Error(`GPU device lost during this dispatch (after ${totalPushed+m} candidate(s), ${totalAccepted} accepted before it) — try again, or untick "Use GPU acceleration" for this dataset.`);
+    totalPushed+=m;
     for(const res of results){
       const mt=meta[res._candidatePixel];
       // Same smFRET-specific extra reject smfretExtractIntensity() applies
@@ -17023,6 +17044,7 @@ async function smfretExtractTracesGpu({stack,w,h,n,sites,traces,alex,donorParity
         if(res.sigma>FIT_MAX_DRIFT_SIGMA_MULT*sigma) continue;
         writeTraceResult(mt, res.photons, res.sigma);
       }
+      totalAccepted++;
     }
     m=0;
   };
@@ -17057,6 +17079,10 @@ async function smfretExtractTracesGpu({stack,w,h,n,sites,traces,alex,donorParity
       if(staleEpoch(myEpoch)) return; }
   }
   await flush();
+  // A real fit-quality signal (what fraction of candidates the GPU actually
+  // accepted), not just a temporary debugging aid — kept permanently, same
+  // spirit as the main pipeline's own "N localizations found" summary.
+  log(`smFRET: GPU extraction — ${totalAccepted.toLocaleString()}/${totalPushed.toLocaleString()} candidate fit(s) accepted.`);
 }
 // `preserveView` (default false, requested): when a settings-only re-run
 // (Aperture photometry, Set negative intensities to zero) recomputes an
@@ -18127,8 +18153,12 @@ const SMFRET_ML=60, SMFRET_MR=16;   // plot margins (shared by drawSmfretTrace a
 // two can never disagree on how much room is set aside. INSET is 42px (the
 // original inset-into-the-plot size) scaled up ~40%, requested alongside
 // moving the row from an inset overlapping the curve data to its own
-// dedicated strip below the x-axis, inside the same plot canvas.
-const SMFRET_ROI_INSET=59, SMFRET_ROI_GAP=10, SMFRET_ROI_LABEL_H=14, SMFRET_ROI_PAD=8;
+// dedicated strip below the x-axis, inside the same plot canvas. No more
+// SMFRET_ROI_LABEL_H — labels moved INLINE to each thumbnail's own left
+// (requested, to free up vertical room for the sigma-vs-time plot below):
+// "DD" ROI "DA" ROI "AA" ROI in one row, instead of a label row stacked
+// above each thumbnail.
+const SMFRET_ROI_INSET=59, SMFRET_ROI_GAP=10, SMFRET_ROI_PAD=8;
 function drawSmfretTrace(idx){
   if(!smfretTraces || !smfretTraces.length) return;
   smfretTraceIdx=idx=Math.max(0,Math.min(smfretTraces.length-1,idx));
@@ -18180,7 +18210,11 @@ function drawSmfretTrace(idx){
   // under this function's
   // control) — "still in the Time trace frame, with enough space" per the
   // request that moved this row here from an inset over the curve data.
-  const mBRoi=SMFRET_ROI_PAD+SMFRET_ROI_LABEL_H+SMFRET_ROI_INSET+SMFRET_ROI_PAD;
+  // No separate label-height term any more (requested, to free up room for
+  // the sigma-vs-time plot below) — each channel's own label now sits
+  // INLINE to the left of its thumbnail instead of stacked above it, so the
+  // row's own height is just the thumbnail's.
+  const mBRoi=SMFRET_ROI_PAD+SMFRET_ROI_INSET+SMFRET_ROI_PAD;
   // Plot C (sigma-vs-time, below the ROI row — requested): a real, if
   // modest, PSF-width diagnostic, not a primary analysis plot, so it gets a
   // fixed (not proportional-to-panel) height, purely local to this function
@@ -18441,7 +18475,14 @@ function drawSmfretTrace(idx){
   // (mL/pw, the ROI row's own top Y, plus the CURRENT letterbox offset) is
   // captured now, at the exact moment it's valid, rather than re-read from
   // shared module-level state whenever the async draw below actually finishes.
-  drawSmfretRoiThumbnails(idx, {mL,pw,roiY:roiTopY,ox:_plotLetterboxOx,oy:_plotLetterboxOy});
+  // colors: same DD/AA/DA colours as the intensity plot's own `curves`
+  // array (never redefined) — requested, so each ROI's own inline label
+  // reads as the same channel across both.
+  const roiColors={DD:curves[0].color};
+  const roiAaC=curves.find(c=>c.label==='AA'), roiDaC=curves.find(c=>c.label==='DA');
+  if(roiAaC) roiColors.AA=roiAaC.color;
+  if(roiDaC) roiColors.DA=roiDaC.color;
+  drawSmfretRoiThumbnails(idx, {mL,pw,roiY:roiTopY,ox:_plotLetterboxOx,oy:_plotLetterboxOy,colors:roiColors});
   // Requested — highlight the currently-scrubbed site directly on the SOI
   // composite (right panel) too, not just the ROI thumbnails inset into
   // this plot: scrolling through many sites with no visual link back to
@@ -18598,29 +18639,36 @@ async function drawSmfretRoiThumbnails(idx, geom){
   // — see this function's own top comment for why this check exists on top
   // of the plain _smfretRoiGen one above.
   if(!rawIsPlot || rawPlotName!=='smfretTrace' || smfretTraceIdx!==idx) return;
-  // Same left-to-right order as the curve legend above (DD, AA, DA) —
-  // drawSmfretTrace()'s own `curves` array is built in that order.
-  const items=[{label:'DD',crop:ddCrop},{label:'AA',crop:aaCrop},{label:'DA',crop:daCrop}].filter(it=>it.crop);
+  // DD, DA, AA order (requested — was DD, AA, DA, matching the curve
+  // legend's own order; this round deliberately diverges from it).
+  const items=[{label:'DD',crop:ddCrop},{label:'DA',crop:daCrop},{label:'AA',crop:aaCrop}].filter(it=>it.crop);
   if(!items.length) return;
   const cv=$('raw'), ctx=cv.getContext('2d');
   const dpr=Math.min(2, window.devicePixelRatio||1);
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.translate(geom.ox,geom.oy);
-  const {mL,pw,roiY}=geom;
-  const INSET=SMFRET_ROI_INSET, GAP=SMFRET_ROI_GAP, LABEL_H=SMFRET_ROI_LABEL_H, PAD=SMFRET_ROI_PAD;
+  const {mL,pw,roiY,colors}=geom;
+  const INSET=SMFRET_ROI_INSET, GAP=SMFRET_ROI_GAP, PAD=SMFRET_ROI_PAD;
+  const C=plotColors();   // no backing panel here — labels/border need the theme's own colours directly, not a fixed light-on-dark pair that assumed one
   // Below the graph now (requested — was inset into the top-right corner,
   // overlapping curve data), centred under the plotted axes, in the
-  // dedicated strip drawSmfretTrace()'s own mBRoi reserved. No group
-  // backing panel any more — nothing to protect legibility against down
-  // here (unlike the old inset position, this area has no curve data
-  // underneath it), so a plain per-thumbnail border is enough.
-  const groupW=items.length*INSET+(items.length-1)*GAP;
-  const gx=mL+(pw-groupW)/2, gy=roiY+PAD;
-  const C=plotColors();   // no backing panel here any more (see above) — labels/border need the theme's own colours directly, not a fixed light-on-dark pair that assumed one
+  // dedicated strip drawSmfretTrace()'s own mBRoi reserved. Each label sits
+  // INLINE to the immediate left of its own thumbnail (requested, to free
+  // up vertical room for the sigma-vs-time plot below — this used to be a
+  // separate label row stacked ABOVE each thumbnail), coloured to match
+  // that channel's own curve in the intensity plot above (`geom.colors`,
+  // built once in drawSmfretTrace() from its own `curves` array — never a
+  // second, independent copy of those colour literals).
+  ctx.font='11px '+PLOT_FONT;
+  const LBL_GAP=4;
+  const labelW=items.map(it=>ctx.measureText(it.label).width);
+  const itemW=items.map((it,i)=>labelW[i]+LBL_GAP+INSET);
+  const groupW=itemW.reduce((a,b)=>a+b,0)+(items.length-1)*GAP;
+  let x=mL+(pw-groupW)/2; const gy=roiY+PAD;
   ctx.imageSmoothingEnabled=false;   // nearest-neighbour scale-up — crisp pixels, not a blur
   items.forEach((it,i)=>{
-    const ix=gx+i*(INSET+GAP), iy=gy+LABEL_H;
-    ctx.fillStyle=C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-    ctx.fillText(it.label, ix+INSET/2, gy);
+    ctx.fillStyle=(colors&&colors[it.label])||C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(it.label, x, gy+INSET/2);
+    const ix=x+labelW[i]+LBL_GAP, iy=gy;
     ctx.drawImage(it.crop.cv, 0,0,win,win, ix,iy, INSET,INSET);
     ctx.strokeStyle=C.grid; ctx.lineWidth=1; ctx.strokeRect(ix+0.5,iy+0.5,INSET-1,INSET-1);
     // Magenta crosshair at the EXACT fitted sub-pixel position (requested —
@@ -18633,6 +18681,7 @@ async function drawSmfretRoiThumbnails(idx, geom){
     ctx.moveTo(cxp-6,cyp); ctx.lineTo(cxp-2,cyp); ctx.moveTo(cxp+2,cyp); ctx.lineTo(cxp+6,cyp);
     ctx.moveTo(cxp,cyp-6); ctx.lineTo(cxp,cyp-2); ctx.moveTo(cxp,cyp+2); ctx.lineTo(cxp,cyp+6);
     ctx.stroke();
+    x += itemW[i]+GAP;
   });
   // Keep the hover-readout's own clean-plot snapshot in sync — it was taken
   // by registerPlotHover() BEFORE this async draw (inside drawSmfretTrace()'s
@@ -24516,46 +24565,55 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21g — smFRET's "Get FRET data"
-is now GPU-accelerated (requested): it always used to fit on the CPU
-alone, one candidate at a time, regardless of "Use GPU acceleration".
-Now, with GPU on and enough sites x frames x channels to be worthwhile
-(dispatch overhead dominates below that, same as everywhere else GPU is
-opt-in here), extraction batches many (frame, site, channel) fits into
-real GPU dispatches, reusing the exact same seed-building/dispatch code
-the main Localize pipeline's own GPU path already uses — works for both
-the spherical and "Gauss MLE rotated elliptical" fit methods. Verified
-against the CPU reference: max relative difference ~2e-7 (floating-
-point noise) with zero accept/reject disagreement across 600 compared
-site-frame pairs per channel; measured ~10x wall-clock speedup on a
-realistic 30-site x 400-frame x 2-channel (24,000-candidate) synthetic
-extraction. Aperture photometry is unaffected (no fit there at all).
+log(`webSMLM v0.12.8-dev · build 2026-09-21h — two smFRET fixes: (1) a
+real reported case — GPU-accelerated extraction at true scale (143
+sites x 2500 frames, ALEX + drift correction) completed with NO error
+but every channel came back entirely zero, despite the ROI thumbnails
+showing real, bright PSFs. Not reproduced in a synthetic test; the
+leading suspect is a GPU device-lost event partway through hundreds of
+dispatches (a real risk right after drift correction's own already-
+heavy silent Localize pass) — per spec, operations on a lost device
+typically RESOLVE rather than reject, so this silently produced
+"completed successfully, all zero" with nothing to log. Now checked
+explicitly before/after every dispatch: a lost device throws a clear,
+logged error ("GPU device lost during this dispatch...") instead. Also
+added a permanent summary log line ("smFRET: GPU extraction — M/N
+candidate fit(s) accepted") so a genuine near-total rejection (if this
+recurs and ISN'T a device loss) is visible too, not silent. (2) The ROI
+thumbnail row now puts each channel's own label INLINE to the left of
+its thumbnail (DD, DA, AA order) instead of stacked above it, coloured
+to match that channel's curve in the intensity plot — frees up real
+vertical room for the sigma-vs-time plot below.
 
-(build 2026-09-21f's own fix remains in effect: "Get FRET data" no
-longer hangs — with no error ever shown — if drift estimation itself
-throws; build 2026-09-21e's own fix remains in effect: the sigma-vs-
-time plot shows width in nm (not px) and uses a square, not 4:3, canvas
-letterbox so it doesn't squeeze the intensity plot above it; build
-2026-09-21d's own fix remains in effect: the shared Newton MLE solver
-now checks a proper convergence criterion instead of declaring
-"converged" from x,y position alone, fixing real under-convergence in
-the free-angle elliptical fitter, including at low SNR/near-zero
-amplitude; build 2026-09-21c's own feature remains in effect: Time
-trace (smFRET) has a third stacked plot below the ROI thumbnails; build
-2026-09-21b's own fix remains in effect: GPU FRC no longer fails
-outright on a large (~11-12M loc) dataset; build 2026-09-21a's own fix
-remains in effect: a crop's zoom-fit no longer paints against the OLD
-unfiltered buffer while the real filtered render is still in flight;
-"Use GPU acceleration" still defaults ON for this testing round,
-normally off by default — see Memory, GPU & streaming — untick it there
-for a CPU-only baseline. The "crop zoom briefly jumps in, then silently
-reverts" diagnostic added in build 2026-09-20n is still in place and
-unaddressed. Build 2026-09-20m's own fix remains in effect: the crop
-rectangle paints correctly before a fast crop completes; build
-2026-09-20l's own fix remains in effect: committing a crop no longer
-builds a full second copy of the dataset; build 2026-09-20j's own fix
-remains in effect: the table's own row selection uses a bounded
-top-3000 instead of a full sort; build 2026-09-20g's own fix remains in
+(build 2026-09-21g's own feature remains in effect: "Get FRET data" is
+GPU-accelerated — works for both the spherical and "Gauss MLE rotated
+elliptical" fit methods, verified against the CPU reference to ~2e-7
+max relative difference; build 2026-09-21f's own fix remains in effect:
+"Get FRET data" no longer hangs — with no error ever shown — if drift
+estimation itself throws; build 2026-09-21e's own fix remains in
+effect: the sigma-vs-time plot shows width in nm (not px) and uses a
+square, not 4:3, canvas letterbox so it doesn't squeeze the intensity
+plot above it; build 2026-09-21d's own fix remains in effect: the
+shared Newton MLE solver now checks a proper convergence criterion
+instead of declaring "converged" from x,y position alone, fixing real
+under-convergence in the free-angle elliptical fitter, including at low
+SNR/near-zero amplitude; build 2026-09-21c's own feature remains in
+effect: Time trace (smFRET) has a third stacked plot below the ROI
+thumbnails; build 2026-09-21b's own fix remains in effect: GPU FRC no
+longer fails outright on a large (~11-12M loc) dataset; build
+2026-09-21a's own fix remains in effect: a crop's zoom-fit no longer
+paints against the OLD unfiltered buffer while the real filtered render
+is still in flight; "Use GPU acceleration" still defaults ON for this
+testing round, normally off by default — see Memory, GPU & streaming —
+untick it there for a CPU-only baseline. The "crop zoom briefly jumps
+in, then silently reverts" diagnostic added in build 2026-09-20n is
+still in place and unaddressed. Build 2026-09-20m's own fix remains in
+effect: the crop rectangle paints correctly before a fast crop
+completes; build 2026-09-20l's own fix remains in effect: committing a
+crop no longer builds a full second copy of the dataset; build
+2026-09-20j's own fix remains in effect: the table's own row selection
+uses a bounded top-3000 instead of a full sort; build 2026-09-20g's own
+fix remains in
 effect: FRC always runs on the full loc set; build 2026-09-20c's own
 fix remains in effect: FRC's inline FFT is now radix-4.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));

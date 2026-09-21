@@ -794,6 +794,37 @@ in a module.
   site-frame pairs per channel, and a real ~10x wall-clock speedup measured on a realistic
   30-site × 400-frame × 2-channel (24,000-candidate) synthetic extraction.
 
+  **`smfretExtractTracesGpu()`'s own `flush()` checks `engine.available` before AND after every
+  dispatch, throwing a clear error the moment it's false, rather than silently continuing.** A real,
+  reported case at true scale (143 sites × 2500 frames, ALEX + drift correction): the Run completed
+  with no error logged at all, but every channel came back entirely zero despite the ROI thumbnails
+  showing real, bright PSFs — meaning every dispatch's own candidates were silently rejected, not
+  that no real signal existed. Not reproduced in a synthetic test at that combination (multi-batch +
+  ALEX + drift + both fit methods were all independently verified correct beforehand) — the leading
+  suspect is a GPU device-lost event partway through, a real risk at hundreds of dispatches right
+  after `smfretComputeDrift()`'s own already-heavy silent Localize pass: per spec, operations on a
+  lost device typically RESOLVE rather than reject, so a loss mid-extraction would previously have
+  produced exactly this "completed successfully, all zero" symptom with nothing to log. Verified
+  directly: stubbing `fitBatchGpuFlat()` to flip `engine.available=false` after its first real
+  dispatch now makes the very next `flush()` throw `"GPU device lost during this dispatch (after N
+  candidate(s), M accepted before it) — try again, or untick 'Use GPU acceleration'..."`, caught and
+  logged by `getSmfretTimeTraces()`'s own `catch` as usual, with the normal (no-loss) path unaffected.
+  Also added a permanent (not diagnostic-only) summary log line — `"smFRET: GPU extraction — M/N
+  candidate fit(s) accepted."` — a real fit-quality signal on every GPU-accelerated run, matching the
+  main pipeline's own "N localizations found" summary; if the reported symptom recurs and ISN'T a
+  device loss, this number pinpoints whether it's a genuine near-total rejection rate instead.
+
+  **ROI thumbnail row: each channel's own label now sits INLINE to the left of its thumbnail**
+  (`drawSmfretRoiThumbnails()`, requested — "DD" ROI "DA" ROI "AA" ROI in one row, replacing a label
+  row stacked ABOVE each thumbnail), freeing `SMFRET_ROI_LABEL_H`'s own vertical space for the
+  sigma-vs-time plot below (`drawSmfretTrace()`'s own `mBRoi` reservation shrinks by exactly that
+  amount) — `SMFRET_ROI_LABEL_H` itself is gone, no longer needed. Item order is now DD, DA, AA
+  (previously DD, AA, DA, matching the intensity plot's own curve-legend order — this round
+  deliberately diverges from it, per request). Each label is coloured to match that channel's own
+  curve in the intensity plot above — `drawSmfretTrace()` builds a small `{DD,AA,DA}` colour map from
+  its own `curves` array (never redefined/duplicated) and passes it through `geom.colors`, so the two
+  plots' own colour-to-channel mapping can never drift apart by hand-edit.
+
   **Sigma-vs-time plot** (`drawSmfretTrace()`, requested — a third stacked plot below the ROI
   thumbnail row, sharing the shared time x-axis, colours reused directly from the intensity plot's
   own `curves` array so DD/AA/DA read consistently across both): plots each channel's own fitted PSF
