@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21e; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21f; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18547  single particle tracking, trackpy-inspired;
+    spt             18561  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20089  top-level orchestration, *Core()/wrapper split;
+    pipeline        20103  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   21615  Micro-Manager/pycromanager camera bridge
+    liveStreaming   21629  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           24588  localizations table, filtering, histograms;
+    table           24592  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25492  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25496  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -17037,15 +17037,29 @@ async function getSmfretTimeTraces(preserveView=false){
   // reference-frame convention. Null (unchecked, or estimation genuinely
   // failed) means every site's own window just stays fixed at its own
   // (x,y)/(x2,y2), exactly the pre-existing behaviour.
-  let drift=null;
-  if(paramValue('smfretApplyDrift')){
-    drift=await smfretComputeDrift();
-    if(staleEpoch(myEpoch)) return;   // a newer action superseded this one while drift estimation (possibly a full silent Localize pass) was running
-  }
-  log(`smFRET: Get FRET data — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s)`
-    + `${paired?' (DD+DA paired)':''}${showAA?' · ALEX':''}${drift?' · drift-corrected':''} across ${n} frames…`);
+  // $('smfretTimeTracesBtn').disabled=true and the try/catch/finally below
+  // both now START here, BEFORE drift estimation — a real, reported bug:
+  // smfretComputeDrift() can itself throw (a real error inside its own
+  // silent runCore() Localize pass or aimDrift2D(), not just "found no
+  // localizations", which is already handled gracefully) — with the button-
+  // disable and try/catch previously starting AFTER this call, an exception
+  // here escaped BOTH: the button never got disabled in the first place (so
+  // it looked idle, not busy) and, worse, setProg(null)/refreshSmfretTimeTracesBtn()
+  // in the finally below never ran either, leaving the progress bar stuck at
+  // its last value with no error ever logged — indistinguishable from a
+  // genuine hang, exactly the reported "stuck with no output values"
+  // symptom, whether or not the drift estimation itself was ALSO just
+  // genuinely slow (a full whole-movie Localize pass for AIM, no per-frame
+  // log output by design — see smfretComputeDrift()'s own comment).
   $('smfretTimeTracesBtn').disabled=true;
+  let drift=null;
   try{
+    if(paramValue('smfretApplyDrift')){
+      drift=await smfretComputeDrift();
+      if(staleEpoch(myEpoch)) return;   // a newer action superseded this one while drift estimation (possibly a full silent Localize pass) was running
+    }
+    log(`smFRET: Get FRET data — ${useAperture?'aperture photometry on':'fitting'} ${sites.length} site(s)`
+      + `${paired?' (DD+DA paired)':''}${showAA?' · ALEX':''}${drift?' · drift-corrected':''} across ${n} frames…`);
     let lastYield=performance.now();
     for(let fi=0; fi<n; fi++){
       const img=(await stack.getFrames(fi,fi+1))[0];
@@ -24382,22 +24396,31 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21e — smFRET Time trace fixes:
-(1) the sigma-vs-time plot (added last round) now shows width in nm, not
-camera px; (2) that plot's own canvas is now letterboxed SQUARE, not the
-usual 4:3 — reported: adding it squeezed the intensity plot above it
-noticeably shorter than before, since a third stacked plot's own space
-used to come out of the SAME 4:3-bounded canvas height. A square canvas
-gives real extra height at the same width with no other layout change —
-verified: at an identical canvas footprint, the usable plot rectangle
-grew from width×0.75·width to width×width.
+log(`webSMLM v0.12.8-dev · build 2026-09-21f — fixed a real smFRET hang:
+reported directly — loading grating FRET data, ticking "Apply drift
+correction" left "Get FRET data" stuck disabled forever with no output
+and no error. Root cause: smfretComputeDrift()'s own AIM path runs a
+full, silent whole-movie Localize pass — a real exception from THAT (or
+from the AIM drift estimate itself, not just its already-handled "found
+no localizations" case) used to escape getSmfretTimeTraces() entirely,
+since the function's own try/catch/finally only wrapped the code AFTER
+that step. Nothing ever reset: no error logged, no progress-bar reset,
+button left disabled — indistinguishable from a genuine hang. Fixed by
+moving the try block (and the button-disable) to cover the WHOLE
+function, drift step included. Verified: stubbing a real internal
+exception reproduces the old bug exactly (button stuck, exception
+escapes) and confirms the fix (caught, logged, button re-enabled) via a
+stashed-baseline A/B. If you hit this again, a real "⚠ Get FRET data
+failed: ..." line should now appear in the Log with the actual cause —
+please paste it.
 
-(build 2026-09-21d's own fix remains in effect: the shared Newton MLE
-solver (spherical, MLE 3D, Gauss MLE rotated elliptical) now checks a
-proper convergence criterion (Newton decrement) instead of declaring
-"converged" from x,y position alone — fixes real under-convergence in
-the free-angle elliptical fitter (this same sigma-vs-time plot's own
-elliptical mode), including at low SNR/near-zero amplitude; build
+(build 2026-09-21e's own fix remains in effect: the sigma-vs-time plot
+shows width in nm (not px) and uses a square, not 4:3, canvas letterbox
+so it doesn't squeeze the intensity plot above it; build 2026-09-21d's
+own fix remains in effect: the shared Newton MLE solver now checks a
+proper convergence criterion instead of declaring "converged" from x,y
+position alone, fixing real under-convergence in the free-angle
+elliptical fitter, including at low SNR/near-zero amplitude; build
 2026-09-21c's own feature remains in effect: Time trace (smFRET) has a
 third stacked plot below the ROI thumbnails; build 2026-09-21b's own
 fix remains in effect: GPU FRC no longer fails outright on a large

@@ -817,6 +817,22 @@ in a module.
   `driftCore()`'s own "add `fdx[f]` to correct" convention, since this recovers where a REFERENCE-
   frame position sits in the RAW current frame.
 
+  **`getSmfretTimeTraces()`'s own `$('smfretTimeTracesBtn').disabled=true`/`try` block used to start
+  AFTER `smfretComputeDrift()`, not before it — a real, reported bug: ticking "Apply drift
+  correction" (or any settings-change re-run with it already on) on a real dataset left the button
+  disabled FOREVER with no error ever logged, reading as a genuine hang ("stuck with no output
+  values").** `smfretComputeDrift()`'s own AIM path runs `runCore()` (a full, silent whole-movie
+  Localize) then `aimDrift2D()` — a real exception from EITHER (not just the already-handled "found
+  no localizations" case) used to escape `getSmfretTimeTraces()` entirely as an unhandled promise
+  rejection, since the function's own try/catch/finally only wrapped the code AFTER the drift
+  `await`. Nothing in that path ever ran: no `⚠ Get FRET data failed: ...` log line
+  (`catch(err){...}`), no `setProg(null)`/`refreshSmfretTimeTracesBtn()` (`finally{...}`) to reset the
+  progress bar or re-enable the button — genuinely indistinguishable from a hang without opening
+  DevTools. Fixed by moving both the disable-button line and the try block to wrap the ENTIRE
+  function body, drift step included. Verified directly: stubbing `runCore()` to throw a real error
+  reproduces the old bug exactly (button stuck disabled, exception escapes the function) and confirms
+  the fix (exception caught internally, button re-enabled, no escape) via a stashed-baseline A/B.
+
   The SOI composite marks (never filters — an earlier, stricter "remove the box" design was reverted)
   a paired site's ROI dark-orange (`#d2691e`, `markSmfretSoiPairedKeys()`) or gold (`#e8b400`) for an
   AA-SOURCED (channel-matching) match specifically — a real but structurally weaker guarantee than a
