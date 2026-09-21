@@ -1136,6 +1136,30 @@ in a module.
   macrotask ("paint/input still run" per its own comment), unlike a bare `Promise.resolve()` or
   `setTimeout(0)` alone crossing a browser-throttled interval.
 
+  **`commitSrCrop()` is `async` and `await`s `applyFilterToReconstruction()` before computing its own
+  zoom-fit and final `drawView()` — a genuinely different bug from the paint-starvation one just
+  above, though it looks similar at a glance.** `applyFilterToReconstruction()`'s own `rerender(true)`
+  call is ASYNC (`rerender()`→`drainRerenders()`→`rerenderNow()`, real, non-trivial work: binning
+  millions of locs into the accumulator buffer) — `applyFilterToReconstruction()` now RETURNS that
+  promise (previously it fired `rerender(true)` and returned immediately, discarding it). Without the
+  `await`, `commitSrCrop()`'s own zoom-fit math and its final `drawView()` used to run BEFORE the
+  filtered buffer was actually ready, painting the crop's own NEW (zoomed-in) view against the OLD,
+  still-unfiltered `srFull`. Since a crop rectangle's own aspect ratio rarely matches the panel's, one
+  axis is always the non-binding one in the `Math.min(cw/rw, ch/rh)` zoom-fit — letterboxed with real
+  slack — and that slack showed genuine leftover content from OUTSIDE the crop, sitting in the stale
+  buffer, until the real filtered render actually landed a moment later and blanked it. Real, reported
+  symptom, reproduced directly against the actual 11M-loc dataset that surfaced it: "we zoom in to
+  match the long axis of the crop, then the short axis gets cropped/removed a moment later" — this is
+  two genuine paints of two DIFFERENT buffers at the SAME (correct, non-reverting) zoom, not an actual
+  two-stage x-then-y filter (both axes were always combined into one filter clause, see `commitSrCrop`'s
+  own `fn` above — this was purely a render-vs-draw ordering race, one crop action, one filter, one
+  intended paint). The `cropBtn` toggle's own "undo the crop" path (turning the tool off with an active
+  crop still applied) had the identical race between `applyFilterToReconstruction()` and its own
+  `fitView()`/`drawView()` calls, fixed the same way. Verified with a regression test built from the
+  real dataset that surfaced this (`PAINT_Actin_locs.csv`, ~1.5M rows exercised, stubbing the real
+  accumulator with an artificial delay to make the race window deterministic): confirmed the OLD code
+  paints the new zoom against the pre-crop buffer's own loc count, and the fixed code never does.
+
   **`refitCanvases()`'s own `ResizeObserver` watches the TWO CANVAS ELEMENTS (`#raw`/`#sr`) directly,
   not their shared `#canvases` grid container.** A real, reported regression, reproduced directly:
   right after a crop's own zoom-fit ran, `view.zoom` was correctly the zoomed-in value; ~120-400ms
