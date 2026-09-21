@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21m; may drift
+  MODULE INDEX — line numbers as of v0.12.8; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -185,8 +185,8 @@
                            between the two, since CPU-side detection (not
                            fit) dominates a Run's wall time regardless of
                            method (see CLAUDE.md's own fit-module paragraph)
-    export          11755  ThunderSTORM-compatible CSV; exportPlotEither()
-    3D calibration  12107  astigmatic sigma_x/sigma_y vs z bead curves;
+    export          11757  ThunderSTORM-compatible CSV; exportPlotEither()
+    3D calibration  12109  astigmatic sigma_x/sigma_y vs z bead curves;
                            runCalibration() logCmd()s a calibrationOnly:true
                            recorded command on success; calibrationCore()'s
                            config.exportCalibrationPoints streams each bead
@@ -197,7 +197,7 @@
                            parity-strict (step-by-2), never cached in
                            _projCache (that cache is the whole-stack average
                            locateBeadsForCalib() reuses)
-    drift           12589  AIM drift correction (2D+z); drift-vs-frame or
+    drift           12591  AIM drift correction (2D+z); drift-vs-frame or
                            x/y-path-coloured-by-time plot (driftPlotMode);
                            frame0 (first ANALYSED frame) offsets segment
                            binning in aimDrift2D()/aimDriftZ() — a Localize
@@ -221,14 +221,14 @@
                            settings hidden while correlation is selected;
                            smFRET's own new "Apply drift correction?" is a
                            thin caller over whichever method is configured
-    locprecision    13590  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
+    locprecision    13592  NeNA + FRC; both logCmd() a bare {computeNeNA:true}/
                            {computeFRC:true} on success (no other config);
                            drawNenaPlot()/drawFrcPlot() now call
                            hideOtherRawToggleBtns(null) like every other raw-
                            panel display already does — a real, reported bug:
                            Drift correction's own "Show x/y path" toggle stayed
                            stuck visible over NeNA/FRC's own plot afterward
-    sSMLM           14682  spectrally resolved SMLM pair-finding; renamed
+    sSMLM           14684  spectrally resolved SMLM pair-finding; renamed
                            "Pairing (sSMLM & FRET)"; merged Show
                            histograms (sSmlmHistBtn/sSmlmHistModeBtn); Pair
                            & plot sSMLM/Unpair share a row (Fit dist. &
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             18913  single particle tracking, trackpy-inspired;
+    spt             18915  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20455  top-level orchestration, *Core()/wrapper split;
+    pipeline        20457  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   22006  Micro-Manager/pycromanager camera bridge
+    liveStreaming   22008  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           25046  localizations table, filtering, histograms;
+    table           24993  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25950  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25897  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21m</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8 · proof-of-concept</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9267,7 +9267,9 @@ async function getRenderWorker(){
 
 /* ===========================================================================
    MODULE: gpu — shared WebGPU compute engine (experimental, opt-in via
-   PARAMS.useGpu, default OFF). One singleton + a small set of shared
+   PARAMS.useGpu, default ON as of v0.12.8 — a full release cycle of real-data
+   hardening across fit/render/drift/FRC, still with a CPU fallback whenever
+   a stage isn't supported/eligible). One singleton + a small set of shared
    primitives; render and fit are just two callers of the same device/
    pipeline-cache machinery, so a future caller (detect, live segmentation)
    plugs into the same engine instead of reimplementing device/buffer setup.
@@ -24801,85 +24803,34 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21m — confirmed fixed: the real
-dataset that produced "0/536,250 candidate fit(s) accepted" now
-extracts real signal. Requested cleanup while looking at that same
-plot: the sigma-vs-time plot's own DD/AA/DA legend (drawn above it) is
-removed — the ROI thumbnail row right above it already has each
-channel's own label in its own matching colour, so the legend was pure
-duplication — and that reclaimed height goes straight into the plot
-itself (a little taller now, same total panel layout).
+log(`webSMLM v0.12.8 — "Use GPU acceleration" now defaults ON (was off),
+after a full cycle of real-data hardening across fitting, rendering,
+AIM drift correction, and FRC. Still opt-out (Memory, GPU & streaming)
+and CPU-fallback safe throughout. See CHANGELOG.md's own v0.12.8 entry
+for the complete write-up.
 
-(build 2026-09-21l's own fix remains in effect: the real cause of
-"0/536,250 candidate fit(s) accepted" was a GPU worker-dispatch bug in
-runCore() itself, not the drift estimate at all — "Apply drift
-correction" always runs one silent, whole-movie runCore() Localize
-pass first (to feed AIM) on the SAME stack object
-smfretExtractTracesGpu() reads again right afterward, and that silent
-pass's own GPU-fit worker dispatch was unconditionally TRANSFERRING
-(not cloning) every fetched frame's own ArrayBuffer to its worker,
-which silently DETACHES it forever in a whole-file-cached stack's own
-persistent frame cache (no exception anywhere — a detached buffer read
-by index just yields 0/undefined), so the very next stage fed the GPU
-fitter all-zero image data for every candidate on every frame, totally
-independent of the drift estimate's own correctness — fixed with a
-framesTransferable flag (only the "decode fresh per call" stack sets
-it; the dispatch now clones unless the stack says transferring is
-safe, matching every OTHER worker dispatch in this file) and
-permanently guarded by tests/gpu/test-frame-cache-integrity.mjs; that
-same round also added a "Copy log" button next to Clear log/Export
-log; still flagged, not yet addressed: build j's own donor+acceptor
-AIM merge doubles AIM's already-largest-single-cost-in-the-pipeline
-runtime (two full aimDrift2D() calls instead of one) — a real,
-separately reported "freeze" on a REPEATED run of the same dataset may
-be this added cost compounding with an already-heavy silent Localize
-pass, not a true hang, still not confirmed either way; build
-2026-09-21k's own correlationDrift2D() fix remains in effect: an
-ODD segment length under roughly balanced ALEX channel intensities
-biased the Cross correlation drift method (~16-19px spurious drift at
-every odd length tried, vs. <0.5px at every even one) — fixed by
-rounding up to the next even segment length; build 2026-09-21j's own
-donor+acceptor AIM merge remains in effect for the sparse-one-channel
-case it was built for; build 2026-09-21i's own fix remains in effect:
-donor-excitation-only filtering closed an ALSO-real, separate bug —
-mixing both excitation channels' localizations together let AIM read
-the donor/acceptor alternation itself as spurious per-frame motion;
-build 2026-09-21h's own fixes remain in effect: a GPU device lost
-mid-extraction now throws a clear, logged error instead of silently
-returning all-zero results; the ROI thumbnail row puts each channel's
-label inline to the left of its thumbnail (DD, DA, AA order) instead of
-stacked above it; build 2026-09-21g's own feature remains in effect:
-"Get FRET data" is
-GPU-accelerated — works for both the spherical and "Gauss MLE rotated
-elliptical" fit methods, verified against the CPU reference to ~2e-7
-max relative difference; build 2026-09-21f's own fix remains in effect:
-"Get FRET data" no longer hangs — with no error ever shown — if drift
-estimation itself throws; build 2026-09-21e's own fix remains in
-effect: the sigma-vs-time plot shows width in nm (not px) and uses a
-square, not 4:3, canvas letterbox so it doesn't squeeze the intensity
-plot above it; build 2026-09-21d's own fix remains in effect: the
-shared Newton MLE solver now checks a proper convergence criterion
-instead of declaring "converged" from x,y position alone, fixing real
-under-convergence in the free-angle elliptical fitter, including at low
-SNR/near-zero amplitude; build 2026-09-21c's own feature remains in
-effect: Time trace (smFRET) has a third stacked plot below the ROI
-thumbnails; build 2026-09-21b's own fix remains in effect: GPU FRC no
-longer fails outright on a large (~11-12M loc) dataset; build
-2026-09-21a's own fix remains in effect: a crop's zoom-fit no longer
-paints against the OLD unfiltered buffer while the real filtered render
-is still in flight; "Use GPU acceleration" still defaults ON for this
-testing round, normally off by default — see Memory, GPU & streaming —
-untick it there for a CPU-only baseline. The "crop zoom briefly jumps
-in, then silently reverts" diagnostic added in build 2026-09-20n is
-still in place and unaddressed. Build 2026-09-20m's own fix remains in
-effect: the crop rectangle paints correctly before a fast crop
-completes; build 2026-09-20l's own fix remains in effect: committing a
-crop no longer builds a full second copy of the dataset; build
-2026-09-20j's own fix remains in effect: the table's own row selection
-uses a bounded top-3000 instead of a full sort; build 2026-09-20g's own
-fix remains in
-effect: FRC always runs on the full loc set; build 2026-09-20c's own
-fix remains in effect: FRC's inline FFT is now radix-4.)`);
+Headline fix: a GPU worker-dispatch bug in runCore() itself — it
+transferred (not cloned) frame buffers to workers, silently detaching
+them in a whole-file-cached stack's own persistent frame cache. This
+was the real cause behind smFRET's "0 candidates accepted" after
+Apply drift correction, completely unrelated to drift accuracy — a
+general bug, not smFRET-specific — now permanently guarded by
+tests/gpu/test-frame-cache-integrity.mjs.
+
+Also this release: smFRET's AIM drift correction is fixed for ALEX
+(was pooling donor/acceptor-excitation frames into one estimate,
+corrupting it) and now merges both channels per segment, weighted by
+point count, when one is sparse; Cross correlation drift's own
+odd-segment-length bias under ALEX is fixed; smFRET's "Get FRET data"
+is GPU-accelerated (~10x), with a GPU device loss now throwing instead
+of silently returning zeros; a new sigma-vs-time plot (nm) sits below
+the ROI thumbnails, which are now reordered DD/DA/AA with inline
+labels; the shared Newton MLE solver's convergence check is fixed,
+correcting real under-convergence in the free-angle elliptical fitter
+at low SNR; GPU FRC no longer fails outright on large (~11-12M loc)
+datasets; a crop's two filter axes now apply together instead of
+visibly re-cropping a moment apart; and the Log window gained a Copy
+log button.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
