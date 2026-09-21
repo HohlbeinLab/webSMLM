@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21l; may drift
+  MODULE INDEX — line numbers as of v0.12.8-dev build 2026-09-21m; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           25048  localizations table, filtering, histograms;
+    table           25046  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25952  window.webSMLM.analyze()/analyzeBatch();
+    headless API    25950  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21l</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.8-dev · build 2026-09-21m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -18406,7 +18406,12 @@ function drawSmfretTrace(idx){
   // placeholder message when not applicable" convention plot B's own hasES
   // branch already uses below — so toggling Aperture photometry doesn't
   // jump every OTHER plot's position around.
-  const gapRoiC=16, phC=64;
+  // gapRoiC/phC: no separate DD/AA/DA legend above plot C any more
+  // (requested — the ROI thumbnail row's own inline, colour-matched labels
+  // already serve as the legend here) — the few px that title used to sit
+  // in is folded straight into phC instead of left as dead space, keeping
+  // gapRoiC+phC (and so mB below) unchanged.
+  const gapRoiC=6, phC=74;
   const mB=mBAxis+mBRoi+gapRoiC+phC+mBAxis, pw=W-mL-mR;
   // Item 8: "below the DD, DA, AA plot, add a plot (well, traces) showing E
   // and S ... Plots could share a x-axis." Splits the previously single
@@ -18622,11 +18627,6 @@ function drawSmfretTrace(idx){
       ctx.stroke();
     }
     ctx.restore();
-    if(sigmaCurves.some(c=>c.label)){
-      ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT;
-      const totalWc=sigmaCurves.length*30;
-      sigmaCurves.forEach((c,i)=>{ if(!c.label) return; ctx.fillStyle=c.color; ctx.fillText(c.label, mL+pw-totalWc+i*30, yTopC-6); });
-    }
   }else{
     ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('No fitted width available (Aperture photometry, or a loaded traces file)', mL+pw/2, yTopC+phC/2);
@@ -24801,44 +24801,40 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.8-dev · build 2026-09-21l — found and fixed the REAL
-cause of "0/536,250 candidate fit(s) accepted": a GPU worker-dispatch
-bug in runCore() itself, not the drift estimate at all. The new
-diagnostic added last round showed a TINY, entirely plausible drift
-correction (0.37 px max on the real dataset) — ruling out "AIM's own
-estimate is badly wrong" directly, which redirected the search toward
-the drift-corrected code PATH rather than the numbers it computes.
-"Apply drift correction" always runs one silent, whole-movie runCore()
-Localize pass first (to feed AIM) on the SAME stack object
-smfretExtractTracesGpu() reads again right afterward — that silent
+log(`webSMLM v0.12.8-dev · build 2026-09-21m — confirmed fixed: the real
+dataset that produced "0/536,250 candidate fit(s) accepted" now
+extracts real signal. Requested cleanup while looking at that same
+plot: the sigma-vs-time plot's own DD/AA/DA legend (drawn above it) is
+removed — the ROI thumbnail row right above it already has each
+channel's own label in its own matching colour, so the legend was pure
+duplication — and that reclaimed height goes straight into the plot
+itself (a little taller now, same total panel layout).
+
+(build 2026-09-21l's own fix remains in effect: the real cause of
+"0/536,250 candidate fit(s) accepted" was a GPU worker-dispatch bug in
+runCore() itself, not the drift estimate at all — "Apply drift
+correction" always runs one silent, whole-movie runCore() Localize
+pass first (to feed AIM) on the SAME stack object
+smfretExtractTracesGpu() reads again right afterward, and that silent
 pass's own GPU-fit worker dispatch was unconditionally TRANSFERRING
 (not cloning) every fetched frame's own ArrayBuffer to its worker,
 which silently DETACHES it forever in a whole-file-cached stack's own
 persistent frame cache (no exception anywhere — a detached buffer read
-by index just yields 0/undefined). The very next stage then fed the
-GPU fitter all-zero image data for literally every candidate on every
-frame — a uniform, total failure with no error to log, completely
-independent of the drift estimate's own correctness, exactly matching
-the report. Confirmed directly: reproducing a real GPU-fit runCore()
-pass immediately followed by smfretExtractTracesGpu() on the same
-stack gave 0% acceptance (and a detached-buffer exception) on the OLD
-code, a healthy ~29% acceptance rate with no error on the fix. Fixed
-with a framesTransferable flag — only the "decode fresh per call"
-stack sets it; the dispatch now transfers only when the stack says
-it's safe, cloning otherwise (matching every OTHER worker dispatch in
-this file, which already did this correctly). Permanently guarded by
-tests/gpu/test-frame-cache-integrity.mjs. Also added, alongside the
-Log card's existing Clear log/Export log buttons: Copy log, for
-pasting the whole log window straight into a bug report.
-
-Still flagged, not yet addressed: build j's own donor+acceptor AIM
-merge doubles AIM's already-largest-single-cost-in-the-pipeline
+by index just yields 0/undefined), so the very next stage fed the GPU
+fitter all-zero image data for every candidate on every frame, totally
+independent of the drift estimate's own correctness — fixed with a
+framesTransferable flag (only the "decode fresh per call" stack sets
+it; the dispatch now clones unless the stack says transferring is
+safe, matching every OTHER worker dispatch in this file) and
+permanently guarded by tests/gpu/test-frame-cache-integrity.mjs; that
+same round also added a "Copy log" button next to Clear log/Export
+log; still flagged, not yet addressed: build j's own donor+acceptor
+AIM merge doubles AIM's already-largest-single-cost-in-the-pipeline
 runtime (two full aimDrift2D() calls instead of one) — a real,
 separately reported "freeze" on a REPEATED run of the same dataset may
 be this added cost compounding with an already-heavy silent Localize
-pass, not a true hang; still not confirmed either way.
-
-(build 2026-09-21k's own correlationDrift2D() fix remains in effect: an
+pass, not a true hang, still not confirmed either way; build
+2026-09-21k's own correlationDrift2D() fix remains in effect: an
 ODD segment length under roughly balanced ALEX channel intensities
 biased the Cross correlation drift method (~16-19px spurious drift at
 every odd length tried, vs. <0.5px at every even one) — fixed by

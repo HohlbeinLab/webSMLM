@@ -869,7 +869,11 @@ in a module.
   (nm) field, the same "store in px, display in nm" split the main locs table already uses for its
   own sigma column; `null` under `useAperture` (no fitted width exists at all there) or on a
   `loadSmfretTraces()`-restored session predating this field (shows a placeholder message either way,
-  not a blank plot). **Drawn in a SQUARE letterbox (`setupPlot(cv,true,1)`), not the shared 4:3 every
+  not a blank plot). **Has no DD/AA/DA legend of its own** (removed on request — the ROI thumbnail
+  row directly above it already carries each channel's own label in its own matching colour, making a
+  second legend pure duplication); the few px it used to occupy folds straight into the plot's own
+  height (`phC` 64→74, `gapRoiC` 16→6, sum unchanged so nothing else in the layout shifts) rather than
+  being left as dead space. **Drawn in a SQUARE letterbox (`setupPlot(cv,true,1)`), not the shared 4:3 every
   other plot here defaults to** — reported: adding this third plot squeezed the intensity plot
   above it noticeably shorter than before, since the canvas itself stayed the same 4:3-bounded
   height while a third stacked plot's own space had to come out of the same total. `setupPlot()`
