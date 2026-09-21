@@ -759,6 +759,41 @@ in a module.
   `getSmfretTimeTraces()`'s own `$('method')` change listener re-extracts an already-shown result the
   same way its `smfretApertureMode`/`smfretFloorZero`/`smfretApplyDrift` listeners already do.
 
+  **`getSmfretTimeTraces()` now has a real GPU-accelerated extraction path (`smfretExtractTracesGpu()`),
+  requested directly — smFRET's own extraction never used the GPU at all before this, always CPU
+  regardless of "Use GPU acceleration," since `smfretExtractIntensity()` calls
+  `gaussianMLEspheric()`/`gaussianMLEellipticangled()` directly rather than going through
+  `runStage()`/the main pipeline's own batching accumulator.** `smfretExtractTracesGpu()` is a
+  separate, purpose-built accumulator, NOT a reuse of `makeGpuFitAccumulator()` (MODULE: pipeline) —
+  that one exists to let MANY parallel CPU detect workers feed one shared GPU fit pipeline as
+  candidates stream in unpredictably, a concern that doesn't apply to smFRET's own single, serial,
+  already-synchronous "for every frame, for every site" loop with a known, fixed candidate shape.
+  Instead: fixed-size flat `seedsA`/`seedsB`/`windows` buffers (`GPU_SMFRET_BATCH_TARGET`=4096 rows),
+  filled row by row via the SAME per-row seed builders the main pipeline's own GPU path already uses
+  (`buildFitSeedRow()`/`buildFitSeedRowEll()`, MODULE: fit/gpu — not reimplemented), dispatched via
+  the SAME wrapper functions (`fitBatchGpuFlat()`/`fitBatchGpuFlatRotFree()`) every time the batch
+  fills. Those wrappers only ever return ACCEPTED candidates (rejected rows are silently dropped —
+  fine for the main pipeline's own "just don't add it to `locs[]`" use), but smFRET needs an explicit
+  result (0 photons, `null` width) for EVERY row, not just accepted ones — every row's own trace slot
+  is defaulted to "rejected" immediately before each dispatch, then overwritten for whichever rows
+  the GPU actually accepts. `candidatePixels` (an existing, generic per-row payload parameter neither
+  wrapper otherwise interprets) is repurposed to carry each row's own position WITHIN the batch — the
+  one piece of bookkeeping needed to map an accepted result back to its (site, frame, channel) triple.
+  smFRET's own extra reject criterion (width ≤ `2×σ_PSF` on each axis — see `smfretExtractIntensity()`'s
+  own comment) is applied as a post-filter on top of whatever the wrapper already accepted, exactly
+  mirroring the CPU path. Gated on a real engine, a total candidate count ≥500 (GPU dispatch overhead
+  genuinely dominates below that, same reasoning `runStage()`'s own below-crossover check uses
+  elsewhere), never under `smfretApertureMode` (no fit at all there), and — for the elliptical
+  fitter, which is ALWAYS free-angle here (never fixed-angle; see `smfretExtractIntensity()`'s own
+  comment) — the SAME `maxStorageBuffersPerShaderStage>=7` requirement `WGSL_FIT_ROT_FREE` needs
+  elsewhere (`gpuEllRotFreeEligible`, MODULE: pipeline); deliberately does NOT consult
+  `config.localize3D` the way the main pipeline's own eligibility check does, since that setting
+  plays no role in smFRET's own always-free-angle mode. Verified against the CPU reference across
+  both spherical and elliptical modes (photons and sigma-along-bearing alike): max relative
+  difference ~2e-7 (floating-point noise) with zero accept/reject discordance across 600 compared
+  site-frame pairs per channel, and a real ~10x wall-clock speedup measured on a realistic
+  30-site × 400-frame × 2-channel (24,000-candidate) synthetic extraction.
+
   **Sigma-vs-time plot** (`drawSmfretTrace()`, requested — a third stacked plot below the ROI
   thumbnail row, sharing the shared time x-axis, colours reused directly from the intensity plot's
   own `curves` array so DD/AA/DA read consistently across both): plots each channel's own fitted PSF
