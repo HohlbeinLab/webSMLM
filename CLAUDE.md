@@ -805,34 +805,55 @@ in a module.
   `getSmfretTimeTraces()`'s own `$('method')` change listener re-extracts an already-shown result the
   same way its `smfretApertureMode`/`smfretFloorZero`/`smfretApplyDrift` listeners already do.
 
-  **A real, CHARACTERIZED-BUT-NOT-YET-FIXED fitting-robustness issue, raised directly and marked
-  critical: "some spiking in LS & MLE spherical, yet failed fits in MLE rotated elliptical (but less
-  spiking)."** Verified with a rigorous ground-truth harness
-  (`tests/gpu/test-smfret-fit-robustness.mjs` — a known, near-constant true photon-count movie with
-  realistic Poisson+read noise at several SNR regimes, run through all 4 real extraction paths on the
-  IDENTICAL noise realization): confirmed real, quantified "spikes" in spherical MLE and least-squares
-  at low SNR (true 150 photons against a ~1500-photon background window: spike frames read 3-5x the
-  true value), and a correspondingly much higher rejection rate in the elliptical fitter at the same
-  regime (matching "less spiking" — it rejects the same ambiguous frames spherical/LS accept, rather
-  than resolving them any better). Root cause, found via a direct per-frame diagnostic (calling
-  `gaussianMLEspheric()` on individual spike frames): every spike shares the same signature — the
-  fitted `sigma` inflates well past the seed while `bg` deflates correspondingly below a robust
-  (window-median) estimate, and the reported photon count (`amp·2π·sigma²`) balloons because it
-  scales with `sigma²`. This is a genuine likelihood DEGENERACY, not a simple bug: at these SNRs, a
-  wider/dimmer peak plus a lower background explains the noisy pixels about as well as the true
-  narrow peak plus the true background, and the Newton solver converges (passing its own decrement +
-  bounds checks) to this wrong but locally-stable solution. `FIT_MAX_DRIFT_SIGMA_MULT` (2× the seed
-  sigma) does NOT reliably catch it — most observed spikes had a fitted sigma comfortably under that
-  bound. A candidate additional check (reject when the fit's own `bg` is far below a robust
-  window-median background estimate) showed real but IMPERFECT separation (spike `bg`/median-`bg`
-  ratio 0.30-0.97 vs a legitimate low-SNR fit's own 0.85-1.01 — real signal, but overlapping
-  distributions, so no clean threshold exists) — not shipped as a fix pending a decision on the
-  accept/reject trade-off it would introduce (rejecting more borderline-but-real low-SNR frames to
-  catch more of these degenerate ones). The elliptical fitter's own lower spike rate is a real but
+  **A real fitting-robustness issue, raised directly and marked critical: "some spiking in LS & MLE
+  spherical, yet failed fits in MLE rotated elliptical (but less spiking)."** Verified with a rigorous
+  ground-truth harness (`tests/gpu/test-smfret-fit-robustness.mjs` — a known, near-constant true
+  photon-count movie with realistic Poisson+read noise at several SNR regimes, run through all 4 real
+  extraction paths on the IDENTICAL noise realization): confirmed real, quantified "spikes" in
+  spherical MLE and least-squares at low SNR (true 150 photons against a ~1500-photon background
+  window: spike frames read 3-5x the true value), and a correspondingly much higher rejection rate in
+  the elliptical fitter at the same regime (matching "less spiking" — it rejects the same ambiguous
+  frames spherical/LS accept, rather than resolving them any better). Root cause, found via a direct
+  per-frame diagnostic (calling `gaussianMLEspheric()` on individual spike frames): every spike shares
+  the same signature — the fitted `sigma` inflates well past the seed while `bg` deflates
+  correspondingly, and the reported photon count (`amp·2π·sigma²`) balloons because it scales with
+  `sigma²`. This is a genuine likelihood DEGENERACY, not a simple bug: at these SNRs, a wider/dimmer
+  peak plus a lower background explains the noisy pixels about as well as the true narrow peak plus
+  the true background, and the Newton solver converges (passing its own decrement + bounds checks) to
+  this wrong but locally-stable solution. The shared `FIT_MAX_DRIFT_SIGMA_MULT` (2× the seed sigma)
+  does NOT reliably catch it — most observed spikes had a fitted sigma comfortably under that bound.
+
+  **Mitigated (not fully eliminated — a genuine Fisher-information limit at low SNR, not something any
+  threshold alone removes) with two new smFRET-specific reject checks**, per direct follow-up
+  guidance ("bg-sanity is probably the way to go... FRET is different to standard SMLM... we would be
+  fine with just getting an amplitude of zero... is the psf width properly confined?"): (1)
+  `SMFRET_MAX_SIGMA_MULT` (1.6, tighter than the shared 2.0) — smFRET re-fits the SAME known site
+  against a PSF whose width should be essentially constant (no z-defocus, unlike the main pipeline's
+  many distinct emitters/genuinely varying PSF shape), so a tighter anchor to the already-known seed
+  sigma is justified specifically here; (2) an **aperture-photometry sanity cross-check** —
+  `apertureIntensity()` (MODULE: fit) has no iterative fit at all, so it can't fall into this
+  degeneracy, making it a clean, independent reference directly operationalizing a further report ("I
+  also see spikes... on localisations where the intensity look just fine with aperture photometry"):
+  reject when the fit's own photon count exceeds `SMFRET_AP_SANITY_MULT`(1.5)`·apRef +
+  SMFRET_AP_SANITY_NSIGMA`(4)`·√apRef` — a NOISE-PROPORTIONAL margin, not a flat one (a flat floor
+  generous enough for real noise at LOW counts, tried first, was also generous enough there to pass
+  most degenerate fits straight through, since the check then barely constrains anything). Applied in
+  both `smfretExtractIntensity()` (CPU path) and `smfretExtractTracesGpu()`'s own `flush()` (GPU
+  path — the aperture check needs the ORIGINAL image, since its own background annulus reaches wider
+  than the packed GPU fit window ever carries, so `meta[]` now retains each row's own `img`/`cx`/`cy`
+  — a per-frame buffer REFERENCE, not a copy, several staying alive briefly per batch, a modest,
+  transient memory cost). Measured effect at these tuned constants: spherical MLE's own low-SNR spike
+  RATE roughly halved and its stdRatio (extracted trace's own std-dev over the true Poisson noise
+  floor) dropped from ~12x to ~4-5x, at the cost of a real, explicitly accepted trade-off — lower
+  acceptance — matching the "rather get zero than a wrong spike" preference requested. A TIGHTER
+  retuning (1.3/3) was tried and reverted: at a genuinely wider-than-seed (but still real) PSF regime,
+  it mostly rejected GOOD frames rather than catching more real spikes — the aperture check has a
+  real, inherent blind spot there: a fit correctly recovering a genuinely wider PSF also legitimately
+  reports more total photons than a fixed-radius aperture fully captures, indistinguishable from the
+  degeneracy at a tighter margin. The elliptical fitter's own lower spike count remains a real but
   MECHANISTIC side effect of having more free parameters (`sx`,`sy`,`angle` each get their own bound
   check, so a marginal fit has more chances to trip at least one) — not evidence it specifically
-  detects this degeneracy better; it pays for its own cleaner trace with a substantially higher
-  rejection rate at the same low-SNR regime.
+  detects this degeneracy better.
 
   **`getSmfretTimeTraces()` now has a real GPU-accelerated extraction path (`smfretExtractTracesGpu()`),
   requested directly — smFRET's own extraction never used the GPU at all before this, always CPU

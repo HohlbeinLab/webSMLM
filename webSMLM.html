@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.9-dev build 2026-09-22b; may drift
+  MODULE INDEX — line numbers as of v0.12.9-dev build 2026-09-22c; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             19006  single particle tracking, trackpy-inspired;
+    spt             19059  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20548  top-level orchestration, *Core()/wrapper split;
+    pipeline        20601  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   22099  Micro-Manager/pycromanager camera bridge
+    liveStreaming   22152  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -611,14 +611,14 @@
                            pipeline), the same mechanism a normal Localize
                            run's own live preview uses, not a manual "Render
                            every N frames" setting
-    table           25062  localizations table, filtering, histograms;
+    table           25153  localizations table, filtering, histograms;
                            renderHistogramPlotHeadless() (config.exportHistograms);
                            tempClusteringMemory (gap-frame tolerance, incl.
                            unlimited/"inf") in clusterEvents(); tableFiltersCore()
                            (config.tableFilters) replays a whole committed-filter
                            session (typed clauses/crop/clustering) headlessly —
                            every commitFilter()/crop logCmd()s the full array
-    headless API    25974  window.webSMLM.analyze()/analyzeBatch();
+    headless API    26065  window.webSMLM.analyze()/analyzeBatch();
                            config.onRecord + makeRecordEmitter() (MODULE:
                            params) stream per-record datasets in bounded
                            batches, never in analyze()'s own return value —
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-22b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-22c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -16996,17 +16996,55 @@ function apertureIntensity(img,w,h,cx,cy,win,gain=1,floorZero=true){
 // smfretWidthAlongBearing() below, since a rotated ellipse's width along
 // ANY one direction needs both semi-axes AND the fitted angle, not just one
 // of sx/sy picked arbitrarily.
+// smFRET-specific reject bounds — TIGHTER than the shared FIT_MAX_DRIFT_SIGMA_MULT(2),
+// and backed by a direct, model-free cross-check the shared fitters have no equivalent
+// of. Raised directly, alongside a real, quantified "spiking" report and a stated
+// design preference: "FRET is different to standard SMLM as with SMLM we don't care
+// much about rejection, but for smFRET we would be fine with just getting an amplitude
+// of zero" — unlike the main pipeline (many distinct emitters, a genuinely varying z/
+// PSF shape, where a wide tolerance avoids systematically excluding real events),
+// smFRET re-fits the SAME, already-known site position frame after frame against a PSF
+// whose width should be essentially constant (no z-defocus on a single in-focus
+// imaging plane) — the seed sigma (psf) is already a good, often independently-measured
+// estimate, so a fit drifting far from it is far more likely wrong than a genuinely
+// different PSF, and a false "0" (this frame had no real signal) is a safe, meaningful
+// outcome here in a way it usually isn't for a general Localize run.
+const SMFRET_MAX_SIGMA_MULT = 1.6;
+// apertureIntensity() has no iterative fit at all, so it can't fall into the sigma/
+// background degeneracy documented in smfretExtractIntensity()'s own comment (a wide/
+// dim peak plus a deflated background explaining the same noisy pixels about as well as
+// the true narrow peak plus the true background) — reusing it here as an independent,
+// model-free reference directly operationalizes a real, reported diagnostic
+// ("intensity looks just fine with aperture photometry" on frames a fit spiked on):
+// reject a fit whose own photon count is implausibly larger than a simple sum over the
+// same window can support. The multiplier is generous (not 1x) specifically because
+// aperture's own geometry (a circular disk) legitimately reads a bit lower than a
+// Gaussian fit's own integral for a real, well-matched PSF — this is meant to catch a
+// genuine multiple-x DEGENERACY, not second-guess an ordinary difference in method.
+// The additive term SCALES WITH apRef's own real Poisson uncertainty
+// (~sqrt(apRef), a few real shot-noise sigma), not a flat number — a flat
+// floor generous enough to tolerate real noise at LOW counts (where aperture's
+// own reading is itself least precise) turned out, tried first, to also be
+// generous enough at those same low counts to pass straight through most of
+// the very degenerate fits this check exists to catch (a flat 150-photon floor
+// against a true-150-photon regime barely constrains anything) — a
+// noise-PROPORTIONAL margin tightens automatically exactly where the
+// degeneracy is worst (low counts) while still not over-rejecting at high
+// counts, where sqrt(apRef) alone would be too tight in absolute photons.
+const SMFRET_AP_SANITY_MULT = 1.5, SMFRET_AP_SANITY_NSIGMA = 4;
 function smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useAperture,floorZero,useElliptical,useLS){
   const border=(win-1)/2+1;
   if(cx<border||cx>=w-border||cy<border||cy>=h-border) return {photons:NaN, width:null};
   if(useAperture) return {photons:apertureIntensity(img,w,h,cx,cy,win,gain,floorZero), width:null};
+  const apRef=apertureIntensity(img,w,h,cx,cy,win,gain,true);
+  const apOk=photons=>photons<=SMFRET_AP_SANITY_MULT*apRef+SMFRET_AP_SANITY_NSIGMA*Math.sqrt(Math.max(1,apRef));
   if(useElliptical){
     const L=gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma,gain,camoffset);
     // Same "once a fitted width approaches the window's own half-width, the
     // reported photon count stops being meaningfully constrained" reasoning
     // as the spherical check below, applied to EACH axis independently —
     // an elliptical fit can have one axis narrow and the other wide.
-    const ok = L && L.sx<=FIT_MAX_DRIFT_SIGMA_MULT*sigma && L.sy<=FIT_MAX_DRIFT_SIGMA_MULT*sigma;
+    const ok = L && L.sx<=SMFRET_MAX_SIGMA_MULT*sigma && L.sy<=SMFRET_MAX_SIGMA_MULT*sigma && apOk(L.photons);
     return ok ? {photons:L.photons, width:{sx:L.sx,sy:L.sy,angle:L.angle}} : {photons:0, width:null};
   }
   // Least-squares (Fit method: gaussls) — a real, previously-missing branch:
@@ -17020,7 +17058,7 @@ function smfretExtractIntensity(img,w,h,cx,cy,win,sigma,gain,camoffset,useApertu
   // null on failure) already matches gaussianMLEspheric()'s contract, so the
   // same accept/reject line below is reused as-is.
   const L=useLS ? gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset) : gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset);
-  const ok = L && L.sigma<=FIT_MAX_DRIFT_SIGMA_MULT*sigma;
+  const ok = L && L.sigma<=SMFRET_MAX_SIGMA_MULT*sigma && apOk(L.photons);
   return ok ? {photons:L.photons, width:L.sigma} : {photons:0, width:null};
 }
 // Effective 1D Gaussian width along a given WORLD-frame bearing (radians),
@@ -17295,15 +17333,20 @@ async function smfretExtractTracesGpu({stack,w,h,n,sites,traces,alex,donorParity
     totalPushed+=m;
     for(const res of results){
       const mt=meta[res._candidatePixel];
-      // Same smFRET-specific extra reject smfretExtractIntensity() applies
+      // Same smFRET-specific extra rejects smfretExtractIntensity() applies
       // on top of the shared fitter's own criteria (already checked inside
-      // the wrapper above) — a wide/dim fit still passing the wrapper's own
-      // gate shouldn't count here; see that function's own comment.
+      // the wrapper above) — a wide/dim fit, or one whose own reported
+      // photon count is implausibly larger than a simple aperture-photometry
+      // sum over the same window supports (the sigma/background degeneracy
+      // documented in that function's own comment), still passing the
+      // wrapper's own gate shouldn't count here.
+      const apRef=apertureIntensity(mt.img,w,h,mt.cx,mt.cy,win,gain,true);
+      const apOk=photons=>photons<=SMFRET_AP_SANITY_MULT*apRef+SMFRET_AP_SANITY_NSIGMA*Math.sqrt(Math.max(1,apRef));
       if(useElliptical){
-        if(res.sx>FIT_MAX_DRIFT_SIGMA_MULT*sigma || res.sy>FIT_MAX_DRIFT_SIGMA_MULT*sigma) continue;
+        if(res.sx>SMFRET_MAX_SIGMA_MULT*sigma || res.sy>SMFRET_MAX_SIGMA_MULT*sigma || !apOk(res.photons)) continue;
         writeTraceResult(mt, res.photons, {sx:res.sx,sy:res.sy,angle:res.angle});
       } else {
-        if(res.sigma>FIT_MAX_DRIFT_SIGMA_MULT*sigma) continue;
+        if(res.sigma>SMFRET_MAX_SIGMA_MULT*sigma || !apOk(res.photons)) continue;
         writeTraceResult(mt, res.photons, res.sigma);
       }
       totalAccepted++;
@@ -17314,7 +17357,17 @@ async function smfretExtractTracesGpu({stack,w,h,n,sites,traces,alex,donorParity
     if(cx<border||cx>=w-border||cy<border||cy>=h-border){ traces[j][`photons${ch}`][fi]=NaN; return; }   // NaN gap, same as smfretExtractIntensity()'s own border check — never added to the batch at all
     if(useElliptical) buildFitSeedRowEll(img,w,cx,cy,r,win,k2,sigma*1.05,sigma*0.95,gain,camoffset,seedsA,seedsB,windows,m);
     else buildFitSeedRow(img,w,cx,cy,r,win,k2,sigma,gain,camoffset,seedsA,seedsB,windows,m);
-    frameIdx[m]=fi; meta[m]={j,fi,ch};
+    frameIdx[m]=fi;
+    // img/cx/cy retained (a per-frame buffer REFERENCE, not a copy — a batch
+    // spans several frames' worth of rows before flush() fires, so several
+    // of these stay alive briefly at once; a modest, transient memory cost,
+    // not a real concern) so flush() below can run the SAME aperture-
+    // photometry sanity check smfretExtractIntensity()'s own CPU path does —
+    // apertureIntensity() needs the background annulus OUT TO r+2.5 px,
+    // wider than the packed GPU fit window (`windows`) ever carries, so this
+    // can only be computed from the original image, not reconstructed from
+    // what was already sent to the GPU.
+    meta[m]={j,fi,ch,img,cx,cy};
     m++;
     if(m>=cap) await flush();
   };
@@ -24897,47 +24950,44 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.9-dev · build 2026-09-22b — five smFRET follow-ups from
-a real-data review. (1) CRITICAL, still open: "some spiking in LS & MLE
-spherical, yet failed fits in MLE rotated elliptical (but less
-spiking)" — found a real gap first: smfretExtractIntensity() always
-used spherical MLE internally, "Least-squares 2D-Gaussian" never
-actually ran inside smFRET extraction at all — fixed (useLS, wired to
-gaussianFit(), CPU-only like the main pipeline's own LS). Then built a
-ground-truth harness (tests/gpu/test-smfret-fit-robustness.mjs) and
-found the real mechanism: at low SNR, the fitted sigma inflates while
-bg deflates below a robust estimate — a genuine likelihood degeneracy,
-not a simple bug — inflating the reported photon count by 3-5x on
-affected frames. FIT_MAX_DRIFT_SIGMA_MULT doesn't reliably catch it. A
-candidate bg-sanity reject check showed real but imperfect separation
-from legitimate low-SNR fits — not shipped pending a decision on the
-accept/reject trade-off it would introduce. Elliptical's own lower
-spike rate is a mechanistic side effect of more free parameters (more
-chances to trip a bound check), not a smarter detector — it pays with
-a much higher rejection rate at the same regime.
+log(`webSMLM v0.12.9-dev · build 2026-09-22c — mitigated (not fully
+eliminated — a genuine Fisher-information limit at low SNR, not
+something any threshold alone removes) the "spiking" degeneracy found
+last round: two new smFRET-specific reject checks. (1) A tighter
+sigma bound (1.6x the seed, vs. the shared fitters' own 2.0x) — smFRET
+re-fits the SAME known site against a PSF whose width should be
+essentially constant (no z-defocus), unlike the main pipeline's many
+distinct emitters. (2) An aperture-photometry sanity cross-check —
+apertureIntensity() has no iterative fit at all, so it can't fall into
+this degeneracy, making it a clean, independent reference, directly
+per a follow-up report ("I also see spikes... on localisations where
+the intensity look just fine with aperture photometry"): reject when
+the fit's own photon count exceeds a NOISE-PROPORTIONAL margin over
+the aperture reading (1.5x + 4 sigma, not a flat number — a flat floor
+tried first was generous enough at low counts to pass most degenerate
+fits straight through). Applied to both the CPU and GPU-batched
+extraction paths. Measured: spherical MLE's own low-SNR spike rate
+roughly halved, stdRatio dropped from ~12x to ~4-5x the Poisson floor
+— at the cost of lower acceptance, matching the explicitly requested
+"rather get zero than a wrong spike" preference. A tighter retuning
+was tried and reverted: it mostly rejected GOOD frames at a genuinely
+wider-than-seed (but real) PSF regime, rather than catching more real
+spikes — the aperture check has a real blind spot there.
 
-(2) The bearing-width projection was re-verified end to end after a
-report that "the wrong width is plotted" — re-derived the formula
-algebraically (confirmed invariant under the standard elliptical-
-Gaussian relabeling ambiguity) and built a dedicated ground-truth
-harness (tests/gpu/test-smfret-bearing-width.mjs: 20 sites, distinct
-known (sx,sy,angle) per channel, many bearings) — max error 0.00028 px
-against the analytic truth on BOTH the CPU and GPU-batched paths. The
-mechanism is confirmed correct; if this recurs, it's likely (1)'s own
-degeneracy (a bad fit projects to a bad width, correctly) or a plain
-spherical-vs-elliptical mix-up, not a projection bug.
-
-(3)+(4) Save (FRET) data now also saves sigmaDD/sigmaDA/sigmaAA (the
-sigma-vs-time plot's own data was never saved before this) and no
-longer saves pooled_E/pooled_S (directly recomputable from the saved
-DD/DA/AA arrays — dropped on request as pure duplication).
-
-(5) The main locs table gained real AA-channel width columns
-(sx_AA/sy_AA) for a paired site — previously only DD's and DA's own
-widths existed; AA's own required a genuinely separate fit
-(smfretEnrichPairedWithAA(), reusing the acceptor-excitation composite
-fit "Via channel matching" already computes, or running a fresh one
-for "Via distances and angles").`);
+(build 2026-09-22b's own round remains in effect: smfretExtractIntensity()
+now genuinely respects "Least-squares 2D-Gaussian" (useLS, wired to
+gaussianFit()) — it always silently used spherical MLE internally
+before this, so "LS" had never actually run inside smFRET extraction;
+the sigma-vs-time bearing-width projection was re-verified end to end
+(tests/gpu/test-smfret-bearing-width.mjs: max error 0.00028px against
+analytic truth on both CPU and GPU paths) after a report that "the
+wrong width is plotted" — the mechanism itself is confirmed correct;
+Save (FRET) data now also saves sigmaDD/sigmaDA/sigmaAA (previously
+missing entirely) and no longer saves pooled_E/pooled_S (directly
+recomputable, dropped as duplication); the main locs table gained real
+AA-channel width columns (sx_AA/sy_AA) for a paired site, via a new
+post-pairing enrichment step fitting the acceptor-excitation composite
+independently.)`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

@@ -24,32 +24,63 @@
 // direct outlier count against the known true mean) per method.
 //
 // ROOT CAUSE FOUND (via a follow-up diagnostic calling gaussianMLEspheric()
-// directly on individual "spike" frames, not committed as its own test —
-// the numbers below are what it showed): every spike shares the SAME
-// signature — the fitted `sigma` is inflated well past the seed while `bg`
-// is correspondingly deflated below a robust (window-median) background
-// estimate, and the reported total photon count (amp*2*pi*sigma^2) balloons
-// because it scales with sigma^2. This is a genuine likelihood DEGENERACY,
-// not a simple coding bug: at low SNR (these regimes put ~100-200 true
-// signal photons against ~1500 total background photons in the fit window),
-// a wider/dimmer peak plus a lower background can explain the same noisy
-// pixels about as well as the true narrow peak plus the true background —
-// the Newton solver converges (passes its own decrement + bounds checks)
-// to this WRONG but locally-stable solution. `FIT_MAX_DRIFT_SIGMA_MULT`
-// (2x the seed sigma) does NOT reliably catch it: most observed spikes had
-// a fitted sigma comfortably under that bound (only the most extreme cases
-// exceeded it). A candidate fix (comparing the fit's own bg against a
-// robust window-median estimate) showed real but IMPERFECT separation
-// between spike and legitimate low-SNR fits (spike bgRatio 0.30-0.97 vs
-// legitimate 0.85-1.01, mean 0.79 vs 0.92 — real signal, but overlapping
-// distributions, so no clean threshold exists) — not committed as a fix
-// pending a decision on the accept/reject trade-off (see the session notes
-// for options put to the user). The elliptical fitter's own LOWER spike
-// count is a real but MECHANISTIC side effect of having more free
-// parameters (sx, sy, angle each get their own bound check, so a marginal
-// fit has more chances to trip at least one), not evidence it's better at
-// specifically detecting this degeneracy — it pays for this with a real,
-// substantially higher rejection rate at the same low-SNR regimes.
+// directly on individual "spike" frames, not committed as its own test):
+// every spike shares the SAME signature — the fitted `sigma` is inflated
+// well past the seed while `bg` is correspondingly deflated, and the
+// reported total photon count (amp*2*pi*sigma^2) balloons because it scales
+// with sigma^2. This is a genuine likelihood DEGENERACY, not a simple coding
+// bug: at low SNR (these regimes put ~100-200 true signal photons against
+// ~1500 total background photons in the fit window), a wider/dimmer peak
+// plus a lower background can explain the same noisy pixels about as well
+// as the true narrow peak plus the true background — the Newton solver
+// converges (passes its own decrement + bounds checks) to this WRONG but
+// locally-stable solution. The SHARED `FIT_MAX_DRIFT_SIGMA_MULT` (2x the
+// seed sigma) does NOT reliably catch it: most observed spikes had a fitted
+// sigma comfortably under that bound.
+//
+// FIXED (smfretExtractIntensity()/smfretExtractTracesGpu(), MODULE:
+// smFRET), per direct follow-up guidance ("bg-sanity is probably the way to
+// go... FRET is different to standard SMLM... we would be fine with just
+// getting an amplitude of zero... is the psf width properly confined?"):
+// two smFRET-specific reject checks on top of the shared fitter's own —
+// (1) SMFRET_MAX_SIGMA_MULT (1.6, tighter than the shared 2.0) — smFRET
+// re-fits the SAME known site against a PSF whose width should be
+// essentially constant (no z-defocus), unlike the main pipeline's many
+// distinct emitters/genuinely varying PSF shape, so a tighter anchor to the
+// already-known seed sigma is justified here specifically; (2) an
+// APERTURE-PHOTOMETRY SANITY CROSS-CHECK — apertureIntensity() has no
+// iterative fit at all, so it can't fall into this degeneracy, making it a
+// clean, independent reference (directly operationalizing a further report:
+// "I also see spikes... on localisations where the intensity look just fine
+// with aperture photometry"): reject when the fit's own photon count
+// exceeds `SMFRET_AP_SANITY_MULT(1.5)*apRef +
+// SMFRET_AP_SANITY_NSIGMA(4)*sqrt(apRef)` — a noise-PROPORTIONAL margin
+// (not a flat one — a flat floor generous enough for real noise at LOW
+// counts, tried first, was ALSO generous enough there to pass most
+// degenerate fits straight through, since the check barely constrains
+// anything when the floor and the true signal are comparable in size).
+// Measured effect at these tuned constants (typical run, real noise so
+// exact numbers vary run to run): spherical MLE's own "low" regime spike
+// RATE roughly halved (~37%->~18-22% of accepted frames) and its stdRatio
+// dropped from ~12x to ~4-5x the Poisson floor, at the cost of a real,
+// accepted trade-off — lower acceptance (~58%->~40-60%) — exactly the
+// "rather get zero than a wrong spike" preference requested. Retuning
+// TIGHTER (1.3/3) was tried and reverted: it improved the "low" regime
+// further but, at the "wide" (mildly PSF-mismatched) regime, mostly
+// rejected GOOD frames rather than catching more real spikes (accepted
+// count dropped by half with almost no drop in the raw spike count) — the
+// aperture cross-check has a real, inherent blind spot: a fit correctly
+// recovering a genuinely wider-than-seed PSF also legitimately reports more
+// total photons than a fixed-radius aperture fully captures, indistinguishable
+// from the degeneracy by this check alone at a tighter margin. The
+// degeneracy is NOT fully eliminated (stdRatio stays well above 1x even
+// after this fix) — a fundamental Fisher-information limit at genuinely low
+// SNR, not something any accept/reject threshold alone can remove — this is
+// a real, substantial mitigation, not a complete fix. The elliptical
+// fitter's own LOWER spike count remains a real but MECHANISTIC side effect
+// of having more free parameters (sx, sy, angle each get their own bound
+// check, so a marginal fit has more chances to trip at least one), not
+// evidence it's better at specifically detecting this degeneracy.
 import { launchPage, htmlUrl } from '../lib/launch.mjs';
 
 const { browser, page } = await launchPage({ headless: true });
