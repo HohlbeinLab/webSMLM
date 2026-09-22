@@ -824,13 +824,9 @@ in a module.
   does NOT reliably catch it — most observed spikes had a fitted sigma comfortably under that bound.
 
   **Mitigated (not fully eliminated — a genuine Fisher-information limit at low SNR, not something any
-  threshold alone removes) with two new smFRET-specific reject checks**, per direct follow-up
-  guidance ("bg-sanity is probably the way to go... FRET is different to standard SMLM... we would be
-  fine with just getting an amplitude of zero... is the psf width properly confined?"): (1)
-  `SMFRET_MAX_SIGMA_MULT` (1.6, tighter than the shared 2.0) — smFRET re-fits the SAME known site
-  against a PSF whose width should be essentially constant (no z-defocus, unlike the main pipeline's
-  many distinct emitters/genuinely varying PSF shape), so a tighter anchor to the already-known seed
-  sigma is justified specifically here; (2) an **aperture-photometry sanity cross-check** —
+  threshold alone removes) with a new smFRET-specific reject check**, per direct follow-up guidance
+  ("bg-sanity is probably the way to go... FRET is different to standard SMLM... we would be fine with
+  just getting an amplitude of zero"): an **aperture-photometry sanity cross-check** —
   `apertureIntensity()` (MODULE: fit) has no iterative fit at all, so it can't fall into this
   degeneracy, making it a clean, independent reference directly operationalizing a further report ("I
   also see spikes... on localisations where the intensity look just fine with aperture photometry"):
@@ -842,18 +838,56 @@ in a module.
   path — the aperture check needs the ORIGINAL image, since its own background annulus reaches wider
   than the packed GPU fit window ever carries, so `meta[]` now retains each row's own `img`/`cx`/`cy`
   — a per-frame buffer REFERENCE, not a copy, several staying alive briefly per batch, a modest,
-  transient memory cost). Measured effect at these tuned constants: spherical MLE's own low-SNR spike
-  RATE roughly halved and its stdRatio (extracted trace's own std-dev over the true Poisson noise
-  floor) dropped from ~12x to ~4-5x, at the cost of a real, explicitly accepted trade-off — lower
-  acceptance — matching the "rather get zero than a wrong spike" preference requested. A TIGHTER
-  retuning (1.3/3) was tried and reverted: at a genuinely wider-than-seed (but still real) PSF regime,
-  it mostly rejected GOOD frames rather than catching more real spikes — the aperture check has a
-  real, inherent blind spot there: a fit correctly recovering a genuinely wider PSF also legitimately
-  reports more total photons than a fixed-radius aperture fully captures, indistinguishable from the
-  degeneracy at a tighter margin. The elliptical fitter's own lower spike count remains a real but
+  transient memory cost). **A tighter smFRET-specific SIGMA bound (`SMFRET_MAX_SIGMA_MULT`, 1.6 vs. the
+  shared `FIT_MAX_DRIFT_SIGMA_MULT`'s 2.0) was tried alongside this and then REVERTED after direct
+  correction: a grating- or prism-based smFRET setup can genuinely need WIDE PSF widths by design**
+  (spectral dispersion, not a fitting artifact or z-defocus — the original "PSF width should be
+  essentially constant" reasoning for tightening this was simply wrong for that hardware) — smFRET's
+  own sigma reject bound is therefore the SAME shared `FIT_MAX_DRIFT_SIGMA_MULT` every other fitter
+  uses; only the aperture cross-check (a real, measured window sum, with no "assumes a narrow PSF"
+  assumption at all) is smFRET-specific. Measured effect at the shipped constants: spherical MLE's own
+  low-SNR spike RATE roughly halved and its stdRatio (extracted trace's own std-dev over the true
+  Poisson noise floor) dropped from ~12x to ~4-5x, at the cost of a real, explicitly accepted
+  trade-off — lower acceptance — matching the "rather get zero than a wrong spike" preference
+  requested. A TIGHTER retuning of the aperture check (1.3/3) was tried and reverted: at a genuinely
+  wider-than-seed (but still real) PSF regime, it mostly rejected GOOD frames rather than catching more
+  real spikes — the aperture check has a real, inherent blind spot there too: a fit correctly
+  recovering a genuinely wider PSF also legitimately reports more total photons than a fixed-radius
+  aperture fully captures, indistinguishable from the degeneracy at a tighter margin. The elliptical
+  fitter's own lower spike count remains a real but
   MECHANISTIC side effect of having more free parameters (`sx`,`sy`,`angle` each get their own bound
   check, so a marginal fit has more chances to trip at least one) — not evidence it specifically
   detects this degeneracy better.
+
+  **A SEPARATE, real finding raised directly: "compare the std of the intensity values for immobilised
+  emitters between aperture photometry and MLE fitting. they should be the same, but weren't according
+  to visual inspection even for high SNR data."** Confirmed directly with
+  `tests/gpu/test-mle-vs-aperture-variance.mjs` (500 independent noise realizations of an identical
+  4000-true-photon site, well above the low-SNR degeneracy above — 100% fit acceptance, no rejections
+  at all): `gaussianMLEspheric()`'s own reported photon count has real-world scatter (std ≈ 130) that
+  matches its OWN theoretically-reported Cramér-Rao bound for that parameter (read directly from its
+  own Fisher information matrix, the same quantity `lpx`/`lpy` already expose for x/y — CRLB ≈ 122,
+  within the run's own natural noise) — this is CORRECT, EXPECTED MLE behavior, not a bug (the
+  function's own pre-existing comment already claimed "CRLB matches empirical scatter within a few
+  percent"; this is a direct re-verification for N specifically, the parameter actually in question).
+  The reason it doesn't match naive photon-counting statistics (`√N`≈63, roughly HALF the real CRLB):
+  `gaussianMLEspheric()` JOINTLY estimates 5 correlated parameters (x, y, N, bg, sigma) from one small
+  window — the Fisher information is shared across all 5, so N's own MARGINAL precision is genuinely,
+  unavoidably worse than simple counting would suggest, mostly from correlation with the
+  simultaneously-estimated background and width. `apertureIntensity()` pays a much smaller version of
+  the same tax in the other direction: no joint position/width fit at all (a fixed, known geometry),
+  only one nuisance parameter (background, via a percentile) — far fewer correlated unknowns, so its
+  own empirical std (≈78) sits much closer to the naive floor — at the cost of a real, KNOWN,
+  documented systematic bias (mean ≈3609 vs true 4000, a ~10% undercount from real signal falling
+  outside the finite aperture radius at `winr=3` for this σ=1.3 PSF), where MLE's own mean is
+  essentially unbiased (≈4002). A genuine bias-variance trade-off between the two methods, not a
+  defect in either — directly motivates (not yet implemented — "think later") a hybrid raised in the
+  same discussion: use MLE for sub-pixel POSITION (this correlation penalty doesn't apply nearly as
+  strongly there) and aperture photometry, evaluated AT that refined position, for the photon COUNT —
+  aperture's own lower variance without inheriting MLE's N-specific precision penalty from joint
+  estimation. A related, also-deferred idea from the same discussion: for a non-converging fit, fall
+  back to aperture photometry instead of reporting a flat rejected `0`, recovering partial signal
+  rather than none.
 
   **`getSmfretTimeTraces()` now has a real GPU-accelerated extraction path (`smfretExtractTracesGpu()`),
   requested directly — smFRET's own extraction never used the GPU at all before this, always CPU

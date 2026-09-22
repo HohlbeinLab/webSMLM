@@ -125,11 +125,29 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     an approach, not a change to make blind.
   - **Accurate/corrected FRET.** RAW E (= DA/(DD+DA)) and S (= (DD+DA)/(AA+DD+DA)) are already
     computed and shown — per-sample in the pooled **E(S) histogram**, per-site-per-time in the Time
-    trace plot's own E/S-vs-time subplot, and now saved directly in **Export traces & E/S**'s own
-    `pooled_E`/`pooled_S` arrays. What's still missing is the FULL correction on top of these raw
-    values — leakage/crosstalk, direct excitation, and a γ-factor derived from the population
-    structure on the 2D E–S histogram — a distinct, later step, deliberately deferred per the
-    references above.
+    trace plot's own E/S-vs-time subplot. (`pooled_E`/`pooled_S` are no longer saved in **Export
+    traces & E/S** — dropped as pure duplication, directly recomputable from the exported
+    `photonsDD`/`photonsDA`/`photonsAA` arrays.) What's still missing is the FULL correction on top of
+    these raw values — leakage/crosstalk, direct excitation, and a γ-factor derived from the
+    population structure on the 2D E–S histogram — a distinct, later step, deliberately deferred per
+    the references above.
+  - **A hybrid MLE-position/aperture-intensity extraction mode, raised directly after confirming a
+    real bias-variance trade-off between the two** (see CLAUDE.md's own smFRET paragraph on this):
+    `gaussianMLEspheric()`'s own reported photon count has real-world scatter matching its own
+    Cramér-Rao bound, which is genuinely, unavoidably worse than naive photon-counting statistics
+    because it jointly estimates 5 correlated parameters (x, y, N, bg, sigma) — confirmed directly via
+    `tests/gpu/test-mle-vs-aperture-variance.mjs` (CRLB ≈2x the naive floor, matching MLE's own
+    empirical std within a few percent). `apertureIntensity()` pays a much smaller version of the same
+    tax (no joint position/width fit, only a background percentile), so its own variance is closer to
+    the naive floor, at the cost of a real, known systematic undercount bias. Idea (not scoped, "think
+    later"): use MLE for sub-pixel POSITION (this correlation penalty doesn't apply nearly as strongly
+    there) and evaluate aperture photometry AT that refined position for the photon COUNT — aperture's
+    own lower variance without inheriting MLE's N-specific precision penalty. A related, also-deferred
+    idea from the same discussion: for a non-converging fit, fall back to aperture photometry instead
+    of reporting a flat rejected `0`, recovering partial signal rather than none. Needs real design
+    work before implementing: exactly how a "fixed position, aperture-for-intensity" mode would be
+    exposed (a new `smfretApertureMode`-adjacent toggle? Always-on once an MLE position exists?), and
+    whether it belongs in smFRET specifically or as a general fit-module option.
   - **Headless/NDJSON export for Get traces & E/S.** `config.smfretLocateSOI` covers SOI detection
     headlessly; the time-trace extraction itself (`getSmfretTimeTraces()`) has no headless path yet.
     The existing streaming-NDJSON precedent (`spt_tracks.ndjson` via `makeRecordEmitter()`) is the
