@@ -778,12 +778,22 @@ in a module.
     success. The winning transform's own match set IS the pairing — no separate distance/angle
     `pairCore()` step afterward.
 
-  **Extraction** (`getSmfretTimeTraces()`): either a free-position MLE fit — spherical
-  (`gaussianMLEspheric`, the default) or, when the sidebar's **Fit method** is set to **Gauss MLE
-  rotated elliptical**, `gaussianMLEellipticangled()` in its free-angle mode (`useElliptical`,
-  `smfretExtractIntensity()`) — x,y merely SEEDED at the known position either way, correctly fails/
-  rejects on a frame with no real molecule — or aperture photometry (`smfretApertureMode`, no fit,
-  the shared `apertureGeometry()`/`percentile()` from **fit**). A rejected/non-converged fit writes a
+  **Extraction** (`getSmfretTimeTraces()`): a free-position MLE fit — spherical
+  (`gaussianMLEspheric`, the default), least-squares (`gaussianFit`, when **Fit method** is
+  **Least-squares 2D-Gaussian** — `useLS`, `smfretExtractIntensity()`), or, when **Fit method** is
+  **Gauss MLE rotated elliptical**, `gaussianMLEellipticangled()` in its free-angle mode
+  (`useElliptical`) — or aperture photometry (`smfretApertureMode`, no fit, the shared
+  `apertureGeometry()`/`percentile()` from **fit**). **A real, previously-shipped gap**:
+  `smfretExtractIntensity()` used to call `gaussianMLEspheric()` for EVERY non-elliptical,
+  non-aperture method, silently ignoring the sidebar's own Fit method choice whenever it was
+  anything else (least-squares, Phasor, MLE 3D) — raised directly ("some spiking in LS & MLE
+  spherical"), and confirmed on inspection that "LS" had never actually run inside smFRET
+  extraction at all, only spherical MLE under two different labels. Fixed by adding the `useLS`
+  branch above; `gaussianFit()` is CPU-only everywhere else in this app (`GPU_FIT_METHODS`, MODULE:
+  gpu, doesn't include `gaussls`), so `getSmfretTimeTraces()`'s own `useGpuBatch` eligibility excludes
+  it too — LS always takes the plain per-frame CPU loop, same as aperture photometry already does.
+  x,y are merely SEEDED at the known position for every fit method, correctly fails/
+  rejects on a frame with no real molecule. A rejected/non-converged fit writes a
   real, meaningful `0` (not `NaN`) — the reject logic already IS the judgement that no molecule was
   on; `NaN` is reserved for "too close to this frame's own edge, no window to fit at all." Both MLE
   methods additionally reject a result whose width exceeds `2×σ_PSF` on EITHER axis (smFRET-specific,
@@ -794,6 +804,35 @@ in a module.
   scalar sigma (spherical) or `{sx,sy,angle}` (elliptical), consumed by the sigma-vs-time plot below;
   `getSmfretTimeTraces()`'s own `$('method')` change listener re-extracts an already-shown result the
   same way its `smfretApertureMode`/`smfretFloorZero`/`smfretApplyDrift` listeners already do.
+
+  **A real, CHARACTERIZED-BUT-NOT-YET-FIXED fitting-robustness issue, raised directly and marked
+  critical: "some spiking in LS & MLE spherical, yet failed fits in MLE rotated elliptical (but less
+  spiking)."** Verified with a rigorous ground-truth harness
+  (`tests/gpu/test-smfret-fit-robustness.mjs` — a known, near-constant true photon-count movie with
+  realistic Poisson+read noise at several SNR regimes, run through all 4 real extraction paths on the
+  IDENTICAL noise realization): confirmed real, quantified "spikes" in spherical MLE and least-squares
+  at low SNR (true 150 photons against a ~1500-photon background window: spike frames read 3-5x the
+  true value), and a correspondingly much higher rejection rate in the elliptical fitter at the same
+  regime (matching "less spiking" — it rejects the same ambiguous frames spherical/LS accept, rather
+  than resolving them any better). Root cause, found via a direct per-frame diagnostic (calling
+  `gaussianMLEspheric()` on individual spike frames): every spike shares the same signature — the
+  fitted `sigma` inflates well past the seed while `bg` deflates correspondingly below a robust
+  (window-median) estimate, and the reported photon count (`amp·2π·sigma²`) balloons because it
+  scales with `sigma²`. This is a genuine likelihood DEGENERACY, not a simple bug: at these SNRs, a
+  wider/dimmer peak plus a lower background explains the noisy pixels about as well as the true
+  narrow peak plus the true background, and the Newton solver converges (passing its own decrement +
+  bounds checks) to this wrong but locally-stable solution. `FIT_MAX_DRIFT_SIGMA_MULT` (2× the seed
+  sigma) does NOT reliably catch it — most observed spikes had a fitted sigma comfortably under that
+  bound. A candidate additional check (reject when the fit's own `bg` is far below a robust
+  window-median background estimate) showed real but IMPERFECT separation (spike `bg`/median-`bg`
+  ratio 0.30-0.97 vs a legitimate low-SNR fit's own 0.85-1.01 — real signal, but overlapping
+  distributions, so no clean threshold exists) — not shipped as a fix pending a decision on the
+  accept/reject trade-off it would introduce (rejecting more borderline-but-real low-SNR frames to
+  catch more of these degenerate ones). The elliptical fitter's own lower spike rate is a real but
+  MECHANISTIC side effect of having more free parameters (`sx`,`sy`,`angle` each get their own bound
+  check, so a marginal fit has more chances to trip at least one) — not evidence it specifically
+  detects this degeneracy better; it pays for its own cleaner trace with a substantially higher
+  rejection rate at the same low-SNR regime.
 
   **`getSmfretTimeTraces()` now has a real GPU-accelerated extraction path (`smfretExtractTracesGpu()`),
   requested directly — smFRET's own extraction never used the GPU at all before this, always CPU
@@ -895,6 +934,56 @@ in a module.
   model at `r=`this formula's own output reproduces `exp(-0.5)` exactly, the defining 1-σ property, at
   several `(sx,sy,angle,bearing)` combinations), and end-to-end against a real elliptical fit's actual
   `{sx,sy,angle}` output (not synthetic ground truth — see the next paragraph for why) via Playwright.
+  **Re-verified again directly** after a report that "the wrong width is plotted": re-derived the
+  projection formula algebraically against the well-known elliptical-Gaussian relabeling ambiguity
+  (`(sx,sy,angle)` and `(sy,sx,angle+90°)` describe the identical physical ellipse) and confirmed it
+  returns the SAME value under either labeling — the formula itself was not the issue. Then built a
+  dedicated ground-truth harness (`tests/gpu/test-smfret-bearing-width.mjs`: 20 sites on a
+  well-separated grid, each channel — DD/DA/AA — given a distinct known `(sx,sy,angle)`, many varied
+  bearings, zero noise, run through the REAL `getSmfretTimeTraces()` on both the CPU and GPU-batched
+  paths) — max error 0.00028 px against the analytically true bearing-projected width, on BOTH paths.
+  This rules out a GPU/CPU angle-convention mismatch as well as a formula error; the mechanism is
+  confirmed correct end-to-end. If the wrong-looking width recurs, it's most likely either the
+  elliptical-vs-spherical fit-method mix-up documented above (a plain, unprojected `sigma` from
+  spherical MLE looks nothing like a bearing-aligned width) or the fitting-robustness degeneracy
+  documented two paragraphs up (a genuinely bad low-SNR fit's own `{sx,sy,angle}` would of course
+  project to a bad width too, correctly reflecting a bad INPUT rather than a broken projection).
+
+  **Trace export/reload (`exportSmfretTraces()`/`loadSmfretTraces()`) now round-trips the sigma-vs-time
+  plot's own data** — a real, previously-missing gap: only `photonsDD`/`photonsDA`/`photonsAA` were
+  ever saved, so Save/Load traces could reproduce the intensity plot but never the sigma-vs-time one.
+  `sigmaDD`/`sigmaDA`/`sigmaAA` (native px, same "store in px, convert to nm at plot time" convention
+  `x`/`x2` already use) are now saved whenever they exist, alongside a `use_elliptical_width` flag so
+  `drawSmfretTrace()`'s own y-axis label ("width along D-A (nm)" vs plain "sigma (nm)") is restored
+  correctly rather than depending on whatever the sidebar's LIVE Fit method happens to say at load
+  time. `extraction_method` in the saved JSON now also distinguishes all 4 real paths
+  (`aperture_photometry`/`least_squares`/`gaussian_mle_spherical`/`gaussian_mle_elliptical`) instead of
+  collapsing everything non-aperture into a plain `"gaussian_mle"` guess. **`pooled_E`/`pooled_S`
+  (the E(S) histogram's own pooled per-sample arrays) are deliberately no longer saved** — on request,
+  since they're directly recomputable from the saved `photonsDD`/`photonsDA`/`photonsAA` (same
+  positivity + Min/Max DD+DA/AA threshold filter `smfretPoolE()`/`smfretPoolES()` already apply), so
+  keeping them was pure, avoidable duplication. `loadSmfretTraces()` still reads an OLDER file's own
+  `e_s_histogram` block if present (restores the Min/Max threshold boxes) — harmless dead code for a
+  new export, needed for backward compatibility with files saved before this change.
+
+  **The main locs table gained real AA-channel width info for a paired site** (`sx_AA`/`sy_AA`
+  columns, MODULE: table) — raised directly: the table already showed DD's and DA's own per-axis
+  widths (`sx0th`/`sy0th`/`sx1st`/`sy1st`) once an elliptical-fit pairing existed, but nothing for AA
+  at all, because neither pairing method's own candidate pool (`pairCore()`, "Via distances and
+  angles" or "Via channel matching") ever looks at the acceptor-EXCITATION composite — only the
+  donor-excitation one (0th=DD, 1st=DA) — so there was no AA width sitting around to expose, it
+  needed a genuinely separate fit. `smfretEnrichPairedWithAA()` (new) runs `smfretSOICore()` on the
+  acceptor-excitation composite (existing machinery, already used internally by **Via channel
+  matching**) and matches each already-paired site's own `(x2,y2)` to the nearest such candidate
+  (reusing `smfretBuildSpatialHash()`/`smfretNearestInHash()`, the same nearest-neighbour mechanism
+  `markSmfretSoiPairedKeys()`'s own gold-marking already uses, within the existing **Align channels
+  match tolerance (px)**) — writing `sxAA`/`syAA` onto the loc. Called from BOTH pairing methods'
+  own completion points; **Via channel matching** passes its own already-computed acceptor-excitation
+  fit list straight through (avoiding a second, redundant `smfretSOICore()` call for the identical
+  composite it just fit internally), while **Via distances and angles** — which never computes one at
+  all — triggers a fresh one. A no-op when ALEX is off. Also exported in the CSV
+  (`"sx_AA [nm]","sy_AA [nm]"`, same optional-column convention as the `sx0th` group) and re-imported
+  from a compatible CSV.
 
   **Validating the plot above surfaced, and led directly to fixing, a real convergence gap in
   `mleNewtonFit()` itself — see `MLE_CONV_DECREMENT_TOL`'s own comment (MODULE: fit) for the full
