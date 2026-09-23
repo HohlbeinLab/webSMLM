@@ -859,29 +859,47 @@ in a module.
   check, so a marginal fit has more chances to trip at least one) — not evidence it specifically
   detects this degeneracy better.
 
-  **"Background from annulus" (`smfretAnchorBg`, default on — spherical MLE only) is the root-cause fix
-  for the degeneracy above; the aperture cross-check stays on as a backstop.** `smfretExtractIntensity()`
-  calls `gaussianMLEsphericFixedBg()` (MODULE: fit — same `mleNewtonFit()` driver, 4 params `[x,y,N,σ]`,
-  bg held at `apertureBackground()`'s annulus 56th percentile converted to photons). Established before
-  building it: the spikes are the genuine maximum of the 5-parameter likelihood, NOT a seed/solver
-  artefact — fits seeded at the exact truth land on the same values and never at a higher likelihood, and
-  Picasso-style (3×3-mean-filter bg) or photometry-based seeds barely change anything; Picasso's diagonal
-  Newton and SMAP's LM maximise the same likelihood, so porting either solver wouldn't help. The degeneracy
-  also isn't low-SNR-only: at 800 photons it hits ~50% of fits once the true PSF is 1.5–2× `σ_PSF` (window
-  undersized relative to the true width — Smith et al. 2010 SI's `2·3σ+1` box rule). SMAP's own remedy is
-  the same idea applied post hoc (IntensityCalculator `roi2int_fitG`/`roi2int_sumG`: bg from a larger
-  ROI, amplitude re-fit). Measured on real data (spsmFRET/Martens 2022, Jeffet 1b/1c grating ALEX):
-  rejections 39/65/65% → 30/50/52%, frame-to-frame (Allan) trace noise vs aperture 1.44/1.27/1.24× →
-  1.10/1.02/1.02×; synthetic: acceptance 45→75% at 150 photons, 42→100% with a 2.0px PSF, no rise in
-  false positives on empty frames (`tests/gpu/test-smfret-anchored-bg.mjs`). Costs: a few-% photon
-  undercount (annulus picks up PSF tail — like aperture photometry, but smaller), and lpx/lpy omit the
-  background's own uncertainty. **No GPU kernel yet** — `getSmfretTimeTraces()` forces the CPU loop when
-  anchored, so results never differ by path. Two related experiments that did NOT pan out: a per-site
-  adaptive window (`winr` grown toward 3σ, capped at half the nearest-neighbour distance) helped sparse
-  data but was neutral on the denser grating sets; switching those extreme-σ grating sites to the rotated
-  elliptical fitter made them worse (likely blended detections, not elongated PSFs). The general Localize
-  pipeline still fits bg freely — same degeneracy there (e.g. ~9% of fits at 150 photons report ~5× N),
-  though the position CRLB is not falsely tightened for those fits.
+  **"Background from annulus" (`smfretAnchorBg`, default on — both MLE fitters, CPU and GPU) is the
+  root-cause fix for the degeneracy above; the aperture cross-check stays on as a backstop.** Each frame's
+  background is held at `apertureBackground()`'s annulus 56th percentile (photons), the fit solves the
+  rest: `gaussianMLEsphericFixedBg()` (`[x,y,N,σ]` effectively) or `gaussianMLEellipticangled(...,fixedBg)`.
+  Both go through `mleNewtonFit()`'s optional `fixed` index list, which pins a parameter by zeroing its
+  Fisher row/column (diagonal 1) and gradient entry — the Newton step then solves exactly the reduced
+  system and the returned Fisher inverts to the fixed-bg CRLB. The GPU uses the SAME pin via
+  compile-time `FIX_BG` variants of the two kernels (`wgslFitSpherical(true)`/`wgslFitRotFree(true)`,
+  specs `GPU_FIT_SPEC_SPHERICAL_FIXBG`/`GPU_FIT_SPEC_ROT_FREE_FIXBG`; the `false` variants are
+  byte-identical to the pre-existing kernels, so the main Localize pipeline is untouched), fed by
+  `buildFitSeedRowFixedBg()`/`buildFitSeedRowEllFixedBg()` and the shared `fixedBgSeed()`. Two details that
+  are load-bearing, not polish: **(1)** the anchored elliptical fit is seeded from the bg-subtracted
+  window's second moments (`momentEllipseSeed()`, recomputed in-kernel since the rot-free kernel has no
+  spare seed slot for an angle) — the default `1.05/0.95·σ0` + angle `0.01` seed could relax to a
+  near-circular ellipse where the angle derivative vanishes and, with bg pinned, never converged (a
+  σx<σy ellipse at −0.6 rad: 0 accepted frames); near-circular moments fall back to the 0.01 seed.
+  **(2)** One refinement pass: re-measure the annulus with the fitted spot subtracted
+  (`apertureBackgroundMinusFit()`) and refit, keeping the first fit if the refit is rejected —
+  `smfretExtractTracesGpu()`'s `flush()` runs a second dispatch over only the accepted rows to mirror it. A
+  wide/dispersed spot otherwise leaks signal into the annulus along its long axis: true 2.2×1.2 px spot,
+  `winr=3` → width along its long axis 2.07 without, 2.15 with refinement (free-bg fit 2.19, but
+  far fewer frames accepted). smFRET's 2×σ_PSF width gate still applies — dispersed data needs σ_PSF
+  near the dispersed width.
+
+  Why anchoring rather than a better solver: the spikes are the genuine maximum of the 5-parameter
+  likelihood, NOT a seed/solver artefact — fits seeded at the exact truth land on the same values and
+  never at a higher likelihood; Picasso-style (3×3-mean-filter bg) or photometry seeds barely change
+  anything; Picasso's diagonal Newton and SMAP's LM maximise the same likelihood. It isn't low-SNR-only
+  either: at 800 photons it hits ~50% of fits once the true PSF is 1.5–2× σ_PSF (window undersized
+  relative to the true width — Smith et al. 2010 SI's `2·3σ+1` box rule). SMAP's IntensityCalculator
+  (`roi2int_fitG`/`roi2int_sumG`: bg from a larger ROI, amplitude re-fit) is the same remedy applied post
+  hoc. Measured: spherical on real data (spsmFRET/Martens 2022, Jeffet 1b/1c) rejections 39/65/65% →
+  30/50/52%, frame-to-frame trace noise vs aperture 1.24–1.44× → 1.02–1.10×; rotated elliptical on
+  Jeffet 1c/1b: 25.7/26.1% vs 19.4/18.9% frames accepted, identical width distribution, GPU 2.5 s vs
+  CPU 23 s (1c). CPU/GPU accept discordance 0 on synthetic data, ~0.6% on real data (same level as the
+  free path's own f32/f64 gate noise). Costs: a few-% photon undercount, lpx/lpy omit background
+  uncertainty. Tests: `tests/gpu/test-smfret-anchored-bg.mjs`. Didn't pan out: a per-site adaptive `winr`
+  (helped sparse data, neutral on the dense grating sets); switching extreme-σ grating sites to the
+  elliptical fitter (likely blended detections). General Localize still fits bg freely — same
+  degeneracy there (~9% of fits at 150 photons report ~5× N), though its position CRLB isn't falsely
+  tightened for those fits.
 
   **A SEPARATE, real finding raised directly: "compare the std of the intensity values for immobilised
   emitters between aperture photometry and MLE fitting. they should be the same, but weren't according

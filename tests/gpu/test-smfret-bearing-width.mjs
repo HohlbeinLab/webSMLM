@@ -77,6 +77,11 @@ try {
         sites.push({ x, y, x2, y2, dist: dist * 100 /* nm, arbitrary px-size, just needs to be finite for smfretHasDDDAPairing() */, fromSmfretSOI: true, frame: 0 });
       }
 
+      // smfretAnchorBg off: this test checks the bearing projection and the
+      // CPU/GPU angle convention on noiseless data with a peak ~1000x the
+      // background, where the annulus picks up PSF tail (bg 5 -> ~7.6) and
+      // biases widths by ~0.01 px. The anchored fit's own width accuracy is
+      // covered at realistic SNR by test-smfret-anchored-bg.mjs.
       const AMP = 5000;
       const myStack = {
         w: W, h: H, n: N_FRAMES,
@@ -99,7 +104,7 @@ try {
         },
       };
 
-      for (const [id, value] of Object.entries({ psf: sigma, winr, gain, camoffset, method: 'gaussmleEll', alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: false, smfretApplyDrift: false, useGpu })) {
+      for (const [id, value] of Object.entries({ psf: sigma, winr, gain, camoffset, method: 'gaussmleEll', alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: false, smfretAnchorBg: false, smfretApplyDrift: false, useGpu })) {
         const el = document.getElementById(id);
         if (!el) continue;
         if (el.type === 'checkbox') el.checked = !!value; else el.value = String(value);

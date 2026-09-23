@@ -49,5 +49,70 @@ try {
   assert.ok(hi.anch.acc > 0.99, 'high SNR: anchored should accept ~every frame');
   assert.ok(Math.abs(hi.anch.mean / hi.ph - 1) < 0.12, `high SNR: anchored mean within 12% of truth (got ${(hi.anch.mean / hi.ph).toFixed(3)})`);
   assert.ok(by('empty').anch.acc <= by('empty').free.acc + 0.02, 'empty frames: anchored must not create signal more often');
+
+  // --- Part 2: end-to-end through getSmfretTimeTraces(), CPU vs GPU, spherical
+  // and rotated elliptical. Noisy ALEX movie; DA elongated ALONG the donor->
+  // acceptor direction (a spectrally dispersed grating spot), DD round, AA
+  // round-ish. Checks CPU/GPU parity of the anchored kernels and the anchored
+  // elliptical fit's width-along-bearing against truth (the quantity used to
+  // read spectral dispersion off the Jeffet data).
+  const e2e = await page.evaluate(async () => {
+    const W = 260, H = 220, NF = 40, NS = 20, gain = 1, cam = 100, BG = 20, READ = 3;
+    const T = { DD: { N: 1500, sx: 1.3, sy: 1.3 }, DA: { N: 1500, major: 2.2, minor: 1.2 }, AA: { N: 1500, sx: 1.4, sy: 1.4 } };
+    const sites = [];
+    for (let i = 0; i < NS; i++) { const x = 30 + (i % 5) * 45, y = 30 + Math.floor(i / 5) * 45, b = i / NS * 2 * Math.PI * 1.7;
+      sites.push({ x, y, x2: x + 12 * Math.cos(b), y2: y + 12 * Math.sin(b), bearing: b, dist: 1200, fromSmfretSOI: true, frame: 0 }); }
+    function blob(buf, cx, cy, N, sx, sy, A) { const amp = N / (2 * Math.PI * sx * sy), c = Math.cos(A), s = Math.sin(A), R = Math.ceil(5 * Math.max(sx, sy));
+      for (let y = Math.round(cy) - R; y <= Math.round(cy) + R; y++) for (let x = Math.round(cx) - R; x <= Math.round(cx) + R; x++) {
+        const ux = x - cx, uy = y - cy, a = ux * c - uy * s, b = ux * s + uy * c; buf[y * W + x] += amp * Math.exp(-0.5 * (a * a / (sx * sx) + b * b / (sy * sy))); } }
+    const frames = [];
+    for (let fi = 0; fi < NF; fi++) { const lam = new Float32Array(W * H).fill(BG);
+      for (const st of sites) { if (fi % 2 === 0) { blob(lam, st.x, st.y, T.DD.N, T.DD.sx, T.DD.sy, 0); blob(lam, st.x2, st.y2, T.DA.N, T.DA.major, T.DA.minor, -st.bearing); }
+        else blob(lam, st.x2, st.y2, T.AA.N, T.AA.sx, T.AA.sy, 0); }
+      const img = new Float32Array(W * H); for (let k = 0; k < img.length; k++) img[k] = Math.max(0, cam + poisson(lam[k]) + READ * gauss()); frames.push(img); }
+    const myStack = { w: W, h: H, n: NF, async getFrames(a, b) { return frames.slice(a, b); } };
+    // `method` FIRST: switching Fit method to the rotated elliptical fitter
+    // auto-applies the 3D fit radius (applyWinrDefault()), which silently gave
+    // one run winr=4 and the others 3 in an earlier version of this test.
+    async function run(method, useGpu, anchor) {
+      for (const [id, v] of Object.entries({ method, psf: 1.3, winr2d: 3, winr3d: 3, winr: 3, gain, camoffset: cam, alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: true, smfretAnchorBg: anchor, smfretApplyDrift: false, useGpu })) {
+        const el = document.getElementById(id); if (!el) continue; if (el.type === 'checkbox') el.checked = !!v; else el.value = String(v); el.dispatchEvent(new Event('change')); }
+      stack = myStack; lastResult = { locs: sites, fromSmfretSOI: true, w: W, h: H, px: 100 }; smfretSOI = sites; smfretTraces = null; smfretTraceIdx = 0;
+      const logBefore = document.getElementById('logText').textContent.length;
+      await getSmfretTimeTraces();
+      const logNew = document.getElementById('logText').textContent.slice(logBefore);   // the GPU path always logs its own "GPU extraction — M/N accepted" summary
+      return { tr: smfretTraces.map(t => ({ DD: Array.from(t.photonsDD), DA: Array.from(t.photonsDA), AA: Array.from(t.photonsAA), sDD: Array.from(t.sigmaDD), sDA: Array.from(t.sigmaDA) })), gpuUsed: /GPU extraction/.test(logNew) };
+    }
+    const R = {};
+    for (const [key, method, gpu, anchor] of [['sphCPU', 'gaussmle', false, true], ['sphGPU', 'gaussmle', true, true], ['ellCPU', 'gaussmleEll', false, true], ['ellGPU', 'gaussmleEll', true, true], ['ellCPUfree', 'gaussmleEll', false, false]])
+      R[key] = await run(method, gpu, anchor);
+    function parity(a, b) { let n = 0, disc = 0, maxRel = 0, maxW = 0;
+      for (let j = 0; j < a.tr.length; j++) for (const ch of ['DD', 'DA', 'AA']) for (let f = 0; f < a.tr[j][ch].length; f++) {
+        const p = a.tr[j][ch][f], q = b.tr[j][ch][f]; if (!isFinite(p) || !isFinite(q)) continue;
+        if ((p > 0) !== (q > 0)) { disc++; continue; } if (!(p > 0)) continue; n++; maxRel = Math.max(maxRel, Math.abs(p - q) / p);
+        if (ch !== 'AA') { const w1 = a.tr[j]['s' + ch][f], w2 = b.tr[j]['s' + ch][f]; if (isFinite(w1) && isFinite(w2)) maxW = Math.max(maxW, Math.abs(w1 - w2)); } }
+      return { n, disc, maxRel, maxW }; }
+    function acc(r) { const m = v => { const q = v.filter(x => isFinite(x) && x > 0); return { mean: q.reduce((s, x) => s + x, 0) / Math.max(1, q.length), n: q.length }; };
+      const all = k => r.tr.flatMap(t => t[k]); return { DAwidth: m(all('sDA')), DDwidth: m(all('sDD')), DAN: m(all('DA')), DDN: m(all('DD')) }; }
+    return { gpu: !!navigator.gpu, gpuUsed: { sph: R.sphGPU.gpuUsed, ell: R.ellGPU.gpuUsed }, parSph: parity(R.sphCPU, R.sphGPU), parEll: parity(R.ellCPU, R.ellGPU),
+      accEll: acc(R.ellCPU), accEllFree: acc(R.ellCPUfree), accSph: acc(R.sphCPU), truth: { DAmajor: T.DA.major, DD: T.DD.sx, N: T.DD.N } };
+  });
+  const f = (x, d = 3) => x.toFixed(d);
+  console.log(`\nEnd-to-end (getSmfretTimeTraces, anchored bg):`);
+  for (const [k, p] of [['spherical', e2e.parSph], ['elliptical', e2e.parEll]])
+    console.log(`  CPU vs GPU ${k}: ${p.n} site-frames, accept discordance ${p.disc}, max rel photon diff ${p.maxRel.toExponential(1)}, max width diff ${p.maxW.toExponential(1)} px`);
+  const A = e2e.accEll, F = e2e.accEllFree;
+  console.log(`  elliptical DA width along D->A (true ${e2e.truth.DAmajor}): anchored ${f(A.DAwidth.mean)} (n=${A.DAwidth.n}) | free ${f(F.DAwidth.mean)} (n=${F.DAwidth.n})`);
+  console.log(`  elliptical DD width (true ${e2e.truth.DD}): anchored ${f(A.DDwidth.mean)} | free ${f(F.DDwidth.mean)}`);
+  console.log(`  photons DA/DD (true ${e2e.truth.N}): anchored ${f(A.DAN.mean, 0)}/${f(A.DDN.mean, 0)} | free ${f(F.DAN.mean, 0)}/${f(F.DDN.mean, 0)} | spherical anchored ${f(e2e.accSph.DAN.mean, 0)}/${f(e2e.accSph.DDN.mean, 0)}`);
+  if (e2e.gpu) {
+    assert.ok(e2e.gpuUsed.sph && e2e.gpuUsed.ell, 'GPU run did not actually take the GPU path');
+    for (const p of [e2e.parSph, e2e.parEll]) {
+      assert.ok(p.disc <= Math.max(2, 0.01 * p.n), `CPU/GPU accept discordance too high (${p.disc}/${p.n})`);
+      assert.ok(p.maxRel < 1e-3 && p.maxW < 1e-3, `CPU/GPU anchored results differ (rel ${p.maxRel}, width ${p.maxW})`);
+    }
+  } else console.log('  (WebGPU unavailable — parity part skipped)');
+  assert.ok(Math.abs(A.DAwidth.mean - e2e.truth.DAmajor) < 0.15, `anchored elliptical DA width along bearing off (${f(A.DAwidth.mean)} vs ${e2e.truth.DAmajor})`);
+  assert.ok(A.DAwidth.n >= F.DAwidth.n, 'anchored elliptical should accept at least as many DA frames as free');
   console.log('smFRET anchored background: PASS');
 } finally { await browser.close(); }
