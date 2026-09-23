@@ -859,24 +859,34 @@ in a module.
   check, so a marginal fit has more chances to trip at least one) — not evidence it specifically
   detects this degeneracy better.
 
-  **smFRET fit (`smfretFitMode`, default `'daAxes'`) is independent of the sidebar Fit method**: the
-  rotated elliptical MLE with each PAIRED site's axes pinned to its D→A bearing (`pinnedAngle=-bearing`
-  in `gaussianMLEellipticangled()`, same Fisher row/column pin as the background; GPU:
-  `wgslFitRotFree(fixBg, pinAngle=true)`, specs `GPU_FIT_SPEC_ROT_PIN(_FIXBG)`, per-row angle in
-  `seedsB.y` via `buildFitSeedRowEllPinned()`/`ellPinnedSeed()`), so σx IS the width along D→A (the
-  spectral dispersion on grating/prism data) at any camera orientation; unpaired sites (no bearing) fit
-  the angle freely. `'sidebar'` restores following the sidebar Fit method. Reported: with the sidebar on
-  spherical, the sigma plot showed one round σ while the table showed long `sx1st`/short `sy1st` — the
-  table's `sx0th/sy0th/sx1st/sy1st` come from the pairing step's axis-aligned elliptical LS fit of the
-  averaged SOI composite (`smfretSOICore()`→`gaussianFitElliptical()`), never from the per-frame fit.
-  Verified: DA spots generated long along 12 different bearings (independent generator, not the
-  model's own rotation formula) read 2.15/2.19 px (anchored/free) for a true 2.2, CPU=GPU to 3e-6 px;
-  real Martens grating data with the sidebar on spherical plots DA 1.53 px vs composite `sx1st` 1.57.
-  Limitation by design: pinning assumes the spot's principal axes lie along D→A — an ellipse tilted
-  relative to D→A (e.g. astigmatism) can't be represented (the tilted-ellipse bearing test is off by
-  ~0.09 px pinned, which is why `test-smfret-bearing-width.mjs` runs in `'sidebar'` mode); the free-angle
-  sidebar fit projects its width onto D→A instead. Note: the GPU batch needs ≥500 site×frame
-  candidates — smaller synthetic tests silently run on the CPU.
+  **With Analyse FRET ticked, smFRET chooses its own per-frame fit (no selector; sidebar Fit method
+  ignored)** — `getSmfretTimeTraces()`'s `autoFit`: paired **Via distances and angles**
+  (`lastResult.smfretPairMethodUsed==='distAngle'`) → rotated elliptical MLE with each site's axes pinned to
+  its D→A bearing (`pinnedAngle=-bearing` in `gaussianMLEellipticangled()`, same Fisher row/column pin as
+  the background; GPU `wgslFitRotFree(fixBg, pinAngle=true)`, specs `GPU_FIT_SPEC_ROT_PIN(_FIXBG)`, per-row
+  angle in `seedsB.y` via `buildFitSeedRowEllPinned()`/`ellPinnedSeed()`), so σx IS the width along D→A
+  at any camera orientation; **Via channel matching** or unpaired → spherical MLE (σx=σy linked). Analyse
+  FRET unticked → sidebar Fit method, as before. Reported: with the sidebar on spherical, the sigma plot
+  showed one round σ while the table showed long `sx1st`/short `sy1st` — the table's
+  `sx0th/sy0th/sx1st/sy1st` come from the pairing step's axis-aligned elliptical LS fit of the averaged
+  SOI composite (`smfretSOICore()`→`gaussianFitElliptical()`), never from the per-frame fit.
+
+  **PSF from pairing** (`smfretEstimatePsfFromPairing()`, stored as `lastResult.smfretPsfEst`, logged by
+  `smfretLogPsfEstimate()`): per-channel median composite widths — distAngle: DD from `sx0th/sy0th`, DA from
+  `sx1st/sy1st`, projected to {along, across} each pair's D→A bearing; channelMatch: DD from the donor
+  site's `sx/sy`, DA from the nearest fitted acceptor-side SOI point, round; AA from `sxAA/syAA` when
+  present, else DA's. ≥5 pairs, clamped 0.6–5 px. `smfretChannelPsf()` turns it into each channel's fit
+  seed (pinned: √(along·across)) and width gate (2× along/across; round: 2× mean), replacing the single
+  sidebar σ_PSF for smFRET extraction only. Deliberately NOT written into the σ_PSF field — that also
+  drives detection and auto-reruns Localize SOI, which would discard the pairing. Real data: Martens
+  grating DD 112×108, DA 157×106 nm (along×across) → pinned fit plots DA 1.54 px vs composite `sx1st`
+  1.57; dual-view ALEX (channel matching) DD/DA/AA ~120 nm round. Verified pinned widths on DA spots
+  generated long along 12 bearings (independent generator): 2.13/2.19 px for a true 2.2, CPU=GPU to
+  3e-6 px. Pinning can't represent a spot tilted relative to D→A (tilted-ellipse bearing test off ~0.09 px
+  pinned, so `test-smfret-bearing-width.mjs` runs with Analyse FRET off). The width gate (2×σ) exists only
+  in smFRET extraction — the main Localize pipeline's `FIT_MAX_DRIFT_SIGMA_MULT` is a POSITION gate there;
+  its widths are bounded only by `MLE_MIN_SIGMA`/`MLE_MAX_SIGMA` (0.5–6 px), so 3D defocus widths are fine.
+  The GPU batch needs ≥500 site×frame candidates — smaller synthetic tests silently run on the CPU.
 
   **"Background from annulus" (`smfretAnchorBg`, default on — both MLE fitters, CPU and GPU) is the
   root-cause fix for the degeneracy above; the aperture cross-check stays on as a backstop.** Each frame's

@@ -185,11 +185,12 @@ try {
     }
 
     const results = {};
-    // smfretFitMode 'sidebar': this test compares the sidebar Fit methods themselves.
+    // Analyse FRET off: this test compares the sidebar Fit methods themselves (with it
+    // on, smFRET picks its own fit — spherical for these unpaired sites).
     results.aperture = await runMethod('aperture', { smfretApertureMode: true });
-    results.sphericalMLE = await runMethod('sphericalMLE', { smfretApertureMode: false, method: 'gaussmle', smfretFitMode: 'sidebar' });
-    results.leastSquares = await runMethod('leastSquares', { smfretApertureMode: false, method: 'gaussls', smfretFitMode: 'sidebar' });
-    results.ellipticalMLE = await runMethod('ellipticalMLE', { smfretApertureMode: false, method: 'gaussmleEll', smfretFitMode: 'sidebar' });
+    results.sphericalMLE = await runMethod('sphericalMLE', { smfretApertureMode: false, method: 'gaussmle', smfretFretEnabled: false });
+    results.leastSquares = await runMethod('leastSquares', { smfretApertureMode: false, method: 'gaussls', smfretFretEnabled: false });
+    results.ellipticalMLE = await runMethod('ellipticalMLE', { smfretApertureMode: false, method: 'gaussmleEll', smfretFretEnabled: false });
     return results;
   });
 
