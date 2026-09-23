@@ -148,6 +148,16 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     work before implementing: exactly how a "fixed position, aperture-for-intensity" mode would be
     exposed (a new `smfretApertureMode`-adjacent toggle? Always-on once an MLE position exists?), and
     whether it belongs in smFRET specifically or as a general fit-module option.
+    **Partly superseded (v0.12.9-dev, build 2026-09-23a):** smFRET's "Background from annulus"
+    (`smfretAnchorBg`, `gaussianMLEsphericFixedBg()`) anchors bg to the annulus and fits x,y,N,σ —
+    it already brings MLE trace noise level with aperture photometry on real data. Remaining follow-ups:
+    - WGSL kernel for the anchored fit (currently CPU-only; `getSmfretTimeTraces()` skips the GPU batch).
+    - Anchored bg for least-squares and the rotated elliptical fitter (both still fit bg freely).
+    - A general Localize option ("Background: fit / from local annulus") — the same σ↑/bg↓ degeneracy
+      inflates N there too (~9% of fits at 150 photons, ~50% at 800 photons with a PSF 1.5–2× σ_PSF);
+      touches the shared worker/GPU fit paths, so needs its own CPU/GPU parity testing.
+    - A soft Gaussian prior on bg (instead of fixing it) would keep the CRLB honest about background
+      uncertainty; worth trying if the few-% undercount or optimistic lpx matter in practice.
   - **Headless/NDJSON export for Get traces & E/S.** `config.smfretLocateSOI` covers SOI detection
     headlessly; the time-trace extraction itself (`getSmfretTimeTraces()`) has no headless path yet.
     The existing streaming-NDJSON precedent (`spt_tracks.ndjson` via `makeRecordEmitter()`) is the
