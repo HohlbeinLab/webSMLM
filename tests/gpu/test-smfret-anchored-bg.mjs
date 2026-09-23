@@ -74,8 +74,8 @@ try {
     // `method` FIRST: switching Fit method to the rotated elliptical fitter
     // auto-applies the 3D fit radius (applyWinrDefault()), which silently gave
     // one run winr=4 and the others 3 in an earlier version of this test.
-    async function run(method, useGpu, anchor) {
-      for (const [id, v] of Object.entries({ method, psf: 1.3, winr2d: 3, winr3d: 3, winr: 3, gain, camoffset: cam, alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: true, smfretAnchorBg: anchor, smfretApplyDrift: false, useGpu })) {
+    async function run(method, useGpu, anchor, fitMode = 'sidebar') {
+      for (const [id, v] of Object.entries({ method, smfretFitMode: fitMode, psf: 1.3, winr2d: 3, winr3d: 3, winr: 3, gain, camoffset: cam, alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: true, smfretAnchorBg: anchor, smfretApplyDrift: false, useGpu })) {
         const el = document.getElementById(id); if (!el) continue; if (el.type === 'checkbox') el.checked = !!v; else el.value = String(v); el.dispatchEvent(new Event('change')); }
       stack = myStack; lastResult = { locs: sites, fromSmfretSOI: true, w: W, h: H, px: 100 }; smfretSOI = sites; smfretTraces = null; smfretTraceIdx = 0;
       const logBefore = document.getElementById('logText').textContent.length;
@@ -84,8 +84,8 @@ try {
       return { tr: smfretTraces.map(t => ({ DD: Array.from(t.photonsDD), DA: Array.from(t.photonsDA), AA: Array.from(t.photonsAA), sDD: Array.from(t.sigmaDD), sDA: Array.from(t.sigmaDA) })), gpuUsed: /GPU extraction/.test(logNew) };
     }
     const R = {};
-    for (const [key, method, gpu, anchor] of [['sphCPU', 'gaussmle', false, true], ['sphGPU', 'gaussmle', true, true], ['ellCPU', 'gaussmleEll', false, true], ['ellGPU', 'gaussmleEll', true, true], ['ellCPUfree', 'gaussmleEll', false, false]])
-      R[key] = await run(method, gpu, anchor);
+    for (const [key, method, gpu, anchor, fitMode] of [['sphCPU', 'gaussmle', false, true], ['sphGPU', 'gaussmle', true, true], ['ellCPU', 'gaussmleEll', false, true], ['ellGPU', 'gaussmleEll', true, true], ['ellCPUfree', 'gaussmleEll', false, false], ['pinCPU', 'gaussmleEll', false, true, 'daAxes'], ['pinGPU', 'gaussmleEll', true, true, 'daAxes']])
+      R[key] = await run(method, gpu, anchor, fitMode);
     function parity(a, b) { let n = 0, disc = 0, maxRel = 0, maxW = 0;
       for (let j = 0; j < a.tr.length; j++) for (const ch of ['DD', 'DA', 'AA']) for (let f = 0; f < a.tr[j][ch].length; f++) {
         const p = a.tr[j][ch][f], q = b.tr[j][ch][f]; if (!isFinite(p) || !isFinite(q)) continue;
@@ -94,25 +94,27 @@ try {
       return { n, disc, maxRel, maxW }; }
     function acc(r) { const m = v => { const q = v.filter(x => isFinite(x) && x > 0); return { mean: q.reduce((s, x) => s + x, 0) / Math.max(1, q.length), n: q.length }; };
       const all = k => r.tr.flatMap(t => t[k]); return { DAwidth: m(all('sDA')), DDwidth: m(all('sDD')), DAN: m(all('DA')), DDN: m(all('DD')) }; }
-    return { gpu: !!navigator.gpu, gpuUsed: { sph: R.sphGPU.gpuUsed, ell: R.ellGPU.gpuUsed }, parSph: parity(R.sphCPU, R.sphGPU), parEll: parity(R.ellCPU, R.ellGPU),
+    return { gpu: !!navigator.gpu, gpuUsed: { sph: R.sphGPU.gpuUsed, ell: R.ellGPU.gpuUsed, pin: R.pinGPU.gpuUsed }, parSph: parity(R.sphCPU, R.sphGPU), parEll: parity(R.ellCPU, R.ellGPU), parPin: parity(R.pinCPU, R.pinGPU), accPin: acc(R.pinCPU),
       accEll: acc(R.ellCPU), accEllFree: acc(R.ellCPUfree), accSph: acc(R.sphCPU), truth: { DAmajor: T.DA.major, DD: T.DD.sx, N: T.DD.N } };
   });
   const f = (x, d = 3) => x.toFixed(d);
   console.log(`\nEnd-to-end (getSmfretTimeTraces, anchored bg):`);
-  for (const [k, p] of [['spherical', e2e.parSph], ['elliptical', e2e.parEll]])
+  for (const [k, p] of [['spherical', e2e.parSph], ['elliptical', e2e.parEll], ['elliptical, axes along D-A', e2e.parPin]])
     console.log(`  CPU vs GPU ${k}: ${p.n} site-frames, accept discordance ${p.disc}, max rel photon diff ${p.maxRel.toExponential(1)}, max width diff ${p.maxW.toExponential(1)} px`);
   const A = e2e.accEll, F = e2e.accEllFree;
   console.log(`  elliptical DA width along D->A (true ${e2e.truth.DAmajor}): anchored ${f(A.DAwidth.mean)} (n=${A.DAwidth.n}) | free ${f(F.DAwidth.mean)} (n=${F.DAwidth.n})`);
+  console.log(`  axes along D-A (default): DA width along D->A ${f(e2e.accPin.DAwidth.mean)} (n=${e2e.accPin.DAwidth.n})`);
   console.log(`  elliptical DD width (true ${e2e.truth.DD}): anchored ${f(A.DDwidth.mean)} | free ${f(F.DDwidth.mean)}`);
   console.log(`  photons DA/DD (true ${e2e.truth.N}): anchored ${f(A.DAN.mean, 0)}/${f(A.DDN.mean, 0)} | free ${f(F.DAN.mean, 0)}/${f(F.DDN.mean, 0)} | spherical anchored ${f(e2e.accSph.DAN.mean, 0)}/${f(e2e.accSph.DDN.mean, 0)}`);
   if (e2e.gpu) {
-    assert.ok(e2e.gpuUsed.sph && e2e.gpuUsed.ell, 'GPU run did not actually take the GPU path');
-    for (const p of [e2e.parSph, e2e.parEll]) {
+    assert.ok(e2e.gpuUsed.sph && e2e.gpuUsed.ell && e2e.gpuUsed.pin, 'GPU run did not actually take the GPU path');
+    for (const p of [e2e.parSph, e2e.parEll, e2e.parPin]) {
       assert.ok(p.disc <= Math.max(2, 0.01 * p.n), `CPU/GPU accept discordance too high (${p.disc}/${p.n})`);
       assert.ok(p.maxRel < 1e-3 && p.maxW < 1e-3, `CPU/GPU anchored results differ (rel ${p.maxRel}, width ${p.maxW})`);
     }
   } else console.log('  (WebGPU unavailable — parity part skipped)');
   assert.ok(Math.abs(A.DAwidth.mean - e2e.truth.DAmajor) < 0.15, `anchored elliptical DA width along bearing off (${f(A.DAwidth.mean)} vs ${e2e.truth.DAmajor})`);
+  assert.ok(Math.abs(e2e.accPin.DAwidth.mean - e2e.truth.DAmajor) < 0.15, `axes-along-D-A DA width off (${f(e2e.accPin.DAwidth.mean)} vs ${e2e.truth.DAmajor})`);
   assert.ok(A.DAwidth.n >= F.DAwidth.n, 'anchored elliptical should accept at least as many DA frames as free');
   console.log('smFRET anchored background: PASS');
 } finally { await browser.close(); }

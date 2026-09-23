@@ -185,10 +185,11 @@ try {
     }
 
     const results = {};
+    // smfretFitMode 'sidebar': this test compares the sidebar Fit methods themselves.
     results.aperture = await runMethod('aperture', { smfretApertureMode: true });
-    results.sphericalMLE = await runMethod('sphericalMLE', { smfretApertureMode: false, method: 'gaussmle' });
-    results.leastSquares = await runMethod('leastSquares', { smfretApertureMode: false, method: 'gaussls' });
-    results.ellipticalMLE = await runMethod('ellipticalMLE', { smfretApertureMode: false, method: 'gaussmleEll' });
+    results.sphericalMLE = await runMethod('sphericalMLE', { smfretApertureMode: false, method: 'gaussmle', smfretFitMode: 'sidebar' });
+    results.leastSquares = await runMethod('leastSquares', { smfretApertureMode: false, method: 'gaussls', smfretFitMode: 'sidebar' });
+    results.ellipticalMLE = await runMethod('ellipticalMLE', { smfretApertureMode: false, method: 'gaussmleEll', smfretFitMode: 'sidebar' });
     return results;
   });
 

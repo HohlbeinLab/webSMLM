@@ -77,6 +77,10 @@ try {
         sites.push({ x, y, x2, y2, dist: dist * 100 /* nm, arbitrary px-size, just needs to be finite for smfretHasDDDAPairing() */, fromSmfretSOI: true, frame: 0 });
       }
 
+      // smfretFitMode 'sidebar' (free-angle rotated elliptical): each channel's
+      // ellipse here is deliberately TILTED away from its D->A bearing, which
+      // the default axes-along-D-A fit can't represent (by design — it assumes
+      // dispersion-aligned axes); this test checks the free-angle projection.
       // smfretAnchorBg off: this test checks the bearing projection and the
       // CPU/GPU angle convention on noiseless data with a peak ~1000x the
       // background, where the annulus picks up PSF tail (bg 5 -> ~7.6) and
@@ -104,7 +108,7 @@ try {
         },
       };
 
-      for (const [id, value] of Object.entries({ psf: sigma, winr, gain, camoffset, method: 'gaussmleEll', alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: false, smfretAnchorBg: false, smfretApplyDrift: false, useGpu })) {
+      for (const [id, value] of Object.entries({ psf: sigma, winr, gain, camoffset, method: 'gaussmleEll', smfretFitMode: 'sidebar', alexEnabled: true, alexFirstFrame: 'dirDonorExc', smfretApertureMode: false, smfretFloorZero: false, smfretAnchorBg: false, smfretApplyDrift: false, useGpu })) {
         const el = document.getElementById(id);
         if (!el) continue;
         if (el.type === 'checkbox') el.checked = !!value; else el.value = String(value);

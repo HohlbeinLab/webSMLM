@@ -859,6 +859,25 @@ in a module.
   check, so a marginal fit has more chances to trip at least one) — not evidence it specifically
   detects this degeneracy better.
 
+  **smFRET fit (`smfretFitMode`, default `'daAxes'`) is independent of the sidebar Fit method**: the
+  rotated elliptical MLE with each PAIRED site's axes pinned to its D→A bearing (`pinnedAngle=-bearing`
+  in `gaussianMLEellipticangled()`, same Fisher row/column pin as the background; GPU:
+  `wgslFitRotFree(fixBg, pinAngle=true)`, specs `GPU_FIT_SPEC_ROT_PIN(_FIXBG)`, per-row angle in
+  `seedsB.y` via `buildFitSeedRowEllPinned()`/`ellPinnedSeed()`), so σx IS the width along D→A (the
+  spectral dispersion on grating/prism data) at any camera orientation; unpaired sites (no bearing) fit
+  the angle freely. `'sidebar'` restores following the sidebar Fit method. Reported: with the sidebar on
+  spherical, the sigma plot showed one round σ while the table showed long `sx1st`/short `sy1st` — the
+  table's `sx0th/sy0th/sx1st/sy1st` come from the pairing step's axis-aligned elliptical LS fit of the
+  averaged SOI composite (`smfretSOICore()`→`gaussianFitElliptical()`), never from the per-frame fit.
+  Verified: DA spots generated long along 12 different bearings (independent generator, not the
+  model's own rotation formula) read 2.15/2.19 px (anchored/free) for a true 2.2, CPU=GPU to 3e-6 px;
+  real Martens grating data with the sidebar on spherical plots DA 1.53 px vs composite `sx1st` 1.57.
+  Limitation by design: pinning assumes the spot's principal axes lie along D→A — an ellipse tilted
+  relative to D→A (e.g. astigmatism) can't be represented (the tilted-ellipse bearing test is off by
+  ~0.09 px pinned, which is why `test-smfret-bearing-width.mjs` runs in `'sidebar'` mode); the free-angle
+  sidebar fit projects its width onto D→A instead. Note: the GPU batch needs ≥500 site×frame
+  candidates — smaller synthetic tests silently run on the CPU.
+
   **"Background from annulus" (`smfretAnchorBg`, default on — both MLE fitters, CPU and GPU) is the
   root-cause fix for the degeneracy above; the aperture cross-check stays on as a backstop.** Each frame's
   background is held at `apertureBackground()`'s annulus 56th percentile (photons), the fit solves the
