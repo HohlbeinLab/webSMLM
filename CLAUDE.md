@@ -1091,9 +1091,11 @@ in a module.
   very low SNR (near-zero amplitude).
 
   **E(S) histogram**: 1D (`E=DA/(DD+DA)`) or 2D E-vs-S (`(DD+DA)/(AA+DD+DA)`, needs ALEX+AA), pooled
-  across all sites/time, with `Min`/`Max DD+DA` and `Min`/`Max AA` burst-selection ranges (each
-  channel must be individually `>0`, not just the sum — a rejected-fit `0` or an unfloored negative on
-  just ONE channel otherwise clamps the ratio to an edge, 0 or 1, rather than being excluded). Under
+  across all sites/time, with `Min`/`Max DD+DA` and `Min`/`Max AA` burst-selection ranges. DD and DA
+  must each be individually `>0`, not just their sum — a rejected-fit `0` or an unfloored negative on
+  just ONE of them otherwise clamps E to 0 or 1. AA has no hard `>0` rule: an AA `0` only puts S at 1
+  (the donor-only population), so it's gated by the Min AA range alone, which defaults to **1** (drops
+  rejected-fit zeros) and accepts 0 to include them. Under
   ALEX, DD/DA and AA live on strictly ALTERNATING frame indices by construction — pooling must pair a
   donor-excitation sample with its own ADJACENT acceptor-excitation frame's AA value (prefer `i+1`,
   fall back to `i-1`), never the same index. The 2D density uses hexagonal binning (axial hex-grid,

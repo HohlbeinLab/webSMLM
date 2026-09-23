@@ -21,7 +21,7 @@
 -->
 <!--
   ============================================================================
-  MODULE INDEX — line numbers as of v0.12.9-dev build 2026-09-23b; may drift
+  MODULE INDEX — line numbers as of v0.12.9-dev build 2026-09-23c; may drift
   with edits, re-grep 'MODULE:' if this looks stale. Refresh alongside a
   build-letter bump when a change has moved things by more than a few lines.
   ============================================================================
@@ -438,7 +438,7 @@
                            "E/S histogram" title (button stays the
                            exception); getSmfretTimeTraces() now refreshes
                            an already-showing E/S histogram too
-    spt             19253  single particle tracking, trackpy-inspired;
+    spt             19257  single particle tracking, trackpy-inspired;
                            config.exportTrackData streams spt_tracks.ndjson
                            via onRecord — sptCore() calls computeEnsembleMsd()
                            for its now-exposed perTrackMsd (Map<track_id,
@@ -469,7 +469,7 @@
                            separate, minimal sortable/filterable per-track
                            table reusing parseFilter() from MODULE: table,
                            #locTable/#trackTable share one CSS rule set
-    pipeline        20795  top-level orchestration, *Core()/wrapper split;
+    pipeline        20799  top-level orchestration, *Core()/wrapper split;
                            merged Load movie/data (loadBtn); updateMethodUI()
                            resets colour map to Fire for mle3d/gaussmleEll too
                            whenever localize3D is unchecked; run() also
@@ -557,7 +557,7 @@
                            never have fit results back in time; the ring lets
                            the preview fall back to the newest frame that IS
                            ready instead
-    liveStreaming   22346  Micro-Manager/pycromanager camera bridge
+    liveStreaming   22350  Micro-Manager/pycromanager camera bridge
                            (nested inside memBox, "Memory, GPU & streaming",
                            window.webSMLM.liveStream), physically right after
                            MODULE: pipeline (whose runCore() it calls per
@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-23b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-23c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3160,7 +3160,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Apply drift correction</b> (default OFF) estimates drift on the loaded movie and shifts each frame's own extraction window to follow it before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever <b>Drift correction method</b>/settings are currently configured in <b>Drift correction</b>'s own sidebar section (see <a href="#drift-params">its own reference</a>): <b>Cross correlation</b> runs directly on the raw movie, no Localize needed just to estimate it; <b>AIM</b> needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes (using the current detection/fit settings) — a real, sometimes substantial added cost, unlike Cross correlation. Either way, the estimated drift is anchored to frame 0 (a site's own fixed x,y is treated as "how it looked when Localize SOI averaged it", effectively frame 0), so every other frame's own extraction position is derived as an offset from that fixed reference — not from an arbitrary drift-curve reference point the way <b>Correct drift</b>'s own AIM-based reconstruction correction can be.</p>
           <p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity- and, when a real fit was used (not aperture photometry), width-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code>, and <code>sigmaDD</code>/<code>sigmaDA</code>/<code>sigmaAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Does NOT save the pooled <b>E(S) histogram</b> data — that's directly recomputable from the saved DD/DA/AA arrays, so it was dropped as pure duplication. Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code>, <code>alex_first_frame</code>, <code>extraction_method</code> (which of the 4 real extraction paths produced this file) and <code>use_elliptical_width</code> — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
           <p><b>Load FRET data</b> reverses this — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
-          <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. Both ranges default to 0–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
+          <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
           <p>Below the ROI thumbnail row, a third stacked plot (sharing the same time x-axis as the two above it, drawn in a square, not the usual 4:3, letterbox specifically so this extra plot doesn't squeeze the intensity plot above it shorter) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load FRET data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
@@ -3323,15 +3323,15 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
               <input type="number" id="smfretMaxDex" class="numflat" min="0" step="10" placeholder="&#8734;">
             </span>
           </div>
-          <div id="smfretEHistAARow" style="display:none;flex-wrap:wrap;margin-top:8px;align-items:center;gap:6px" title="Per-sample AA burst-selection range for the E/S histogram — excludes a sample whose direct-acceptor-excitation total is too dim (min) or, optionally, too bright (max, blank = no upper limit)">
+          <div id="smfretEHistAARow" style="display:none;flex-wrap:wrap;margin-top:8px;align-items:center;gap:6px" title="Per-sample AA burst-selection range for the E/S histogram — excludes a sample whose direct-acceptor-excitation total is too dim (min) or, optionally, too bright (max, blank = no upper limit). Min defaults to 1, excluding frames where the AA fit was rejected (AA = 0); set it to 0 to include them — they land at S = 1 (donor-only).">
             <span class="scrublabel" style="color:var(--muted);font-size:12px;white-space:nowrap">AA</span>
             <div class="dualrange" style="flex:1">
               <div id="smfretAAFill" class="dualrange-fill"></div>
-              <input type="range" id="smfretMinAARange" min="0" max="1" step="10" value="0">
+              <input type="range" id="smfretMinAARange" min="0" max="1" step="10" value="1">
               <input type="range" id="smfretMaxAARange" min="0" max="1" step="10" value="1">
             </div>
             <span class="val" style="display:flex;align-items:center;gap:4px;white-space:nowrap;flex:0 0 auto">
-              <input type="number" id="smfretMinAA" class="numflat" min="0" step="10" value="0">
+              <input type="number" id="smfretMinAA" class="numflat" min="0" step="10" value="1">
               <input type="number" id="smfretMaxAA" class="numflat" min="0" step="10" placeholder="&#8734;">
             </span>
           </div>
@@ -3764,7 +3764,7 @@ const PARAMS = {
   // blank-input-falls-back-to-default behaviour, no new mechanism needed.
   smfretMinDex: { type:'number', id:'smfretMinDex', label:'Min DD + DA for E/S histogram', min:0, max:null, step:10, default:0, int:false },
   smfretMaxDex: { type:'number', id:'smfretMaxDex', label:'Max DD + DA for E/S histogram', min:0, max:null, step:10, default:Infinity, int:false },
-  smfretMinAA: { type:'number', id:'smfretMinAA', label:'Min AA for E/S histogram', min:0, max:null, step:10, default:0, int:false },
+  smfretMinAA: { type:'number', id:'smfretMinAA', label:'Min AA for E/S histogram', min:0, max:null, step:10, default:1, int:false },   // default 1 excludes rejected-fit AA=0 samples; 0 includes them (S=1, donor-only)
   smfretMaxAA: { type:'number', id:'smfretMaxAA', label:'Max AA for E/S histogram', min:0, max:null, step:10, default:Infinity, int:false },
   // alexEnabled/alexFirstFrame are step one of the "ALEX frame-role
   // bookkeeping" prerequisite docs/REFACTOR_PLAN.md's own smFRET/ALEX
@@ -18072,9 +18072,13 @@ function smfretPoolES(minDex,maxDex,minAA,maxAA){
       // instead — prefer i+1, fall back to i-1 (whichever neighbour is
       // actually finite; one of the two always is for an interior frame).
       let A = (i+1<n && isFinite(aa[i+1])) ? aa[i+1] : ((i-1>=0 && isFinite(aa[i-1])) ? aa[i-1] : NaN);
-      if(!(A>0)) continue;   // same requirement, applied to AA too — same reasoning, own comment above
+      // AA may be 0, unlike DD/DA: AA=0 (a rejected fit — no acceptor signal)
+      // only puts S at 1 (the donor-only population), it doesn't clamp E. So
+      // AA is gated by the Min AA slider alone — default 1, which excludes
+      // those zeros like before; type 0 to include them.
+      if(!isFinite(A)) continue;
       const dex=d+a; if(dex<minDex||dex>maxDex||A<minAA||A>maxAA) continue;
-      const denom=A+dex;   // always > 0 now that d,a,A are each individually positive
+      const denom=A+dex;   // > 0: d,a > 0 and A >= minAA >= 0
       E.push(a/dex); S.push(dex/denom);
     }
   }
@@ -25146,17 +25150,13 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.9-dev · build 2026-09-23b — smFRET "Background from
-annulus" now covers Gauss MLE rotated elliptical too, and runs on the GPU
-(both fitters; background pinned in dedicated kernel variants, CPU/GPU
-identical to f32 rounding). Two additions: (1) the anchored elliptical fit
-is seeded from the window's second moments — the default seed could settle
-on a near-circular saddle and never converge with background fixed; (2) one
-refinement pass re-measures the annulus with the fitted spot subtracted and
-refits, so a wide/dispersed spot no longer biases its own background (true
-2.2 px width along D->A: 2.07 -> 2.15). Jeffet 1c: 25.7% vs 19.4% frames
-accepted, 2.5 s GPU vs 23 s CPU. Note: widths above 2x sigma_PSF are
-rejected — set sigma_PSF near the dispersed spot width.`);
+log(`webSMLM v0.12.9-dev · build 2026-09-23c — smFRET E/S histogram: AA
+may now be 0. Previously DD, DA and AA each had to be > 0, so frames with a
+rejected AA fit (AA = 0, the donor-only population at S = 1) could never
+appear. AA is now gated by the Min AA range alone, which defaults to 1
+(same result as before); set it to 0 to include them. DD/DA keep their
+> 0 rule (a zero there clamps E to 0 or 1). Previous build (23b): anchored-
+background fits for rotated elliptical and on the GPU.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
