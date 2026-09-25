@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-23e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -24430,7 +24430,12 @@ $('pxnm').addEventListener('change',()=>{
   if(lastResult) lastResult.px=paramValue('pxnm');
   if(srIsRecon && !srIsPlot) rerender(true);
   else if(srFull && !srIsPlot){ clampView(); drawView(); }
-  drawRawView();                                          // raw-frame bar (uses the live value)
+  // A plot owning the raw panel (smFRET trace, drift, NeNA, FRC, histograms, …)
+  // must be replotted, not overwritten: drawRawView() blanks the canvas and,
+  // with rawFull=null, draws nothing back. Replotting also picks up the new
+  // pxnm in plots with nm axes (e.g. smFRET's sigma-vs-time).
+  if(rawIsPlot){ if(_replotRaw) _replotRaw(); }
+  else drawRawView();                                     // raw-frame bar (uses the live value)
 });
 // live preview: re-detect/re-fit the current raw frame (not the whole stack) when
 // detection/fit settings change, if "Real-time update" is checked.
@@ -25281,14 +25286,9 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.9-dev · build 2026-09-23e — smFRET: the "smFRET fit"
-selector is gone. With Analyse FRET ticked, Get FRET data picks the fit:
-after "Via distances and angles" a rotated elliptical Gauss MLE with axes
-locked to each site's D->A direction (width along D-A = spectral
-dispersion); after "Via channel matching" or before pairing, spherical.
-Unticked: the sidebar Fit method. New: pairing estimates each channel's PSF
-from its composite fits (logged as "PSF from pairing") and uses it to seed
-and bound (2x) that channel's per-frame fits, instead of one sigma_PSF.`);
+log(`webSMLM v0.12.9-dev · build 2026-09-25a — changing Pixel size (nm)
+no longer blanks a plot shown in the left panel (smFRET time trace, drift,
+NeNA, FRC, histograms); the plot is redrawn with the new pixel size instead.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
