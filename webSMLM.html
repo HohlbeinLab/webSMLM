@@ -2491,10 +2491,10 @@ X.B(E,Y);return E}return J}())
   .log #logText{max-width:80ch}
   /* Terminal input row, directly below the log box — same monospace/dark
      styling so it reads as a continuation of the log rather than an
-     unrelated form control. rows="1" + field-sizing:content lets the
+     unrelated form control. rows="2" + field-sizing:content lets the
      textarea grow with pasted/typed multi-line content without JS-driven
      height math; field-sizing isn't supported everywhere yet, so it just
-     stays a fixed 1-line box there (still fully usable — Shift+Enter still
+     stays a fixed 2-line box there (still fully usable — Shift+Enter still
      inserts a real newline, just scrolled within the box) rather than
      failing outright.
      No leading ">" prompt column any more (reported — it kept the box from
@@ -2509,7 +2509,15 @@ X.B(E,Y);return E}return J}())
      box-shadow glow below, not a border-colour change. */
   .logTerminalRow{display:flex;margin-top:6px;
     font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;}
+  /* Always at least two lines tall (requested) — a logged command is now
+     field settings on one line plus the call on the next, so a recalled
+     one fits without the box jumping in height. `2lh` = two lines at the
+     box's own line-height (tracks the 12px desktop / 16px mobile font);
+     the px value before it is the fallback for browsers without `lh`,
+     sized for the desktop font. padding 12 + border 2 = 14px. rows="2"
+     covers browsers without field-sizing. */
   #logTerminal{width:100%;box-sizing:border-box;resize:none;field-sizing:content;max-height:200px;overflow-y:auto;
+    min-height:50px;min-height:calc(2lh + 14px);
     background:var(--deep);border:1px solid var(--deep);border-radius:8px;color:var(--fg);
     padding:6px 9px;font:inherit}
   #logTerminal:focus{outline:none;box-shadow:0 0 0 2px var(--accent-tint)}
@@ -2686,7 +2694,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3353,7 +3361,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <h4><span>Log</span><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button id="logCmdStyleBtn" class="logbtn" title="Recorded commands (Localize, Correct drift, …) are shown as either a headless analyze() call or the equivalent CLI invocation — click to switch which">Show as CLI</button><button id="clearLogBtn" class="logbtn" title="Clear the log window">Clear log</button><button id="exportLogBtn" class="logbtn" title="Save the log window as a text file">Export log</button><button id="copyLogBtn" class="logbtn" title="Copy the entire log window to the clipboard">Copy log</button><span id="memReadout" class="pill" style="cursor:default"></span></span></h4>
       <div class="log" id="log"><div id="logText"></div></div>
       <div class="logTerminalRow" title="Type or paste a JS statement (e.g. a logged analyze({...}) call, edited or as-is) and press Enter to run it. ↑/↓ recalls previous statements — both ones you've run here and every action's own logged command.">
-        <textarea id="logTerminal" rows="1" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — ↑/↓ history"></textarea>
+        <textarea id="logTerminal" rows="2" spellcheck="false" autocomplete="off" placeholder="analyze({...}) — ↑/↓ history"></textarea>
       </div>
       <!-- Mobile-only (no physical ↑/↓ keys on an on-screen keyboard, reported) —
            display:none by default, shown at the same max-width:860px breakpoint
@@ -25330,9 +25338,8 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.9-dev · build 2026-09-25d — log: consecutive commands
-no longer have a blank line between them, and a logged command puts its
-$(...) field settings on one line and the function call on the next.`);
+log(`webSMLM v0.12.9-dev · build 2026-09-25e — the log terminal is now
+always at least two lines tall.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
