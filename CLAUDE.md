@@ -14,7 +14,7 @@ update the relevant paragraph below to reflect the new *current* behavior rather
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM):
 the entire application — HTML, CSS, all JavaScript, and the two bundled decoders (pako, UTIF) —
-lives in `webSMLM.html` (~20,800 lines; the file's own top-of-file **MODULE INDEX** comment gives
+lives in `webSMLM.html` (~25,000 lines; the file's own top-of-file **MODULE INDEX** comment gives
 current per-module line numbers — re-`grep -n "MODULE:"` if it looks stale, and refresh it alongside
 a build-letter bump when a change has moved things by more than a few lines). It loads a raw TIFF
 stack, detects/localizes emitters, and renders a super-resolution image, **entirely client-side** (no
@@ -32,10 +32,19 @@ Node+Playwright CLI for headless/scripting use — see **pipeline** below — wi
 ## Editing model
 
 All work happens inside `webSMLM.html`. It is organized into commented `MODULE:` banners; find the
-relevant one before editing rather than scrolling. The code itself carries extensive inline "why"
-comments at nearly every non-obvious decision — the summaries below are a map to get oriented and a
+relevant one before editing rather than scrolling. The code carries inline "why" comments at
+non-obvious decisions — the summaries below are a map to get oriented and a
 place to record cross-cutting facts, not a substitute for reading the code's own comments once you're
 in a module.
+
+**Comment style** (the smFRET module and the MODULE INDEX were rewritten to this; the rest of the
+file is being brought in line module by module): a comment says what the code does now and, briefly,
+why — units, conventions, pitfalls, a rejected alternative only when it guards against an easy
+regression (one line). No "reported/requested" stories, quoted user messages, "used to / tried
+first / reverted" histories or before/after measurements — those go in the commit message and
+`CHANGELOG.md`; a verification note is one line naming its test file. Explain a piece of reasoning
+once, where the code it governs lives, and point to it from elsewhere. Fix a comment the code has
+outgrown rather than appending to it.
 
 - **params** — the `PARAMS` registry: single source of truth for every analysis/render/export
   parameter (`name → {label, min, max, step, default, int}`), read via `paramValue(id)`. Drives the
