@@ -148,7 +148,7 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     work before implementing: exactly how a "fixed position, aperture-for-intensity" mode would be
     exposed (a new `smfretApertureMode`-adjacent toggle? Always-on once an MLE position exists?), and
     whether it belongs in smFRET specifically or as a general fit-module option.
-    **Partly superseded (v0.12.9-dev, build 2026-09-23a):** smFRET's "Background from annulus"
+    **Partly superseded (v0.12.9):** smFRET's "Background from annulus"
     (`smfretAnchorBg`, `gaussianMLEsphericFixedBg()`) anchors bg to the annulus and fits x,y,N,σ —
     it already brings MLE trace noise level with aperture photometry on real data. Remaining follow-ups:
     - (Done, build 2026-09-23b: GPU kernels and the rotated elliptical fitter.) Least-squares still fits
