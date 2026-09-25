@@ -61,8 +61,7 @@ what makes GUI and command-line use interchangeable.
     viewport side ≤ 860 px, so phones qualify in landscape) `MOBILE_MEM_DEFAULTS` substitutes 0.5 GB /
     0 / 250 MB (local override, never mutating `PARAMS`). `isMobileViewport()` (width only) is for
     layout.
-  - `useGpu` is currently default **true** (flagged TEMPORARY in its comment; revisit before a
-    release).
+  - `useGpu` defaults to **true** (each GPU stage falls back to CPU when unsupported or slower).
 
 - **in/out** — TIFF/ND2/FITS loading. `loadTiffFile()` dispatch: FITS (magic "SIMPLE") → ND2 (magic
   `0x0ABECEDA`) → TIFF (require `t256`/`t257`: UTIF returns one empty IFD for non-TIFF bytes) →
