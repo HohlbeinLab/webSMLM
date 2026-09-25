@@ -1075,6 +1075,12 @@ in a module.
   documented two paragraphs up (a genuinely bad low-SNR fit's own `{sx,sy,angle}` would of course
   project to a bad width too, correctly reflecting a bad INPUT rather than a broken projection).
 
+  **Reloading a saved traces JSON goes through Load movie/data** (`loadFiles()`→`loadJsonFile()`, which
+  routes any `.json` by its `format` field to `loadSmfretTraces()`/`loadSettingsJson()`/
+  `loadCalibrationJson()`); the smFRET section's own button is **Plot (FRET) data**
+  (`plotSmfretTraces()`), which re-shows the in-memory traces/E(S) histogram without re-extracting,
+  enabled/disabled together with **Save (FRET) data**.
+
   **Trace export/reload (`exportSmfretTraces()`/`loadSmfretTraces()`) now round-trips the sigma-vs-time
   plot's own data** — a real, previously-missing gap: only `photonsDD`/`photonsDA`/`photonsAA` were
   ever saved, so Save/Load traces could reproduce the intensity plot but never the sigma-vs-time one.

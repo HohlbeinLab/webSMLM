@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2704,7 +2704,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     <!-- actions -->
     <div class="group">
       <div class="btnrow">
-        <button id="loadBtn" title="Select a movie (a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate — native Nikon .nd2, single file, uncompressed/16-bit single-channel, is also accepted) OR a CSV previously exported with Save data. Detected by file extension — don't select a movie and a CSV together.">Load movie/data</button>
+        <button id="loadBtn" title="Select a movie (a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate — native Nikon .nd2, single file, uncompressed/16-bit single-channel, is also accepted) OR a CSV previously exported with Save data, OR a JSON file webSMLM saved (smFRET traces from Save (FRET) data, settings, or a 3D calibration — recognised from the file's own content). Detected by file extension — select one type at a time.">Load movie/data</button>
         <button id="genBtn">Simulate movie</button>
       </div>
       <div class="btnrow">
@@ -2724,7 +2724,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button id="helpBtn" class="helpbtn" title="Open the quick-reference guide (guided workflow, acknowledgements, licence)">Quick guide</button>
       </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
-      <input type="file" id="file" accept=".tif,.tiff,.nd2,.fits,.fit,.csv" multiple hidden>
+      <input type="file" id="file" accept=".tif,.tiff,.nd2,.fits,.fit,.csv,.json" multiple hidden>
       <input type="file" id="segFile" accept=".tif,.tiff,.nd2,.fits,.fit" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
       <!-- No listener attached on purpose: a conduit for tools/webSMLM-cli.mjs
@@ -3106,7 +3106,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <summary>(Caution!) Time traces and FRET</summary>
         <label class="row">Average # of frames
           <input type="number" id="smfretAvgFrames" value="100" min="1" step="10" class="num"></label>
-        <label class="row" title="Whether this module is being used for real FRET pair analysis. Unchecked, Pair DD + DA is disabled/greyed out — everything else (Localize SOI, Get (FRET) data, Load/Save (FRET) data) stays fully usable for plain intensity-vs-time traces, with no pairing implied. With Alternating-laser excitation also on and no pairing, Get (FRET) data still plots real DD and AA (AA sampled at the site's own position); there's just no E/S available without a real DD+DA pair.">Analyse FRET
+        <label class="row" title="Whether this module is being used for real FRET pair analysis. Unchecked, Pair DD + DA is disabled/greyed out — everything else (Localize SOI, Get (FRET) data, Plot/Save (FRET) data) stays fully usable for plain intensity-vs-time traces, with no pairing implied. With Alternating-laser excitation also on and no pairing, Get (FRET) data still plots real DD and AA (AA sampled at the site's own position); there's just no E/S available without a real DD+DA pair.">Analyse FRET
           <input type="checkbox" id="smfretFretEnabled" checked></label>
         <label class="row" title="Frames alternate between direct donor and direct acceptor excitation (ALEX). Turns on the First-frame-role selector below and a donor/acceptor toggle on the Data projection/SOI composite views.">Alternating-laser excitation
           <input type="checkbox" id="alexEnabled"></label>
@@ -3140,8 +3140,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, plot the resulting intensity-vs-frame time traces in the raw (left) panel, and — once a real DD+DA pairing exists — also show the E(S) histogram in the reconstruction (right) panel (E = DA/(DD+DA); with Alternating-laser excitation on, a 2D E vs. S histogram instead, S = (DD+DA)/(AA+DD+DA)). Once paired (Pair DD + DA above), DA leads: the acceptor-channel position it establishes is what DA AND (with Alternating-laser excitation on) AA are both sampled at.">Get (FRET) data</button>
-          <button id="smfretLoadTracesBtn" type="button" title="Load a previously-exported smFRET traces JSON file (Save (FRET) data) and show its Time trace plot / E(S) histogram directly — no raw movie, Localize SOI or pairing needed. The SOI composite and ROI thumbnails stay unavailable (the composite image itself isn't part of this file — thumbnails only render if a movie happens to already be loaded, and only look right if it's genuinely the same one the traces came from).">Load (FRET) data</button>
-          <input type="file" id="smfretTracesFile" accept=".json" hidden>
+          <button id="smfretPlotTracesBtn" type="button" disabled title="Show the existing time traces again in the raw (left) panel, and the E(S) histogram in the reconstruction (right) panel once a DD+DA pairing makes it meaningful, without re-running Get (FRET) data. Useful after the panels were switched to something else (a raw frame, a drift or NeNA plot, …). Stays at the site and zoom you last looked at. Disabled until Get (FRET) data has run, or a saved traces file was loaded via Load movie/data.">Plot (FRET) data</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
           <button id="smfretExportTracesBtn" type="button" disabled title="Save every site's own DD/DA/AA (whichever apply) intensity- and, when a fit was used (not aperture photometry), width-vs-time trace as one JSON file — one record per site, each carrying its own time (s) array alongside photonsDD/photonsDA/photonsAA and sigmaDD/sigmaDA/sigmaAA. A gap (no fit attempted that frame, or a frame that wasn't this channel's turn under ALEX) is written as null, matching JSON's own convention for a non-finite number. Does not include the pooled E(S) histogram data — that's directly recomputable from the saved DD/DA/AA arrays.">Save (FRET) data</button>
@@ -3149,7 +3148,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
           <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
-          <p><b>Analyse FRET</b> (default checked, right below <b>Average # of frames</b>) makes explicit that this module also works as a plain time-traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Load/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating-laser excitation</b> on and <b>Analyse FRET</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
+          <p><b>Analyse FRET</b> (default checked, right below <b>Average # of frames</b>) makes explicit that this module also works as a plain time-traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Plot/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating-laser excitation</b> on and <b>Analyse FRET</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
           <p><b>Alternating-laser excitation</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
           <p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating-laser excitation</b> checked, the log line also breaks the total down by channel: it reports the candidate count on the channel just localized AND runs a second, on-demand detect+fit pass on the OTHER channel purely to report its own independent count too (no pairing has run yet at this point, so there's no real donor/acceptor IDENTITY to split by — see below).</p>
           <p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own). Each of the two channels (<b>DD+DA</b>/<b>AA</b>, or <b>Donor</b>/<b>Acceptor dir. exc.</b> before Localize SOI) remembers its own Contrast range independently — the first time a channel's composite is shown it's auto-estimated, but a by-hand adjustment sticks: toggling to the other channel and back does not silently reset it. Clicking <b>Auto</b> explicitly reverts the CURRENT channel back to auto-estimating on future toggles.</p>
@@ -3159,10 +3158,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Get FRET data</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating-laser excitation</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a 2D Gaussian (seeded at the site, position free to move) at each frame. With <b>Analyse FRET</b> ticked, smFRET picks the fit itself rather than following the sidebar <b>Fit method</b>: after <b>Pair DD + DA</b> <b>Via distances and angles</b> (grating/prism — the acceptor spot is dispersed along the donor→acceptor direction) it fits a rotated elliptical Gauss MLE whose axes are locked to each site's own D→A direction, so the width plotted in the sigma-vs-time panel is the width ALONG D→A (the spectral dispersion) and the width across it is fitted separately, whatever the camera orientation; after <b>Via channel matching</b> (dual-view, no dispersion) and before any pairing it fits a spherical Gauss MLE (one width). Locking the axes assumes the spot's principal axes lie along D→A (true when dispersion dominates); for a spot tilted relative to D→A (e.g. astigmatism), untick <b>Analyse FRET</b> and use the sidebar's <b>Gauss MLE rotated elliptical</b>, which fits the angle freely and projects its width onto D→A. With <b>Analyse FRET</b> unticked, the sidebar's <b>Fit method</b> is used (spherical, least-squares or rotated elliptical). Pairing also estimates each channel's own PSF width from its composite fits (logged as <i>PSF from pairing</i>: along × across D→A for <b>Via distances and angles</b>, one width for <b>Via channel matching</b>, AA from its own fit when ALEX is on) and uses it — instead of the single sidebar σ_PSF — to seed each channel's per-frame fit and to bound its width at 2× that estimate; the sidebar σ_PSF itself is left unchanged (changing it would re-run Localize SOI and discard the pairing). The localizations table's own <code>sx0th</code>/<code>sy0th</code>/<code>sx1st</code>/<code>sy1st</code> come from a different fit — the pairing step's axis-aligned elliptical least-squares fit of the averaged SOI composite, independent of this setting — so they are camera-x/y widths of the time-averaged spot, not per-frame widths along D→A. Either way the per-frame fit runs on the GPU when <b>Use GPU acceleration</b> is on and enough sites × frames × channels exist to make it worthwhile, exactly as an ordinary Localize run would; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. <b>Background from annulus</b> (default checked; Gauss MLE spherical and rotated elliptical) holds each frame's background at the same local annulus estimate aperture photometry uses and fits only position, photons and width. With background free, a small fit window lets the fit trade a wider, dimmer peak for a lower background, inflating the photon count (or, with the aperture cross-check, rejecting the frame); anchoring it removes most of these, at unchanged position precision and a few-% photon undercount comparable to aperture photometry. It runs on the GPU too when <b>Use GPU acceleration</b> is on. After a first fit, the annulus background is re-measured with the fitted spot's own signal subtracted and the spot is fitted once more — a wide or spectrally dispersed spot otherwise leaks real signal into the annulus along its long axis, making the background read high and the fitted width and photons come out low. For the rotated elliptical fit this keeps the width along the donor–acceptor direction (which carries the spectral dispersion) within a few % of the truth on synthetic grating-like spots, while accepting far more frames than a fit with free background. smFRET rejects any per-frame fit whose width on either axis exceeds 2× that channel's PSF estimate from pairing (2 × σ_PSF before pairing). Toggling any of these three (or <b>Apply drift correction</b>, below) while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get FRET data</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
           <p><b>Apply drift correction</b> (default OFF) estimates drift on the loaded movie and shifts each frame's own extraction window to follow it before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever <b>Drift correction method</b>/settings are currently configured in <b>Drift correction</b>'s own sidebar section (see <a href="#drift-params">its own reference</a>): <b>Cross correlation</b> runs directly on the raw movie, no Localize needed just to estimate it; <b>AIM</b> needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes (using the current detection/fit settings) — a real, sometimes substantial added cost, unlike Cross correlation. Either way, the estimated drift is anchored to frame 0 (a site's own fixed x,y is treated as "how it looked when Localize SOI averaged it", effectively frame 0), so every other frame's own extraction position is derived as an offset from that fixed reference — not from an arbitrary drift-curve reference point the way <b>Correct drift</b>'s own AIM-based reconstruction correction can be.</p>
           <p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity- and, when a real fit was used (not aperture photometry), width-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code>, and <code>sigmaDD</code>/<code>sigmaDA</code>/<code>sigmaAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Does NOT save the pooled <b>E(S) histogram</b> data — that's directly recomputable from the saved DD/DA/AA arrays, so it was dropped as pure duplication. Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code>, <code>alex_first_frame</code>, <code>extraction_method</code> (which of the 4 real extraction paths produced this file) and <code>use_elliptical_width</code> — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
-          <p><b>Load FRET data</b> reverses this — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
+          <p><b>Plot (FRET) data</b> (greyed out until <b>Get (FRET) data</b> has run) re-shows the existing time traces in the left panel, and the <b>E(S) histogram</b> in the right one once paired, without re-extracting — handy after switching a panel to a raw frame or another plot. It keeps the site and zoom you last looked at.</p>
+          <p>Selecting a saved traces file with <b>Load movie/data</b> reverses <b>Save FRET data</b> — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
           <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
           <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
-          <p>Below the ROI thumbnail row, a third stacked plot (sharing the same time x-axis as the two above it, drawn in a square, not the usual 4:3, letterbox specifically so this extra plot doesn't squeeze the intensity plot above it shorter) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load FRET data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
+          <p>Below the ROI thumbnail row, a third stacked plot (sharing the same time x-axis as the two above it, drawn in a square, not the usual 4:3, letterbox specifically so this extra plot doesn't squeeze the intensity plot above it shorter) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load movie/data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -16079,7 +16079,7 @@ async function locateSmfretSOI(preservePairing=false){
   // toggle — see getSmfretTimeTraces()'s own `sites` selection), so
   // there's nothing to actually invalidate in the preservePairing case.
   if(smfretTraces && !preservePairing){ smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
-    $('smfretTraceModeBtn').style.display='none'; $('smfretExportTracesBtn').disabled=true;
+    $('smfretTraceModeBtn').style.display='none'; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true;
     $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none';
     if(stack.n>1){ $('scrubRow').style.display='flex'; } showFrame(+$('scrub').value); }
   const alex=paramValue('alexEnabled');
@@ -17046,7 +17046,7 @@ function clearSmfretFixSOI(){
   smfretContrastByChannel={dirDonorExc:null, dirAcceptorExc:null};
   $('smfretTraceScrubRow').style.display='none';
   $('smfretTraceModeBtn').style.display='none';
-  $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true;
+  $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true;
   $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none';
   if(srSpots||srLocs){   // was showing our SOI composite — clear it and restore the general overview
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
@@ -17903,7 +17903,7 @@ async function getSmfretTimeTraces(preserveView=false){
     traces.pinAxes=pinAxes;
     traces.psfEst=psfEst;   // read by drawSmfretTrace()'s own sigma-vs-time y-axis label — a batch-level flag (same for every site), not worth repeating per-site
     smfretTraces=traces; smfretShowRawFrame=false;
-    $('smfretExportTracesBtn').disabled=false;
+    $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=false;
     smfretUpdateEHistThresholdRanges();
     // preserveView: clamp the OLD index/zoom to the new traces (site count
     // never actually changes on a settings-only re-run, since it's the same
@@ -18095,7 +18095,7 @@ async function loadSmfretTraces(f){
     if(typeof payload.alex_enabled==='boolean'){ $('alexEnabled').checked=payload.alex_enabled; $('alexEnabled').dispatchEvent(new Event('change')); }
     if(payload.alex_first_frame){ $('alexFirstFrame').value=payload.alex_first_frame; $('alexFirstFrame').dispatchEvent(new Event('change')); }
     smfretShowRawFrame=false;
-    $('smfretExportTracesBtn').disabled=false;
+    $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=false;
     // Restore the exact DD + DA/AA range the file's own pooled E(S)
     // histogram was built with (if present) BEFORE the range-sync call
     // below, so a subsequent E(S) histogram click reproduces the saved plot
@@ -18125,12 +18125,25 @@ async function loadSmfretTraces(f){
   }catch(err){ log(`⚠ Load traces failed: ${err.name}: ${err.message}`); }
   finally{ refreshSmfretTimeTracesBtn(); }
 }
-$('smfretLoadTracesBtn').addEventListener('click', ()=>$('smfretTracesFile').click());
-$('smfretTracesFile').addEventListener('change', async e=>{
-  const f=e.target.files[0];
-  e.target.value='';
-  await loadSmfretTraces(f);
-});
+// Plot (FRET) data: re-shows the traces already in memory (from Get (FRET)
+// data or a loaded traces file) after the panels were switched to something
+// else — no re-extraction. Keeps the current site index and zoom
+// (smfretTraceIdx/smfretTraceView); the E(S) histogram goes back on the SR
+// panel when a pairing makes it meaningful, same as a fresh Get (FRET) data.
+function plotSmfretTraces(){
+  if(!smfretTraces || !smfretTraces.length){ log('smFRET: no time traces yet — run Get (FRET) data first.'); return; }
+  smfretShowRawFrame=false;
+  smfretTraceIdx=Math.max(0, Math.min(smfretTraceIdx, smfretTraces.length-1));
+  $('scrubRow').style.display='none';
+  $('smfretTraceScrubRow').style.display='flex';
+  $('smfretTraceScrub').max=smfretTraces.length-1;
+  $('smfretTraceScrubNum').max=smfretTraces.length;
+  $('smfretTraceModeBtn').style.display=''; $('smfretTraceModeBtn').textContent='Show raw frame';
+  drawSmfretTrace(smfretTraceIdx);
+  if(smfretCanShowEHist()) showSmfretEHist();
+  logCmd({}, 'plotSmfretTraces()');
+}
+$('smfretPlotTracesBtn').addEventListener('click', plotSmfretTraces);
 // ---- E / E-S FRET histogram (requested) ----
 // "X-Y" for an explicit finite range, "X-∞" once the upper bound is the
 // PARAMS Infinity default (a blank Max numflat box) — the srInfo/"no
@@ -18766,7 +18779,7 @@ function refreshSmfretTimeTracesBtn(){
 // Pair DD + DA is disabled/greyed out regardless of whether sites of interest
 // exist, since it's the one control that only makes sense once a real FRET
 // pair is actually wanted; every other button (Localize SOI, Get (FRET) data,
-// Load/Save (FRET) data) is unaffected.
+// Plot/Save (FRET) data) is unaffected.
 function refreshSmfretPairingBtn(){
   $('smfretPairingBtn').disabled = !(smfretSOI && smfretSOI.length) || !paramValue('smfretFretEnabled');
 }
@@ -18793,8 +18806,8 @@ function toggleSmfretTraceMode(){
   $('smfretTraceModeBtn').textContent = smfretShowRawFrame ? 'Show time trace' : 'Show raw frame';
   if(smfretShowRawFrame){
     $('smfretTraceScrubRow').style.display='none';
-    if(stack.n>1) $('scrubRow').style.display='flex';
-    showFrame(+$('scrub').value);
+    if(stack && stack.n>1) $('scrubRow').style.display='flex';
+    if(stack) showFrame(+$('scrub').value);
   } else {
     $('scrubRow').style.display='none';
     $('smfretTraceScrubRow').style.display='flex';
@@ -23154,7 +23167,7 @@ async function runSimulation(){
     simulation_pxnm:paramValue('simulation_pxnm'), driftpx:paramValue('driftpx') };
   logCmd(cmdCfg, overrideWithFields(cmdCfg, 'runSimulation()'));
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
-  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
+  $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
   try{
     const generated=await generateSynthetic();
     // Superseded (a load, a crop, another Simulate, …) while generateSynthetic()
@@ -23235,7 +23248,7 @@ async function loadMovieFiles(fs){
   fs.forEach(registerTerminalFile);   // makes this exact selection recallable-by-name in the log terminal, see registerTerminalFile()'s own comment
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -23458,7 +23471,7 @@ function initScrub(){
     smfretSOI=null; smfretDonorCompositeImg=null; smfretAcceptorCompositeImg=null;
     smfretContrastByChannel={dirDonorExc:null, dirAcceptorExc:null};
     smfretTraces=null; smfretTraceView=null; smfretShowRawFrame=false; $('smfretTraceScrubRow').style.display='none';
-    $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true;
+    $('smfretTraceModeBtn').style.display='none'; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true;
     $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; }
 }
 $('scrub').addEventListener('input',e=>showFrame(+e.target.value));
@@ -24142,7 +24155,14 @@ async function runTerminalStatement(text){
 async function loadFiles(fs){
   fs=[...fs];
   if(!fs.length) return;
-  const isCsv=f=>/\.csv$/i.test(f.name);
+  const isCsv=f=>/\.csv$/i.test(f.name), isJson=f=>/\.json$/i.test(f.name);
+  const jsonFiles=fs.filter(isJson);
+  if(jsonFiles.length){
+    if(jsonFiles.length!==fs.length){ log(`⚠ Load movie/data: the selection mixes a JSON file (${jsonFiles[0].name}) with other files — pick one type at a time.`); return; }
+    if(jsonFiles.length>1) log(`⚠ Multiple JSON files selected — loading only ${jsonFiles[0].name}.`);
+    await loadJsonFile(jsonFiles[0]);
+    return;
+  }
   const csvFiles=fs.filter(isCsv), movieFiles=fs.filter(f=>!isCsv(f));
   if(csvFiles.length && movieFiles.length){
     log(`⚠ Load movie/data: the selection mixes a CSV (${csvFiles[0].name}) with movie file(s) (${movieFiles[0].name}${movieFiles.length>1?', …':''}) — pick one type at a time.`);
@@ -24154,6 +24174,22 @@ async function loadFiles(fs){
   }else{
     await loadMovieFiles(movieFiles);
   }
+}
+// A .json given to Load movie/data is routed by its own content: every JSON
+// webSMLM writes carries a `format` field (smFRET traces, settings, 3D
+// calibration). Older settings/calibration files predate `format`, so those
+// two also fall back to their characteristic keys (settings: `values`;
+// calibration: a phasor or Gaussian-width model block).
+async function loadJsonFile(f){
+  if(!f) return;
+  let o;
+  try{ o=JSON.parse(await f.text()); }
+  catch(err){ log(`⚠ Load movie/data: ${f.name} is not valid JSON (${err.message}).`); return; }
+  const fmt=o&&o.format;
+  if(fmt==='webSMLM-smfret-traces') await loadSmfretTraces(f);
+  else if(fmt==='webSMLM-settings' || (!fmt && o && typeof o.values==='object')) await loadSettingsJson(f);
+  else if(fmt==='webSMLM-astig-calibration' || (!fmt && o && (o.phasor_z_from_ratio || o.sigma_x_nm))) await loadCalibrationJson(f);
+  else log(`⚠ Load movie/data: ${f.name} is not a JSON file webSMLM recognises (expected saved smFRET traces, settings, or a 3D calibration${fmt?`; found format "${fmt}"`:''}).`);
 }
 $('loadBtn').addEventListener('click',()=>$('file').click());
 $('file').addEventListener('change', async e=>{
@@ -25286,9 +25322,10 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.9-dev · build 2026-09-25b — hotkeys: Alt+P / Alt+F /
-Alt+S (Pixel size, Frame time, Stack panels) now work without Shift, and
-their badges show whenever Alt is held.`);
+log(`webSMLM v0.12.9-dev · build 2026-09-25c — smFRET: "Load (FRET) data"
+is replaced by "Plot (FRET) data", which re-shows the existing time traces
+(and E(S) histogram) without re-running Get (FRET) data. Saved traces,
+settings and 3D calibration JSON files now all load via Load movie/data.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
