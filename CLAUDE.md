@@ -1541,8 +1541,8 @@ in a module.
   switches to the 10 collapsible sidebar `<details>` modules (`HOTKEY_SECTIONS`). Digit matching uses
   `e.code` (`"Digit1".."Digit0"`), never `e.key` — macOS remaps `e.key` for the digit row while Option
   is held. **Alt+T** focuses the log terminal (one fixed binding, checked before the digit lookup).
-  **Alt+Shift+P/F/S** are three more fixed single bindings (Pixel size, Frame time, the Stack
-  panels/Side by side toggle).
+  **Alt+P/F/S** are three more fixed single bindings (Pixel size, Frame time, the Stack
+  panels/Side by side toggle) — like Alt+T, either Shift state, badges shown with both hint sets.
 
   `makeNavigator(cv, nav)` is the shared pan/zoom (drag/wheel/pinch/double-tap-to-fit) wiring for the
   raw/SR canvases (Pointer Events). `trackDragDistance(cv)` separately measures total on-screen

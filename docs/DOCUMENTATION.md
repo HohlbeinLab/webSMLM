@@ -84,12 +84,12 @@ scrolling to and focusing its header so the next Tab press lands on that
 section's first field. A hint only appears for a button that's currently
 enabled or a section currently on screen; the digit each one maps to never
 changes based on that, so it stays predictable across sessions. **Alt+T**
-(either Shift state) jumps straight to the log terminal (below). A handful
-of single, fixed **Alt+Shift** letter bindings — shown as their own hint
-badges alongside the section digits — reach a few frequently-used fields
-directly: **Alt+Shift+P** jumps to and selects **Pixel size (nm)**,
-**Alt+Shift+F** to **Frame time (s)**, and **Alt+Shift+S** clicks the
-**Stack panels**/**Side by side** toggle.
+(either Shift state) jumps straight to the log terminal (below). Three more
+fixed letter bindings, which also work with or without Shift and show their
+own hint badges whenever Alt is held, reach a few frequently-used fields
+directly: **Alt+P** jumps to and selects **Pixel size (nm)**, **Alt+F** to
+**Frame time (s)**, and **Alt+S** clicks the **Stack panels**/**Side by
+side** toggle.
 
 ### Sidebar — Pixel size (nm) / Frame time (s) {#sidebar-pxnm-frametime}
 
