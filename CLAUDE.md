@@ -1510,7 +1510,10 @@ in a module.
   `overrideWithFields(config, call)` builds a SELF-CONTAINED override: for every `config` key naming a
   real sidebar field, it prefixes `call` with a `$('id').value=...`/`.checked=...` assignment (skips a
   key with no matching element, e.g. a bookkeeping marker or `<input type=file>`) — recalling this
-  loads the whole line into the terminal already editable, change a value, press Enter.
+  loads the whole entry into the terminal already editable, change a value, press Enter. Layout: all
+  `$(...)` assignments chained on one line, the function call on its own line below; consecutive
+  commands in the log sit on adjacent lines (blank line only between prose and a command), and ↑/↓
+  keep navigating history while a recalled (possibly two-line) entry is unedited.
 
   **A multi-fact `onLog()` message is ONE call with embedded `"\n"`s and a plain, short `"  "`
   (2-space) continuation indent — never several separate `onLog()` calls hand-padded with just enough

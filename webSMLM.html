@@ -2686,7 +2686,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.9-dev · build 2026-09-25d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -4262,15 +4262,20 @@ function wrapCommentLine(line, marker, width=80){
 // log() message that embeds its OWN leading "\n" for a paragraph break (see
 // logCmd()'s own comment on that convention), is untouched.
 function formatLogEntry(e, isFirst, prevEntry){
+  // Consecutive commands (cmd/term right after cmd/term) sit on adjacent
+  // lines — no blank line between two commands with no prose in between
+  // (reported: Preview pairs' fit call and Pair DD + DA's call showed a gap).
+  // A command after prose still gets its blank-line separator.
+  const cmdSep = isFirst ? '' : (prevEntry && (prevEntry.type==='cmd'||prevEntry.type==='term')) ? '\n' : '\n\n';
   if(e.type==='cmd'){
     // e.jsOverride (see logCmd()'s own comment) wins in JS style — CLI has
     // no equivalent (tools/webSMLM-cli.mjs only ever drives analyze(), one
     // shot, no interactive-session functions to call directly), so CLI
     // style always falls through to the ordinary config-as-flags rendering
     // regardless of jsOverride.
-    if(logCmdStyle==='cli') return (isFirst?'':'\n\n')+cliCommandFor(e.config);
+    if(logCmdStyle==='cli') return cmdSep+cliCommandFor(e.config);
     const line = e.jsOverride || jsCommandFor(e.config);
-    return (isFirst?'':'\n\n')+line;
+    return cmdSep+line;
   }
   // A terminal-run statement is always JS (the log terminal only ever
   // executes JS — see runTerminalStatement()'s own comment), so it always
@@ -4280,7 +4285,7 @@ function formatLogEntry(e, isFirst, prevEntry){
   // logged FOR you (a bare, unprefixed `analyze({...})` line).
   if(e.type==='term'){
     const withPrompt = String(e.text).split('\n').map((line,i)=>(i===0?'> ':'  ')+line).join('\n');
-    return (isFirst?'':'\n\n')+withPrompt;
+    return cmdSep+withPrompt;
   }
   const marker = logCmdStyle==='cli' ? '# ' : '// ';
   // Many onLog() call sites (run()'s own "Run: N frames…", calibration/
@@ -4376,14 +4381,17 @@ function overrideWithFields(config, call){
     const el=$(k); if(!el||el.type==='file') continue;
     stmts.push(el.type==='checkbox' ? `$('${k}').checked=${JSON.stringify(!!v)};` : `$('${k}').value=${JSON.stringify(v)};`);
   }
-  return stmts.length ? stmts.join(' ')+' '+call : call;
+  // Field assignments share one line; the call goes on its own line below
+  // them (reported: easier to see what actually runs).
+  return stmts.length ? stmts.join(' ')+'\n'+call : call;
 }
 // Appends a recorded, directly-runnable command line for a config-driven
 // action (Localize, Correct drift, …) — bare, no comment prefix (unlike
 // log()'s prose), rendered as either form per logCmdStyle. `config` is a
 // small curated subset of the action's own settings, not the whole PARAMS
 // registry — each call site picks just the keys that describe what it did.
-// Always preceded by a blank line, separating it from whatever came before;
+// Preceded by a blank line after prose (a single newline after another
+// command — see formatLogEntry()), separating it from whatever came before;
 // the matching *Core() call's own leading "\n" on its first onLog message
 // (needed either way, for headless callers that skip logCmd() entirely)
 // then opens a second blank line of its own, so the command and the prose
@@ -4402,7 +4410,7 @@ function overrideWithFields(config, call){
 // falls back to the ordinary config rendering regardless.
 function logCmd(config, jsOverride){
   logHistory.push({type:'cmd', config, jsOverride});
-  $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1);
+  $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]);
   const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
 }
 // Spread into any logCmd() call site that touches `stack` directly (run(),
@@ -24347,7 +24355,7 @@ updateMemReadout();
   // or "not currently navigating" (Down) falls through to the textarea's
   // own normal cursor movement instead of silently swallowing the key.
   const historyUp=(always)=>{
-    if(!always && !atFirstLine()) return false;
+    if(!always && histIdx===-1 && !atFirstLine()) return false;   // an unedited recalled entry (histIdx!==-1) may span lines — keep navigating
     const hist=terminalHistoryList(); if(!hist.length) return false;
     if(histIdx===-1) draft=ta.value;
     histIdx = histIdx===-1 ? hist.length-1 : Math.max(0,histIdx-1);
@@ -24357,7 +24365,7 @@ updateMemReadout();
     return true;
   };
   const historyDown=(always)=>{
-    if(!always && !atLastLine()) return false;
+    if(!always && histIdx===-1 && !atLastLine()) return false;
     if(histIdx===-1) return false;
     const hist=terminalHistoryList();
     histIdx++;
@@ -24374,7 +24382,7 @@ updateMemReadout();
       const text=ta.value; if(!text.trim()) return;
       ta.value=''; ta.style.height='';  histIdx=-1; draft='';
       logHistory.push({type:'term', text});
-      $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1);
+      $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]);
       { const l=$('log'); l.scrollTop=l.scrollHeight; } $('exportLogBtn').disabled=false;
       // A terminal statement (typically analyze({...})) can run for a while,
       // just like any other action — bumped BEFORE running it so a second
@@ -25322,10 +25330,9 @@ function applyTheme(name){
 // line). Routing it through log() instead makes it a genuine logHistory
 // entry like everything else, so it gets a marker and re-renders correctly
 // either way. Update this string (not any HTML) on every build-letter bump.
-log(`webSMLM v0.12.9-dev · build 2026-09-25c — smFRET: "Load (FRET) data"
-is replaced by "Plot (FRET) data", which re-shows the existing time traces
-(and E(S) histogram) without re-running Get (FRET) data. Saved traces,
-settings and 3D calibration JSON files now all load via Load movie/data.`);
+log(`webSMLM v0.12.9-dev · build 2026-09-25d — log: consecutive commands
+no longer have a blank line between them, and a logged command puts its
+$(...) field settings on one line and the function call on the next.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
