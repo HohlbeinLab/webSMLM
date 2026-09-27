@@ -276,7 +276,9 @@ what makes GUI and command-line use interchangeable.
   - **Apply drift correction**: runs the configured drift method (AIM: a silent Localize pass,
     channels estimated separately under ALEX and merged per segment by point count; AIM output
     re-anchored to frame 0). Extraction reads `(x − fdx[f], y − fdy[f])`.
-  - E(S): E = DA/(DD+DA), S = (DD+DA)/(AA+DD+DA); DD and DA each > 0; AA paired with the adjacent
+  - E(S): E = DA/(DD+DA), S = (DD+DA)/(AA+DD+DA); DD and DA each > 0 for fits (0 = rejected),
+    only DD+DA > 0 for unfloored aperture photometry (`smfretDexValid()`, `signedIntensities`;
+    E/S then shown on −0.5…1.5); AA paired with the adjacent
     frame under ALEX; Min/Max ranges per sample (Min AA default 1). 2D plot is hex-binned (viridis),
     with marginals. It shows in the SR panel; the toggle below it switches to the SOI composite
     (ALEX: DD+DA → AA → E/S).
