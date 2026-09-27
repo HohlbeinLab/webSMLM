@@ -171,8 +171,8 @@ what makes GUI and command-line use interchangeable.
   - `rerender()` is async and serialized (one render at a time, latest request wins; `_srRenderSeq`
     discards stale results, also when `lastResult` was cleared mid-render). Previews
     (`isPreview`) never set zmin/zmax and don't log timing. On failure the previous image stays.
-  - `setupPlot(cv, isPlot, ratio)` letterboxes plots (default 4:3; square for the polar and trace
-    plots); `canvas#sr,#raw{min-height:320px}` keeps plots usable at extreme frame aspects.
+  - `setupPlot(cv, isPlot, ratio)` letterboxes plots (default 4:3; square for the polar plot;
+    `null` = whole canvas, the smFRET trace); `canvas#sr,#raw{min-height:320px}` keeps plots usable at extreme frame aspects.
   - SVG export: `SvgRecordingContext` duck-types the Canvas2D subset the vector plots use. `arc()`
     only fills (stroke circles as polygons); no `closePath()` (close with `lineTo`); `save()`/
     `translate()`/`rotate()` push a fresh `<g>`.
@@ -278,7 +278,11 @@ what makes GUI and command-line use interchangeable.
     with marginals. It shows in the SR panel; the toggle below it switches to the SOI composite
     (ALEX: DD+DA → AA → E/S).
   - The trace plot (raw panel) has intensity, E/S and width-vs-time plots on one time axis, plus ROI
-    thumbnails (async, with staleness guards). **Plot (FRET) data** (`plotSmfretTraces()`) re-shows
+    thumbnails (async, with staleness guards). It uses the whole panel (`setupPlot(cv,true,null)`):
+    `.plot-tall` (min-height 480 px) and, for a tall frame, `aspect-ratio:1` while it's shown
+    (`setRawPlot()` removes both); a wide panel (W/H ≥ 1.25) puts the thumbnails in a column right
+    of the plots, else in a strip under the E/S plot. The x zoom/pan handlers read the plot range
+    from `_smfretTraceGeom`. **Plot (FRET) data** (`plotSmfretTraces()`) re-shows
     the in-memory traces; saved trace JSON loads via **Load movie/data**. Save/load round-trips
     sigma arrays and ALEX parity.
 
@@ -386,8 +390,10 @@ settings-JSON code).
   `var(--line)` border; the canvases have none.
 - A `getBoundingClientRect()` value feeding a `position:fixed` offset must add `window.scrollY`
   (`measureHeader()`).
-- A real window/panel resize always re-fits both views (`refitCanvases()`), regardless of `atFit`;
-  its `ResizeObserver` watches the two canvases, not their container.
+- A real window/panel resize re-fits the views (`refitCanvases(which)`), regardless of `atFit`;
+  its `ResizeObserver` watches the two canvases, not their container, and re-fits only the canvas
+  that changed (the taller time-trace panel keeps the reconstruction's zoom); window resize and the
+  layout toggle re-fit both.
 - With the sidebar hidden on desktop, `.main` gets a matching left padding
   (`@media (min-width:861px){ body.side-hidden .main{padding-left:12px} }`).
 - Never put a `<noscript>` inside an element whose `.textContent` is written.

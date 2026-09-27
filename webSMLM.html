@@ -24,25 +24,25 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2307   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          2924   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3152   synthetic stack generator ("Simulate movie")
-    detect          4070   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             4324   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          4923   super-resolution accumulation, view, colour maps, plots
-    workers         6420   frame-parallel detect/fit worker pool
-    gpu             6780   WebGPU engine: fit, render, FRC kernels (experimental)
-    export          8717   ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  9002   astigmatic width-vs-z bead calibration
-    drift           9401   AIM and cross-correlation drift correction
-    locprecision    10059  NeNA and FRC
-    sSMLM           10999  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          11605  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             13635  single-particle tracking and diffusion coefficients
-    pipeline        14684  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   15656  Micro-Manager/pycromanager bridge (experimental)
-    table           17703  localizations table, filters, histograms, clustering
-    headless API    18372  window.webSMLM.analyze()/analyzeBatch()
+    params          2308   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          2925   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3153   synthetic stack generator ("Simulate movie")
+    detect          4071   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             4325   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          4924   super-resolution accumulation, view, colour maps, plots
+    workers         6423   frame-parallel detect/fit worker pool
+    gpu             6783   WebGPU engine: fit, render, FRC kernels (experimental)
+    export          8720   ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  9005   astigmatic width-vs-z bead calibration
+    drift           9404   AIM and cross-correlation drift correction
+    locprecision    10062  NeNA and FRC
+    sSMLM           11002  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          11608  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             13658  single-particle tracking and diffusion coefficients
+    pipeline        14707  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   15679  Micro-Manager/pycromanager bridge (experimental)
+    table           17732  localizations table, filters, histograms, clustering
+    headless API    18401  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1521,6 +1521,7 @@ X.B(E,Y);return E}return J}())
      --frame-ar (the stack's w/h; square before data). min-height keeps plots
      usable when an extreme frame aspect would make the panel a sliver. */
   canvas#sr,canvas#raw{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0;min-height:320px}
+  canvas#raw.plot-tall{min-height:480px}   /* the smFRET time trace: three stacked plots */
   canvas#sr:active,canvas#raw:active{cursor:grabbing}
   /* One shared progress bar below the action buttons (setProg()). */
   .bar{height:6px;background:var(--surface);border-radius:3px;overflow:hidden;margin:10px 0}
@@ -1655,7 +1656,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2115,8 +2116,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Plot (FRET) data</b> (greyed out until <b>Get (FRET) data</b> has run) re-shows the existing time traces in the left panel, and the <b>E(S) histogram</b> in the right one once paired, without re-extracting — handy after switching a panel to a raw frame or another plot. It keeps the site and zoom you last looked at.</p>
           <p>Selecting a saved traces file with <b>Load movie/data</b> reverses <b>Save FRET data</b> — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
           <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything. With it off, the same button (below the plot) switches between the E histogram and the SOI composite.</p>
-          <p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
-          <p>Below the ROI thumbnail row, a third stacked plot (sharing the same time x-axis as the two above it, drawn in a square, not the usual 4:3, letterbox specifically so this extra plot doesn't squeeze the intensity plot above it shorter) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load movie/data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
+          <p>The Time trace plot shows small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) — in a column right of the plots when the panel is wide, otherwise in a strip below the E/S plot. The trace uses the whole panel (at least 480 px tall; square for a tall movie), so an extreme frame shape no longer squeezes the plots. Each thumbnail is a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
+          <p>A third stacked plot (sharing the same time x-axis as the two above it) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load movie/data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
         </div>
       </details>
@@ -5559,7 +5560,8 @@ function setupPlot(cv, isPlot=false, targetRatio=4/3){
   _plotLetterboxOx=0; _plotLetterboxOy=0;
   if(isPlot){
     ctx.fillStyle=plotColors().bg; ctx.fillRect(0,0,W,H);   // letterbox bars use the SAME bg as the plot itself, so the seam is invisible
-    // targetRatio: e.g. 1 for the square polar and trace plots.
+    // targetRatio: e.g. 1 for the square polar plot; null = the whole canvas.
+    if(targetRatio==null) return {ctx, W, H, dpr};
     let pw=W, ph=W/targetRatio;
     if(ph>H){ ph=H; pw=H*targetRatio; }
     const ox=(W-pw)/2, oy=(H-ph)/2;
@@ -6227,7 +6229,8 @@ function setSrContrastRowVisible(v){
 let rawIsPlot=false, srIsPlot=false, rawPlotName='plot';   // which plot the left panel shows (drift / nena)
 // Sole owner of rawIsPlot and rawCropBtn's enabled state (crop needs a real
 // frame and a stack).
-function setRawPlot(v){ rawIsPlot=v; const b=$('rawCropBtn'); if(b) b.disabled = v || !stack; }
+function setRawPlot(v){ rawIsPlot=v; const b=$('rawCropBtn'); if(b) b.disabled = v || !stack;
+  const c=$('raw'); c.classList.remove('plot-tall'); c.style.aspectRatio=''; }   // drawSmfretTrace() re-applies them
 const rawView={zoom:1,cx:0,cy:0,atFit:true};
 // Raw-panel counterparts of fitZoom()/fitView()/clampView() (MODULE: render,
 // above) — same "fit the whole frame in the panel" / "keep pan in bounds"
@@ -13276,6 +13279,7 @@ const SMFRET_ML=60, SMFRET_MR=16;   // plot margins (shared by drawSmfretTrace a
 // ROI thumbnail strip below the x-axis (labels inline, left of each
 // thumbnail); shared by drawSmfretTrace() and drawSmfretRoiThumbnails().
 const SMFRET_ROI_INSET=59, SMFRET_ROI_GAP=10, SMFRET_ROI_PAD=8;
+let _smfretTraceGeom=null;   // {left, pw}: plot x-range in canvas CSS px, set by drawSmfretTrace()
 function drawSmfretTrace(idx){
   if(!smfretTraces || !smfretTraces.length) return;
   smfretTraceIdx=idx=Math.max(0,Math.min(smfretTraces.length-1,idx));
@@ -13294,25 +13298,34 @@ function drawSmfretTrace(idx){
   const curves=[{ys:site.photonsDD, color:split?'#0a7d32':'#c81cc8', label:split?'DD':null, parity: alex?donorParity:null}];
   if(site.photonsAA) curves.push({ys:site.photonsAA, color:'#3572b0', label:'AA', parity:acceptorParity});
   if(site.photonsDA) curves.push({ys:site.photonsDA, color:'#c81cc8', label:'DA', parity: alex?donorParity:null});
-  // Square letterbox: three stacked plots need the extra height.
-  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true,1);
+  // The whole panel (no letterbox), at least 480 px tall while the trace owns
+  // it (.plot-tall) and square instead of a tall frame's shape; setRawPlot()
+  // undoes both. A wide panel puts the ROI thumbnails in a column right of
+  // the plots, a narrower one in a strip between the E/S and width plots.
   rawFull=null; setRawPlot(true); rawPlotName='smfretTrace';
+  if(!_plotTarget){ const c=$('raw'); c.classList.add('plot-tall');
+    if(frameAspectWH && frameAspectWH.h>frameAspectWH.w) c.style.aspectRatio='1'; }
+  const cv=_plotTarget||$('raw'); const {ctx,W,H}=setupPlot(cv,true,null);
   hideOtherRawToggleBtns(null);   // smfretTraceModeBtn isn't in that mutual-exclusion list (see its own comment) — untouched by this call
   $('rawTitle').textContent='Time trace';
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=SMFRET_ML,mR=SMFRET_MR,mT=34;
-  const mBAxis=46;   // room for x tick labels + "time (s)" title, unchanged from before this round
-  // ROI strip below plot B's axis labels, taken from the plot height.
-  const mBRoi=SMFRET_ROI_PAD+SMFRET_ROI_INSET+SMFRET_ROI_PAD;
-  // Plot C (sigma vs time): fixed height, always reserved (a placeholder
-  // message when not applicable) so the layout doesn't jump.
-  const gapRoiC=6, phC=74;
-  const mB=mBAxis+mBRoi+gapRoiC+phC+mBAxis, pw=W-mL-mR;
+  const mBAxis=46;   // room for x tick labels + "time (s)" title
+  const wide=W/H>=1.25, gapAB=30;
+  // Wide: thumbnails up to 96 px (three with labels fit the plot height).
+  const roiInset = wide ? Math.round(Math.max(SMFRET_ROI_INSET, Math.min(96, (H-mT-mBAxis)/3-22))) : SMFRET_ROI_INSET;
+  const colW = wide ? roiInset+2*SMFRET_ROI_PAD : 0;
+  // Narrow: ROI strip below plot B's axis labels, taken from the plot height.
+  const mBRoi = wide ? 0 : SMFRET_ROI_PAD+SMFRET_ROI_INSET+SMFRET_ROI_PAD;
+  // Plot C (width vs time): always reserved (a placeholder message when not
+  // applicable) so the layout doesn't jump; 22% of the plot height, ≥ 74 px.
+  const gapRoiC = wide ? 12 : 6;
+  const phC=Math.max(74, Math.round((H-mT-2*mBAxis-mBRoi-gapRoiC-gapAB)*0.22));
+  const mB=mBAxis+mBRoi+gapRoiC+phC+mBAxis, pw=W-mL-mR-colW;
   // Plot A (intensity) and plot B (E/S, [0,1]) share one time axis; only B
   // carries the x tick labels.
   const totalPh=H-mT-mB;
-  const gapAB=30;
   const phB=Math.max(50, Math.round(totalPh*0.3));
   const phA=totalPh-gapAB-phB;
   const yTopA=mT, yBotA=mT+phA, yTopB=yBotA+gapAB, yBotB=yTopB+phB;
@@ -13485,7 +13498,9 @@ function drawSmfretTrace(idx){
   const roiAaC=curves.find(c=>c.label==='AA'), roiDaC=curves.find(c=>c.label==='DA');
   if(roiAaC) roiColors.AA=roiAaC.color;
   if(roiDaC) roiColors.DA=roiDaC.color;
-  drawSmfretRoiThumbnails(idx, {mL,pw,roiY:roiTopY,ox:_plotLetterboxOx,oy:_plotLetterboxOy,colors:roiColors});
+  _smfretTraceGeom={left:_plotLetterboxOx+mL, pw};   // for the x zoom/pan handlers
+  drawSmfretRoiThumbnails(idx, {mL,pw,roiY:roiTopY,ox:_plotLetterboxOx,oy:_plotLetterboxOy,colors:roiColors,inset:roiInset,
+    column: wide ? {x:mL+pw+mR, y:yTopA} : null});
   // Redraw the SOI composite so the selected site is highlighted there too.
   // Not while a plot (E/S histogram) owns the SR panel: srLocs===smfretSOI
   // stays true then, and drawView() would wipe the plot.
@@ -13571,22 +13586,29 @@ async function drawSmfretRoiThumbnails(idx, geom){
   const cv=$('raw'), ctx=cv.getContext('2d');
   const dpr=Math.min(2, window.devicePixelRatio||1);
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.translate(geom.ox,geom.oy);
-  const {mL,pw,roiY,colors}=geom;
-  const INSET=SMFRET_ROI_INSET, GAP=SMFRET_ROI_GAP, PAD=SMFRET_ROI_PAD;
+  const {mL,pw,roiY,colors,column}=geom;
+  const INSET=geom.inset||SMFRET_ROI_INSET, GAP=SMFRET_ROI_GAP, PAD=SMFRET_ROI_PAD;
   const C=plotColors();   // theme colours (no backing panel)
-  // Centred under the plot; each label inline left of its thumbnail, in its
-  // channel's curve colour.
+  // Strip: centred under the plot, each label inline left of its thumbnail.
+  // Column (wide panel): stacked right of the plots, each label above. Labels
+  // in the channel's curve colour.
   ctx.font='11px '+PLOT_FONT;
-  const LBL_GAP=4;
+  const LBL_GAP=4, LBL_H=16;
   const labelW=items.map(it=>ctx.measureText(it.label).width);
   const itemW=items.map((it,i)=>labelW[i]+LBL_GAP+INSET);
   const groupW=itemW.reduce((a,b)=>a+b,0)+(items.length-1)*GAP;
-  let x=mL+(pw-groupW)/2; const gy=roiY+PAD;
+  let x=mL+(pw-groupW)/2, gy=roiY+PAD;
   ctx.imageSmoothingEnabled=false;   // nearest-neighbour scale-up — crisp pixels, not a blur
   items.forEach((it,i)=>{
-    ctx.fillStyle=(colors&&colors[it.label])||C.text; ctx.font='11px '+PLOT_FONT; ctx.textAlign='left'; ctx.textBaseline='middle';
-    ctx.fillText(it.label, x, gy+INSET/2);
-    const ix=x+labelW[i]+LBL_GAP, iy=gy;
+    ctx.fillStyle=(colors&&colors[it.label])||C.text; ctx.font='11px '+PLOT_FONT;
+    let ix, iy;
+    if(column){
+      ix=column.x+PAD; iy=column.y+i*(LBL_H+INSET+GAP)+LBL_H;
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillText(it.label, ix, iy-4);
+    } else {
+      ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(it.label, x, gy+INSET/2);
+      ix=x+labelW[i]+LBL_GAP; iy=gy;
+    }
     ctx.drawImage(it.crop.cv, 0,0,win,win, ix,iy, INSET,INSET);
     ctx.strokeStyle=C.grid; ctx.lineWidth=1; ctx.strokeRect(ix+0.5,iy+0.5,INSET-1,INSET-1);
     // Magenta crosshair at the fitted position.
@@ -13609,11 +13631,12 @@ $('smfretTraceScrubNum').addEventListener('change',e=>{ if(!smfretTraces) return
 (function(){ const cv=$('raw');
   const active=()=>rawIsPlot&&rawPlotName==='smfretTrace'&&!!smfretTraces&&!!smfretTraceView;
   const fullN=()=>smfretTraces[smfretTraceIdx].photonsDD.length;
-  const dataX=clientX=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, px=(clientX-r.left)*Wc/r.width, pw=Wc-SMFRET_ML-SMFRET_MR, xr=smfretTraceView.x1-smfretTraceView.x0;
-    return smfretTraceView.x0+(px-SMFRET_ML)/Math.max(1,pw)*xr; };
+  const geom=()=>_smfretTraceGeom||{left:SMFRET_ML, pw:(cv.clientWidth||cv.width)-SMFRET_ML-SMFRET_MR};
+  const dataX=clientX=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, px=(clientX-r.left)*Wc/r.width, g=geom(), xr=smfretTraceView.x1-smfretTraceView.x0;
+    return smfretTraceView.x0+(px-g.left)/Math.max(1,g.pw)*xr; };
   const clampSet=(c,x0,x1,f)=>{ const lo=0, hi=fullN()-1; let nx0=c-(c-x0)*f, nx1=c+(x1-c)*f;
     nx0=Math.max(lo,nx0); nx1=Math.min(hi,nx1); if(nx1-nx0>=Math.max(1,(hi-lo)*0.02)){ smfretTraceView={x0:nx0,x1:nx1}; drawSmfretTrace(smfretTraceIdx); } };
-  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=Wc-SMFRET_ML-SMFRET_MR, xr=x1-x0, lo=0, hi=fullN()-1;
+  const panBy=(d0,x0,x1,clientDx)=>{ const r=cv.getBoundingClientRect(), Wc=cv.clientWidth||cv.width, pw=geom().pw, xr=x1-x0, lo=0, hi=fullN()-1;
     const dData=(clientDx-d0)*Wc/r.width*xr/Math.max(1,pw); let nx0=x0-dData, nx1=x1-dData;
     if(nx0<lo){nx0=lo;nx1=lo+xr;} if(nx1>hi){nx1=hi;nx0=hi-xr;} nx0=Math.max(lo,nx0); smfretTraceView={x0:nx0,x1:nx1}; drawSmfretTrace(smfretTraceIdx); };
   cv.addEventListener('wheel',e=>{ if(!active()) return; e.preventDefault();
@@ -17617,8 +17640,9 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.10-dev · build 2026-09-27d — large reconstructions are
-drawn per view (no Magnification limit); Rotate movie in Memory, GPU & streaming.`);
+log(`webSMLM v0.12.10-dev · build 2026-09-27e — the smFRET time trace uses the
+whole panel (ROI thumbnails beside the plots when wide); per-view reconstructions;
+Rotate movie.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -17679,21 +17703,26 @@ let _plotResizeT=null, _refitTriggerReason='';
 // TEMPORARY diagnostic: logs when a queued refit is about to discard a
 // non-fit view, with the trigger and the canvas size, to find a remaining
 // "crop zoom reverts" report. Remove once explained.
-const refitCanvases=()=>{ clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
-  if(srFull && !srIsPlot && !view.atFit){
+// which: 'raw'/'sr' (a ResizeObserver entry), or both by default; requests
+// accumulate until the debounced refit runs, so a raw-only resize (e.g. the
+// taller time-trace panel) keeps the reconstruction's zoom.
+let _refitWhich=new Set();
+const refitCanvases=(which=['raw','sr'])=>{ for(const w of which) _refitWhich.add(w); clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
+  const doRaw=_refitWhich.has('raw'), doSr=_refitWhich.has('sr'); _refitWhich=new Set();
+  if(doSr && srFull && !srIsPlot && !view.atFit){
     const cv=$('sr');
     log(`(diagnostic) reconstruction auto-refit — trigger: ${_refitTriggerReason||'unknown'}, `+
         `canvas ${cv.clientWidth}×${cv.clientHeight}px, discarding zoom ${view.zoom.toFixed(4)} `+
         `(fitZoom() would be ${fitZoom().toFixed(4)})`);
   }
-  if(rawIsPlot && _replotRaw) _replotRaw();
-  else if(rawFull){ fitRawView(); clampRawView(); drawRawView(); }
-  if(srIsPlot && _replotSr) _replotSr();
-  else if(srFull){ fitView(); clampView(); drawView(); }
+  if(doRaw){ if(rawIsPlot && _replotRaw) _replotRaw();
+    else if(rawFull){ fitRawView(); clampRawView(); drawRawView(); } }
+  if(doSr){ if(srIsPlot && _replotSr) _replotSr();
+    else if(srFull){ fitView(); clampView(); drawView(); } }
 }, 120); };
 window.addEventListener('resize', ()=>{ _refitTriggerReason='window resize event'; refitCanvases(); });
 if(typeof ResizeObserver!=='undefined'){
-  const _canvasResizeObs=new ResizeObserver(()=>{ _refitTriggerReason='ResizeObserver on #raw/#sr'; refitCanvases(); });
+  const _canvasResizeObs=new ResizeObserver(es=>{ _refitTriggerReason='ResizeObserver on #raw/#sr'; refitCanvases(es.map(e=>e.target.id)); });
   _canvasResizeObs.observe($('raw')); _canvasResizeObs.observe($('sr'));
 }
 
