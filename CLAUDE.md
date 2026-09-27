@@ -348,7 +348,10 @@ what makes GUI and command-line use interchangeable.
   with the track table. The SR crop tool pushes an x/y clause into the same `_tableFilters`.
   `tempClustering(XY|Z|Memory)` clauses change the base row set (`clusterEvents()`,
   `getBaseLocs()`). Filters are logged as the full cumulative list; `tableFiltersCore()` replays them
-  headlessly. `checkTableSize()` uses `TABLE_FILTER_ROW_BYTES` (32). `commitSrCrop()` awaits the
+  headlessly. `checkTableSize()` uses `TABLE_FILTER_ROW_BYTES` (32). `clearTableState()` empties
+  and closes both tables (data, filters, rows, `renderLocs`); every action that discards or
+  replaces the locs calls it (load, rotation, crop, simulation, Localize, pairing, tracking, CSV/
+  headless load, streaming). Test: `tests/gpu/test-load-clears-state.mjs`. `commitSrCrop()` awaits the
   filtered render before zooming; the crop rectangle is drawn first, with a `tick()` so it paints.
 
 ## Web Worker gotcha (read before touching detect/fit/workers)

@@ -41,8 +41,8 @@
     spt             13893  single-particle tracking and diffusion coefficients
     pipeline        14942  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   15914  Micro-Manager/pycromanager bridge (experimental)
-    table           17966  localizations table, filters, histograms, clustering
-    headless API    18635  window.webSMLM.analyze()/analyzeBatch()
+    table           17968  localizations table, filters, histograms, clustering
+    headless API    18650  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1656,7 +1656,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.10 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-27i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -11690,7 +11690,7 @@ async function pairSSmlm(cfg, myEpoch){
   if(!r.nPairs) return r;
   sSmlmOriginalLocs = rawLocs; sSmlmPairedLocs = r.locs; sSmlmShowingRaw = false;
   lastResult.locs = sSmlmPairedLocs;
-  renderLocs=null; _tableFilters=[];
+  clearTableState();
   return r;
 }
 // "Pair & plot sSMLM": pairSSmlm(), then colour-by-distance z-range, LUT and
@@ -11737,7 +11737,7 @@ function unpairSSmlm(){
   lastResult.locs=sSmlmOriginalLocs;
   sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false;
   smfretPairedSoiKeys=null; $('smfretDonorAngle').disabled=true; refreshSmfretTimeTracesBtn(); if(srLocs===smfretSOI){ clampView(); drawView(); }   // clear paired marks; Position donor options are stale without a pairing
-  renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  clearTableState(); $('zmin').value=''; $('zmax').value='';
   // Restore the pre-Pair colour map, if stashed.
   if(sSmlmPrevLut!==null){ $('lut').value=sSmlmPrevLut; sSmlmPrevLut=null; }
   rerender(true);
@@ -11753,7 +11753,7 @@ function toggleSSmlmColorView(){
   if(!lastResult || sSmlmOriginalLocs==null || sSmlmPairedLocs==null) return;
   sSmlmShowingRaw = !sSmlmShowingRaw;
   lastResult.locs = sSmlmShowingRaw ? sSmlmOriginalLocs : sSmlmPairedLocs;
-  renderLocs=null; _tableFilters=[];
+  clearTableState();
   $('zcolor').checked = !sSmlmShowingRaw;   // colour-by-distance only means anything for the paired view
   // The colour map follows the view: standard has nothing to colour, so
   // restore the stashed LUT there and use hsvBlue for spectral.
@@ -11940,7 +11940,7 @@ async function locateSmfretSOI(preservePairing=false){
       log(`⚠ Localize SOI — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
     }
     lastResult={locs:fitted, w, h, px:paramValue('pxnm'), mag:paramValue('mag'), det:null, fromSmfretSOI:true};
-    renderLocs=null; _tableFilters=[];
+    clearTableState();
     sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; smfretPairedSoiKeys=null;   // a fresh SOI result invalidates any prior pairing state
     $('smfretDonorAngle').disabled=true;   // its own frozen options belonged to the OLD SOI set, no fit has run against this one yet
     refreshSmfretTimeTracesBtn();   // re-evaluate now that smfretSOI has just settled to its new value
@@ -12409,7 +12409,7 @@ async function alignSmfretChannels(){
     const paired=corr.map(c=>({...c.D, x2:c.x2, y2:c.y2, dist:Math.hypot((c.x2-c.D.x)*px,(c.y2-c.D.y)*px), pairSrc:c.pairSrc}));
     sSmlmOriginalLocs=soi; sSmlmPairedLocs=paired; sSmlmShowingRaw=false;
     lastResult.locs=paired;
-    renderLocs=null; _tableFilters=[];
+    clearTableState();
     sSmlmPairContext='smfret';   // marker drags then re-pair instead of re-rendering the reconstruction
     refreshSmfretTimeTracesBtn();
     markSmfretSoiPairedKeys(paired);
@@ -12477,7 +12477,7 @@ function clearSmfretFixSOI(){
   if(stack) showFrame(+$('scrub').value);   // drop any stale trace view from the raw panel immediately
   // lastResult was only the SOI positions (fromSmfretSOI): discard it too.
   if(lastResult && lastResult.fromSmfretSOI){
-    lastResult=null; renderLocs=null; _tableFilters=[];
+    lastResult=null; clearTableState();
     sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; smfretPairedSoiKeys=null;
     $('smfretDonorAngle').disabled=true;
     $('tableBtn').disabled=true; $('saveBtn').disabled=true;
@@ -14232,7 +14232,7 @@ async function runSptTrack(){
     // DIFFERENT object; see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
     lastResult.locs=r.locs; lastSpt=r;
-    renderLocs=null; _tableFilters=[];   // reset filters, as for every action that replaces locs
+    clearTableState();   // reset filters, as for every action that replaces locs
     // A fresh Track opens on the MSD plot; falls back to D, then to the
     // track-length histogram when there's no data for the former.
     sptHistMode='msd';
@@ -15838,7 +15838,7 @@ async function run(){
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
   $('runBtn').disabled=true; $('loadBtn').disabled=true; $('genBtn').disabled=true;
-  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  $('stopBtn').disabled=false; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; calib=null; srIsPlot=false; setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; clearTableState(); $('zmin').value=''; $('zmax').value='';
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   try{
     const method=paramValue('method');
@@ -15979,7 +15979,7 @@ function startLiveStreamingSession(){
   const px=cfg.pxnm;
   const zcal = method==='phasor3d' ? cal3d : null;
   const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
-  lastResult=null; srFull=null; srIsPlot=false; setRawPlot(false); renderLocs=null; _tableFilters=[];
+  lastResult=null; srFull=null; srIsPlot=false; setRawPlot(false); clearTableState();
   $('zmin').value=''; $('zmax').value=''; lastDrift=null;
   $('saveBtn').disabled=true; $('tableBtn').disabled=true;
   $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true;
@@ -16191,7 +16191,7 @@ function clearLiveStreamingLocalizations(){
   liveStreamState.allLocs=[]; liveStreamState.frameOffset=0; liveStreamState.chunkCount=0;
   liveStreamState.rawFrames=[]; liveStreamState.rawFrameBaseIdx=0; liveStreamState.rawFrameCap=null;
   liveStreamState.followLive=true; liveStreamState.lastChunkAt=0; liveStreamState.chunkIntervalMs=null;
-  lastResult=null; srFull=null; renderLocs=null; _tableFilters=[]; lastDrift=null;
+  lastResult=null; srFull=null; clearTableState(); lastDrift=null;
   $('zmin').value=''; $('zmax').value='';
   $('saveBtn').disabled=true; $('tableBtn').disabled=true;
   $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true;
@@ -16378,7 +16378,7 @@ async function runSimulation(){
     // Superseded (a load, a crop, another Simulate, …) while generateSynthetic()
     // was running — see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
-    stack=rotateNewStack(generated); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
+    stack=rotateNewStack(generated); clearTableState(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -16427,6 +16427,7 @@ function maybeShowMemWarning(){
 // Clears every result tied to the current stack and disables the actions
 // that need one (a new movie, or a rotation of the current one).
 function clearAnalysisOutputs(){
+  clearTableState();
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
@@ -16926,7 +16927,7 @@ async function loadCsvFile(f){
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
     setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null;
     lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
-    renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+    clearTableState(); $('zmin').value=''; $('zmax').value='';
     lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
     // No stack for a CSV load: size the panel to the data's bounding box so
     // the fit view and scale bar sit on the data.
@@ -16956,7 +16957,7 @@ function applyHeadlessResultToSession(result){
   srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null;
   lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
-  renderLocs=null; _tableFilters=[]; $('zmin').value=''; $('zmax').value='';
+  clearTableState(); $('zmin').value=''; $('zmax').value='';
   stack=null;
   lastResult={locs:result.locs, w:result.w, h:result.h, px:result.px, mag:result.mag, det:null};
   setFrameAspect(result.w, result.h);
@@ -17540,6 +17541,7 @@ function rawClickToNative(e){
 // load, keeping PCFO gain/offset (camera property) but not lastNena
 // (spatial).
 function resetAfterCropChange(){
+  clearTableState();
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; lastNena=null;
   $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
@@ -17875,7 +17877,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.10 · proof-of-concept`);
+log(`webSMLM v0.12.11-dev · build 2026-09-27i — loading a movie now also clears
+the localizations table and its filters.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -17968,6 +17971,19 @@ if(typeof ResizeObserver!=='undefined'){
    (filtered) column render in the left/raw panel via the standard plot pattern.
    =========================================================================== */
 let _tableState={sortCol:'id', sortDir:1}, _tableData=null, _tableFiltered=null, _tableFilters=[];  // _tableFilters: committed cumulative clauses (ANDed)
+// Empties and closes the localizations and track tables (data, committed
+// filters, the rows in the page, renderLocs): called by every action that
+// discards or replaces the locs they show (new movie or simulation, rotation,
+// crop, Localize, pairing, tracking, CSV/headless load, streaming).
+function clearTableState(){
+  _tableData=null; _tableFiltered=null; _tableFilters=[]; renderLocs=null;
+  _trackTableData=null; _trackTableFiltered=null; _trackTableFilters=[];
+  for(const id of ['locTable','trackTable','tableFilters','trackTableFilters']){ const e=$(id); if(e) e.innerHTML=''; }
+  for(const id of ['tableCount','trackTableCount']){ const e=$(id); if(e) e.textContent=''; }
+  for(const id of ['tableFilter','trackTableFilter']){ const e=$(id); if(e){ e.value=''; e.classList.remove('bad'); } }
+  $('tableModal').classList.remove('open'); $('trackTableModal').classList.remove('open');
+  const fn=$('srFilterNote'); if(fn) fn.style.display='none';
+}
 const TABLE_CAP=3000;
 let histData=null, histView=null;         // column histogram: fixed bins over the full range + current x-view (zoom/pan)
 const HIST_ML=58, HIST_MR=16;             // plot margins (shared by drawHistogram and its x zoom/pan handlers)
