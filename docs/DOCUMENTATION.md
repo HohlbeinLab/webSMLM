@@ -500,7 +500,10 @@ can no longer address further, so the whole stack is written as a single
 directory entry with every frame laid out contiguously after it — are
 indexed arithmetically from that entry, unlike ordinary/multi-IFD
 (Micro-Manager MMStack) stacks, which walk the IFD chain frame by frame —
-never fully loaded, read via `File.slice()`. `loadTiffFilesAuto()` handles a multi-file
+never fully loaded, read via `File.slice()`. **BigTIFF** files (the 64-bit-offset
+variant, header magic 43, either byte order) are supported at any size: they always
+take this streamed IFD walk (uncompressed only; a compressed BigTIFF gives a clear
+error), with each frame's strips required to be stored back to back. `loadTiffFilesAuto()` handles a multi-file
 selection, auto-detecting which of two cases it is from the first
 (naturally-sorted) file's own frame count: exactly 1 frame → every file is
 one frame (`loadTiffSequence()`, natural-sorted and concatenated — e.g. a

@@ -23,6 +23,7 @@ const TESTS = [
   ['gpu:test:correctness', 'test-gpu-correctness.mjs'],
   ['gpu:test:frc', 'test-frc-gpu.mjs'],
   ['gpu:test:candidate-audit', 'test-candidate-audit.mjs'],
+  ['gpu:test:bigtiff', 'test-bigtiff.mjs'],
   ['gpu:test:report', 'test-report-generation.mjs'],
 ];
 

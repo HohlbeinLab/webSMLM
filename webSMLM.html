@@ -27,22 +27,22 @@
     params          2299   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          2914   TIFF/ND2/FITS loading (whole-file or streamed), crop, FTM
     simulation      3125   synthetic stack generator ("Simulate movie")
-    detect          3992   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             4246   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          4845   super-resolution accumulation, view, colour maps, plots
-    workers         6049   frame-parallel detect/fit worker pool
-    gpu             6380   WebGPU engine: fit, render, FRC kernels (experimental)
-    export          8317   ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  8586   astigmatic width-vs-z bead calibration
-    drift           8985   AIM and cross-correlation drift correction
-    locprecision    9643   NeNA and FRC
-    sSMLM           10583  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          11189  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             13219  single-particle tracking and diffusion coefficients
-    pipeline        14265  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   15237  Micro-Manager/pycromanager bridge (experimental)
-    table           17247  localizations table, filters, histograms, clustering
-    headless API    17916  window.webSMLM.analyze()/analyzeBatch()
+    detect          4043   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             4297   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          4896   super-resolution accumulation, view, colour maps, plots
+    workers         6100   frame-parallel detect/fit worker pool
+    gpu             6431   WebGPU engine: fit, render, FRC kernels (experimental)
+    export          8368   ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  8637   astigmatic width-vs-z bead calibration
+    drift           9036   AIM and cross-correlation drift correction
+    locprecision    9694   NeNA and FRC
+    sSMLM           10634  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          11240  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             13270  single-particle tracking and diffusion coefficients
+    pipeline        14316  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   15288  Micro-Manager/pycromanager bridge (experimental)
+    table           17298  localizations table, filters, histograms, clustering
+    headless API    17967  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1655,7 +1655,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3550,6 +3550,9 @@ function mmMetadataHint(ifds){
 async function loadTiffFile(file, onLog=log){
   if(await isNd2File(file)) return loadNd2File(file, onLog);
   if(await isFitsFile(file)) return loadFitsFile(file, onLog);
+  // BigTIFF (magic 43): UTIF can't parse it, so it always takes the streamed
+  // reader, whatever the file size (frames read on demand, no RAM cache).
+  if(await isBigTiffFile(file)) return loadMultiIfdStreaming(file, file.size, onLog);
   if(typeof UTIF==='undefined') throw new Error('TIFF decoder failed to initialise.');
   const fileSize=file.size;
   // Below effSliceMin: the whole-file path (faster, full multi-IFD handling);
@@ -3664,8 +3667,14 @@ function naturalCompare(a,b){
 // TIFF saved as .nd2).
 async function isTiffFile(f){
   const b=new Uint8Array(await f.slice(0,4).arrayBuffer());
-  return (b[0]===0x49&&b[1]===0x49&&b[2]===0x2A&&b[3]===0)      // "II*\0" little-endian
-      || (b[0]===0x4D&&b[1]===0x4D&&b[2]===0&&b[3]===0x2A);     // "MM\0*" big-endian
+  return (b[0]===0x49&&b[1]===0x49&&(b[2]===0x2A||b[2]===0x2B)&&b[3]===0)   // "II*\0" / "II+\0" (BigTIFF), little-endian
+      || (b[0]===0x4D&&b[1]===0x4D&&b[2]===0&&(b[3]===0x2A||b[3]===0x2B));  // big-endian
+}
+// BigTIFF (magic 43), either byte order.
+async function isBigTiffFile(f){
+  if(f.size<16) return false;
+  const b=new Uint8Array(await f.slice(0,4).arrayBuffer());
+  return (b[0]===0x49&&b[1]===0x49&&b[2]===0x2B&&b[3]===0) || (b[0]===0x4D&&b[1]===0x4D&&b[2]===0&&b[3]===0x2B);
 }
 // Several single-frame TIFFs (e.g. a per-frame camera dump) as one stack,
 // natural-sorted by name and decoded per frame on demand.
@@ -3758,7 +3767,7 @@ async function loadTiffFilesAuto(fileList, onLog=log){
   // prints first.
   const buffered=[];
   const first=await loadTiffFile(files[0], m=>buffered.push(m));
-  if(first.n===1){ buffered.forEach(onLog); return loadTiffSequence(files, onLog); }   // re-decodes file 1, which is tiny
+  if(first.n===1 && !(await isBigTiffFile(files[0]))){ buffered.forEach(onLog); return loadTiffSequence(files, onLog); }   // re-decodes file 1, which is tiny
   onLog(`Multi-file stack: ${files.length} files, each treated as a CHUNK of one continuous recording (not one frame per file).`);
   // First line per file gets "File i/N: name — ", later lines are indented.
   const fileLog=i=>{ let head=true; return msg=>{
@@ -3778,37 +3787,79 @@ async function loadTiffFilesAuto(fileList, onLog=log){
 // demand. Uncompressed strips only. Validated against a 4.1 GB MMStack.
 async function loadMultiIfdStreaming(file, fileSize, onLog=log){
   const rd=async(o,n)=>new DataView(await file.slice(o,Math.min(fileSize,o+n)).arrayBuffer());
-  const hd=await rd(0,8), isLE=hd.getUint16(0,true)===0x4949;
+  const hd=await rd(0,16), isLE=hd.getUint16(0,true)===0x4949;
   const u16=(dv,o)=>dv.getUint16(o,isLE), u32=(dv,o)=>dv.getUint32(o,isLE);
-  // Read a tag value by type: SHORT (3) in the low 2 bytes, LONG (4) all 4
-  // (matters on big-endian files).
-  const tval=(dv,e)=> u16(dv,e+2)===3 ? u16(dv,e+8) : u32(dv,e+8);
-  if(hd.getUint16(2,isLE)!==42) throw new Error('BigTIFF not supported');
-  let off=u32(hd,4);
-  // IFD_0 → dimensions / format
-  let w=0,h=0,bps=8,spp=1,fmt=1;
-  { const dv=await rd(off,8192), n=u16(dv,0);
-    for(let i=0;i<n;i++){ const e=2+i*12, tag=u16(dv,e), v=tval(dv,e);
-      if(tag===256)w=v; else if(tag===257)h=v; else if(tag===258)bps=v;
-      else if(tag===277)spp=v; else if(tag===339)fmt=v;
-      else if(tag===259&&v!==1) throw new Error('compressed multi-IFD stacks are not supported'); } }
+  const u64=(dv,o)=>Number(dv.getBigUint64(o,isLE));   // exact up to 2^53 bytes
+  // Classic TIFF (42) or BigTIFF (43): BigTIFF has an 8-byte first-IFD offset
+  // at byte 8, an 8-byte entry count, 20-byte entries with 8-byte count/value
+  // fields (LONG8 = type 16) and an 8-byte next-IFD offset.
+  const magic=u16(hd,2), big=magic===43;
+  if(magic!==42 && !big) throw new Error('not a TIFF file');
+  if(big && u16(hd,4)!==8) throw new Error('unsupported BigTIFF offset size');
+  const CNT=big?8:2, ENT=big?20:12, INL=big?8:4, NXT=big?8:4;
+  const count=(dv,o)=>big?u64(dv,o):u16(dv,o);
+  const TSIZE={1:1,3:2,4:4,16:8};                  // BYTE, SHORT, LONG, LONG8
+  const rdNum=(dv,o,typ)=> typ===3?u16(dv,o) : typ===4?u32(dv,o) : typ===16?u64(dv,o) : dv.getUint8(o);
+  // One IFD read: count, then all entries plus the next offset. Returns the
+  // DataView, its file offset, entry count and next-IFD offset.
+  const readIfd=async off=>{
+    let dv=await rd(off,8192);
+    const n=count(dv,0), need=CNT+n*ENT+NXT;
+    if(n<=0 || n>100000) return null;
+    if(need>dv.byteLength){ dv=await rd(off,need); if(need>dv.byteLength) return null; }
+    return {dv, off, n, next: big?u64(dv,CNT+n*ENT):u32(dv,CNT+n*ENT)};
+  };
+  // Values of one tag (up to maxCount): inline when they fit in the entry,
+  // otherwise at a pointer, read from the IFD buffer when it already covers it.
+  const tagValues=async(ifd,tag,maxCount=Infinity)=>{
+    const {dv,off,n}=ifd;
+    for(let i=0;i<n;i++){ const e=CNT+i*ENT; if(u16(dv,e)!==tag) continue;
+      const typ=u16(dv,e+2), cnt=big?u64(dv,e+4):u32(dv,e+4), ts=TSIZE[typ];
+      if(!ts) throw new Error(`unsupported type ${typ} for TIFF tag ${tag}`);
+      const k=Math.min(cnt,maxCount), vo=e+(big?12:8), out=new Array(k);
+      if(cnt*ts<=INL){ for(let j=0;j<k;j++) out[j]=rdNum(dv,vo+j*ts,typ); return out; }
+      const ptr=big?u64(dv,vo):u32(dv,vo);
+      const src=(ptr>=off && ptr+k*ts<=off+dv.byteLength) ? {d:dv,b:ptr-off} : {d:await rd(ptr,k*ts),b:0};
+      for(let j=0;j<k;j++) out[j]=rdNum(src.d,src.b+j*ts,typ);
+      return out; }
+    return null;
+  };
+  const first=async(ifd,tag,def)=>{ const v=await tagValues(ifd,tag,1); return v?v[0]:def; };
+  let off=big?u64(hd,8):u32(hd,4);
+  // IFD 0 -> dimensions / format
+  const ifd0=await readIfd(off);
+  if(!ifd0) throw new Error('could not read the first IFD');
+  const w=await first(ifd0,256,0), h=await first(ifd0,257,0), bps=await first(ifd0,258,8),
+        spp=await first(ifd0,277,1), fmt=await first(ifd0,339,1);
+  if((await first(ifd0,259,1))!==1) throw new Error(`compressed ${big?'BigTIFF':'multi-IFD'} stacks are not supported`);
   if(!w||!h) throw new Error('could not read image dimensions');
   const rawBytes=w*h*(bps>>3)*spp, px=paramValue('pxnm');
-  onLog(`Large multi-IFD stack (${fmtBytes(fileSize)}) — indexing frame offsets…`);
-  const offsets=[]; let lastYield=performance.now();
-  while(off>0 && off+2<=fileSize){                 // follow the IFD chain
-    const dv=await rd(off,8192), n=u16(dv,0);
-    if(n<=0 || 2+n*12+4>dv.byteLength) break;
-    let so=0; for(let i=0;i<n;i++){ const e=2+i*12; if(u16(dv,e)===273){ so=tval(dv,e); break; } }
-    if(so>0 && so+rawBytes<=fileSize) offsets.push(so);
-    off=u32(dv,2+n*12);
+  // Frames are read as one block from their first strip, so a frame's strips
+  // must be back to back (true for ImageJ, Micro-Manager, NIS/BigTIFF writers
+  // seen so far). Checked on the first and the last frame.
+  const checkContiguous=async ifd=>{
+    const so=await tagValues(ifd,273), sb=await tagValues(ifd,279);
+    if(!so||!sb||so.length!==sb.length) throw new Error('missing strip offsets/byte counts');
+    let total=0; for(let k=0;k<so.length;k++){ total+=sb[k]; if(k && so[k]!==so[k-1]+sb[k-1]) throw new Error('frame strips are not contiguous (not supported)'); }
+    if(total<rawBytes) throw new Error('strip byte counts smaller than one frame');
+  };
+  await checkContiguous(ifd0);
+  onLog(`Large multi-IFD ${big?'BigTIFF ':''}stack (${fmtBytes(fileSize)}) — indexing frame offsets…`);
+  const offsets=[]; let lastYield=performance.now(), lastIfd=null;
+  while(off>0 && off+CNT<=fileSize){               // follow the IFD chain
+    const ifd = offsets.length ? await readIfd(off) : ifd0;
+    if(!ifd) break;
+    const so=await first(ifd,273,0);
+    if(so>0 && so+rawBytes<=fileSize){ offsets.push(so); lastIfd=ifd; }
+    off=ifd.next;
     if(performance.now()-lastYield>60){ setProg(100*(offsets[offsets.length-1]||0)/fileSize);
       $('rawInfo').textContent=`indexing frame ${offsets.length.toLocaleString()}…`; await tick(); lastYield=performance.now(); }
   }
   setProg(null);
   const n=offsets.length;
   if(!n) throw new Error('no image frames found');
-  onLog(`indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}).`);
+  if(lastIfd && lastIfd!==ifd0) await checkContiguous(lastIfd);
+  onLog(`indexed ${n.toLocaleString()} frames · ${w}×${h} · ${bps}-bit (${isLE?'LE':'BE'}${big?', BigTIFF':''}).`);
   // Fast path (single channel, little-endian, aligned): typed-array view with
   // bulk set(), ~45x faster than the DataView loop.
   const elemBytes=bps>>3;
@@ -17161,7 +17212,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.10-dev · build 2026-09-27a`);
+log(`webSMLM v0.12.10-dev · build 2026-09-27b — BigTIFF (64-bit TIFF) stacks
+now load (streamed, uncompressed).`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

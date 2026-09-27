@@ -67,6 +67,9 @@ what makes GUI and command-line use interchangeable.
   `0x0ABECEDA`) → TIFF (require `t256`/`t257`: UTIF returns one empty IFD for non-TIFF bytes) →
   whole-file (`file.arrayBuffer()`) or streamed (`loadMultiIfdStreaming()`), split at
   `effSliceMin = min(~1.5 GB, readBudget())` (so `memgb=0` streams everything).
+  - **BigTIFF** (magic 43, UTIF can't read it) always takes `loadMultiIfdStreaming()`, which reads
+    both formats (8-byte offsets/counts, 20-byte entries); frame strips must be contiguous (checked
+    on the first and last frame). Test: `tests/gpu/test-bigtiff.mjs`.
   - Multi-file selection (`loadTiffFilesAuto()`): first file has 1 frame → `loadTiffSequence()`
     (file per frame, natural-sorted); more → `makeConcatStack()` (one recording split by size). Files
     are filtered by magic bytes, not extension. The same path serves the file input, calibration and

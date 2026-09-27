@@ -217,6 +217,17 @@ interval ≈ 32.01 ms (median of 24 sampled inter-frame gaps)` — matching the
 `Camera-ActualInterval-ms: "32.02"` this file's own metadata separately
 confirms, and clearly NOT the 30 ms exposure setting.
 
+## Dataset VI — BigTIFF stack
+
+`2 flake tae F2 006.tif` (1.98 GB, not committed). A little-endian **BigTIFF**
+(header magic 43): 600 frames of 846 × 1950 px, 16-bit, uncompressed, one IFD
+per frame, 488 four-row strips per frame stored back to back. MaxSampleValue
+(tag 281) is 2047, i.e. 11-bit data in 16-bit words; background ≈ 100 ADU.
+Private tags 65325–65329 (doubles, unidentified) and no ImageDescription, so no
+pixel size or frame time is read from the file. Loads through the streamed
+reader (`loadMultiIfdStreaming()`); at 1950 px height the default
+Magnification 10 exceeds the 16,384 px canvas limit, so use ≤ 8.
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations
