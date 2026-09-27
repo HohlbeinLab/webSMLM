@@ -70,6 +70,13 @@ what makes GUI and command-line use interchangeable.
   - **BigTIFF** (magic 43, UTIF can't read it) always takes `loadMultiIfdStreaming()`, which reads
     both formats (8-byte offsets/counts, 20-byte entries); frame strips must be contiguous (checked
     on the first and last frame). Test: `tests/gpu/test-bigtiff.mjs`.
+  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, GPU & streaming"):
+    `makeRotatedStack()` wraps the loaded stack like the crop wrapper (getFrames() only, no cache,
+    90/270 swap w/h). `rotateNewStack()` applies the setting to every new load/simulation
+    (`unrotatedStack`/`rotatedStack`); `applyMovieRotation()` re-wraps the current movie, drops a crop
+    and clears all results (`clearAnalysisOutputs()`, then `presentStack()`, both shared with
+    `loadMovieFiles()`). `analyze()` rotates before its crop. Live-streamed chunks aren't rotated.
+    Test: `tests/gpu/test-rotate-movie.mjs`.
   - Multi-file selection (`loadTiffFilesAuto()`): first file has 1 frame → `loadTiffSequence()`
     (file per frame, natural-sorted); more → `makeConcatStack()` (one recording split by size). Files
     are filtered by magic bytes, not extension. The same path serves the file input, calibration and
@@ -129,21 +136,38 @@ what makes GUI and command-line use interchangeable.
   - The **Use GPU acceleration** checkbox sits in "Memory, GPU & streaming" (shared by fit, render,
     FRC).
 
-- **render** — accumulates locs into `srFull` (dense, O(W·H)); `view` is zoom/pan.
+- **render** — accumulates locs into `srFull` (dense, O(W·H)); `view` is zoom/pan (zoom = CSS px
+  per srFull px). Locs reach the renderer packed (`packSrLocs()`: Float64 x/y/colour/lpx/lpy,
+  transferred to the render worker, no structured clone of loc objects); `srAccumulate()` is the
+  one accumulator (whole image or a window), `srColorize()` the one colour map.
   - `renderMode`: `'fixed'` (default: bin + one blur `rblur`), `'precision'` (each loc splats its
     CRLB-sized Gaussian, integrated per pixel via `mleGInt()`, separable, σ capped at
     `MAX_SPLAT_SIGMA_PX`; live streaming starts in this mode), `'dither'` (stochastic, CPU only).
     The GPU kernels (`WGSL_RENDER_*`) must produce the same image as the CPU path; precision mode's
     float atomics use a CAS loop on purpose (fixed point biased pixels).
-  - Memory: `estimateRenderBytes()` (pure, also used by `runCore()`), `checkRenderSize()` throws
+  - Memory: `estimateRenderBytes()` (whole image), `estimateReconBytes()` (the smaller of that and
+    the viewport's, used by `runCore()`'s reserve and the Mem readout), `checkRenderSize()` throws
     before allocating (per-side `CANVAS_MAX_DIM` 16384; budget from `effectiveMemBudgetBytes()` —
     `memBudgetGB`, else 0.8 × the browser's reported heap limit, else Infinity). `renderSuperRes()`
     passes locs + `stackResidentBytes` as `reserveBytes` (a parameter, never the `stack` global,
-    which `analyze()` shadows) and skips the render worker when the worker's clone of `locs` would
-    exceed the budget. `LOC_ROW_BYTES` (200) is the shared per-loc estimate.
-  - Magnification is capped at `maxMagForFrame()` = `floor(CANVAS_MAX_DIM / longer side)`:
-    `clampMagToFrame()` runs from `setFrameAspect()` and on field edits (lowers only, logged);
-    `analyze()` clamps `cfg.mag`. `mag` min is 1 for very large frames.
+    which `analyze()` shadows). `LOC_ROW_BYTES` (200) is the shared per-loc estimate.
+  - **Viewport reconstruction** (interactive panel only, `allowViewport`): when `srRenderPlan()`
+    says the image exceeds `CANVAS_MAX_DIM` or the budget, `srFull` becomes a plain object
+    `{width, height, _viewport, overview, ovK, patch, norm, …}` — every srFull-px coordinate, the
+    view, crop and measure tools work unchanged. `srRenderRegion()` evaluates the full render only
+    at every k-th pixel of a rectangle, straight from the locs (bins, the `blurInto()` kernel with
+    its mirrored edges via `srMirrorWeight()`, or splats): equal to the dense render's pixels up to
+    float rounding, cost O(locs + samples) at any magnification. `overview` = whole image at stride
+    `ovK` (≤ `SR_OVERVIEW_MAX` 4096/side); the display max comes from its samples. `patch` = the
+    view ± ¼ at ≥ 1 sample per device px, requested `SR_PATCH_DELAY_MS` (150) after the last
+    `drawView()` (`scheduleSrPatch()`/`requestSrPatch()`, one at a time), so pan/zoom only ever
+    redraw bitmaps (60 fps measured at 16920×39000 px). The render worker keeps the packed locs
+    (`vpInit`/`vpRegion` messages, `_rwVp`); no worker → main thread. Draw through `srDrawImage()`;
+    export and line profile render their own region (`srViewportRegion()`). No GPU path. Test:
+    `tests/gpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
+    30000-px-wide panel with its zoomed patch).
+  - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
+    `maxMagForFrame()` since `reconstruction.png` is one canvas. `mag` min is 1.
   - `rerender()` is async and serialized (one render at a time, latest request wins; `_srRenderSeq`
     discards stale results, also when `lastResult` was cleared mid-render). Previews
     (`isPreview`) never set zmin/zmax and don't log timing. On failure the previous image stays.

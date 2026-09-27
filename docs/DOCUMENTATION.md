@@ -404,6 +404,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation module's fields |
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
 | Raw-panel crop tool | `applyCropToRaw(x0,y0,x1,y1)` / `uncropRaw()` | native-pixel bounds; does NOT localize |
+| Rotate movie | `applyMovieRotation()` | reads `#rotateMovie`; re-wraps the loaded movie and clears all results |
 | Reconstruction-panel crop tool | `commitSrCrop(x0,y0,x1,y1)` | **nm** bounds (not px) — a `_tableFilters` clause, not a stack crop |
 | **Calibrate** | `runCalibration()` | |
 | Fix bead x,y (checked/unchecked) | `locateBeadsForCalib()` / `clearCalFixedXY()` | |
@@ -658,27 +659,34 @@ super-resolution pixel across the *whole* `(w×mag)×(h×mag)` grid,
 regardless of how many localizations there actually are (500 locs and 5
 million locs allocate the identical buffer size for a given frame size +
 Magnification) — so memory scales as **O(frame area × mag²)**, entirely
-decoupled from data volume. **Magnification is lowered automatically** to
-the highest value that keeps the reconstruction within `CANVAS_MAX_DIM`
-(16384 px per side), i.e. `floor(16384 / longer frame side)`, whenever a
-movie, CSV or segmentation image sets the frame size and whenever the field
-is edited (logged; it is never raised again automatically); `analyze()`
-applies the same limit to `config.mag`. `checkRenderSize()` runs before any
-allocation and throws if either side would exceed `CANVAS_MAX_DIM`
-(16384 px — a hard per-browser canvas-creation limit, not a soft budget)
-or if the estimated peak concurrent footprint (the count accumulator +
-an optional z-accumulator with `zcolor` + `blur()`'s own transient
-dst/tmp scratch with `rblur>0` + the final `ImageData` output + the
-canvas's own backing store) exceeds `memBudgetGB` — the opt-in Total
-memory budget (§3, Memory, GPU & streaming; default unset, so this check is a
-no-op until one is configured), a genuinely separate setting from `memgb`
-(the stack-loading cache/stream threshold). `rerender()` (interactive) catches the throw,
-logs what to change (lower Magnification, crop the region, or raise the
-budget), and leaves whatever reconstruction was already on screen in
-place rather than blanking the panel or crashing the tab; the headless
-`analyze()` path does not catch it, letting it propagate — the same
-"throws immediately" precedent its other preconditions (e.g. a
-too-small crop region) already follow.
+decoupled from data volume. `checkRenderSize()` runs before any
+allocation: either side above `CANVAS_MAX_DIM` (16384 px, a hard
+per-browser canvas limit) or an estimated peak footprint (the count
+accumulator + an optional z-accumulator with `zcolor` + the blur scratch
+with `rblur>0` + the `ImageData` output + the canvas backing store) plus
+the localizations and loaded movie above the memory ceiling (`memBudgetGB`,
+§3, else 80% of the browser's reported heap limit where it reports one)
+is too large for one image.
+
+**Viewport reconstruction.** In the panel, a reconstruction that is too
+large for one image is never held whole, so **Magnification has no upper
+limit from the frame size**. The panel keeps an *overview* (every k-th
+reconstruction pixel of the whole image, at most 4096 px per side) and,
+about 150 ms after you stop zooming or panning, renders the visible region
+plus a margin at screen resolution (a *patch*) and draws it over the
+overview. Both are evaluated straight from the localizations at just those
+pixels, giving exactly the values the whole-image render would have there
+(to float rounding), in every render mode. Pan and zoom only redraw the
+two images, so they stay as smooth as before; rendering cost depends on the
+number of localizations and screen pixels, not on the magnification. The
+display maximum (**Display max percentile**) comes from the overview's
+pixels, a uniform sample of the whole image. **Save plot/image** renders
+the current view at up to 16384 px per side, and the line profile renders
+its line's bounding box. This mode runs on the CPU (render worker); the
+info line under the panel shows the full size and "drawn per view".
+`analyze()` still needs one PNG (`reconstruction.png`), so it lowers
+`config.mag` to `floor(16384 / longer frame side)` (logged) and keeps the
+size check's error.
 
 The count accumulator (`acc`) is a `Uint16Array`, not `Float32Array` — a
 per-pixel hit count is always a non-negative integer, so this halves
@@ -1591,6 +1599,7 @@ its own raw-frame history cache.
 | `memBudgetGB` | Total memory budget (GB) | number | 0.1 | none | 0.5 | ∞ on desktop/laptop, **0.5** on a memory-constrained device |
 | `memgb` | Budget raw movies (GB) | number | 0 | 64 | 0.5 | 3 on desktop/laptop, **0** on a memory-constrained device |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 on desktop/laptop, **250** on a memory-constrained device |
+| `rotateMovie` | Rotate movie | enum | — | — | — | `'0'` (`'90'`, `'180'`, `'270'`) |
 
 Two genuinely separate settings (an earlier version used one shared `memgb` field for both):
 
@@ -1655,7 +1664,8 @@ elapsed time instead.
   <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>0.5 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
   <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
   <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
-  <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, off by default. Speeds up all four MLE fits, fixed/precision rendering, and FRC — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
+  <li><b>Rotate movie</b> — rotates every raw frame by 0° (default), 90°, 180° or 270° clockwise, e.g. to lay a tall dual-view (FRET) camera split side by side. Applies to the movie loaded now (in memory or streamed) and to every movie or simulation loaded later; changing it clears all results (localizations, reconstruction, drift, smFRET, tracking) and any raw crop, which is then set on the rotated frames. Headless: <code>rotateMovie</code> in the <code>analyze()</code> config, applied before <code>cropX0…</code>. Live-streamed chunks are not rotated.</li>
+  <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, and FRC — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
   <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
 </ul>
 <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
@@ -2089,7 +2099,7 @@ headless equivalent.
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
 | `mag` | Magnification | number (int) | 1 | 25 | 1 | 10 |
 | `renderMode` | Render mode | enum | — | — | — | `fixed` (options: `precision`, `fixed`, `dither`) |
-| `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | false |
+| `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | true |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
 | `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `hsvBlue`, `grey`) |
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |

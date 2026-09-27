@@ -24,25 +24,25 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2299   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          2914   TIFF/ND2/FITS loading (whole-file or streamed), crop, FTM
-    simulation      3125   synthetic stack generator ("Simulate movie")
-    detect          4043   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             4297   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          4896   super-resolution accumulation, view, colour maps, plots
-    workers         6113   frame-parallel detect/fit worker pool
-    gpu             6444   WebGPU engine: fit, render, FRC kernels (experimental)
-    export          8381   ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  8650   astigmatic width-vs-z bead calibration
-    drift           9049   AIM and cross-correlation drift correction
-    locprecision    9707   NeNA and FRC
-    sSMLM           10647  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          11253  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             13283  single-particle tracking and diffusion coefficients
-    pipeline        14329  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   15301  Micro-Manager/pycromanager bridge (experimental)
-    table           17312  localizations table, filters, histograms, clustering
-    headless API    17981  window.webSMLM.analyze()/analyzeBatch()
+    params          2307   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          2924   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3152   synthetic stack generator ("Simulate movie")
+    detect          4070   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             4324   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          4923   super-resolution accumulation, view, colour maps, plots
+    workers         6420   frame-parallel detect/fit worker pool
+    gpu             6780   WebGPU engine: fit, render, FRC kernels (experimental)
+    export          8717   ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  9002   astigmatic width-vs-z bead calibration
+    drift           9401   AIM and cross-correlation drift correction
+    locprecision    10059  NeNA and FRC
+    sSMLM           10999  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          11605  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             13635  single-particle tracking and diffusion coefficients
+    pipeline        14684  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   15656  Micro-Manager/pycromanager bridge (experimental)
+    table           17703  localizations table, filters, histograms, clustering
+    headless API    18372  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1655,7 +1655,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1920,6 +1920,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" title="Opt-in total-memory safety ceiling — leave blank (∞) unless a Run has actually crashed or warned on this device.">Total memory budget (GB) <input type="number" id="memBudgetGB" min="0.1" step="0.5" placeholder="∞" class="num"></label>
         <label class="row">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0" max="64" step="0.5" class="num"></label>
         <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
+        <label class="row" title="Rotates every frame of the movie clockwise (the loaded one now, and any loaded later). Changing it clears all results.">Rotate movie
+          <select id="rotateMovie" class="sel">
+            <option value="0" selected>0°</option>
+            <option value="90">90° clockwise</option>
+            <option value="180">180°</option>
+            <option value="270">270° clockwise</option>
+          </select></label>
         <label class="row" id="useGpuRow" style="margin-top:8px" title="Adaptive WebGPU acceleration for all four MLE fits, fixed/precision rendering, and FRC. Each stage uses the GPU only when supported and above its measured crossover; otherwise it reports a CPU fallback. GPU f32 results are scientifically equivalent, not bit-identical, to CPU f64 results.">Use GPU acceleration (experimental) <input type="checkbox" id="useGpu"></label>
         <label class="row" style="margin-top:8px">Enable live streaming <input type="checkbox" id="liveStreamEnabled"></label>
         <label class="row" id="liveStreamUrlRow" style="display:none" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" class="num" style="width:150px"></label>
@@ -1934,7 +1941,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>0.5 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
           <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
           <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
-          <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, off by default. Speeds up all four MLE fits, fixed/precision rendering, and FRC — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
+          <li><b>Rotate movie</b> — rotates every raw frame by 0° (default), 90°, 180° or 270° clockwise, e.g. to lay a tall dual-view (FRET) camera split side by side. Applies to the movie loaded now (in memory or streamed) and to every movie or simulation loaded later; changing it clears all results (localizations, reconstruction, drift, smFRET, tracking) and any raw crop, which is then set on the rotated frames. Headless: <code>rotateMovie</code> in the <code>analyze()</code> config, applied before <code>cropX0…</code>. Live-streamed chunks are not rotated.</li>
+          <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, and FRC — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
           <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
           </ul>
           <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
@@ -2523,6 +2531,8 @@ const PARAMS = {
   memgb: { type:'number', id:'memgb', label:'Budget raw movies (GB)', min:0, max:64, step:0.5, default:3, int:false },
   // chunkmb = size of one decode/localize/free heap when streaming (frames too big to cache whole)
   chunkmb: { type:'number', id:'chunkmb', label:'Stream heap chunk (MB)', min:50, max:2000, step:50, default:500, int:false },
+  // rotateMovie = clockwise rotation of every raw frame (makeRotatedStack())
+  rotateMovie: { type:'enum', id:'rotateMovie', label:'Rotate movie', options:['0','90','180','270'], default:'0' },
 
   // ---- simulation ----
   // frames = number of frames the built-in synthetic-stack generator produces
@@ -3119,6 +3129,23 @@ function makeCroppedStack(rawStack, x0, y0, x1, y1){
     cropX0:x0, cropY0:y0, cropX1:x1, cropY1:y1,
     getFrame(){ throw new Error('Cropped stack: use getFrames()'); },   // getFrames() is the only interface used
     async getFrames(s,e){ return (await rawStack.getFrames(s,e)).map(cropOne); }};
+}
+// Rotate movie (Memory, GPU & streaming): every fetched frame rotated deg
+// (90/180/270) clockwise; 90 and 270 swap w and h. Like the crop, it replaces
+// `stack`, so everything downstream sees the rotated movie (loaded or
+// streamed alike). No cache: fetches go through the original stack.
+function makeRotatedStack(rawStack, deg){
+  const w=rawStack.w, h=rawStack.h, swap=deg%180!==0;
+  const rotOne=f=>{ const out=new Float32Array(w*h), n=w*h;
+    if(deg===180){ for(let i=0;i<n;i++) out[n-1-i]=f[i]; return out; }
+    for(let y=0;y<h;y++){ const r=y*w;
+      if(deg===90) for(let x=0;x<w;x++) out[x*h+(h-1-y)]=f[r+x];   // (x,y) -> (h-1-y, x)
+      else for(let x=0;x<w;x++) out[(w-1-x)*h+y]=f[r+x]; }        // 270: (x,y) -> (y, w-1-x)
+    return out; };
+  return {w:swap?h:w, h:swap?w:h, n:rawStack.n, px:rawStack.px, streaming:!!rawStack.streaming, rotation:deg,
+    get residentBytes(){ return rawStack.residentBytes||0; },
+    getFrame(){ throw new Error('Rotated stack: use getFrames()'); },
+    async getFrames(s,e){ return (await rawStack.getFrames(s,e)).map(rotOne); }};
 }
 
 /* ===========================================================================
@@ -4986,21 +5013,12 @@ function displayMax(buf,pct){
 // Size limits, checked before allocating: render buffers are dense (W×H, any
 // loc count), so frame size × Magnification can reach tens of GB.
 // CANVAS_MAX_DIM is the browsers' per-side canvas limit; memBudgetGB (opt-in)
-// is the total-memory ceiling (unrelated to memgb's load decision).
+// is the total-memory ceiling (unrelated to memgb's load decision). Beyond
+// either, the panel switches to a viewport reconstruction (srRenderPlan()).
 const CANVAS_MAX_DIM=16384;
-// Highest Magnification whose reconstruction still fits CANVAS_MAX_DIM per side.
+// Highest Magnification whose reconstruction still fits CANVAS_MAX_DIM per
+// side (analyze()'s reconstruction.png).
 function maxMagForFrame(w,h){ return Math.floor(CANVAS_MAX_DIM/Math.max(1,w,h)); }
-// Lowers the Magnification field to maxMagForFrame() when it is higher (never
-// raises it). Called whenever the frame size is set (setFrameAspect()) and on
-// edits of the field. Returns true if it changed the value.
-function clampMagToFrame(w,h,onLog=log){
-  const mx=maxMagForFrame(w,h), cur=paramValue('mag');
-  if(!(w>0&&h>0) || cur<=mx) return false;
-  if(mx<1){ onLog(`⚠ The ${w}×${h} px frame is larger than the ${CANVAS_MAX_DIM} px canvas limit even at Magnification 1; crop it to render a reconstruction.`); return false; }
-  $('mag').value=mx;
-  onLog(`Magnification lowered from ${cur} to ${mx}: the highest that keeps the ${w}×${h} px frame within the ${CANVAS_MAX_DIM} px canvas limit.`);
-  return true;
-}
 // Estimated bytes per loc object, shared by every memory guard (likely an
 // underestimate, so guards act slightly late).
 const LOC_ROW_BYTES=200;
@@ -5097,118 +5115,267 @@ function splatGaussianLoc(acc,zacc,W,H,px,py,sx,sy,zval){
     }
   }
 }
-// Render core, DOM-free: accumulate -> blur -> normLocs pass -> percentile
-// clip -> colour map. Scratch buffers come in `buf`, so the same function runs
-// on the main thread (fallback) and stringified in the render worker. Returns
-// {imageData, satCount}; never touches a canvas.
-function renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,buf,renderMode){
-  const {acc,zacc,blurDst,zBlurDst,blurTmp}=buf;
-  let satCount=0, dbuf, zbuf;
+// The loc fields the renderer reads, packed into typed arrays: they transfer
+// to the render worker without a structured clone of every loc object, and
+// the worker keeps them between viewport renders. Float64 throughout, so
+// rounding to SR pixels and the z-range test match the loc objects exactly.
+// c (colour field) only with zColor; lpx/lpy only for the modes that read them.
+function packSrLocs(locs,colorField,zColor,renderMode){
+  const n=locs.length, x=new Float64Array(n), y=new Float64Array(n);
+  const c=zColor?new Float64Array(n):null, withLp=renderMode!=='fixed';
+  const lpx=withLp?new Float64Array(n):null, lpy=withLp?new Float64Array(n):null;
+  for(let i=0;i<n;i++){ const L=locs[i]; x[i]=L.x; y[i]=L.y;
+    if(c) c[i]=L[colorField];
+    if(withLp){ lpx[i]=L.lpx; lpy[i]=L.lpy; } }
+  return {n,x,y,c,lpx,lpy};
+}
+function packSrTransfer(P){ return P ? [P.x,P.y,P.c,P.lpx,P.lpy].filter(Boolean).map(a=>a.buffer) : []; }
+// Accumulates packed locs P into the W×H window at (ox,oy) of the full Wg×Hg
+// reconstruction (whole image: ox=oy=0, W=Wg, H=Hg). Each loc is tested
+// against the full image first, so a window holds exactly the pixels the full
+// render has there: a 'precision' splat centred outside the window still adds
+// its overlapping part, and 'dither' draws its random offsets for every loc in
+// the same order either way. zacc null = no z-sum (the z-range filter still
+// applies with zColor). Returns the count of hits on saturated pixels.
+function srAccumulate(P,Wg,Hg,ox,oy,W,H,mag,blurPx,zColor,zlo,zhi,renderMode,acc,zacc){
+  const {n,x,y,c,lpx,lpy}=P; let sat=0;
   if(renderMode==='precision'){
-    // 'precision': each loc splats its own Gaussian into Float32 accumulators
-    // (no saturation). σ = lpx/lpy × mag, or blurPx for methods without
-    // per-loc precision (phasor). MAX_SPLAT_SIGMA_PX caps the rendered σ: the
-    // cost is window area (∝ σ²), and a few poorly localized events (lpx of
-    // hundreds of nm) otherwise made this mode slower than 'fixed' at high
-    // mag; well-localized points stay far below the cap.
-    for(const L of locs){
-      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
-      const px=L.x*mag, py=L.y*mag;
-      if(px<0||py<0||px>=W||py>=H) continue;
-      const sx=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(L.lpx)&&L.lpx>0 ? L.lpx : blurPx)*mag);
-      const sy=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(L.lpy)&&L.lpy>0 ? L.lpy : blurPx)*mag);
-      splatGaussianLoc(acc, zColor?zacc:null, W,H, px,py, sx,sy, zColor?L[colorField]:0);
+    // Each loc splats its own Gaussian into Float32 accumulators (no
+    // saturation). σ = lpx/lpy × mag, or blurPx without per-loc precision
+    // (phasor). MAX_SPLAT_SIGMA_PX caps it: the cost is window area (∝ σ²),
+    // and a few poorly localized events otherwise made this mode slower than
+    // 'fixed' at high mag.
+    for(let i=0;i<n;i++){
+      if(zColor && (!isFinite(c[i])||c[i]<zlo||c[i]>zhi)) continue;
+      const px=x[i]*mag, py=y[i]*mag;
+      if(px<0||py<0||px>=Wg||py>=Hg) continue;
+      const sx=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(lpx[i])&&lpx[i]>0 ? lpx[i] : blurPx)*mag);
+      const sy=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(lpy[i])&&lpy[i]>0 ? lpy[i] : blurPx)*mag);
+      splatGaussianLoc(acc, zacc, W,H, px-ox,py-oy, sx,sy, zacc?c[i]:0);
     }
-    dbuf=acc; zbuf=zColor?zacc:null;
   } else if(renderMode==='dither'){
-    // 'dither': one random offset per loc from N(0, its own σ), binned to the
-    // nearest pixel: O(1)/loc, converging to the splat's density over many
-    // locs (10–24× faster on 4.2M locs, with visible grain). Not the default:
-    // sparse data looks noisy. Seeded, so redraws don't flicker.
+    // One random offset per loc from N(0, its own σ), binned to the nearest
+    // pixel: O(1)/loc, converging to the splat's density over many locs
+    // (10–24× faster on 4.2M locs, with visible grain). Seeded, so redraws
+    // don't flicker.
     const rnd=mulberry32(0xD17E5);
-    for(const L of locs){
-      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
-      const sx=(isFinite(L.lpx)&&L.lpx>0 ? L.lpx : blurPx)*mag;
-      const sy=(isFinite(L.lpy)&&L.lpy>0 ? L.lpy : blurPx)*mag;
+    for(let i=0;i<n;i++){
+      if(zColor && (!isFinite(c[i])||c[i]<zlo||c[i]>zhi)) continue;
+      const sx=(isFinite(lpx[i])&&lpx[i]>0 ? lpx[i] : blurPx)*mag;
+      const sy=(isFinite(lpy[i])&&lpy[i]>0 ? lpy[i] : blurPx)*mag;
       // Box-Muller: two uniforms -> two independent standard normals
       const u1=Math.max(1e-12,rnd()), u2=rnd();
       const r=Math.sqrt(-2*Math.log(u1));
       const z1=r*Math.cos(2*Math.PI*u2), z2=r*Math.sin(2*Math.PI*u2);
-      const ix=Math.round(L.x*mag+z1*sx), iy=Math.round(L.y*mag+z2*sy);
-      if(ix<0||iy<0||ix>=W||iy>=H) continue;
-      const idx=iy*W+ix;
-      if(acc[idx]<65535) acc[idx]++; else satCount++;
-      if(zColor) zacc[idx]+=L[colorField];
+      const ix=Math.round(x[i]*mag+z1*sx), iy=Math.round(y[i]*mag+z2*sy);
+      if(ix<0||iy<0||ix>=Wg||iy>=Hg) continue;
+      const tx=ix-ox, ty=iy-oy;
+      if(tx<0||ty<0||tx>=W||ty>=H) continue;
+      const idx=ty*W+tx;
+      if(acc[idx]<65535) acc[idx]++; else sat++;
+      if(zacc) zacc[idx]+=c[i];
     }
-    dbuf=acc; zbuf=zColor?zacc:null;
   } else {
-    // ---- 'fixed' (original behaviour): bin, then ONE uniform blur over the whole buffer ----
-    for(const L of locs){
-      // in depth mode, drop localizations outside [zlo,zhi] → those regions stay black
-      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
-      const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
-      if(ix<0||iy<0||ix>=W||iy>=H) continue;
-      const idx=iy*W+ix;
-      if(acc[idx]<65535) acc[idx]++; else satCount++;
-      if(zColor) zacc[idx]+=L[colorField]; }
-    // Blur density and z-sum together (mean z = blur(Σz)/blur(count)), into
-    // the reusable scratch.
-    dbuf = blurPx>0 ? blurInto(acc,blurDst,blurTmp,W,H,blurPx*mag*0.3) : acc;
-    zbuf = zColor ? (blurPx>0 ? blurInto(zacc,zBlurDst,blurTmp,W,H,blurPx*mag*0.3) : zacc) : null;
+    // 'fixed': bin to the nearest pixel (the caller blurs afterwards).
+    for(let i=0;i<n;i++){
+      if(zColor && (!isFinite(c[i])||c[i]<zlo||c[i]>zhi)) continue;
+      const ix=Math.round(x[i]*mag), iy=Math.round(y[i]*mag);
+      if(ix<0||iy<0||ix>=Wg||iy>=Hg) continue;
+      const tx=ix-ox, ty=iy-oy;
+      if(tx<0||ty<0||tx>=W||ty>=H) continue;
+      const idx=ty*W+tx;
+      if(acc[idx]<65535) acc[idx]++; else sat++;
+      if(zacc) zacc[idx]+=c[i];
+    }
   }
-  let normBuf=dbuf;
-  if(normLocs && normLocs!==locs){
-    const nacc=new Uint16Array(W*H);
-    for(const L of normLocs){
-      if(zColor && (!isFinite(L[colorField])||L[colorField]<zlo||L[colorField]>zhi)) continue;
-      const ix=Math.round(L.x*mag), iy=Math.round(L.y*mag);
-      if(ix<0||iy<0||ix>=W||iy>=H) continue;
-      const nidx=iy*W+ix; if(nacc[nidx]<65535) nacc[nidx]++; }
-    normBuf = blurPx>0 ? blur(nacc,W,H,blurPx*mag*0.3) : nacc;
-  }
-  const norm=displayMax(normBuf,pct), lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo), invNorm=norm>0?1/norm:0;
-  const out=new ImageData(W,H);
-  for(let i=0;i<dbuf.length;i++){
-    // density → brightness: sqrt-stretched curve, tuned so sparse SMLM data
-    // stays visible.
+  return sat;
+}
+// Density (and z-sum) -> RGBA into `data` for n pixels: a sqrt-stretched
+// brightness (sparse SMLM data stays visible) through the LUT, or with zColor
+// the LUT indexed by mean z and dimmed by that brightness.
+function srColorize(dbuf,zbuf,n,norm,zColor,zlo,zhi,lutName,data){
+  const lut=getLUT(lutName), zspan=Math.max(1e-9,zhi-zlo), invNorm=norm>0?1/norm:0;
+  for(let i=0;i<n;i++){
     const t = norm>0 ? _sqrtLut[(Math.min(1,dbuf[i]*invNorm)*_SQRT_LUT_N)|0] : 0;
     let j;
     if(zColor){ const meanz=dbuf[i]>0?zbuf[i]/dbuf[i]:zlo;                // hue → depth
       j=(Math.max(0,Math.min(1,(meanz-zlo)/zspan))*255)|0;
-      out.data[i*4]=lut[j*3]*t; out.data[i*4+1]=lut[j*3+1]*t; out.data[i*4+2]=lut[j*3+2]*t; }
-    else{ j=(t*255)|0; out.data[i*4]=lut[j*3]; out.data[i*4+1]=lut[j*3+1]; out.data[i*4+2]=lut[j*3+2]; }
-    out.data[i*4+3]=255; }
+      data[i*4]=lut[j*3]*t; data[i*4+1]=lut[j*3+1]*t; data[i*4+2]=lut[j*3+2]*t; }
+    else{ j=(t*255)|0; data[i*4]=lut[j*3]; data[i*4+1]=lut[j*3+1]; data[i*4+2]=lut[j*3+2]; }
+    data[i*4+3]=255; }
+}
+// Render core for a whole W×H image, DOM-free: accumulate -> blur ('fixed')
+// -> normalization pass -> percentile clip -> colour map. P/PN are packed
+// locs (packSrLocs()); PN (optional) is the set the display percentile comes
+// from, always binned and blurred as 'fixed'. Scratch buffers come in `buf`,
+// so this runs on the main thread (fallback) and stringified in the render
+// worker. Returns {imageData, satCount}; never touches a canvas.
+function renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,buf,renderMode){
+  const {acc,zacc,blurDst,zBlurDst,blurTmp}=buf, sigma=blurPx*mag*0.3;
+  const satCount=srAccumulate(P,W,H,0,0,W,H,mag,blurPx,zColor,zlo,zhi,renderMode,acc,zColor?zacc:null);
+  // Blur density and z-sum together (mean z = blur(Σz)/blur(count)), into
+  // the reusable scratch. 'precision' needs none (each splat is the blur).
+  let dbuf=acc, zbuf=zColor?zacc:null;
+  if(renderMode==='fixed' && blurPx>0){
+    dbuf=blurInto(acc,blurDst,blurTmp,W,H,sigma);
+    if(zColor) zbuf=blurInto(zacc,zBlurDst,blurTmp,W,H,sigma);
+  }
+  let normBuf=dbuf;
+  if(PN){
+    const nacc=new Uint16Array(W*H);
+    srAccumulate(PN,W,H,0,0,W,H,mag,blurPx,zColor,zlo,zhi,'fixed',nacc,null);
+    normBuf = blurPx>0 ? blur(nacc,W,H,sigma) : nacc;
+  }
+  const out=new ImageData(W,H);
+  srColorize(dbuf,zbuf,W*H,displayMax(normBuf,pct),zColor,zlo,zhi,lutName,out.data);
   return {imageData:out, satCount};
+}
+// Viewport rendering, for a reconstruction too large for one canvas or the
+// memory budget: the image is never held whole. srRenderRegion() evaluates the
+// full render only at the sample pixels (rx+a·k, ry+b·k) of a rectangle
+// (nearest-neighbour decimation, as drawImage() shows a zoomed-out canvas),
+// straight from the locs: each loc adds its bin ('fixed'/'dither'), its blur
+// kernel with blurInto()'s mirrored edges ('fixed' with blur) or its splat
+// ('precision') to the samples it reaches. Values match the full render's
+// pixels up to float rounding (the 65,535-hit cap applies to unblurred bins
+// only), and the cost is O(locs + samples) whatever the image size.
+// With pct, also returns the display maximum from these samples (from PN's
+// 'fixed' bins when given): for the overview, a uniform sample of every
+// pixel of the image.
+const SR_OVERVIEW_MAX=4096;
+function srRenderRegion(P,PN,Wg,Hg,rx,ry,rw,rh,k,mag,blurPx,zColor,zlo,zhi,renderMode,pct){
+  const ow=Math.ceil(rw/k), oh=Math.ceil(rh/k);
+  const dv=new Float32Array(ow*oh), zv=zColor?new Float32Array(ow*oh):null;
+  const satCount=srSampleAccumulate(P,Wg,Hg,rx,ry,ow,oh,k,mag,blurPx,zColor,zlo,zhi,renderMode,dv,zv);
+  let norm=0;
+  if(pct!=null){
+    let nv=dv;
+    if(PN){ nv=new Float32Array(ow*oh); srSampleAccumulate(PN,Wg,Hg,rx,ry,ow,oh,k,mag,blurPx,zColor,zlo,zhi,'fixed',nv,null); }
+    norm=displayMax(nv,pct);
+  }
+  return {dv,zv,ow,oh,norm,satCount};
+}
+// Weight of a unit bin at q in the blurred value at p (one axis, image size
+// hi): the direct kernel tap plus the taps blurInto() mirrors back onto q at
+// either edge (_clMirror(): v<0 -> -v, v>=hi -> 2hi-2-v).
+function srMirrorWeight(p,q,hi,kern,rad){
+  let w=0, d=q-p;
+  if(d>=-rad && d<=rad) w+=kern[d+rad];
+  if(q>0){ d=-q-p; if(d>=-rad) w+=kern[d+rad]; }
+  if(q<=hi-2){ d=2*hi-2-q-p; if(d<=rad) w+=kern[d+rad]; }
+  return w;
+}
+// Adds P's density (and z-sum into zv) to the ow×oh samples of srRenderRegion().
+function srSampleAccumulate(P,Wg,Hg,rx,ry,ow,oh,k,mag,blurPx,zColor,zlo,zhi,renderMode,dv,zv){
+  const {n,x,y,c,lpx,lpy}=P;
+  if(renderMode==='precision'){
+    // splatGaussianLoc()'s window and weights, at the samples only
+    let gx=new Float32Array(64), gy=new Float32Array(64);   // Float32 as _splatGx/_splatGy: same weights
+    for(let i=0;i<n;i++){
+      if(zColor && (!isFinite(c[i])||c[i]<zlo||c[i]>zhi)) continue;
+      const px=x[i]*mag, py=y[i]*mag;
+      if(px<0||py<0||px>=Wg||py>=Hg) continue;
+      const sx=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(lpx[i])&&lpx[i]>0 ? lpx[i] : blurPx)*mag);
+      const sy=Math.min(MAX_SPLAT_SIGMA_PX, (isFinite(lpy[i])&&lpy[i]>0 ? lpy[i] : blurPx)*mag);
+      if(!(sx>0) || !(sy>0)) continue;
+      const jMin=Math.max(0,Math.floor(px-3*sx)), jMax=Math.min(Wg,Math.ceil(px+3*sx)+1);
+      const iMin=Math.max(0,Math.floor(py-3*sy)), iMax=Math.min(Hg,Math.ceil(py+3*sy)+1);
+      const a0=Math.max(0,Math.ceil((jMin-rx)/k)), a1=Math.min(ow-1,Math.floor((jMax-1-rx)/k));
+      const b0=Math.max(0,Math.ceil((iMin-ry)/k)), b1=Math.min(oh-1,Math.floor((iMax-1-ry)/k));
+      if(a0>a1 || b0>b1) continue;
+      if(a1-a0+1>gx.length) gx=new Float32Array(a1-a0+1);
+      if(b1-b0+1>gy.length) gy=new Float32Array(b1-b0+1);
+      for(let a=a0;a<=a1;a++) gx[a-a0]=mleGInt(rx+a*k+0.5, px, sx);
+      for(let b=b0;b<=b1;b++) gy[b-b0]=mleGInt(ry+b*k+0.5, py, sy);
+      for(let b=b0;b<=b1;b++){ const row=b*ow, g=gy[b-b0];
+        for(let a=a0;a<=a1;a++){ const w=g*gx[a-a0]; dv[row+a]+=w; if(zv) zv[row+a]+=w*c[i]; } }
+    }
+    return 0;
+  }
+  // 'fixed' bins at the loc's pixel, 'dither' at its jittered one (the same
+  // seeded sequence over the same locs as srAccumulate(), so the same pixel).
+  const dither=renderMode==='dither', rnd=dither?mulberry32(0xD17E5):null;
+  const doBlur=renderMode==='fixed' && blurPx>0;
+  let kern=null, rad=0, wx=null, wy=null;
+  if(doBlur){   // blurInto()'s kernel
+    const sigma=blurPx*mag*0.3; rad=Math.max(1,Math.ceil(sigma*3));
+    kern=new Float32Array(2*rad+1); let s=0;
+    for(let i=-rad;i<=rad;i++){ kern[i+rad]=Math.exp(-i*i/(2*sigma*sigma)); s+=kern[i+rad]; }
+    for(let i=0;i<kern.length;i++) kern[i]/=s;
+    wx=new Float64Array(2*rad+1); wy=new Float64Array(2*rad+1);
+  }
+  let sat=0;
+  for(let i=0;i<n;i++){
+    if(zColor && (!isFinite(c[i])||c[i]<zlo||c[i]>zhi)) continue;
+    let ix, iy;
+    if(dither){
+      const sx=(isFinite(lpx[i])&&lpx[i]>0 ? lpx[i] : blurPx)*mag;
+      const sy=(isFinite(lpy[i])&&lpy[i]>0 ? lpy[i] : blurPx)*mag;
+      const u1=Math.max(1e-12,rnd()), u2=rnd();
+      const r=Math.sqrt(-2*Math.log(u1));
+      ix=Math.round(x[i]*mag+r*Math.cos(2*Math.PI*u2)*sx); iy=Math.round(y[i]*mag+r*Math.sin(2*Math.PI*u2)*sy);
+    } else { ix=Math.round(x[i]*mag); iy=Math.round(y[i]*mag); }
+    if(ix<0||iy<0||ix>=Wg||iy>=Hg) continue;
+    if(!doBlur){
+      const tx=ix-rx, ty=iy-ry;
+      if(tx<0 || ty<0 || tx%k || ty%k) continue;
+      const a=tx/k, b=ty/k;
+      if(a>=ow || b>=oh) continue;
+      const idx=b*ow+a;
+      if(dv[idx]<65535) dv[idx]++; else sat++;
+      if(zv) zv[idx]+=c[i];
+      continue;
+    }
+    // every sample a mirrored tap can reach is within rad of the bin too
+    const a0=Math.max(0,Math.ceil((ix-rad-rx)/k)), a1=Math.min(ow-1,Math.floor((ix+rad-rx)/k));
+    const b0=Math.max(0,Math.ceil((iy-rad-ry)/k)), b1=Math.min(oh-1,Math.floor((iy+rad-ry)/k));
+    if(a0>a1 || b0>b1) continue;
+    for(let a=a0;a<=a1;a++) wx[a-a0]=srMirrorWeight(rx+a*k, ix, Wg, kern, rad);
+    for(let b=b0;b<=b1;b++) wy[b-b0]=srMirrorWeight(ry+b*k, iy, Hg, kern, rad);
+    for(let b=b0;b<=b1;b++){ const row=b*ow, g=wy[b-b0];
+      for(let a=a0;a<=a1;a++){ const w=g*wx[a-a0]; dv[row+a]+=w; if(zv) zv[row+a]+=w*c[i]; } }
+  }
+  return sat;
 }
 // A fresh canvas per render: other caches are keyed on srFull's identity.
 function getOrMakeSrCanvas(W,H){
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H; return cv;
 }
+// Whole image or viewport: 'viewport' when the image exceeds CANVAS_MAX_DIM on
+// a side, or the full render's buffers plus reserveBytes (locs + the loaded
+// movie) exceed the memory ceiling.
+function srRenderPlan(W,H,zColor,blurPx,renderMode,hasNorm,reserveBytes){
+  if(W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM) return 'viewport';
+  const ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
+  return estimateRenderBytes(W,H,zColor,blurPx,renderMode,hasNorm)+reserveBytes>ceiling.bytes ? 'viewport' : 'full';
+}
 // Async: the accumulate/blur/colour work runs in the render worker
 // (OffscreenCanvas) when available, else the same renderSuperResPixels() on
-// the main thread. checkRenderSize() runs first, synchronously.
+// the main thread. The locs go over packed (packSrLocs(), transferred), so
+// neither path holds a second copy of the loc objects.
 // stackResidentBytes: the loaded movie's cache, passed in (not read from the
 // `stack` global, which analyze()'s local stack would shadow) so the memory
 // check covers stack + locs + render.
-async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,renderMode='fixed',stackResidentBytes=0){
+// allowViewport (the interactive panel): an image too large for one canvas or
+// the budget becomes a viewport reconstruction (renderSuperResViewport())
+// instead of an error; analyze(), which needs one PNG, keeps the error.
+async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField='z',onLog=log,renderMode='fixed',stackResidentBytes=0,allowViewport=false){
   const W=w*mag, H=h*mag;
-  const locsBytes=locs.length*LOC_ROW_BYTES;
+  const reserveBytes=locs.length*LOC_ROW_BYTES+stackResidentBytes;
   // hasNorm costs a second accumulator; included in the estimate.
   const hasNorm=!!(normLocs && normLocs!==locs);
-  checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode,locsBytes+stackResidentBytes,hasNorm);
-  // postMessage clones locs for the worker, so a worker render briefly holds
-  // two copies. Use the single-threaded path (locs by reference) when that
-  // extra copy would exceed the budget (no-op without memBudgetGB).
-  const renderBytes=estimateRenderBytes(W,H,zColor,blurPx,renderMode,hasNorm);
-  const budget=paramValue('memBudgetGB')*1073741824;
-  const skipWorkerForMemory = (renderBytes + 2*locsBytes + stackResidentBytes) > budget;
-  const worker=skipWorkerForMemory ? null : await getRenderWorker();
+  if(allowViewport && srRenderPlan(W,H,zColor,blurPx,renderMode,hasNorm,reserveBytes)==='viewport')
+    return renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo,zhi,hasNorm?normLocs:null,colorField,onLog,renderMode,reserveBytes);
+  checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode,reserveBytes,hasNorm);
+  const pack=()=>[packSrLocs(locs,colorField,zColor,renderMode), hasNorm?packSrLocs(normLocs,colorField,zColor,'fixed'):null];
+  const satWarn=n=>{ if(n) onLog(`⚠ ${n.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`); };
+  const worker=await getRenderWorker();
   if(worker){
     try{
+      const [P,PN]=pack();
       const {imageBitmap,satCount}=await dispatchRenderWorker(worker,{
-        locs, normLocs:(normLocs&&normLocs!==locs)?normLocs:null,
-        W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct,renderMode });
-      if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
+        P,PN,W,H,mag,blurPx,zColor,zlo,zhi,lutName,pct,renderMode},[...packSrTransfer(P),...packSrTransfer(PN)]);
+      satWarn(satCount);
       const cv=getOrMakeSrCanvas(W,H);
       cv.getContext('2d').drawImage(imageBitmap,0,0);
       imageBitmap.close();
@@ -5235,11 +5402,132 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
     _srW=W; _srH=H; _srZColor=zColor; _srMode=renderMode; _srAcc=acc; _srZacc=zacc;
     _srBlurDst=blurDst; _srZBlurDst=zBlurDst; _srBlurTmp=blurTmp;
   }
-  const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,{acc,zacc,blurDst,zBlurDst,blurTmp},renderMode);
-  if(satCount) onLog(`⚠ ${satCount.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`);
+  const [P,PN]=pack();
+  const {imageData,satCount}=renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,{acc,zacc,blurDst,zBlurDst,blurTmp},renderMode);
+  satWarn(satCount);
   const cv=getOrMakeSrCanvas(W,H);
   cv.getContext('2d').putImageData(imageData,0,0);
   return cv;
+}
+// A viewport reconstruction stands in for srFull: {width, height} are the full
+// image's (every srFull-px coordinate, the view, crop and measure tools work
+// unchanged), `overview` is the whole image at every ovK-th px (≤
+// SR_OVERVIEW_MAX per side), `patch` the current view at screen resolution
+// (requestSrPatch()). The render worker keeps the packed locs for the patches;
+// without a worker they stay here (`local`) and patches render on the main
+// thread. The display maximum is taken from the overview's samples.
+function srOverviewStride(W,H){ return Math.max(1,Math.ceil(Math.max(W,H)/SR_OVERVIEW_MAX)); }
+// Overview + patch (4 B/px each as a bitmap, plus Float32 density/z/norm
+// scratch while rendering) and the packed locs (40 B/loc).
+function estimateViewportBytes(W,H,nLocs){
+  const k=srOverviewStride(W,H), px=Math.ceil(W/k)*Math.ceil(H/k);
+  return 2*px*20 + nLocs*40;
+}
+// Memory the reconstruction will take at this size: the whole image when it
+// can be one canvas and is the smaller, else the viewport's.
+function estimateReconBytes(W,H,zColor,blurPx,renderMode,nLocs){
+  const v=estimateViewportBytes(W,H,nLocs);
+  return (W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM) ? v : Math.min(v, estimateRenderBytes(W,H,zColor,blurPx,renderMode));
+}
+let _srViewportSeq=0;
+async function renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField,onLog,renderMode,reserveBytes){
+  const bytes=estimateViewportBytes(W,H,locs.length+(normLocs?normLocs.length:0));
+  const ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
+  if(bytes+reserveBytes>ceiling.bytes)
+    throw new Error(`Reconstruction view at ${W}×${H} px would need ~${fmtBytes(bytes)} (plus ~${fmtBytes(reserveBytes)} already committed to the localizations and movie), over ${memCeilingSuffix(ceiling)}. Narrow the frame range, filter the localizations, or raise the budget if you have the RAM.`);
+  // The whole-image scratch isn't used in this mode; release it.
+  _srW=_srH=0; _srAcc=_srZacc=_srBlurDst=_srZBlurDst=_srBlurTmp=null;
+  const k=srOverviewStride(W,H), id=++_srViewportSeq;
+  const params={W,H,mag,blurPx,zColor,zlo,zhi,renderMode,lutName};
+  const vp={width:W,height:H,_viewport:true,id,ovK:k,overview:null,norm:0,params,worker:null,local:null,patch:null};
+  const pack=()=>[packSrLocs(locs,colorField,zColor,renderMode), normLocs?packSrLocs(normLocs,colorField,zColor,'fixed'):null];
+  const worker=await getRenderWorker();
+  if(worker){
+    try{
+      const [P,PN]=pack();
+      const r=await dispatchRenderWorker(worker,{vpInit:1,id,P,PN,...params,k,pct},[...packSrTransfer(P),...packSrTransfer(PN)]);
+      vp.overview=r.imageBitmap; vp.norm=r.norm; vp.worker=worker;
+    }catch(err){ onLog(`⚠ Render worker error, rendering the view on the main thread: ${err.message}`); }
+  }
+  if(!vp.overview){
+    const [P,PN]=pack(); vp.local={P};
+    const r=srRenderRegion(P,PN,W,H,0,0,W,H,k,mag,blurPx,zColor,zlo,zhi,renderMode,pct);
+    vp.norm=r.norm; vp.overview=srRegionCanvas(r,vp.norm,params);
+  }
+  return vp;
+}
+// Colours a srRenderRegion() result into a new canvas (main thread).
+function srRegionCanvas(r,norm,p){
+  const img=new ImageData(r.ow,r.oh);
+  srColorize(r.dv,r.zv,r.ow*r.oh,norm,p.zColor,p.zlo,p.zhi,p.lutName,img.data);
+  const cv=getOrMakeSrCanvas(r.ow,r.oh); cv.getContext('2d').putImageData(img,0,0); return cv;
+}
+// Every k-th px of the srFull-px rect (rx,ry,rw,rh), clipped to the image by
+// the caller, of a viewport reconstruction: an ImageBitmap from the worker,
+// else a canvas. Rejects if the worker has since moved on to another render.
+async function srViewportRegion(vp,rx,ry,rw,rh,k){
+  if(vp.worker){ const r=await dispatchRenderWorker(vp.worker,{vpRegion:1,id:vp.id,rx,ry,rw,rh,k}); return r.imageBitmap; }
+  const p=vp.params;
+  const r=srRenderRegion(vp.local.P,null,p.W,p.H,rx,ry,rw,rh,k,p.mag,p.blurPx,p.zColor,p.zlo,p.zhi,p.renderMode,null);
+  return srRegionCanvas(r,vp.norm,p);
+}
+// Frees a replaced viewport reconstruction's bitmaps.
+function srDisposeViewport(vp){
+  if(!vp || !vp._viewport) return;
+  for(const b of [vp.overview, vp.patch&&vp.patch.img]) if(b && b.close) b.close();
+  vp.overview=null; vp.patch=null;
+}
+// Patch for the current view: the visible rect plus a quarter of it on each
+// side (so small pans need none), at the stride that gives at least one
+// sample per device px. Requested 150 ms after the last drawView() (never
+// during a gesture, so pan/zoom only ever redraw bitmaps), one at a time; the
+// overview and any previous patch stay on screen meanwhile.
+const SR_PATCH_DELAY_MS=150;
+let _srPatchTimer=0, _srPatchBusy=false, _srPatchAgain=false;
+function srPatchWanted(){
+  const f=srFull; if(!f || !f._viewport || !srIsRecon) return null;
+  const d=$('sr'), DW=d.clientWidth||d.width, DH=d.clientHeight||d.height, dpr=window.devicePixelRatio||1;
+  const k=Math.max(1,Math.floor(1/(view.zoom*dpr)));
+  if(k>=f.ovK) return null;                                   // the overview is already that sharp
+  const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
+  const vx0=Math.max(0,sx), vy0=Math.max(0,sy), vx1=Math.min(f.width,sx+sw), vy1=Math.min(f.height,sy+sh);
+  const p=f.patch;
+  if(p && p.k<=k && p.rx<=vx0 && p.ry<=vy0 && p.rx+p.rw>=vx1 && p.ry+p.rh>=vy1) return null;
+  const rx=Math.max(0,Math.floor(sx-sw/4)), ry=Math.max(0,Math.floor(sy-sh/4));
+  const rw=Math.min(f.width,Math.ceil(sx+sw*1.25))-rx, rh=Math.min(f.height,Math.ceil(sy+sh*1.25))-ry;
+  return rw>0 && rh>0 ? {rx,ry,rw,rh,k} : null;
+}
+function scheduleSrPatch(){
+  clearTimeout(_srPatchTimer);
+  if(srFull && srFull._viewport) _srPatchTimer=setTimeout(requestSrPatch, SR_PATCH_DELAY_MS);
+}
+async function requestSrPatch(){
+  if(_srPatchBusy){ _srPatchAgain=true; return; }
+  const want=srPatchWanted(); if(!want) return;
+  const vp=srFull;
+  _srPatchBusy=true;
+  try{
+    const img=await srViewportRegion(vp, want.rx,want.ry,want.rw,want.rh,want.k);
+    if(srFull!==vp || !vp.overview){ if(img.close) img.close(); return; }   // replaced meanwhile
+    if(vp.patch && vp.patch.img.close) vp.patch.img.close();
+    vp.patch={...want, img};
+    if(!srIsPlot) drawView();
+  }catch(err){ /* a newer render took the worker's session: nothing to show */ }
+  finally{
+    _srPatchBusy=false;
+    if(_srPatchAgain){ _srPatchAgain=false; requestSrPatch(); }
+  }
+}
+// Draws the srFull-px rect (sx,sy,sw,sh) over the DW×DH panel: srFull itself,
+// or for a viewport reconstruction its overview with the patch on top.
+// transparent: black made transparent (segmentation overlay).
+function srDrawImage(ctx,sx,sy,sw,sh,DW,DH,transparent){
+  const f=srFull, t=transparent?buildTransparentReconCanvas:(c=>c);
+  if(!f._viewport){ ctx.drawImage(t(f), sx,sy,sw,sh, 0,0,DW,DH); return; }
+  const k=f.ovK;
+  ctx.drawImage(t(f.overview), sx/k,sy/k,sw/k,sh/k, 0,0,DW,DH);
+  const p=f.patch;
+  if(p) ctx.drawImage(t(p.img), (sx-p.rx)/p.k,(sy-p.ry)/p.k,sw/p.k,sh/p.k, 0,0,DW,DH);
 }
 // View math is in CSS pixels (the canvas backing is CSS×dpr for crisp overlays,
 // so use clientWidth/Height — NOT the backing width/height — as the logical size).
@@ -5459,7 +5747,7 @@ function drawView(){
   // Segmentation overlay (srSegOverlayBtn): opaque cells below, the
   // reconstruction on top with its black background made transparent.
   // The cell canvas is at camera-pixel resolution (divide the sub-rect by mag);
-  // the transparent reconstruction is at srFull resolution. Both top-left
+  // the transparent reconstruction is in srFull px. Both top-left
   // aligned; a mask a few px off in size is drawn anyway (warned at load).
   // segScale = pxnm / refPxNm (pxnm at load): loc positions are camera px and
   // don't change with Pixel size, so after correcting Pixel size the mask is
@@ -5468,10 +5756,9 @@ function drawView(){
     const segOverlay=buildSegOverlayCanvas(), mag=lastResult.mag||1;
     const segScale=(paramValue('pxnm')||1)/(segmentedImageLabels.refPxNm||paramValue('pxnm'));
     ctx.drawImage(segOverlay, sx/mag/segScale,sy/mag/segScale,sw/mag/segScale,sh/mag/segScale, 0,0,DW,DH);
-    ctx.drawImage(buildTransparentReconCanvas(), sx,sy,sw,sh, 0,0,DW,DH);
-  } else {
-    ctx.drawImage(srFull, sx,sy,sw,sh, 0,0,DW,DH);
-  }
+    srDrawImage(ctx, sx,sy,sw,sh, DW,DH, true);
+  } else srDrawImage(ctx, sx,sy,sw,sh, DW,DH, false);
+  scheduleSrPatch();
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI, srLocs===smfretSOI?smfretPairedSoiKeys:null);   // numbering and paired colours only for the smFRET SOI composite
   if(srLocs===smfretSOI) drawSmfretTraceSelectionOverlay(ctx,view,DW,DH);
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
@@ -5511,15 +5798,29 @@ function drawMeasureOverlay(ctx,DW,DH){
 }
 // Intensity profile along measureLine (srFull coords), averaged over a 3-px-wide
 // band, plotted in the LEFT panel; x = distance (nm), y = reconstruction intensity.
-function lineProfile(L){
+// A viewport reconstruction renders the line's bounding box (at full
+// resolution up to 64 Mpx, else every k-th px).
+async function lineProfile(L){
   if(!srFull) return;
-  const nmPerPx = srNmPerPx();
+  const f=srFull, nmPerPx = srNmPerPx();
   const dx=L.x1-L.x0, dy=L.y1-L.y0, lenPx=Math.hypot(dx,dy);
   if(lenPx<2){ log('Measure line too short.'); return; }
-  const len=lenPx, ux=dx/len, uy=dy/len, perpx=-uy, perpy=ux, W=srFull.width, Hh=srFull.height;
-  const id=srFull.getContext('2d').getImageData(0,0,W,Hh).data;
-  const samp=(x,y)=>{ const ix=Math.round(x), iy=Math.round(y); if(ix<0||iy<0||ix>=W||iy>=Hh) return 0;
-    const o=(iy*W+ix)*4; return 0.299*id[o]+0.587*id[o+1]+0.114*id[o+2]; };   // luminance
+  const len=lenPx, ux=dx/len, uy=dy/len, perpx=-uy, perpy=ux, W=f.width, Hh=f.height;
+  let id, ox=0, oy=0, k=1, IW=W, IH=Hh;
+  if(f._viewport){
+    ox=Math.max(0,Math.floor(Math.min(L.x0,L.x1)-3)); oy=Math.max(0,Math.floor(Math.min(L.y0,L.y1)-3));
+    const rw=Math.min(W,Math.ceil(Math.max(L.x0,L.x1)+4))-ox, rh=Math.min(Hh,Math.ceil(Math.max(L.y0,L.y1)+4))-oy;
+    k=Math.max(1,Math.ceil(Math.sqrt(rw*rh/64e6)));
+    let img;
+    try{ img=await srViewportRegion(f,ox,oy,rw,rh,k); }catch(err){ log(`⚠ Line profile failed: ${err.message}`); return; }
+    if(srFull!==f) return;
+    IW=img.width; IH=img.height;
+    const t=getOrMakeSrCanvas(IW,IH), tctx=t.getContext('2d'); tctx.drawImage(img,0,0); if(img.close) img.close();
+    id=tctx.getImageData(0,0,IW,IH).data;
+    if(k>1) log(`Line profile sampled every ${k} reconstruction px (the line's bounding box is too large to render whole).`);
+  } else id=f.getContext('2d').getImageData(0,0,W,Hh).data;
+  const samp=(x,y)=>{ const ix=Math.round((x-ox)/k), iy=Math.round((y-oy)/k); if(ix<0||iy<0||ix>=IW||iy>=IH) return 0;
+    const o=(iy*IW+ix)*4; return 0.299*id[o]+0.587*id[o+1]+0.114*id[o+2]; };   // luminance
   const offs=[-1.5,-0.75,0,0.75,1.5];                 // 3 srFull-px band
   const nAlong=Math.max(2,Math.round(lenPx)), prof=new Float64Array(nAlong), dist=new Float64Array(nAlong);
   for(let i=0;i<nAlong;i++){ const t=i/(nAlong-1), cx=L.x0+dx*t, cy=L.y0+dy*t;
@@ -5749,11 +6050,16 @@ async function rerenderNow(keepView,isPreview,mySeq){
     // adding one later does not mean hunting down string compares.
     let rEngine=null;
     const rWarm=_gpuRenderWarmModes.has(rMode);
+    // A viewport reconstruction (image too large for one canvas or the
+    // budget) is CPU/worker only.
+    const rViewport=srRenderPlan(lastResult.w*mag, lastResult.h*mag, zColor, rblur, rMode, rlocs!==lastResult.locs,
+      rlocs.length*LOC_ROW_BYTES+rStackResidentBytes)==='viewport';
     _renderStageTimings = newStageTimings();
     newSrFull = await runStage('render', {useGpu:paramValue('useGpu'), stageTimings:_renderStageTimings, onLog:log},
-      () => renderSuperRes(...rArgs, log, rMode, rStackResidentBytes),
+      () => renderSuperRes(...rArgs, log, rMode, rStackResidentBytes, true),
       () => renderSuperResGpu(rEngine, ...rArgs, rMode),
       async()=>{
+        if(rViewport) return {eligible:false,reason:'viewport'};
         const decision=renderGpuEligibility(rMode,rlocs.length,lastResult.w,lastResult.h,mag,rWarm);
         if(!decision.eligible) return decision;
         rEngine=await getGpuEngine();
@@ -5762,7 +6068,7 @@ async function rerenderNow(keepView,isPreview,mySeq){
     if(_renderStageTimings.render&&_renderStageTimings.render.path==='gpu') _gpuRenderWarmModes.add(rMode);
     // renderSuperResGpu() throws on failure (runStage catches it), but a falsy
     // return would slip past that — keep the original belt-and-braces fallback.
-    if(!newSrFull) newSrFull=await renderSuperRes(...rArgs, log, rMode, rStackResidentBytes);
+    if(!newSrFull) newSrFull=await renderSuperRes(...rArgs, log, rMode, rStackResidentBytes, true);
     { const e=_renderStageTimings.render;
       // "SR render … s" for final renders only, not every preview.
       if(e && !isPreview) log(`SR render   ${(e.ms/1000).toFixed(2)} s   (${e.gpuFailed?'GPU failed, used CPU':e.path==='gpu'?'GPU':'CPU'}, ${rMode} mode · ${e.reasons.join(', ')})`); }
@@ -5775,7 +6081,8 @@ async function rerenderNow(keepView,isPreview,mySeq){
   // Discard if a newer rerender() started, or lastResult was cleared while
   // this render was suspended (publishing it would leave srIsRecon set with no
   // lastResult and break drawView()).
-  if(mySeq!==_srRenderSeq || !lastResult) return;   // a NEWER rerender() call landed first, or lastResult was cleared mid-render — discard this stale result
+  if(mySeq!==_srRenderSeq || !lastResult){ srDisposeViewport(newSrFull); return; }   // a NEWER rerender() call landed first, or lastResult was cleared mid-render — discard this stale result
+  if(srFull!==newSrFull) srDisposeViewport(srFull);
   srFull=newSrFull;
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
@@ -5784,7 +6091,7 @@ async function rerenderNow(keepView,isPreview,mySeq){
   clampView(); drawView();
   // reconstruction pixel = camera pixel / magnification (e.g. 160 nm / 10× = 16 nm)
   $('srInfo').textContent=`${rlocs.length.toLocaleString()}${renderLocs?' / '+lastResult.locs.length.toLocaleString()+' (filtered)':''} locs · ${(lastResult.px/mag).toFixed(1)} nm/px`+
-    (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+` · scroll to zoom, drag to pan`;
+    (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+(srFull._viewport?` · ${srFull.width}×${srFull.height} px, drawn per view`:'')+` · scroll to zoom, drag to pan`;
   { const fn=$('srFilterNote'); if(fn){ if(renderLocs){ fn.style.display='block';
       fn.textContent=`▸ Table filter active — showing ${rlocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations (Reset filter in View data/filtering to clear).`; }
     else fn.style.display='none'; } }
@@ -6327,6 +6634,7 @@ async function getPool(){
 const RENDER_WORKER_PRELUDE=[
   "let _mapKey='',_mapX=null,_mapY=null;",   // blurInto()'s own mirror-index cache, same as WORKER_PRELUDE above
   "let _rwW=0,_rwH=0,_rwZColor=false,_rwMode='',_rwAcc=null,_rwZacc=null,_rwBlurDst=null,_rwZBlurDst=null,_rwBlurTmp=null;",
+  "let _rwVp=null;",   // the viewport reconstruction's packed locs + params, for region requests
   "const LUT_CPS="+JSON.stringify(LUT_CPS)+";",
   "let _lutCache={};",
   "const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1); for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);",
@@ -6340,7 +6648,15 @@ function renderWorkerSource(){
     mleErf.toString(), mleGInt.toString(),
     // percentileFromHistogram() must travel with displayMax() (its callee), or
     // every render throws and the ping falls back silently.
-    blurInto.toString(), blur.toString(), getLUT.toString(), percentileFromHistogram.toString(), displayMax.toString(), splatGaussianLoc.toString(), mulberry32.toString(), renderSuperResPixels.toString(),
+    blurInto.toString(), blur.toString(), getLUT.toString(), percentileFromHistogram.toString(), displayMax.toString(), splatGaussianLoc.toString(), mulberry32.toString(),
+    srAccumulate.toString(), srColorize.toString(), renderSuperResPixels.toString(),
+    srRenderRegion.toString(), srMirrorWeight.toString(), srSampleAccumulate.toString(),
+    // Colours a srRenderRegion() result into a transferable ImageBitmap.
+    `function srRegionBitmap(r,norm,p){
+      const cv=new OffscreenCanvas(r.ow,r.oh), ctx=cv.getContext('2d'), img=new ImageData(r.ow,r.oh);
+      srColorize(r.dv,r.zv,r.ow*r.oh,norm,p.zColor,p.zlo,p.zhi,p.lutName,img.data);
+      ctx.putImageData(img,0,0); return cv.transferToImageBitmap();
+    }`,
     `onmessage=function(e){
       const d=e.data;
       if(d.ping){
@@ -6350,19 +6666,39 @@ function renderWorkerSource(){
           const testCv=new OffscreenCanvas(4,4), testCtx=testCv.getContext('2d');
           testCtx.putImageData(new ImageData(4,4),0,0);
           const bmp=testCv.transferToImageBitmap(); bmp.close();
-          const w=8,h=8, locs=[{x:4,y:4,z:0}];
+          const w=8,h=8, P={n:1,x:new Float64Array([4]),y:new Float64Array([4]),c:null,lpx:new Float64Array([0.5]),lpy:new Float64Array([0.5])};
           const buf={acc:new Uint16Array(w*h),zacc:null,blurDst:new Float32Array(w*h),zBlurDst:null,blurTmp:new Float32Array(w*h)};
-          renderSuperResPixels(locs,w,h,1,0.5,false,0,0,null,'z','fire',99.5,buf,'fixed');
+          renderSuperResPixels(P,w,h,1,0.5,false,0,0,null,'fire',99.5,buf,'fixed');
           // Also test 'precision' mode (its dependency on mleGInt was once
           // missing and went unnoticed).
           const bufP={acc:new Float32Array(w*h),zacc:null,blurDst:null,zBlurDst:null,blurTmp:null};
-          renderSuperResPixels(locs,w,h,1,0.5,false,0,0,null,'z','fire',99.5,bufP,'precision');
+          renderSuperResPixels(P,w,h,1,0.5,false,0,0,null,'fire',99.5,bufP,'precision');
+          srRegionBitmap(srRenderRegion(P,null,w,h,0,0,w,h,2,1,0.5,false,0,0,'fixed',99.5),1,{zColor:false,lutName:'fire'}).close();
           postMessage({pong:1});
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
-      const {seq,locs,normLocs,W,H,mag,blurPx,zColor,zlo,zhi,colorField,lutName,pct,renderMode}=d;
+      const {seq,P,PN,W,H,mag,blurPx,zColor,zlo,zhi,lutName,pct,renderMode}=d;
       try{
+        if(d.vpRegion){
+          // A rect of the viewport reconstruction set up by the last vpInit.
+          if(!_rwVp || _rwVp.id!==d.id) throw new Error('stale view');
+          const p=_rwVp.params;
+          const r=srRenderRegion(_rwVp.P,null,p.W,p.H,d.rx,d.ry,d.rw,d.rh,d.k,p.mag,p.blurPx,p.zColor,p.zlo,p.zhi,p.renderMode,null);
+          const imageBitmap=srRegionBitmap(r,_rwVp.norm,p);
+          postMessage({seq,imageBitmap},[imageBitmap]); return;
+        }
+        if(d.vpInit){
+          // Viewport reconstruction: keep the packed locs for vpRegion, drop
+          // the whole-image scratch, return the overview and display max.
+          _rwW=_rwH=0; _rwAcc=_rwZacc=_rwBlurDst=_rwZBlurDst=_rwBlurTmp=null;
+          const params={W,H,mag,blurPx,zColor,zlo,zhi,renderMode,lutName};
+          const r=srRenderRegion(P,PN,W,H,0,0,W,H,d.k,mag,blurPx,zColor,zlo,zhi,renderMode,pct);
+          _rwVp={id:d.id,P,params,norm:r.norm};
+          const imageBitmap=srRegionBitmap(r,r.norm,params);
+          postMessage({seq,imageBitmap,norm:r.norm,satCount:r.satCount},[imageBitmap]); return;
+        }
+        _rwVp=null;
         let buf;
         if(_rwW===W && _rwH===H && _rwZColor===zColor && _rwMode===renderMode){
           buf={acc:_rwAcc,zacc:_rwZacc,blurDst:_rwBlurDst,zBlurDst:_rwZBlurDst,blurTmp:_rwBlurTmp};
@@ -6377,7 +6713,7 @@ function renderWorkerSource(){
           _rwW=W; _rwH=H; _rwZColor=zColor; _rwMode=renderMode; _rwAcc=acc; _rwZacc=zacc;
           _rwBlurDst=blurDst; _rwZBlurDst=zBlurDst; _rwBlurTmp=blurTmp;
         }
-        const {imageData,satCount}=renderSuperResPixels(locs,W,H,mag,blurPx,zColor,zlo,zhi,normLocs,colorField,lutName,pct,buf,renderMode);
+        const {imageData,satCount}=renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,buf,renderMode);
         const cv=new OffscreenCanvas(W,H), ctx=cv.getContext('2d');
         ctx.putImageData(imageData,0,0);
         const imageBitmap=cv.transferToImageBitmap();
@@ -6410,11 +6746,11 @@ function wireRenderWorker(worker){
     _renderWorkerPending.clear();
   };
 }
-function dispatchRenderWorker(worker,payload){
+function dispatchRenderWorker(worker,payload,transfer=[]){
   return new Promise((resolve,reject)=>{
     const seq=++_renderWorkerSeq;
     _renderWorkerPending.set(seq,{resolve,reject});
-    worker.postMessage({seq,...payload});
+    worker.postMessage({seq,...payload},transfer);
   });
 }
 let _renderWorker=undefined;                        // undefined = not probed yet
@@ -8571,19 +8907,35 @@ async function exportPanel(which){
   const full = isSR ? srFull : rawFull, V = isSR ? view : rawView;
   if(!full) return exportPlotEither(which);
   const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;   // logical (CSS) view size — matches on-screen field of view
-  const s=Math.max(1/V.zoom, 2, paramValue('exportMinLong')/Math.max(DW,DH));
+  const vp=!!full._viewport;
+  let s=Math.max(1/V.zoom, 2, paramValue('exportMinLong')/Math.max(DW,DH));
+  // A viewport reconstruction can be far larger than one canvas: cap the
+  // export at CANVAS_MAX_DIM per side / 64 Mpx and render the view at the
+  // stride that fills it (kExp SR px per sample).
+  if(vp) s=Math.max(2, Math.min(s, CANVAS_MAX_DIM/Math.max(DW,DH), Math.sqrt(64e6/(DW*DH))));
   const outW=Math.round(DW*s), outH=Math.round(DH*s);
   const sw=DW/V.zoom, sh=DH/V.zoom, sx=V.cx-sw/2, sy=V.cy-sh/2;
   const cv=document.createElement('canvas'); cv.width=outW; cv.height=outH;
   const ctx=cv.getContext('2d');
   ctx.fillStyle='#000'; ctx.fillRect(0,0,outW,outH);    // match the panel's letterboxing
   ctx.imageSmoothingEnabled=false;                      // nearest-neighbour, as on screen
-  ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
+  let kExp=1;
+  if(vp){
+    kExp=Math.max(1,Math.floor(1/(V.zoom*s)));
+    const rx=Math.max(0,Math.floor(sx)), ry=Math.max(0,Math.floor(sy));
+    const rw=Math.min(full.width,Math.ceil(sx+sw))-rx, rh=Math.min(full.height,Math.ceil(sy+sh))-ry;
+    let img;
+    try{ img=await srViewportRegion(full,rx,ry,rw,rh,kExp); }
+    catch(err){ log(`⚠ Image export failed: ${err.message}`); return; }
+    ctx.drawImage(img, (sx-rx)/kExp,(sy-ry)/kExp,sw/kExp,sh/kExp, 0,0,outW,outH);
+    if(img.close) img.close();
+  } else ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
   ctx.save(); ctx.scale(s,s);                           // draw fixed-px overlays scaled to the export
   if(isSR){ if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI, srLocs===smfretSOI?smfretPairedSoiKeys:null); if(srLocs===smfretSOI) drawSmfretTraceSelectionOverlay(ctx,view,DW,DH); drawScaleBar(ctx,DW,DH, srNmPerPx()/view.zoom); if(srFull._zColor) drawDepthBar(ctx,DW,DH,srFull._zlo,srFull._zhi); if(measureLine) drawMeasureOverlay(ctx,DW,DH); }
   else drawRawOverlays(ctx,DW,DH);
   ctx.restore();
-  const note = s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
+  const note = kExp>1 ? ` — every ${kExp}th reconstruction px (the full view exceeds one image)`
+             : s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
   if(!blob){ log('Image export failed.'); return; }
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix+'.png';
@@ -14082,13 +14434,16 @@ function buildSegOverlayCanvas(){
 // srFull with its black background made transparent so the cells show through:
 // alpha from luminance (every LUT starts at black, so black = zero density)
 // × 2.5, with MIN_SIGNAL_ALPHA as a floor for any non-zero pixel so sparse
-// locs stay visible. Cached on srFull identity.
+// locs stay visible. `img` is srFull or, for a viewport reconstruction, its
+// overview or patch (canvas or ImageBitmap); cached per image.
 const MIN_SIGNAL_ALPHA=90;
-let _transReconCanvas=null, _transReconForSrFull=null;
-function buildTransparentReconCanvas(){
-  if(_transReconForSrFull===srFull && _transReconCanvas) return _transReconCanvas;
-  const W=srFull.width, H=srFull.height;
-  const src=srFull.getContext('2d').getImageData(0,0,W,H).data;
+const _transReconCache=new WeakMap();
+function buildTransparentReconCanvas(img=srFull){
+  const hit=_transReconCache.get(img); if(hit) return hit;
+  const W=img.width, H=img.height;
+  let sctx=img.getContext ? img.getContext('2d') : null;
+  if(!sctx){ const t=getOrMakeSrCanvas(W,H); sctx=t.getContext('2d'); sctx.drawImage(img,0,0); }
+  const src=sctx.getImageData(0,0,W,H).data;
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const ctx=cv.getContext('2d'), out=ctx.createImageData(W,H);
   for(let i=0;i<W*H;i++){
@@ -14098,7 +14453,7 @@ function buildTransparentReconCanvas(){
     out.data[o+3]=lum>0 ? Math.max(MIN_SIGNAL_ALPHA, Math.min(255, Math.round(lum*2.5))) : 0;
   }
   ctx.putImageData(out,0,0);
-  _transReconCanvas=cv; _transReconForSrFull=srFull;
+  _transReconCache.set(img,cv);
   return cv;
 }
 // Tracks overlay (srTracksOverlayBtn): each track as a thin polyline with its
@@ -14373,13 +14728,13 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // Memory guard: warns, then stops the Run (keeping partial locs) before the
   // locs array exhausts memBudgetGB (opt-in, default Infinity -> no-op; see
   // effectiveMemBudgetBytes() for the fallback). Stop point is a calculated
-  // reserve: budget − the render that follows the Run (estimateRenderBytes())
+  // reserve: budget − the render that follows the Run (estimateReconBytes())
   // − in-flight worker frame batches (frameBatchReserve, set once pool/BATCH
   // are known) − the loaded stack's own cache (stack.residentBytes; `stack` is
   // the parameter, correct headlessly). Warning at 80% of that. Locs cost
   // LOC_ROW_BYTES each (likely an underestimate). Checked at the three
   // onProgress sites; the next shouldStop() turns it into a stop.
-  const renderBytesEstimate = estimateRenderBytes(w*config.mag, h*config.mag, config.zcolor, config.rblur, config.renderMode);
+  const renderBytesEstimate = estimateReconBytes(w*config.mag, h*config.mag, config.zcolor, config.rblur, config.renderMode, 0);
   const stackResidentBytes = stack.residentBytes||0;
   let frameBatchReserve=0;   // set below, once pool/BATCH are known (worker paths only)
   let locsMemWarned=false, locsMemStopLogged=false;
@@ -15765,7 +16120,7 @@ async function runSimulation(){
     // Superseded (a load, a crop, another Simulate, …) while generateSynthetic()
     // was running — see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
-    stack=generated; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
+    stack=rotateNewStack(generated); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -15811,6 +16166,55 @@ function maybeShowMemWarning(){
     `<b>Magnification</b>, or try a smaller/cropped file.`;
   $('memWarnModal').classList.add('open');
 }
+// Clears every result tied to the current stack and disables the actions
+// that need one (a new movie, or a rotation of the current one).
+function clearAnalysisOutputs(){
+  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
+  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
+  // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
+  // previous stack (or the previous stack itself, as originalStack) is meaningless now.
+  originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
+}
+// Shows a newly set `stack` (load or rotation): scrubber, contrast, SR-panel
+// projection, frame 1; re-enables the stack actions. False if superseded.
+async function presentStack(myEpoch){
+  rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
+  initScrub();
+  await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
+  if(staleEpoch(myEpoch)) return false;   // superseded during the await just above
+  const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
+  showStackProjection();      // background fill of the SR panel — not awaited
+  await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
+  if(staleEpoch(myEpoch)) return false;   // superseded during the await just above
+  $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
+  return true;
+}
+// Rotate movie: unrotatedStack is the stack as loaded; `stack` is it wrapped
+// in makeRotatedStack() (or itself at 0°), which rotatedStack remembers so a
+// later rotation knows the current stack still derives from it.
+let unrotatedStack=null, rotatedStack=null, appliedRotation=0;
+function rotateNewStack(loaded){
+  unrotatedStack=loaded; appliedRotation=+paramValue('rotateMovie')||0;
+  rotatedStack = appliedRotation ? makeRotatedStack(loaded,appliedRotation) : loaded;
+  if(appliedRotation) log(`Movie rotated ${appliedRotation}° clockwise (Rotate movie): ${rotatedStack.w}×${rotatedStack.h} px.`);
+  return rotatedStack;
+}
+// Rotate movie changed: re-wrap the loaded movie at the new angle (dropping
+// any crop) and clear every result. Without a movie, the next load uses it.
+async function applyMovieRotation(){
+  const deg=+paramValue('rotateMovie')||0;
+  const current = stack && unrotatedStack && (stack===rotatedStack || originalStack===rotatedStack);
+  if(!current || deg===appliedRotation) return;
+  const cmdCfg={rotateMovie:String(deg)};
+  logCmd(cmdCfg, overrideWithFields(cmdCfg, 'applyMovieRotation()'));
+  const myEpoch=newEpoch();
+  clearAnalysisOutputs();
+  appliedRotation=deg;
+  stack=rotatedStack = deg ? makeRotatedStack(unrotatedStack,deg) : unrotatedStack;
+  log(`Movie rotated ${deg}° clockwise: ${stack.w}×${stack.h} px. Previous results cleared.`);
+  await presentStack(myEpoch);
+}
+$('rotateMovie').addEventListener('change',applyMovieRotation);
 // Loads one or more movie files (called by loadFiles()).
 async function loadMovieFiles(fs){
   if(!fs.length) return;
@@ -15818,11 +16222,7 @@ async function loadMovieFiles(fs){
   fs.forEach(registerTerminalFile);   // makes this exact selection recallable-by-name in the log terminal, see registerTerminalFile()'s own comment
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
-  $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
-  $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
-  // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
-  // previous stack (or the previous stack itself, as originalStack) is meaningless now.
-  originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
+  clearAnalysisOutputs();
   syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   // Logged before loading (announce, then narrate). Single-file only (the CLI
@@ -15838,16 +16238,8 @@ async function loadMovieFiles(fs){
     const loaded = multi ? await loadTiffFilesAuto(fs) : await loadTiffFile(fs[0]);
     // Superseded while decoding: don't overwrite the newer state.
     if(staleEpoch(myEpoch)) return;
-    stack = loaded;
-    rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
-    initScrub();
-    await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
-    if(staleEpoch(myEpoch)) return;   // superseded during the await just above
-    const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height);
-    showStackProjection();      // background fill of the SR panel — not awaited
-    await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    if(staleEpoch(myEpoch)) return;   // superseded during the await just above
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
+    stack = rotateNewStack(loaded);
+    if(!(await presentStack(myEpoch))) return;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
   }catch(err){
     log('TIFF load failed: '+err.message);
@@ -16475,7 +16867,7 @@ async function copyLogToClipboard(){
 }
 $('copyLogBtn').addEventListener('click',copyLogToClipboard);
 // "Mem:" readout, polled every 2 s: webSMLM's own estimate (stack cache +
-// LOC_ROW_BYTES × locs + estimateRenderBytes(), as the guards use), plus the
+// LOC_ROW_BYTES × locs + estimateReconBytes(), as the guards use), plus the
 // real JS heap and approximate device RAM where the browser exposes them
 // (Chrome/Edge; not Safari, which offers neither).
 function updateMemReadout(){
@@ -16489,7 +16881,7 @@ function updateMemReadout(){
   const locsN = (lastResult && lastResult.locs) ? lastResult.locs.length : 0;
   const locsBytes = locsN*LOC_ROW_BYTES;
   // Prospective cost of the next render with the current settings.
-  const renderBytes = lastResult ? estimateRenderBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode')) : 0;
+  const renderBytes = lastResult ? estimateReconBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode'), locsN) : 0;
   const estBytes = stackBytes+locsBytes+renderBytes;
   const pct = budgetSet ? Math.round(100*estBytes/budget) : null;
   let text, title =
@@ -16588,7 +16980,7 @@ $('stopBtn').addEventListener('click',()=>{
   stopRequested=true; $('stopBtn').disabled=true; log('Stopping…');
 });
 // re-render (not re-localize) when any display setting changes
-$('mag').addEventListener('change',()=>{ if(frameAspectWH) clampMagToFrame(frameAspectWH.w, frameAspectWH.h); if(lastResult) requestRerender(false); });
+$('mag').addEventListener('change',()=>{ if(lastResult) requestRerender(false); });
 // rblurRow applies to 'fixed' mode only.
 $('renderMode').addEventListener('change',()=>{
   $('rblurRow').style.display = $('renderMode').value==='fixed' ? 'flex' : 'none';
@@ -17225,8 +17617,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.10-dev · build 2026-09-27c — Magnification is lowered
-automatically to the highest value that fits the 16384 px canvas limit.`);
+log(`webSMLM v0.12.10-dev · build 2026-09-27d — large reconstructions are
+drawn per view (no Magnification limit); Rotate movie in Memory, GPU & streaming.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -17258,7 +17650,6 @@ let layoutOverride=null;
 let frameAspectWH=null;
 function setFrameAspect(w,h){
   frameAspectWH={w,h};
-  clampMagToFrame(w,h);
   document.documentElement.style.setProperty('--frame-ar', w+' / '+h);
   applyLayout();
 }
@@ -18082,8 +18473,8 @@ async function analyze(config){
   // A .csv file: load data only (no pixels, so no Localize/crop/PCFO/
   // calibration); later stages only need locs + pxnm.
   const isCsv = !cfg.files && cfg.file && /\.csv$/i.test(cfg.file.name||'');
-  // Lower cfg.mag to the highest that fits the canvas limit (as the
-  // interactive clampMagToFrame(), but on the config, not the field).
+  // Lower cfg.mag to the highest that fits the canvas limit:
+  // reconstruction.png is one canvas (the interactive panel has no such limit).
   const clampCfgMag=(w,h)=>{ const mx=maxMagForFrame(w,h);
     if(mx>=1 && cfg.mag>mx){ onLog(`Magnification lowered from ${cfg.mag} to ${mx} (canvas limit ${CANVAS_MAX_DIM} px for a ${w}×${h} px frame).`); cfg.mag=mx; } };
   let r, locs, pcfo=null, stack=null;   // stack hoisted (null for CSV) so the correlation drift method can reach it
@@ -18102,6 +18493,9 @@ async function analyze(config){
           `so method/crop/estimateGainOffset/calibration options don't apply to a CSV input.`);
   } else {
     stack = cfg.files ? await loadTiffFilesAuto(cfg.files, onLog) : await loadTiffFile(cfg.file, onLog);
+    // Rotate before the crop (crop bounds are in rotated coordinates, as in the panel).
+    const rot=+cfg.rotateMovie||0;
+    if(rot){ stack=makeRotatedStack(stack, rot); onLog(`Movie rotated ${rot}° clockwise: ${stack.w}×${stack.h} px.`); }
     // Crop first, like the raw-panel crop tool; omitted bounds = frame edge.
     if(cfg.cropX0!=null || cfg.cropY0!=null || cfg.cropX1!=null || cfg.cropY1!=null){
       const x0=cfg.cropX0??0, y0=cfg.cropY0??0, x1=cfg.cropX1??stack.w, y1=cfg.cropY1??stack.h;
