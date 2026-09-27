@@ -70,7 +70,7 @@ what makes GUI and command-line use interchangeable.
   - **BigTIFF** (magic 43, UTIF can't read it) always takes `loadMultiIfdStreaming()`, which reads
     both formats (8-byte offsets/counts, 20-byte entries); frame strips must be contiguous (checked
     on the first and last frame). Test: `tests/gpu/test-bigtiff.mjs`.
-  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, GPU & streaming"):
+  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, Rotation, GPU & streaming"):
     `makeRotatedStack()` wraps the loaded stack like the crop wrapper (getFrames() only, no cache,
     90/270 swap w/h). `rotateNewStack()` applies the setting to every new load/simulation
     (`unrotatedStack`/`rotatedStack`); `applyMovieRotation()` re-wraps the current movie, drops a crop
@@ -133,7 +133,7 @@ what makes GUI and command-line use interchangeable.
     Run speed-up is small (detection dominates) — report whole-Run numbers, not the fit stage alone.
   - `winr2d`/`winr3d` are the visible fields; hidden `winr` mirrors the active one
     (`applyWinrDefault()`, non-clobbering; dispatches `change` only on a real change).
-  - The **Use GPU acceleration** checkbox sits in "Memory, GPU & streaming" (shared by fit, render,
+  - The **Use GPU acceleration** checkbox sits in "Memory, Rotation, GPU & streaming" (shared by fit, render,
     FRC).
 
 - **render** — accumulates locs into `srFull` (dense, O(W·H)); `view` is zoom/pan (zoom = CSS px
@@ -195,7 +195,10 @@ what makes GUI and command-line use interchangeable.
   persistent slots); pipelines are cached as promises with explicit layouts. Kernel sizes come from
   the adapter's real limits; `tuneGpuWorkgroup()` measures the best workgroup size once per session.
   The free-angle rotated kernel needs `maxStorageBuffersPerShaderStage ≥ 7`. `WGSL_FRC_BIN`
-  dispatches 2D (loc count can exceed 65,535 workgroups in one dimension). WGSL strings can't share
+  dispatches 2D (loc count can exceed 65,535 workgroups in one dimension). PCFO's tile FFTs
+  (`pcfoTilePointsGpu()`, stage `pcfo`: mirror fill with the tile mean removed, batched row FFTs,
+  per-tile transpose, masked power sum) match the CPU to ~1e-7; its jackknife is the exact
+  O(n log n) `pcfoJackknife()`. Test: `tests/gpu/test-pcfo.mjs`. WGSL strings can't share
   functions (e.g. `erfApprox()` is duplicated); no backticks or `${` in comments inside them.
 
 - **export** — ThunderSTORM-compatible CSV (`buildCsvText()` returns ~5000-row `parts`, never one
@@ -282,7 +285,9 @@ what makes GUI and command-line use interchangeable.
     `.plot-tall` (min-height 480 px) and, for a tall frame, `aspect-ratio:1` while it's shown
     (`setRawPlot()` removes both); a wide panel (W/H ≥ 1.25) puts the thumbnails in a column right
     of the plots, else in a strip under the E/S plot. The x zoom/pan handlers read the plot range
-    from `_smfretTraceGeom`. **Plot (FRET) data** (`plotSmfretTraces()`) re-shows
+    from `_smfretTraceGeom`. Intensities are `(raw − camoffset)·gain` on every path (fits and
+    aperture), so the axis unit comes from the gain recorded on the traces (`smfretTraceUnit()`:
+    photons, or ADU at gain 1; saved as `gain_photons_per_adu`/`intensity_unit`). **Plot (FRET) data** (`plotSmfretTraces()`) re-shows
     the in-memory traces; saved trace JSON loads via **Load movie/data**. Save/load round-trips
     sigma arrays and ALEX parity.
 

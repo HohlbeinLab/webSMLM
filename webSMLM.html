@@ -24,25 +24,25 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2308   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          2925   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3153   synthetic stack generator ("Simulate movie")
-    detect          4071   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             4325   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          4924   super-resolution accumulation, view, colour maps, plots
-    workers         6423   frame-parallel detect/fit worker pool
-    gpu             6783   WebGPU engine: fit, render, FRC kernels (experimental)
-    export          8720   ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  9005   astigmatic width-vs-z bead calibration
-    drift           9404   AIM and cross-correlation drift correction
-    locprecision    10062  NeNA and FRC
-    sSMLM           11002  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          11608  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             13658  single-particle tracking and diffusion coefficients
-    pipeline        14707  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   15679  Micro-Manager/pycromanager bridge (experimental)
-    table           17732  localizations table, filters, histograms, clustering
-    headless API    18401  window.webSMLM.analyze()/analyzeBatch()
+    params          2311   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          2928   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3156   synthetic stack generator ("Simulate movie")
+    detect          4074   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             4328   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          4927   super-resolution accumulation, view, colour maps, plots
+    workers         6426   frame-parallel detect/fit worker pool
+    gpu             6786   WebGPU engine: fit, render, FRC kernels (experimental)
+    export          8724   ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  9009   astigmatic width-vs-z bead calibration
+    drift           9408   AIM and cross-correlation drift correction
+    locprecision    10066  NeNA and FRC
+    sSMLM           11197  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          11803  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             13867  single-particle tracking and diffusion coefficients
+    pipeline        14916  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   15888  Micro-Manager/pycromanager bridge (experimental)
+    table           17940  localizations table, filters, histograms, clustering
+    headless API    18609  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1656,7 +1656,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1917,7 +1917,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
       </details>
       <details class="sim" id="memBox">
-        <summary>Memory, GPU &amp; streaming</summary>
+        <summary>Memory, Rotation, GPU &amp; streaming</summary>
         <label class="row" title="Opt-in total-memory safety ceiling — leave blank (∞) unless a Run has actually crashed or warned on this device.">Total memory budget (GB) <input type="number" id="memBudgetGB" min="0.1" step="0.5" placeholder="∞" class="num"></label>
         <label class="row">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0" max="64" step="0.5" class="num"></label>
         <label class="row">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
@@ -1925,10 +1925,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <select id="rotateMovie" class="sel">
             <option value="0" selected>0°</option>
             <option value="90">90° clockwise</option>
-            <option value="180">180°</option>
+            <option value="180">180° clockwise</option>
             <option value="270">270° clockwise</option>
           </select></label>
-        <label class="row" id="useGpuRow" style="margin-top:8px" title="Adaptive WebGPU acceleration for all four MLE fits, fixed/precision rendering, and FRC. Each stage uses the GPU only when supported and above its measured crossover; otherwise it reports a CPU fallback. GPU f32 results are scientifically equivalent, not bit-identical, to CPU f64 results.">Use GPU acceleration (experimental) <input type="checkbox" id="useGpu"></label>
+        <label class="row" id="useGpuRow" style="margin-top:8px" title="Adaptive WebGPU acceleration for all four MLE fits, fixed/precision rendering, FRC and PCFO. Each stage uses the GPU only when supported and above its measured crossover; otherwise it reports a CPU fallback. GPU f32 results are scientifically equivalent, not bit-identical, to CPU f64 results.">Use GPU acceleration (experimental) <input type="checkbox" id="useGpu"></label>
         <label class="row" style="margin-top:8px">Enable live streaming <input type="checkbox" id="liveStreamEnabled"></label>
         <label class="row" id="liveStreamUrlRow" style="display:none" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" class="num" style="width:150px"></label>
         <div class="btnrow" id="liveStreamBtnRow" style="display:none;margin-top:6px">
@@ -1943,7 +1943,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
           <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
           <li><b>Rotate movie</b> — rotates every raw frame by 0° (default), 90°, 180° or 270° clockwise, e.g. to lay a tall dual-view (FRET) camera split side by side. Applies to the movie loaded now (in memory or streamed) and to every movie or simulation loaded later; changing it clears all results (localizations, reconstruction, drift, smFRET, tracking) and any raw crop, which is then set on the rotated frames. Headless: <code>rotateMovie</code> in the <code>analyze()</code> config, applied before <code>cropX0…</code>. Live-streamed chunks are not rotated.</li>
-          <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, and FRC — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
+          <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, FRC and the PCFO gain/offset estimate — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
           <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
           </ul>
           <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
@@ -1993,6 +1993,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
           rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
           2×2) so there's nothing to re-tune per stack.</p>
+          <p>With <b>Use GPU acceleration</b> (Memory, Rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
+          the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
+          GPU); the Log reports which path ran and how long it took.</p>
         </div>
       </details>
       <details class="sim" id="calibBox">
@@ -2112,7 +2115,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Position donor</b> (shown once <b>Alternating-laser excitation</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct ahead of time — try both and compare the resulting Get FRET data AA signal.</p>
           <p><b>Get FRET data</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating-laser excitation</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a 2D Gaussian (seeded at the site, position free to move) at each frame. With <b>Analyse FRET</b> ticked, smFRET picks the fit itself rather than following the sidebar <b>Fit method</b>: after <b>Pair DD + DA</b> <b>Via distances and angles</b> (grating/prism — the acceptor spot is dispersed along the donor→acceptor direction) it fits a rotated elliptical Gauss MLE whose axes are locked to each site's own D→A direction, so the width plotted in the sigma-vs-time panel is the width ALONG D→A (the spectral dispersion) and the width across it is fitted separately, whatever the camera orientation; after <b>Via channel matching</b> (dual-view, no dispersion) and before any pairing it fits a spherical Gauss MLE (one width). Locking the axes assumes the spot's principal axes lie along D→A (true when dispersion dominates); for a spot tilted relative to D→A (e.g. astigmatism), untick <b>Analyse FRET</b> and use the sidebar's <b>Gauss MLE rotated elliptical</b>, which fits the angle freely and projects its width onto D→A. With <b>Analyse FRET</b> unticked, the sidebar's <b>Fit method</b> is used (spherical, least-squares or rotated elliptical). Pairing also estimates each channel's own PSF width from its composite fits (logged as <i>PSF from pairing</i>: along × across D→A for <b>Via distances and angles</b>, one width for <b>Via channel matching</b>, AA from its own fit when ALEX is on) and uses it — instead of the single sidebar σ_PSF — to seed each channel's per-frame fit and to bound its width at 2× that estimate; the sidebar σ_PSF itself is left unchanged (changing it would re-run Localize SOI and discard the pairing). The localizations table's own <code>sx0th</code>/<code>sy0th</code>/<code>sx1st</code>/<code>sy1st</code> come from a different fit — the pairing step's axis-aligned elliptical least-squares fit of the averaged SOI composite, independent of this setting — so they are camera-x/y widths of the time-averaged spot, not per-frame widths along D→A. Either way the per-frame fit runs on the GPU when <b>Use GPU acceleration</b> is on and enough sites × frames × channels exist to make it worthwhile, exactly as an ordinary Localize run would; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. <b>Background from annulus</b> (default checked; Gauss MLE spherical and rotated elliptical) holds each frame's background at the same local annulus estimate aperture photometry uses and fits only position, photons and width. With background free, a small fit window lets the fit trade a wider, dimmer peak for a lower background, inflating the photon count (or, with the aperture cross-check, rejecting the frame); anchoring it removes most of these, at unchanged position precision and a few-% photon undercount comparable to aperture photometry. It runs on the GPU too when <b>Use GPU acceleration</b> is on. After a first fit, the annulus background is re-measured with the fitted spot's own signal subtracted and the spot is fitted once more — a wide or spectrally dispersed spot otherwise leaks real signal into the annulus along its long axis, making the background read high and the fitted width and photons come out low. For the rotated elliptical fit this keeps the width along the donor–acceptor direction (which carries the spectral dispersion) within a few % of the truth on synthetic grating-like spots, while accepting far more frames than a fit with free background. smFRET rejects any per-frame fit whose width on either axis exceeds 2× that channel's PSF estimate from pairing (2 × σ_PSF before pairing). Toggling any of these three (or <b>Apply drift correction</b>, below) while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get FRET data</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
           <p><b>Apply drift correction</b> (default OFF) estimates drift on the loaded movie and shifts each frame's own extraction window to follow it before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever <b>Drift correction method</b>/settings are currently configured in <b>Drift correction</b>'s own sidebar section (see <a href="#drift-params">its own reference</a>): <b>Cross correlation</b> runs directly on the raw movie, no Localize needed just to estimate it; <b>AIM</b> needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes (using the current detection/fit settings) — a real, sometimes substantial added cost, unlike Cross correlation. Either way, the estimated drift is anchored to frame 0 (a site's own fixed x,y is treated as "how it looked when Localize SOI averaged it", effectively frame 0), so every other frame's own extraction position is derived as an offset from that fixed reference — not from an arbitrary drift-curve reference point the way <b>Correct drift</b>'s own AIM-based reconstruction correction can be.</p>
-          <p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity- and, when a real fit was used (not aperture photometry), width-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code>, and <code>sigmaDD</code>/<code>sigmaDA</code>/<code>sigmaAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Does NOT save the pooled <b>E(S) histogram</b> data — that's directly recomputable from the saved DD/DA/AA arrays, so it was dropped as pure duplication. Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code>, <code>alex_first_frame</code>, <code>extraction_method</code> (which of the 4 real extraction paths produced this file) and <code>use_elliptical_width</code> — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
+          <p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity- and, when a real fit was used (not aperture photometry), width-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code>, and <code>sigmaDD</code>/<code>sigmaDA</code>/<code>sigmaAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Does NOT save the pooled <b>E(S) histogram</b> data — that's directly recomputable from the saved DD/DA/AA arrays, so it was dropped as pure duplication. Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code>, <code>alex_first_frame</code>, <code>extraction_method</code> (which of the 4 real extraction paths produced this file), <code>use_elliptical_width</code>, and <code>gain_photons_per_adu</code>/<code>camera_offset_adu</code>/<code>intensity_unit</code> (the intensities are <code>(raw − offset) × gain</code>: photons, or ADU with gain 1) — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
           <p><b>Plot (FRET) data</b> (greyed out until <b>Get (FRET) data</b> has run) re-shows the existing time traces in the left panel, and the <b>E(S) histogram</b> in the right one once paired, without re-extracting — handy after switching a panel to a raw frame or another plot. It keeps the site and zoom you last looked at.</p>
           <p>Selecting a saved traces file with <b>Load movie/data</b> reverses <b>Save FRET data</b> — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
           <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything. With it off, the same button (below the plot) switches between the E histogram and the SOI composite.</p>
@@ -3131,7 +3134,7 @@ function makeCroppedStack(rawStack, x0, y0, x1, y1){
     getFrame(){ throw new Error('Cropped stack: use getFrames()'); },   // getFrames() is the only interface used
     async getFrames(s,e){ return (await rawStack.getFrames(s,e)).map(cropOne); }};
 }
-// Rotate movie (Memory, GPU & streaming): every fetched frame rotated deg
+// Rotate movie (Memory, Rotation, GPU & streaming): every fetched frame rotated deg
 // (90/180/270) clockwise; 90 and 270 swap w and h. Like the crop, it replaces
 // `stack`, so everything downstream sees the rotated movie (loaded or
 // streamed alike). No cache: fetches go through the original stack.
@@ -3670,7 +3673,7 @@ async function loadTiffFile(file, onLog=log){
     // Say so when the memory budget, not the file size, forced streaming
     // (huge files get their own message from loadMultiIfdStreaming()).
     if(effSliceMin<SLICE_MIN && fileSize<=SLICE_MIN){
-      onLog(`Streaming instead of loading whole: ${fmtBytes(fileSize)} file exceeds the ${fmtBytes(effSliceMin)} Budget raw movies setting (Memory, GPU & streaming) — raise it if you have the RAM to load faster.`);
+      onLog(`Streaming instead of loading whole: ${fmtBytes(fileSize)} file exceeds the ${fmtBytes(effSliceMin)} Budget raw movies setting (Memory, Rotation, GPU & streaming) — raise it if you have the RAM to load faster.`);
     }
     return loadMultiIfdStreaming(file, fileSize, onLog);
   }
@@ -5055,9 +5058,9 @@ function estimateRenderBytes(W,H,zColor,blurPx,renderMode,hasNorm=false){
 // browser-heap fallback.
 function memCeilingSuffix(ceiling){
   return ceiling.source==='set'
-    ? `the ${fmtBytes(ceiling.bytes)} Total memory budget (Memory, GPU & streaming)`
+    ? `the ${fmtBytes(ceiling.bytes)} Total memory budget (Memory, Rotation, GPU & streaming)`
     : `this browser's own ~${fmtBytes(ceiling.bytes)} safety ceiling (no Total memory budget is set in `+
-      `Memory, GPU & streaming — this is ${Math.round(MEM_CEILING_FALLBACK_FRACTION*100)}% of what this browser `+
+      `Memory, Rotation, GPU & streaming — this is ${Math.round(MEM_CEILING_FALLBACK_FRACTION*100)}% of what this browser `+
       `itself reports as its heap limit)`;
 }
 function checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode='fixed',reserveBytes=0,hasNorm=false){
@@ -6823,6 +6826,7 @@ const STAGE_META = {
   ssmlm:     {label:'sSMLM pairing',       lane:'main'},
   spt:       {label:'SPT linking',         lane:'main'},
   exportCsv: {label:'Table / export',      lane:'main'},
+  pcfo:      {label:'PCFO tile FFTs',      lane:'main'},
 };
 
 function newStageTimings(){ return {}; }
@@ -10866,6 +10870,200 @@ function pcfoRSquared(rawPts,gainSlope,c){
   for(const p of pts){ const pred=gainSlope*p.imsig+c, d=p.noisevar-pred, dt=p.noisevar-meanY; ssRes+=d*d; ssTot+=dt*dt; }
   return ssTot>0 ? 1-ssRes/ssTot : NaN;
 }
+// Leave-one-out jackknife of pcfoRegress() over every point, exact and
+// O(n log n) instead of n full regressions: removing point i moves the
+// quartile ranks by at most one position of the noisevar-sorted list, and the
+// clipped sums over any [lo,hi] come from prefix sums over that list (ΣX and
+// ΣX² don't depend on the clipping). Returns the per-removal gains
+// (photons/ADU) and offsets. Test: tests/gpu/test-pcfo.mjs.
+function pcfoJackknife(pts,rnstd){
+  const n=pts.length, gains=[], offsets=[];
+  if(n<3) return {gains,offsets};
+  const ord=Array.from({length:n},(_,i)=>i).sort((a,b)=>pts[a].noisevar-pts[b].noisevar);
+  const sv=new Float64Array(n), rank=new Int32Array(n);
+  const PX=new Float64Array(n+1), PY=new Float64Array(n+1), PXY=new Float64Array(n+1);
+  let SX=0,SXX=0;
+  for(let k=0;k<n;k++){ const p=pts[ord[k]]; sv[k]=p.noisevar; rank[ord[k]]=k;
+    PX[k+1]=PX[k]+p.imsig; PY[k+1]=PY[k]+p.noisevar; PXY[k+1]=PXY[k]+p.imsig*p.noisevar;
+    SX+=p.imsig; SXX+=p.imsig*p.imsig; }
+  const countBelow=v=>{ let a=0,b=n; while(a<b){ const m=(a+b)>>1; if(sv[m]<v) a=m+1; else b=m; } return a; };
+  const countAtMost=v=>{ let a=0,b=n; while(a<b){ const m=(a+b)>>1; if(sv[m]<=v) a=m+1; else b=m; } return a; };
+  const m=n-1, i1=Math.floor(m*0.25), i3=Math.floor(m*0.75);
+  for(let i=0;i<n;i++){
+    const r=rank[i], at=q=>sv[q<r?q:q+1];                 // q-th value without point i
+    const q1=at(i1), q3=at(i3), iqr=Math.max(1e-9,q3-q1);   // as pcfoClipPoints()
+    const lo=Math.max(1e-9,q1-3*iqr), hi=q3+3*iqr;
+    const a=countBelow(lo), b=countAtMost(hi);
+    const p=pts[i], yi=Math.min(hi,Math.max(lo,p.noisevar));
+    const sY=lo*a+(PY[b]-PY[a])+hi*(n-b)-yi;
+    const sXY=lo*PX[a]+(PXY[b]-PXY[a])+hi*(PX[n]-PX[b])-p.imsig*yi;
+    const sX=SX-p.imsig, sXX=SXX-p.imsig*p.imsig, det=m*sXX-sX*sX;
+    if(!isFinite(det)||Math.abs(det)<1e-12) continue;
+    const g=(m*sXY-sX*sY)/det, c=(sXX*sY-sX*sXY)/det;
+    if(!isFinite(g)||g===0) continue;
+    gains.push(1/g); offsets.push(-c/g+g*rnstd*rnstd);
+  }
+  return {gains,offsets};
+}
+// GPU tile statistics (PCFO stage 'pcfo'): the same mirror-doubled N=2S FFT
+// and high-frequency power sum as pcfoTileStats(), batched over tiles. The
+// tile mean is subtracted before the FFT (only the excluded k=0 term changes)
+// so f32 round-off scales with the noise, not the offset. imsig stays on the
+// CPU (one pass over the pixels).
+const WGSL_PCFO_FILL=`
+struct P { w:u32, S:u32, N:u32, tilesX:u32, tile0:u32, nTiles:u32, pad0:u32, pad1:u32 }
+@group(0) @binding(0) var<storage,read> img:array<f32>;
+@group(0) @binding(1) var<storage,read> means:array<f32>;
+@group(0) @binding(2) var<uniform> p:P;
+@group(0) @binding(3) var<storage,read_write> dst:array<vec2f>;
+override WGX:u32=16u; override WGY:u32=16u;
+@compute @workgroup_size(WGX,WGY)
+fn main(@builtin(global_invocation_id) id:vec3u){
+  let t=id.z; if(id.x>=p.N||id.y>=p.N||t>=p.nTiles){return;}
+  let g=p.tile0+t; let x0=(g%p.tilesX)*p.S; let y0=(g/p.tilesX)*p.S;
+  var sx=id.x; if(sx>=p.S){sx=p.N-1u-sx;}
+  var sy=id.y; if(sy>=p.S){sy=p.N-1u-sy;}
+  dst[t*p.N*p.N+id.y*p.N+id.x]=vec2f(img[(y0+sy)*p.w+x0+sx]-means[t],0.0);
+}`;
+const WGSL_PCFO_FFT=`
+@group(0) @binding(0) var<storage,read> src:array<vec2f>;
+@group(0) @binding(1) var<storage,read_write> dst:array<vec2f>;
+@group(0) @binding(2) var<uniform> rows:vec4u;
+override N:u32=256u; override LOG_N:u32=8u; override WG:u32=256u;
+var<workgroup> scratch:array<vec2f,N>;
+fn cmul(a:vec2f,b:vec2f)->vec2f{return vec2f(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+@compute @workgroup_size(WG)
+fn main(@builtin(workgroup_id) wid:vec3u,@builtin(local_invocation_id) lid:vec3u){
+  let row=wid.x; if(row>=rows.x){return;}
+  for(var i=lid.x;i<N;i=i+WG){ let r=reverseBits(i)>>(32u-LOG_N); scratch[r]=src[row*N+i]; }
+  workgroupBarrier();
+  var len=2u;
+  loop{
+    if(len>N){break;} let half=len>>1u;
+    for(var k=lid.x;k<(N>>1u);k=k+WG){
+      let block=(k/half)*len; let j=k%half; let ia=block+j; let ib=ia+half;
+      let angle=-6.283185307179586*f32(j)/f32(len);
+      let u=scratch[ia]; let v=cmul(scratch[ib],vec2f(cos(angle),sin(angle)));
+      scratch[ia]=u+v; scratch[ib]=u-v;
+    }
+    workgroupBarrier(); len=len<<1u;
+  }
+  for(var i=lid.x;i<N;i=i+WG){dst[row*N+i]=scratch[i];}
+}`;
+const WGSL_PCFO_TRANSPOSE=`
+@group(0) @binding(0) var<storage,read> src:array<vec2f>;
+@group(0) @binding(1) var<storage,read_write> dst:array<vec2f>;
+@group(0) @binding(2) var<uniform> rows:vec4u;
+override N:u32=256u; override WGX:u32=16u; override WGY:u32=16u;
+@compute @workgroup_size(WGX,WGY)
+fn main(@builtin(global_invocation_id) id:vec3u){
+  if(id.x>=N||id.y>=N||id.z>=rows.y){return;} let o=id.z*N*N;
+  dst[o+id.x*N+id.y]=src[o+id.y*N+id.x];
+}`;
+// One workgroup per tile: Σ|X|² over |k| > kThresh (k normalized to ±1 at
+// Nyquist, symmetric in kx/ky, so the transposed layout doesn't matter),
+// Kahan-summed per thread.
+const WGSL_PCFO_POWER=`
+struct P { kThresh:f32, pad0:f32, pad1:f32, pad2:f32 }
+@group(0) @binding(0) var<storage,read> a:array<vec2f>;
+@group(0) @binding(1) var<uniform> p:P;
+@group(0) @binding(2) var<storage,read_write> out:array<f32>;
+override N:u32=256u; override WG:u32=256u;
+var<workgroup> sums:array<f32,WG>;
+@compute @workgroup_size(WG)
+fn main(@builtin(workgroup_id) wid:vec3u,@builtin(local_invocation_id) lid:vec3u){
+  let t=wid.x; let o=t*N*N; let h=f32(N/2u);
+  var sum=0.0; var corr=0.0;
+  for(var i=lid.x;i<N*N;i=i+WG){
+    let x=i%N; let y=i/N;
+    var kx=f32(x); if(x>=N/2u){kx=kx-f32(N);} kx=kx/h;
+    var ky=f32(y); if(y>=N/2u){ky=ky-f32(N);} ky=ky/h;
+    if(sqrt(kx*kx+ky*ky)>p.kThresh){ let v=a[o+i]; let yv=dot(v,v)-corr; let s=sum+yv; corr=(s-sum)-yv; sum=s; }
+  }
+  sums[lid.x]=sum; workgroupBarrier();
+  var stride=WG>>1u;
+  loop{ if(stride==0u){break;} if(lid.x<stride){sums[lid.x]=sums[lid.x]+sums[lid.x+stride];}
+    workgroupBarrier(); stride=stride>>1u; }
+  if(lid.x==0u){out[t]=sums[0];}
+}`;
+// Tile points for a list of frames on the GPU: buffers sized once, tiles in
+// batches small enough for the buffer and dispatch limits; one frame per
+// submission (upload, fill, rows, transpose, rows, power, readback).
+async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
+  return runGpuExclusive(()=>withGpuErrorScopes(engine.device,'GPU PCFO',async()=>{
+    const w=stack.w, h=stack.h, N=2*S, NN=N*N;
+    const tilesX=Math.max(1,Math.floor(w/S)), tilesY=Math.max(1,Math.floor(h/S)), nTiles=tilesX*tilesY;
+    const lim=engine.limits, maxWG=lim.maxComputeWorkgroupsPerDimension;
+    if(N*8>lim.maxComputeWorkgroupStorageSize) throw new Error(`FFT ${N} needs ${fmtBytes(N*8)} workgroup storage, over this adapter's limit`);
+    const maxBytes=Math.min(lim.maxStorageBufferBindingSize, lim.maxBufferSize, 128*1048576);
+    const TB=Math.max(1,Math.min(nTiles, Math.floor(maxBytes/(NN*8)), Math.floor(maxWG/N), maxWG));
+    if(NN*8>maxBytes) throw new Error(`a ${N}² tile needs ${fmtBytes(NN*8)}, over this adapter's buffer limit`);
+    const filfac=1-Math.PI*kThresh*kThresh/4, norm=1/(filfac*NN)/NN;
+    const device=engine.device, U=GPUBufferUsage, created=[];
+    const mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); created.push(b); return b; };
+    try{
+      const imgBuf=mk(w*h*4,U.STORAGE|U.COPY_DST,'pcfo:frame');
+      const meansBuf=mk(TB*4,U.STORAGE|U.COPY_DST,'pcfo:means');
+      const a0=mk(TB*NN*8,U.STORAGE,'pcfo:ping'), a1=mk(TB*NN*8,U.STORAGE,'pcfo:pong');
+      const outBuf=mk(TB*4,U.STORAGE|U.COPY_SRC,'pcfo:power');
+      const staging=mk(TB*4,U.MAP_READ|U.COPY_DST,'pcfo:readback');
+      const fillP=mk(32,U.UNIFORM|U.COPY_DST,'pcfo:fill-params'), rowsP=mk(16,U.UNIFORM|U.COPY_DST,'pcfo:rows'), powP=mk(16,U.UNIFORM|U.COPY_DST,'pcfo:power-params');
+      engine.write(powP,0,new Float32Array([kThresh,0,0,0]));
+      const c2={WGX:engine.wg2D[0],WGY:engine.wg2D[1]};
+      let pw=1; while(pw*2<=Math.min(256,engine.wg1D)) pw*=2;
+      const fillPipe=await engine.compilePipeline('pcfo-fill',WGSL_PCFO_FILL,'main',c2);
+      const fftPipe=await engine.compilePipeline(`pcfo-fft-${N}`,WGSL_PCFO_FFT,'main',{N,LOG_N:Math.log2(N),WG:Math.min(engine.wg1D,N)});
+      const trPipe=await engine.compilePipeline(`pcfo-transpose-${N}`,WGSL_PCFO_TRANSPOSE,'main',{N,...c2});
+      const powPipe=await engine.compilePipeline(`pcfo-power-${N}`,WGSL_PCFO_POWER,'main',{N,WG:pw});
+      const bg=(pipe,entries,label)=>engine.bindGroup({label,layout:pipe.getBindGroupLayout(0),entries:entries.map((buffer,binding)=>({binding,resource:{buffer}}))});
+      const fillBg=bg(fillPipe,[imgBuf,meansBuf,fillP,a0],'pcfo:fill');
+      const fft01=bg(fftPipe,[a0,a1,rowsP],'pcfo:fft-01'), fft01b=bg(fftPipe,[a0,a1,rowsP],'pcfo:fft-01b');
+      const tr10=bg(trPipe,[a1,a0,rowsP],'pcfo:transpose');
+      const powBg=bg(powPipe,[a1,powP,outBuf],'pcfo:power');
+      const wgX=Math.ceil(N/engine.wg2D[0]), wgY=Math.ceil(N/engine.wg2D[1]);
+      const pts=[];
+      for(let f=0;f<idx.length;f++){
+        const img=(await stack.getFrames(idx[f],idx[f]+1))[0];
+        engine.write(imgBuf,0,img instanceof Float32Array?img:Float32Array.from(img));
+        for(let t0=0;t0<nTiles;t0+=TB){
+          const nb=Math.min(TB,nTiles-t0), means=new Float32Array(nb), imsig=new Float64Array(nb);
+          for(let t=0;t<nb;t++){ const g=t0+t, x0=(g%tilesX)*S, y0=Math.floor(g/tilesX)*S; let s=0;
+            for(let y=0;y<S;y++){ const r=(y0+y)*w+x0; for(let x=0;x<S;x++) s+=img[r+x]; }
+            imsig[t]=s/(S*S); means[t]=imsig[t]; }
+          engine.write(meansBuf,0,means);
+          engine.write(fillP,0,new Uint32Array([w,S,N,tilesX,t0,nb,0,0]));
+          engine.write(rowsP,0,new Uint32Array([nb*N,nb,0,0]));
+          const enc=device.createCommandEncoder({label:'pcfo:batch'});
+          const pass=(pipe,group,x,y=1,z=1)=>{ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end(); };
+          pass(fillPipe,fillBg,wgX,wgY,nb);
+          pass(fftPipe,fft01,nb*N);          // rows: a0 -> a1
+          pass(trPipe,tr10,wgX,wgY,nb);      // a1 -> a0 (per tile)
+          pass(fftPipe,fft01b,nb*N);         // columns: a0 -> a1
+          pass(powPipe,powBg,nb);
+          enc.copyBufferToBuffer(outBuf,0,staging,0,nb*4);
+          engine.submit([enc.finish()]);
+          await staging.mapAsync(GPUMapMode.READ);
+          const pow=new Float32Array(staging.getMappedRange(0,nb*4).slice(0)); staging.unmap();
+          for(let t=0;t<nb;t++) pts.push({imsig:imsig[t], noisevar:pow[t]*norm});
+        }
+        if(!engine.available) throw new Error('GPU device lost during PCFO');
+        onProgress(100*(f+1)/idx.length);
+      }
+      return pts;
+    } finally { created.forEach(b=>{ try{ b.destroy(); }catch(_){} }); }
+  }));
+}
+// CPU tile points for the same frames (pcfoFrameTilePoints() per frame).
+async function pcfoTilePointsCpu(stack,idx,S,kThresh,onProgress){
+  const pts=[];
+  for(let i=0;i<idx.length;i++){
+    const img=(await stack.getFrames(idx[i],idx[i]+1))[0];
+    pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,kThresh));
+    onProgress(100*(i+1)/idx.length);
+    await tick();
+  }
+  return pts;
+}
 let pcfoLastPts=null, pcfoLastFit=null, pcfoLastR2=NaN, pcfoLastGain=null, pcfoLastOffset=null;
 // Diagnostic scatter (LEFT/raw panel, see the plot pattern in MODULE: render):
 // image signal vs. noise variance per tile, with the fitted line — lets a user
@@ -10934,13 +11132,12 @@ async function pcfoCore(config, stack, hooks={}){
   const TILES_X=Math.max(1,Math.floor(stack.w/S)), TILES_Y=Math.max(1,Math.floor(stack.h/S));
   const idx=pickSeededFrames(stack.n,NFRAMES,0xC0FFEE);
   onLog(`\nEstimate gain/offset (PCFO): ${idx.length} seeded random frame(s), k_thresh ${K_THRESH}, ${TILES_X}×${TILES_Y} tile(s)/frame @ ${S}px (auto-sized from the ${stack.w}×${stack.h} field of view)…`);
-  const pts=[];
-  for(let i=0;i<idx.length;i++){
-    const img=(await stack.getFrames(idx[i],idx[i]+1))[0];
-    pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,K_THRESH));
-    onProgress(100*(i+1)/idx.length);
-    await tick();
-  }
+  // Tile FFTs on the GPU when enabled (stage 'pcfo'), else the CPU.
+  let engine=null;
+  const pts=await runStage('pcfo', {useGpu:!!config.useGpu, stageTimings:hooks.stageTimings, onLog},
+    ()=>pcfoTilePointsCpu(stack,idx,S,K_THRESH,onProgress),
+    ()=>pcfoTilePointsGpu(engine,stack,idx,S,K_THRESH,onProgress),
+    async()=>{ engine=await getGpuEngine(); return engine&&engine.available?{eligible:true,reason:'selected'}:{eligible:false,reason:'unavailable'}; });
   const fit=pcfoRegress(pts,RNSTD);
   if(!fit){ onLog(`too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return null; }
   // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
@@ -10948,11 +11145,7 @@ async function pcfoCore(config, stack, hooks={}){
   const gain=1/fit.gain;
   // Leave-one-out jackknife over the pooled points for a rough uncertainty
   // (tends to read tighter than per-frame variation).
-  const jGains=[], jOffsets=[];
-  for(let i=0;i<pts.length;i++){
-    const r=pcfoRegress(pts.slice(0,i).concat(pts.slice(i+1)),RNSTD);
-    if(r){ jGains.push(1/r.gain); jOffsets.push(r.offset); }
-  }
+  const {gains:jGains, offsets:jOffsets}=pcfoJackknife(pts,RNSTD);
   const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
   const std=a=>{ const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); };
   const gainStd=jGains.length>1?std(jGains):NaN, offsetStd=jOffsets.length>1?std(jOffsets):NaN;
@@ -10976,12 +11169,14 @@ async function estimateGainOffset(){
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true;
   try{
-    const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd') };
+    const cfg={ pcfoFrames:paramValue('pcfoFrames'), pcfoK:paramValue('pcfoK'), pcfoRnstd:paramValue('pcfoRnstd'), useGpu:paramValue('useGpu') };
     // Logged before running, as estimateGainOffset() (estimate and plot only;
     // the analyze() form would also Localize).
     const cmdCfg={estimateGainOffset:true, ...cfg, ...cropCmdFields()};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'estimateGainOffset()'));
-    const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg});
+    const stageTimings=newStageTimings(), t0=performance.now();
+    const r=await pcfoCore(cfg, stack, {onLog:log, onProgress:setProg, stageTimings});
+    { const e=stageTimings.pcfo; if(e) log(`PCFO tile FFTs: ${e.gpuFailed?'GPU failed, used CPU':e.path==='gpu'?'GPU':'CPU'} (${e.reasons.join(', ')}) · ${(e.ms/1000).toFixed(2)} s; total ${((performance.now()-t0)/1000).toFixed(2)} s.`); }
     if(!r) return;
     if(staleEpoch(myEpoch)) return;   // superseded while pcfoCore() was running — see newEpoch()'s own comment
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
@@ -12705,6 +12900,7 @@ async function getSmfretTimeTraces(preserveView=false){
     }
     if(staleEpoch(myEpoch)) return;   // superseded between the last yield and here
     traces.useElliptical=useElliptical;
+    traces.gain=gain; traces.camoffset=camoffset;   // intensities are (raw − camoffset)·gain: photons once gain is calibrated
     traces.anchorBg=anchorBg;
     traces.pinAxes=pinAxes;
     traces.psfEst=psfEst;   // batch-level, for the sigma plot's axis label
@@ -12775,6 +12971,9 @@ async function exportSmfretTraces(){
       : smfretTraces.anchorBg ? 'gaussian_mle_spherical_bg_annulus' : 'gaussian_mle_spherical',
     // Restored on load for the sigma plot's y-axis label.
     use_elliptical_width: !!smfretTraces.useElliptical,
+    // intensities = (raw − offset)·gain; gain 1 means they are ADU above the offset
+    gain_photons_per_adu: smfretTraces.gain ?? null, camera_offset_adu: smfretTraces.camoffset ?? null,
+    intensity_unit: smfretTraceUnit(smfretTraces),
     // per-channel PSF estimate from pairing (px) used to seed/bound the fits, or null
     psf_from_pairing: (smfretTraces.psfEst||null),
     sites };
@@ -12812,6 +13011,8 @@ async function loadSmfretTraces(f){
     }));
     // Missing in older files -> plain "sigma (nm)" label.
     smfretTraces.useElliptical = !!payload.use_elliptical_width;
+    // Missing in older files -> unit unknown ("intensity" without a unit).
+    if(isFinite(payload.gain_photons_per_adu)){ smfretTraces.gain=payload.gain_photons_per_adu; smfretTraces.camoffset=payload.camera_offset_adu; }
     if(isFinite(payload.frametime_s)){ $('frametime').value=payload.frametime_s; $('frametime').dispatchEvent(new Event('change')); }
     if(typeof payload.alex_enabled==='boolean'){ $('alexEnabled').checked=payload.alex_enabled; $('alexEnabled').dispatchEvent(new Event('change')); }
     if(payload.alex_first_frame){ $('alexFirstFrame').value=payload.alex_first_frame; $('alexFirstFrame').dispatchEvent(new Event('change')); }
@@ -13274,6 +13475,14 @@ function toggleSmfretTraceMode(){
   }
 }
 $('smfretTraceModeBtn').addEventListener('click', toggleSmfretTraceMode);
+// Unit of the trace intensities: every extraction path returns
+// (raw − camoffset)·gain, i.e. photons with a calibrated gain; with gain 1
+// (the uncalibrated default) that is ADU above the offset. '' when unknown
+// (a traces file saved before the gain was recorded).
+function smfretTraceUnit(tr){
+  if(!tr || !isFinite(tr.gain)) return '';
+  return tr.gain===1 ? 'ADU' : 'photons';
+}
 // Time trace plot in the raw panel (rawFull=null, setRawPlot(true)).
 const SMFRET_ML=60, SMFRET_MR=16;   // plot margins (shared by drawSmfretTrace and its own x zoom/pan handlers below)
 // ROI thumbnail strip below the x-axis (labels inline, left of each
@@ -13344,7 +13553,7 @@ function drawSmfretTrace(idx){
   // Ticks show time; X() maps frame index over the current view.
   const frametime=paramValue('frametime');
   const X=f=>mL+pw*(f-x0)/Math.max(1e-9,x1-x0), Y=v=>yTopA+phA*(1-(v-lo)/Math.max(1e-9,hi-lo));
-  // Offset notation keeps large ADU labels clear of the axis title.
+  // Offset notation keeps large tick labels clear of the axis title.
   const yScale=axisScale(Math.max(Math.abs(lo),Math.abs(hi)));
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT;
   ctx.textAlign='right'; ctx.textBaseline='middle';
@@ -13373,7 +13582,7 @@ function drawSmfretTrace(idx){
   ctx.restore();
   ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL,yTopA); ctx.lineTo(mL,yBotA); ctx.lineTo(mL+pw,yBotA); ctx.stroke();   // plot A's own L-shaped axis border, drawn last so it's never covered by a curve
   ctx.fillStyle=C.axis; ctx.font='12px '+PLOT_FONT; ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.save(); ctx.translate(14,yTopA+phA/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText('intensity (ADU)',0,0); ctx.restore();
+  ctx.save(); ctx.translate(14,yTopA+phA/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText(`intensity${smfretTraceUnit(smfretTraces)?' ('+smfretTraceUnit(smfretTraces)+')':''}`,0,0); ctx.restore();
   if(yScale.label){ ctx.textAlign='right'; ctx.textBaseline='alphabetic'; ctx.font='12px '+PLOT_FONT; ctx.fillStyle=C.text; drawAxisScaleLabel(ctx, yScale, mL, yTopA-8, 'right'); }
   // Channel labels only when there is more than one curve.
   if(curves.length>1){
@@ -13490,7 +13699,7 @@ function drawSmfretTrace(idx){
     + (x0>0||x1<n-1 ? ` · x ${(x0*frametime).toFixed(decT)}–${(x1*frametime).toFixed(decT)} s (scroll/drag · dbl-click reset)` : ' · scroll/pinch to zoom x');
   // Hover readout covers plot A only.
   registerPlotHover('raw',{mL,mT:yTopA,pw,ph:phA,xA:x0,xB:x1,yTop:hi,yBot:lo,
-    fmt:(vx,vy)=>`t = ${(vx*frametime).toFixed(decT)} s (frame ${(vx+1).toFixed(0)}) · ${vy.toFixed(0)} ADU`});
+    fmt:(vx,vy)=>`t = ${(vx*frametime).toFixed(decT)} s (frame ${(vx+1).toFixed(0)}) · ${vy.toFixed(0)} ${smfretTraceUnit(smfretTraces)}`});
   _replotRaw=()=>drawSmfretTrace(smfretTraceIdx);
   syncSaveImg();
   // Fire-and-forget; geometry and channel colours are captured now, while valid.
@@ -16180,7 +16389,7 @@ function maybeShowMemWarning(){
   const budgetTxt=isFinite(budget) ? `${budget} GB` : 'no ceiling set';
   $('memWarnBody').innerHTML =
     `This looks like a memory-constrained device (a phone or tablet), so webSMLM has already started `+
-    `with conservative defaults under <b>Memory, GPU &amp; streaming</b>: Total memory budget <b>${budgetTxt}</b>, `+
+    `with conservative defaults under <b>Memory, Rotation, GPU &amp; streaming</b>: Total memory budget <b>${budgetTxt}</b>, `+
     `Budget raw movies <b>${paramValue('memgb')} GB</b>, Stream heap <b>${paramValue('chunkmb')} MB</b> — `+
     `movies stream instead of caching whole in RAM.<br><br>`+
     `A very large, long, or dense movie can still crash the tab with no warning — mobile browsers give a `+
@@ -16911,8 +17120,8 @@ function updateMemReadout(){
     `Estimated memory in use: ~${fmtBytes(stackBytes)} (the loaded movie, if cached) + `+
     `~${fmtBytes(locsBytes)} (${locsN.toLocaleString()} localizations) + `+
     `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification) ≈ ${fmtBytes(estBytes)}`+
-    (budgetSet ? `, ${pct}% of the ${fmtBytes(budget)} Total memory budget (Memory, GPU & streaming).\n`
-                : ` (no Total memory budget set — see Memory, GPU & streaming to set one).\n`)+
+    (budgetSet ? `, ${pct}% of the ${fmtBytes(budget)} Total memory budget (Memory, Rotation, GPU & streaming).\n`
+                : ` (no Total memory budget set — see Memory, Rotation, GPU & streaming to set one).\n`)+
     `This is webSMLM's own ESTIMATE, not a real measurement`;
   // Real heap and device RAM, when available.
   if(performance.memory){
@@ -17640,9 +17849,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.10-dev · build 2026-09-27e — the smFRET time trace uses the
-whole panel (ROI thumbnails beside the plots when wide); per-view reconstructions;
-Rotate movie.`);
+log(`webSMLM v0.12.10-dev · build 2026-09-27f — PCFO gain/offset on the GPU and
+a fast jackknife; smFRET traces labelled in photons.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -18847,7 +19055,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
     <h2 style="margin:0 0 8px">⚠ Memory-constrained device</h2>
     <p id="memWarnBody" style="margin:0 0 14px;text-align:left;font-size:13px;line-height:1.5"></p>
     <div class="btnrow">
-      <button id="memWarnOpenSettings">Open Memory, GPU &amp; streaming</button>
+      <button id="memWarnOpenSettings">Open Memory, Rotation, GPU &amp; streaming</button>
       <button id="memWarnClose">Got it</button>
     </div>
   </div>
