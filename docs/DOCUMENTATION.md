@@ -658,7 +658,12 @@ super-resolution pixel across the *whole* `(w×mag)×(h×mag)` grid,
 regardless of how many localizations there actually are (500 locs and 5
 million locs allocate the identical buffer size for a given frame size +
 Magnification) — so memory scales as **O(frame area × mag²)**, entirely
-decoupled from data volume. `checkRenderSize()` runs before any
+decoupled from data volume. **Magnification is lowered automatically** to
+the highest value that keeps the reconstruction within `CANVAS_MAX_DIM`
+(16384 px per side), i.e. `floor(16384 / longer frame side)`, whenever a
+movie, CSV or segmentation image sets the frame size and whenever the field
+is edited (logged; it is never raised again automatically); `analyze()`
+applies the same limit to `config.mag`. `checkRenderSize()` runs before any
 allocation and throws if either side would exceed `CANVAS_MAX_DIM`
 (16384 px — a hard per-browser canvas-creation limit, not a soft budget)
 or if the estimated peak concurrent footprint (the count accumulator +
@@ -2082,7 +2087,7 @@ headless equivalent.
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
-| `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
+| `mag` | Magnification | number (int) | 1 | 25 | 1 | 10 |
 | `renderMode` | Render mode | enum | — | — | — | `fixed` (options: `precision`, `fixed`, `dither`) |
 | `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | false |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |

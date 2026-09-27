@@ -141,6 +141,9 @@ what makes GUI and command-line use interchangeable.
     passes locs + `stackResidentBytes` as `reserveBytes` (a parameter, never the `stack` global,
     which `analyze()` shadows) and skips the render worker when the worker's clone of `locs` would
     exceed the budget. `LOC_ROW_BYTES` (200) is the shared per-loc estimate.
+  - Magnification is capped at `maxMagForFrame()` = `floor(CANVAS_MAX_DIM / longer side)`:
+    `clampMagToFrame()` runs from `setFrameAspect()` and on field edits (lowers only, logged);
+    `analyze()` clamps `cfg.mag`. `mag` min is 1 for very large frames.
   - `rerender()` is async and serialized (one render at a time, latest request wins; `_srRenderSeq`
     discards stale results, also when `lastResult` was cleared mid-render). Previews
     (`isPreview`) never set zmin/zmax and don't log timing. On failure the previous image stays.

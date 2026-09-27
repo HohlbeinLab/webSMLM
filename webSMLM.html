@@ -30,19 +30,19 @@
     detect          4043   band-pass (wavelet/DoG/box) + local-maxima detection
     fit             4297   phasor, LSQ and Poisson-MLE fitters; aperture photometry
     render          4896   super-resolution accumulation, view, colour maps, plots
-    workers         6100   frame-parallel detect/fit worker pool
-    gpu             6431   WebGPU engine: fit, render, FRC kernels (experimental)
-    export          8368   ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  8637   astigmatic width-vs-z bead calibration
-    drift           9036   AIM and cross-correlation drift correction
-    locprecision    9694   NeNA and FRC
-    sSMLM           10634  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          11240  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             13270  single-particle tracking and diffusion coefficients
-    pipeline        14316  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   15288  Micro-Manager/pycromanager bridge (experimental)
-    table           17298  localizations table, filters, histograms, clustering
-    headless API    17967  window.webSMLM.analyze()/analyzeBatch()
+    workers         6113   frame-parallel detect/fit worker pool
+    gpu             6444   WebGPU engine: fit, render, FRC kernels (experimental)
+    export          8381   ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  8650   astigmatic width-vs-z bead calibration
+    drift           9049   AIM and cross-correlation drift correction
+    locprecision    9707   NeNA and FRC
+    sSMLM           10647  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          11253  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             13283  single-particle tracking and diffusion coefficients
+    pipeline        14329  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   15301  Micro-Manager/pycromanager bridge (experimental)
+    table           17312  localizations table, filters, histograms, clustering
+    headless API    17981  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1655,7 +1655,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27b</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.10-dev · build 2026-09-27c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1796,7 +1796,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="renderBox">
         <summary>Rendering</summary>
-        <label class="row">Magnification <input type="number" id="mag" min="4" max="25" step="1" value="10" class="num"></label>
+        <label class="row">Magnification <input type="number" id="mag" min="1" max="25" step="1" value="10" class="num"></label>
         <label class="row">Render mode
           <select id="renderMode" class="sel">
             <option value="precision" selected>Localization precision</option>
@@ -2365,7 +2365,7 @@ const PARAMS = {
   // in analyze() and Load settings).
   frametime: { type:'number', id:'frametime', label:'Frame time (s)', min:0.0001, max:10, step:0.001, default:0.01, int:false },
   // mag = reconstruction magnification; render pixel size = pxnm / mag
-  mag: { type:'number', id:'mag', label:'Magnification', min:4, max:25, step:1, default:10, int:true },
+  mag: { type:'number', id:'mag', label:'Magnification', min:1, max:25, step:1, default:10, int:true },
   // renderMode: 'fixed' (default) bins and applies one blur (rblur);
   // 'precision' splats each loc at its CRLB σ (live streaming starts in this
   // mode); 'dither' is a faster stochastic 'precision' for large/dense data,
@@ -4988,6 +4988,19 @@ function displayMax(buf,pct){
 // CANVAS_MAX_DIM is the browsers' per-side canvas limit; memBudgetGB (opt-in)
 // is the total-memory ceiling (unrelated to memgb's load decision).
 const CANVAS_MAX_DIM=16384;
+// Highest Magnification whose reconstruction still fits CANVAS_MAX_DIM per side.
+function maxMagForFrame(w,h){ return Math.floor(CANVAS_MAX_DIM/Math.max(1,w,h)); }
+// Lowers the Magnification field to maxMagForFrame() when it is higher (never
+// raises it). Called whenever the frame size is set (setFrameAspect()) and on
+// edits of the field. Returns true if it changed the value.
+function clampMagToFrame(w,h,onLog=log){
+  const mx=maxMagForFrame(w,h), cur=paramValue('mag');
+  if(!(w>0&&h>0) || cur<=mx) return false;
+  if(mx<1){ onLog(`⚠ The ${w}×${h} px frame is larger than the ${CANVAS_MAX_DIM} px canvas limit even at Magnification 1; crop it to render a reconstruction.`); return false; }
+  $('mag').value=mx;
+  onLog(`Magnification lowered from ${cur} to ${mx}: the highest that keeps the ${w}×${h} px frame within the ${CANVAS_MAX_DIM} px canvas limit.`);
+  return true;
+}
 // Estimated bytes per loc object, shared by every memory guard (likely an
 // underestimate, so guards act slightly late).
 const LOC_ROW_BYTES=200;
@@ -16575,7 +16588,7 @@ $('stopBtn').addEventListener('click',()=>{
   stopRequested=true; $('stopBtn').disabled=true; log('Stopping…');
 });
 // re-render (not re-localize) when any display setting changes
-$('mag').addEventListener('change',()=>{ if(lastResult) requestRerender(false); });
+$('mag').addEventListener('change',()=>{ if(frameAspectWH) clampMagToFrame(frameAspectWH.w, frameAspectWH.h); if(lastResult) requestRerender(false); });
 // rblurRow applies to 'fixed' mode only.
 $('renderMode').addEventListener('change',()=>{
   $('rblurRow').style.display = $('renderMode').value==='fixed' ? 'flex' : 'none';
@@ -17212,8 +17225,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.10-dev · build 2026-09-27b — BigTIFF (64-bit TIFF) stacks
-now load (streamed, uncompressed).`);
+log(`webSMLM v0.12.10-dev · build 2026-09-27c — Magnification is lowered
+automatically to the highest value that fits the 16384 px canvas limit.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
@@ -17245,6 +17258,7 @@ let layoutOverride=null;
 let frameAspectWH=null;
 function setFrameAspect(w,h){
   frameAspectWH={w,h};
+  clampMagToFrame(w,h);
   document.documentElement.style.setProperty('--frame-ar', w+' / '+h);
   applyLayout();
 }
@@ -18068,6 +18082,10 @@ async function analyze(config){
   // A .csv file: load data only (no pixels, so no Localize/crop/PCFO/
   // calibration); later stages only need locs + pxnm.
   const isCsv = !cfg.files && cfg.file && /\.csv$/i.test(cfg.file.name||'');
+  // Lower cfg.mag to the highest that fits the canvas limit (as the
+  // interactive clampMagToFrame(), but on the config, not the field).
+  const clampCfgMag=(w,h)=>{ const mx=maxMagForFrame(w,h);
+    if(mx>=1 && cfg.mag>mx){ onLog(`Magnification lowered from ${cfg.mag} to ${mx} (canvas limit ${CANVAS_MAX_DIM} px for a ${w}×${h} px frame).`); cfg.mag=mx; } };
   let r, locs, pcfo=null, stack=null;   // stack hoisted (null for CSV) so the correlation drift method can reach it
   if(isCsv){
     const text = typeof cfg.file.text==='function' ? await cfg.file.text() : new TextDecoder().decode(await cfg.file.arrayBuffer());
@@ -18075,6 +18093,7 @@ async function analyze(config){
     if(!parsed.locs.length) throw new Error('analyze(): CSV has no data rows');
     locs = parsed.locs;
     r = { w:parsed.w, h:parsed.h, timings:null };
+    clampCfgMag(parsed.w, parsed.h);
     phases.inputMs=performance.now()-inputT0;
     const isClustered = locs[0].nMerged!==undefined;
     const has3d = locs.some(L=>isFinite(L.z)), hasDist = locs.some(L=>isFinite(L.dist));
@@ -18090,6 +18109,7 @@ async function analyze(config){
       onLog(`Cropped to x ${x0}–${x1}, y ${y0}–${y1} px (${x1-x0}×${y1-y0} of the original ${stack.w}×${stack.h}) — analysing this region only.`);
       stack = makeCroppedStack(stack, x0, y0, x1, y1);
     }
+    clampCfgMag(stack.w, stack.h);
     // PCFO on the same stack, overriding gain/camoffset (left alone on failure).
     phases.inputMs=performance.now()-inputT0;
     if(cfg.estimateGainOffset){
