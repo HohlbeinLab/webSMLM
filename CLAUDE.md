@@ -128,14 +128,22 @@ what makes GUI and command-line use interchangeable.
   which is what an astigmatic fit reads z from, so it cost 1.74× the simulation time for no
   measurable gain at a fine z step and was measurably worse at a coarse one. **Don't reintroduce
   it without a width-aware interpolation** (a spline through the z-stack would do it properly).
-  `simulation_structureType` picks the object emitters attach to — the original filaments+ring, the
-  NPC model, or one of three that sample z independently of x/y (the filaments' single sine drives both their y and
+  `simulation_structureType` picks the object emitters attach to — the microtubule cell field
+  (default), the original filaments+ring, the NPC model, or one of three that sample z independently of x/y (the filaments' single sine drives both their y and
   their z, so a z error can't be told apart from a y error — and their 1-D crowding inflates the
   measured lateral spread by ~50% at equal density, `uniform3D` being the one to quote figures
   from). **`simulation_3d` means exactly one
   thing**: `buildStructure()` always builds in 3D and flattens every z to 0 when it is off, so the
   lateral geometry is identical either way and every control, log line and plot applies unchanged
-  in both states — don't reintroduce a separate 2D structure path.
+  in both states — don't reintroduce a separate 2D structure path. It defaults to on and has no
+  sidebar control since 2026-09-28b (settings JSON / `paramOverrides` only).
+
+  **Sidebar layout (2026-09-28b)**: top level = Structure type (+ Move view for microtubules),
+  Frames, Emitter density preset, Physics detail preset, View GT; sub-groups Sample / Fluorophore /
+  Background / Camera / PSF / Advanced / Score vs truth. Every `label.row` in `simBox` carries a
+  `title` hover tip — keep it that way for new rows. A sidebar label and its PARAMS `label` are the
+  same string; only fields that collide with an analysis-side label (pixel size, gain, offset) carry
+  a "Simulated" prefix.
   `buildPsfKernelStack()` reports `zUsableNm`, how far either side of focus the PSF encodes z
   *single-valued* (measured per plane with `gaussianFitElliptical()`, the same fitter 3D
   calibration uses). Past it σy/σx turns back, two z values share one width pair, and
@@ -216,8 +224,8 @@ what makes GUI and command-line use interchangeable.
   (it's still one random straight line), and no UI/log line reports how much of a larger structure
   a given run's drift path actually swept into view.
 
-  **Structure type** (`simulation_structureType`, `'filaments_ring'` default, `'nup'`, or one of
-  `'tiltedPlane'`/`'uniform3D'`/`'shell'`) picks
+  **Structure type** (`simulation_structureType`, `'microtubules'` default, `'filaments_ring'`,
+  `'nup'`, or one of `'tiltedPlane'`/`'uniform3D'`/`'shell'`) picks
   which ground-truth structure `buildStructure()` generates — a plain dispatcher now, over
   `buildFilamentsRingStructure()` (the original 3-filament+ring layout, unchanged) or
   `buildNupStructure()` (nuclear pore complexes). Both return the same shape (an array of
@@ -231,19 +239,22 @@ what makes GUI and command-line use interchangeable.
   `{sites, nCells, nMt, removed: null, packed}`. Its WASM module is instantiated synchronously on first use;
   main thread only here (`CellField.workerSource()` exists if a worker ever needs it). Cells are packed on
   fixed 8×8-chunk blocks (not per window), so a pan never re-packs. `simulation_mt_seed` (default 1249) picks the world; `simulation_mt_x`/`_y` (µm, default 0,0) are
-  the window centre, moved by the **Move 1/5/10 µm** buttons (`moveMtView()`, +y is down); the window is the
+  the window centre, moved by the **Move view** row (step selector + four arrows, `moveMtViewStep()` →
+  `moveMtView()`, +y is down, written to `paramOverrides` and logged); the window is the
   structure FOV (px × `simulation_pxnm`), so 128 px at 100 nm is the central 12.8 µm (+10% margin).
-  Sidebar also exposes `simulation_mt_cellDensity` (cell occupancy, default 0.33) and `simulation_mt_density`
-  (microtubules/µm², 0.9); every other cell/cytoplasm knob stays at the block's defaults (webSMLM's former `CF_PARAMS`; cytoplasm: rim 0.1–0.3, edge rise 0.1–0.5, mid
+  Seed, X/Y, `simulation_mt_cellDensity` (cell occupancy, default 0.33) and `simulation_mt_density`
+  (microtubules/µm², 0.9) are id:null — no sidebar field; every other cell/cytoplasm knob stays at the block's defaults (webSMLM's former `CF_PARAMS`; cytoplasm: rim 0.1–0.3, edge rise 0.1–0.5, mid
   height 1–2, mid distance 0.1–0.3 × radius, `nucMargin` 0.6, mesh 60 rings × 128 angular samples, 12 smoothing passes). `simulation_mt_focusZ`
-  (nm above the coverslip = z 0, the surface the cells lie on; default 250) is a sidebar field (Focus height) beside the density rows.
+  (nm above the coverslip = z 0, the surface the cells lie on; default 250) is the one sidebar field (Focus height, under Sample).
+  **Cell contrast is forced to 1 (off) for this structure** in `generateSynthetic()` and its field disabled
+  in the UI: the contrast field's ellipse "cell" has nothing to do with the CellField's cells. A later
+  update is to drive the background from the real cell footprints.
   Each microtubule centreline is decorated with the 13_3 lattice (25 nm cylinder, 12 nm binder, dye at a 2–5 nm
   uniform-in-volume linker offset) and **every dye is one candidate emitter site**, so blinking happens on the
   dyes; `simulation_labelEfficiency` still thins them afterwards. Only the 1 µm lattice blocks that can
   reach the window are decorated (a full network is millions of sites), and every dye is addressed by
   (seed, cell, microtubule, block), so its position doesn't change when the window moves. Sites are clipped to ±`simulation_zRange` around the focus
-  height (an optical section that keeps them inside the PSF kernel's z range) — this applies in 2D too,
-  where `buildStructure()` then flattens z to 0. Consumes nothing from the simulation's `mulberry32` stream.
+  height (an optical section that keeps them inside the PSF kernel's z range). Consumes nothing from the simulation's `mulberry32` stream.
 
   **NUP structure** (`buildNupAttachmentPoints()`/`displaceByLinker()`/`buildNupLocalPoints()`/
   `buildNupStructure()`) models the endogenously SNAP-tagged Nup96 nuclear pore complex (NPC)
@@ -255,8 +266,8 @@ what makes GUI and command-line use interchangeable.
   the real cluster shape), diameter `simulation_nup_cornerSpread` (default 12 nm, matching the
   figure's own ~12 nm corner-cluster scale vs. ~42 nm corner-to-corner spacing) — 2 rings
   along the pore axis (`simulation_nup_ringSeparation`, default 50 nm = the user's "25 nm
-  above/below") = **64 attachment points per NPC**. Geometry stays fully PARAMS-driven rather than
-  hardcoded, following the parametrized-NPC-simulation approach of Wanninger et al. ("CIR4MICS"),
+  above/below") = **64 attachment points per NPC**. Only `simulation_nup_count` has a sidebar field;
+  the geometry PARAMS are id:null (paper values, changeable via settings JSON/`paramOverrides`), following the parametrized-NPC-simulation approach of Wanninger et al. ("CIR4MICS"),
   *Bioinformatics* 39(10), btad587 (2023), DOI:10.1093/bioinformatics/btad587. Each attachment
   point is then displaced by `displaceByLinker()` — a uniform-in-volume radius between
   `simulation_nup_linkerLengthMin`/`Max` (default 2–5 nm), uniform direction on the sphere — to
@@ -265,21 +276,11 @@ what makes GUI and command-line use interchangeable.
   `buildNupStructure()` scatters `simulation_nup_count` NPCs over a small membrane patch
   (rejection-sampled for `simulation_nup_minSpacing`, each with a random azimuthal rotation), then
   maps each NPC's local `(a,b,c)` frame (ring plane `a,b`; pore axis `c`) into world
-  `[x,y,z]` per `simulation_nup_membraneType`: **`topdown`** keeps the pore axis along the optical
-  (Z) axis — ring plane → world X,Y, ring separation + a gentle `simulation_nup_curvature`
-  bowl (mean-subtracted, centred at ~0) → Z — reusing the existing per-emitter-z `zKernelStack`
-  path unchanged (see `simulation_3d`'s own comment above) as long as `simulation_3d` is checked.
-  **`sideways`** rotates the pore axis into image-Y instead (viewing the envelope edge-on, matching
-  the paper's own side-view NPC images) — ring's `a` → world X, ring's `b` → Z (depth/defocus),
-  ring separation + curvature (`c`) → image Y. `buildNupStructure()`'s own `rng` parameter is the
+  `[x,y,z]` with the pore axis along the optical (Z) axis — ring plane → world X,Y, ring separation
+  + a gentle `simulation_nup_curvature` bowl (mean-subtracted, centred at ~0) → Z. (A `sideways`,
+  edge-on orientation existed and was removed in 2026-09-28b.) `buildNupStructure()`'s own `rng` parameter is the
   SAME seeded `mulberry32(simulation_seed)` stream `generateSynthetic()` already threads through
   `buildStructure()`, so a seeded Simulate-movie run reproduces the identical NPC layout too.
-
-  **Debug single-NUP viewer** (`nupDebugBtn`/`drawNupDebugView()`, MODULE: pipeline) is an
-  explicitly temporary aid — shows one NPC's 64 attachment (gray) and post-linker-displacement
-  emitter (green/magenta by ring) points as a top-view + side-view scatter on the raw panel, via
-  `setupPlot(cv,true)`, independent of any actual Simulate-movie run (its own fresh
-  `Math.random()`, not the seeded stream) — meant to be lifted out cleanly once no longer needed.
 
   **GT localizations viewer** (`groundTruthLocs`/`gtShowing`/`srFullBeforeGT`/`srTitleBeforeGT`/
   `srInfoBeforeGT`, module-level; `viewGtBtn`/`viewGtBtnRow`, MODULE: pipeline) — after a
@@ -295,9 +296,7 @@ what makes GUI and command-line use interchangeable.
   fixed value. `viewGtBtn`'s own click handler passes the SAME `1/stack.px` as the `blurPx`
   fallback argument to `renderSuperRes()` too (rather than `paramValue('rblur')`), covering
   'fixed' render mode as well, which never consults `lpx`/`lpy` at all. **`viewGtBtnRow`'s HTML
-  lives directly under `nupDebugBtnRow` inside `simTypeBox`** (not in the top button group any more,
-  and not added to `NUP_ROW_IDS` — it stays independently shown/hidden for ANY structure type,
-  just grouped visually next to the other simulation-debug tool) — genBtn's handler toggles
+  sits in the Simulation panel's top-level rows** (shown for ANY structure type) — genBtn's handler toggles
   `viewGtBtnRow.style.display`, not the button's own (the button carries no inline style of its
   own now that it's wrapped in a `label.row`).
 
@@ -369,16 +368,19 @@ what makes GUI and command-line use interchangeable.
   adds a second blinking population 0.3–2 µm out of focus through the ordinary kernel-stack splat
   (a separate FFT convolution layer was planned and dropped: at the depths where it would pay off
   the PSF is wider than half the frame, which the static haze already covers).
-  **The rule all of this obeys: with the Realism preset on `min` and every other new parameter
+  **The rule all of this obeys: with the Physics detail preset (`simulation_realism`) on `min` and every other new parameter
   at its old default, a seeded movie is byte-identical to the 2026-09-21b build** (the baseline
   moved once, deliberately, when camera noise went counter-based — see below; before that it was
   2026-09-08b). Since 2026-09-21f the shipped defaults are the `med` preset's values
   (`simulation_realism:'med'`, so bleach 0.2, CV 0.5, `simbg` 10, cell contrast 3, haze 1, fade
   150), `simulation_zRange` 500 and `simulation_nup_count` 100 — the byte-identity baseline is
-  therefore NOT the out-of-the-box state any more; select Minimal (and zRange 1000 / 20 NPCs where
-  relevant) to reproduce it. The density preset is `low`/`med`/`high`/`veryhigh` = 0.05/0.2/0.5/2, default `med` (`dens` 0.2;
+  therefore NOT the out-of-the-box state any more; select Basic (and zRange 1000 / 20 NPCs where
+  relevant) to reproduce it. **Since 2026-09-28b the out-of-the-box state moved again**: structure
+  `microtubules` (the baseline used `filaments_ring`), `simulation_3d` on (the baseline was 2D; it
+  now has no sidebar control), `simulation_zRange` 1000 and 1000 frames — reproducing the baseline
+  also needs `paramOverrides.simulation_3d=false` and the structure/frames set back. The density preset is `low`/`med`/`high`/`veryhigh` = 0.05/0.2/0.5/2, default `med` (`dens` 0.2;
   the old default was 0.05). **Since 2026-09-22c, `simulation_structureFov`'s own default
-  additionally breaks this baseline on its own, independent of the Realism/density presets**: with
+  additionally breaks this baseline on its own, independent of the Physics detail/density presets**: with
   no explicit `paramOverrides.simulation_structureFov` override, every `generateSynthetic()` call
   now builds its structure at `Math.round(simulation_fov*1.1)`, not `simulation_fov` itself (see
   that PARAMS entry's own comment) — so even Minimal-preset reproduction of the pre-2026-09-22
@@ -492,8 +494,9 @@ what makes GUI and command-line use interchangeable.
 
   **Presets write parameters, they never replace them**: `wirePreset()` pushes a preset's values
   into the ordinary controls and a manual edit flips the preset to `custom`, so
-  `simulation_realism` (`min`/`med`/`max`) and `simulation_densityPreset` carry no physics of their
-  own and `paramValue()`/settings JSON/`analyze()` never need to know they exist.
+  `simulation_realism` (**Physics detail**: `min`/`med`/`max` = Basic/Realistic/Full) and
+  `simulation_densityPreset` (**Emitter density** at the top of the panel; the exact `dens` sits under
+  Sample) carry no physics of their own and `paramValue()`/settings JSON/`analyze()` never need to know they exist.
 
 - **validation** — scores recovered localizations against the simulator's own ground truth
   (`groundTruthEvents`), which nothing read before. `scoreTruthCore()` is the pure core shared by
@@ -950,8 +953,8 @@ gitignored; distribute jars via a GitHub Release asset.
   `<!-- HINT:<name> --> … <!-- /HINT:<name> -->` markers in `DOCUMENTATION.md` (raw HTML, after each
   §2 PARAMS table). Edit only the marker, then run `node tools/sync_hints.mjs` (`--check` for a
   drift check). The `module: X` pill is fixed markup. The 18 hints: `hint-memory` (incl. live
-  streaming), `hint-simulation` + seven sub-group hints (`hint-simulation-user`/`-type`/`-nup`/
-  `-fluorophore`/`-background`/`-camera`/`-psf`), `hint-pcfo`, `hint-calibration`, `hint-detectfit` (incl.
+  streaming), `hint-simulation` (top-level rows + overview) + seven sub-group hints (`-type` = Sample,
+  `-nup`, `-fluorophore`, `-background`, `-camera`, `-psf`, `-advanced`), `hint-pcfo`, `hint-calibration`, `hint-detectfit` (incl.
   gain/offset), `hint-render`, `hint-drift` (incl. NeNA/FRC), `hint-validation`, `hint-sSMLM`, `hint-smfret`,
 - **Quick guide** (`helpBtn`) is thin, hand-authored UI copy: intro, the 5-step Guided workflow,
   Acknowledgements, Licence & author. `README.md`'s Guided workflow is a copy; update both together.
