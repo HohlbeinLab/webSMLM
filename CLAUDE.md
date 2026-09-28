@@ -146,6 +146,12 @@ what makes GUI and command-line use interchangeable.
   collapsibles) into Sample (cell field seed, movie seed), Camera (simulated gain/offset, offset std,
   EMCCD CIC/bit depth), PSF (ns, ni, emitter depth, working distance, custom Zernike), Background
   (haze weight/blur) and Performance (PSF z range/step, oversampling, kernel width, interpolation).
+  **Preview PSF** toggles (`previewPsf()`/`closePsfPreview()`, label "Hide PSF" while shown):
+  `enterPsfPreviewMode()`/`leavePsfPreviewMode()` swap the Frame slider for the z-plane slider and
+  stash/restore the movie's contrast; `drawPsfPreviewSlice()` maps the kernel to 0..`PSF_DISPLAY_MAX`
+  of its global max and, while `psfContrastAuto`, stretches each plane to its own min/max (a handle
+  move fixes the range, Auto resumes it). Any real frame draw, raw-panel plot or new stack
+  (`initScrub()`) leaves the preview.
   **The PSF phase mask (double helix) is hidden** (`SHOW_PSF_PHASE_MASK=false`, TODO to revisit); its
   PARAMS and code path stay. Every `label.row` in `simBox` carries a
   `title` hover tip — keep it that way for new rows. A sidebar label and its PARAMS `label` are the

@@ -2155,7 +2155,9 @@ a chirp-Z transform, which matches an ideal Airy disk out to the edge of the ker
 indices, emitter depth, working distance and a custom Zernike vector are under Advanced → PSF; the
 kernel numerics under Advanced → Performance.</p>
 <p><b>Preview PSF</b> (top of the panel) builds this (cached) kernel and shows it as a z-scrollable
-stack in the raw panel; <b>Calib. stack</b> renders a bead z-stack from the same kernel and fills in
+stack in the raw panel: its z-plane slider takes the place of the Frame slider, and Contrast
+stretches each plane to its own range (Auto) until you move a handle. Click it again (<b>Hide
+PSF</b>) to return to the movie; <b>Calib. stack</b> renders a bead z-stack from the same kernel and fills in
 the 3D calibration settings. Both need the Zernike model. With <b>Use GPU acceleration</b> checked, the per-frame splat and camera noise
 of both run on the GPU (4–17× faster than the CPU workers on an integrated laptop GPU), drawing
 exactly the same random numbers as the CPU. FFT phase-shift placement and the Gaussian PSF model

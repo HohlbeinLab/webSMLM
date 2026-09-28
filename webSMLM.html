@@ -27,23 +27,23 @@
     params          2641   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          3605   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3833   synthetic stack generator ("Simulate movie")
-    validation      6660   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7284   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7540   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8150   super-resolution accumulation, view, colour maps, plots
-    workers         9673   frame-parallel detect/fit worker pool
-    gpu             10288  WebGPU engine: fit, render, FRC kernels (experimental)
-    export          12495  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  12786  astigmatic width-vs-z bead calibration
-    drift           13185  AIM and cross-correlation drift correction
-    locprecision    13843  NeNA and FRC
-    sSMLM           14982  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15588  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17678  single-particle tracking and diffusion coefficients
-    pipeline        18728  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   19768  Micro-Manager/pycromanager bridge (experimental)
-    table           22159  localizations table, filters, histograms, clustering
-    headless API    22831  window.webSMLM.analyze()/analyzeBatch()
+    validation      6697   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7321   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7577   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8187   super-resolution accumulation, view, colour maps, plots
+    workers         9711   frame-parallel detect/fit worker pool
+    gpu             10326  WebGPU engine: fit, render, FRC kernels (experimental)
+    export          12533  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  12824  astigmatic width-vs-z bead calibration
+    drift           13223  AIM and cross-correlation drift correction
+    locprecision    13881  NeNA and FRC
+    sSMLM           15020  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15626  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             17716  single-particle tracking and diffusion coefficients
+    pipeline        18766  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   19806  Micro-Manager/pycromanager bridge (experimental)
+    table           22208  localizations table, filters, histograms, clustering
+    headless API    22880  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28c</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2143,7 +2143,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           indices, emitter depth, working distance and a custom Zernike vector are under Advanced → PSF; the
           kernel numerics under Advanced → Performance.</p>
           <p><b>Preview PSF</b> (top of the panel) builds this (cached) kernel and shows it as a z-scrollable
-          stack in the raw panel; <b>Calib. stack</b> renders a bead z-stack from the same kernel and fills in
+          stack in the raw panel: its z-plane slider takes the place of the Frame slider, and Contrast
+          stretches each plane to its own range (Auto) until you move a handle. Click it again (<b>Hide
+          PSF</b>) to return to the movie; <b>Calib. stack</b> renders a bead z-stack from the same kernel and fills in
           the 3D calibration settings. Both need the Zernike model. With <b>Use GPU acceleration</b> checked, the per-frame splat and camera noise
           of both run on the GPU (4–17× faster than the CPU workers on an integrated laptop GPU), drawing
           exactly the same random numbers as the CPU. FFT phase-shift placement and the Gaussian PSF model
@@ -2527,7 +2529,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <div id="liveStreamScrubNote" style="display:none;margin-top:4px;color:var(--muted);font-size:11px"></div>
           <div id="psfScrubRow" style="display:none;margin-top:8px;align-items:center;gap:10px">
             <span class="scrublabel" style="color:var(--muted);font-size:12px">PSF z-plane</span>
-            <input type="range" id="psfScrub" min="0" max="0" step="1" value="0" style="flex:1">
+            <input type="range" id="psfScrub" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
             <span class="val" style="min-width:150px;text-align:right;font-size:12px;white-space:nowrap">
               <input type="number" id="psfScrubNum" class="num" min="1" max="1" value="1" style="width:64px;padding:2px 4px" title="Type a z-plane number and press Enter to jump to it"><span id="psfScrubTotal" style="vertical-align:middle"> / 1</span>
             </span>
@@ -5811,20 +5813,36 @@ function splatZernikeEmitter(img, w, h, mx, my, photons, kernelObj, camRad, inte
   }
 }
 
-// ---- PSF preview: raw-panel raster display + z scrubber (Phase 1 UI) ----
-let psfPreviewStack=null, psfPreviewIndex=0, rawPsfView=false;
+// ---- PSF preview: raw-panel raster display + z scrubber ----
+// While the preview is up, its z-plane slider replaces the Frame slider and the
+// Contrast row acts on the PSF: intensities are shown on a 0..PSF_DISPLAY_MAX
+// scale of the stack's global maximum, and by default (psfContrastAuto) each
+// plane is stretched to its own min/max — a defocused plane is far dimmer than
+// focus. Moving a handle fixes the range; Auto returns to per-plane stretch.
+// The movie's own contrast is saved on entry and restored on exit.
+const PSF_DISPLAY_MAX=10000;
+let psfPreviewStack=null, psfPreviewIndex=0, rawPsfView=false, psfContrastAuto=true, psfSavedFrameContrast=null;
 function drawPsfPreviewSlice(zi){
   if(!psfPreviewStack) return;
   const {slices, nx, ny, globalMax} = psfPreviewStack;
   const slice=slices[zi];
   { const rt=$('rawTitle'); if(rt) rt.textContent='PSF preview'; }
+  { const ri=$('rawInfo'); if(ri) ri.textContent=`${nx}×${ny} samples of ${(psfPreviewStack.resLateralM*1e9).toFixed(0)} nm · ${psfPreviewStack.nz} planes, ${psfPreviewStack.zStepNm} nm apart`+
+      (psfContrastAuto?' · contrast: auto per plane':' · contrast: fixed'); }
   hideOtherRawToggleBtns(null);   // no rival toggle button of its own
+  if(!rawPsfView) enterPsfPreviewMode();
+  const K = globalMax>0 ? PSF_DISPLAY_MAX/globalMax : 0;
+  if(psfContrastAuto){
+    let mn=Infinity, mx=0; for(let i=0;i<slice.length;i++){ const v=slice[i]*K; if(v<mn)mn=v; if(v>mx)mx=v; }
+    rawContrastMax=PSF_DISPLAY_MAX; rawBlack=Math.floor(mn===Infinity?0:mn); rawWhite=Math.max(rawBlack+1,Math.ceil(mx));
+    syncRawContrastUI();
+  }
   if(!rawFull) rawFull=document.createElement('canvas');
   rawFull.width=nx; rawFull.height=ny;
   const ctx=rawFull.getContext('2d'), im=ctx.createImageData(nx,ny);
-  const scale = globalMax>0 ? 255/globalMax : 0;
+  const lut=rawContrastLUT(rawBlack,rawWhite);
   for(let i=0;i<nx*ny;i++){
-    const g=Math.min(255, Math.round(slice[i]*scale));
+    const g=lut[Math.min(PSF_DISPLAY_MAX, Math.max(0, slice[i]*K))|0];
     im.data[i*4]=g; im.data[i*4+1]=g; im.data[i*4+2]=g; im.data[i*4+3]=255;
   }
   ctx.putImageData(im,0,0);
@@ -5833,8 +5851,29 @@ function drawPsfPreviewSlice(zi){
   rawPsfView=true; setRawPlot(false); $('rawCropBtn').disabled=true;
   rawCropMode=false; $('rawCropBtn').classList.remove('on'); rawCropPt0=null;
   setFrameAspect(nx, ny);
-  fitRawView(); clampRawView(); drawRawView();
+  if(!rawView.zoom || rawView._psfFitted!==psfPreviewStack){ fitRawView(); rawView._psfFitted=psfPreviewStack; }
+  clampRawView(); drawRawView();
   syncSaveImg();
+}
+// Switches the raw panel's controls to the PSF preview: z slider instead of the
+// Frame slider, Contrast in PSF units (movie contrast stashed).
+function enterPsfPreviewMode(){
+  psfSavedFrameContrast={black:rawBlack, white:rawWhite, max:rawContrastMax};
+  psfContrastAuto=true;
+  for(const id of ['scrubRow','liveStreamScrubRow','liveStreamScrubNote']) $(id).style.display='none';
+  $('psfScrubRow').style.display='flex'; $('rawContrastRow').style.display='flex';
+  $('psfPreviewBtn').textContent='Hide PSF';
+}
+// Undoes enterPsfPreviewMode() (restores the Frame slider and movie contrast);
+// no-op when the preview isn't showing. Callers redraw the panel themselves.
+function leavePsfPreviewMode(){
+  if(!rawPsfView) return;
+  rawPsfView=false; rawView._psfFitted=null;
+  $('psfScrubRow').style.display='none'; $('psfPreviewBtn').textContent='Preview PSF';
+  if(psfSavedFrameContrast){ rawBlack=psfSavedFrameContrast.black; rawWhite=psfSavedFrameContrast.white; rawContrastMax=psfSavedFrameContrast.max; psfSavedFrameContrast=null; syncRawContrastUI(); }
+  const liveOwns = typeof liveStreamOwnsRawPanel==='function' && liveStreamOwnsRawPanel();
+  if(stack && stack.n>1 && !liveOwns) $('scrubRow').style.display='flex';
+  if(!stack && !liveOwns) $('rawContrastRow').style.display='none';
 }
 function showPsfSlice(zi){
   if(!psfPreviewStack) return;
@@ -9399,7 +9438,8 @@ function redrawRawContrast(){
   // the pre-existing rawSegView guard right below, just generalized: dragging
   // Contrast while something else legitimately owns the panel must no-op,
   // not reclaim it.
-  if(!rawPixelData || rawSegView || rawPsfView || rawIsPlot) return;   // rawPsfView: the PSF preview repurposes rawPixelData for raw intensity, not ADU
+  if(rawPsfView && !rawIsPlot){ psfContrastAuto=false; drawPsfPreviewSlice(psfPreviewIndex); return; }   // the PSF preview has its own rendering (see drawPsfPreviewSlice())
+  if(!rawPixelData || rawSegView || rawIsPlot) return;
   drawRaw(rawPixelData.arr, rawPixelData.w, rawPixelData.h, rawSpots, rawLocs);
 }
 // SR-panel Contrast for the averaged composites (Data projection, SOI
@@ -9471,7 +9511,7 @@ function setSrContrastRowVisible(v){
 let rawIsPlot=false, srIsPlot=false, rawPlotName='plot';   // which plot the left panel shows (drift / nena)
 // Sole owner of rawIsPlot and rawCropBtn's enabled state (crop needs a real
 // frame and a stack).
-function setRawPlot(v){ rawIsPlot=v; const b=$('rawCropBtn'); if(b) b.disabled = v || !stack;
+function setRawPlot(v){ if(v) leavePsfPreviewMode(); rawIsPlot=v; const b=$('rawCropBtn'); if(b) b.disabled = v || !stack;
   const c=$('raw'); c.classList.remove('plot-tall'); c.style.aspectRatio=''; }   // drawSmfretTrace() re-applies them
 const rawView={zoom:1,cx:0,cy:0,atFit:true};
 // Raw-panel counterparts of fitZoom()/fitView()/clampView() (MODULE: render,
@@ -9648,7 +9688,7 @@ function drawRaw(frame,w,h,spots,locs){
   { const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame'; }   // reclaim the panel from the drift plot — title stays fixed; rawFtmBtn's own label says which view is showing
   hideOtherRawToggleBtns(null);   // no exception — none of the four toggles are relevant to a live frame
   rawSegView=false;   // reclaim the panel from a shown segmentation image too, same "any real frame redraw reclaims the panel" convention as the plot/FTM cases above
-  rawPsfView=false; { const r=$('psfScrubRow'); if(r) r.style.display='none'; }   // and from a shown PSF preview
+  leavePsfPreviewMode();   // and from a shown PSF preview (restores the Frame slider + movie contrast)
   setRawPlot(false);
   if(!rawFull) rawFull=document.createElement('canvas');
   const sizeChanged = rawFull.width!==w || rawFull.height!==h;
@@ -18446,7 +18486,7 @@ function drawSegmentedImage(labelArr,w,h){
   }
   ctx.putImageData(im,0,0);
   rawPixelData={arr:labelArr,w,h}; rawSpots=null; rawLocs=null;
-  rawPsfView=false; { const r=$('psfScrubRow'); if(r) r.style.display='none'; }   // reclaim from a shown PSF preview too
+  leavePsfPreviewMode();   // reclaim from a shown PSF preview too
   rawSegView=true; setRawPlot(false); $('rawCropBtn').disabled=true;
   rawCropMode=false; $('rawCropBtn').classList.remove('on'); rawCropPt0=null;
   // The segmentation defines the true FOV shape, so it sets --frame-ar (a CSV
@@ -20641,6 +20681,8 @@ async function showFrame(i){
 // Resets the Frame scrubber for a newly loaded/simulated stack (shown only
 // for a multi-frame stack) and shows frame 0.
 function initScrub(){
+  // A new stack ends any PSF preview; its stashed contrast belongs to the old stack.
+  if(rawPsfView){ psfSavedFrameContrast=null; leavePsfPreviewMode(); }
   const row=$('scrubRow'), s=$('scrub');
   // Only an active session keeps the panel; a fresh load always reclaims it.
   const liveStreamOwnsIt = liveStreamState && liveStreamState.active;   // the streaming scrubber (#liveStreamScrubRow) owns the raw panel while a session is active
@@ -20695,6 +20737,7 @@ $('srContrastAutoBtn').addEventListener('click',()=>{
   drawView();
 });
 $('rawContrastAutoBtn').addEventListener('click',async()=>{
+  if(rawPsfView){ psfContrastAuto=true; drawPsfPreviewSlice(psfPreviewIndex); return; }   // per-plane auto stretch
   // Streaming has no stack: estimate from the cached streamed frames.
   if(liveStreamOwnsRawPanel()){
     if(!liveStreamState.rawFrames.length) return;
@@ -20918,18 +20961,27 @@ wirePreset('simulation_realism', {
   max:{ simulation_blinkBleachProb:0.2, simulation_photCV:0.5, simbg:10, simulation_bgCellContrast:3,
         simulation_bgHazeWeight:1, simulation_bgDecayFrames:150, simulation_hazeRatio:1 } });
 
+// Preview PSF toggles: a second click (the button reads "Hide PSF") returns the
+// raw panel to the movie, or empties it when nothing is loaded.
 async function previewPsf(){
-  const btn=$('psfPreviewBtn'); btn.disabled=true;
+  const btn=$('psfPreviewBtn');
+  if(rawPsfView){ closePsfPreview(); return; }
+  btn.disabled=true;
   try{
     const cfg=readPsfConfigFromUI();
     psfPreviewStack=await getOrBuildPsfKernelStack(cfg);
     psfPreviewIndex=psfPreviewStack.focusIndex;
-    $('psfScrubRow').style.display='flex';
     $('psfScrub').max=psfPreviewStack.nz-1; $('psfScrubNum').max=psfPreviewStack.nz;
     showPsfSlice(psfPreviewIndex);
     log(`PSF preview shown, starting at focus (plane ${psfPreviewIndex+1}/${psfPreviewStack.nz}).`);
   } catch(e){ log('PSF preview failed: '+e.message); }
   btn.disabled=!psfModelIsZernike();
+}
+function closePsfPreview(){
+  if(!rawPsfView) return;
+  leavePsfPreviewMode();
+  if(stack) showFrame(+$('scrub').value);
+  else { rawFull=null; rawPixelData=null; $('rawTitle').textContent='Raw frame'; const d=$('raw'); d.getContext('2d').clearRect(0,0,d.width,d.height); syncSaveImg(); }
 }
 $('psfPreviewBtn').addEventListener('click',previewPsf);
 $('psfScrub').addEventListener('input', e=>showPsfSlice(+e.target.value));
@@ -22066,9 +22118,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28c — Simulation panel: Advanced split into sections, a
-Preview PSF / Calib. stack / View GT / Compare to GT button grid, phase mask hidden; defaults 2000
-frames, 0.5 emitters/µm², 70% Gaussian illumination.`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28d — Preview PSF: its z slider replaces the Frame slider,
+Contrast works on the PSF (auto per plane), and the button toggles back to the movie.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
