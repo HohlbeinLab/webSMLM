@@ -1155,7 +1155,7 @@ whatever drift correction did or did not do afterwards; drift correction has
 its own ground-truth score in [§2](#drift).
 
 **What counts.** A ground-truth emitter-frame is one of three things, not two. It is *counted*
-when it delivered at least **Min photons/frame** (100) in that frame and lies outside the **Edge
+when it delivered at least **Min photons/frame** (300) in that frame and lies outside the **Edge
 exclusion** zone the fitter cannot reach (−1 = the Run's own detection border): matched is a hit,
 unmatched a miss. Otherwise it is *don't care* — detecting it is neither a hit nor a false
 positive, missing it is not a miss — and out-of-focus haze emitters are always don't-care.
@@ -2218,7 +2218,7 @@ elapsed time instead.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `simulation_mt_seed` | *Sample:* Cell field seed (0 = random) (Microtubules) | number | -2147483647 | 2147483647 | 1 | 1249 |
+| `simulation_mt_seed` | *Sample:* Cell field seed (0 = random) (Microtubules) | number | -2147483647 | 2147483647 | 1 | 0 |
 | `simulation_seed` | *Sample:* Movie seed (0 = random) | number | 0 | 2147483647 | 1 | 0 |
 | `simulation_gain` | *Camera:* Simulated gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 0.34 |
 | `simulation_offset` | *Camera:* Simulated offset (ADU) | number | 0 | 65535 | 1 | 100 |
@@ -2588,7 +2588,7 @@ scoring drift correction. See the **simulation** module.
 |---|---|---|---|---|---|---|
 | `validation_matchRadius` | Match radius (nm) | number | 20 | 2000 | 10 | 250 |
 | `validation_zBins` | Score z bins | number (int) | 4 | 100 | 1 | 20 |
-| `validation_minPhotons` | Score: min photons/frame | number | 0 | 100000 | 10 | 100 |
+| `validation_minPhotons` | Score: min photons/frame | number | 0 | 100000 | 10 | 300 |
 | `validation_border` | Score: edge exclusion (px, -1 = auto) | number (int) | -1 | 100 | 1 | -1 |
 | `validation_crowdRadius` | Score: crowding radius (nm) | number | 0 | 5000 | 10 | 300 |
 | `validation_preset` | Convention | enum | `webSMLM`, `challenge2016`, `custom` | | | `webSMLM` |

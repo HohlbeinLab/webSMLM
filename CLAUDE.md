@@ -535,7 +535,7 @@ uniform in volume, pore axis along z with a gentle curvature bowl; only `simulat
 control (geometry via settings JSON/`paramOverrides`); uses the seeded stream. Microtubules:
 `buildMicrotubuleStructure()` → `CellField.buildWindow()` (see **CellField**), clipped to
 ±`simulation_zRange` around `simulation_mt_focusZ`, consuming nothing from the movie's `mulberry32`
-stream. `simulation_mt_seed` 0 = random per movie (`resolveMtSeed()`, logged). `mtStartPosition()`
+stream. `simulation_mt_seed` 0 (default) = random per movie (`resolveMtSeed()`, logged). `mtStartPosition()`
 gives each seed a fixed start: origin if a 3×3 probe of 2 µm sub-windows hits dyes in ≥5/9, else the
 first such of 16 candidates from `mulberry32(seed^const)` within ±500 µm (best otherwise); depends on
 the cell-field seed + settings only, ~1 s/try, cached; origin-first keeps already-covered seeds (1249)
