@@ -51,7 +51,6 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     cannot generate one; a `config.simulate` path would make simulation sweeps scriptable.
   - **Rotate movie vs ground truth**: a simulation made with Rotate movie set drops its truth (it is
     in unrotated coordinates); rotating the truth with the frames would lift that.
-  - **Custom Zernike is not in `PARAMS`** (no text-type entries), so it is not saved in settings files.
   - **Microtubule background**: Cell contrast is off for the cell field; drive it from the real cell
     footprints instead.
 

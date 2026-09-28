@@ -699,8 +699,8 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
 - To compare two **simulation** settings on otherwise identical data, keep the seed and change one
   field. Background, haze and out-of-focus emitters draw from their own random streams, so
   switching them on never moves an in-focus emitter.
-- **Save settings** stores every simulation field except **Custom Zernike**; **Load settings**
-  restores them, presets included.
+- **Save settings** stores every simulation field (**Custom Zernike** included, as text); **Load
+  settings** restores them, presets included.
 - Every Simulate movie is logged as a runnable command (`runSimulation()` preceded by every
   non-default simulation field); recall it in the log terminal with ↑ to re-run it.
 
@@ -906,7 +906,6 @@ the time; the Gaussian model is fastest.
 
 - Ground truth lives only in the page session and is dropped on load, crop or rotation.
 - The Gaussian model is depth-independent; FFT placement and the Gaussian model do not use the GPU.
-- **Custom Zernike** coefficients are not stored in settings files.
 - Not modelled: per-pixel sCMOS gain/read-noise maps, triplet states, fixed dipoles, field-dependent
   aberrations.
 
@@ -2220,7 +2219,7 @@ elapsed time instead.
 | `simulation_psfNi` | *PSF:* Immersion refractive index (ni) | number | 1 | 1.7 | 0.001 | 1.518 |
 | `simulation_psfDepth` | *PSF:* Emitter depth into sample (nm) | number | 0 | 5000 | 10 | 0 |
 | `simulation_psfTi0` | *PSF:* Working distance (µm) | number | 100 | 250 | 1 | 150 |
-| `simulation_psfZernikeCustom` | *PSF:* Custom Zernike (mWave, 15 or 28 values) — read from the sidebar, **not saved in settings files** | text | — | — | — | blank |
+| `simulation_psfZernikeCustom` | *PSF:* Custom Zernike (mWave) — 15 or 28 comma-separated values; blank = use the preset | text | — | — | — | blank |
 | `simulation_bgHazeWeight` | *Background:* Out-of-focus haze (weight) | number | 0 | 10 | 0.1 | 1 |
 | `simulation_bgHazeWidth` | *Background:* Haze blur σ (nm) | number | 100 | 5000 | 50 | 800 |
 | `simulation_psfZRange` | *Performance:* PSF z range (± nm) | number | 50 | 2000 | 10 | 2000 |
@@ -3526,7 +3525,10 @@ Written by **Save settings**, read by **Load settings**.
 
 - `values` is `{id: value}` for **every** `PARAMS` entry (not just ones with
   a page control) — the only way to set the no-page-control entries
-  (`workerBatch*`, `srPreview*`, etc.) is a loaded file like this.
+  (`workerBatch*`, `srPreview*`, etc.) is a loaded file like this. Values are
+  numbers, booleans, or strings (enums, and the one free-text entry,
+  `simulation_psfZernikeCustom`: e.g. `"0,0,0,0,0,80,0,0,0,0,0,0,0,0,0"`; `""` =
+  use the preset).
 - `version` is the settings-file **format/schema** version (bumped only when
   the JSON's own wrapper shape changes) — a different thing from
   `appVersion` (v0.12.5-dev), the actual webSMLM release that wrote the

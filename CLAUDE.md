@@ -61,7 +61,9 @@ what makes GUI and command-line use interchangeable.
   (`id → {label, min, max, step, default, int}`), read via `paramValue(id)`. It drives the controls
   (`syncParamControls()` writes min/max/step/value at startup), Save/Load settings and the headless
   `analyze(config)`; a new entry is available everywhere with no extra wiring. `id:null` entries have
-  no control and resolve via `paramOverrides`. Excluded: display/layout (CSS) and per-dataset working
+  no control and resolve via `paramOverrides`. Types: `number` (default), `bool`, `enum`, and `text`
+  (a raw string, e.g. `simulation_psfZernikeCustom`); every type-switch (`paramValue()`,
+  `syncParamControls()`, `loadSettingsJson()`, `runAutorun()`) handles all four. Excluded: display/layout (CSS) and per-dataset working
   state (`calFirst`/`calLast`/`zmin`/`zmax`).
   - `addNumberSteppers()` wraps every `input.num` in `.numstep` with always-visible −/+ buttons
     (native spinners hidden), reading each field's own min/max/step and dispatching real events.

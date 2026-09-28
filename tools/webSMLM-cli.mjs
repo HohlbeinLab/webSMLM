@@ -359,7 +359,7 @@ try {
       const raw = rawConfig[key];
       if (spec) {
         config[key] = spec.type === 'bool' ? (raw === '1' || raw === 'true' || raw === true)
-                     : spec.type === 'enum' ? String(raw) : +raw;
+                     : (spec.type === 'enum' || spec.type === 'text') ? String(raw) : +raw;
       } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sSmlmPreview' || key === 'smfretLocateSOI' || key === 'sptTrack' || key === 'exportPlots' || key === 'exportTrackData' || key === 'exportSSmlmCandidates' || key === 'exportCalibrationPoints' || key === 'exportPcfoTiles') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {

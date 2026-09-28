@@ -25,25 +25,25 @@
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
     params          2643   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3607   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3835   synthetic stack generator ("Simulate movie")
-    validation      6783   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7407   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7663   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8273   super-resolution accumulation, view, colour maps, plots
-    workers         9797   frame-parallel detect/fit worker pool
-    gpu             10439  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          12768  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13059  astigmatic width-vs-z bead calibration
-    drift           13458  AIM and cross-correlation drift correction
-    locprecision    14116  NeNA and FRC
-    sSMLM           15255  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15861  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17968  single-particle tracking and diffusion coefficients
-    pipeline        19018  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20058  Micro-Manager/pycromanager bridge (experimental)
-    table           22463  localizations table, filters, histograms, clustering
-    headless API    23148  window.webSMLM.analyze()/analyzeBatch()
+    in/out          3611   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3839   synthetic stack generator ("Simulate movie")
+    validation      6787   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7411   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7667   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8277   super-resolution accumulation, view, colour maps, plots
+    workers         9801   frame-parallel detect/fit worker pool
+    gpu             10443  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          12772  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13063  astigmatic width-vs-z bead calibration
+    drift           13462  AIM and cross-correlation drift correction
+    locprecision    14120  NeNA and FRC
+    sSMLM           15259  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15865  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             17972  single-particle tracking and diffusion coefficients
+    pipeline        19022  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20062  Micro-Manager/pycromanager bridge (experimental)
+    table           22467  localizations table, filters, histograms, clustering
+    headless API    23152  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28n</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28o</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3232,6 +3232,9 @@ const PARAMS = {
   // deliberately narrow subset of the full 15-coefficient OSA basis; see that constant's own
   // comment for the "order-of-magnitude, not paper-sourced" caveat these presets carry.
   simulation_psfZernikePreset: { type:'enum', id:'simulation_psfZernikePreset', label:'Aberration preset', options:['none','astigWeak','astigModerate','astigStrong','comaWeak','comaStrong','sphericalWeak','sphericalStrong','trefoilModerate','mixedRealistic','saddlePoint','extendedRange','extendedRangeStrong'], default:'astigModerate' },
+  // simulation_psfZernikePreset's override: 15 or 28 comma-separated milliwave coefficients (OSA
+  // order); blank = use the preset. A 'text' entry, so it round-trips through settings files.
+  simulation_psfZernikeCustom: { type:'text', id:'simulation_psfZernikeCustom', label:'Custom Zernike (mWave)', default:'' },
   // simulation_psfInterp = how splatZernikeEmitter() samples the oversampled kernel at an
   // emitter's exact sub-pixel position before box-averaging it down to the camera pixel grid (see
   // MODULE: simulation's own "oversample once, downsample everywhere" comment) — 'nearest' (cheap
@@ -3307,6 +3310,7 @@ function paramValue(id){
   const el = spec.id ? $(spec.id) : null;
   if(spec.type==='bool')  return el ? el.checked : (id in paramOverrides ? !!paramOverrides[id] : spec.default);
   if(spec.type==='enum')  return el ? el.value    : (id in paramOverrides ? paramOverrides[id]   : spec.default);
+  if(spec.type==='text')  return el ? el.value    : (id in paramOverrides ? String(paramOverrides[id]) : spec.default);
   const raw = el ? parseFloat(el.value) : (id in paramOverrides ? paramOverrides[id] : spec.default);
   const v = isFinite(raw) ? raw : spec.default;
   return spec.int ? Math.round(v) : v;
@@ -3358,7 +3362,7 @@ function syncParamControls(){
     const el=$(spec.id); if(!el) continue;
     const def = (mobile && MOBILE_MEM_DEFAULTS[id]!==undefined) ? MOBILE_MEM_DEFAULTS[id] : spec.default;
     if(spec.type==='bool'){ el.checked=def; continue; }
-    if(spec.type==='enum'){ el.value=def; continue; }
+    if(spec.type==='enum'||spec.type==='text'){ el.value=def; continue; }
     el.min = spec.min==null ? '' : spec.min;
     if(spec.max!=null) el.max = spec.max;
     el.step = spec.step;
@@ -5435,7 +5439,7 @@ function readPsfConfigFromUI(){
   const halfWidthPx=Math.ceil((kernelWidthNm/2)/resLateralNm);
   const nz=2*Math.round(zRangeNm/zStepNm)+1;
   let zernikeCoeffs, zernikeSource;
-  const customStr=($('simulation_psfZernikeCustom')||{}).value||'';
+  const customStr=paramValue('simulation_psfZernikeCustom')||'';
   if(customStr.trim()!==''){
     const parts=customStr.split(',').map(s=>s.trim());
     const nums=parts.map(Number);
@@ -21278,11 +21282,11 @@ async function loadSettingsJson(f){
       const spec=PARAMS[id]; if(!spec){ unknownKeys.push(id); continue; }   // unknown/legacy key — ignore
       if(spec.id){
         const el=$(spec.id); if(!el) continue;
-        if(spec.type==='bool') el.checked=!!v[id]; else el.value=v[id];
+        if(spec.type==='bool') el.checked=!!v[id]; else el.value = v[id]==null ? '' : v[id];
         el.dispatchEvent(new Event('change'));
       } else {
         paramOverrides[id] = spec.type==='bool' ? !!v[id]
-          : spec.type==='enum' ? String(v[id]) : (spec.int ? Math.round(+v[id]) : +v[id]);
+          : (spec.type==='enum'||spec.type==='text') ? String(v[id]) : (spec.int ? Math.round(+v[id]) : +v[id]);
       }
       n++;
     }
@@ -22372,7 +22376,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-28n — Quick guide step 1 mentions Compare to GT; docs: Simulation guide, 0.13.0 changelog.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-28o — Custom Zernike coefficients are now saved in and restored from settings files.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23637,7 +23641,7 @@ async function runAutorun(){
     if(key==='autorun'||key==='fileUrl'||key==='calibrationUrl') continue;
     const spec=PARAMS[key];
     if(spec){ config[key] = spec.type==='bool' ? (val==='1'||val==='true')
-                          : spec.type==='enum' ? val : +val; continue; }
+                          : (spec.type==='enum'||spec.type==='text') ? val : +val; continue; }
     if(key==='correctDrift'||key==='computeNeNA'||key==='computeFRC'||key==='estimateGainOffset'||key==='sSmlmPair'||key==='sptTrack'||key==='exportPlots') config[key]=(val==='1'||val==='true');
     if(key==='cropX0'||key==='cropY0'||key==='cropX1'||key==='cropY1') config[key]=+val;
     if(key==='exportHistograms') config[key]=val.split(',').map(s=>s.trim()).filter(Boolean);
