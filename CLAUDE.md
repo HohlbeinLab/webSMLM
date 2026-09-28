@@ -148,13 +148,11 @@ what makes GUI and command-line use interchangeable.
     separate matcher (full candidate list, ranked by 3D distance) — leave `matchFrame()` alone so
     the default numbers can't drift. `lateral` stays the default because the axial gate flatters
     the axial error.
-  - Beyond position (per counted matched pair, `pr` arrays in `scoreTruthCore()`): Jaccard per z
-    bin (FPs binned by FITTED z — they have no true one), `radiusSweep` (re-matches the stored
+  - Beyond position (per counted matched pair, `pr` arrays in `scoreTruthCore()`): `radiusSweep` (re-matches the stored
     per-frame `sweep` sets at 10–500 nm; the configured radius must reproduce tp/fp/fn exactly),
     `photometry` (fitted/true photons), `uncertainty` (error ÷ reported CRLB, plain and robust σ)
-    and `crlbBins`/`precVsCrlb` (robust measured σ vs reported CRLB vs the Rieger-Stallinga
-    Gaussian-MLE bound at TRUE photons). Validated on an in-focus Gaussian-PSF movie: reported/
-    theoretical 1.02. These are measurements, not targets: never tune them towards 1. A
+    and `crlbBins`/`precVsCrlb` (robust measured σ vs the median reported CRLB, per true-photon
+    bin). These are measurements, not targets: never tune them towards 1. A
     Localisation gain/offset that differs from the simulated camera's is logged as a warning, since
     it shifts photometry and every CRLB figure.
   - `clearSimGroundTruth()` (from `clearAnalysisOutputs()`, CSV load, `resetAfterCropChange()`)
