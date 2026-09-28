@@ -710,5 +710,6 @@ gitignored; distribute jars via a GitHub Release asset.
   streaming), `hint-simulation` (top-level rows + overview) + seven sub-group hints (`-type` = Sample,
   `-nup`, `-fluorophore`, `-background`, `-camera`, `-psf`, `-advanced`), `hint-pcfo`, `hint-calibration`, `hint-detectfit` (incl.
   gain/offset), `hint-render`, `hint-drift` (incl. NeNA/FRC), `hint-validation`, `hint-sSMLM`, `hint-smfret`,
+  `hint-spt`. A popup's paragraph order follows its sidebar's field order.
 - **Quick guide** (`helpBtn`) is thin, hand-authored UI copy: intro, the 5-step Guided workflow,
   Acknowledgements, Licence & author. `README.md`'s Guided workflow is a copy; update both together.
