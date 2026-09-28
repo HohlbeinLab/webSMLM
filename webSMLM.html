@@ -41,8 +41,8 @@
     spt             13911  single-particle tracking and diffusion coefficients
     pipeline        14960  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   15932  Micro-Manager/pycromanager bridge (experimental)
-    table           17986  localizations table, filters, histograms, clustering
-    headless API    18668  window.webSMLM.analyze()/analyzeBatch()
+    table           17989  localizations table, filters, histograms, clustering
+    headless API    18671  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1656,7 +1656,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1674,19 +1674,19 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     <!-- actions -->
     <div class="group">
       <div class="btnrow">
-        <button id="loadBtn" title="Select a movie (a single multi-frame TIFF, or Ctrl/Cmd+click several single-frame TIFFs to concatenate — native Nikon .nd2, single file, uncompressed/16-bit single-channel, is also accepted) OR a CSV previously exported with Save localisations, OR a JSON file webSMLM saved (smFRET traces from Save traces, settings, or a 3D calibration — recognised from the file's own content). Detected by file extension — select one type at a time.">Load data</button>
-        <button id="genBtn">Simulate movie</button>
+        <button id="loadBtn" title="Select a movie — TIFF (also BigTIFF; or Ctrl/Cmd+click several single-frame TIFFs to combine them), native Nikon .nd2, or FITS — OR a CSV saved with Save localisations, OR a JSON file webSMLM saved (traces from Save traces, settings, or a 3D calibration; recognised from its content). Select one kind of file at a time.">Load data</button>
+        <button id="genBtn" title="Generate a synthetic test movie from the Simulation settings (known emitter positions and drift), to try out or validate the analysis">Simulate movie</button>
       </div>
       <div class="btnrow">
-        <button id="loadSetBtn">Load settings</button>
-        <button id="saveSetBtn">Save settings</button>
+        <button id="loadSetBtn" title="Load a settings file saved with Save settings (JSON) — Load data accepts it too">Load settings</button>
+        <button id="saveSetBtn" title="Save every analysis, rendering and export setting to a JSON file, for Load settings or the headless CLI">Save settings</button>
       </div>
       <div class="btnrow">
-        <button class="primary" id="runBtn" disabled>Localize</button>
-        <button class="danger" id="stopBtn" disabled>Stop</button>
+        <button class="primary" id="runBtn" title="Detect and fit emitters in every frame of the Localisation frame range, then render the reconstruction" disabled>Localize</button>
+        <button class="danger" id="stopBtn" title="Stop the running Localize (localizations found so far are kept), drift correction or 3D calibration (both discarded), or end a live-streaming session" disabled>Stop</button>
       </div>
       <div class="btnrow">
-        <button id="saveBtn" disabled title="Export localizations as ThunderSTORM-compatible CSV">Save localisations</button>
+        <button id="saveBtn" disabled title="Save the localizations as a ThunderSTORM-compatible CSV (localizations only — plots via Save plot/image, settings via Save settings)">Save localisations</button>
         <button id="saveImgBtn" disabled title="Save a window (left or right) as an image — plots also offer SVG in the save dialog's file-type dropdown">Save plot/image</button>
       </div>
       <div class="btnrow" style="margin-top:6px">
@@ -1714,10 +1714,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <!-- Pixel size is pinned outside the collapsible sections: it feeds the
            scale bar, z and CSV coordinates, and must be checked before the first
            Localize. -->
-      <label class="row" title="Camera pixel size (nm) — physical scale for the scale bar, z, and exported CSV coordinates">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
+      <label class="row" title="Camera pixel size (nm): converts pixel positions to nm everywhere — scale bar, exported CSV, table, NeNA/FRC, drift, tracking, pairing distances and smFRET widths">Pixel size (nm) <input type="number" id="pxnm" value="100" min="1" max="2000" step="1" class="num"></label>
       <!-- Frame time, pinned next to pixel size: a per-dataset acquisition
            property (renamed from sptFrameTime). -->
-      <label class="row" title="Seconds per frame — used by Single-particle tracking's diffusion-coefficient calculation">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
+      <label class="row" title="Seconds per frame: the time axis of the smFRET time traces (and time_s in saved traces), and the diffusion coefficients, MSD and track durations of Single-particle tracking. Set it by hand — a value found in the file is only logged as a hint.">Frame time (s) <input type="number" id="frametime" value="0.01" min="0.0001" max="10" step="0.001" class="num"></label>
       <details class="sim" id="locBox">
         <summary>Localisation</summary>
         <label class="row" id="liveUpdateRow">Real-time update <input type="checkbox" id="liveUpdate" checked></label>
@@ -1738,7 +1738,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" id="localize3DRow" style="margin-top:8px;display:none">3D localisation <input type="checkbox" id="localize3D" checked></label>
         <div id="cal3dRow" style="display:none;margin:6px 0 2px">
           <div class="btnrow" style="margin:0">
-            <button id="loadCalBtn" style="grid-column:2">Load calibration…</button>
+            <button id="loadCalBtn" title="Load a 3D calibration saved with Save calib. (JSON) — Load data accepts it too" style="grid-column:2">Load calibration…</button>
           </div>
           <input type="file" id="calFile" accept=".json" hidden>
           <div id="cal3dStatus" class="hint" style="margin-top:4px">No calibration loaded.</div>
@@ -1853,7 +1853,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" id="driftZRow" style="display:none;padding-left:40px">Correct z too (3D)
           <input type="checkbox" id="driftZ" checked></label>
         <div class="btnrow">
-          <button id="driftBtn" disabled>Correct drift</button>
+          <button id="driftBtn" title="Estimate drift with the method above and correct the localizations (re-running re-estimates from the original positions)" disabled>Correct drift</button>
           <button id="driftShowBtn" disabled title="Plot the estimated drift vs frame">Show drift</button>
         </div>
         <label class="row" id="frc3dRow" style="display:none;margin-top:6px">3D shells (FSC)
@@ -2012,7 +2012,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="checkbox" id="calFixedXY"></label>
         <div class="hint" id="calLocateStatus" style="display:none"></div>
         <div class="btnrow">
-          <button id="calBtn" disabled>Calibrate</button>
+          <button id="calBtn" title="Build a 3D (astigmatic) calibration from the loaded bead z-stack: PSF width vs. z over the calibration frame range" disabled>Calibrate</button>
           <button id="calSaveBtn" disabled title="Save the calibration curves as JSON">Save calib.</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
@@ -2077,7 +2077,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <select id="smfretDonorAngle" class="sel" disabled></select></label>
         <label class="row" title="Automatically checked once Localize SOI has found sites of interest — marks the current x,y positions as the fixed reference Get traces below fits every frame at. Uncheck to discard them and return to the live frame/reconstruction.">Fix sites of interest (SOI)
           <input type="checkbox" id="smfretFixSOI" checked></label>
-        <label class="row" title="Get traces below: use a published aperture-photometry method (circular signal disk + a separate background annulus, background from its 56th percentile) instead of fitting a standard 2D Gaussian MLE at each frame (seeded at the site, position free). No iterative fit to diverge — avoids the rare remaining case where the fit still produces an implausible result on near-background-level signal, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
+        <label class="row" title="Get traces below: use a published aperture-photometry method (circular signal disk + a separate background annulus, background from its 56th percentile) instead of a per-frame fit (seeded at the site, position free). No iterative fit to diverge, at the cost of not reporting a per-frame width.">Aperture photometry (no fit)
           <input type="checkbox" id="smfretApertureMode"></label>
         <label class="row" title="Aperture photometry's own background-subtracted intensity is set to 0 by default when negative (a negative photon count has no physical meaning on its own) — untick to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows. Only affects aperture photometry; a rejected fit still reports 0 either way.">Set negative intensities to zero
           <input type="checkbox" id="smfretFloorZero" checked></label>
@@ -2098,11 +2098,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <button id="smfretPairingBtn" type="button" disabled title="Pairs the sites of interest using whichever approach Pairing method above selects — see that field's own tooltip for what each does. Disabled while Analyse FRET (above) is unchecked.">Pair DD + DA</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
-          <button id="smfretTimeTracesBtn" type="button" disabled title="Fit every site of interest at its own fixed x,y position in every frame of the movie, plot the resulting intensity-vs-frame time traces in the raw (left) panel, and — once a real DD+DA pairing exists — also show the E(S) histogram in the reconstruction (right) panel (E = DA/(DD+DA); with Alternating-laser excitation on, a 2D E vs. S histogram instead, S = (DD+DA)/(AA+DD+DA)). Once paired (Pair DD + DA above), DA leads: the acceptor-channel position it establishes is what DA AND (with Alternating-laser excitation on) AA are both sampled at.">Get traces</button>
+          <button id="smfretTimeTracesBtn" type="button" disabled title="Measure every site of interest in every frame of the movie (a fit seeded at the site, or aperture photometry), plot the intensity-vs-time traces in the raw (left) panel and — once a real DD+DA pairing exists — the E histogram in the reconstruction (right) panel (E = DA/(DD+DA); with Alternating-laser excitation and AA data, the 2D E/S histogram, S = (DD+DA)/(AA+DD+DA)). Once paired (Pair DD + DA above), DA and (with ALEX) AA are measured at the acceptor position the pairing established.">Get traces</button>
           <button id="smfretPlotTracesBtn" type="button" disabled title="Show the existing time traces again in the raw (left) panel, and the E(S) histogram in the reconstruction (right) panel once a DD+DA pairing makes it meaningful, without re-running Get traces. Useful after the panels were switched to something else (a raw frame, a drift or NeNA plot, …). Stays at the site and zoom you last looked at. Disabled until Get traces has run, or a saved traces file was loaded via Load data.">Plot traces</button>
         </div>
         <div class="btnrow" style="margin-top:6px">
-          <button id="smfretExportTracesBtn" type="button" disabled title="Save every site's own DD/DA/AA (whichever apply) intensity- and, when a fit was used (not aperture photometry), width-vs-time trace as one JSON file — one record per site, each carrying its own time (s) array alongside photonsDD/photonsDA/photonsAA and sigmaDD/sigmaDA/sigmaAA. A gap (no fit attempted that frame, or a frame that wasn't this channel's turn under ALEX) is written as null, matching JSON's own convention for a non-finite number. Does not include the pooled E(S) histogram data — that's directly recomputable from the saved DD/DA/AA arrays.">Save traces</button>
+          <button id="smfretExportTracesBtn" type="button" disabled title="Save every site&#x27;s DD/DA/AA (whichever apply) intensity- and, when a fit was used (not aperture photometry), width-vs-time trace as one JSON file — one record per site with its time (s) array, photonsDD/DA/AA and sigmaDD/DA/AA, plus the gain/offset and intensity unit (photons, or ADU at gain 1). A gap (no measurement that frame, or not this channel&#x27;s turn under ALEX) is written as null. The pooled histogram data isn&#x27;t saved: it&#x27;s recomputed from these arrays.">Save traces</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-smfret"><span class="pill">module: smFRET</span>
@@ -2257,7 +2257,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
               </span>
             </span>
           </div>
-          <div id="smfretEHistDexRow" style="display:none;flex-wrap:wrap;margin-top:8px;align-items:center;gap:6px" title="Per-sample DD+DA burst-selection range for the E/S histogram — excludes a sample whose donor-excitation total is too dim (min) or, optionally, too bright (max, blank = no upper limit)">
+          <div id="smfretEHistDexRow" style="display:none;flex-wrap:wrap;margin-top:8px;align-items:center;gap:6px" title="Per-sample DD+DA burst-selection range for the E or E/S histogram — excludes a sample whose donor-excitation total is too dim (min) or, optionally, too bright (max, blank = no upper limit)">
             <span class="scrublabel" style="color:var(--muted);font-size:12px;white-space:nowrap">DD + DA</span>
             <div class="dualrange" style="flex:1">
               <div id="smfretDexFill" class="dualrange-fill"></div>
@@ -17245,7 +17245,9 @@ updateMemReadout();
   // Typing ends history navigation.
   ta.addEventListener('input', ()=>{ histIdx=-1; });
 })();
-$('stopBtn').addEventListener('click',()=>{
+// Stop: ends a live-streaming session, else asks the running *Core() (Localize,
+// drift correction, 3D calibration) to stop via stopRequested.
+function requestStop(){
   if($('stopBtn').disabled) return;
   // Stop also ends a live-streaming session (closing the WebSocket first, or
   // its next message would re-arm it). stopRequested is for the *Core() runs.
@@ -17255,7 +17257,8 @@ $('stopBtn').addEventListener('click',()=>{
     return;
   }
   stopRequested=true; $('stopBtn').disabled=true; log('Stopping…');
-});
+}
+$('stopBtn').addEventListener('click',requestStop);
 // re-render (not re-localize) when any display setting changes
 $('mag').addEventListener('change',()=>{ if(lastResult) requestRerender(false); });
 // rblurRow applies to 'fixed' mode only.
@@ -17895,8 +17898,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28d — renamed: Load data, Save
-localisations, Get/Plot/Save traces, Rendering of localisations.`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28e — tooltips on every main button;
+Frame time, Load data and smFRET tooltips brought up to date.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));

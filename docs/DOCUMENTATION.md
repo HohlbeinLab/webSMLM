@@ -65,12 +65,12 @@ below for what it does.
 
 | Button | id | Does |
 |---|---|---|
-| **Load data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single CSV previously written by **Save localisations**, OR a single JSON file webSMLM saved — smFRET traces (**Save traces**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. CSV vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
+| **Load data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF or BigTIFF, a native Nikon `.nd2`, a FITS file, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single CSV previously written by **Save localisations**, OR a single JSON file webSMLM saved — smFRET traces (**Save traces**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. CSV vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
 | **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation* module — no file needed, useful for a quick smoke-test or teaching demo. |
 | **Load settings** | `loadSetBtn` | Opens a `.json` file (as saved by **Save settings**) and applies every recognised `{id: value}` pair to the `PARAMS` registry — unknown/legacy keys are logged and ignored, not errored on. |
 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
-| **Localize** | `runBtn` | Runs detection + fitting over the whole loaded/simulated stack — the main action. Disabled until a stack is loaded. |
-| **Stop** | `stopBtn` | Requests an early stop of a running **Localize** or **3D calibration**. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **3D calibration** again to restart with a narrower/correct frame range. |
+| **Localize** | `runBtn` | Runs detection + fitting over the Localisation frame range (**First/Last frame**, the whole stack by default) of the loaded/simulated movie, then renders the reconstruction — the main action. Disabled until a stack is loaded. |
+| **Stop** | `stopBtn` | Requests an early stop of a running **Localize**, **Correct drift** or **3D calibration**, or ends a live-streaming session. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Drift correction previews the partial curve but doesn't apply it. Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **Calibrate** again to restart with a narrower/correct frame range. |
 | **Save localisations** | `saveBtn` | Exports the current (filtered) localizations as a ThunderSTORM-compatible CSV — see [§6](#6-csv-export-format). Disabled until there are localizations. |
 | **Save plot/image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
 | **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations; during **Live streaming** this enables as soon as any localization has arrived, same as **Correct drift**/NeNA/FRC — see [§2](#table)'s "Available during Live streaming" note for what's restricted (committing a new filter) vs. not (browsing/sorting/histograms). Loading a CSV back in (via **Load data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
@@ -105,10 +105,11 @@ for now.
 
 `frametime` (labelled **Frame time (s)**, renamed from `sptFrameTime` in
 v0.12.1-dev) joined it for the same reason: a per-dataset acquisition
-property exactly like pixel size, not something specific to
-**Single-particle tracking** despite that module being its only current
-consumer — used to live inside `sptBox` (also collapsed by default). See
-[§3](#spt-params) for the full parameter entry and
+property exactly like pixel size. It sets the time axis of the smFRET time
+traces (and `time_s` in saved traces) and the diffusion coefficients, MSD
+and track durations of **Single-particle tracking**; it is never taken
+from the file (a frame interval found in the metadata is only logged as a
+hint). See [§3](#spt-params) for the full parameter entry and
 [§8](#8-headless-api-window-websmlm) for the temporary `sptFrameTime`
 back-compat alias (headless `config`, saved Settings JSON, and `?autorun=`
 URLs with the old key all still work, with a deprecation warning logged,
@@ -403,6 +404,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Load settings | `loadSettingsJson(file)` | |
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation module's fields |
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
+| **Stop** | `requestStop()` | ends a live-streaming session, else asks a running Localize/drift correction/3D calibration to stop |
 | Raw-panel crop tool | `applyCropToRaw(x0,y0,x1,y1)` / `uncropRaw()` | native-pixel bounds; does NOT localize |
 | Rotate movie | `applyMovieRotation()` | reads `#rotateMovie`; re-wraps the loaded movie and clears all results |
 | Reconstruction-panel crop tool | `commitSrCrop(x0,y0,x1,y1)` | **nm** bounds (not px) — a `_tableFilters` clause, not a stack crop |
@@ -2567,8 +2569,8 @@ for the first implementation.
 `frametime` (renamed from `sptFrameTime` in v0.12.1-dev) has no page control
 inside this module any more — it's a pinned, always-visible sidebar row
 next to **Pixel size (nm)**, since it's a per-dataset acquisition property
-like pixel size, not something spt-specific despite being this module's
-only current consumer. See [§1](#sidebar-pxnm-frametime) for the relocation
+like pixel size, shared with the smFRET time traces. See
+[§1](#sidebar-pxnm-frametime) for the relocation
 and the temporary `sptFrameTime` back-compat alias.
 
 | id | Label | Type | Min | Max | Step | Default |
