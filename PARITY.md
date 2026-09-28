@@ -28,7 +28,7 @@ clock-induced charge, integer ADU at a settable bit depth) with its
 analysis-side excess-noise correction, a non-uniform illumination profile,
 engineered PSFs (higher-order astigmatism presets and a Gauss-Laguerre
 double-helix phase mask) with a per-PSF Cramer-Rao bound, and a PSF-model
-fitter (`psfmle`). Rows those builds invalidate or add are marked
+fitter (`psfmle`, since moved to the `psf_fitting` branch). Rows those builds invalidate or add are marked
 *(webSMLM 2026-09-20)*; **the demoCam_SMLM_MM column was again NOT
 re-checked** for the same reason as above.
 
@@ -106,7 +106,7 @@ right call.
 | Z-stack / defocus | per-emitter Z (site's own z), nearest-plane lookup, no blend | per-emitter Z (site depth + Z-stage global offset add), nearest-plane only. The Gibson-Lanni depth focal shift (sweep centred at ti0 - depth·ni/ns) is ported -- **same** |
 | Engineered PSFs | higher-order astigmatism presets (`saddlePoint`/`extendedRange`/`extendedRangeStrong`, astigmatism stacked at OSA j=5/13/25) and a real double-helix phase mask (`simulation_psfMaskType`, Gauss-Laguerre superposition along l=2p+1, measured ~60 deg rotation over +/-800 nm) *(webSMLM 2026-09-20)* | same presets (`SaddlePoint`/`ExtendedRange`/`ExtendedRangeStrong`) and the same double-helix mask (`PsfMaskType`=`DoubleHelix`, `PsfMaskModes` 5, `PsfMaskWaist` 1.0) -- **same**; bit-identical pupil/PSF (Numeric cross-check §4) *(both 2026-09-21)* |
 | PSF figure of merit | `psfZCramerRao()`: x/y/z Cramer-Rao bound from the kernel stack, PSF-shape agnostic (the astigmatism-specific `zUsableNm` is kept alongside it) *(webSMLM 2026-09-20)* | same function (`DescribePsfCramerRao`), logged to the corelog after every kernel build, like webSMLM's log line; `zUsableNm` not ported -- **same** (log-only in both) *(both 2026-09-21)* |
-| PSF-model ("vector") fitting | `psfmle`: fits the camera-pixel-integrated modelled PSF itself, theta=[x,y,N,bg,z], tricubic over samples, coarse z scan then Newton, joint z CRLB, no width calibration needed; single-threaded for now *(webSMLM 2026-09-20)* | absent (fitting is out of scope for a device adapter) |
+| PSF-model ("vector") fitting | absent (`psfmle` lives on the `psf_fitting` branch) | absent |
 | Measured/experimental PSF, bead-calibrated spline PSF, biplane | absent in both | absent in both |
 
 ## Emitter placement / structures

@@ -2126,46 +2126,18 @@ It was reported as "measured and rejected" in build 2026-09-20e, but that measur
 the worker path while the mask was being dropped there, so it measured an unaberrated PSF and
 proves nothing about it; the Gauss-Laguerre construction is here because it is the published one.
 
-**Fitting them: `PSF model MLE 3D` (`psfmle`).** A Gaussian has no width to read z from once the
-PSF is engineered, so this method fits the modelled PSF itself: the camera-pixel-integrated
-kernel, interpolated continuously in x, y and z (tricubic Catmull-Rom over the oversampled
-samples), handed to the same Fisher-scoring driver the Gaussian MLEs use. Depth is therefore a
-fitted parameter with its own CRLB, not a value inverted from a width calibration afterwards —
-and the method needs **no calibration file at all**: its model comes from the Simulation
-settings' PSF section, so the optical parameters (and `simulation_pxnm`) must match the data.
-A coarse z scan precedes the Newton step, because an engineered PSF's likelihood is not unimodal
-in z.
+**Fitting them.** None of the Gaussian fitters here can read z from a PSF with no meaningful
+width (double helix, extended depth). A PSF-model fitter (`psfmle`) and the detection-merge step
+it needs are being developed separately on the `psf_fitting` branch and are not part of this
+build.
 
-Measured on one astigmatic 3D movie (3000 photons, ±500 nm structure), against `mle3d` on the
-same data: axial median **16.9 nm vs 22.6 nm**, equal detection (79.3% vs 79.0%) and equal
-lateral accuracy (6.07 vs 6.24 nm), at 1.8× the time — 0.5 ms/spot for the fit itself, measured
-directly, against 0.086 ms for the Gaussian elliptical MLE. It runs **single-threaded** for now:
-the model is megabytes that would have to reach every worker through a second message type, which
-this pool's single `onmessage` makes a real scheduling hazard.
-
-**On the double helix.** This took three wrong turns worth recording, because each looked
-convincing. `psfmle` on a DH PSF first returned the *magnitude* of z to a few nm and its *sign*
-about half the time. A rescan-and-restart of the z scan changed nothing; lobe pairing in the
-detector merged nothing; and feeding the fitter data generated from its own model reproduced the
-failure exactly — which seemed to prove the mask, not the fitter, was at fault.
-
-It was none of those. `buildPsfPlanesParallel()` and the PSF worker each spell the optical
+**On the double helix: a mask that silently never reached the kernel.** `buildPsfPlanesParallel()` and the PSF worker each spell the optical
 parameters out by hand instead of forwarding the config, and **neither listed the mask fields**,
 so every kernel built through the worker pool — the default path — came back unaberrated. The
 tell was there to be read earlier: six different mask settings all reported the same z-CRLB, and
 a kernel built with the mask was byte-identical to one built without it. With the parameters
 forwarded, the sign of z is encoded decisively: the expected log-likelihood ratio between +z and
-−z at ±400 nm and 5000 photons is **516**, where an unaberrated PSF gives exactly 0, and the
-fitter recovers the sign on every test emitter (−598, −384, −224, 189, 405, 595 nm for true
-−600 … +600).
-
-On a real DH movie the fit now tracks depth (slope of fitted against true z 0.67, axial median
-37 nm), and what limits it is detection rather than fitting: the PSF arrives as several maxima
-per emitter, so each molecule is fitted several times and precision falls to 25%. **Merge
-detections within (px)** exists for that, and the trade is measured — merging within 6 px:
-precision 30%, slope 0.71; within 10 px: precision 47%, slope **1.04**, no gross failures, but
-recall down from 49% to 26% as neighbouring emitters start merging too. It defaults to 0 (off),
-which is correct for any single-blob PSF.
+−z at ±400 nm and 5000 photons is **516**, where an unaberrated PSF gives exactly 0.
 
 **The yardstick: `psfZCramerRao()`.** Every PSF build now also reports the Cramér-Rao lower bound
 on x, y and z, computed from the kernel itself under the current photon and background settings,
@@ -2334,7 +2306,6 @@ each bin too sparse to mean anything.
 | `detection_wavelet_thr` | Wavelet threshold (k·σ_noise) | number | 1 | 8 | 0.5 | 4 |
 | `detection_DoG_thr` | DoG threshold (k·σ_noise) | number | 1 | 8 | 0.5 | 4 |
 | `detection_box_thr` | Uniform box filter threshold (intensity) | number | 0 | 65535 | 1 | 25 |
-| `detection_mergeRadius` | Merge detections (px) | number | 0 | 40 | 1 | 0 |
 | `detection_DoG_exactbp` | Exact band-pass (DoG only) | bool | — | — | — | false |
 | `psf` | σ_PSF — PSF width (px) | number | 0.8 | 5 | 0.1 | 1.3 |
 | `winr` | Fit radius (px) — window size = 2·winr+1; **no page control**, mirrors `winr2d`/`winr3d` below — see [§2](#fit) | number (int) | 2 | 20 | 1 | 3 |
@@ -2351,7 +2322,7 @@ single control group in the sidebar.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `method` | Fit method (incl. `psfmle`, PSF model MLE 3D) | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll`, `psfmle` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE spherical", "Gauss MLE elliptical", "Gauss MLE rotated elliptical", "PSF model MLE 3D (experimental)") |
+| `method` | Fit method | enum | — | — | — | `gaussmle` (options: `phasor`, `phasor3d`, `gaussls`, `gaussmle`, `mle3d`, `gaussmleEll` — UI labels "Phasor 2D", "Phasor 3D", "Gaussian LS 2D", "Gauss MLE spherical", "Gauss MLE elliptical", "Gauss MLE rotated elliptical") |
 | `localize3D` | 3D localisation | bool | — | — | — | true (only shown/meaningful for `mle3d`/`gaussmleEll` — see §2/fit) |
 | `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
 | `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
@@ -2376,7 +2347,6 @@ here, then run the script, never edit the `.hint` div directly):
   <li><b>Gaussian LS 2D</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
   <li><b>Gauss MLE spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
   <li><b>Gauss MLE elliptical</b> / <b>Gauss MLE rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation</b> below.</li>
-  <li><b>PSF model MLE 3D</b> (experimental) — fits the modelled PSF itself (Simulation settings → PSF) instead of a Gaussian, with z a fitted parameter: no calibration file, and it works for PSFs with no meaningful width (double helix, extended depth). Single-threaded and CPU-only for now.</li>
 </ul>
 <p><b>3D localisation</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as <b>Gauss MLE elliptical</b>. <b>Unchecked</b>: a calibration-free fit with no z — for <b>Gauss MLE elliptical</b> this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing (sSMLM &amp; FRET) → Primary angle).</p>
 <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
@@ -2386,7 +2356,6 @@ here, then run the script, never edit the `.hint` div directly):
   <li><b>DoG band-pass</b> — a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38% of detections).</li>
   <li><b>Uniform box filter</b> — a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.</li>
 </ul>
-<p><b>Merge detections (px)</b> — maxima closer together than this are merged into one detection at their centroid. Leave it at 0 (off) for any ordinary PSF; for an engineered PSF that reaches the detector as several maxima per emitter, set roughly its lobe separation.</p>
 <p><b>Temporal median filtering</b> (FTM) is a per-pixel background correction — for a given frame, each pixel's value across a <b>window</b> of nearby frames (centred on that frame; clamped, not shrunk, at the very first/last few frames, so every frame still gets a full-width window) has its <b>median</b> subtracted — a robust estimate of that pixel's slowly-varying background at this point in time. Since a blinking emitter occupies far less than half the window at any one pixel, the median tracks the background, not the signal, so what's left after subtraction is mostly signal above background. Checking this box:</p>
 <ul>
   <li>Adds a <b>raw / FTM-corrected</b> toggle next to the raw panel title, computing the correction live for whichever frame you're scrubbed to.</li>

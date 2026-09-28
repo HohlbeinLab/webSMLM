@@ -583,26 +583,10 @@ what makes GUI and command-line use interchangeable.
   - The **Use GPU acceleration** checkbox sits in "Memory, Rotation, GPU & streaming" (shared by fit, render,
     FRC).
 
-  **`psfmle` — PSF-model ("vector") fitting (2026-09-20).** `psfModelMLE()` fits the modelled PSF
-  itself rather than a Gaussian: `buildPsfFitModel()` box-filters each kernel plane by one camera
-  pixel (summed-area table, ~20 ms, 3.4 MB for 61 planes) and `psfModelSample()` interpolates
-  those samples tricubically (Catmull-Rom over SAMPLES, not B-spline coefficients — the
-  coefficient tensor would be ~64× the memory), giving value and d/dx,d/dy,d/dz in closed form
-  for `mleNewtonFit`'s θ=[x,y,N,bg,z]. **The box centre is half an oversampled step off the
-  sample position for an even oversample** — `sampleShift`; without it every position came out
-  biased by 0.125 camera px (measured −12.1/−12.8 nm against ground truth while the CRLB claimed
-  3.5 nm). A coarse z scan precedes Newton because the likelihood is multimodal in z for an
-  engineered PSF. Needs no calibration file: `ensurePsfFitModel()` builds the model from the
-  Simulation PSF section and warns when `simulation_pxnm` differs from the analysis `pxnm`.
-  Measured against `mle3d` on one astigmatic 3D movie: axial median 16.9 vs 22.6 nm, equal
-  recall and lateral, 1.8× the time (0.5 ms/spot for the fit itself vs 0.086).
-  **Single-threaded on purpose for now** (`useWorkers` excludes it): the model is megabytes and
-  the pool's single `onmessage` makes a second message type a scheduling hazard. It is also not in
-  `GPU_FIT_METHODS` (MODULE: gpu), so **Use GPU acceleration** leaves it on the CPU.
-  **Double helix — and the bug that faked a physics conclusion (2026-09-20g).** `psfmle` first
-  recovered |z| but not its sign on a DH PSF; a z rescan-and-restart changed nothing, lobe
-  pairing merged nothing, and the failure reproduced on data generated from the fitter's own
-  model — which looked like proof that the MASK was at fault. It was not: **`buildPsfPlanesParallel()`
+  **PSF-model fitting (`psfmle`) and `detection_mergeRadius` are not on this branch** — they
+  live on `psf_fitting` (split off 2026-09-28 so the simulation PR stays about simulation).
+  **Double helix — the bug that faked a physics conclusion (2026-09-20g).** A DH fit once looked
+  like proof that the MASK did nothing. It was not: **`buildPsfPlanesParallel()`
   and the PSF worker each spell the optical parameters out by hand rather than forwarding `cfg`,
   and neither listed `maskType`/`maskModes`/`maskWaist`** — so every kernel built through the
   pool (the default path) came back unaberrated, and every DH measurement was really measuring a
@@ -613,16 +597,6 @@ what makes GUI and command-line use interchangeable.
   With it fixed the sign is decisive — expected log-likelihood ratio between +z and −z at ±400 nm,
   5000 photons: 516, against exactly 0 unaberrated.
 
-  **`detection_mergeRadius` (MODULE: detect, `mergeNearbyMaxima`)** follows from it: an
-  engineered PSF reaches the detector as several maxima per emitter, so each molecule gets fitted
-  several times (DH movie: precision 25% at recall 49%). Single-linkage clustering to each
-  cluster's centroid; measured trade at 6 px precision 30%/slope 0.71, at 10 px precision
-  47%/slope 1.04 with no gross failures but recall down to 26%. Default 0 = off. Clustering, not
-  pairwise pairing: a real engineered PSF also has satellites whose count changes with depth.
-  `mergeRadius` is threaded through EVERY Localize detect site — the worker's frame-batch and
-  `gpuDetect` branches (both message shapes carry it), `runCore()`'s serial and GPU-serial loops,
-  the raw-panel previews, `showFrame()` and live streaming; calibration and smFRET SOI detection
-  deliberately stay at 0. A new detect call inside `runCore()` needs it too.
 
 
 - **render** — accumulates locs into `srFull` (dense, O(W·H)); `view` is zoom/pan (zoom = CSS px

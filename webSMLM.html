@@ -1766,7 +1766,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="gaussmle" selected>Gauss MLE spherical</option>
             <option value="mle3d">Gauss MLE elliptical</option>
             <option value="gaussmleEll">Gauss MLE rotated elliptical</option>
-            <option value="psfmle">PSF model MLE 3D (experimental)</option>
           </select></label>
         <label class="row" id="localize3DRow" style="margin-top:8px;display:none">3D localisation <input type="checkbox" id="localize3D" checked></label>
         <div id="cal3dRow" style="display:none;margin:6px 0 2px">
@@ -1791,7 +1790,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" id="detection_DoG_thrRow" style="margin-top:8px">Threshold (k·σ_noise) <input type="number" id="detection_DoG_thr" min="1" max="8" step="0.5" value="4" class="num"></label>
         <label class="row" id="detection_box_thrRow" style="margin-top:8px">Threshold (intensity) <input type="number" id="detection_box_thr" min="0" max="65535" step="1" value="25" class="num"></label>
         <label class="row">σ_PSF (px) <input type="number" id="psf" min="0.8" max="5" step="0.1" value="1.3" class="num"></label>
-        <label class="row" title="Detections closer together than this are merged into one at their centroid. An engineered PSF (double helix, extended depth) reaches the detector as several maxima per emitter; set this to roughly its lobe separation. 0 = off, correct for any ordinary single-blob PSF.">Merge detections (px) <input type="number" id="detection_mergeRadius" min="0" max="40" step="1" value="0" class="num"></label>
         <label class="row" style="display:none" title="The active fit window half-width, internally auto-set from Fit radius 2D/3D below — no longer a separate control; see winr2d/winr3d.">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="3" class="num"></label>
         <label class="row" title="The fit window half-width used whenever a 2D method (or a 3D-capable method with 3D localisation unchecked) is active.">Fit radius 2D (px) <input type="number" id="winr2d" min="2" max="10" step="1" value="3" class="num"></label>
         <label class="row" title="The fit window half-width used whenever a genuinely 3D fit (real z coming out) is active — wider, since an astigmatic PSF's elongated axis needs more pixels.">Fit radius 3D (px) <input type="number" id="winr3d" min="2" max="10" step="1" value="4" class="num"></label>
@@ -1807,7 +1805,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Gaussian LS 2D</b> — ordinary least-squares; ≈ slightly better precision than phasor, much slower.</li>
           <li><b>Gauss MLE spherical</b> (default) — Poisson-optimal, one symmetric σ, reports a real CRLB uncertainty; cost ≈ LS.</li>
           <li><b>Gauss MLE elliptical</b> / <b>Gauss MLE rotated elliptical</b> — independent σx/σy (axis-aligned, or at a rotation angle) instead of one symmetric σ; see <b>3D localisation</b> below.</li>
-          <li><b>PSF model MLE 3D</b> (experimental) — fits the modelled PSF itself (Simulation settings → PSF) instead of a Gaussian, with z a fitted parameter: no calibration file, and it works for PSFs with no meaningful width (double helix, extended depth). Single-threaded and CPU-only for now.</li>
           </ul>
           <p><b>3D localisation</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as <b>Gauss MLE elliptical</b>. <b>Unchecked</b>: a calibration-free fit with no z — for <b>Gauss MLE elliptical</b> this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing (sSMLM &amp; FRET) → Primary angle).</p>
           <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
@@ -1817,7 +1814,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>DoG band-pass</b> — a difference of Gaussians whose scale is tuned by σ_PSF; its <b>Exact band-pass</b> option replaces the fast box approximation of the background with a true Gaussian (~2× slower, but exactly reproducible — on the GATTA-PAINT test stack it changes 0.38% of detections).</li>
           <li><b>Uniform box filter</b> — a difference of two box (uniform) averages sized off σ_PSF, following Huang, Schwartz, Byars &amp; Lidke (2011); unlike the other two it thresholds on a plain <b>intensity</b> value, not k·σ_noise, so its default (25) needs re-tuning to your camera's counts.</li>
           </ul>
-          <p><b>Merge detections (px)</b> — maxima closer together than this are merged into one detection at their centroid. Leave it at 0 (off) for any ordinary PSF; for an engineered PSF that reaches the detector as several maxima per emitter, set roughly its lobe separation.</p>
           <p><b>Temporal median filtering</b> (FTM) is a per-pixel background correction — for a given frame, each pixel's value across a <b>window</b> of nearby frames (centred on that frame; clamped, not shrunk, at the very first/last few frames, so every frame still gets a full-width window) has its <b>median</b> subtracted — a robust estimate of that pixel's slowly-varying background at this point in time. Since a blinking emitter occupies far less than half the window at any one pixel, the median tracks the background, not the signal, so what's left after subtraction is mostly signal above background. Checking this box:</p>
           <ul>
           <li>Adds a <b>raw / FTM-corrected</b> toggle next to the raw panel title, computing the correction live for whichever frame you're scrubbed to.</li>
@@ -2665,10 +2661,6 @@ const PARAMS = {
   detection_box_thr: { type:'number', id:'detection_box_thr', label:'Uniform box filter threshold (intensity)', min:0, max:65535, step:1, default:25, int:false },
   // detection_DoG_exactbp = true Gaussian background estimate instead of the faster box approximation (DoG only)
   detection_DoG_exactbp: { type:'bool', id:'detection_DoG_exactbp', label:'Exact band-pass (DoG only)', default:false },
-  // Detections closer together than this belong to one emitter and are merged at their centroid
-  // (mergeNearbyMaxima). 0 = off, which is right for any single-blob PSF; an engineered PSF needs
-  // roughly its own lobe separation here.
-  detection_mergeRadius: { type:'number', id:'detection_mergeRadius', label:'Merge detections (px)', min:0, max:40, step:1, default:0, int:false },
   // psf = σ_PSF, the point-spread-function width in camera pixels; sets filter scale + fit initial guess
   psf: { type:'number', id:'psf', label:'σ_PSF — PSF width (px)', min:0.8, max:5, step:0.1, default:1.3, int:false },
   // winr = "window radius": half-width of the square fit window, so window size = 2·winr+1.
@@ -2695,11 +2687,7 @@ const PARAMS = {
 
   // ---- fit ----
   // method = which localization fitter runs: phasor 2D/3D, Gaussian least-squares, or Gaussian MLE 2D/3D
-  // 'psfmle' fits the physical PSF itself (MODULE: fit, psfModelMLE) with z as a free parameter,
-  // which is the only method here that can localize a PSF with no meaningful width — a double
-  // helix or an extended-depth mask. Its model comes from the Simulation settings' own PSF
-  // section rather than a calibration file; see runCore()'s psfModel handling.
-  method: { type:'enum', id:'method', label:'Fit method', options:['phasor','phasor3d','gaussls','gaussmle','mle3d','gaussmleEll','psfmle'], default:'gaussmle' },
+  method: { type:'enum', id:'method', label:'Fit method', options:['phasor','phasor3d','gaussls','gaussmle','mle3d','gaussmleEll'], default:'gaussmle' },
   // useGpu: WebGPU for the MLE/phasor fits, fixed/precision rendering and FRC;
   // each stage falls back to CPU (with a log line) when slower, unsupported or
   // failing. Default on.
@@ -6698,10 +6686,6 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
 // change away, but it is fixed here rather than a control because a range is only comparable
 // between runs when its definition never moves.
 const EFF_Z_RECALL=0.5;
-// The PSF-model fitter's own model (MODULE: fit, psfModelMLE), built from the Simulation
-// settings' PSF section by ensurePsfFitModel() and reused by the live preview. Null until a
-// 'psfmle' Run or preview has built one.
-let _psfFitModel=null;
 let lastTruthScore=null;         // stashed like lastNena, so the plot can be re-drawn/exported
 
 // Expands groundTruthEvents (one entry per emitter ACTIVATION, with fractional start/end times)
@@ -7556,39 +7540,7 @@ function findMaximaUniform(filt,w,h,thr,border,maxf3){
 // Single dispatch point used by both the main thread and the worker: picks the
 // right band-pass + maxima-finding pair for the selected detection method.
 // `thr` means k·σ_noise for wave/dog, and a plain intensity cutoff for box.
-// Merge detections that belong to ONE emitter. An engineered PSF is not a single blob: a double
-// helix reaches the detector as two lobes plus satellite rings, so a blob detector returns
-// several maxima per emitter and the fitter then fits the same molecule several times — measured
-// on a DH movie, precision 25% with recall 49%, the missing 75% being duplicates of real
-// emitters rather than noise. Single-linkage clustering within `radiusPx`, reported at each
-// cluster's CENTROID, which for a symmetric lobe pair is the emitter itself.
-//
-// Deliberately clustering, not pairwise pairing: pairing assumes exactly two lobes at a known
-// separation, and a real engineered PSF also throws light into satellites whose count changes
-// with depth. (A pairing version was written first, measured against a mask that turned out not
-// to be reaching the kernel at all, and discarded.)
-function mergeNearbyMaxima(maxima, radiusPx){
-  if(!(radiusPx>0) || maxima.length<2) return maxima;
-  const r2=radiusPx*radiusPx, parent=maxima.map((_,i)=>i);
-  const find=i=>{ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; };
-  for(let i=0;i<maxima.length;i++) for(let j=i+1;j<maxima.length;j++){
-    const dx=maxima[i][0]-maxima[j][0], dy=maxima[i][1]-maxima[j][1];
-    if(dx*dx+dy*dy<=r2){ const a=find(i), b=find(j); if(a!==b) parent[a]=b; }
-  }
-  const groups=new Map();
-  for(let i=0;i<maxima.length;i++){ const root=find(i);
-    let g=groups.get(root); if(!g){ g=[]; groups.set(root,g); } g.push(maxima[i]); }
-  const out=[];
-  for(const g of groups.values()){
-    if(g.length===1){ out.push(g[0]); continue; }
-    let sx=0, sy=0; for(const m of g){ sx+=m[0]; sy+=m[1]; }
-    out.push([Math.round(sx/g.length), Math.round(sy/g.length)]);
-  }
-  return out;
-}
-// mergeRadiusPx is optional and defaults to "off", so every existing caller behaves exactly as
-// before (PARAMS.detection_mergeRadius).
-function detectSpots(img,w,h,sigma,exactBP,mode,thr,border,mergeRadiusPx){
+function detectSpots(img,w,h,sigma,exactBP,mode,thr,border){
   let filt, maxima;
   if(mode==='box'){
     filt=uniformBP(img,w,h,sigma);
@@ -7597,7 +7549,6 @@ function detectSpots(img,w,h,sigma,exactBP,mode,thr,border,mergeRadiusPx){
     filt=detectFilter(img,w,h,sigma,exactBP,mode);
     maxima=findMaxima(filt,w,h,thr,border);
   }
-  if(mergeRadiusPx>0) maxima=mergeNearbyMaxima(maxima, mergeRadiusPx);
   return { filt, maxima };
 }
 
@@ -7793,123 +7744,6 @@ function mleNewtonFit(n, th, mstep, clampFn, r, cx, cy, img, w, gain, camoffset,
     // preserve that user-facing knob's own units, so both conditions apply.
     if(Math.abs(th[0]-ox)<eps && Math.abs(th[1]-oy)<eps && lambda2<MLE_CONV_DECREMENT_TOL){ converged=true; break; } }
   return { converged, fisher: pin(buildFisher(false),false) };
-}
-/* ---- PSF-model ("vector") fitting: fit the measured/modelled PSF itself, not a Gaussian ----
-   A Gaussian describes an in-focus, unaberrated spot well and everything else badly: an
-   engineered PSF (double helix, extended-depth) has no width to read z from at all. This fitter
-   instead evaluates the SAME physical PSF the simulator renders from, interpolated continuously
-   in x, y and z, and hands it to the existing Fisher-scoring driver as just another model — so z
-   comes out of the fit as a free parameter with its own CRLB, rather than being inverted from a
-   width calibration afterwards (zFromWidths).
-
-   What is interpolated is the camera-pixel-INTEGRATED PSF, sampled on the oversampled grid: box
-   -filter each kernel plane by one camera pixel once (buildPsfFitModel), and the sample at an
-   oversampled offset IS the pixel integral for that sub-pixel emitter position. Tricubic
-   Catmull-Rom over those samples gives the value and all three derivatives in closed form.
-   Catmull-Rom over the SAMPLES rather than true B-spline coefficients (Li et al., Nat. Methods
-   15, 367 (2018)) is the cheap choice: it interpolates the samples exactly and needs no
-   coefficient tensor — 3.4 MB of samples against ~220 MB of 64-per-voxel coefficients at these
-   sizes. If interpolation bias ever shows up in a scored run, that is the thing to revisit. */
-// Box-filter every kernel plane by one camera pixel, normalised so each plane integrates to 1
-// photon. A summed-area table makes each box O(1), so the whole model builds in ~20 ms.
-function buildPsfFitModel(kern, ov){
-  const {nx,ny,nz,slices,zStepNm,focusIndex}=kern, half=ov>>1, samp=[];
-  for(let z=0;z<nz;z++){
-    const s=slices[z]; let sum=0; for(let i=0;i<s.length;i++) sum+=s[i];
-    const sat=new Float64Array((nx+1)*(ny+1));
-    for(let y=0;y<ny;y++){ let run=0;
-      for(let x=0;x<nx;x++){ run+=s[y*nx+x]/(sum||1); sat[(y+1)*(nx+1)+x+1]=sat[y*(nx+1)+x+1]+run; } }
-    const b=new Float32Array(nx*ny);
-    for(let y=0;y<ny;y++) for(let x=0;x<nx;x++){
-      const x0=Math.max(0,Math.min(nx,x-half)), x1=Math.max(0,Math.min(nx,x-half+ov));
-      const y0=Math.max(0,Math.min(ny,y-half)), y1=Math.max(0,Math.min(ny,y-half+ov));
-      b[y*nx+x]=sat[y1*(nx+1)+x1]-sat[y0*(nx+1)+x1]-sat[y1*(nx+1)+x0]+sat[y0*(nx+1)+x0];
-    }
-    samp.push(b);
-  }
-  // Where the box actually SITS. b[x] sums oversampled samples x-half … x-half+ov-1, whose
-  // centre is x-(ov-1)/2+ (ov-1)/2 … i.e. x-0.5 for an even oversample, x exactly for an odd one.
-  // Reading b[x] as if it were centred on x therefore offsets every fitted position by half an
-  // oversampled step — 0.125 camera px at ov=4, which measured as a -12.1 nm / -12.8 nm bias in
-  // x and y against ground truth while the CRLB claimed 3.5 nm. sampleShift puts it back.
-  const sampleShift = (ov%2===0) ? 0.5 : 0;
-  return {samp, nx, ny, nz, ov, zStepNm, focusIndex, sampleShift, cx:(nx-1)/2, cy:(ny-1)/2,
-          zMaxNm:(nz-1-focusIndex)*zStepNm, zMinNm:-focusIndex*zStepNm};
-}
-// Catmull-Rom weights, and their derivative with respect to the fractional coordinate.
-function crWeights(f){ const f2=f*f, f3=f2*f;
-  return [0.5*(-f3+2*f2-f), 0.5*(3*f3-5*f2+2), 0.5*(-3*f3+4*f2+f), 0.5*(f3-f2)]; }
-function crWeightsD(f){ const f2=f*f;
-  return [0.5*(-3*f2+4*f-1), 0.5*(9*f2-10*f), 0.5*(-9*f2+8*f+1), 0.5*(3*f2-2*f)]; }
-// Tricubic sample of the model at oversampled coordinates (u,v) and fractional plane kf.
-// Writes d/du, d/dv, d/dplane into gOut and returns the value. Edges clamp, which is correct
-// here: the kernel already covers the PSF's real extent, so a clamped read is in its tail.
-function psfModelSample(m, u, v, kf, gOut){
-  const iu=Math.floor(u), iv=Math.floor(v), ik=Math.floor(kf);
-  const wu=crWeights(u-iu), wv=crWeights(v-iv), wk=crWeights(kf-ik);
-  const du=crWeightsD(u-iu), dv=crWeightsD(v-iv), dk=crWeightsD(kf-ik);
-  let val=0, gu=0, gv=0, gk=0;
-  for(let c=0;c<4;c++){
-    const plane=m.samp[Math.max(0,Math.min(m.nz-1, ik-1+c))];
-    for(let b=0;b<4;b++){
-      const y=Math.max(0,Math.min(m.ny-1, iv-1+b)), row=y*m.nx;
-      for(let a=0;a<4;a++){
-        const sv=plane[row+Math.max(0,Math.min(m.nx-1, iu-1+a))], wab=wu[a]*wv[b];
-        val+=sv*wab*wk[c]; gu+=sv*du[a]*wv[b]*wk[c]; gv+=sv*wu[a]*dv[b]*wk[c]; gk+=sv*wab*dk[c];
-      } } }
-  gOut[0]=gu; gOut[1]=gv; gOut[2]=gk; return val;
-}
-// theta = [x, y, N, bg, z(nm)]. u=(px-x)*ov, so du/dx = -ov; the plane coordinate is z/zStep.
-function makePsfModelFn(m){
-  const g=[0,0,0];
-  return (px,py,th,duOut)=>{
-    const p=psfModelSample(m, m.cx+(px-th[0])*m.ov+m.sampleShift, m.cy+(py-th[1])*m.ov+m.sampleShift,
-                           m.focusIndex+th[4]/m.zStepNm, g);
-    duOut[0]=-th[2]*g[0]*m.ov; duOut[1]=-th[2]*g[1]*m.ov;
-    duOut[2]=p; duOut[3]=1; duOut[4]=th[2]*g[2]/m.zStepNm;
-    return th[2]*p+th[3];
-  };
-}
-// Poisson MLE against the PSF model. Same shape as the Gaussian fitters, plus a COARSE Z SCAN
-// before the Newton step: an engineered PSF's likelihood is not unimodal in z (a double helix at
-// +400 nm looks much like one at -400 nm rotated), so a Newton step from z=0 can settle in the
-// wrong basin. The scan costs ~13 model evaluations; leaving it out is not an option.
-function psfModelMLE(img,w,h,cx,cy,win,model,gain=1,camoffset=0,eps=0.001){
-  const r=(win-1)/2, n=5, modelFn=makePsfModelFn(model);
-  let sum=0,mx=0,my=0,mn=Infinity;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain;
-    sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
-  const th=[ sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*win*win), Math.max(1e-3,mn), 0 ];
-  const du=new Array(5);
-  const logL=t=>{ let ll=0;
-    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-      const mu=modelFn(cx+dx,cy+dy,t,du);
-      if(mu>1e-9) ll+=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain*Math.log(mu)-mu; }
-    return ll; };
-  const step=Math.max(model.zStepNm, (model.zMaxNm-model.zMinNm)/24);
-  const scanZ=t=>{ const keep=t[4]; let bz=keep, bl=-Infinity;
-    for(let z=model.zMinNm; z<=model.zMaxNm; z+=step){ t[4]=z; const ll=logL(t); if(ll>bl){ bl=ll; bz=z; } }
-    t[4]=bz; return bl; };
-  const clamp=t=>{ if(t[2]<1)t[2]=1; if(t[3]<0)t[3]=0;
-    if(t[4]<model.zMinNm)t[4]=model.zMinNm; if(t[4]>model.zMaxNm)t[4]=model.zMaxNm; };
-  const mkStep=t=>[1,1,Math.max(100,0.3*t[2]),Math.max(2,t[3]),Math.max(100,3*model.zStepNm)];
-  scanZ(th);
-  // A rescan-and-restart from the converged position was tried here and REMOVED: it changed not
-  // one localization, at real cost. (The double-helix sign failure it was written for turned out
-  // to be a dropped parameter in the PSF worker dispatch, not anything about this optimisation —
-  // see buildPsfPlanesParallel's own comment. With the mask actually applied, the sign of z is
-  // recovered on every test emitter.)
-  const {converged,fisher}=mleNewtonFit(n,th,mkStep(th),clamp,r,cx,cy,img,w,gain,camoffset,eps,25,modelFn);
-  if(!converged || th[2]<=1+1e-9 || Math.abs(th[0]-cx)>r || Math.abs(th[1]-cy)>r || !isFinite(th[0])) return null;
-  const ex=solveLin(fisher,[1,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0]), ez=solveLin(fisher,[0,0,0,0,1]);
-  const lpx=ex&&ex[0]>0?Math.sqrt(ex[0]):NaN, lpy=ey&&ey[1]>0?Math.sqrt(ey[1]):NaN;
-  if(!isFinite(lpx)||!isFinite(lpy)) return null;
-  let e2=0,cnt=0;
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-    const res=modelFn(cx+dx,cy+dy,th,du)-(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; e2+=res*res; cnt++; }
-  const edge = th[4]<=model.zMinNm+1e-6 || th[4]>=model.zMaxNm-1e-6;
-  return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
-           sigma:NaN, z:th[4], zClamped:edge, lpx, lpy, lpz: ez&&ez[4]>0?Math.sqrt(ez[4]):NaN };
 }
 // An EMCCD's gain register makes every pixel's variance F^2 times its mean instead of equal to
 // it (F^2 = 2 at high gain), which a Poisson likelihood cannot express. The standard dodge, and
@@ -9862,10 +9696,6 @@ function drawRaw(frame,w,h,spots,locs){
 // global scope; anything missing is a ReferenceError there).
 const WORKER_PRELUDE=[
   "let _mapKey='',_mapX=null,_mapY=null;",
-  // The PSF-model fitter's model. Stays null in the worker for now: 'psfmle' runs
-  // single-threaded (see runCore's useWorkers gate), so the worker's own psfmle branch is
-  // unreachable. Declared anyway, because the branch is compiled either way.
-  "let _psfFitModel=null;",
   "const _bmCache={};",
   "let _bpW=0,_bpH=0,_bpSm=null,_bpLg=null,_bpTmp=null;",
   "let _wW=0,_wH=0,_wV1=null,_wV2=null,_wTmp=null,_wOut=null;",
@@ -9889,7 +9719,7 @@ function workerSource(){
     blurInto.toString(), boxSizes.toString(), boxMap.toString(),
     boxH.toString(), boxV.toString(), boxInto.toString(),
     bandpass.toString(), atrous.toString(), waveletBP.toString(), detectFilter.toString(), findMaxima.toString(),
-    mergeNearbyMaxima.toString(), roundOdd.toString(), uniformFilterInto.toString(), uniformBP.toString(), maxH.toString(), maxV.toString(), maxFilterInto.toString(), findMaximaUniform.toString(), detectSpots.toString(),
+    roundOdd.toString(), uniformFilterInto.toString(), uniformBP.toString(), maxH.toString(), maxV.toString(), maxFilterInto.toString(), findMaximaUniform.toString(), detectSpots.toString(),
     solveLin.toString(), sseWin.toString(), gaussianFit.toString(),
     mleErf.toString(), mleGInt.toString(), mleModelSpherical.toString(), mleModelElliptical.toString(),
     mleClampSpherical.toString(), mleClampElliptical.toString(), mleNewtonFit.toString(),
@@ -9905,7 +9735,6 @@ function workerSource(){
     // phasorFit() itself now calls (MODULE: fit) AND what buildFitSeedRowPhasor()
     // above calls directly for the GPU-fit path.
     zFromWidths.toString(), apertureGeometry.toString(), percentile.toString(), phasorApertureIntensity.toString(), phasorFit.toString(), polyEval.toString(), applyExcessNoise.toString(),
-    crWeights.toString(), crWeightsD.toString(), psfModelSample.toString(), makePsfModelFn.toString(), psfModelMLE.toString(),
     ftmSeriesGlobal.toString(),
     `onmessage=function(e){
       const d=e.data;
@@ -9968,7 +9797,7 @@ function workerSource(){
         // candidates across MANY frames into one GPU dispatch instead of one
         // per frame (see runCore()'s useGpuFit branch) — this is what lets
         // detection for the NEXT batch overlap the GPU fitting the CURRENT one.
-        const {frames,start,w,h,sigma,k,border,exact,mode,win,gain,camoffset,seedMode,auditCandidates,mergeRadius}=d;
+        const {frames,start,w,h,sigma,k,border,exact,mode,win,gain,camoffset,seedMode,auditCandidates}=d;
         let tD=0,nC=0;
         // Two passes: detect every frame first so the exact candidate count is
         // known, then pack. Packing into exactly-sized arrays (rather than
@@ -9976,7 +9805,7 @@ function workerSource(){
         const perFrame=new Array(frames.length);
         for(let i=0;i<frames.length;i++){
           const img=frames[i], t0=performance.now();
-          const {maxima}=detectSpots(img,w,h,sigma,exact,mode,k,border,mergeRadius);
+          const {maxima}=detectSpots(img,w,h,sigma,exact,mode,k,border);
           tD+=performance.now()-t0; nC+=maxima.length;
           perFrame[i]=maxima;
         }
@@ -10003,16 +9832,15 @@ function workerSource(){
                     [seedsA.buffer,seedsB.buffer,windows.buffer,frameIdx.buffer,candidatePixels.buffer,preview.buffer]);
         return;
       }
-      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,mergeRadius,auditCandidates}=d;
+      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,auditCandidates}=d;
       const out=[]; let tD=0,tF=0,nC=0;
       for(let i=0;i<frames.length;i++){
         const img=frames[i], t0=performance.now();
-        const {maxima}=detectSpots(img,w,h,sigma,exact,mode,k,border,mergeRadius);
+        const {maxima}=detectSpots(img,w,h,sigma,exact,mode,k,border);
         const t1=performance.now(); tD+=t1-t0; nC+=maxima.length;
         const isPh = method==='phasor'||method==='phasor3d';
         for(const mm of maxima){
-          const L = applyExcessNoise(method==='psfmle' ? psfModelMLE(img,w,h,mm[0],mm[1],win,_psfFitModel,gain,camoffset,eps)
-                         : method==='gaussmle' ? gaussianMLEspheric(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
+          const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
                          : method==='mle3d' ? gaussianMLEelliptic(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
                          : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,sSmlmAngleRad)
                          : isPh ? phasorFit(img,w,h,mm[0],mm[1],win,gain,camoffset)
@@ -13181,7 +13009,7 @@ async function calibrationCore(config, stack, hooks={}){
   const fitsByFrame=new Map();
   for(const p of good){ let a=fitsByFrame.get(p.fi); if(!a){a=[];fitsByFrame.set(p.fi,a);} a.push({x:p.x,y:p.y}); }
   const calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:config.sourceFile, fixedXY,
-          det:{sigma,k,win,border,exactBP,mode,mergeRadius:0}, fitsByFrame,
+          det:{sigma,k,win,border,exactBP,mode}, fitsByFrame,
           pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
           zmin:Math.min(...zr), zmax:Math.max(...zr) };
   const cal3d=zcal;                               // make it immediately usable by Phasor 3D
@@ -18935,25 +18763,7 @@ function fitFrameRange(first, last, nStack){
   const lastIdx=Math.max(firstIdx+1, Math.min(nStack, last||nStack));
   return {firstIdx, lastIdx};
 }
-// Builds (or reuses) the PSF model the 'psfmle' fitter needs. Returns null when the Zernike PSF
-// model isn't selected — a fixed-sigma Gaussian has nothing to interpolate. `dataPxNm` is the
-// ANALYSIS pixel size: the model is sampled on the simulation's own pixel grid, so a mismatch
-// would silently scale every fitted position and depth.
-async function ensurePsfFitModel(dataPxNm){
-  if(paramValue('simulation_psfModel')!=='zernike') return null;
-  const cfg=readPsfConfigFromUI();
-  if(Math.abs(cfg.cameraPxNm-dataPxNm)>1e-6)
-    log(`⚠ PSF model MLE: the model is built on the Simulation pixel size (${cfg.cameraPxNm} nm) but this run uses ${dataPxNm} nm. `+
-        `Set them equal, or every fitted position and depth comes out scaled by their ratio.`);
-  const t0=performance.now();
-  const kern=await getOrBuildPsfKernelStack(cfg);
-  _psfFitModel=buildPsfFitModel(kern, cfg.oversample);
-  log(`PSF model MLE: model ready — ${_psfFitModel.nz} z-planes × ${_psfFitModel.nx}×${_psfFitModel.ny} samples `+
-      `(${(_psfFitModel.nz*_psfFitModel.nx*_psfFitModel.ny*4/1048576).toFixed(1)} MB, ${Math.round(performance.now()-t0)} ms). `+
-      `z is fitted freely over ${_psfFitModel.zMinNm.toFixed(0)}…${_psfFitModel.zMaxNm.toFixed(0)} nm and gets its own CRLB — no width calibration involved.`);
-  return _psfFitModel;
-}
-async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, hooks={}){
+async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // onLog/onProgress default to the real log()/setProg() — mirrors the
   // interactive path exactly when no hooks are given at all, same rule as
   // the loaders above. onRawPreview/onSrPreview stay no-op by default (no
@@ -18974,9 +18784,6 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
   const sigma=config.psf, win=2*config.winr+1, method=config.method;
   const k={ wave:config.detection_wavelet_thr, dog:config.detection_DoG_thr, box:config.detection_box_thr }[config.detFilter];
   const exactBP=config.detection_DoG_exactbp, mode=config.detFilter;
-  // One emitter, several maxima: an engineered PSF needs its detections merged (MODULE: detect,
-  // mergeNearbyMaxima). 0 for every ordinary PSF, which leaves detection untouched.
-  const mergeRadius=config.detection_mergeRadius||0;
   const camoffset=config.camoffset, eps=config.mleEps;
   // EMCCD excess noise (PARAMS.cameraExcessNoise): fit in F^2-photon units, report photons — see
   // applyExcessNoise(). `gain` from here on is what the FITTER sees, not what the user typed.
@@ -18989,7 +18796,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
   // degrees). Only meaningful for gaussmleEll; unused (still computed, no
   // extra branch needed) when method is anything else.
   const sSmlmAngleRad = config.localize3D ? null : (config.sSmlmAngleCenter||0)*Math.PI/180;
-  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gauss MLE spherical':method==='mle3d'?'Gauss MLE elliptical':method==='gaussmleEll'?'Gauss MLE rotated elliptical':method==='psfmle'?'PSF model MLE 3D':'Gaussian LS 2D';
+  const label = method==='phasor'?'Phasor 2D':method==='phasor3d'?'Phasor 3D':method==='gaussmle'?'Gauss MLE spherical':method==='mle3d'?'Gauss MLE elliptical':method==='gaussmleEll'?'Gauss MLE rotated elliptical':'Gaussian LS 2D';
   const border=(win-1)/2+1, locs=[]; let lastSpots=null, lastFrame=null, lastFrameIdx=-1, processed=0, stopped=false;
   // Memory guard: warns, then stops the Run (keeping partial locs) before the
   // locs array exhausts memBudgetGB (opt-in, default Infinity -> no-op; see
@@ -19101,16 +18908,9 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
   // detect+fit is worth worker-pool overhead, a calculus that doesn't apply
   // once GPU handles fitting. Non-FTM and GPU-ineligible-FTM behaviour is
   // completely unaffected (the OR only fires when both conditions hold).
-  // 'psfmle' runs single-threaded for now: its model is megabytes of samples that would have to
-  // reach every worker through a one-time init message, and this pool's single `onmessage` makes
-  // a second message type a real scheduling hazard (see the Web Worker gotcha in CLAUDE.md).
-  // Measured 0.5 ms/spot against 0.086 for the Gaussian MLE, so a 100k-spot run is under a
-  // minute — worth shipping before the plumbing rather than after it.
-  const useWorkers = pool && pool.length>1 && method!=='psfmle' &&
+  const useWorkers = pool && pool.length>1 &&
     ( (n>=config.workerMinFrames && (w*h>=config.workerMinPxFrame || n*w*h>=config.workerMinTotalPx))
       || (config.ftmEnabled && gpuFitEligible) );
-  if(method==='psfmle' && pool && pool.length>1)
-    onLog(`PSF model MLE runs single-threaded (~0.5 ms/spot): the ${pool.length}-worker pool is skipped this Run.`);
   // GPU fit (MODULE: gpu) covers EVERY MLE method — 'gaussmle' (spherical),
   // 'mle3d' (axis-aligned elliptical), and 'gaussmleEll' (rotated, both
   // fixed- and free-angle) — plus 'phasor'/'phasor3d', the one NON-iterative
@@ -19378,7 +19178,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
     const refreshRawPreview=(fi,img)=>{
       lastPreviewFi=fi; lastRawMs=performance.now();
       const tp=performance.now();
-      const mx=detectSpots(img,w,h,sigma,exactBP,mode,k,border,mergeRadius).maxima;
+      const mx=detectSpots(img,w,h,sigma,exactBP,mode,k,border).maxima;
       previewRing.push({fi,img,mx});
       if(previewRing.length>PREVIEW_LOOKBACK) previewRing.shift();
       let shown=null;
@@ -19425,7 +19225,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
           // Deduped: one buffer may back several frame views.
           const xfer = fetchStack.framesTransferable ? [...new Set(frames.map(f=>f.buffer))] : [];
           wk.postMessage({gpuDetect:1,frames,start:s,w,h,sigma,k,border,exact:exactBP,mode,
-                          win,gain,camoffset,seedMode:acc.seedMode,auditCandidates:!!config.auditCandidates,mergeRadius}, xfer);
+                          win,gain,camoffset,seedMode:acc.seedMode,auditCandidates:!!config.auditCandidates}, xfer);
         };
         pool.forEach(wk=>{
           wk.onmessage=ev=>{
@@ -19458,7 +19258,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
         for(let j=0;j<block.length;j++){
           const fi=b+j, img=block[j];
           const t0=performance.now();
-          const {maxima}=detectSpots(img,w,h,sigma,exactBP,mode,k,border,mergeRadius);
+          const {maxima}=detectSpots(img,w,h,sigma,exactBP,mode,k,border);
           tDetect+=performance.now()-t0; nCand+=maxima.length;
           for(const mm of maxima) appendCandidate(mm[0],mm[1],img,fi);
           if(fi>latestFi){ latestFi=fi; latestImg=img; }
@@ -19502,7 +19302,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
         if(latestImg && latestFi>lastPreviewFi){
           lastPreviewFi=latestFi; lastRawMs=performance.now();
           const tp=performance.now();
-          const mx=detectSpots(latestImg,w,h,sigma,exactBP,mode,k,border,mergeRadius).maxima;
+          const mx=detectSpots(latestImg,w,h,sigma,exactBP,mode,k,border).maxima;
           lastSpots=mx; lastFrame=latestImg; lastFrameIdx=latestFi;
           onRawPreview(latestImg,w,h,mx,latestLocs,latestFi,nStack);   // nStack: label shows true position in the whole stack, not the selected range
           previewMs+=performance.now()-tp;
@@ -19569,8 +19369,8 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
             // Worker packs seeds; not transferred (`corrected` is main-thread
             // owned and frames[0] is still read below).
             if(useGpuFitInFtm) wk.postMessage({gpuDetect:1,frames,start:s,w,h,sigma,k,border,exact:exactBP,mode,
-                                               win,gain,camoffset,seedMode:ftmAcc.seedMode,auditCandidates:!!config.auditCandidates,mergeRadius});
-            else wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,mergeRadius,auditCandidates:!!config.auditCandidates});
+                                               win,gain,camoffset,seedMode:ftmAcc.seedMode,auditCandidates:!!config.auditCandidates});
+            else wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,auditCandidates:!!config.auditCandidates});
           };
           pool.forEach(wk=>{
             wk.onmessage=ev=>{
@@ -19630,7 +19430,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
         // the right frame (a shared variable races ahead with many workers).
         wk._pendImg=frames[0]; wk._pendStart=s;
         // no transfer list: frames are cloned, so any RAM cache survives
-        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,mergeRadius,auditCandidates:!!config.auditCandidates});
+        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,auditCandidates:!!config.auditCandidates});
       };
       pool.forEach(wk=>{
         wk.onmessage=ev=>{
@@ -19672,7 +19472,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
     locs.sort((p,q)=>p.frame-q.frame);
     if(shown){ const tp=performance.now();       // display only — not compute time
       lastFrame=shown.img; lastFrameIdx=shown.fi;
-      lastSpots=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border,mergeRadius).maxima;
+      lastSpots=detectSpots(shown.img,w,h,sigma,exactBP,mode,k,border).maxima;
       // one-time filter now that the whole batch set is in — cheap unlike
       // doing this on every preview tick against a still-growing locs array
       const shownLocs=locs.filter(L=>L.frame===shown.fi).map(L=>({x:L.x,y:L.y}));
@@ -19690,11 +19490,11 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
       for(let j=0; j<block.length; j++){
         const fi=b+j, img=block[j];
         const tb=performance.now();
-        const {maxima}=detectSpots(img,w,h,sigma,exactBP,mode,k,border,mergeRadius);
+        const {maxima}=detectSpots(img,w,h,sigma,exactBP,mode,k,border);
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         const frameLocs=[];                         // this frame's accepted fits, for the raw-panel overlay below
         for(const [cx,cy] of maxima){
-          const L = applyExcessNoise(method==='psfmle' ? psfModelMLE(img,w,h,cx,cy,win,psfModel,gain,camoffset,eps) : method==='gaussmle' ? gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset), excessF2);
+          const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset), excessF2);
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -19870,7 +19670,7 @@ async function runCore(config, stack, {zcal=null, wcal=null, psfModel=null}={}, 
   const auditCandidatePixels=config.auditCandidates?Int32Array.from(locs,L=>L._candidatePixel):undefined;
   if(config.auditCandidates) for(const L of locs) L._candidatePixel=undefined;
 
-  return { locs, w, h, n, px, mag:config.mag, det:{sigma,k,win,border,exactBP,mode,mergeRadius},
+  return { locs, w, h, n, px, mag:config.mag, det:{sigma,k,win,border,exactBP,mode},
            method, label, processed, stopped, useWorkers,
            lastSpots, lastFrame, lastFrameIdx, firstIdx, lastIdx,
            // Per-stage cpu/gpu breakdown (see runStage(), MODULE: gpu). Additive:
@@ -19926,21 +19726,12 @@ async function run(){
       // only when set away from their defaults, so an ordinary run's line stays short but a
       // recalled EMCCD/engineered-PSF run still reproduces
       ...(config.cameraExcessNoise>1 ? {cameraExcessNoise:config.cameraExcessNoise} : {}),
-      ...(config.detection_mergeRadius>0 ? {detection_mergeRadius:config.detection_mergeRadius} : {}),
       ...cropCmdFields() });
-    // 'psfmle' needs the PSF model itself, not a width calibration: built (and cached) from the
-    // same Simulation-settings PSF section Preview PSF and Simulate movie use. Building it is a
-    // kernel build, which takes seconds — hence a log line rather than a silent pause.
-    let psfModel=null;
-    if(method==='psfmle'){
-      psfModel=await ensurePsfFitModel(px);
-      if(!psfModel){ log('PSF model MLE needs the Zernike PSF model: set PSF model to "Zernike-aberrated" in Simulation settings, then run again.'); return; }
-    }
     const zcal = method==='phasor3d' ? cal3d : null;   // z(ratio) model for Phasor 3D
     // wcal (z from widths) only when 3D localisation is ticked; its presence
     // is what makes runCore()/workers compute z. Pixel size from this run.
     const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px} : null;
-    const r = await runCore(config, stack, {zcal,wcal,psfModel}, {
+    const r = await runCore(config, stack, {zcal,wcal}, {
       onLog: log,
       onProgress: setProg,
       shouldStop: () => stopRequested,
@@ -20016,7 +19807,7 @@ function liveStreamDetectParamsFromCfg(cfg){
   const win=2*cfg.winr+1;
   return { sigma:cfg.psf, win, border:(win-1)/2+1,
            k:{wave:cfg.detection_wavelet_thr, dog:cfg.detection_DoG_thr, box:cfg.detection_box_thr}[cfg.detFilter],
-           exactBP:cfg.detection_DoG_exactbp, mode:cfg.detFilter, mergeRadius:cfg.detection_mergeRadius||0 };
+           exactBP:cfg.detection_DoG_exactbp, mode:cfg.detFilter };
 }
 
 // Shows one streamed frame (global 0-based index) in the raw panel with live
@@ -20035,8 +19826,8 @@ function liveStreamShowRawFrame(globalIdx){
   }
   $('liveStreamScrubNote').style.display='none';
   const img=liveStreamState.rawFrames[localIdx];
-  const {sigma,exactBP,mode,k,border,mergeRadius}=liveStreamDetectParamsFromCfg(liveStreamState.cfg);
-  const {maxima}=detectSpots(img, liveStreamState.w, liveStreamState.h, sigma, exactBP, mode, k, border, mergeRadius);
+  const {sigma,exactBP,mode,k,border}=liveStreamDetectParamsFromCfg(liveStreamState.cfg);
+  const {maxima}=detectSpots(img, liveStreamState.w, liveStreamState.h, sigma, exactBP, mode, k, border);
   drawRaw(img, liveStreamState.w, liveStreamState.h, maxima, locsForFrame(globalIdx));
   $('rawInfo').textContent=`frame ${globalIdx+1} (streamed) — ${maxima.length} spots`;
 }
@@ -20860,13 +20651,13 @@ async function showFrame(i){
       const zcal = method==='phasor3d' ? cal3d : null;
       const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
       const sSmlmAngleRad = localize3D ? null : paramValue('sSmlmAngleCenter')*Math.PI/180;   // see runCore()'s own copy of this same line (MODULE: fit, gaussianMLEellipticangled)
-      spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border,paramValue('detection_mergeRadius')).maxima;
+      spots=detectSpots(img,stack.w,stack.h,sigma,exactBP,mode,k,border).maxima;
       locsF=[];
       // Boxes on any frame; fit crosshairs only inside the fit frame range.
       const {firstIdx,lastIdx}=fitFrameRange(paramValue('fitFirstFrame'), paramValue('fitLastFrame'), stack.n);
       const inRange = i>=firstIdx && i<lastIdx;
       if(inRange) for(const [cx,cy] of spots){
-        const L = applyExcessNoise(method==='psfmle' ? (_psfFitModel ? psfModelMLE(img,stack.w,stack.h,cx,cy,win,_psfFitModel,gain,camoffset,eps) : null) : method==='gaussmle' ? gaussianMLEspheric(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset), excessF2);
+        const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset), excessF2);
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                  L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -20882,7 +20673,7 @@ async function showFrame(i){
       if(runMatchesStack){ det=lastResult.det; getLocs=locsForFrame;
         if(isFinite(lastResult.firstIdx)) runInRange = i>=lastResult.firstIdx && i<lastResult.lastIdx; }
       if(det){
-        spots=detectSpots(img,stack.w,stack.h,det.sigma,det.exactBP,det.mode,det.k,det.border,det.mergeRadius||0).maxima;
+        spots=detectSpots(img,stack.w,stack.h,det.sigma,det.exactBP,det.mode,det.k,det.border).maxima;
         locsF=getLocs(i);
       }
       drawRaw(img,stack.w,stack.h,spots,locsF);
@@ -21004,9 +20795,7 @@ $('gainOffsetFromPcfoBtn').addEventListener('click', async ()=>{
 // by updateMethodUI() and applyWinrDefault().
 function currentIs3d(){
   const m=paramValue('method'), is3dMethod = m==='mle3d'||m==='gaussmleEll';
-  // 'psfmle' is always 3D (z is a fitted parameter of the PSF model) — so it gets Fit radius 3D,
-  // the depth-colour row and turbo, but never needs a calibration file (see updateMethodUI()).
-  return m==='phasor3d' || m==='psfmle' || (is3dMethod && paramValue('localize3D'));
+  return m==='phasor3d' || (is3dMethod && paramValue('localize3D'));
 }
 // Methods whose output is never colourable (no z/dist) reset the LUT to Fire;
 // shared by updateMethodUI() and run().
@@ -21037,7 +20826,7 @@ function updateMethodUI(){
   const is3d = currentIs3d();
   applyWinrDefault(is3d);
   const calibrationPresent = !!(cal3d||cal3dW);
-  $('cal3dRow').style.display = (is3d && m!=='psfmle' && !calibrationPresent) ? 'block' : 'none';
+  $('cal3dRow').style.display = (is3d && !calibrationPresent) ? 'block' : 'none';
   // Reveal the depth-colour toggle (ticked) the moment a 3D method is chosen —
   // not only after a run. For a 2D method, keep it shown if the current
   // results still carry real z (an existing 3D reconstruction) OR an sSMLM
@@ -23333,13 +23122,8 @@ async function analyze(config){
       if(needCal==='phasor_magnitude' && !cal3d) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a phasor magnitude-ratio model`);
       if(needCal==='gaussian_width' && !cal3dW) throw new Error(`analyze(): method "${cfg.method}" needs config.calibrationJson or config.calibrationFile to contain/produce a Gaussian-width model`);
       const wcalForRun = (cfg.method==='mle3d'||cfg.method==='gaussmleEll') && cfg.localize3D ? cal3dW : null;
-      // 'psfmle' (MODULE: fit): its model comes from the PSF section of the config, built here the
-      // same way run() builds it — a headless caller needs simulation_psfModel:'zernike' plus the
-      // optical parameters, not a calibration file.
-      const psfModelForRun = cfg.method==='psfmle' ? await ensurePsfFitModel(cfg.pxnm) : null;
-      if(cfg.method==='psfmle' && !psfModelForRun) throw new Error("analyze(): method 'psfmle' needs simulation_psfModel:'zernike' — it fits the modelled PSF itself");
       const localizationT0=performance.now();
-      r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun, psfModel:psfModelForRun}, {onLog, onProgress});
+      r = await runCore(cfg, stack, {zcal:cal3d, wcal:wcalForRun}, {onLog, onProgress});
       phases.localizationMs=performance.now()-localizationT0;
       locs=r.locs;
     }

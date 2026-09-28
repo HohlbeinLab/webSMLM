@@ -51,14 +51,9 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 - **Double-helix mask: shape, not sign.** The sign of z is recovered decisively since the worker
   dispatch was fixed (build 2026-09-20g). What remains is cosmetic-but-real: this phase-only
   Gauss-Laguerre construction throws a lot of light into satellite rings (8-14 maxima above 40% of
-  peak, depending on depth) rather than two clean lobes, which is what forces
-  `detection_mergeRadius` and costs recall. Worth trying: other modal lines, a wider waist, an
+  peak, depending on depth) rather than two clean lobes, which forces a detection-merge step (on the `psf_fitting`
+  branch) and costs recall. Worth trying: other modal lines, a wider waist, an
   amplitude-carrying mask, or fitting a published phase map.
-
-- **Worker dispatch for `psfmle`** — it runs single-threaded today (0.5 ms/spot measured, so a
-  100k-spot run is under a minute). Parallelising means getting a megabyte-scale model to every
-  worker through a one-time init message and sequencing it against the frame-batch protocol the
-  pool already has; see the Web Worker gotcha in CLAUDE.md before starting.
 
 - **WebGPU follow-ups** — the shipped path is opt-in and CPU-fallback safe, but a few GPU-specific
   limits remain worth revisiting:
