@@ -672,8 +672,8 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
 5. Click **Compare to GT** (Simulation). The log gives recall, precision, Jaccard, the lateral (and
    axial) error as median and percentiles, a per-molecule summary and the photon level at which
    detection crosses 50%; the raw panel shows the first plot, and the toggle in its title cycles
-   **Show z error / Show fitted vs true / Show Jaccard vs z / Show lateral / Show vs photons / Show vs
-   radius / Show photometry / Show uncertainty / Show vs CRLB** (each view appears only when its data
+   **Show z error / Show fitted vs true / Show Jaccard vs z / Show lateral hist. / Show axial hist. /
+   Show vs photons / Show vs radius / Show photometry / Show vs CRLB** (each view appears only when its data
    exists — no z views for a 2D fit, no CRLB views for a method that reports none).
 6. Click **View GT** to see the true positions rendered like a reconstruction; **Hide GT** returns to
    your result.
@@ -852,13 +852,6 @@ under **Ground-truth comparison**.
     misses the tails of a realistic PSF, so a ratio a few % under 1 is expected. The log warns when
     Localisation **Gain**/**Camera offset** differ from the simulated camera — then photometry and
     every CRLB number reflect that mismatch, not the fitter.
-  - **Uncertainty calibration** — does the precision each fit *claims* match the error it actually
-    has? Every localization reports its own CRLB (`lpx`/`lpy`, and `lpz` when the method gives it).
-    Divide its true error by that claim: a localization claiming 5 nm that is off by 10 nm scores 2.
-    If the claims are honest, these scores follow the green unit normal (σ = 1, 68.3% within ±1,
-    95.4% within ±2). A histogram wider than the green curve (σ > 1) means the errors are larger than
-    claimed; narrower means the CRLB is pessimistic. Bars are lateral (x and y pooled), the pink line
-    axial. Both the plain σ (tail-sensitive) and a robust σ (1.4826 × MAD) are logged.
   - **Precision vs CRLB** — per true-photon bin: measured spread (robust σ about the bin's median,
     x and y pooled — bias excluded, so this is precision, not accuracy; solid) against the median
     reported CRLB (dashed); lateral pink, axial blue. The log gives the pair-weighted mean ratio
@@ -2617,7 +2610,7 @@ edit here, then run the script, never edit the `.hint` div directly):
   <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
   <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
 </ul>
-<p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral error histogram, recall vs photons, Jaccard vs match radius, fitted vs true photons, error ÷ reported CRLB, and measured precision vs the CRLB. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
+<p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral and axial (signed) error histograms, recall vs photons, Jaccard vs match radius, fitted vs true photons, and measured precision vs the reported CRLB. Each plot's legend names every mark; a box in its corner gives the numbers and how to read it. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
 <!-- /HINT:validation -->
 
 **Match radius** is how close, laterally, a localization must be to a
