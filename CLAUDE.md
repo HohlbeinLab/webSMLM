@@ -138,9 +138,16 @@ what makes GUI and command-line use interchangeable.
   in both states — don't reintroduce a separate 2D structure path. It defaults to on and has no
   sidebar control since 2026-09-28b (settings JSON / `paramOverrides` only).
 
-  **Sidebar layout (2026-09-28b)**: top level = Structure type (+ Move view for microtubules),
-  Frames, Emitter density preset, Physics detail preset, View GT; sub-groups Sample / Fluorophore /
-  Background / Camera / PSF / Advanced / Score vs truth. Every `label.row` in `simBox` carries a
+  **Sidebar layout (2026-09-28c)**: top level = Structure type (+ Move view for microtubules),
+  Frames, Emitter density preset, Physics detail preset, then a 2×2 `.btnrow` grid (`simToolsRow`:
+  Preview PSF, Calib. stack, View GT, Compare to GT — disabled, never hidden, when unavailable:
+  `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample / Fluorophore / Background / Camera /
+  PSF / Advanced / Ground-truth comparison. Advanced is split by plain `.simsec` headings (not
+  collapsibles) into Sample (cell field seed, movie seed), Camera (simulated gain/offset, offset std,
+  EMCCD CIC/bit depth), PSF (ns, ni, emitter depth, working distance, custom Zernike), Background
+  (haze weight/blur) and Performance (PSF z range/step, oversampling, kernel width, interpolation).
+  **The PSF phase mask (double helix) is hidden** (`SHOW_PSF_PHASE_MASK=false`, TODO to revisit); its
+  PARAMS and code path stay. Every `label.row` in `simBox` carries a
   `title` hover tip — keep it that way for new rows. A sidebar label and its PARAMS `label` are the
   same string; only fields that collide with an analysis-side label (pixel size, gain, offset) carry
   a "Simulated" prefix.
@@ -242,8 +249,8 @@ what makes GUI and command-line use interchangeable.
   the window centre, moved by the **Move view** row (step selector + four arrows, `moveMtViewStep()` →
   `moveMtView()`, +y is down, written to `paramOverrides` and logged); the window is the
   structure FOV (px × `simulation_pxnm`), so 128 px at 100 nm is the central 12.8 µm (+10% margin).
-  Seed, X/Y, `simulation_mt_cellDensity` (cell occupancy, default 0.33) and `simulation_mt_density`
-  (microtubules/µm², 0.9) are id:null — no sidebar field; every other cell/cytoplasm knob stays at the block's defaults (webSMLM's former `CF_PARAMS`; cytoplasm: rim 0.1–0.3, edge rise 0.1–0.5, mid
+  The seed is Advanced → "Cell field seed"; X/Y, `simulation_mt_cellDensity` (cell occupancy, default
+  0.33) and `simulation_mt_density` (microtubules/µm², 0.9) are id:null — no sidebar field; every other cell/cytoplasm knob stays at the block's defaults (webSMLM's former `CF_PARAMS`; cytoplasm: rim 0.1–0.3, edge rise 0.1–0.5, mid
   height 1–2, mid distance 0.1–0.3 × radius, `nucMargin` 0.6, mesh 60 rings × 128 angular samples, 12 smoothing passes). `simulation_mt_focusZ`
   (nm above the coverslip = z 0, the surface the cells lie on; default 250) is the one sidebar field (Focus height, under Sample).
   **Cell contrast is forced to 1 (off) for this structure** in `generateSynthetic()` and its field disabled
@@ -377,8 +384,9 @@ what makes GUI and command-line use interchangeable.
   therefore NOT the out-of-the-box state any more; select Basic (and zRange 1000 / 20 NPCs where
   relevant) to reproduce it. **Since 2026-09-28b the out-of-the-box state moved again**: structure
   `microtubules` (the baseline used `filaments_ring`), `simulation_3d` on (the baseline was 2D; it
-  now has no sidebar control), `simulation_zRange` 1000 and 1000 frames — reproducing the baseline
-  also needs `paramOverrides.simulation_3d=false` and the structure/frames set back. The density preset is `low`/`med`/`high`/`veryhigh` = 0.05/0.2/0.5/2, default `med` (`dens` 0.2;
+  now has no sidebar control), `simulation_zRange` 1000, and since 2026-09-28c 2000 frames, `dens`
+  0.5 (preset `high`) and a 70% Gaussian illumination profile — reproducing the baseline also needs
+  `paramOverrides.simulation_3d=false` and the structure/frames/density/illumination set back. The density preset is `low`/`med`/`high`/`veryhigh` = 0.05/0.2/0.5/2, default `med` (`dens` 0.2;
   the old default was 0.05). **Since 2026-09-22c, `simulation_structureFov`'s own default
   additionally breaks this baseline on its own, independent of the Physics detail/density presets**: with
   no explicit `paramOverrides.simulation_structureFov` override, every `generateSynthetic()` call
@@ -500,7 +508,7 @@ what makes GUI and command-line use interchangeable.
 
 - **validation** — scores recovered localizations against the simulator's own ground truth
   (`groundTruthEvents`), which nothing read before. `scoreTruthCore()` is the pure core shared by
-  the **Score vs truth** button and `analyze()`'s `scoreVsTruth` flag. Matching is per frame,
+  the **Compare to GT** button and `analyze()`'s `scoreVsTruth` flag. Matching is per frame,
   **lateral only**, one-to-one within `validation_matchRadius`: matching on z would pair towards
   whichever candidate has the flattering z and bias the axial error towards zero — the very number
   being measured — and keeping it lateral is also what lets 2D and 3D share one code path (axial
@@ -551,9 +559,9 @@ what makes GUI and command-line use interchangeable.
   `scoreTruthCore()` stays global-free: frame size, the Run's detection border and the Run's own
   frame range (`firstIdx`/`lastIdx`/`stopped`, so a restricted or stopped Run is not scored as
   missing everything it never looked at) come in through `truthScoreConfig(cfg, det, run)`, the
-  one helper both the button and `analyze()` use. Its controls live in `validationBox` ("Score vs
-  truth"), a `details.subsim` inside Simulation settings, last after PSF parameters — it only works
-  on simulated data, so it sits with the simulator.
+  one helper both the button and `analyze()` use. Its button (`truthBtn`, "Compare to GT") is in the Simulation
+  panel's top-level button grid and its settings in `validationBox` ("Ground-truth comparison"),
+  the last `details.subsim` of Simulation settings — it only works on simulated data.
 
 - **detect** — `detectSpots()` dispatches one of three band-pass filters (`#detFilter`): à trous
   wavelet (default), DoG (both threshold `mean + k·σ`), or uniform box filter (plain intensity
