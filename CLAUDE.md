@@ -143,7 +143,7 @@ what makes GUI and command-line use interchangeable.
   Frames, Emitter density preset, Physics detail preset, then a 2×2 `.btnrow` grid (`simToolsRow`:
   Preview PSF, Calib. stack, View GT, Compare to GT — disabled, never hidden, when unavailable:
   `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample / Fluorophore / Background / Camera /
-  PSF / Advanced / Ground-truth comparison. Advanced is split by plain `.simsec` headings (not
+  PSF / Ground-truth comparison / Advanced (last). Advanced is split by plain `.simsec` headings (not
   collapsibles) into Sample (cell field seed, movie seed), Camera (simulated gain/offset, offset std,
   EMCCD CIC/bit depth), PSF (ns, ni, emitter depth, working distance, custom Zernike), Background
   (haze weight/blur) and Performance (PSF z range/step, oversampling, kernel width, interpolation).
@@ -568,7 +568,7 @@ what makes GUI and command-line use interchangeable.
   missing everything it never looked at) come in through `truthScoreConfig(cfg, det, run)`, the
   one helper both the button and `analyze()` use. Its button (`truthBtn`, "Compare to GT") is in the Simulation
   panel's top-level button grid and its settings in `validationBox` ("Ground-truth comparison"),
-  the last `details.subsim` of Simulation settings — it only works on simulated data.
+  the `details.subsim` just above Advanced — it only works on simulated data.
 
 - **detect** — `detectSpots()` dispatches one of three band-pass filters (`#detFilter`): à trous
   wavelet (default), DoG (both threshold `mean + k·σ`), or uniform box filter (plain intensity

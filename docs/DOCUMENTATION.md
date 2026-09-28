@@ -1956,9 +1956,9 @@ top — **Structure type**, **Frames**, **Emitter density** (a preset) and
 **Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib.
 stack**, **View GT** and **Compare to GT** — and puts the detail in collapsible
 sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **PSF**,
+**Ground-truth comparison** (the settings for Compare to GT) and, last,
 **Advanced** (itself split into Sample / Camera / PSF / Background /
-Performance sections) and **Ground-truth comparison** (the settings for
-Compare to GT). Each has its own "more info…" popup, and every field has a
+Performance sections). Each has its own "more info…" popup, and every field has a
 hover tip. Rows that only apply to one structure, camera type or PSF model
 are shown only when they apply. After a successful "Simulate movie", **View
 GT** renders the true simulated emitter positions — one point per simulated
@@ -2214,7 +2214,7 @@ stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>V
 true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
 scores a Localize result against them (settings under Ground-truth comparison).</p>
 <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
-<b>Camera</b>, <b>PSF</b>, <b>Advanced</b> and <b>Ground-truth comparison</b>, each with its own "more
+<b>Camera</b>, <b>PSF</b>, <b>Ground-truth comparison</b> and <b>Advanced</b>, each with its own "more
 info…". Every field also has a hover tip.</p>
 <!-- /HINT:simulation -->
 

@@ -24,26 +24,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2641   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3605   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3833   synthetic stack generator ("Simulate movie")
-    validation      6697   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7321   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7577   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8187   super-resolution accumulation, view, colour maps, plots
-    workers         9711   frame-parallel detect/fit worker pool
-    gpu             10326  WebGPU engine: fit, render, FRC kernels (experimental)
-    export          12533  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  12824  astigmatic width-vs-z bead calibration
-    drift           13223  AIM and cross-correlation drift correction
-    locprecision    13881  NeNA and FRC
-    sSMLM           15020  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15626  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17716  single-particle tracking and diffusion coefficients
-    pipeline        18766  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   19806  Micro-Manager/pycromanager bridge (experimental)
-    table           22208  localizations table, filters, histograms, clustering
-    headless API    22880  window.webSMLM.analyze()/analyzeBatch()
+    params          2643   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3607   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3835   synthetic stack generator ("Simulate movie")
+    validation      6699   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7323   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7579   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8189   super-resolution accumulation, view, colour maps, plots
+    workers         9713   frame-parallel detect/fit worker pool
+    gpu             10328  WebGPU engine: fit, render, FRC kernels (experimental)
+    export          12535  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  12826  astigmatic width-vs-z bead calibration
+    drift           13225  AIM and cross-correlation drift correction
+    locprecision    13883  NeNA and FRC
+    sSMLM           15022  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15628  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             17718  single-particle tracking and diffusion coefficients
+    pipeline        18768  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   19808  Micro-Manager/pycromanager bridge (experimental)
+    table           22209  localizations table, filters, histograms, clustering
+    headless API    22881  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28d</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1950,7 +1950,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
           scores a Localize result against them (settings under Ground-truth comparison).</p>
           <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
-          <b>Camera</b>, <b>PSF</b>, <b>Advanced</b> and <b>Ground-truth comparison</b>, each with its own "more
+          <b>Camera</b>, <b>PSF</b>, <b>Ground-truth comparison</b> and <b>Advanced</b>, each with its own "more
           info…". Every field also has a hover tip.</p>
         </div>
         <details class="subsim" id="simTypeBox">
@@ -2152,6 +2152,31 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           always run on the CPU.</p>
         </div>
         </details>
+        <details class="subsim" id="validationBox">
+          <summary>Ground-truth comparison</summary>
+          <label class="row" id="validationPresetRow" title="webSMLM's own conventions, or the SMLM Challenge 2016 assessment rules so the numbers can be compared with published ones. Writes the four settings below.">Convention <select id="validation_preset" class="sel"><option value="webSMLM">webSMLM</option><option value="challenge2016">Challenge 2016</option><option value="custom">Custom…</option></select></label>
+          <label class="row" id="validationMatchRow" title="How close, laterally, a localization must be to a true emitter in the same frame to count as its detection.">Match radius (nm) <input type="number" id="validation_matchRadius" min="20" max="2000" step="10" value="250" class="num"></label>
+          <label class="row" id="validationBinsRow" title="Number of depth bins in the score plots.">Score z bins <input type="number" id="validation_zBins" min="4" max="100" step="1" value="20" class="num"></label>
+          <label class="row" id="validationMinPhotRow" title="A simulated emitter only counts in a frame where it delivered at least this many photons. Dimmer emitter-frames are ignored either way: detecting one is not a false positive, missing one is not a miss. 0 = count everything.">Min photons/frame <input type="number" id="validation_minPhotons" min="0" max="100000" step="10" value="100" class="num"></label>
+          <label class="row" id="validationBorderRow" title="Emitters this close to the frame edge are ignored: the fitter cannot localize there by construction. -1 = use the Run's own detection border.">Edge exclusion (px) <input type="number" id="validation_border" min="-1" max="100" step="1" value="-1" class="num"></label>
+          <label class="row" id="validationCrowdRow" title="An emitter is 'crowded' when another counted emitter is ON within this distance in the same frame. Reported as a separate isolated/crowded split. 0 = off.">Crowding radius (nm) <input type="number" id="validation_crowdRadius" min="0" max="5000" step="10" value="300" class="num"></label>
+          <label class="row" id="validationMatchModeRow" title="Lateral (recommended): pair on x/y only, so the axial error being measured cannot bias its own pairing. Cylinder 3D: sort candidates by 3D distance inside a lateral+axial cylinder, as the challenge does.">Matching <select id="validation_matchMode" class="sel"><option value="lateral">Lateral only</option><option value="cylinder3D">3D cylinder</option></select></label>
+          <label class="row" id="validationAxialTolRow" style="display:none;padding-left:40px" title="Height of the matching cylinder: a pair further apart than this in z is not a pair.">Axial tolerance (nm) <input type="number" id="validation_axialTol" min="20" max="5000" step="10" value="500" class="num"></label>
+          <label class="row" id="validationPhotModeRow" title="Absolute: count an emitter-frame from Min photons/frame upward. Quantile: instead leave out the dimmest N% of emitter-frames, which is the challenge's own rule.">Photon threshold <select id="validation_photonMode" class="sel"><option value="absolute">Absolute</option><option value="quantile">Quantile</option></select></label>
+          <label class="row" id="validationPhotQuantRow" style="display:none;padding-left:40px" title="The dimmest this percent of in-field emitter-frames are not counted either way.">Dimmest % not counted <input type="number" id="validation_photonQuantile" min="0" max="90" step="5" value="25" class="num"></label>
+          <label class="row" id="validationBorderModeRow" title="Don't care: match everything, then leave edge emitters out of the tally. Exclude: cut the border from truth AND localizations before matching, the challenge's order.">Edge handling <select id="validation_borderMode" class="sel"><option value="dontcare">Don't care</option><option value="exclude">Exclude before matching</option></select></label>
+          <button type="button" class="infobtn">more info…</button>
+          <div class="hint" hidden id="hint-validation"><span class="pill">module: validation</span>
+          <p><b>Compare to GT</b> (the button at the top of Simulation settings) compares a Localize result against the simulator's own ground truth — so it works only on data made with <b>Simulate movie</b> in this session. It reports detection (recall, precision, Jaccard), lateral and axial error against true depth, a per-molecule view, and the depth range over which at least half the emitters are found.</p>
+          <ul>
+          <li><b>Convention</b> — webSMLM's own rules (default), or the SMLM Challenge 2016 assessment rules so the numbers can be laid beside published ones. Pick <b>Custom…</b> to set the individual rules yourself.</li>
+          <li><b>Match radius</b> — how close (laterally) a localization must be to a true emitter in the same frame to count as its detection. Matching is lateral-only by default, so the axial error being measured cannot bias its own pairing.</li>
+          <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
+          <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
+          </ul>
+          <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, the lateral error histogram and recall vs photons. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails.</p>
+        </div>
+        </details>
         <details class="subsim" id="simAdvancedBox">
           <summary>Advanced</summary>
           <div class="simsec">Sample</div>
@@ -2213,31 +2238,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           interpolation</b> sets how an emitter's exact sub-pixel position is read off the oversampled kernel
           before it is summed (photon-conserving) down to camera pixels: cubic (default), linear, nearest, or an
           exact but slow FFT phase shift kept for comparison.</p>
-        </div>
-        </details>
-        <details class="subsim" id="validationBox">
-          <summary>Ground-truth comparison</summary>
-          <label class="row" id="validationPresetRow" title="webSMLM's own conventions, or the SMLM Challenge 2016 assessment rules so the numbers can be compared with published ones. Writes the four settings below.">Convention <select id="validation_preset" class="sel"><option value="webSMLM">webSMLM</option><option value="challenge2016">Challenge 2016</option><option value="custom">Custom…</option></select></label>
-          <label class="row" id="validationMatchRow" title="How close, laterally, a localization must be to a true emitter in the same frame to count as its detection.">Match radius (nm) <input type="number" id="validation_matchRadius" min="20" max="2000" step="10" value="250" class="num"></label>
-          <label class="row" id="validationBinsRow" title="Number of depth bins in the score plots.">Score z bins <input type="number" id="validation_zBins" min="4" max="100" step="1" value="20" class="num"></label>
-          <label class="row" id="validationMinPhotRow" title="A simulated emitter only counts in a frame where it delivered at least this many photons. Dimmer emitter-frames are ignored either way: detecting one is not a false positive, missing one is not a miss. 0 = count everything.">Min photons/frame <input type="number" id="validation_minPhotons" min="0" max="100000" step="10" value="100" class="num"></label>
-          <label class="row" id="validationBorderRow" title="Emitters this close to the frame edge are ignored: the fitter cannot localize there by construction. -1 = use the Run's own detection border.">Edge exclusion (px) <input type="number" id="validation_border" min="-1" max="100" step="1" value="-1" class="num"></label>
-          <label class="row" id="validationCrowdRow" title="An emitter is 'crowded' when another counted emitter is ON within this distance in the same frame. Reported as a separate isolated/crowded split. 0 = off.">Crowding radius (nm) <input type="number" id="validation_crowdRadius" min="0" max="5000" step="10" value="300" class="num"></label>
-          <label class="row" id="validationMatchModeRow" title="Lateral (recommended): pair on x/y only, so the axial error being measured cannot bias its own pairing. Cylinder 3D: sort candidates by 3D distance inside a lateral+axial cylinder, as the challenge does.">Matching <select id="validation_matchMode" class="sel"><option value="lateral">Lateral only</option><option value="cylinder3D">3D cylinder</option></select></label>
-          <label class="row" id="validationAxialTolRow" style="display:none;padding-left:40px" title="Height of the matching cylinder: a pair further apart than this in z is not a pair.">Axial tolerance (nm) <input type="number" id="validation_axialTol" min="20" max="5000" step="10" value="500" class="num"></label>
-          <label class="row" id="validationPhotModeRow" title="Absolute: count an emitter-frame from Min photons/frame upward. Quantile: instead leave out the dimmest N% of emitter-frames, which is the challenge's own rule.">Photon threshold <select id="validation_photonMode" class="sel"><option value="absolute">Absolute</option><option value="quantile">Quantile</option></select></label>
-          <label class="row" id="validationPhotQuantRow" style="display:none;padding-left:40px" title="The dimmest this percent of in-field emitter-frames are not counted either way.">Dimmest % not counted <input type="number" id="validation_photonQuantile" min="0" max="90" step="5" value="25" class="num"></label>
-          <label class="row" id="validationBorderModeRow" title="Don't care: match everything, then leave edge emitters out of the tally. Exclude: cut the border from truth AND localizations before matching, the challenge's order.">Edge handling <select id="validation_borderMode" class="sel"><option value="dontcare">Don't care</option><option value="exclude">Exclude before matching</option></select></label>
-          <button type="button" class="infobtn">more info…</button>
-          <div class="hint" hidden id="hint-validation"><span class="pill">module: validation</span>
-          <p><b>Compare to GT</b> (the button at the top of Simulation settings) compares a Localize result against the simulator's own ground truth — so it works only on data made with <b>Simulate movie</b> in this session. It reports detection (recall, precision, Jaccard), lateral and axial error against true depth, a per-molecule view, and the depth range over which at least half the emitters are found.</p>
-          <ul>
-          <li><b>Convention</b> — webSMLM's own rules (default), or the SMLM Challenge 2016 assessment rules so the numbers can be laid beside published ones. Pick <b>Custom…</b> to set the individual rules yourself.</li>
-          <li><b>Match radius</b> — how close (laterally) a localization must be to a true emitter in the same frame to count as its detection. Matching is lateral-only by default, so the axial error being measured cannot bias its own pairing.</li>
-          <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
-          <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
-          </ul>
-          <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, the lateral error histogram and recall vs photons. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails.</p>
         </div>
         </details>
       </details>
@@ -22118,8 +22118,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28d — Preview PSF: its z slider replaces the Frame slider,
-Contrast works on the PSF (auto per plane), and the button toggles back to the movie.`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28e — Simulation panel: Advanced moved below Ground-truth comparison.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
