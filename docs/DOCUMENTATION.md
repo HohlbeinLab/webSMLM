@@ -65,8 +65,8 @@ below for what it does.
 
 | Button | id | Does |
 |---|---|---|
-| **Load movie/data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single CSV previously written by **Save data**, detected by file extension. Selecting a CSV and a movie together is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
-| **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation settings* module — no file needed, useful for a quick smoke-test or teaching demo. |
+| **Load movie/data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single CSV previously written by **Save data**, OR a single JSON file webSMLM saved — smFRET traces (**Save (FRET) data**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. CSV vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
+| **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation* module — no file needed, useful for a quick smoke-test or teaching demo. |
 | **Load settings** | `loadSetBtn` | Opens a `.json` file (as saved by **Save settings**) and applies every recognised `{id: value}` pair to the `PARAMS` registry — unknown/legacy keys are logged and ignored, not errored on. |
 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
 | **Localize** | `runBtn` | Runs detection + fitting over the whole loaded/simulated stack — the main action. Disabled until a stack is loaded. |
@@ -84,23 +84,23 @@ scrolling to and focusing its header so the next Tab press lands on that
 section's first field. A hint only appears for a button that's currently
 enabled or a section currently on screen; the digit each one maps to never
 changes based on that, so it stays predictable across sessions. **Alt+T**
-(either Shift state) jumps straight to the log terminal (below). A handful
-of single, fixed **Alt+Shift** letter bindings — shown as their own hint
-badges alongside the section digits — reach a few frequently-used fields
-directly: **Alt+Shift+P** jumps to and selects **Pixel size (nm)**,
-**Alt+Shift+F** to **Frame time (s)**, and **Alt+Shift+S** clicks the
-**Stack panels**/**Side by side** toggle.
+(either Shift state) jumps straight to the log terminal (below). Three more
+fixed letter bindings, which also work with or without Shift and show their
+own hint badges whenever Alt is held, reach a few frequently-used fields
+directly: **Alt+P** jumps to and selects **Pixel size (nm)**, **Alt+F** to
+**Frame time (s)**, and **Alt+S** clicks the **Stack panels**/**Side by
+side** toggle.
 
 ### Sidebar — Pixel size (nm) / Frame time (s) {#sidebar-pxnm-frametime}
 
 `pxnm` and `frametime` sit as two plain, always-visible rows directly below
 the action buttons/progress bar — deliberately NOT inside any collapsible
-module. `pxnm` used to live inside **Localisation settings** (collapsed by
+module. `pxnm` used to live inside **Localisation** (collapsed by
 default) alongside Gain/Camera offset; pinned out here instead (v1/first
 pass, expected to be refined further) since it's easy to forget it's there
 while buried in a closed section, despite feeding the scale bar, z, and
 every exported CSV coordinate — see [§3](#render-params) for the full
-parameter entry. Gain/Camera offset stay inside **Localisation settings**
+parameter entry. Gain/Camera offset stay inside **Localisation**
 for now.
 
 `frametime` (labelled **Frame time (s)**, renamed from `sptFrameTime` in
@@ -124,13 +124,13 @@ font-size/contrast was hard to read for anything longer than a line or two)
 — this section summarizes what's *in* each, not what the help text already
 says.
 
-- **Localisation settings** (`locBox`) — **Real-time update**, then
+- **Localisation** (`locBox`) — **Real-time update**, then
   Gain/Camera offset/**Get estimate** (moved to the top, right below it —
   the module's three most-consulted controls), then fit method, detection
   filter, FTM, frame range; one shared "more info…" popup covers all of it
   (`pxnm` itself moved out to its own always-visible sidebar row, see
   above). See [§3](#detect-params)/[§3](#fit-params)/[§3](#export-params).
-- **Rendering settings** (`renderBox`) — magnification, colour map, and
+- **Rendering** (`renderBox`) — magnification, colour map, and
   (3D/sSMLM-paired results only) depth/distance colouring. See
   [§3](#render-params)/[§2](#render).
 - **Drift correction & precision** (`driftBox`) — **Correct drift**/**Show
@@ -140,10 +140,13 @@ says.
   enough — correct drift, then measure how good the corrected result is —
   to combine in the sidebar). See
   [§3](#drift-params)/[§2](#drift)/[§2](#locprecision).
-- **Simulation settings** (`simBox`) — only relevant when using **Simulate
+- **Simulation** (`simBox`) — only relevant when using **Simulate
   movie**. See [§3](#simulation-params)/[§2](#simulation).
-- **Memory & streaming** (`memBox`) — `memBudgetGB`/`memgb`/`chunkmb`. See
-  [§3](#in-out-params)/[§2](#in-out).
+- **Memory, Rotation, GPU & streaming** (`memBox`) — `memBudgetGB`/`memgb`/`chunkmb`,
+  plus **Use GPU acceleration** (`useGpu`, declared/read by **fit** and also
+  consumed by **render**/**locprecision**'s own FRC — physically placed
+  here, not under any one of those three, since it's genuinely shared).
+  See [§3](#in-out-params)/[§2](#in-out).
 - **Gain & offset estimation** (`pcfoBox`) — **Estimate**/**Transfer
   estimates**. Placed here, before **3D calibration**, since both are
   one-off "derive a number from data, then use it below" steps run before
@@ -395,7 +398,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 
 | GUI action | Terminal function | Notes |
 |---|---|---|
-| Load movie/data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects CSV vs. movie |
+| Load movie/data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects movie vs. CSV vs. JSON (a JSON goes through `loadJsonFile(file)`, which routes by its `format` field) |
 | Load calibration… | `loadCalibrationJson(file)` | |
 | Load settings | `loadSettingsJson(file)` | |
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation settings |
@@ -405,6 +408,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Debug: view single NUP | `showNupDebugView()` | temporary debug aid |
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
 | Raw-panel crop tool | `applyCropToRaw(x0,y0,x1,y1)` / `uncropRaw()` | native-pixel bounds; does NOT localize |
+| Rotate movie | `applyMovieRotation()` | reads `#rotateMovie`; re-wraps the loaded movie and clears all results |
 | Reconstruction-panel crop tool | `commitSrCrop(x0,y0,x1,y1)` | **nm** bounds (not px) — a `_tableFilters` clause, not a stack crop |
 | **Calibrate** | `runCalibration()` | |
 | Fix bead x,y (checked/unchecked) | `locateBeadsForCalib()` / `clearCalFixedXY()` | |
@@ -421,7 +425,8 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Localize SOI (smFRET) | `locateSmfretSOI()` | |
 | Pair DD + DA (smFRET) | `pairSmfretSites()` | no args — dispatches to `getSmfretPairingFromDonor()` (Via distances and angles) or `alignSmfretChannels()` (Via channel matching), whichever Pairing method selects |
 | Get FRET data (smFRET) | `getSmfretTimeTraces()` | `getSmfretTimeTraces(true)` (the settings-toggle listeners' own call) keeps showing the current site/zoom instead of resetting to site 1; no standalone "E(S) histogram" button any more — a fresh run shows it automatically once a real DD+DA pairing exists (`showSmfretEHist()` itself still exists, terminal-callable, for re-showing it without recomputing traces) |
-| Load FRET data (smFRET) | `loadSmfretTraces(file)` | reconstructs a saved trace session (including the pooled E(S) histogram thresholds, if the file has them) from a previously-exported JSON file — see `config.file`'s own paragraph above for how the terminal resolves a bare filename string back to a real File |
+| Plot (FRET) data (smFRET) | `plotSmfretTraces()` | no args — re-shows the existing traces (and the E(S) histogram when paired) without re-extracting; needs Get (FRET) data or a loaded traces file first |
+| Load movie/data with a saved traces `.json` | `loadSmfretTraces(file)` (or `loadFiles([file])`) | reconstructs a saved trace session (including the pooled E(S) histogram thresholds, if the file has them) from a previously-exported JSON file — see `config.file`'s own paragraph above for how the terminal resolves a bare filename string back to a real File |
 | Save FRET data (smFRET) | `exportSmfretTraces()` | no args — needs Get FRET data to have produced a result first |
 | Show alignment/SOI composite (smFRET) | `toggleSmfretAlignOverlay()` | no args — only enabled once a "Via channel matching" **Pair DD + DA** run has built the alignment overlay |
 | Fix SOI x,y (unchecked) | `clearSmfretFixSOI()` | |
@@ -501,7 +506,10 @@ can no longer address further, so the whole stack is written as a single
 directory entry with every frame laid out contiguously after it — are
 indexed arithmetically from that entry, unlike ordinary/multi-IFD
 (Micro-Manager MMStack) stacks, which walk the IFD chain frame by frame —
-never fully loaded, read via `File.slice()`. `loadTiffFilesAuto()` handles a multi-file
+never fully loaded, read via `File.slice()`. **BigTIFF** files (the 64-bit-offset
+variant, header magic 43, either byte order) are supported at any size: they always
+take this streamed IFD walk (uncompressed only; a compressed BigTIFF gives a clear
+error), with each frame's strips required to be stored back to back. `loadTiffFilesAuto()` handles a multi-file
 selection, auto-detecting which of two cases it is from the first
 (naturally-sorted) file's own frame count: exactly 1 frame → every file is
 one frame (`loadTiffSequence()`, natural-sorted and concatenated — e.g. a
@@ -554,7 +562,7 @@ so cropping first then enabling FTM correctly runs the temporal median
 over the smaller frames too) since nothing else in the codebase assumes a
 particular frame size.
 
-### Simulation settings (`simulation`) {#simulation}
+### Simulation (`simulation`) {#simulation}
 
 The built-in synthetic stack generator ("Simulate
 movie"). Demo/validation/teaching data, not a core analysis path. Emitters
@@ -616,7 +624,7 @@ that limit is roughly ±450 nm (astigmatism weak), ±475 nm (moderate) and
 ±550 nm (strong), and zero for an unaberrated or purely spherical-aberrated
 PSF, both being axisymmetric.
 
-### Localisation settings (`detect`) {#detect}
+### Localisation (`detect`) {#detect}
 
 Per-frame band-pass, one of three filters selectable via
 `detFilter`: wavelet (default), DoG, or uniform box — each thresholded
@@ -629,7 +637,7 @@ keeping PSF-sized spots; candidates are then strict 8-neighbour local
 maxima above `mean + k·σ_noise` of the filtered image (σ_noise is the
 filtered image's own spread, not σ_PSF).
 
-### Localisation settings (`fit`) {#fit}
+### Localisation (`fit`) {#fit}
 
 Phasor (fast, non-iterative), Gaussian least-squares, and
 Gaussian Poisson-MLE 2D/3D (`gaussianMLEspheric`/`gaussianMLEelliptic`, the
@@ -691,7 +699,7 @@ same `*Core(config, stack,
 hooks)` split as `runCore`/`driftCore`/`calibrationCore`, reachable
 headlessly via `config.estimateGainOffset` ([§8](#8-headless-api-window-websmlm)).
 
-### Rendering settings (`render`) {#render}
+### Rendering (`render`) {#render}
 
 Accumulates localizations into an offscreen buffer `srFull`;
 a `view` (zoom/pan) transform draws the visible region + scale bar. Colour
@@ -706,21 +714,33 @@ regardless of how many localizations there actually are (500 locs and 5
 million locs allocate the identical buffer size for a given frame size +
 Magnification) — so memory scales as **O(frame area × mag²)**, entirely
 decoupled from data volume. `checkRenderSize()` runs before any
-allocation and throws if either side would exceed `CANVAS_MAX_DIM`
-(16384 px — a hard per-browser canvas-creation limit, not a soft budget)
-or if the estimated peak concurrent footprint (the count accumulator +
-an optional z-accumulator with `zcolor` + `blur()`'s own transient
-dst/tmp scratch with `rblur>0` + the final `ImageData` output + the
-canvas's own backing store) exceeds `memBudgetGB` — the opt-in Total
-memory budget (§3, Memory & streaming; default unset, so this check is a
-no-op until one is configured), a genuinely separate setting from `memgb`
-(the stack-loading cache/stream threshold). `rerender()` (interactive) catches the throw,
-logs what to change (lower Magnification, crop the region, or raise the
-budget), and leaves whatever reconstruction was already on screen in
-place rather than blanking the panel or crashing the tab; the headless
-`analyze()` path does not catch it, letting it propagate — the same
-"throws immediately" precedent its other preconditions (e.g. a
-too-small crop region) already follow.
+allocation: either side above `CANVAS_MAX_DIM` (16384 px, a hard
+per-browser canvas limit) or an estimated peak footprint (the count
+accumulator + an optional z-accumulator with `zcolor` + the blur scratch
+with `rblur>0` + the `ImageData` output + the canvas backing store) plus
+the localizations and loaded movie above the memory ceiling (`memBudgetGB`,
+§3, else 80% of the browser's reported heap limit where it reports one)
+is too large for one image.
+
+**Viewport reconstruction.** In the panel, a reconstruction that is too
+large for one image is never held whole, so **Magnification has no upper
+limit from the frame size**. The panel keeps an *overview* (every k-th
+reconstruction pixel of the whole image, at most 4096 px per side) and,
+about 150 ms after you stop zooming or panning, renders the visible region
+plus a margin at screen resolution (a *patch*) and draws it over the
+overview. Both are evaluated straight from the localizations at just those
+pixels, giving exactly the values the whole-image render would have there
+(to float rounding), in every render mode. Pan and zoom only redraw the
+two images, so they stay as smooth as before; rendering cost depends on the
+number of localizations and screen pixels, not on the magnification. The
+display maximum (**Display max percentile**) comes from the overview's
+pixels, a uniform sample of the whole image. **Save plot/image** renders
+the current view at up to 16384 px per side, and the line profile renders
+its line's bounding box. This mode runs on the CPU (render worker); the
+info line under the panel shows the full size and "drawn per view".
+`analyze()` still needs one PNG (`reconstruction.png`), so it lowers
+`config.mag` to `floor(16384 / longer frame side)` (logged) and keeps the
+size check's error.
 
 The count accumulator (`acc`) is a `Uint16Array`, not `Float32Array` — a
 per-pixel hit count is always a non-negative integer, so this halves
@@ -743,7 +763,7 @@ stringified function reads must also be re-declared in `WORKER_PRELUDE`, or
 the worker throws and silently falls back to single-threaded. Batch sizing
 is controlled by the `workerBatch*`/`workerMin*` params above.
 
-### Localisation settings (`export`) {#export}
+### Localisation (`export`) {#export}
 
 ThunderSTORM-compatible CSV, see [§6](#6-csv-export-format).
 `photons`/`bg`/`bgstd` are already true photon units by the time they
@@ -790,8 +810,12 @@ irrelevant to a reconstruction's own image quality).
 **Cross correlation** (`correlationDrift2D()`), image-based — works
 directly off the raw movie, no Localize needed to ESTIMATE the drift
 (applying a correction still needs existing localizations, same as AIM).
-Averages `driftSeg` raw frames into one representative image per segment,
-then finds each segment's own (dx,dy) shift relative to the FIRST segment
+Averages `driftSeg` raw frames into one representative image per segment
+(rounded up to the next even number if odd — an odd segment length can bias
+this method under any strictly period-2 frame alternation baked into the
+raw movie itself, e.g. ALEX; a log line notes it when the rounding actually
+changes anything), then finds each segment's own (dx,dy) shift relative to
+the FIRST segment
 via FFT-based cross-correlation (`fft2d()`, the same radix-2 implementation
 FRC already uses, applied here to a zero-padded, mean-subtracted camera
 frame rather than a rendered reconstruction) with a parabolic sub-pixel
@@ -1150,7 +1174,7 @@ traces without ever pairing a FRET pair was "somewhat hidden" behind a
 module named only for FRET. Unticking it disables/greys out **Pair DD + DA**
 (the one control that only makes sense once a real donor/acceptor pair is
 actually wanted); every other control — **Localize SOI**, **Get (FRET)
-data**, **Load/Save (FRET) data** — stays fully usable regardless, since
+data**, **Plot/Save (FRET) data** — stays fully usable regardless, since
 none of them require a pairing to produce something meaningful. With
 **Alternating-laser excitation** on and **Analyse FRET** off (no pairing),
 **Get (FRET) data** still
@@ -1309,11 +1333,15 @@ and replace the raw (left)
 panel's live frame display with a plot of one site's own intensity-vs-frame
 curve (`drawSmfretTrace()`) — the same "left panel doubles as a plot
 surface" pattern drift/NeNA/FRC already use (`rawFull=null`,
-`setRawPlot(true)`), 4:3 letterboxed via the shared `setupPlot()`. The
+`setRawPlot(true)`), using the whole panel (not letterboxed): while the
+trace is shown the panel is at least 480 px tall, and square instead of a
+tall frame's shape; a raw frame restores the frame's shape. The
 y-axis uses the same matplotlib-style offset notation (`axisScale()`) the
 PCFO plot already relies on for its own large-value axis — full 5-6 digit
-ADU tick labels otherwise visually collide with the rotated "intensity
-(ADU)" axis title; ticks instead show small 1-2 digit numbers plus a single
+tick labels otherwise visually collide with the rotated "intensity" axis
+title. Every extraction path (fits and aperture photometry) reports
+`(raw − Camera offset) × Gain`, so the axis reads **intensity (photons)**
+once a gain is set, and **intensity (ADU)** with the uncalibrated gain 1; ticks instead show small 1-2 digit numbers plus a single
 `×10ⁿ` multiplier drawn once near the axis, at the same font size as the
 tick labels/axis titles themselves. The x-axis is **time (s)**, computed
 from **Frame time (s)** (`frametime`, starting from 0), not a raw frame
@@ -1349,9 +1377,10 @@ unpaired-own-position fallback (dropped, simplified, v0.12.1-dev — "DA is
 the leading position for time traces to obtain time traces in the AA
 channel").
 
-The Time trace plot inserts a dedicated strip of small **ROI** thumbnails
-(DD/DA/AA, only the ones that exist for the current site) directly below
-its own x-axis, still inside the same canvas/panel — a contrast-stretched
+The Time trace plot inserts small **ROI** thumbnails (DD/DA/AA, only the
+ones that exist for the current site) in the same canvas: in a column to
+the right of the plots when the panel is wide (width ≥ 1.25 × height; up to
+96 px each), otherwise in a strip below the E/S plot's x-axis — a contrast-stretched
 crop of the real camera pixels around each channel's own extraction
 position, one FIXED representative frame per channel (the first
 donor-excitation frame for DD/DA, the first acceptor-excitation frame for
@@ -1375,11 +1404,15 @@ stacked plot shares the SAME time x-axis and shows the CURRENTLY SELECTED
 site's own **E** (orange) and, once ALEX and AA data are both present,
 **S** (teal) as a function of time, fixed to the conventional [0,1] range
 — the per-site, time-resolved complement to the pooled, population-level
-**E(S) histogram** below. Per-sample E/S use the same "each channel
-strictly positive" requirement `smfretPoolE()`/`smfretPoolES()` use for
-the pooled histogram (a rejected-fit 0, or a genuinely negative unfloored
-value, on just one channel would otherwise clamp E/S to exactly 0 or 1),
-with no burst-selection threshold — this is a diagnostic trace of one
+**E(S) histogram** below. Per-sample E/S use the same rule
+`smfretPoolE()`/`smfretPoolES()` use for the pooled histogram
+(`smfretDexValid()`): with a fit, DD and DA must each be > 0 (a
+rejected-fit 0 on one channel would otherwise force E to exactly 0 or 1);
+with aperture photometry and **Set negative intensities to zero**
+unticked, every frame is a measurement, so only DD + DA > 0 is required,
+E and S may leave [0,1] with the noise, and plot B shows −0.5…1.5 (the
+histograms count, but don't draw, samples outside their range) — no gaps
+from a slightly negative channel. There is no burst-selection threshold — this is a diagnostic trace of one
 site, not a burst-selected population. Before a pairing exists (no DA), it
 shows a placeholder message instead of an empty plot.
 
@@ -1753,7 +1786,7 @@ registry: pure CSS/layout, and per-dataset working state that resets from the
 loaded stack rather than being a reusable default (`calFirst`, `calLast`,
 `zmin`, `zmax`).
 
-### Memory & streaming (`in/out`) {#in-out-params}
+### Memory, Rotation, GPU & streaming (`in/out`) {#in-out-params}
 
 *Module:* **in/out** — see [§2](#in-out); live streaming's own `window.webSMLM.liveStream` API
 (see [§8](#live-streaming) for the full reference) is combined into this one sidebar section too,
@@ -1765,13 +1798,18 @@ its own raw-frame history cache.
 | `memBudgetGB` | Total memory budget (GB) | number | 0.1 | none | 0.5 | ∞ on desktop/laptop, **0.5** on a memory-constrained device |
 | `memgb` | Budget raw movies (GB) | number | 0 | 64 | 0.5 | 3 on desktop/laptop, **0** on a memory-constrained device |
 | `chunkmb` | Stream heap chunk (MB) | number | 50 | 2000 | 50 | 500 on desktop/laptop, **250** on a memory-constrained device |
+| `rotateMovie` | Rotate movie | enum | — | — | — | `'0'` (`'90'`, `'180'`, `'270'`) |
 
 Two genuinely separate settings (an earlier version used one shared `memgb` field for both):
 
 - **Total memory budget (GB)** (`memBudgetGB`) is an overall safety ceiling.
   `checkLocsMemory()` (a growing Localize run), `checkRenderSize()` (the reconstruction buffers), and
-  `checkTableSize()` (the locs table) all compare their own real, combined memory estimates against
-  it — with no budget set (blank/∞, the desktop default), none of them warn or auto-stop at all.
+  `checkTableSize()` (the locs table/crop filter) all compare their own real, combined memory
+  estimates against it. With no budget set (blank/∞, the desktop default), these no longer skip the
+  check entirely: on a browser that reports its own heap limit (Chrome/Edge, via
+  `performance.memory.jsHeapSizeLimit`), they fall back to 80% of that real number instead, so a
+  genuinely oversized operation still refuses with a clear message rather than risking an out-of-memory
+  tab crash. Safari (no such API) still gets no automatic ceiling here — set one by hand if needed.
 - **Budget raw movies (GB)** (`memgb`) is unrelated to the ceiling above — it only ever governs
   whether a loaded movie is decoded and cached whole in RAM (fast re-runs) or streamed frame-by-
   frame from disk instead (bounded memory, slower re-runs), via `readBudget()`.
@@ -1802,7 +1840,7 @@ load — a crash reloads the page anyway, which naturally re-arms it) restating 
 above with their current live values, and pointing at what to try next if analysis keeps failing:
 lower **Total memory budget** further, narrow the analysed frame range (**First frame**/**Last
 frame**), lower **Magnification**, or use a smaller/cropped file. A button on the pop-up itself
-(**Open Memory & streaming**) scrolls to and expands that sidebar section directly.
+(**Open Memory, Rotation, GPU & streaming**) scrolls to and expands that sidebar section directly.
 
 **Enable live streaming** (`liveStreamEnabled`, a plain UI-reveal checkbox, not a `PARAMS` entry —
 same "pure display/layout" carve-out as UI theme/sidebar collapse state) shows/hides **WebSocket
@@ -1825,6 +1863,8 @@ elapsed time instead.
   <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>0.5 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
   <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
   <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
+  <li><b>Rotate movie</b> — rotates every raw frame by 0° (default), 90°, 180° or 270° clockwise, e.g. to lay a tall dual-view (FRET) camera split side by side. Applies to the movie loaded now (in memory or streamed) and to every movie or simulation loaded later; changing it clears all results (localizations, reconstruction, drift, smFRET, tracking) and any raw crop, which is then set on the rotated frames. Headless: <code>rotateMovie</code> in the <code>analyze()</code> config, applied before <code>cropX0…</code>. Live-streamed chunks are not rotated.</li>
+  <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, FRC and the PCFO gain/offset estimate — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
   <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
 </ul>
 <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
@@ -1840,7 +1880,7 @@ elapsed time instead.
 <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
 <!-- /HINT:memory -->
 
-### Simulation settings (`simulation`) {#simulation-params}
+### Simulation (`simulation`) {#simulation-params}
 
 *Module:* **simulation** — see [§2](#simulation).
 
@@ -2234,7 +2274,7 @@ the register also makes read noise negligible), and the CRLB's coverage of that 
 0.66 at F² = 1 to 0.93 at F² = 2. Leaving F² at 1 on EMCCD data does not change where the
 molecules land; it makes the reported precision claim about 30% better than the truth.
 `simulation_pxnm` is this panel's own pixel size (kept separate from the
-shared `pxnm` render/load control so **Simulation settings** is
+shared `pxnm` render/load control so **Simulation** is
 self-contained); the shared `pxnm` control is synced to it automatically
 after a stack is generated, so the scale bar / a re-run config stay
 consistent. Ground-truth emitter events (`x,y,tStart,tEnd,photonsTotal`) are
@@ -2284,7 +2324,7 @@ the simulator produces. **Score z bins** splits the true-z axis for the
 bias/RMS curve — too few hides where accuracy falls off, too many leaves
 each bin too sparse to mean anything.
 
-### Localisation settings (`detect`) {#detect-params}
+### Localisation (`detect`) {#detect-params}
 
 *Module:* **detect** — see [§2](#detect).
 
@@ -2305,7 +2345,7 @@ The in-app "more info…" popup for these fields (`hint-detectfit`) is shared
 with **Fit** below — one popup covers `liveUpdate` through `winr` as a
 single control group in the sidebar.
 
-### Localisation settings (`fit`) {#fit-params}
+### Localisation (`fit`) {#fit-params}
 
 *Module:* **fit** — see [§2](#fit).
 
@@ -2583,7 +2623,7 @@ no separate calibration acquisition needed. Tiles a sample of frames, measures m
 high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
 draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
 linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
-it doesn't touch the Gain / Camera offset fields in Localisation settings itself; use <b>Get estimate</b>,
+it doesn't touch the Gain / Camera offset fields in Localisation itself; use <b>Get estimate</b>,
 underneath those two fields, to fill them in (running Estimate first if it hasn't been run yet).</p>
 <ul>
   <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
@@ -2600,6 +2640,9 @@ underneath those two fields, to fill them in (running Estimate first if it hasn'
 <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
 rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
 2×2) so there's nothing to re-tune per stack.</p>
+<p>With <b>Use GPU acceleration</b> (Memory, Rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
+the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
+GPU); the Log reports which path ran and how long it took.</p>
 <!-- /HINT:pcfo -->
 
 Implementation detail beyond the popup above: tiles are pooled and robustly
@@ -2620,16 +2663,16 @@ the **fit** module (`pcfoCore()`) and
 [§8](#8-headless-api-window-websmlm) (`config.estimateGainOffset`) for the
 headless equivalent.
 
-### Rendering settings (`render`) {#render-params}
+### Rendering (`render`) {#render-params}
 
 *Module:* **render** — see [§2](#render).
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
-| `mag` | Magnification | number (int) | 4 | 25 | 1 | 10 |
+| `mag` | Magnification | number (int) | 1 | 25 | 1 | 10 |
 | `renderMode` | Render mode | enum | — | — | — | `fixed` (options: `precision`, `fixed`, `dither`) |
-| `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | false |
+| `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | true |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
 | `lut` | Colour map | enum | — | — | — | `fire` (options: `fire`, `inferno`, `viridis`, `turbo`, `hsvBlue`, `grey`) |
 | `lutpct` | Display max percentile | enum | — | — | — | `99.9` (options: `99.9`, `99.5`, `99`, `100`) |
@@ -2759,6 +2802,12 @@ pixels within 1e-3 ADU for sCMOS, and on all but a rare pixel one count
 apart for EMCCD. The `tests/gpu/bench-simulation.mjs` benchmark measured the
 GPU 4-17x faster than the CPU worker pool on an integrated Intel Iris Xe.
 
+**Its own checkbox physically sits in [Memory, Rotation, GPU & streaming's](#in-out-params) sidebar
+section, not here** — same "controls live somewhere other than their own declaring module"
+precedent as `ftmEnabled`/`ftmWindow` above — since `useGpu` is genuinely shared by fit, render,
+and locprecision (FRC) alike, not specific to any one of them; no single one of those three
+sidebar sections would be the "right" place for it.
+
 `hsvBlue` is a closed-loop full HSV hue cycle (240°, blue → cyan → green →
 yellow → red → magenta → violet → 240° again, saturation/value pinned to 1)
 matching a colour scheme used in the sSMLM paper's own figures — the only
@@ -2803,7 +2852,7 @@ preview can refresh during a worker-parallel Run: a batch's fit results only
 become available once the whole batch completes, so batch size is a hard
 floor on preview freshness independent of `rawPreviewMs` below.
 
-### Localisation settings (`export`) {#export-params}
+### Localisation (`export`) {#export-params}
 
 Camera ADU→photon conversion fields specifically.
 
@@ -2817,7 +2866,7 @@ Camera ADU→photon conversion fields specifically.
 
 **In-app "more info…" popup**: `hint-export` no longer exists as its own
 div — Gain/Camera offset now sit right below **Real-time update**, at the
-TOP of Localisation settings (moved there, along with **Get estimate**,
+TOP of Localisation (moved there, along with **Get estimate**,
 requested — the three most-consulted controls in the whole module), and
 their own "more info…" content was merged into `hint-detectfit` (shared with
 **Detect**/**Fit method** above) rather than keeping a second button in the
@@ -2865,11 +2914,11 @@ the corrected result's own precision/resolution).
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
+| `samplePct` | Sampling (AIM & NeNA) % | number (int) | 5 | 100 | 5 | 100 |
 | `driftSeg` | Average # of frames | number (int) | 5 | 2000 | 5 | 100 |
 | `driftMethod` | Drift correction method | enum (`aim`, `correlation`) | — | — | — | `aim` |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
-| `driftSamplePct` | AIM sample % (speed vs. precision) | number (int) | 5 | 100 | 5 | 100 |
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
 
 **In-app "more info…" popup** (`hint-drift` in `webSMLM.html`; synced by
@@ -2877,10 +2926,11 @@ the corrected result's own precision/resolution).
 `.hint` div directly):
 
 <!-- HINT:drift -->
+<p><b>Sampling (AIM &amp; NeNA) %</b> is a shared speed/precision trade for AIM's own shift search and NeNA — each deterministically subsamples once via its own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where either is slow. It does <b>not</b> affect FRC: FRC's own resolution number is fundamentally a function of localization density, not just noisier with fewer points, so subsampling it would silently report the (much worse) resolution of a sparser dataset rather than a faster measurement of the real one — FRC always runs on the full loc set regardless of this setting.</p>
 <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
 <ul>
   <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
-  <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only); <b>AIM sample %</b> deterministically subsamples each segment's own localizations before the search on a large, slow dataset (100% = no change, the default; a segment that's already small is never subsampled further).</li>
+  <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
   <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
   <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
   <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
@@ -2912,7 +2962,7 @@ Spectrally resolved SMLM, diffraction-grating pair finding.
 `.hint` div directly):
 
 <!-- HINT:sSMLM -->
-<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering settings → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
+<p>Pairs 0th/1st-order localizations from a diffraction grating placed in the emission path — each emitter appears twice per frame, offset by a wavelength-dependent distance at a <b>fixed, known bearing</b> (not just orientation — <b>Primary angle</b> is a genuine direction, e.g. 0° always means the 1st order sits to the same side of every 0th order in the image). A point qualifies as a 0th order only if it has a candidate on that bearing AND no candidate on the opposite bearing (which would mean it's more likely someone else's 1st order) — this needs no brightness signal, since real data shows brightness alone doesn't reliably tell 0th from 1st order here. The paired position is the <b>0th order's own</b> — undispersed, so its centroid is the true emitter position — not the midpoint between the two (that would blur position by up to half the per-emitter spectral offset). The inter-order distance is stored in its own <b>dist</b> field (never <b>z</b> — kept independent so a future 3D-fit result could carry real depth and spectral distance at once), so the depth-coding render option (Rendering → Colour by depth/distance) shows it directly as a wavelength proxy with no other change needed. The 1st order's own raw position and the pair's own directed bearing are also kept, as <b>x2</b>/<b>y2</b>/<b>pairAngle</b> — a pair's full geometry, not just distance and the 0th order's own position. Localizations that don't find an unambiguous pair within the window are dropped from the result entirely.</p>
 <p>Localizing with <b>Gauss MLE rotated elliptical</b> first (Fit method, above — <b>3D localisation</b> unchecked fixes its angle to Primary angle below, exactly this section's own bearing) gives BOTH orders a genuine per-axis σx/σy after <b>Pair &amp; plot sSMLM</b>, instead of the single symmetric-σ proxy (<code>sigma1st</code>) every other method reports for the spectrally-smeared 1st order.</p>
 <p><b>Background profile</b> (Rectangle/Circle, default Rectangle) is the shape Preview pairs' own automatic distance fit assumes for the region the localizations occupy, when modelling the "random unpaired pairs" background — a rectangular camera FOV and a circular field-stop/aperture are both real optical setups, and which one applies isn't reliably guessable from the point cloud alone, so it's a plain choice rather than auto-detected. Changing it re-fits automatically once a fit already exists, rather than just clearing the old one. See <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a> for the two background formulas' own citations.</p>
 <p><b>Preview pairs</b> computes the candidate pool AND immediately fits it (no separate button needed — Distance min/max/Primary angle/Angle tolerance below are filled in automatically, so they already reflect this dataset's own real peak instead of generic defaults): Distance min/max from a fitted background-plus-Gaussian-signal model (<b>Background profile</b> picks whether the background assumes a rectangular or circular region), Primary angle/Angle tolerance from the angle histogram's own peak (its half-max width) — all four are starting points you can still widen by hand; changing <b>Background profile</b> re-fits automatically too. <b>Show histograms</b> draws the underlying data: a distance histogram (every candidate pair in range, any angle) by default, or a polar (rose) angle histogram restricted to the current distance window via the toggle next to the raw panel's own title (labelled <b>Distances</b>/<b>Angles</b>, whichever it would switch to). Both histograms are accumulated across ALL frames (only same-frame localizations are ever compared to each other — the accumulation just pools every frame's own candidates into one plot); both also overlay their own fitted curve. Narrow the fields further by typing, or by dragging the marker lines directly on either plot (two vertical lines on <b>Distances</b>; a magenta Primary-angle line plus two red tolerance lines, rotating around the origin, on <b>Angles</b>) — then click <b>Pair &amp; plot sSMLM</b> to commit.</p>
@@ -3050,12 +3100,13 @@ for the first implementation.
 | `smfretFixSOI` | Fix sites of interest (SOI) | bool | — | — | — | true |
 | `smfretApertureMode` | Aperture photometry (no fit) | bool | — | — | — | false |
 | `smfretFloorZero` | Set negative intensities to zero | bool | — | — | — | true |
+| `smfretAnchorBg` | Background from annulus | bool | — | — | — | true |
 | `smfretApplyDrift` | Apply drift correction | bool | — | — | — | false |
-| `smfretAlignTolPx` | Align channels match tolerance (px) | number (int) | 1 | 100 | 1 | 4 |
+| `smfretAlignTolPx` | Align channels match tolerance (px) | number (int) | 1 | 100 | 1 | 2 |
 | `smfretPairMethod` | Pairing method | enum (`distAngle`, `channelMatch`) | — | — | — | `distAngle` |
 | `smfretMinDex` | Min DD + DA for E/S histogram | number | 0 | — | 10 | 0 |
 | `smfretMaxDex` | Max DD + DA for E/S histogram | number | 0 | — | 10 | ∞ (blank) |
-| `smfretMinAA` | Min AA for E/S histogram | number | 0 | — | 10 | 0 |
+| `smfretMinAA` | Min AA for E/S histogram | number | 0 | — | 10 | 1 |
 | `smfretMaxAA` | Max AA for E/S histogram | number | 0 | — | 10 | ∞ (blank) |
 
 **In-app "more info…" popup** (`hint-smfret` in `webSMLM.html`; synced by
@@ -3064,19 +3115,21 @@ for the first implementation.
 
 <!-- HINT:smfret -->
 <p>Single-molecule FRET (donor/acceptor pair analysis), <b>experimental</b> and early — v1 is the first two steps: finding real emitter positions, then reading out their intensity over time.</p>
-<p><b>Analyse FRET</b> (default checked, right below <b>Average # of frames</b>) makes explicit that this module also works as a plain time-traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Load/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating-laser excitation</b> on and <b>Analyse FRET</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
+<p><b>Analyse FRET</b> (default checked, right below <b>Average # of frames</b>) makes explicit that this module also works as a plain time-traces tool, not only a FRET one — unticking it disables/greys out <b>Pair DD + DA</b> (the one control that only makes sense once a real donor/acceptor pair is wanted); <b>Localize SOI</b>, <b>Get (FRET) data</b> and <b>Plot/Save (FRET) data</b> all stay fully usable regardless. With <b>Alternating-laser excitation</b> on and <b>Analyse FRET</b> off, <b>Get (FRET) data</b> still plots real <b>DD</b> and <b>AA</b> — there's just no donor→acceptor pair to derive an E/S value from, so the <b>E(S) histogram</b> stays unavailable, same as for any other unpaired result.</p>
 <p><b>Alternating-laser excitation</b> (default unchecked) is for movies where the excitation laser alternates frame-by-frame (ALEX) — checking it reveals <b>First frame</b>, picking whether the movie's own first frame is a direct donor- or direct acceptor-excitation frame. This also affects the <b>Data projection</b> view (shown before any Localize/Calibration result exists) and smFRET's own <b>SOI composite</b> (once Localize SOI has run) the same way: both share one toggle next to the panel title (named for whichever channel it would switch to) that averages only the even- or only the odd-indexed frames instead of the whole movie, so the two excitation channels can be inspected — or localized — separately. Checking this box after a composite already exists recomputes it automatically.</p>
-<p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation settings). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating-laser excitation</b> checked, the log line also breaks the total down by channel: it reports the candidate count on the channel just localized AND runs a second, on-demand detect+fit pass on the OTHER channel purely to report its own independent count too (no pairing has run yet at this point, so there's no real donor/acceptor IDENTITY to split by — see below).</p>
-<p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation settings field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own). Each of the two channels (<b>DD+DA</b>/<b>AA</b>, or <b>Donor</b>/<b>Acceptor dir. exc.</b> before Localize SOI) remembers its own Contrast range independently — the first time a channel's composite is shown it's auto-estimated, but a by-hand adjustment sticks: toggling to the other channel and back does not silently reset it. Clicking <b>Auto</b> explicitly reverts the CURRENT channel back to auto-estimating on future toggles.</p>
-<p><b>Pairing method</b> picks which of two genuinely different approaches <b>Pair DD + DA</b> below actually runs — they target different optical layouts, not overlapping options, so the right choice depends on your setup rather than being a quality trade-off. <b>Via distances and angles</b> (default) fits a Distance/Angle histogram — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area and are only distinguished by a small wavelength-dependent dispersion offset. <b>Via channel matching</b> directly registers two independently-detected point sets instead — suits a spatially SEPARATED setup (dual-view/image-splitter), where a histogram-based fit can't tell a genuine peak apart from a purely geometric bias: in a field of view much wider than tall, random point pairs are naturally more likely to be oriented along the long axis regardless of any real signal, and that axis commonly coincides with the true physical donor→acceptor bearing for a horizontal split. Selecting <b>Via channel matching</b> reveals <b>Align channels match tolerance (px)</b> (default 4), which controls how close a mapped point must land to a real one to count as a match ONCE THE GEOMETRIC TRANSFORM HAS CONVERGED — an initial coarse translation-only search only seeds a full affine fit (rotation + scale + shear + translation, refined over a few rounds of fit-then-re-match at progressively tighter tolerance), since a real optical dual-view/image-splitter path commonly has a small relative rotation or magnification difference between its two channels that a plain shift can't capture; the converged mapping is expected to hold to genuine sub-pixel-to-few-px accuracy, so widen this only if genuine matches are still being missed after that refinement, not to compensate for an uncorrected shift. Changing it re-runs <b>Pair DD + DA</b> automatically whenever a pairing already exists.</p>
+<p><b>Localize SOI</b> averages the first <b>Average # of frames</b> frames (from frame 1) into one stable composite — real molecule positions stay bright and stack up in an average the way transient noise doesn't — then detects and fits each real emitter ROI once on that composite, the same "average, then detect once" approach <b>3D calibration</b>'s own <b>Fix bead x,y</b> uses. Uses the current detection/fit settings (Localisation). Results ("sites of interest", SOI) are shown in the reconstruction panel: ROI boxes + fit crosshairs over the composite image, not a real reconstruction — and also become the current result everywhere else (<b>View data/filtering</b>, <b>Save data</b>, and <b>Pairing (sSMLM &amp; FRET)</b>'s own <b>Preview pairs</b>/<b>Pair &amp; plot sSMLM</b>, useful for pairing a donor/acceptor SOI candidate the same way sSMLM pairs a 0th/1st order — see <b>Pair DD + DA</b> below for a shortcut that does this from right here), replacing whatever the current result was before. <b>Fix sites of interest (SOI)</b> is checked automatically once sites are found — it's a status flag, not something you need to check by hand — and unchecking it discards the sites, that result, and both panels return to normal. Loading a different movie does NOT uncheck it by itself (only Localize SOI itself has any real consequence for it). With <b>Alternating-laser excitation</b> checked, the log line also breaks the total down by channel: it reports the candidate count on the channel just localized AND runs a second, on-demand detect+fit pass on the OTHER channel purely to report its own independent count too (no pairing has run yet at this point, so there's no real donor/acceptor IDENTITY to split by — see below).</p>
+<p>Once an SOI composite is showing, changing <b>Average # of frames</b> or any Localisation field that affects detection (Threshold, σ_PSF, Window radius, the detection filter or its own threshold, Exact ±3σ box) re-runs <b>Localize SOI</b> automatically, no re-click needed — real SOI signals are commonly faint, so expect to hand-tune the threshold down and watch the composite update live rather than getting everything on the first try. Zoom/pan is preserved across each auto-refresh (only resets on an actual frame-size change), the same as the raw frame panel's own live preview, so zooming in on one faint candidate while tuning the threshold doesn't keep snapping back out. Whenever either composite is showing, a <b>Contrast</b> slider appears next to the reconstruction panel too (same fixed black/white stretch as the raw panel's own). Each of the two channels (<b>DD+DA</b>/<b>AA</b>, or <b>Donor</b>/<b>Acceptor dir. exc.</b> before Localize SOI) remembers its own Contrast range independently — the first time a channel's composite is shown it's auto-estimated, but a by-hand adjustment sticks: toggling to the other channel and back does not silently reset it. Clicking <b>Auto</b> explicitly reverts the CURRENT channel back to auto-estimating on future toggles.</p>
+<p><b>Pairing method</b> picks which of two genuinely different approaches <b>Pair DD + DA</b> below actually runs — they target different optical layouts, not overlapping options, so the right choice depends on your setup rather than being a quality trade-off. <b>Via distances and angles</b> (default) fits a Distance/Angle histogram — suits an OVERLAPPING-region setup (diffraction-grating/prism), where donor and acceptor images share the same general sensor area and are only distinguished by a small wavelength-dependent dispersion offset. <b>Via channel matching</b> directly registers two independently-detected point sets instead — suits a spatially SEPARATED setup (dual-view/image-splitter), where a histogram-based fit can't tell a genuine peak apart from a purely geometric bias: in a field of view much wider than tall, random point pairs are naturally more likely to be oriented along the long axis regardless of any real signal, and that axis commonly coincides with the true physical donor→acceptor bearing for a horizontal split. Selecting <b>Via channel matching</b> reveals <b>Align channels match tolerance (px)</b> (default 2), which controls how close a mapped point must land to a real one to count as a match ONCE THE GEOMETRIC TRANSFORM HAS CONVERGED — an initial coarse translation-only search only seeds a full affine fit (rotation + scale + shear + translation, refined over a few rounds of fit-then-re-match at progressively tighter tolerance), since a real optical dual-view/image-splitter path commonly has a small relative rotation or magnification difference between its two channels that a plain shift can't capture; the converged mapping is expected to hold to genuine sub-pixel-to-few-px accuracy, so widen this only if genuine matches are still being missed after that refinement, not to compensate for an uncorrected shift. Changing it re-runs <b>Pair DD + DA</b> automatically whenever a pairing already exists.</p>
 <p><b>Pair DD + DA</b> runs whichever method <b>Pairing method</b> selects, using the current sites of interest. <b>Via distances and angles</b> runs <b>Pairing (sSMLM &amp; FRET)</b>'s own candidate-fit-and-pair steps (the same computation <b>Preview pairs</b> then <b>Pair &amp; plot sSMLM</b> do): it fits the distance/angle window, redraws the raw (left) panel with the resulting Distances/Angles histogram, and commits the pairing (writing each site's paired acceptor position/distance) — but skips the reconstruction panel's own side effects (no colour-map switch, no z-range change, no re-render), so it doesn't disturb whichever composite or time trace the reconstruction (right) panel is currently showing. With <b>Alternating-laser excitation</b> ticked, this always pairs the <b>direct donor excitation</b> channel's own sites — refuses with a log message if the SOI composite currently showing is the acceptor-excitation one instead; without ALEX there's only one channel, so it just runs. <b>Via channel matching</b> instead finds the x-position GAP between the two channels directly from where the sites of interest themselves are detected (not an assumed frame-half-width), splits into a DD region and a DA region, builds a "truth" pool for the acceptor side — DA candidates plus, with ALEX on, a fresh independent AA localization (DA alone without ALEX) — then searches for the initial displacement that maximises how many DD points land near a real truth point once shifted by it (starting from half the frame width at 180°), refines that shift into a full geometric transform (rotation + scale + shear on top of translation) by repeatedly fitting the mapping from the current matches and re-matching at a progressively tighter tolerance, and the final match set under the converged transform becomes the pairing directly, no separate histogram/window step needed. Unlike <b>Via distances and angles</b>, a successful <b>Via channel matching</b> run DOES touch the reconstruction (right) panel: it automatically shows an <b>Alignment overlay</b> — the donor channel (green), warped through the just-fitted transform, composited over the acceptor/DA channel (magenta), so a genuinely well-registered feature reads white and a real misalignment shows as separated green/magenta fringes — a direct visual check of the transform's own quality. A new <b>Show alignment</b>/<b>Show SOI composite</b> toggle next to the panel title switches back to the ordinary SOI composite and back again without recomputing anything (also swapping <b>Show alignment</b> in for the SOI composite's own <b>DD+DA</b>/<b>AA</b> cycle button while the overlay is up, since that button's own cycle has nothing to do with the overlay). The overlay shares the SOI composite's own <b>Contrast</b> slider — dragging it re-stretches both the green and magenta channels together from cached, already-warped data, no need to recompute the transform. Either way, once a pairing succeeds and the SOI composite is still showing, every site that became the ACCEPTOR side of a pair has its own ROI box and crosshair recoloured — the matching donor site keeps its usual colour, since a coloured box marks "this is the confirmed acceptor," not just "this site paired." <b>Via distances and angles</b> always colours dark orange (every acceptor position there is another entry of the SAME donor-excitation composite that's on screen). <b>Via channel matching</b> colours dark orange too when the match came from that same DA region, but a match sourced from the separate, independently-fit AA composite (only possible with ALEX on) instead colours gold — a real but purely geometric, nearest-neighbour match rather than one validated against data visible in the composite you're looking at, worth being able to tell apart at a glance. The match itself uses a small position tolerance (a few px) rather than requiring an exact coordinate match, since an AA-sourced position comes from a genuinely different image/fit pass than the composite's own site list — an acceptor position with no sufficiently close site of interest nearby (rare, but possible for a noisier AA fit) is left in its ordinary colour even though it IS part of a real pair. Every site stays visible regardless, so it's easy to see how many (and which) actually paired, rather than the unpaired majority disappearing — toggling the <b>DD+DA</b>/<b>AA</b> composite view next to the reconstruction title afterward does NOT lose this. Once it succeeds, <b>Get FRET data</b> below automatically reads the resulting paired positions and splits DD into DD/DA.</p>
 <p><b>Position donor</b> (shown once <b>Alternating-laser excitation</b> is checked) answers the question the doubled-bearing pairing data can't answer on its own: which of the two candidate bearings — always exactly 180° apart — actually points from the donor toward the acceptor. Greyed out — before <b>Localize SOI</b> has even run, and again any time the current pairing session ends (<b>Unpair</b>, a fresh <b>Localize SOI</b>, or unchecking <b>Fix sites of interest (SOI)</b>) — until <b>Pairing (sSMLM &amp; FRET)</b>'s own angle fit has actually run at least once (from <b>Preview pairs</b> or <b>Pair DD + DA</b>) — its placeholder bearing before that has no real data behind it, so there's nothing meaningful to choose between yet. Once enabled, its two options are frozen at that fit and stay fixed while you toggle between them; picking one directly sets that module's own <b>Primary angle</b> and re-pairs. There's no automatic way to tell which of the two is physically correct ahead of time — try both and compare the resulting Get FRET data AA signal.</p>
-<p><b>Get FRET data</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating-laser excitation</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a standard 2D Gaussian (seeded at the site, position free to move) at each frame; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. Toggling either of these two (or <b>Apply drift correction</b>, below) while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get FRET data</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, fixed to the conventional [0,1] range; before a pairing exists it shows a placeholder message instead.</p>
+<p><b>Get FRET data</b> extracts every site's intensity — its known x,y only picks which window to look at, never re-detected — in every frame of the loaded movie, then plots the resulting intensity-vs-time curve(s) in the raw (left) panel, 4:3 letterboxed like every other plot here, <b>zoomable along the x-axis</b> (mouse wheel/pinch, same as the line-profile plot; double-click to reset). It's available as soon as sites of interest exist — before any pairing, it plots just <b>DD</b> (green). Once paired (<b>Pair DD + DA</b> above), DD splits into <b>DD</b> and <b>DA</b> (magenta) — DA is the LEADING position: with <b>Alternating-laser excitation</b> also checked, <b>AA</b> (blue) is sampled at that same DA-established acceptor position too, on the direct-acceptor-excitation frames. There is currently no other option for where AA is sampled from. By default this fits a 2D Gaussian (seeded at the site, position free to move) at each frame. With <b>Analyse FRET</b> ticked, smFRET picks the fit itself rather than following the sidebar <b>Fit method</b>: after <b>Pair DD + DA</b> <b>Via distances and angles</b> (grating/prism — the acceptor spot is dispersed along the donor→acceptor direction) it fits a rotated elliptical Gauss MLE whose axes are locked to each site's own D→A direction, so the width plotted in the sigma-vs-time panel is the width ALONG D→A (the spectral dispersion) and the width across it is fitted separately, whatever the camera orientation; after <b>Via channel matching</b> (dual-view, no dispersion) and before any pairing it fits a spherical Gauss MLE (one width). Locking the axes assumes the spot's principal axes lie along D→A (true when dispersion dominates); for a spot tilted relative to D→A (e.g. astigmatism), untick <b>Analyse FRET</b> and use the sidebar's <b>Gauss MLE rotated elliptical</b>, which fits the angle freely and projects its width onto D→A. With <b>Analyse FRET</b> unticked, the sidebar's <b>Fit method</b> is used (spherical, least-squares or rotated elliptical). Pairing also estimates each channel's own PSF width from its composite fits (logged as <i>PSF from pairing</i>: along × across D→A for <b>Via distances and angles</b>, one width for <b>Via channel matching</b>, AA from its own fit when ALEX is on) and uses it — instead of the single sidebar σ_PSF — to seed each channel's per-frame fit and to bound its width at 2× that estimate; the sidebar σ_PSF itself is left unchanged (changing it would re-run Localize SOI and discard the pairing). The localizations table's own <code>sx0th</code>/<code>sy0th</code>/<code>sx1st</code>/<code>sy1st</code> come from a different fit — the pairing step's axis-aligned elliptical least-squares fit of the averaged SOI composite, independent of this setting — so they are camera-x/y widths of the time-averaged spot, not per-frame widths along D→A. Either way the per-frame fit runs on the GPU when <b>Use GPU acceleration</b> is on and enough sites × frames × channels exist to make it worthwhile, exactly as an ordinary Localize run would; check <b>Aperture photometry (no fit)</b> to instead use a published aperture-photometry method (a circular signal disk plus a separate background annulus, background estimated by its 56th percentile) with no fit to diverge — recommended if the default trace still shows an implausible spike. <b>Set negative intensities to zero</b> (default checked) floors that method's own background-subtracted result at 0; untick it to keep a genuinely negative computed value instead, better for fitting an intensity distribution (e.g. an OFF-state population centred near zero with a real negative tail) than an artificial floor allows — a rejected fit still reports 0 either way. <b>Background from annulus</b> (default checked; Gauss MLE spherical and rotated elliptical) holds each frame's background at the same local annulus estimate aperture photometry uses and fits only position, photons and width. With background free, a small fit window lets the fit trade a wider, dimmer peak for a lower background, inflating the photon count (or, with the aperture cross-check, rejecting the frame); anchoring it removes most of these, at unchanged position precision and a few-% photon undercount comparable to aperture photometry. It runs on the GPU too when <b>Use GPU acceleration</b> is on. After a first fit, the annulus background is re-measured with the fitted spot's own signal subtracted and the spot is fitted once more — a wide or spectrally dispersed spot otherwise leaks real signal into the annulus along its long axis, making the background read high and the fitted width and photons come out low. For the rotated elliptical fit this keeps the width along the donor–acceptor direction (which carries the spectral dispersion) within a few % of the truth on synthetic grating-like spots, while accepting far more frames than a fit with free background. smFRET rejects any per-frame fit whose width on either axis exceeds 2× that channel's PSF estimate from pairing (2 × σ_PSF before pairing). Toggling any of these three (or <b>Apply drift correction</b>, below) while a trace is already showing re-extracts every site's data with the new setting but keeps showing the SAME site at the SAME x-zoom — only a fresh click of <b>Get FRET data</b> itself jumps back to site 1. While a time trace is showing, the frame scrubber below the panel is replaced by a <b>site</b> scrubber — mouse wheel (over its slider) or the bar below the panel scrolls through sites instead of frames — and a <b>Show raw frame</b>/<b>Show time trace</b> toggle next to the panel title switches back and forth between the plot and the live frame (with its own ordinary Frame scrubber) without discarding the computed traces. Below the DD/DA/AA plot, a second stacked plot — sharing the same time x-axis — shows the CURRENT site's own <b>E</b> (orange) and, once ALEX and AA data are both present, <b>S</b> (teal) as a function of time, on the conventional [0,1] range; before a pairing exists it shows a placeholder message instead. With a fit, a frame gives an E only when DD and DA are both above 0 (0 means a rejected fit). With aperture photometry and <b>Set negative intensities to zero</b> unticked, every frame is a measurement: E is computed whenever DD + DA &gt; 0, even with one channel slightly negative, so it can leave [0,1] with the noise (plot range −0.5…1.5; the histograms note how many samples fall outside their range). Raise <b>Min DD + DA</b> to drop the noisy low-intensity frames from the histograms.</p>
 <p><b>Apply drift correction</b> (default OFF) estimates drift on the loaded movie and shifts each frame's own extraction window to follow it before reading DD/DA/AA intensities — useful when a site of interest's own position isn't perfectly stationary over a long acquisition. Uses whichever <b>Drift correction method</b>/settings are currently configured in <b>Drift correction</b>'s own sidebar section (see <a href="#drift-params">its own reference</a>): <b>Cross correlation</b> runs directly on the raw movie, no Localize needed just to estimate it; <b>AIM</b> needs real localizations first, so this runs one full, silent Localize pass across the whole movie behind the scenes (using the current detection/fit settings) — a real, sometimes substantial added cost, unlike Cross correlation. Either way, the estimated drift is anchored to frame 0 (a site's own fixed x,y is treated as "how it looked when Localize SOI averaged it", effectively frame 0), so every other frame's own extraction position is derived as an offset from that fixed reference — not from an arbitrary drift-curve reference point the way <b>Correct drift</b>'s own AIM-based reconstruction correction can be.</p>
-<p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, and <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Also saves the pooled <b>E(S) histogram</b> data — the exact same per-sample values that plot would draw, as flat arrays rather than pre-binned counts, so an external tool can re-bin them however it likes — together with the <b>DD + DA</b>/<b>AA</b> range used to pool them (a missing/<code>null</code> max means no upper limit was set), whenever a real DD+DA pairing exists (a 1D <code>pooled_E</code> array alone, or both <code>pooled_E</code> and <code>pooled_S</code> once ALEX + AA data are both present). Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code> and <code>alex_first_frame</code> — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
-<p><b>Load FRET data</b> reverses this — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
-<p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. Both ranges default to 0–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD, DA, and — in E/S mode — AA are each also required strictly greater than 0 individually, not just their sums: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E (or S) to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything.</p>
-<p>The Time trace plot inset its own small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) below the graph — a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
+<p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity- and, when a real fit was used (not aperture photometry), width-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code>, and <code>sigmaDD</code>/<code>sigmaDA</code>/<code>sigmaAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Does NOT save the pooled <b>E(S) histogram</b> data — that's directly recomputable from the saved DD/DA/AA arrays, so it was dropped as pure duplication. Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code>, <code>alex_first_frame</code>, <code>extraction_method</code> (which of the 4 real extraction paths produced this file), <code>use_elliptical_width</code>, and <code>gain_photons_per_adu</code>/<code>camera_offset_adu</code>/<code>intensity_unit</code> (the intensities are <code>(raw − offset) × gain</code>: photons, or ADU with gain 1) — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
+<p><b>Plot (FRET) data</b> (greyed out until <b>Get (FRET) data</b> has run) re-shows the existing time traces in the left panel, and the <b>E(S) histogram</b> in the right one once paired, without re-extracting — handy after switching a panel to a raw frame or another plot. It keeps the site and zoom you last looked at.</p>
+<p>Selecting a saved traces file with <b>Load movie/data</b> reverses <b>Save FRET data</b> — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
+<p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything. With it off, the same button (below the plot) switches between the E histogram and the SOI composite.</p>
+<p>The Time trace plot shows small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) — in a column right of the plots when the panel is wide, otherwise in a strip below the E/S plot. The trace uses the whole panel (at least 480 px tall; square for a tall movie), so an extreme frame shape no longer squeezes the plots. Each thumbnail is a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
+<p>A third stacked plot (sharing the same time x-axis as the two above it) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load movie/data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
 <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
 <!-- /HINT:smfret -->
 
@@ -3309,7 +3362,7 @@ view zoomed/panned where the crop left it.
 Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"sx_AA [nm]","sy_AA [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
@@ -3359,6 +3412,14 @@ Written by **Save data** (`exportCSV()`), ThunderSTORM-compatible:
   for BOTH orders (not just a proxy for the 1st the way `sigma1st` is),
   since those methods fit an independent σx/σy for every localization, not
   just a symmetric `sigma`. Round-trips through **Load data** the same way.
+- `sx_AA [nm]`/`sy_AA [nm]` (smFRET, ALEX only): a paired site's own
+  AA-channel width, from a SEPARATE fit on the acceptor-excitation
+  composite matched onto the pairing by nearest position — genuinely new
+  information, not derivable from `sx0th`/`sx1st` above (those come from
+  the donor-excitation composite's own pairing step, which never looks at
+  the acceptor-excitation channel at all). Blank for a row with no nearby
+  acceptor-excitation signal, or when ALEX is off. Round-trips through
+  **Load data** the same way.
 - `track_id` and `D_coeff [um^2/s]` are spt-**Track**-specific (see §2 spt)
   — independent optional columns, present whenever any localization has
   them; `track_id` is on every tracked localization, `D_coeff` only on

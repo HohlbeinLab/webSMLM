@@ -89,3 +89,36 @@ export function makeSyntheticFrame(w, h, seed, nBlobs = 5) {
   }
   return pixels;
 }
+
+// Minimal 16-bit BigTIFF writer (magic 43) for the loader tests: one IFD per
+// frame, `stripRows` rows per strip (strip offsets/byte counts stored out of
+// line as LONG8 arrays when there is more than one strip), little- or
+// big-endian, optional Compression tag value (only written, never applied).
+export function encodeBigTiff16(frames, w, h, { littleEndian = true, stripRows = h, compression = 1 } = {}) {
+  const nStrips = Math.ceil(h / stripRows), N_TAGS_BT = 8, ENT = 20;
+  const ifdBytes = 8 + N_TAGS_BT * ENT + 8, arrBytes = nStrips > 1 ? 2 * nStrips * 8 : 0;
+  const dataBytes = w * h * 2, perFrame = ifdBytes + arrBytes + dataBytes;
+  const buf = Buffer.alloc(16 + perFrame * frames.length);
+  const u16 = (v, o) => littleEndian ? buf.writeUInt16LE(v, o) : buf.writeUInt16BE(v, o);
+  const u64 = (v, o) => littleEndian ? buf.writeBigUInt64LE(BigInt(v), o) : buf.writeBigUInt64BE(BigInt(v), o);
+  buf.write(littleEndian ? 'II' : 'MM', 0, 'ascii'); u16(43, 2); u16(8, 4); u16(0, 6); u64(16, 8);
+  let ifdOff = 16;
+  frames.forEach((px, f) => {
+    const arrOff = ifdOff + ifdBytes, dataOff = arrOff + arrBytes;
+    const next = f < frames.length - 1 ? dataOff + dataBytes : 0;
+    let o = ifdOff; u64(N_TAGS_BT, o); o += 8;
+    const entry = (tag, type, count, write) => { u16(tag, o); u16(type, o + 2); u64(count, o + 4); write(o + 12); o += ENT; };
+    const short = v => p => u16(v, p);
+    const soff = [], sbc = [];
+    for (let s = 0; s < nStrips; s++) { const rows = Math.min(stripRows, h - s * stripRows); soff.push(dataOff + s * stripRows * w * 2); sbc.push(rows * w * 2); }
+    entry(256, 3, 1, short(w)); entry(257, 3, 1, short(h)); entry(258, 3, 1, short(16)); entry(259, 3, 1, short(compression));
+    entry(262, 3, 1, short(1));
+    if (nStrips === 1) { entry(273, 16, 1, p => u64(soff[0], p)); entry(278, 3, 1, short(stripRows)); entry(279, 16, 1, p => u64(sbc[0], p)); }
+    else { entry(273, 16, nStrips, p => u64(arrOff, p)); entry(278, 3, 1, short(stripRows)); entry(279, 16, nStrips, p => u64(arrOff + nStrips * 8, p));
+      soff.forEach((v, i) => u64(v, arrOff + i * 8)); sbc.forEach((v, i) => u64(v, arrOff + (nStrips + i) * 8)); }
+    u64(next, o);
+    for (let i = 0; i < w * h; i++) u16(px[i], dataOff + i * 2);
+    ifdOff = dataOff + dataBytes;
+  });
+  return buf;
+}

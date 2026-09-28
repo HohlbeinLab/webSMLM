@@ -68,6 +68,15 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     only revisit with a different algorithm, not a straight port.
   - GPU batch sizing (`gpuBatchMb`/`gpuInflight`/`gpuFlushMs`) is settings-JSON/headless tunable for
     benchmarking, but intentionally has no sidebar UI until real users need it.
+  - **Profile CPU-side detection to find a real overall-Run speedup** — asked directly why GPU phasor
+    is only ~10% faster overall than GPU MLE despite a large (1.5x-35x) isolated fit-stage speedup:
+    per **fit**'s own paragraph in CLAUDE.md, CPU-side detection (8 worker threads, identical cost
+    regardless of fit method) already dominates a Run's wall time, so fitting was never the bottleneck
+    for either method — no amount of smarter GPU auto-tuning/dispatch for phasor's own fit stage can
+    move the *overall* number much further (Amdahl's law: the piece being sped up is already small).
+    Detection itself was already tried on GPU and found slower (see the bullet above), so the
+    remaining lever is profiling/optimizing the CPU band-pass + local-maxima detection path itself
+    (`detectSpots()`, MODULE: detect) to find where its own real cost actually goes — not yet started.
 
 - **Cubic-spline PSF fitting** (`picasso/fitting/splinefit.py`) for PSFs that deviate from
   Gaussian — meaningfully bigger scope than the rotated-elliptical MLE fitter (shipped): its own
@@ -156,13 +165,53 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   needed. Not a gap; don't re-add without a fresh, specific reason.
 
   **Still open**:
+  - **AIM drift correction's own reliability degrades over the course of a long acquisition as
+    emitters photobleach — raised directly, alongside the ALEX-pooling fix above** (see CLAUDE.md's
+    own smFRET paragraph on `smfretComputeDrift()`): AIM estimates each segment's own shift from
+    whatever real localizations exist within it, so a segment late in a long movie — after
+    substantial photobleaching has thinned out the population — has genuinely less/noisier evidence
+    to register against than an early one, making the per-segment shift estimate progressively less
+    reliable exactly when cumulative real sample drift is often largest. Not scoped further yet:
+    possible directions include a bleaching-aware/adaptive segment length (widening segments later in
+    the movie to maintain a comparable localization count per segment) or flagging segments whose own
+    localization count falls below some confidence floor rather than silently trusting a
+    poorly-supported estimate — needs real bleaching-affected data to characterize before choosing
+    an approach, not a change to make blind.
   - **Accurate/corrected FRET.** RAW E (= DA/(DD+DA)) and S (= (DD+DA)/(AA+DD+DA)) are already
     computed and shown — per-sample in the pooled **E(S) histogram**, per-site-per-time in the Time
-    trace plot's own E/S-vs-time subplot, and now saved directly in **Export traces & E/S**'s own
-    `pooled_E`/`pooled_S` arrays. What's still missing is the FULL correction on top of these raw
-    values — leakage/crosstalk, direct excitation, and a γ-factor derived from the population
-    structure on the 2D E–S histogram — a distinct, later step, deliberately deferred per the
-    references above.
+    trace plot's own E/S-vs-time subplot. (`pooled_E`/`pooled_S` are no longer saved in **Export
+    traces & E/S** — dropped as pure duplication, directly recomputable from the exported
+    `photonsDD`/`photonsDA`/`photonsAA` arrays.) What's still missing is the FULL correction on top of
+    these raw values — leakage/crosstalk, direct excitation, and a γ-factor derived from the
+    population structure on the 2D E–S histogram — a distinct, later step, deliberately deferred per
+    the references above.
+  - **A hybrid MLE-position/aperture-intensity extraction mode, raised directly after confirming a
+    real bias-variance trade-off between the two** (see CLAUDE.md's own smFRET paragraph on this):
+    `gaussianMLEspheric()`'s own reported photon count has real-world scatter matching its own
+    Cramér-Rao bound, which is genuinely, unavoidably worse than naive photon-counting statistics
+    because it jointly estimates 5 correlated parameters (x, y, N, bg, sigma) — confirmed directly via
+    `tests/gpu/test-mle-vs-aperture-variance.mjs` (CRLB ≈2x the naive floor, matching MLE's own
+    empirical std within a few percent). `apertureIntensity()` pays a much smaller version of the same
+    tax (no joint position/width fit, only a background percentile), so its own variance is closer to
+    the naive floor, at the cost of a real, known systematic undercount bias. Idea (not scoped, "think
+    later"): use MLE for sub-pixel POSITION (this correlation penalty doesn't apply nearly as strongly
+    there) and evaluate aperture photometry AT that refined position for the photon COUNT — aperture's
+    own lower variance without inheriting MLE's N-specific precision penalty. A related, also-deferred
+    idea from the same discussion: for a non-converging fit, fall back to aperture photometry instead
+    of reporting a flat rejected `0`, recovering partial signal rather than none. Needs real design
+    work before implementing: exactly how a "fixed position, aperture-for-intensity" mode would be
+    exposed (a new `smfretApertureMode`-adjacent toggle? Always-on once an MLE position exists?), and
+    whether it belongs in smFRET specifically or as a general fit-module option.
+    **Partly superseded (v0.12.9):** smFRET's "Background from annulus"
+    (`smfretAnchorBg`, `gaussianMLEsphericFixedBg()`) anchors bg to the annulus and fits x,y,N,σ —
+    it already brings MLE trace noise level with aperture photometry on real data. Remaining follow-ups:
+    - (Done, build 2026-09-23b: GPU kernels and the rotated elliptical fitter.) Least-squares still fits
+      bg freely.
+    - A general Localize option ("Background: fit / from local annulus") — the same σ↑/bg↓ degeneracy
+      inflates N there too (~9% of fits at 150 photons, ~50% at 800 photons with a PSF 1.5–2× σ_PSF);
+      touches the shared worker/GPU fit paths, so needs its own CPU/GPU parity testing.
+    - A soft Gaussian prior on bg (instead of fixing it) would keep the CRLB honest about background
+      uncertainty; worth trying if the few-% undercount or optimistic lpx matter in practice.
   - **Headless/NDJSON export for Get traces & E/S.** `config.smfretLocateSOI` covers SOI detection
     headlessly; the time-trace extraction itself (`getSmfretTimeTraces()`) has no headless path yet.
     The existing streaming-NDJSON precedent (`spt_tracks.ndjson` via `makeRecordEmitter()`) is the

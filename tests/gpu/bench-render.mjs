@@ -128,7 +128,7 @@ async function runCase(page, c) {
       zBlurDst: (mode === 'fixed' && zColor) ? new Float32Array(N) : null,
       blurTmp: mode === 'fixed' ? new Float32Array(N) : null,
     };
-    window.renderSuperResPixels(locs, cpuCanvas.width, cpuCanvas.height, mag, rblur, zColor, zlo, zhi, locs, colorField, 'fire', 99.5, cpuBuf, mode);
+    window.renderSuperResPixels(window.packSrLocs(locs, colorField, zColor, mode), cpuCanvas.width, cpuCanvas.height, mag, rblur, zColor, zlo, zhi, null, 'fire', 99.5, cpuBuf, mode);
     let cpuMass = 0; for (let i = 0; i < cpuBuf.acc.length; i++) cpuMass += cpuBuf.acc[i];
     if (!_gpuAccumCache || !_gpuAccumCache.accF) throw new Error('GPU render mass audit: missing retained primary accumulator');
     const massStaging = engine.device.createBuffer({ size: N * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ, label: 'test:render-mass-staging' });
@@ -198,7 +198,7 @@ async function runCropCase(page, mode) {
       zBlurDst: (mode === 'fixed' && zColor) ? new Float32Array(N) : null,
       blurTmp: mode === 'fixed' ? new Float32Array(N) : null,
     };
-    window.renderSuperResPixels(cropped, cpuCanvas.width, cpuCanvas.height, mag, rblur, zColor, zlo, zhi, cropped, colorField, 'fire', 99.5, cpuBuf, mode);
+    window.renderSuperResPixels(window.packSrLocs(cropped, colorField, zColor, mode), cpuCanvas.width, cpuCanvas.height, mag, rblur, zColor, zlo, zhi, null, 'fire', 99.5, cpuBuf, mode);
     let cpuMass = 0; for (let i = 0; i < cpuBuf.acc.length; i++) cpuMass += cpuBuf.acc[i];
     if (!_gpuAccumCache || !_gpuAccumCache.accF) throw new Error('GPU render mass audit: missing retained primary accumulator');
     const massStaging = engine.device.createBuffer({ size: N * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ, label: 'test:render-mass-staging' });
