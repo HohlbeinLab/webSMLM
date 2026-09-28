@@ -28,6 +28,10 @@ Download it with any of these:
 - **Release asset** (only if the run was given a tag):
   `gh release download <tag> -R kjamartens/insiliscope -p cellfield_block.js`
 
+- **Committed copy**: insiliscope `main` may carry the latest block at
+  `bin/websmlm/cellfield_block.js` (with its `.sha256`). This is the easiest route from a Claude Code
+  cloud session: clone or fetch insiliscope and sync from that path.
+
 The block's bytes depend on the Emscripten version (pinned as `EMSDK_VERSION` in insiliscope's
 workflows). Use the CI-built file rather than a local build, so the embedded checksum always
 belongs to a published build.
