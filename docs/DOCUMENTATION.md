@@ -1986,7 +1986,7 @@ astigmatic PSF encodes depth one-to-one; beyond that a width-based 3D fit can pu
 wrong side of focus.</p>
 <p><b>Microtubules (cells)</b> is a window onto an effectively infinite, seed-addressed sample of cells
 with nuclei, each carrying a microtubule network (the
-<a href="https://github.com/kjamartens/insiliscope">insiliscope</a> world model, compiled to WebAssembly).
+<a href="https://github.com/kjamartens/insiliscope" target="_blank" rel="noopener">insiliscope</a> world model, compiled to WebAssembly).
 Every microtubule is a 25 nm cylinder with the 13-protofilament lattice, and each lattice site carries
 a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
 (next to Structure type) pans the window by the chosen step; a dye's position does not change when the
