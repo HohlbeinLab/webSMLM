@@ -401,7 +401,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Load movie/data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects movie vs. CSV vs. JSON (a JSON goes through `loadJsonFile(file)`, which routes by its `format` field) |
 | Load calibration… | `loadCalibrationJson(file)` | |
 | Load settings | `loadSettingsJson(file)` | |
-| Simulate movie | `runSimulation()` | no args — reads the current Simulation settings |
+| Simulate movie | `runSimulation()` | no args — reads the current Simulation |
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation PSF section |
 | View GT localizations / Hide GT | `toggleGtLocalizations()` | needs a Simulate movie from this session |
@@ -834,7 +834,7 @@ lookup, e.g. by **Time traces and FRET**'s own **Apply drift correction**
 
 Compares the localizations against the simulator's own ground truth — the
 question a synthetic dataset exists to answer, and one webSMLM recorded the
-data for but never asked. **Compare to GT** (a button at the top of Simulation settings; its
+data for but never asked. **Compare to GT** (a button at the top of Simulation; its
 settings are the **Ground-truth comparison** sub-section) is enabled only for data generated in the same session; there is no ground
 truth for a loaded file.
 
@@ -1951,7 +1951,7 @@ No sidebar control (Settings JSON, `paramOverrides`, or the log terminal):
 | `simulation_nup_minSpacing` | Min. NPC-NPC spacing (nm) | number | 0 | 2000 | 10 | 200 |
 | `simulation_nup_curvature` | Membrane curvature amplitude (nm) | number | 0 | 2000 | 10 | 150 |
 
-The sidebar's Simulation settings panel keeps the everyday choices at the
+The sidebar's Simulation panel keeps the everyday choices at the
 top — **Structure type**, **Frames**, **Emitter density** (a preset) and
 **Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib.
 stack**, **View GT** and **Compare to GT** — and puts the detail in collapsible
@@ -2292,11 +2292,11 @@ scoring drift correction. See the **simulation** module.
 | `validation_borderMode` | Score: edge handling | enum | `dontcare`, `exclude` | | | `dontcare` |
 
 **In-app "more info…" popup** (`hint-validation` in `webSMLM.html`, the
-**Ground-truth comparison** sub-section of Simulation settings; synced by `tools/sync_hints.mjs` —
+**Ground-truth comparison** sub-section of Simulation; synced by `tools/sync_hints.mjs` —
 edit here, then run the script, never edit the `.hint` div directly):
 
 <!-- HINT:validation -->
-<p><b>Compare to GT</b> (the button at the top of Simulation settings) compares a Localize result against the simulator's own ground truth — so it works only on data made with <b>Simulate movie</b> in this session. It reports detection (recall, precision, Jaccard), lateral and axial error against true depth, a per-molecule view, and the depth range over which at least half the emitters are found.</p>
+<p><b>Compare to GT</b> (the button at the top of Simulation) compares a Localize result against the simulator's own ground truth — so it works only on data made with <b>Simulate movie</b> in this session. It reports detection (recall, precision, Jaccard), lateral and axial error against true depth, a per-molecule view, and the depth range over which at least half the emitters are found.</p>
 <ul>
   <li><b>Convention</b> — webSMLM's own rules (default), or the SMLM Challenge 2016 assessment rules so the numbers can be laid beside published ones. Pick <b>Custom…</b> to set the individual rules yourself.</li>
   <li><b>Match radius</b> — how close (laterally) a localization must be to a true emitter in the same frame to count as its detection. Matching is lateral-only by default, so the axial error being measured cannot bias its own pairing.</li>
