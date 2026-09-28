@@ -63,6 +63,12 @@
   symmetry fix. A details.sim>label.row padding-right rule that used to
   exist here (and in webSMLM) is gone entirely — measured directly, it
   caused the exact right-edge misalignment it was meant to prevent.
+
+  Re-synced 2026-09-28 (webSMLM v0.12.11-dev): checkboxes render as toggle
+  switches (pure CSS on the real input), the shared single-handle slider
+  (.scrubslider) and dual-handle range (.dualrange + syncDualRange(), with
+  .numflat value boxes), and the 320px minimum canvas height. Dummies:
+  checkbox1–3 in module 1, slider1 and range1 under the left window.
 -->
 <html lang="en">
 <head>
@@ -256,6 +262,61 @@
      separate stacked sections (a real project with several groups per
      module just needs consecutive .group blocks, no divider element). */
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+  input[type=range]{width:100%}
+  /* Shared single-handle slider (webSMLM's Frame/Site scrubbers), matching
+     the dual-handle one below; use the class for new sliders. */
+  .scrubslider{-webkit-appearance:none;appearance:none;background:transparent;height:20px}
+  .scrubslider::-webkit-slider-runnable-track{background:var(--line);height:4px;border-radius:2px}
+  .scrubslider::-moz-range-track{background:var(--line);height:4px;border-radius:2px}
+  /* 10px thumb, centred on the 4px track: margin-top (4−10)/2 = −3px. */
+  .scrubslider::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:-3px}
+  .scrubslider::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
+  /* Label of the slider rows: a shared min-width, so every row's slider
+     starts at the same x. */
+  .scrublabel{display:inline-block;min-width:54px}
+  /* Dual-handle range (webSMLM's Contrast): two range inputs stacked on one
+     track, each transparent except its thumb (pointer-events on the thumbs
+     only). ::before draws the baseline; .dualrange-fill (sized in JS,
+     syncDualRange()) the selected span. */
+  .dualrange{position:relative;flex:1;min-width:110px;height:20px}
+  .dualrange::before{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:4px;background:var(--line);border-radius:2px}
+  .dualrange-fill{position:absolute;top:50%;transform:translateY(-50%);height:4px;background:var(--accent);border-radius:2px;pointer-events:none}
+  .dualrange input[type=range]{position:absolute;left:0;top:0;width:100%;height:20px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none}
+  .dualrange input[type=range]::-webkit-slider-runnable-track{background:transparent;height:20px}
+  .dualrange input[type=range]::-moz-range-track{background:transparent;height:20px}
+  /* 10px thumb centred in the 20px box. Keep DUALRANGE_THUMB_PX (JS) in sync
+     with this width. */
+  .dualrange input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;margin-top:5px}
+  .dualrange input[type=range]::-moz-range-thumb{pointer-events:auto;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer}
+  /* .numflat: plain number boxes next to a dual-range slider, styled like
+     input.num but without steppers. flex-shrink:0 keeps both boxes the same
+     width whatever their digit count. */
+  .numflat{width:52px;height:20px;line-height:18px;flex-shrink:0;
+    background:var(--bg);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:0 6px;font-size:12px;text-align:right;
+    -moz-appearance:textfield;appearance:textfield}
+  .numflat::-webkit-inner-spin-button,
+  .numflat::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+  /* Checkboxes as toggle switches (accent when on, grey when off), pure CSS
+     on the real <input>: appearance:none plus a ::before knob, so change
+     listeners work unchanged. The knob stays light in both states with a
+     ring and shadow for contrast. box-sizing on ::before is required: the
+     `*` reset doesn't reach pseudo-elements, and the border otherwise
+     shifts the knob 1px off centre. */
+  input[type=checkbox]{appearance:none;-webkit-appearance:none;
+    width:34px;height:18px;margin:0;flex-shrink:0;
+    background:var(--surface);border:1px solid var(--line);border-radius:9px;
+    position:relative;cursor:pointer;vertical-align:middle;
+    transition:background .15s,border-color .15s}
+  input[type=checkbox]::before{content:'';position:absolute;top:2px;left:2px;
+    box-sizing:border-box;width:12px;height:12px;border-radius:50%;background:#fff;
+    border:1px solid var(--muted);box-shadow:0 1px 2px var(--shadow);
+    transition:transform .15s,border-color .15s}
+  input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+  input[type=checkbox]:checked::before{transform:translateX(16px);border-color:var(--accent)}
+  input[type=checkbox]:hover{border-color:var(--accent)}
+  input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
   /* Flat outline (same reasoning as the icon-button rule above) — border
      colour-matched to the button's own background at rest. */
   button{width:100%;padding:6px 12px;margin:4px 0;border:1px solid var(--surface);
@@ -433,7 +494,9 @@
      resize / DPR re-render). --frame-ar would be set to a loaded dataset's w/h in a
      real project (both panels share it → equal, no letterbox); square here since
      this bare layout never loads data. */
-  canvas#left,canvas#right{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0}
+  /* min-height keeps plots drawn on a panel readable at an extreme frame
+     aspect ratio (a very wide or tall camera frame). */
+  canvas#left,canvas#right{touch-action:none;cursor:grab;aspect-ratio:var(--frame-ar,1);height:auto;min-width:0;min-height:320px}
   canvas#left:active,canvas#right:active{cursor:grabbing}
   /* height fixed at 12 text lines, not viewport-relative: 12 * 18px
      line-height (12px font * 1.5) + 20px padding (10px top+bottom,
@@ -485,7 +548,7 @@
     /* iOS auto-zooms when focusing an input whose font is <16px; 16px stops that
        (and shows the numbers larger, which is fine on mobile) without disabling
        pinch-zoom elsewhere. */
-    input.num,select.sel{font-size:16px}
+    input.num,select.sel,.numflat{font-size:16px}
     body.side-hidden #scrim{pointer-events:none}   /* drawer closed → clicks pass through to the canvases */
     .canvases{grid-template-columns:1fr}
     .main{padding:14px 14px}
@@ -554,6 +617,9 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
         <summary>module 1</summary>
         <label class="row">input1 <input type="number" id="input1" value="1" class="num"></label>
         <label class="row">input2 <input type="number" id="input2" value="1" class="num"></label>
+        <label class="row">checkbox1 <input type="checkbox" id="checkbox1" checked></label>
+        <label class="row">checkbox2 <input type="checkbox" id="checkbox2"></label>
+        <label class="row">checkbox3 (disabled) <input type="checkbox" id="checkbox3" disabled></label>
         <details class="info"><summary>…further info…</summary>
           <div class="hint">here will be further infos</div></details>
       </details>
@@ -580,8 +646,26 @@ try{ var _t0=localStorage.getItem('layout_bare_theme'); if(_t0==='light'||_t0===
         <div class="panel-body">
           <canvas id="left"></canvas>
           <h4><span style="display:flex;align-items:center;gap:6px"><!-- per-panel icon buttons go here, e.g. <button class="logbtn">Show X</button> --></span> <small id="leftInfo">— placeholder caption</small></h4>
-          <!-- a real project's own per-panel trailing controls (a scrub slider, a
-               filter note, …) go here, inside .panel-body, below this h4 -->
+          <!-- per-panel trailing controls go here, inside .panel-body, below
+               this h4: a single slider (webSMLM's Frame row) and a dual-handle
+               range (its Contrast row) as examples -->
+          <div id="slider1Row" style="display:flex;margin-top:8px;align-items:center;gap:6px">
+            <span class="scrublabel" style="color:var(--muted);font-size:12px">slider1</span>
+            <input type="range" id="slider1" class="scrubslider" min="1" max="100" step="1" value="25" style="flex:1">
+            <input type="number" id="slider1Num" class="num" min="1" max="100" value="25">
+          </div>
+          <div id="range1Row" style="display:flex;flex-wrap:wrap;margin-top:6px;align-items:center;gap:6px">
+            <span class="scrublabel" style="color:var(--muted);font-size:12px">range1</span>
+            <div class="dualrange" style="flex:1">
+              <div id="range1Fill" class="dualrange-fill"></div>
+              <input type="range" id="range1Lo" min="0" max="255" step="1" value="40">
+              <input type="range" id="range1Hi" min="0" max="255" step="1" value="200">
+            </div>
+            <span style="display:flex;align-items:center;gap:4px;flex:0 0 auto">
+              <input type="number" id="range1LoNum" class="numflat" min="0" max="255" step="1" value="40">
+              <input type="number" id="range1HiNum" class="numflat" min="0" max="255" step="1" value="200">
+            </span>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -668,6 +752,31 @@ function addNumberSteppers(){
   });
 }
 addNumberSteppers();
+
+// ---- dummy controls (toggle switches, sliders) ------------------------
+// Checkboxes need no JS for their look (CSS toggle switch on the real input).
+['checkbox1','checkbox2'].forEach(id=>$(id).addEventListener('change',e=>log(`${id}: ${e.target.checked?'on':'off'}`)));
+// Single slider and its number box kept in step.
+$('slider1').addEventListener('input',e=>{ $('slider1Num').value=e.target.value; });
+$('slider1Num').addEventListener('change',e=>{ $('slider1').value=e.target.value; });
+// Dual-handle range: a thumb's centre travels within [thumbW/2, trackW −
+// thumbW/2], so the fill uses the same calc() inset to stay on the thumbs at
+// any width. Keep DUALRANGE_THUMB_PX in sync with the CSS thumb size.
+const DUALRANGE_THUMB_PX=10;
+let range1Lo=40, range1Hi=200;
+function syncDualRange(){
+  const max=+$('range1Hi').max||1, f=v=>v/max;
+  $('range1Lo').value=range1Lo; $('range1Hi').value=range1Hi;
+  $('range1LoNum').value=range1Lo; $('range1HiNum').value=range1Hi;
+  $('range1Fill').style.left=`calc(${f(range1Lo)}*(100% - ${DUALRANGE_THUMB_PX}px) + ${DUALRANGE_THUMB_PX/2}px)`;
+  $('range1Fill').style.width=`calc(${Math.max(0,f(range1Hi)-f(range1Lo))}*(100% - ${DUALRANGE_THUMB_PX}px))`;
+}
+// The two thumbs can't cross (lo stays at least 1 below hi).
+$('range1Lo').addEventListener('input',e=>{ range1Lo=Math.min(+e.target.value,range1Hi-1); syncDualRange(); });
+$('range1Hi').addEventListener('input',e=>{ range1Hi=Math.max(+e.target.value,range1Lo+1); syncDualRange(); });
+$('range1LoNum').addEventListener('change',e=>{ range1Lo=Math.max(0,Math.min(+e.target.value||0,range1Hi-1)); syncDualRange(); });
+$('range1HiNum').addEventListener('change',e=>{ range1Hi=Math.min(+$('range1Hi').max,Math.max(+e.target.value||0,range1Lo+1)); syncDualRange(); });
+syncDualRange();
 // The single shared progress bar (below the action buttons): pass a percentage
 // to fill it, null to empty it back to rest. Every long-running operation uses
 // this one bar — see the .bar CSS rule for why.
