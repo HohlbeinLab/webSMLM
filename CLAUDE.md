@@ -70,7 +70,7 @@ what makes GUI and command-line use interchangeable.
   - **BigTIFF** (magic 43, UTIF can't read it) always takes `loadMultiIfdStreaming()`, which reads
     both formats (8-byte offsets/counts, 20-byte entries); frame strips must be contiguous (checked
     on the first and last frame). Test: `tests/gpu/test-bigtiff.mjs`.
-  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, Rotation, GPU & streaming"):
+  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, rotation, GPU & streaming"):
     `makeRotatedStack()` wraps the loaded stack like the crop wrapper (getFrames() only, no cache,
     90/270 swap w/h). `rotateNewStack()` applies the setting to every new load/simulation
     (`unrotatedStack`/`rotatedStack`); `applyMovieRotation()` re-wraps the current movie, drops a crop
@@ -133,7 +133,7 @@ what makes GUI and command-line use interchangeable.
     Run speed-up is small (detection dominates) — report whole-Run numbers, not the fit stage alone.
   - `winr2d`/`winr3d` are the visible fields; hidden `winr` mirrors the active one
     (`applyWinrDefault()`, non-clobbering; dispatches `change` only on a real change).
-  - The **Use GPU acceleration** checkbox sits in "Memory, Rotation, GPU & streaming" (shared by fit, render,
+  - The **Use GPU acceleration** checkbox sits in "Memory, rotation, GPU & streaming" (shared by fit, render,
     FRC).
 
 - **render** — accumulates locs into `srFull` (dense, O(W·H)); `view` is zoom/pan (zoom = CSS px
@@ -290,8 +290,8 @@ what makes GUI and command-line use interchangeable.
     of the plots, else in a strip under the E/S plot. The x zoom/pan handlers read the plot range
     from `_smfretTraceGeom`. Intensities are `(raw − camoffset)·gain` on every path (fits and
     aperture), so the axis unit comes from the gain recorded on the traces (`smfretTraceUnit()`:
-    photons, or ADU at gain 1; saved as `gain_photons_per_adu`/`intensity_unit`). **Plot (FRET) data** (`plotSmfretTraces()`) re-shows
-    the in-memory traces; saved trace JSON loads via **Load movie/data**. Save/load round-trips
+    photons, or ADU at gain 1; saved as `gain_photons_per_adu`/`intensity_unit`). **Plot traces** (`plotSmfretTraces()`) re-shows
+    the in-memory traces; saved trace JSON loads via **Load data**. Save/load round-trips
     sigma arrays and ALEX parity.
 
 - **spt** ("(Caution!) Single-particle tracking") — trackpy-inspired linking (`linkTracks()`:
@@ -327,7 +327,7 @@ what makes GUI and command-line use interchangeable.
     (`runTerminalStatement()`), with ↑/↓ history (navigates while a recalled entry is unedited).
     `resolveTerminalConfig()` backfills omitted PARAMS from live values and resolves filename strings
     to registered Files; `applyHeadlessResultToSession()` pushes an `analyze()` result into the page.
-  - **Load movie/data** (`loadFiles()`): movie, CSV, or JSON routed by its `format` field
+  - **Load data** (`loadFiles()`): movie, CSV, or JSON routed by its `format` field
     (`loadJsonFile()`: smFRET traces, settings, calibration; older files by their keys).
   - Hotkeys (`wireHotkeys()`, matched by `e.code`): Alt+1..0 action buttons, Alt+Shift+1..0 module
     sections, Alt+T terminal, Alt+P/F/S pixel size, frame time, panel layout (any Shift state).
@@ -387,7 +387,7 @@ settings-JSON code).
 ## UI conventions and CSS gotchas
 
 - Sidebar/panel buttons fit on one line; abbreviate rather than wrap. Compact labels read
-  `Word/word` (**Save plot/image**, **View data/filtering**, **Load movie/data**).
+  `Word/word` (**Save plot/image**, **View data/filtering**).
 - An indented sidebar sub-row must be a **direct child** of its `details.sim`
   (`details.sim>*:not(summary)` gives the 14px indent), with `padding-left:40px` for the extra step.
   No right padding is needed: value controls and buttons share one right edge.
