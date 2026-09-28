@@ -27,23 +27,23 @@
     params          2643   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          3607   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3835   synthetic stack generator ("Simulate movie")
-    validation      6699   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7323   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7579   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8189   super-resolution accumulation, view, colour maps, plots
-    workers         9713   frame-parallel detect/fit worker pool
-    gpu             10328  WebGPU engine: fit, render, FRC kernels (experimental)
-    export          12535  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  12826  astigmatic width-vs-z bead calibration
-    drift           13225  AIM and cross-correlation drift correction
-    locprecision    13883  NeNA and FRC
-    sSMLM           15022  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15628  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17718  single-particle tracking and diffusion coefficients
-    pipeline        18768  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   19808  Micro-Manager/pycromanager bridge (experimental)
-    table           22209  localizations table, filters, histograms, clustering
-    headless API    22881  window.webSMLM.analyze()/analyzeBatch()
+    validation      6783   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7407   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7663   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8273   super-resolution accumulation, view, colour maps, plots
+    workers         9797   frame-parallel detect/fit worker pool
+    gpu             10430  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          12759  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13050  astigmatic width-vs-z bead calibration
+    drift           13449  AIM and cross-correlation drift correction
+    locprecision    14107  NeNA and FRC
+    sSMLM           15246  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15852  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             17942  single-particle tracking and diffusion coefficients
+    pipeline        18992  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20032  Micro-Manager/pycromanager bridge (experimental)
+    table           22433  localizations table, filters, histograms, clustering
+    headless API    23105  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28e</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5264,29 +5264,52 @@ const PSF_FFT_M=64;
 // combinations incl. M=1/P=1 edge cases): relative error ~1e-13 to 1e-16, i.e. exact to floating
 // -point precision, not merely "close" — see this feature's own development notes.
 function psfCzt1d(inRe, inIm, M, dk, k0, P, dx, x0){
+  const r=psfCztRun(psfCztPlan(M, dk, k0, P, dx, x0), inRe, inIm);
+  return {re:r.re.slice(), im:r.im.slice()};
+}
+// Everything in the transform that depends only on the SAMPLING (M,dk,k0,P,dx,x0), not on the
+// input: the pre-chirp, the FFT of the convolution chirp and the post-chirp. A PSF plane runs the
+// transform M+ny times with the same sampling, so rebuilding these per call used to cost a third
+// of the FFTs and nearly all of the trig. Same arithmetic in the same order as before, so the
+// output is bit-identical to the unplanned version (checked on every plane of a default build).
+function psfCztPlan(M, dk, k0, P, dx, x0){
   const theta=dk*dx;
   let L=1; while(L<M+P-1) L<<=1;   // next pow2 >= M+P-1: the minimum padding so the convolution below can't wrap and corrupt adjacent outputs
-  const aRe=new Float64Array(L), aIm=new Float64Array(L);
+  const preC=new Float64Array(M), preS=new Float64Array(M);
   for(let m=0;m<M;m++){
     // u[m]=in[m]*exp(i*m*dk*x0); a[m]=u[m]*exp(i*theta*m^2/2) (Bluestein pre-chirp)
-    const ang=m*dk*x0+theta*m*m/2, cr=Math.cos(ang), ci=Math.sin(ang);
-    aRe[m]=inRe[m]*cr-inIm[m]*ci; aIm[m]=inRe[m]*ci+inIm[m]*cr;
+    const ang=m*dk*x0+theta*m*m/2; preC[m]=Math.cos(ang); preS[m]=Math.sin(ang);
   }
   const gRe=new Float64Array(L), gIm=new Float64Array(L);
   for(let n=-(M-1); n<P; n++){
     const ang=-theta*n*n/2, idx = n>=0 ? n : L+n;   // negative n wraps to the end (standard Bluestein layout)
     gRe[idx]=Math.cos(ang); gIm[idx]=Math.sin(ang);
   }
-  fft1d(aRe,aIm,L,-1); fft1d(gRe,gIm,L,-1);
+  fft1d(gRe,gIm,L,-1);
+  const c1=new Float64Array(P), s1=new Float64Array(P), c2=new Float64Array(P), s2=new Float64Array(P);
+  for(let p=0;p<P;p++){
+    const a1=theta*p*p/2; c1[p]=Math.cos(a1); s1[p]=Math.sin(a1);    // S[p]=exp(i*theta*p^2/2)*conv[p]
+    const a2=k0*(x0+p*dx); c2[p]=Math.cos(a2); s2[p]=Math.sin(a2);   // out[p]=exp(i*k0*x_p)*S[p]
+  }
+  return {M, P, L, preC, preS, gRe, gIm, c1, s1, c2, s2,
+          aRe:new Float64Array(L), aIm:new Float64Array(L), outRe:new Float64Array(P), outIm:new Float64Array(P)};
+}
+// Runs a planned transform. Returns the plan's own output scratch arrays: read them before the
+// next call on the same plan.
+function psfCztRun(plan, inRe, inIm){
+  const {M, P, L, preC, preS, gRe, gIm, c1, s1, c2, s2, aRe, aIm, outRe, outIm}=plan;
+  for(let m=0;m<M;m++){
+    const cr=preC[m], ci=preS[m];
+    aRe[m]=inRe[m]*cr-inIm[m]*ci; aIm[m]=inRe[m]*ci+inIm[m]*cr;
+  }
+  aRe.fill(0, M); aIm.fill(0, M);
+  fft1d(aRe,aIm,L,-1);
   for(let i=0;i<L;i++){ const re=aRe[i]*gRe[i]-aIm[i]*gIm[i], im=aRe[i]*gIm[i]+aIm[i]*gRe[i]; aRe[i]=re; aIm[i]=im; }
   fft1d(aRe,aIm,L,1);
-  const outRe=new Float64Array(P), outIm=new Float64Array(P);
   for(let p=0;p<P;p++){
     const convRe=aRe[p]/L, convIm=aIm[p]/L;
-    const a1=theta*p*p/2, c1=Math.cos(a1), s1=Math.sin(a1);           // S[p]=exp(i*theta*p^2/2)*conv[p]
-    const sRe=convRe*c1-convIm*s1, sIm=convRe*s1+convIm*c1;
-    const a2=k0*(x0+p*dx), c2=Math.cos(a2), s2=Math.sin(a2);          // out[p]=exp(i*k0*x_p)*S[p]
-    outRe[p]=sRe*c2-sIm*s2; outIm[p]=sRe*s2+sIm*c2;
+    const sRe=convRe*c1[p]-convIm*s1[p], sIm=convRe*s1[p]+convIm*c1[p];
+    outRe[p]=sRe*c2[p]-sIm*s2[p]; outIm[p]=sRe*s2[p]+sIm*c2[p];
   }
   return {re:outRe, im:outIm};
 }
@@ -5296,7 +5319,26 @@ function psfCzt1d(inRe, inIm, M, dk, k0, P, dx, x0){
 // (PSF_FFT_M), dk its k-space sample spacing; the caller (buildPsfKernelStack()) derives dk from
 // the pupil's physical radius (k0*NA*bMax) with a small margin, so the disk fits inside the M×M
 // square. The grid's cell area (dkx·dky) is uniform, so no position-dependent amplitude weight.
-function computePsfPupilCartesianForZPlane(z, nz, params, M, dk){
+//
+// `plan` (from psfPupilPlan(), optional) carries every per-pupil-pixel term that does not depend
+// on z — only opd3 does. Evaluating 28 Zernike modes and the mask per pixel per PLANE was most of
+// a plane's pupil cost; with a plan each plane is one cos/sin per aperture pixel.
+function computePsfPupilCartesianForZPlane(z, nz, params, M, dk, plan){
+  const {ni, ti0, particleAxialPosition, zStep, ns, lambda} = params;
+  plan=plan||psfPupilPlan(params, M, dk);
+  const focalShift = particleAxialPosition*(ni/ns);   // see psfPupilPlan()
+  const ti = (ti0-focalShift) + zStep*(z-(nz-1)/2);
+  const k0 = 2*Math.PI/lambda;
+  const re=new Float64Array(M*M), im=new Float64Array(M*M);
+  const {idx, opd1, root3, zp, mk}=plan, dti=ni*(ti-ti0);
+  for(let q=0;q<idx.length;q++){
+    const opd3=dti*root3[q];
+    const phase=k0*(opd1[q]+opd3)+zp[q]+mk[q], i=idx[q];
+    re[i]=Math.cos(phase); im[i]=Math.sin(phase);
+  }
+  return {re, im};
+}
+function psfPupilPlan(params, M, dk){
   const {NA, lambda, ns, ni, ti0, particleAxialPosition, zStep, zernikeCoeffs, maskType, maskModes, maskWaist} = params;
   // Depth-induced "focal shift": expanding the two OPD terms to 2nd order in rho shows the
   // rho^2 (defocus-shaped) term vanishes — i.e. the emitter is actually IN FOCUS — at
@@ -5308,13 +5350,16 @@ function computePsfPupilCartesianForZPlane(z, nz, params, M, dk){
   // the microscope (refocus on the emitter, then scan around it) — without it, a real, reported
   // bug: at particleAxialPosition=500nm (ns=1.33, ni=1.518) the emitter's sharpest plane sat
   // ~571nm from the sweep's centre, so a ±500nm sweep never reached it at all.
-  const focalShift = particleAxialPosition*(ni/ns);
-  const ti = (ti0-focalShift) + zStep*(z-(nz-1)/2);
+  // (The focal shift itself is applied per plane, in computePsfPupilCartesianForZPlane().)
+  //
+  // Per aperture pixel: opd1, sqrt(1-s3^2) (opd3 = ni*(ti-ti0)*that), the Zernike phase and the
+  // mask phase — the plane then composes them in exactly the order the one-pass loop did, so a
+  // planned plane is bit-identical to it.
   const k0 = 2*Math.PI/lambda;
   const bMax = Math.min(1, ns/NA);
   const kMax = k0*NA*bMax;
-  const re=new Float64Array(M*M), im=new Float64Array(M*M);
   const c0=Math.floor(M/2);
+  const idxL=[], opd1L=[], root3L=[], zpL=[], mkL=[];
   for(let iy=0; iy<M; iy++){
     const ky=(iy-c0)*dk;
     for(let ix=0; ix<M; ix++){
@@ -5322,16 +5367,18 @@ function computePsfPupilCartesianForZPlane(z, nz, params, M, dk){
       if(kr2>kMax*kMax) continue;   // zero outside the aperture, same rho<=1 cutoff as the polar path
       const kr=Math.sqrt(kr2), rho=kr/(k0*NA), phi=Math.atan2(ky,kx);
       const s1=NA*rho/ns, s3=NA*rho/ni;
-      const opd1=ns*particleAxialPosition*Math.sqrt(Math.max(0,1-s1*s1));
-      const opd3=ni*(ti-ti0)*Math.sqrt(Math.max(0,1-s3*s3));
       let zernikePhase=0;
       for(let j=0;j<zernikeCoeffs.length;j++){ const c=zernikeCoeffs[j]; if(c!==0) zernikePhase+=c*psfZernikeValue(j, rho/bMax, phi); }
       zernikePhase*=2*Math.PI;
-      const phase=k0*(opd1+opd3)+zernikePhase+pupilMaskPhase(maskType, rho/bMax, phi, maskModes, maskWaist), idx=iy*M+ix;
-      re[idx]=Math.cos(phase); im[idx]=Math.sin(phase);
+      idxL.push(iy*M+ix);
+      opd1L.push(ns*particleAxialPosition*Math.sqrt(Math.max(0,1-s1*s1)));
+      root3L.push(Math.sqrt(Math.max(0,1-s3*s3)));
+      zpL.push(zernikePhase);
+      mkL.push(pupilMaskPhase(maskType, rho/bMax, phi, maskModes, maskWaist));
     }
   }
-  return {re, im};
+  return {idx:Int32Array.from(idxL), opd1:Float64Array.from(opd1L), root3:Float64Array.from(root3L),
+          zp:Float64Array.from(zpL), mk:Float64Array.from(mkL)};
 }
 // Pupil (Cartesian) -> full image-plane intensity via a separable 2D chirp-Z transform: one
 // psfCzt1d() pass over ky for each of the M rows (kx fixed) producing an M×ny intermediate, then
@@ -5339,21 +5386,28 @@ function computePsfPupilCartesianForZPlane(z, nz, params, M, dk){
 // because the transform's phase exp(i*(kx*x+ky*y)) factors exactly as exp(i*kx*x)*exp(i*ky*y).
 // Pixel centres: index x's physical coordinate is (x-(nx-1)/2)*resLateralM, the same centring
 // splatZernikeEmitter() assumes (kcx=(nx-1)/2).
-function computePsfIntensityPlaneFFT(nx, ny, resLateralM, cart, M, dk){
+// `plans` ({y, x}, from psfIntensityPlans()) is optional: a caller building many planes passes
+// one set and skips rebuilding the chirps per plane.
+function psfIntensityPlans(nx, ny, resLateralM, M, dk){
   const kMin=-Math.floor(M/2)*dk;
   const x0=-((nx-1)/2)*resLateralM, y0=-((ny-1)/2)*resLateralM;
+  const y=psfCztPlan(M,dk,kMin,ny,resLateralM,y0);
+  return {y, x: nx===ny ? y : psfCztPlan(M,dk,kMin,nx,resLateralM,x0)};   // nx===ny means x0===y0: the same sampling
+}
+function computePsfIntensityPlaneFFT(nx, ny, resLateralM, cart, M, dk, plans){
+  plans=plans||psfIntensityPlans(nx, ny, resLateralM, M, dk);
   const midRe=new Float64Array(M*ny), midIm=new Float64Array(M*ny);
   const rowRe=new Float64Array(M), rowIm=new Float64Array(M);
   for(let m=0;m<M;m++){
     for(let n=0;n<M;n++){ rowRe[n]=cart.re[n*M+m]; rowIm[n]=cart.im[n*M+m]; }
-    const {re,im}=psfCzt1d(rowRe,rowIm,M,dk,kMin,ny,resLateralM,y0);
+    const {re,im}=psfCztRun(plans.y,rowRe,rowIm);
     for(let y=0;y<ny;y++){ midRe[y*M+m]=re[y]; midIm[y*M+m]=im[y]; }
   }
   const slice=new Float64Array(nx*ny);
   const colRe=new Float64Array(M), colIm=new Float64Array(M);
   for(let y=0;y<ny;y++){
     for(let m=0;m<M;m++){ colRe[m]=midRe[y*M+m]; colIm[m]=midIm[y*M+m]; }
-    const {re,im}=psfCzt1d(colRe,colIm,M,dk,kMin,nx,resLateralM,x0);
+    const {re,im}=psfCztRun(plans.x,colRe,colIm);
     for(let x=0;x<nx;x++){ const idx=y*nx+x; slice[idx]=re[x]*re[x]+im[x]*im[x]; }
   }
   return slice;
@@ -5410,9 +5464,10 @@ function readPsfConfigFromUI(){
 async function buildPsfPlanesSerial(cfg, nx, ny){
   const slices=new Array(cfg.nz);
   let globalMax=0, lastYield=performance.now();
+  const pupilPlan=psfPupilPlan(cfg, PSF_FFT_M, cfg.fftDk), plans=psfIntensityPlans(nx, ny, cfg.resLateralM, PSF_FFT_M, cfg.fftDk);
   for(let z=0; z<cfg.nz; z++){
-    const cart=computePsfPupilCartesianForZPlane(z, cfg.nz, cfg, PSF_FFT_M, cfg.fftDk);
-    const slice=computePsfIntensityPlaneFFT(nx, ny, cfg.resLateralM, cart, PSF_FFT_M, cfg.fftDk);
+    const cart=computePsfPupilCartesianForZPlane(z, cfg.nz, cfg, PSF_FFT_M, cfg.fftDk, pupilPlan);
+    const slice=computePsfIntensityPlaneFFT(nx, ny, cfg.resLateralM, cart, PSF_FFT_M, cfg.fftDk, plans);
     let planeMax=0; for(let i=0;i<slice.length;i++) if(slice[i]>planeMax) planeMax=slice[i];
     if(planeMax>globalMax) globalMax=planeMax;
     slices[z]=slice;
@@ -5468,25 +5523,35 @@ async function buildPsfKernelStack(cfg){
   const nx=2*cfg.halfWidthPx+1, ny=nx;
   const focusIndex=Math.floor((cfg.nz-1)/2);
   const pool=await getPsfWorkerPool();
+  // Use GPU acceleration → the device builds the planes, same rule as the simulator's frame stage
+  // (simGpuWanted(): no size threshold). The workers still do the width fits afterwards.
+  let engine=null;
+  if(simGpuWanted()){ const e=await getGpuEngine(); if(e && e.available) engine=e; }
   log(`PSF build: NA=${cfg.NA}, λ=${(cfg.lambda*1e9).toFixed(0)}nm, ns=${cfg.ns}, ni=${cfg.ni}, `+
       `ti0=${(cfg.ti0*1e6).toFixed(1)}µm, depth=${(cfg.particleAxialPosition*1e9).toFixed(0)}nm, `+
       `kernel ${nx}×${ny}px (oversample ${cfg.oversample}×, res=${(cfg.resLateralM*1e9).toFixed(1)}nm/px), `+
       `${cfg.nz} z-planes × ${cfg.zStep*1e9}nm (focus @ plane ${focusIndex}), `+
       `Zernike[${cfg.zernikeSource}]=[${cfg.zernikeCoeffs.map(v=>v.toFixed(3)).join(',')}], `+
       `chirp-Z on a ${PSF_FFT_M}×${PSF_FFT_M} Cartesian pupil (dk=${cfg.fftDk.toExponential(3)})`+
-      (pool?`, using ${pool.length} PSF worker(s)`:', running single-threaded (no worker pool available)'));
+      (engine?', on the GPU':pool?`, using ${pool.length} PSF worker(s)`:', running single-threaded (no worker pool available)'));
   const t0=performance.now();
-  const {slices, globalMax} = pool ? await buildPsfPlanesParallel(cfg, nx, ny, pool)
-                                    : await buildPsfPlanesSerial(cfg, nx, ny);
+  let built=null, path=pool?'workers':'serial';
+  if(engine){
+    try{ built=await gpuPsfPlanes(engine, cfg, nx, ny); path='gpu'; }
+    catch(err){ log(`⚠ GPU PSF build failed (${(err&&err.message)||err}) — falling back to the CPU.`); }
+  }
+  if(!built) built = pool ? await buildPsfPlanesParallel(cfg, nx, ny, pool)
+                          : await buildPsfPlanesSerial(cfg, nx, ny);
+  const {slices, globalMax}=built;
   setProg(null);
   const totalMs=performance.now()-t0;
-  lastPsfBuildTimings={ms:totalMs, nz:cfg.nz};
+  lastPsfBuildTimings={ms:totalMs, nz:cfg.nz, path};
   log(`PSF build done: ${cfg.nz} planes in ${totalMs.toFixed(0)}ms (${(totalMs/cfg.nz).toFixed(1)}ms/plane`+
-      (pool?`, ${pool.length} workers`:'')+`), globalMax=${globalMax.toExponential(3)}`);
+      (path==='gpu'?', GPU':path==='workers'?`, ${pool.length} workers`:'')+`), globalMax=${globalMax.toExponential(3)}`);
   if(globalMax<=0) log(`PSF build WARNING: every plane came back all-zero — check NA/ns (bMax=min(1,ns/NA) must stay positive) and the Zernike coefficients before trusting this preview.`);
 
   const zStepNm=cfg.zStep*1e9;
-  const zUsableNm=psfUsableZRange(slices, nx, ny, focusIndex, zStepNm, cfg.oversample);
+  const zUsableNm=await psfUsableZRange(slices, nx, ny, focusIndex, zStepNm, cfg.oversample, pool);
   if(zUsableNm>0)
     log(`PSF z encoding is single-valued to ±${zUsableNm.toFixed(0)} nm — beyond that σy/σx turns back, so two z values give the same width pair and no width-based 3D fit can tell them apart.`);
   else
@@ -5545,20 +5610,37 @@ async function buildPsfKernelStack(cfg){
 // Caveat worth knowing: the answer depends on the fit WINDOW, exactly as a real calibration's does
 // — truncating a defocused PSF's lobes changes its fitted width. The window here follows the
 // kernel's own mass-based splat radius, so it adapts with the PSF rather than being a magic number.
-function psfUsableZRange(slices, nx, ny, focusIndex, zStepNm, oversample){
+// `pool` (the PSF worker pool, optional) spreads the per-plane fits over the workers — on a
+// default 401-plane build they took ~2 s on the main thread, longer than the planes themselves.
+async function psfUsableZRange(slices, nx, ny, focusIndex, zStepNm, oversample, pool){
   const bw=Math.floor(nx/oversample), bh=Math.floor(ny/oversample);
   if(bw<5||bh<5) return 0;                          // too few camera pixels to fit anything
   const cx=(bw-1)>>1, cy=(bh-1)>>1;
   const rad=Math.min(cx,cy), win=2*rad+1;
   const lr=new Float64Array(slices.length);         // ln(σy/σx) per plane
-  for(let k=0;k<slices.length;k++){
+  const binPlane=k=>{
     const s=slices[k], img=new Float32Array(bw*bh);
     for(let y=0;y<bh*oversample;y++){
       const row=y*nx, orow=((y/oversample)|0)*bw;
       for(let x=0;x<bw*oversample;x++) img[orow+((x/oversample)|0)]+=s[row+x];
     }
-    const L=gaussianFitElliptical(img,bw,bh,cx,cy,win,1.3);
-    lr[k] = (L && L.sx>0 && L.sy>0) ? Math.log(L.sy/L.sx) : 0;
+    return img;
+  };
+  if(pool && pool.length){
+    let next=0;
+    await Promise.all(pool.map(async w=>{
+      while(next<slices.length){
+        const k=next++;
+        const resp=await dispatchPsfWorker(w, {widthFit:1, img:binPlane(k), bw, bh, cx, cy, win});
+        if(resp.err) throw new Error(`PSF worker width fit failed on plane ${k+1}: ${resp.err}`);
+        lr[k]=resp.lr;
+      }
+    }));
+  } else {
+    for(let k=0;k<slices.length;k++){
+      const L=gaussianFitElliptical(binPlane(k),bw,bh,cx,cy,win,1.3);
+      lr[k] = (L && L.sx>0 && L.sy>0) ? Math.log(L.sy/L.sx) : 0;
+    }
   }
   // Walk outwards in both directions; the usable half-range is the smaller of the two, so the
   // reported figure holds on both sides of focus.
@@ -5626,7 +5708,9 @@ let _psfKernelCacheKey=null, _psfKernelCache=null;
 // tests/gpu/bench-simulation.mjs) and last PSF-build timing, both handy from the log terminal.
 let lastSimTimings=null, lastPsfBuildTimings=null;
 async function getOrBuildPsfKernelStack(cfg){
-  const key=JSON.stringify(cfg);
+  // The GPU kernel differs from the CPU one by f32 rounding, so toggling Use GPU acceleration
+  // rebuilds rather than reusing the other path's kernel — a CPU run stays reproducible.
+  const key=JSON.stringify([cfg, simGpuWanted()]);
   if(key===_psfKernelCacheKey && _psfKernelCache){ log('PSF build: parameters unchanged, reusing cached kernel.'); return _psfKernelCache; }
   const result=await buildPsfKernelStack(cfg);
   _psfKernelCacheKey=key; _psfKernelCache=result;
@@ -10097,7 +10181,11 @@ function psfWorkerSource(){
   const body=[
     psfIndexToNM.toString(), psfBinomial.toString(), psfZernikeRadial.toString(), psfZernikeValue.toString(),
     laguerreL.toString(), pupilMaskPhase.toString(),
-    fft1d.toString(), psfCzt1d.toString(), computePsfPupilCartesianForZPlane.toString(), computePsfIntensityPlaneFFT.toString(),
+    fft1d.toString(), psfCzt1d.toString(), psfCztPlan.toString(), psfCztRun.toString(),
+    psfPupilPlan.toString(), computePsfPupilCartesianForZPlane.toString(),
+    psfIntensityPlans.toString(), computePsfIntensityPlaneFFT.toString(),
+    `const FIT_MAX_DRIFT_SIGMA_MULT=${FIT_MAX_DRIFT_SIGMA_MULT};`,
+    solveLin.toString(), ellipseSSE.toString(), gaussianFitElliptical.toString(),
     `onmessage=function(e){
       const d=e.data;
       if(d.ping){
@@ -10116,11 +10204,25 @@ function psfWorkerSource(){
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
+      if(d.widthFit){
+        // ln(σy/σx) of one camera-binned plane for psfUsableZRange() — the elliptical fits were
+        // the slowest part of a build left on the main thread.
+        const {seq,img,bw,bh,cx,cy,win}=d;
+        try{ const L=gaussianFitElliptical(img,bw,bh,cx,cy,win,1.3);
+             postMessage({seq, lr:(L && L.sx>0 && L.sy>0) ? Math.log(L.sy/L.sx) : 0}); }
+        catch(err){ postMessage({seq,err:String(err&&err.message||err)}); }
+        return;
+      }
       const {seq,z,nz,nx,ny,resLateralM,NA,lambda,ns,ni,ti0,particleAxialPosition,zStep,zernikeCoeffs,maskType,maskModes,maskWaist,fftM,fftDk}=d;
       try{
         const t0=performance.now();
-        const cart=computePsfPupilCartesianForZPlane(z, nz, {NA,lambda,ns,ni,ti0,particleAxialPosition,zStep,zernikeCoeffs,maskType,maskModes,maskWaist}, fftM, fftDk);
-        const slice=computePsfIntensityPlaneFFT(nx, ny, resLateralM, cart, fftM, fftDk);
+        const params={NA,lambda,ns,ni,ti0,particleAxialPosition,zStep,zernikeCoeffs,maskType,maskModes,maskWaist};
+        // Plans depend on everything but z, so one per build per worker: keyed on the whole message minus z/seq.
+        const key=JSON.stringify([params,nx,ny,resLateralM,fftM,fftDk]);
+        if(key!==self._psfPlanKey){ self._psfPlanKey=key; self._psfPupilPlan=psfPupilPlan(params, fftM, fftDk);
+          self._psfIntPlans=psfIntensityPlans(nx, ny, resLateralM, fftM, fftDk); }
+        const cart=computePsfPupilCartesianForZPlane(z, nz, params, fftM, fftDk, self._psfPupilPlan);
+        const slice=computePsfIntensityPlaneFFT(nx, ny, resLateralM, cart, fftM, fftDk, self._psfIntPlans);
         let planeMax=0; for(let i=0;i<slice.length;i++) if(slice[i]>planeMax) planeMax=slice[i];
         postMessage({seq,z,slice,planeMax,ms:performance.now()-t0},[slice.buffer]);
       }catch(err){ postMessage({seq,z,err:String(err&&err.message||err)}); }
@@ -12529,6 +12631,128 @@ function simulateCalibFramesGpu(engine, ctx){
   return gpuSimFrames(engine, { w, h, n:nz, nx:kernelNx, ny:kernelNy, os:oversample, camRad, interpMode,
     planes, bgMap:null, offsetMap, simGain, readNoiseE, cam, noiseSeed, onProgress, bgOf:()=>bg,
     emitters: z => ({list: beadXY.map(([x,y])=>[x,y,photPerFrame,z]), clamped:0, counted:0}) });
+}
+
+/* ---- PSF kernel stack on the GPU ------------------------------------------
+   buildPsfKernelStack()'s device path. Pupils are still composed on the CPU (with
+   psfPupilPlan() that is one cos/sin per aperture pixel per plane — nothing); the
+   pupil → image transform runs here. Chirp-Z's FFTs don't map well onto small
+   per-row dispatches, so the device evaluates the SAME sum directly,
+   out[p] = Σ_m in[m]·exp(i·k_m·x_p), as two dense matrix products with the
+   exp() tables built once on the CPU in f64: rows (ky) first into an M×ny
+   intermediate, then columns (kx) to |field|². That is the definition the
+   chirp-Z reproduces exactly, so the two differ only by f32 rounding. */
+const WGSL_PSF_ROWS=`
+struct P { M:u32, nx:u32, ny:u32, nb:u32, strideX:u32, p0:u32, p1:u32, p2:u32 }
+@group(0) @binding(0) var<uniform> p:P;
+@group(0) @binding(1) var<storage,read> pupil:array<vec2f>;        // [nb][M ky rows][M kx]
+@group(0) @binding(2) var<storage,read> ey:array<vec2f>;           // [ny][M] exp(i k_m y_p)
+@group(0) @binding(3) var<storage,read_write> mid:array<vec2f>;    // [nb][ny][M]
+override WG:u32=64u;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) id:vec3u){
+  let g=id.x+id.y*p.strideX; let per=p.ny*p.M;
+  if(g>=p.nb*per){ return; }
+  let b=g/per; let r=g-b*per; let y=r/p.M; let m=r-y*p.M;
+  let sb=b*p.M*p.M; let eb=y*p.M;
+  var acc=vec2f(0.0);
+  for(var k=0u; k<p.M; k++){
+    let a=pupil[sb+k*p.M+m]; let w=ey[eb+k];
+    acc+=vec2f(a.x*w.x-a.y*w.y, a.x*w.y+a.y*w.x);
+  }
+  mid[g]=acc;
+}`;
+const WGSL_PSF_COLS=`
+struct P { M:u32, nx:u32, ny:u32, nb:u32, strideX:u32, p0:u32, p1:u32, p2:u32 }
+@group(0) @binding(0) var<uniform> p:P;
+@group(0) @binding(1) var<storage,read> mid:array<vec2f>;          // [nb][ny][M]
+@group(0) @binding(2) var<storage,read> ex:array<vec2f>;           // [nx][M] exp(i k_m x_p)
+@group(0) @binding(3) var<storage,read_write> outI:array<f32>;     // [nb][ny][nx]
+override WG:u32=64u;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) id:vec3u){
+  let g=id.x+id.y*p.strideX; let per=p.ny*p.nx;
+  if(g>=p.nb*per){ return; }
+  let b=g/per; let r=g-b*per; let y=r/p.nx; let x=r-y*p.nx;
+  let mb=(b*p.ny+y)*p.M; let eb=x*p.M;
+  var acc=vec2f(0.0);
+  for(var m=0u; m<p.M; m++){
+    let a=mid[mb+m]; let w=ex[eb+m];
+    acc+=vec2f(a.x*w.x-a.y*w.y, a.x*w.y+a.y*w.x);
+  }
+  outI[g]=dot(acc,acc);
+}`;
+// Returns {slices (Float64Array per plane, like the CPU paths), globalMax}.
+function gpuPsfPlanes(engine, cfg, nx, ny){
+  return runGpuExclusive(()=>withGpuErrorScopes(engine.device,'GPU PSF build',()=>gpuPsfPlanesNow(engine, cfg, nx, ny)));
+}
+async function gpuPsfPlanesNow(engine, cfg, nx, ny){
+  const M=PSF_FFT_M, dk=cfg.fftDk, nz=cfg.nz, res=cfg.resLateralM, device=engine.device, U=GPUBufferUsage, lim=engine.limits;
+  const maxBind=Math.min(lim.maxStorageBufferBindingSize, lim.maxBufferSize);
+  const kMin=-Math.floor(M/2)*dk;
+  const table=(P,x0)=>{ const a=new Float32Array(2*P*M);
+    for(let q=0;q<P;q++){ const xq=x0+q*res;
+      for(let m=0;m<M;m++){ const ang=(kMin+m*dk)*xq, o=2*(q*M+m); a[o]=Math.cos(ang); a[o+1]=Math.sin(ang); } }
+    return a; };
+  const ey=table(ny, -((ny-1)/2)*res), ex=nx===ny ? ey : table(nx, -((nx-1)/2)*res);
+  const outPlane=nx*ny*4, midPlane=ny*M*8, pupilPlane=M*M*8;
+  const cap=Math.min(64*1024*1024, maxBind);
+  const batch=Math.max(1, Math.min(nz, Math.floor(cap/Math.max(outPlane, midPlane, pupilPlane))));
+  if(outPlane>cap) throw new Error(`one ${nx}×${ny} PSF plane exceeds this adapter's buffer limit`);
+  const pupilPlan=psfPupilPlan(cfg, M, dk);
+  const created=[], mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); created.push(b); return b; };
+  const slices=new Array(nz); let globalMax=0;
+  try{
+    const rowsPipe=await engine.compilePipeline('psf-rows', WGSL_PSF_ROWS, 'main', {WG:engine.wg1D});
+    const colsPipe=await engine.compilePipeline('psf-cols', WGSL_PSF_COLS, 'main', {WG:engine.wg1D});
+    const eyBuf=mk(ey.byteLength, U.STORAGE|U.COPY_DST, 'psf:ey'); engine.write(eyBuf,0,ey);
+    const exBuf=ex===ey ? eyBuf : mk(ex.byteLength, U.STORAGE|U.COPY_DST, 'psf:ex'); if(ex!==ey) engine.write(exBuf,0,ex);
+    const readBack=async slot=>{
+      await slot.staging.mapAsync(GPUMapMode.READ);
+      const all=new Float32Array(slot.staging.getMappedRange());
+      for(let k=0;k<slot.nb;k++){
+        const s=new Float64Array(nx*ny), o=k*nx*ny; let mx=0;
+        for(let i=0;i<s.length;i++){ const v=all[o+i]; s[i]=v; if(v>mx) mx=v; }
+        slices[slot.z0+k]=s; if(mx>globalMax) globalMax=mx;
+      }
+      slot.staging.unmap();
+      slot.bufs.forEach(b=>{ try{ b.destroy(); }catch(_){} });
+      setProg(100*(slot.z0+slot.nb)/nz);
+    };
+    let pending=null;
+    for(let z0=0; z0<nz; z0+=batch){
+      const nb=Math.min(batch, nz-z0), bufs=[];
+      const mkb=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); bufs.push(b); created.push(b); return b; };   // created too: a throw mid-loop still frees them
+      const pup=new Float32Array(nb*M*M*2);
+      for(let k=0;k<nb;k++){
+        const cart=computePsfPupilCartesianForZPlane(z0+k, nz, cfg, M, dk, pupilPlan), o=k*M*M*2;
+        for(let i=0;i<M*M;i++){ pup[o+2*i]=cart.re[i]; pup[o+2*i+1]=cart.im[i]; }
+      }
+      const pupBuf=mkb(pup.byteLength, U.STORAGE|U.COPY_DST, 'psf:pupils'); engine.write(pupBuf,0,pup);
+      const midBuf=mkb(nb*midPlane, U.STORAGE, 'psf:mid');
+      const outBuf=mkb(nb*outPlane, U.STORAGE|U.COPY_SRC, 'psf:planes');
+      const staging=mkb(nb*outPlane, U.MAP_READ|U.COPY_DST, 'psf:planes-readback');
+      const d1=gpuDispatch2D(engine, nb*ny*M), d2=gpuDispatch2D(engine, nb*ny*nx);
+      const params=(strideX)=>{ const b=mkb(32, U.UNIFORM|U.COPY_DST, 'psf:params');
+        engine.write(b,0,new Uint32Array([M,nx,ny,nb,strideX,0,0,0])); return b; };
+      const bg1=engine.bindGroup({label:'psf:rows-bg', layout:rowsPipe.getBindGroupLayout(0),
+        entries:[params(d1.strideX),pupBuf,eyBuf,midBuf].map((buffer,binding)=>({binding,resource:{buffer}}))});
+      const bg2=engine.bindGroup({label:'psf:cols-bg', layout:colsPipe.getBindGroupLayout(0),
+        entries:[params(d2.strideX),midBuf,exBuf,outBuf].map((buffer,binding)=>({binding,resource:{buffer}}))});
+      const enc=device.createCommandEncoder({label:'psf:planes'});
+      let pass=enc.beginComputePass({label:'psf:rows'}); pass.setPipeline(rowsPipe); pass.setBindGroup(0,bg1); pass.dispatchWorkgroups(d1.gx,d1.gy); pass.end();
+      pass=enc.beginComputePass({label:'psf:cols'}); pass.setPipeline(colsPipe); pass.setBindGroup(0,bg2); pass.dispatchWorkgroups(d2.gx,d2.gy); pass.end();
+      enc.copyBufferToBuffer(outBuf,0,staging,0,nb*outPlane);
+      engine.submit([enc.finish()]);
+      const slot={z0, nb, staging, bufs};
+      if(pending) await readBack(pending);
+      pending=slot;
+    }
+    if(pending) await readBack(pending);
+    return {slices, globalMax};
+  } finally {
+    created.forEach(b=>{ try{ b.destroy(); }catch(_){} });
+  }
 }
 
 /* ===========================================================================
@@ -22118,7 +22342,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28e — Simulation panel: Advanced moved below Ground-truth comparison.`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28f — PSF build ~3× faster on the CPU (bit-identical), width fits on the PSF workers, and built on the GPU with Use GPU acceleration.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

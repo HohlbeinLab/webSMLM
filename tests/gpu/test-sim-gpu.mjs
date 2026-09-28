@@ -188,6 +188,25 @@ try {
     });
     check('(a) pcg4d + uniforms: WGSL = JS, bit-exact', a.mismatches === 0, `${a.n.toLocaleString()} values compared, ${a.mismatches} mismatches`);
 
+    // ---- (psf) GPU PSF planes = CPU chirp-Z planes, astigmatic and double helix ----
+    // The device evaluates the transform's defining sum directly (two matrix products) instead of
+    // chirp-Z, so the two may differ only by f32 rounding.
+    const psf = await page.evaluate(async () => {
+      const engine = await getGpuEngine(), out = {};
+      for (const mask of ['none', 'doubleHelix']) {
+        const cfg = readPsfConfigFromUI(); cfg.nz = 9; cfg.maskType = mask;
+        const nx = 2 * cfg.halfWidthPx + 1;
+        const cpu = await buildPsfPlanesSerial(cfg, nx, nx), gpu = await gpuPsfPlanes(engine, cfg, nx, nx);
+        let worst = 0;
+        for (let z = 0; z < cfg.nz; z++) for (let i = 0; i < nx * nx; i++)
+          worst = Math.max(worst, Math.abs(cpu.slices[z][i] - gpu.slices[z][i]) / cpu.globalMax);
+        out[mask] = worst;
+      }
+      return out;
+    });
+    for (const [mask, worst] of Object.entries(psf))
+      check(`(psf) GPU PSF planes = CPU (mask ${mask}) within 1e-5 of peak`, worst < 1e-5, `worst ${worst.toExponential(2)} of peak`);
+
     // ---- (c) GPU splat = CPU splat, (d) GPU noise = CPU noise ----
     const cd = await page.evaluate(async () => {
       const engine = await getGpuEngine();

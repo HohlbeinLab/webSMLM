@@ -440,8 +440,17 @@ what makes GUI and command-line use interchangeable.
   interpolates the same Float32 block sums with the same weights. Batches keep each output
   ≤64 MB, and batch k+1 is packed and submitted before k is read back. `simulateFramesGpu()` and
   `simulateCalibFramesGpu()` are thin spec builders over one `gpuSimFrames()`. 'fft' placement
-  and the Gaussian model have no kernel. The PSF build (chirp-Z, already worker-parallel) has no
-  GPU path. **Agreement** (`tests/gpu/test-sim-gpu.mjs`): pcg4d and the uniforms bit-exact over 393k
+  and the Gaussian model have no kernel. **The PSF build has a device path too** (`gpuPsfPlanes()`,
+  same `useGpu` rule, falls back to the PSF worker pool on error): pupils are composed on the CPU,
+  and the device evaluates the transform's defining sum out[p]=Σ in[m]·exp(i·k_m·x_p) as two dense
+  matrix products (`WGSL_PSF_ROWS`/`WGSL_PSF_COLS`, exp tables built once in f64) rather than
+  chirp-Z — agrees with the CPU to ~1e-6 of peak, double helix included. The kernel cache key
+  includes `useGpu`, so toggling it rebuilds instead of reusing the other path's f32-rounded kernel.
+  The CPU path hoists everything z/row-independent out of the plane loop (`psfCztPlan()`: chirps +
+  the chirp FFT; `psfPupilPlan()`: opd1, Zernike and mask phase per aperture pixel) and is
+  **bit-identical** to the unplanned code (~3× faster; default 401-plane build 7.3 → 2.6 s on a
+  4-core container), and `psfUsableZRange()`'s per-plane elliptical fits run on the PSF worker
+  pool (`widthFit` message; ~2 s → 0.6 s). **Agreement** (`tests/gpu/test-sim-gpu.mjs`): pcg4d and the uniforms bit-exact over 393k
   values; GPU splat = CPU to 1.3e-7 of peak; GPU noise = CPU noise on 100% of pixels within
   1e-3 ADU (sCMOS: f32 read noise, ≤1.7e-4 ADU; EMCCD: identical); the same seeded 3D movie with
   haze and a structured background generated on the CPU pool and on the GPU agrees on 100%
