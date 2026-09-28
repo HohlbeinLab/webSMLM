@@ -672,7 +672,7 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
 5. Click **Compare to GT** (Simulation). The log gives recall, precision, Jaccard, the lateral (and
    axial) error as median and percentiles, a per-molecule summary and the photon level at which
    detection crosses 50%; the raw panel shows the first plot, and the toggle in its title cycles
-   **Show z error / Show fitted vs true / Show lateral / Show vs photons / Show vs
+   **Show z error / Show fitted vs true / Show Jaccard vs z / Show lateral / Show vs photons / Show vs
    radius / Show photometry / Show uncertainty / Show vs CRLB** (each view appears only when its data
    exists — no z views for a 2D fit, no CRLB views for a method that reports none).
 6. Click **View GT** to see the true positions rendered like a reconstruction; **Hide GT** returns to
@@ -840,6 +840,10 @@ under **Ground-truth comparison**.
   **effective z range** (widest depth span with recall ≥ 50%); the photon level at 50% detection;
   the SMLM-challenge efficiency.
 - **Beyond position** (all over the counted matched pairs):
+  - **Jaccard vs depth** — recall, precision and Jaccard per z bin. Hits and misses are binned by
+    true z; a false positive has no true z, so it is binned by its *fitted* z (clamped into the
+    edge bin if fitted outside the truth range). Per-bin precision and Jaccard therefore mix two
+    depth axes; per-bin recall does not.
   - **Jaccard vs match radius** — the same frames re-matched at 10–500 nm with the same matcher and
     don't-care rules; the point at the configured radius equals the headline numbers exactly. A
     curve still rising at the configured radius means loosely placed hits are being counted.
@@ -2613,7 +2617,7 @@ edit here, then run the script, never edit the `.hint` div directly):
   <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
   <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
 </ul>
-<p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, the lateral error histogram, recall vs photons, Jaccard vs match radius, fitted vs true photons, error ÷ reported CRLB, and measured precision vs the CRLB. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
+<p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral error histogram, recall vs photons, Jaccard vs match radius, fitted vs true photons, error ÷ reported CRLB, and measured precision vs the CRLB. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
 <!-- /HINT:validation -->
 
 **Match radius** is how close, laterally, a localization must be to a
