@@ -42,8 +42,8 @@
     spt             17968  single-particle tracking and diffusion coefficients
     pipeline        19018  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   20058  Micro-Manager/pycromanager bridge (experimental)
-    table           22464  localizations table, filters, histograms, clustering
-    headless API    23149  window.webSMLM.analyze()/analyzeBatch()
+    table           22463  localizations table, filters, histograms, clustering
+    headless API    23148  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28l</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -20546,11 +20546,15 @@ async function showStackProjection(){
 // loadMovieFiles()'s reset).
 async function runSimulation(){
   log('Simulating movie…');
-  const cmdCfg={ frames:paramValue('frames'), dens:paramValue('dens'), phot:paramValue('phot'),
-    simlifetime:paramValue('simlifetime'), simbg:paramValue('simbg'),
-    simulation_gain:paramValue('simulation_gain'), simulation_offset:paramValue('simulation_offset'),
-    simulation_offset_std:paramValue('simulation_offset_std'), simulation_readnoise:paramValue('simulation_readnoise'),
-    simulation_pxnm:paramValue('simulation_pxnm'), driftpx:paramValue('driftpx') };
+  // The core fields always, plus every other simulation field with a sidebar
+  // control that is off its default (presets only write these fields).
+  const core=['frames','dens','phot','simlifetime','simbg','simulation_gain','simulation_offset',
+              'simulation_offset_std','simulation_readnoise','simulation_pxnm','driftpx'];
+  const cmdCfg={};
+  for(const k of Object.keys(PARAMS)){
+    if(!PARAMS[k].id || ['simulation_realism','simulation_densityPreset'].includes(k)) continue;
+    if(core.includes(k) || (k.startsWith('simulation_') && paramValue(k)!==PARAMS[k].default)) cmdCfg[k]=paramValue(k);
+  }
   logCmd(cmdCfg, overrideWithFields(cmdCfg, 'runSimulation()'));
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
@@ -20567,6 +20571,9 @@ async function runSimulation(){
     if(staleEpoch(myEpoch)) return;
     stack=rotateNewStack(generated); clearTableState(); lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; stackName='webSMLM_simulated'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; gtShowing=false; srFullBeforeGT=null;
     setViewGtBtn(!!(groundTruthLocs && groundTruthLocs.length));
+    // Ground truth is in unrotated camera coordinates: with Rotate movie set it
+    // no longer matches the frames, so drop it rather than score against it.
+    if(appliedRotation){ clearSimGroundTruth(); log(`Rotate movie is ${appliedRotation}°: the ground truth is not rotated with the frames, so Compare to GT and View GT are off for this movie.`); }
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -20592,46 +20599,31 @@ async function runSimulation(){
 }
 $('genBtn').addEventListener('click',runSimulation);
 
-// "Simulate calib. stack" — same reset/initScrub() sequence as genBtn's own handler above
-// (generateCalibrationStack() also returns a stack matching makeStack()'s interface), plus
-// writing calStep/calRef so "3D calibration -> Calibrate" is immediately ready to click, per
-// generateCalibrationStack()'s own comment on why the true focus lands exactly on the centre
-// frame by construction.
+// "Calib. stack": a bead z-stack from the Preview PSF kernel, shown like a loaded
+// movie, with calStep/calRef written so 3D calibration's Calibrate is ready.
 async function runCalibrationSimulation(){
   log('Simulating calibration stack…');
-  logCmd({}, 'runCalibrationSimulation()');   // same shape as runSimulation()'s own jsOverride: no headless form exists
+  logCmd({}, 'runCalibrationSimulation()');   // no headless form exists
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
-  $('genCalBtn').disabled=true; $('genBtn').disabled=true; $('loadBtn').disabled=true; $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null;
+  $('genCalBtn').disabled=true; $('genBtn').disabled=true; $('loadBtn').disabled=true;
+  clearAnalysisOutputs();
   try{
     const {stack:s, focusIndex, zStepNm}=await generateCalibrationStack();
     if(staleEpoch(myEpoch)) return;   // superseded while generating — see newEpoch()
-    stack=s; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; calib=null; stackName='webSMLM_simulated_calib'; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; lastDrift=null; gtShowing=false; srFullBeforeGT=null;
-    setViewGtBtn(false);
-    $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
-    // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
-    // previous stack (or the previous stack itself, as originalStack) is meaningless now.
-    originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
-    rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
-    $('pxnm').value=stack.px;   // keep the shared pixel-size control in sync with the simulated stack's own px
-    const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
-    syncSaveImg();   // the old stack's content is gone; disable Save image until showFrame(0) below draws something new
-    initScrub();     // also sets calFirst=1/calLast=stack.n to the whole generated range
-    // z-step/z=0 reference frame, so 3D calibration's own Calibrate button is ready to click
-    // as-is — the true PSF focus in this stack is exactly the centre frame by construction
-    // (see generateCalibrationStack()'s own comment), so calRef is set explicitly rather than
-    // left at "0 = auto-detect", which only ever ESTIMATES the focal crossing from noisy fits.
+    // Not rotated: calStep/calRef below describe the stack as generated.
+    stack=s; stackName='webSMLM_simulated_calib';
+    $('pxnm').value=stack.px;   // keep the shared pixel size in sync with the simulated stack
+    drawView(); syncSaveImg();
+    // The true focus is the centre frame by construction, so calRef is set
+    // exactly rather than left to auto-detect.
     $('calStep').value = zStepNm;
     $('calRef').value = focusIndex+1;
-    await estimateRawContrastRange(stack);   // Contrast slider's fixed [black,white] default, before the first frame paints
-    showStackProjection();      // background fill of the SR panel — not awaited
-    await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
+    if(!await presentStack(myEpoch)) return;
     log(`Calibration stack ready: ${stack.n} frames · ${stack.w}×${stack.h} · z-step ${zStepNm}nm · `+
         `z=0 ref frame ${focusIndex+1}. Click "Calibrate" in the 3D calibration section.`);
   }catch(err){
     log(`⚠ Simulate calib. stack failed: ${err.name}: ${err.message}`); setProg(null);
-    // same re-enable-on-error runSimulation() does: an error means nothing else will fix these
-    $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
+    if(stack){ $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false; }
   }finally{
     $('genCalBtn').disabled=!psfModelIsZernike(); $('genBtn').disabled=false; $('loadBtn').disabled=false;
   }
@@ -20769,6 +20761,13 @@ function clearAnalysisOutputs(){
   // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
   // previous stack (or the previous stack itself, as originalStack) is meaningless now.
   originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
+  clearSimGroundTruth();
+}
+// Drops the simulator's ground truth (it describes a stack that is gone, or
+// one rotated or cropped away from it) and the controls that read it.
+function clearSimGroundTruth(){
+  groundTruth=null; groundTruthEvents=null; groundTruthLocs=null; simTrueDrift=null; gtShowing=false; srFullBeforeGT=null;
+  $('truthBtn').disabled=true; setViewGtBtn(false);
 }
 // Shows a newly set `stack` (load or rotation): scrubber, contrast, SR-panel
 // projection, frame 1; re-enables the stack actions. False if superseded.
@@ -21428,7 +21427,7 @@ async function loadCsvFile(f){
     $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; $('truthBtn').disabled=!groundTruthEvents; $('frcBtn').disabled=false;
     $('sSmlmPreviewBtn').disabled=false; $('sSmlmPairBtn').disabled=false;
     $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null;   // a freshly-loaded result invalidates any prior pairing state
-    groundTruth=null; groundTruthLocs=null; gtShowing=false; srFullBeforeGT=null; setViewGtBtn(false);   // a CSV-loaded result has no simulated ground truth
+    clearSimGroundTruth();   // a CSV-loaded result has no simulated ground truth
     $('sptTrackBtn').disabled=false; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;   // Track is safe to re-run even on a CSV that already has track_id/D_coeff columns; the histograms themselves need a fresh Track click (lastSpt isn't reconstructed from a loaded CSV)
     let nFrames=0; for(const L of locs) if(L.frame+1>nFrames) nFrames=L.frame+1;
     $('rawInfo').textContent='— no raw frame data (loaded from CSV)';
@@ -22039,7 +22038,7 @@ function rawClickToNative(e){
 function resetAfterCropChange(){
   clearTableState();
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
-  setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; lastNena=null;
+  setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; clearSimGroundTruth(); lastDrift=null; lastNena=null;
   $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true;
   // Also reset sSMLM pairing state (lastResult is gone).
   $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
@@ -22373,7 +22372,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-28l — merged upstream v0.12.11 (tables cleared on every new load, renamed buttons, tooltips on every sidebar setting and module header).`);
+log(`webSMLM v0.13.0-dev · build 2026-09-28m — the simulated ground truth is dropped when a movie is loaded, cropped or rotated (and a simulation made with Rotate movie set has none), so Compare to GT can no longer score real data against a stale simulation; Simulate movie logs every non-default simulation field.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
