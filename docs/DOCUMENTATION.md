@@ -581,12 +581,7 @@ events (`groundTruthEvents`), which **Compare to GT**
 ([§2](#validation)) compares the localizations against.
 
 **Structure type** (`simulation_structureType`) picks the object emitters
-attach to. *Microtubules (cells)* is the default. The original *Filaments +
-ring* is kept, but note what it cannot measure: one `sin(k·x+φ)` drives both a filament's y offset and its
-z, so the two are perfectly correlated and a z error is indistinguishable
-from a y error — and the sinusoid piles emitters up at the extremes of the
-Z range, exactly where an astigmatic PSF stops encoding z uniquely. The
-other five sample z independently:
+attach to. *Microtubules (cells)* is the default. 
 
 | Structure | Geometry | What it measures |
 |---|---|---|
@@ -594,16 +589,7 @@ other five sample z independently:
 | Uniform 3D volume | x, y and z all uniform | unbiased accuracy-versus-depth statistics |
 | Spherical shell | hollow sphere, radius `simulation_structureSize` | axial scale errors, visually — a sphere reconstructing flat (see the depth-mismatch scenario in [§2](#validation)) |
 
-**The default object flatters nothing, but it does inflate the spread.**
-Scored against ground truth at identical emitter density, *Filaments + ring*
-gives a median lateral error of 22.7 nm where *Uniform 3D volume* gives 14.6 nm
-— and that gap survives comparing only emitters at the same depth, so it is not
-defocus. The cause is self-crowding: emitters lie along 1-D curves, so 15.3% of
-them sit within 500 nm of another simultaneously-active emitter against ~7% for
-the scattered structures, and overlapping PSFs are fitted with a single-emitter
-model. Lateral *bias* stays under 1 nm for every structure, so the fitter is
-unbiased either way. For accuracy figures, prefer **Uniform 3D volume**; for
-diagnosis, **Tilted plane**.
+For accuracy figures, prefer **Uniform 3D volume**; for diagnosis, **Tilted plane**.
 
 **3D** (`simulation_3d`) means exactly one thing: whether z varies. It is on
 by default and has no sidebar control; a settings file or `paramOverrides`
