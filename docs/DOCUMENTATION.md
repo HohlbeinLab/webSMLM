@@ -703,7 +703,11 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
 
 **Microtubules.** **Move view** (Sample, below Focus height) pans the window across the sample by
 the chosen step (1, 5 or 10 µm; ↑ is towards the top of the image); the dyes are fixed in the world,
-so panning back returns the same cells. **Cell field seed** (Advanced → Sample) picks another world.
+so panning back returns the same cells. **Cell field seed** (Advanced → Sample) picks another world; 0 draws a
+new random one every Simulate movie (logged, so a good one can be typed back in). Each seed starts at a
+fixed, well-covered view, independent of the Movie seed: the world origin if a 3×3 probe of 2 µm
+sub-windows finds dyes in at least 5 of 9, else the first such position from a seed-fixed list within
+±500 µm (the best of 16 otherwise; about a second per try, cached). **Move view** offsets from there.
 **Focus height** is how far above the coverslip the optical section sits (cells are 3–6 µm tall).
 Cell and microtubule densities have no sidebar field (settings JSON / `paramOverrides`). A new
 region takes a few seconds to generate.
@@ -2194,7 +2198,7 @@ elapsed time instead.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `simulation_mt_seed` | *Sample:* Cell field seed (Microtubules) | number | -2147483647 | 2147483647 | 1 | 1249 |
+| `simulation_mt_seed` | *Sample:* Cell field seed (0 = random) (Microtubules) | number | -2147483647 | 2147483647 | 1 | 1249 |
 | `simulation_seed` | *Sample:* Movie seed (0 = random) | number | 0 | 2147483647 | 1 | 0 |
 | `simulation_gain` | *Camera:* Simulated gain (photons/ADU) | number | 0.001 | 1000 | 0.01 | 0.34 |
 | `simulation_offset` | *Camera:* Simulated offset (ADU) | number | 0 | 65535 | 1 | 100 |
@@ -2223,8 +2227,8 @@ No sidebar control (Settings JSON, `paramOverrides`, or the log terminal):
 | `simulation_psfMaskType` | PSF phase mask — hidden for now, to be revisited | enum | `none`, `doubleHelix` | | | `none` |
 | `simulation_psfMaskModes` | Mask GL modes | number | 2 | 8 | 1 | 5 |
 | `simulation_psfMaskWaist` | Mask beam waist (pupil radii) | number | 0.2 | 2 | 0.05 | 1.0 |
-| `simulation_mt_x` | View centre X (µm) — moved by **Move view** | number | -1000000 | 1000000 | 1 | 0 |
-| `simulation_mt_y` | View centre Y (µm) — moved by **Move view** | number | -1000000 | 1000000 | 1 | 0 |
+| `simulation_mt_x` | View offset X (µm) from the seed's start — moved by **Move view** | number | -1000000 | 1000000 | 1 | 0 |
+| `simulation_mt_y` | View offset Y (µm) from the seed's start — moved by **Move view** | number | -1000000 | 1000000 | 1 | 0 |
 | `simulation_mt_density` | Microtubule density (per µm² of cell footprint) | number | 0 | 2 | 0.005 | 0.9 |
 | `simulation_mt_cellDensity` | Cell density (occupancy — fraction of chunks holding a cell) | number | 0.05 | 1 | 0.01 | 0.33 |
 | `simulation_nup_radius` | NPC ring radius (nm) | number | 20 | 150 | 0.5 | 53.5 |
@@ -2275,7 +2279,7 @@ Every microtubule is a 25 nm cylinder with the 13-protofilament lattice, and eac
 a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
 (below Focus height) pans the window by the chosen step; a dye's position does not change when the
 window moves, so panning back returns the same cells. Which cell field is used is set by Advanced →
-<b>Cell field seed</b>; the view centre and the cell and microtubule densities have no sidebar field —
+<b>Cell field seed</b> (0 = random; each seed starts at a fixed, well-covered view); the view offset and the cell and microtubule densities have no sidebar field —
 set them from a settings file or the log terminal (<code>paramOverrides.simulation_mt_x</code> etc.).</p>
 <p><b>Drift (px, total)</b> — total sample drift over the movie, in a random direction and linear in
 time; 0 = none. The true drift is kept for scoring drift correction. The <b>Movie seed</b> that makes
@@ -2453,7 +2457,7 @@ always run on the CPU.</p>
 <!-- HINT:simulation-advanced -->
 <p>Settings that rarely need changing, in sections.</p>
 <p><b>Sample.</b> <b>Cell field seed</b> (Microtubules) picks which cell field is simulated; the same seed
-always gives the same cells. <b>Movie seed</b>: 0 gives a fresh movie every Simulate movie; any other
+always gives the same cells and start view, and 0 picks a random one each Simulate movie. <b>Movie seed</b>: 0 gives a fresh movie every Simulate movie; any other
 value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two
 runs that differ in one setting can be compared pixel for pixel.</p>
 <p><b>Camera.</b> <b>Simulated gain</b> and <b>Simulated offset</b> are the simulated camera's own,

@@ -27,23 +27,23 @@
     params          2643   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          3611   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3839   synthetic stack generator ("Simulate movie")
-    validation      6787   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7411   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7667   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8277   super-resolution accumulation, view, colour maps, plots
-    workers         9801   frame-parallel detect/fit worker pool
-    gpu             10443  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          12772  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13063  astigmatic width-vs-z bead calibration
-    drift           13462  AIM and cross-correlation drift correction
-    locprecision    14120  NeNA and FRC
-    sSMLM           15259  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15865  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17972  single-particle tracking and diffusion coefficients
-    pipeline        19022  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20062  Micro-Manager/pycromanager bridge (experimental)
-    table           22467  localizations table, filters, histograms, clustering
-    headless API    23152  window.webSMLM.analyze()/analyzeBatch()
+    validation      6822   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7446   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7702   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8312   super-resolution accumulation, view, colour maps, plots
+    workers         9836   frame-parallel detect/fit worker pool
+    gpu             10478  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          12807  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13098  astigmatic width-vs-z bead calibration
+    drift           13497  AIM and cross-correlation drift correction
+    locprecision    14155  NeNA and FRC
+    sSMLM           15294  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15900  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18007  single-particle tracking and diffusion coefficients
+    pipeline        19057  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20097  Micro-Manager/pycromanager bridge (experimental)
+    table           22502  localizations table, filters, histograms, clustering
+    headless API    23187  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28o</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1982,7 +1982,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
           (below Focus height) pans the window by the chosen step; a dye's position does not change when the
           window moves, so panning back returns the same cells. Which cell field is used is set by Advanced →
-          <b>Cell field seed</b>; the view centre and the cell and microtubule densities have no sidebar field —
+          <b>Cell field seed</b> (0 = random; each seed starts at a fixed, well-covered view); the view offset and the cell and microtubule densities have no sidebar field —
           set them from a settings file or the log terminal (<code>paramOverrides.simulation_mt_x</code> etc.).</p>
           <p><b>Drift (px, total)</b> — total sample drift over the movie, in a random direction and linear in
           time; 0 = none. The true drift is kept for scoring drift correction. The <b>Movie seed</b> that makes
@@ -2179,7 +2179,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <details class="subsim" id="simAdvancedBox">
           <summary>Advanced</summary>
           <div class="simsec">Sample</div>
-          <label class="row" id="mtSeedRow" style="display:none" title="Which cell field is simulated. The same seed always gives the same cells, nuclei and microtubules; Move view chooses which part of it is imaged.">Cell field seed <input type="number" id="simulation_mt_seed" min="-2147483647" max="2147483647" step="1" value="1249" class="num"></label>
+          <label class="row" id="mtSeedRow" style="display:none" title="Which cell field is simulated; 0 = a new random one every Simulate movie (logged). The same seed always gives the same cells and the same start view (a well-covered spot, whatever the Movie seed); Move view pans from there.">Cell field seed (0 = random) <input type="number" id="simulation_mt_seed" min="-2147483647" max="2147483647" step="1" value="1249" class="num"></label>
           <label class="row" title="0 = a fresh random movie every Simulate movie. Any other value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two runs that differ in one setting can be compared pixel for pixel.">Movie seed (0 = random) <input type="number" id="simulation_seed" min="0" max="2147483647" step="1" value="0" class="num"></label>
           <div class="simsec">Camera</div>
           <label class="row" title="Photons per ADU of the simulated camera. Separate from the Gain used for localization, so a wrong analysis gain can be simulated on purpose.">Simulated gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
@@ -2213,7 +2213,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <div class="hint" hidden id="hint-simulation-advanced"><span class="pill">module: simulation</span>
           <p>Settings that rarely need changing, in sections.</p>
           <p><b>Sample.</b> <b>Cell field seed</b> (Microtubules) picks which cell field is simulated; the same seed
-          always gives the same cells. <b>Movie seed</b>: 0 gives a fresh movie every Simulate movie; any other
+          always gives the same cells and start view, and 0 picks a random one each Simulate movie. <b>Movie seed</b>: 0 gives a fresh movie every Simulate movie; any other
           value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two
           runs that differ in one setting can be compared pixel for pixel.</p>
           <p><b>Camera.</b> <b>Simulated gain</b> and <b>Simulated offset</b> are the simulated camera's own,
@@ -3106,9 +3106,9 @@ const PARAMS = {
   // Focus height (Sample) and the seed (Advanced → Sample, "Cell field seed") have sidebar fields;
   // X/Y (moved by the Move view arrows, moveMtView()) and the two densities are id:null (Settings
   // JSON, paramOverrides or the log terminal).
-  simulation_mt_seed: { type:'number', id:'simulation_mt_seed', label:'Cell field seed', min:-2147483647, max:2147483647, step:1, default:1249, int:true },
-  simulation_mt_x: { type:'number', id:null, label:'View centre X (µm)', min:-1000000, max:1000000, step:1, default:0, int:false },
-  simulation_mt_y: { type:'number', id:null, label:'View centre Y (µm)', min:-1000000, max:1000000, step:1, default:0, int:false },
+  simulation_mt_seed: { type:'number', id:'simulation_mt_seed', label:'Cell field seed (0 = random)', min:-2147483647, max:2147483647, step:1, default:1249, int:true },
+  simulation_mt_x: { type:'number', id:null, label:'View offset X (µm)', min:-1000000, max:1000000, step:1, default:0, int:false },
+  simulation_mt_y: { type:'number', id:null, label:'View offset Y (µm)', min:-1000000, max:1000000, step:1, default:0, int:false },
   // Microtubules per µm² of cell footprint; focusZ is the height above the coverslip (nm) the
   // optical section is centred on. The network is clipped to ±simulation_zRange around it.
   simulation_mt_density: { type:'number', id:null, label:'Microtubule density (per µm²)', min:0, max:2, step:0.005, default:0.9, int:false },
@@ -4158,28 +4158,63 @@ const CellField=(function cellFieldFactory(SRC) {
 // other structure builder — a flat array of [x px, y px, z nm] candidate emitter sites — so
 // generateSynthetic() needs no other change; the sites ARE the dye positions, so blinking happens
 // exactly where the labels are.
+// Seed-determined START position of the view. A seed's origin can land in an empty gap between
+// cells, so the window is placed at the first of a fixed candidate list (world origin first, then
+// positions drawn from a PRNG seeded by the microtubule seed ALONE — never simulation_seed) whose
+// window is at least MT_START_MIN_COVER covered, probed on a 3×3 grid of 2 µm sub-windows (a full
+// window build costs seconds; the probe pays mostly the world generation the real build needs
+// anyway). Origin first keeps every seed whose origin was already covered where it was. X/Y are an
+// offset from this start. Cached per seed + everything the coverage depends on.
+const MT_START_MIN_COVER=5/9, MT_START_TRIES=16, MT_START_RANGE_UM=500;
+const _mtStartCache=new Map();
+function mtStartPosition(seed,w,h,opts){
+  const key=JSON.stringify([seed,w,h,opts]);
+  if(_mtStartCache.has(key)) return _mtStartCache.get(key);
+  const Wum=w*opts.pxnm/1000, Hum=h*opts.pxnm/1000, g=3, pw=Math.max(1,Math.round(2000/opts.pxnm));
+  const rng=mulberry32((seed^0x5EEDCE11)>>>0);
+  let best=null;
+  for(let t=0;t<MT_START_TRIES;t++){
+    const cx=t?Math.round((rng()*2-1)*MT_START_RANGE_UM*10)/10:0, cy=t?Math.round((rng()*2-1)*MT_START_RANGE_UM*10)/10:0;
+    let hit=0;
+    for(let j=0;j<g;j++) for(let i=0;i<g;i++){
+      const r=CellField.buildWindow(pw,pw,Object.assign({},opts,{seed,
+        xUm:cx+((i+0.5)/g-0.5)*Wum, yUm:cy+((j+0.5)/g-0.5)*Hum}));
+      if(r.sites.length) hit++;
+    }
+    const cand={x:cx, y:cy, cover:hit/(g*g), tries:t+1};
+    if(!best||cand.cover>best.cover) best=cand;
+    if(cand.cover>=MT_START_MIN_COVER) break;
+  }
+  _mtStartCache.set(key,best);
+  return best;
+}
+// Cell field seed 0 = a fresh random seed per Simulate movie (logged, so it can be typed back in).
+function resolveMtSeed(){
+  const s=paramValue('simulation_mt_seed');
+  return s===0 ? 1+Math.floor(Math.random()*2147483646) : s;
+}
 function buildMicrotubuleStructure(w,h){
   const px=paramValue('simulation_pxnm');
-  const res=CellField.buildWindow(w,h,{
-    seed:paramValue('simulation_mt_seed'), xUm:paramValue('simulation_mt_x'), yUm:paramValue('simulation_mt_y'),
-    pxnm:px, mtDensity:paramValue('simulation_mt_density'), cellDensity:paramValue('simulation_mt_cellDensity'), focusUm:paramValue('simulation_mt_focusZ')/1000,
-    slabNm:paramValue('simulation_zRange')
-  });
-  log(`Microtubules (seed ${paramValue('simulation_mt_seed')}, centre ${paramValue('simulation_mt_x')}, ${paramValue('simulation_mt_y')} µm, `+
+  const seed=resolveMtSeed();
+  const opts={pxnm:px, mtDensity:paramValue('simulation_mt_density'), cellDensity:paramValue('simulation_mt_cellDensity'),
+    focusUm:paramValue('simulation_mt_focusZ')/1000, slabNm:paramValue('simulation_zRange')};
+  const st=mtStartPosition(seed,w,h,opts);
+  const xUm=Math.round((st.x+paramValue('simulation_mt_x'))*1000)/1000, yUm=Math.round((st.y+paramValue('simulation_mt_y'))*1000)/1000;
+  const res=CellField.buildWindow(w,h,Object.assign({seed,xUm,yUm},opts));
+  log(`Microtubules (seed ${seed}${paramValue('simulation_mt_seed')===0?' (random)':''}, start ${st.x}, ${st.y} µm`+
+      ` (${Math.round(st.cover*100)}% probe cover), centre ${xUm}, ${yUm} µm, `+
       `window ${(w*px/1000).toFixed(1)}×${(h*px/1000).toFixed(1)} µm): ${res.nCells} cell(s) reach the window, `+
       `${res.nMt} microtubule(s) inside it, ${res.sites.length.toLocaleString()} dye site(s) within ±${paramValue('simulation_zRange')} nm of ${paramValue('simulation_mt_focusZ')} nm above the coverslip`+
       (res.packed?' (cells packed on fixed 8×8-chunk blocks).':' (packing off).'));
   if(!res.sites.length) log('Microtubules: no dye sites landed in this window/slab — move the view (X/Y) or raise Structure Z range / Focus height.');
   return res.sites;
 }
-// One step of the view-centre move buttons: X/Y are ordinary PARAMS fields, so this only edits them.
-// +x moves the view right, +y down (image convention, matching the reconstruction's own axes).
-// Pans the microtubule window (simulation_mt_x/_y, µm; +y is down). Those two have no sidebar field,
+// Pans the microtubule window (simulation_mt_x/_y, µm offset from mtStartPosition(); +y is down). Those two have no sidebar field,
 // so the new centre lives in paramOverrides like any other id:null parameter and is logged.
 function moveMtView(dxUm,dyUm){
   for(const [id,d] of [['simulation_mt_x',dxUm],['simulation_mt_y',dyUm]])
     if(d) paramOverrides[id]=Math.round((paramValue(id)+d)*1000)/1000;
-  log(`Microtubule view centre: (${paramValue('simulation_mt_x')}, ${paramValue('simulation_mt_y')}) µm — takes effect on the next Simulate movie.`);
+  log(`Microtubule view offset from the seed's start: (${paramValue('simulation_mt_x')}, ${paramValue('simulation_mt_y')}) µm — takes effect on the next Simulate movie.`);
 }
 // The sidebar's arrow buttons: one step of the Move view selector in the given direction.
 function moveMtViewStep(sx,sy){ const st=parseFloat($('mtMoveStep').value)||1; moveMtView(sx*st, sy*st); }
@@ -22376,7 +22411,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-28o — Custom Zernike coefficients are now saved in and restored from settings files.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-28p — Cell field seed 0 = random (logged); each seed starts at a fixed, well-covered view (Move view pans from there).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
