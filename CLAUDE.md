@@ -84,7 +84,7 @@ what makes GUI and command-line use interchangeable.
   - **BigTIFF** (magic 43, UTIF can't read it) always takes `loadMultiIfdStreaming()`, which reads
     both formats (8-byte offsets/counts, 20-byte entries); frame strips must be contiguous (checked
     on the first and last frame). Test: `tests/gpu/test-bigtiff.mjs`.
-  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, Rotation, GPU & streaming"):
+  - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, rotation, GPU & streaming"):
     `makeRotatedStack()` wraps the loaded stack like the crop wrapper (getFrames() only, no cache,
     90/270 swap w/h). `rotateNewStack()` applies the setting to every new load/simulation
     (`unrotatedStack`/`rotatedStack`); `applyMovieRotation()` re-wraps the current movie, drops a crop
@@ -607,7 +607,7 @@ what makes GUI and command-line use interchangeable.
     Run speed-up is small (detection dominates) — report whole-Run numbers, not the fit stage alone.
   - `winr2d`/`winr3d` are the visible fields; hidden `winr` mirrors the active one
     (`applyWinrDefault()`, non-clobbering; dispatches `change` only on a real change).
-  - The **Use GPU acceleration** checkbox sits in "Memory, Rotation, GPU & streaming" (shared by fit, render,
+  - The **Use GPU acceleration** checkbox sits in "Memory, rotation, GPU & streaming" (shared by fit, render,
     FRC).
 
   **PSF-model fitting (`psfmle`) and `detection_mergeRadius` are not on this branch** — they
@@ -724,7 +724,7 @@ what makes GUI and command-line use interchangeable.
   Experimental. FRC pixel size: NeNA σ/2, else the mode of per-loc precision, else px/mag. `lastNena`
   feeds spt's "from NeNA" and resets on every load/crop.
 
-- **sSMLM** ("(Caution!) Pairing (sSMLM & FRET)") — pairs 0th/1st-order grating images (Martens et
+- **sSMLM** ("(Caution!) Pairing for sSMLM or FRET") — pairs 0th/1st-order grating images (Martens et
   al., Nano Lett. 2022; port of HohlbeinLab/sSMLMAnalyzer). Roles by **direction**, not brightness:
   `sSmlmAngleCenter` is a signed bearing; a 0th-order candidate has an outgoing match on that bearing
   and none on the opposite one. Position = the 0th order's own; distance in `dist` (colour-by-
@@ -746,8 +746,9 @@ what makes GUI and command-line use interchangeable.
   - **Analyse FRET** unticked disables only Pair DD + DA. **ALEX** (`alexEnabled`/`alexFirstFrame`)
     fixes frame parity; AA is read at the acceptor position once paired, else at the site.
   - Pairing methods: **Via distances and angles** (`getSmfretPairingFromDonor()`, sSMLM Preview +
-    Pair on the donor-excitation composite; **Position donor** picks which of the two bearings points
-    D→A) and **Via channel matching** (`alignSmfretChannels()`: x-gap split, displacement search,
+    Pair on the donor-excitation composite, reading that section's Distance/Angle fields — the note
+    `smfretDistAngleNote` under Pairing method links there, `openSSmlmSection()`; **Position donor**
+    picks which of the two bearings points D→A) and **Via channel matching** (`alignSmfretChannels()`: x-gap split, displacement search,
     affine ICP; its matches are the pairing; shows a green/magenta alignment overlay). Paired sites are
     marked (never hidden) dark orange, AA-sourced matches gold. `smfretEnrichPairedWithAA()` adds
     AA widths (`sxAA/syAA`).
@@ -779,8 +780,8 @@ what makes GUI and command-line use interchangeable.
     of the plots, else in a strip under the E/S plot. The x zoom/pan handlers read the plot range
     from `_smfretTraceGeom`. Intensities are `(raw − camoffset)·gain` on every path (fits and
     aperture), so the axis unit comes from the gain recorded on the traces (`smfretTraceUnit()`:
-    photons, or ADU at gain 1; saved as `gain_photons_per_adu`/`intensity_unit`). **Plot (FRET) data** (`plotSmfretTraces()`) re-shows
-    the in-memory traces; saved trace JSON loads via **Load movie/data**. Save/load round-trips
+    photons, or ADU at gain 1; saved as `gain_photons_per_adu`/`intensity_unit`). **Plot traces** (`plotSmfretTraces()`) re-shows
+    the in-memory traces; saved trace JSON loads via **Load data**. Save/load round-trips
     sigma arrays and ALEX parity.
 
 - **spt** ("(Caution!) Single-particle tracking") — trackpy-inspired linking (`linkTracks()`:
@@ -816,7 +817,7 @@ what makes GUI and command-line use interchangeable.
     (`runTerminalStatement()`), with ↑/↓ history (navigates while a recalled entry is unedited).
     `resolveTerminalConfig()` backfills omitted PARAMS from live values and resolves filename strings
     to registered Files; `applyHeadlessResultToSession()` pushes an `analyze()` result into the page.
-  - **Load movie/data** (`loadFiles()`): movie, CSV, or JSON routed by its `format` field
+  - **Load data** (`loadFiles()`): movie, CSV, or JSON routed by its `format` field
     (`loadJsonFile()`: smFRET traces, settings, calibration; older files by their keys).
   - Hotkeys (`wireHotkeys()`, matched by `e.code`): Alt+1..0 action buttons, Alt+Shift+1..0 module
     sections, Alt+T terminal, Alt+P/F/S pixel size, frame time, panel layout (any Shift state).
@@ -838,7 +839,10 @@ what makes GUI and command-line use interchangeable.
   with the track table. The SR crop tool pushes an x/y clause into the same `_tableFilters`.
   `tempClustering(XY|Z|Memory)` clauses change the base row set (`clusterEvents()`,
   `getBaseLocs()`). Filters are logged as the full cumulative list; `tableFiltersCore()` replays them
-  headlessly. `checkTableSize()` uses `TABLE_FILTER_ROW_BYTES` (32). `commitSrCrop()` awaits the
+  headlessly. `checkTableSize()` uses `TABLE_FILTER_ROW_BYTES` (32). `clearTableState()` empties
+  and closes both tables (data, filters, rows, `renderLocs`); every action that discards or
+  replaces the locs calls it (load, rotation, crop, simulation, Localize, pairing, tracking, CSV/
+  headless load, streaming). Test: `tests/gpu/test-load-clears-state.mjs`. `commitSrCrop()` awaits the
   filtered render before zooming; the crop rectangle is drawn first, with a `tick()` so it paints.
 
 ## Web Worker gotcha (read before touching detect/fit/workers)
@@ -874,8 +878,10 @@ settings-JSON code).
 
 ## UI conventions and CSS gotchas
 
+- Every module header (`summary`), sidebar control row and button has a short `title` tooltip (one sentence: what it does,
+  units, the key trade-off); the section's "more info…" hint carries the detail.
 - Sidebar/panel buttons fit on one line; abbreviate rather than wrap. Compact labels read
-  `Word/word` (**Save plot/image**, **View data/filtering**, **Load movie/data**).
+  `Word/word` (**Save plot/image**, **View data/filtering**).
 - An indented sidebar sub-row must be a **direct child** of its `details.sim`
   (`details.sim>*:not(summary)` gives the 14px indent), with `padding-left:40px` for the extra step.
   No right padding is needed: value controls and buttons share one right edge.

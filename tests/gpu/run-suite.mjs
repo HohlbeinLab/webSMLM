@@ -27,6 +27,7 @@ const TESTS = [
   ['gpu:test:rotate', 'test-rotate-movie.mjs'],
   ['gpu:test:viewport', 'test-viewport-render.mjs'],
   ['gpu:test:pcfo', 'test-pcfo.mjs'],
+  ['gpu:test:load-clears', 'test-load-clears-state.mjs'],
   ['gpu:test:report', 'test-report-generation.mjs'],
   ['gpu:test:simulation', 'test-sim-gpu.mjs'],
 ];
