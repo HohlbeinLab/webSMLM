@@ -6,6 +6,7 @@
 //   // ==== BEGIN insiliscope CellField block ====
 //   // ==== END insiliscope CellField block ====
 // markers; never hand-edit it -- change the insiliscope core, rebuild, re-sync.
+// Full procedure (download, ABI/call-site check, smoke test, commit): docs/CELLFIELD_SYNC.md.
 //
 // Usage:
 //   node tools/sync_cellfield.mjs <cellfield_block.js>   # replace the block in webSMLM.html

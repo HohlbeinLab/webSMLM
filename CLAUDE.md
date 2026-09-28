@@ -32,7 +32,8 @@ defining `const CellField`). **Never hand-edit the block.** To change the model,
 CI ("webSMLM block" workflow) builds and publishes `cellfield_block.js`; bring it in with
 `node tools/sync_cellfield.mjs <cellfield_block.js>` in a commit of its own (build-letter bump as usual).
 `node tools/sync_cellfield.mjs --check [<block.js>]` verifies the embedded block's checksum (and that it
-equals the given file). The former `cell_field_sim/` prototype, its viewer and `DEMOCAM_PORT.md` live in
+equals the given file). Full step-by-step (getting the CI artifact, ABI/call-site check, smoke test, commit
+conventions) is in [`docs/CELLFIELD_SYNC.md`](docs/CELLFIELD_SYNC.md). The former `cell_field_sim/` prototype, its viewer and `DEMOCAM_PORT.md` live in
 insiliscope now (`web/`, `web/prototype/`, `spec/`); there is no copy to keep in sync here.
 
 ## Editing model
