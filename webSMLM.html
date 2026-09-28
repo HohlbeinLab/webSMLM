@@ -28,22 +28,22 @@
     in/out          3611   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3839   synthetic stack generator ("Simulate movie")
     validation      6822   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7446   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7702   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8312   super-resolution accumulation, view, colour maps, plots
-    workers         9836   frame-parallel detect/fit worker pool
-    gpu             10478  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          12807  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13098  astigmatic width-vs-z bead calibration
-    drift           13497  AIM and cross-correlation drift correction
-    locprecision    14155  NeNA and FRC
-    sSMLM           15294  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15900  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18007  single-particle tracking and diffusion coefficients
-    pipeline        19057  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20097  Micro-Manager/pycromanager bridge (experimental)
-    table           22502  localizations table, filters, histograms, clustering
-    headless API    23187  window.webSMLM.analyze()/analyzeBatch()
+    detect          7674   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7930   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8540   super-resolution accumulation, view, colour maps, plots
+    workers         10064  frame-parallel detect/fit worker pool
+    gpu             10706  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13035  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13326  astigmatic width-vs-z bead calibration
+    drift           13725  AIM and cross-correlation drift correction
+    locprecision    14383  NeNA and FRC
+    sSMLM           15522  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16128  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18235  single-particle tracking and diffusion coefficients
+    pipeline        19285  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20325  Micro-Manager/pycromanager bridge (experimental)
+    table           22731  localizations table, filters, histograms, clustering
+    headless API    23416  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28p</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28q</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2173,7 +2173,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
           <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
           </ul>
-          <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, the lateral error histogram and recall vs photons. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails.</p>
+          <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral error histogram, recall vs photons, Jaccard vs match radius, fitted vs true photons, error ÷ reported CRLB, and measured precision vs the CRLB. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
         </div>
         </details>
         <details class="subsim" id="simAdvancedBox">
@@ -2511,7 +2511,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <h4><span id="rawTitle">Raw frame</span></h4>
         <div class="panel-body">
           <canvas id="raw"></canvas>
-          <h4><span style="display:flex;align-items:center;gap:6px"><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="smfretTraceModeBtn" class="logbtn" style="display:none" title="Toggle between the time trace plot and the live raw frame — sites of interest stay fixed either way">Show raw frame</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Show track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Show angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Show area histogram</button><button id="truthPlotModeBtn" class="logbtn" style="display:none" title="Cycle the ground-truth score between z error vs depth, fitted-vs-true z, and the lateral error histogram">Show fitted vs true</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
+          <h4><span style="display:flex;align-items:center;gap:6px"><button id="rawFtmBtn" class="logbtn" style="display:none" title="Toggle between the original frame and its FTM-corrected version, computed live for the scrubbed frame">Show FTM corrected</button><button id="smfretTraceModeBtn" class="logbtn" style="display:none" title="Toggle between the time trace plot and the live raw frame — sites of interest stay fixed either way">Show raw frame</button><button id="driftPlotModeBtn" class="logbtn" style="display:none" title="Toggle the drift plot between drift-vs-frame curves and an x/y trajectory coloured by frame (time)">Show x/y path</button><button id="sptHistModeBtn" class="logbtn" style="display:none" title="Cycle between the diffusion-coefficient histogram, the track-length histogram, and the MSD-vs-lag plot">Show track length</button><button id="sSmlmHistModeBtn" class="logbtn" style="display:none" title="Toggle between the sSMLM candidate distance histogram and the angle histogram">Show angles</button><button id="segShowModeBtn" class="logbtn" style="display:none" title="Toggle between the segmentation image and its cell-area histogram">Show area histogram</button><button id="truthPlotModeBtn" class="logbtn" style="display:none" title="Cycle the ground-truth score plots: z error vs depth, fitted vs true z, Jaccard vs depth, lateral error, recall vs photons, Jaccard vs match radius, photometry, error ÷ CRLB, precision vs CRLB">Show fitted vs true</button><button id="rawCropBtn" class="linetool" disabled title="Crop the analysed region — click two opposite corners in this window. Replaces the loaded stack with just this region (Localize, scrubbing, FTM, everything only sees the crop) until you deselect this tool to restore the original — unlike the reconstruction panel's crop, which only filters an already-finished result. Deselecting asks to confirm if it would discard existing analysis results."><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="rawInfo">— detected spots overlaid in green</small></h4>
           <div id="scrubRow" style="display:none;margin-top:8px;align-items:center;gap:6px">
             <span class="scrublabel" style="color:var(--muted);font-size:12px">Frame</span>
             <input type="range" id="scrub" class="scrubslider" min="0" max="0" step="1" value="0" style="flex:1">
@@ -7018,12 +7018,21 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
   let tp=0, fp=0, fn=0, zClampedMatched=0, nZ=0, nIgnoredGT=0, nIgnoredPairs=0, nHazeDetected=0;
   const sub={ isolated:{tp:0,fn:0,lat:[]}, crowded:{tp:0,fn:0,lat:[]} };
   const photSamples=[];                            // [phot, matched 0/1, lateral error nm] per in-field GT
+  // Per COUNTED matched pair, beyond position: what the fit reported about itself. True photons
+  // and fitted photons (photometry), the fit's own CRLB (lpx/lpy px, lpz nm — uncertainty
+  // calibration and precision vs CRLB), fitted bg (photons/px) and sigma (px) for the theoretical
+  // Gaussian-MLE bound. Parallel to dx/dy/dz's non-z part, i.e. one entry per tp.
+  const pr={phT:[], phF:[], lpx:[], lpy:[], lpz:[], dz:[], bg:[], sig:[]};
+  const fpZ=[];                                    // fitted z of every false positive (Jaccard vs depth)
+  let fpNoTruth=0;                                 // FPs in frames with no truth at all (radius-independent)
+  const sweep=[];                                  // per-frame {Lf,Gf} kept for the match-radius sweep
   const frames=[...new Set([...byFrameGT.keys(), ...byFrameLoc.keys()])].sort((a,b)=>a-b);
   let yld=performance.now();
   for(let i=0;i<frames.length;i++){
     const f=frames[i];
     const L=byFrameLoc.get(f)||[], G=byFrameGT.get(f)||[];
-    if(!G.length){ fp+=L.length; continue; }
+    if(!G.length){ fp+=L.length; fpNoTruth+=L.length;
+      for(const l of L){ const z=l.z0!==undefined?l.z0:l.z; if(isFinite(z)) fpZ.push(z); } continue; }
     // Truth for THIS frame = structure position + the drift the simulator applied to it. Note
     // trueDrift's accessors are in nm (see simTrueDrift), so convert back to camera pixels here.
     const drx=trueDrift? trueDrift.dx(f)/px : 0, dry=trueDrift? trueDrift.dy(f)/px : 0;
@@ -7039,7 +7048,8 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
         if(Math.hypot(Gf[a].x-Gf[b].x, Gf[a].y-Gf[b].y)<=crowdPx) Gf[a].crowded=Gf[b].crowded=true; } }
     // Raw (pre-drift-correction) coordinates when a correction has been applied — see the header.
     let Lf=L.map(l=>({x:l.x0!==undefined?l.x0:l.x, y:l.y0!==undefined?l.y0:l.y,
-                      z:l.z0!==undefined?l.z0:l.z, zClamped:l.zClamped}));
+                      z:l.z0!==undefined?l.z0:l.z, zClamped:l.zClamped,
+                      photons:l.photons, lpx:l.lpx, lpy:l.lpy, lpz:l.lpz, bg:l.bg, sigma:l.sigma}));
     // 'exclude' (the challenge's order): the border is cut away from BOTH sides before matching,
     // so an edge localization is not a false positive and an edge emitter is not a miss. The
     // default 'dontcare' instead matches everything and settles it afterwards, which is the
@@ -7050,6 +7060,8 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
       : cylinder ? matchFrameCylinder(Lf, Gf, radiusPx, axialTol, px)
       : matchFrame(Lf, Gf, radiusPx);
     fp+=Lf.length-usedL.size;
+    for(const l of Lf) if(!usedL.has(l) && isFinite(l.z)) fpZ.push(l.z);
+    sweep.push({Lf,Gf});
     const latOf=new Map();
     for(const p of pairs){
       const lat=Math.hypot(p.a.x-p.b.x, p.a.y-p.b.y)*px; latOf.set(p.b,lat);
@@ -7057,6 +7069,8 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
       tp++; const k=p.b.crowded?sub.crowded:sub.isolated; k.tp++; k.lat.push(lat);
       dx.push(p.a.x-p.b.x); dy.push(p.a.y-p.b.y);
       { const m=molOf(p.b); if(m){ m.hits++; m.sdx+=p.a.x-p.b.x; m.sdy+=p.a.y-p.b.y; } }
+      pr.phT.push(p.b.phot); pr.phF.push(p.a.photons); pr.lpx.push(p.a.lpx); pr.lpy.push(p.a.lpy);
+      pr.lpz.push(isFinite(p.a.z)&&isFinite(p.b.z)?p.a.lpz:NaN); pr.dz.push(isFinite(p.a.z)&&isFinite(p.b.z)?p.a.z-p.b.z:NaN); pr.bg.push(p.a.bg); pr.sig.push(p.a.sigma);
       if(isFinite(p.a.z) && isFinite(p.b.z)){ dz.push(p.a.z-p.b.z); zTrue.push(p.b.z); nZ++;
         if(p.a.zClamped) zClampedMatched++; }
     }
@@ -7194,7 +7208,97 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
       }
     }
     if(best) effZ={...best, widthNm:best.z1-best.z0, recallThreshold:EFF_Z_RECALL};
+    // Jaccard over depth. TP and FN are binned by TRUE z (as above); a false positive has no true
+    // z, so it is binned by its FITTED z — the only depth it has — and one fitted outside the truth
+    // range lands in the edge bin rather than vanishing (it is still a false positive). So the
+    // per-bin precision mixes two depth axes by necessity; Jaccard inherits that, recall does not.
+    for(const b of bins) b.fp=0;
+    for(const z of fpZ) bins[Math.min(nBins-1, Math.max(0, Math.floor((z-zmin)/w)))].fp++;
+    for(const b of bins){ const d=b.n+b.fp+b.fn;
+      b.precision=(b.n+b.fp)?b.n/(b.n+b.fp):NaN; b.jaccard=d?b.n/d:NaN; }
   }
+
+  // Jaccard against match radius: the same per-frame truth/localization sets re-matched at a
+  // range of radii, same matcher and same don't-care rules, so the point at the configured radius
+  // reproduces the headline tp/fp/fn exactly. A curve that plateaus early means the hits are well
+  // localized; one still climbing at the configured radius means loose matches are being counted.
+  const radiiNm=[...new Set([10,20,30,50,75,100,150,200,250,300,400,500,(cfg.validation_matchRadius||250)])].sort((a,b)=>a-b);
+  const radiusSweep=[];
+  for(const rNm of radiiNm){
+    const rp=rNm/px; let t=0, f=fpNoTruth, n=0;
+    for(const {Lf,Gf} of sweep){
+      const m = !Lf.length ? null : cylinder ? matchFrameCylinder(Lf, Gf, rp, axialTol, px) : matchFrame(Lf, Gf, rp);
+      if(m) f+=Lf.length-m.usedL.size;
+      for(const g of Gf) if(g.care){ if(m&&m.usedG.has(g)) t++; else n++; }
+    }
+    radiusSweep.push({rNm, tp:t, fp:f, fn:n, jaccard:(t+f+n)?t/(t+f+n):NaN,
+                      recall:(t+n)?t/(t+n):NaN, precision:(t+f)?t/(t+f):NaN});
+    if(onProgress && performance.now()-yld>50){ await tick(); yld=performance.now(); }
+  }
+
+  // Photometry, uncertainty calibration and precision vs CRLB, all over the counted matched pairs.
+  const med=a=>{ if(!a.length) return NaN; const q=[...a].sort((x,y)=>x-y); return q[Math.floor((q.length-1)/2)]; };
+  const qtl=(a,p)=>{ if(!a.length) return NaN; const q=[...a].sort((x,y)=>x-y); return q[Math.min(q.length-1, Math.floor(p*(q.length-1)))]; };
+  const rsd=a=>{ if(a.length<2) return NaN; const m=med(a); return 1.4826*med(a.map(v=>Math.abs(v-m))); };  // robust σ (MAD)
+  const nPr=pr.phT.length;
+  // Photometry: fitted photons / true photons delivered that frame. True photons are what reached
+  // the camera before QE; a Gaussian model also misses the PSF's tails, so a ratio a few % under 1
+  // is expected even from a perfect fitter — the spread and its photon dependence are the point.
+  let photometry=null;
+  { const ratio=[]; for(let i=0;i<nPr;i++){ const t=pr.phT[i], f=pr.phF[i];
+      if(isFinite(t)&&t>0&&isFinite(f)) ratio.push(f/t); }
+    if(ratio.length>=10) photometry={ n:ratio.length, median:med(ratio), p16:qtl(ratio,0.16), p84:qtl(ratio,0.84),
+                                      rsdRel:rsd(ratio)/Math.max(1e-12,med(ratio)) }; }
+  // Uncertainty calibration: each error divided by the fit's own reported CRLB. A calibrated CRLB
+  // gives a unit normal: σ = 1, 68.3% within ±1, 95.4% within ±2. σ > 1 means the fit is more
+  // confident than it has a right to be (the error is bigger than it claims).
+  const zstat=a=>a.length<10?null:{ n:a.length, sd:Math.sqrt(a.reduce((s,v)=>s+v*v,0)/a.length), rsd:rsd(a),
+                                    in1:a.filter(v=>Math.abs(v)<=1).length/a.length, in2:a.filter(v=>Math.abs(v)<=2).length/a.length };
+  const normLat=[], normZ=[];
+  for(let i=0;i<nPr;i++){
+    if(pr.lpx[i]>0 && isFinite(pr.lpx[i])) normLat.push(dx[i]/pr.lpx[i]);
+    if(pr.lpy[i]>0 && isFinite(pr.lpy[i])) normLat.push(dy[i]/pr.lpy[i]);
+    if(pr.lpz[i]>0 && isFinite(pr.lpz[i]) && isFinite(pr.dz[i])) normZ.push(pr.dz[i]/pr.lpz[i]);
+  }
+  const uncertainty = (normLat.length>=10||normZ.length>=10) ? {lat:zstat(normLat), z:zstat(normZ), normLat, normZ} : null;
+  // Precision vs CRLB, in true-photon bins: the measured spread (robust σ about the bin's own
+  // median, x and y pooled — so bias is excluded, this is precision not accuracy), the fit's own
+  // reported CRLB (median), and the theoretical Gaussian-MLE bound at the bin's median true photons,
+  // fitted bg and fitted σ_PSF (Rieger & Stallinga, ChemPhysChem 15, 664 (2014), eq. 6, with the
+  // pixel-integrated σa² = σ² + a²/12). The bound assumes a Gaussian PSF and is left out when the
+  // method reports no σ (phasor, PSF-model fit); z has only the reported CRLB to compare with.
+  let crlbBins=null;
+  { const idx=[]; for(let i=0;i<nPr;i++) if(isFinite(pr.phT[i])&&pr.phT[i]>0) idx.push(i);
+    if(idx.length>=40){
+      let lo=Infinity, hi=0; for(const i of idx){ lo=Math.min(lo,pr.phT[i]); hi=Math.max(hi,pr.phT[i]); }
+      if(hi>lo*1.2){
+        const NB=10, lw=Math.log(hi/lo)/NB;
+        const B=Array.from({length:NB},(_,k)=>({p0:lo*Math.exp(k*lw), p1:lo*Math.exp((k+1)*lw), pc:lo*Math.exp((k+0.5)*lw), ix:[]}));
+        for(const i of idx) B[Math.min(NB-1, Math.floor(Math.log(pr.phT[i]/lo)/lw))].ix.push(i);
+        crlbBins=B.filter(b=>b.ix.length>=10).map(b=>{
+          const ex=b.ix.map(i=>dx[i]), ey=b.ix.map(i=>dy[i]), mx=med(ex), my=med(ey);
+          const dev=[...ex.map(v=>v-mx), ...ey.map(v=>v-my)];
+          const lp=b.ix.map(i=>Math.sqrt((pr.lpx[i]**2+pr.lpy[i]**2)/2)).filter(v=>isFinite(v)&&v>0);
+          const N=med(b.ix.map(i=>pr.phT[i])), bgv=med(b.ix.map(i=>pr.bg[i]).filter(isFinite)),
+                sg=med(b.ix.map(i=>pr.sig[i]).filter(v=>isFinite(v)&&v>0));
+          let theo=NaN;
+          if(isFinite(sg) && N>0){ const sa2=sg*sg+1/12, tau=2*Math.PI*sa2*Math.max(0,isFinite(bgv)?bgv:0)/N;
+            theo=Math.sqrt(sa2/N*(1+4*tau+Math.sqrt(2*tau/(1+4*tau))))*px; }
+          const dzs=b.ix.map(i=>pr.dz[i]).filter(isFinite), lpz=b.ix.map(i=>pr.lpz[i]).filter(v=>isFinite(v)&&v>0);
+          return { p0:b.p0, p1:b.p1, pc:b.pc, n:b.ix.length, photons:N,
+                   measLat:rsd(dev)*px, crlbLat:lp.length?med(lp)*px:NaN, theoLat:theo,
+                   measZ:dzs.length>=10?rsd(dzs):NaN, crlbZ:lpz.length?med(lpz):NaN };
+        });
+        if(!crlbBins.length) crlbBins=null;
+      }
+    }
+  }
+  // One summary number per ratio: the pair-weighted mean of the per-bin ratios, so it compares like
+  // with like at every brightness instead of dividing a pooled spread by a pooled bound.
+  const wRatio=(a,b)=>{ if(!crlbBins) return NaN; let s=0,n=0;
+    for(const q of crlbBins) if(isFinite(q[a])&&isFinite(q[b])&&q[b]>0){ s+=q.n*q[a]/q[b]; n+=q.n; } return n?s/n:NaN; };
+  const precVsCrlb = crlbBins ? { measOverReported:wRatio('measLat','crlbLat'), measOverTheory:wRatio('measLat','theoLat'),
+                                  reportedOverTheory:wRatio('crlbLat','theoLat'), zMeasOverReported:wRatio('measZ','crlbZ') } : null;
   if(onLog){
     onLog(`matched ${tp.toLocaleString()} of ${(tp+fn).toLocaleString()} ground-truth emitter-frames `+
           `(${fp.toLocaleString()} unmatched localization${fp===1?'':'s'}) · recall ${(tp/(tp+fn)*100).toFixed(1)}% · `+
@@ -7239,12 +7343,36 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
             `which the axial median cannot show (it only ever describes what WAS found).`);
     onLog(`challenge efficiency: lateral ${eff.lat.toFixed(1)}`+(has3d?` · axial ${eff.ax.toFixed(1)} · 3D ${eff.e3d.toFixed(1)}`:'')+
           ` (Sage et al. 2019; RMSE-based, so tail-sensitive — for comparison with published benchmarks, not the headline).`);
+    { const J=radiusSweep.map(r=>`${r.rNm}:${isFinite(r.jaccard)?r.jaccard.toFixed(2):'–'}`).join(' ');
+      onLog(`Jaccard vs match radius (nm:J): ${J} — a curve still rising at the configured radius means loose matches are being counted.`); }
+    if(photometry && isFinite(cfg.gain) && isFinite(cfg.simulation_gain) &&
+       (Math.abs(cfg.gain/cfg.simulation_gain-1)>0.05 || Math.abs((cfg.camoffset||0)-(cfg.simulation_offset||0))>2))
+      onLog(`⚠ Localisation gain/offset (${cfg.gain} photons/ADU, ${cfg.camoffset||0} ADU) differ from the simulated camera's `+
+            `(${cfg.simulation_gain}, ${cfg.simulation_offset||0}) — photometry, the reported CRLB and the bounds below are off by that `+
+            `mismatch, not by the fitter. Set Gain/Camera offset to the simulation's values (or use Get estimate) for a fair photometry score.`);
+    if(photometry)
+      onLog(`photometry: fitted/true photons median ${photometry.median.toFixed(3)} (16–84%: ${photometry.p16.toFixed(2)}–${photometry.p84.toFixed(2)}, `+
+            `robust spread ${(100*photometry.rsdRel).toFixed(1)}%) over ${photometry.n.toLocaleString()} pairs. True = photons reaching the camera (before QE); `+
+            `a Gaussian model also misses the PSF's tails, so a few % under 1 is expected.`);
+    if(uncertainty){
+      const u=(q,lab)=>q?`${lab} σ ${q.sd.toFixed(2)} (robust ${q.rsd.toFixed(2)}), ${(100*q.in1).toFixed(1)}% within ±1 CRLB, ${(100*q.in2).toFixed(1)}% within ±2`:'';
+      onLog(`uncertainty calibration (error ÷ reported CRLB; ideal σ 1.00, 68.3% / 95.4%): `+
+            [u(uncertainty.lat,'lateral'), u(uncertainty.z,'axial')].filter(Boolean).join(' · ')+
+            ` — σ above 1 means the fit claims more precision than it delivers.`);
+    }
+    if(precVsCrlb){
+      const f=v=>isFinite(v)?v.toFixed(2)+'×':'–';
+      onLog(`precision vs CRLB (photon-binned, bias removed): lateral measured/reported ${f(precVsCrlb.measOverReported)}, `+
+            `measured/theoretical ${f(precVsCrlb.measOverTheory)} (Gaussian-MLE bound at the true photons), reported/theoretical ${f(precVsCrlb.reportedOverTheory)}`+
+            (isFinite(precVsCrlb.zMeasOverReported)?` · axial measured/reported ${f(precVsCrlb.zMeasOverReported)}`:'')+'.');
+    }
   }
   return { tp, fp, fn, jaccard:tp/(tp+fp+fn), recall:tp/(tp+fn), precision:tp/(tp+fp),
            biasX, biasY, rmseLat, medLat, p90Lat, biasZ, rmseZ, medZ, p90Z, p95Z,
            nGrossZ, grossZnm, nZ, zClampedMatched, has3d, bins,
            nIgnoredGT, nIgnoredPairs, nHazeDetected, minPhotons:minPhot, borderPx, isolated, crowded, photonBins, phot50, efficiency:eff,
-           molecules, effZ,
+           molecules, effZ, radiusSweep, photometry, uncertainty, crlbBins, precVsCrlb,
+           photonPairs:{true:pr.phT, fitted:pr.phF},
            matchMode: cylinder?'cylinder3D':'lateral', axialTolNm: cylinder?axialTol:NaN,
            photonMode: cfg.validation_photonMode==='quantile'?'quantile':'absolute', photonQuantile:photQuantile,
            borderMode: excludeBorder?'exclude':'dontcare',
@@ -7258,11 +7386,18 @@ let truthPlotMode='zbias';
 // The views a given result can actually show, in cycling order. The two z views need z; the photon
 // view needs photon-resolved ground truth. 'lateral' is always there, so there is always a plot.
 function truthPlotModes(res){
-  return [...(res.has3d?['zbias','scatter']:[]), 'lateral', ...(res.photonBins?['photons']:[])];
+  return [...(res.has3d?['zbias','scatter']:[]), ...(res.has3d&&res.bins?['jaccz']:[]), 'lateral',
+          ...(res.photonBins?['photons']:[]), ...(res.radiusSweep&&res.radiusSweep.length?['radius']:[]),
+          ...(res.photometry?['photometry']:[]), ...(res.uncertainty?['uncertainty']:[]), ...(res.crlbBins?['crlb']:[])];
 }
 const TRUTH_PLOT_TITLES={ zbias:'Score: z error vs depth', scatter:'Score: fitted vs true z',
-                          lateral:'Score: lateral error', photons:'Score: detection vs photons' };
-const TRUTH_PLOT_BTN={ zbias:'Show z error', scatter:'Show fitted vs true', lateral:'Show lateral', photons:'Show vs photons' };
+                          jaccz:'Score: Jaccard vs depth', lateral:'Score: lateral error',
+                          photons:'Score: detection vs photons', radius:'Score: Jaccard vs match radius',
+                          photometry:'Score: fitted vs true photons', uncertainty:'Score: error ÷ reported CRLB',
+                          crlb:'Score: precision vs CRLB' };
+const TRUTH_PLOT_BTN={ zbias:'Show z error', scatter:'Show fitted vs true', jaccz:'Show Jaccard vs z', lateral:'Show lateral',
+                       photons:'Show vs photons', radius:'Show vs radius', photometry:'Show photometry',
+                       uncertainty:'Show uncertainty', crlb:'Show vs CRLB' };
 
 // Score plot on the LEFT (raw) panel. Structure follows drawNenaPlot() exactly: setupPlot ->
 // claim the panel -> margins -> X()/Y() -> ticks/grid -> data -> axis stroked LAST -> labels ->
@@ -7281,12 +7416,12 @@ function drawTruthScorePlot(res){
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=62,mR=16,mT=30,mB=44, pw=W-mL-mR, ph=H-mT-mB;
   const GREEN='#0a7d32', MAG='#c81cc8', BLUE='#3572b0';
-  const axis=(X,Y,xlab,ylab,xt,yt,xdec,ydec,xfmt)=>{
+  const axis=(X,Y,xlab,ylab,xt,yt,xdec,ydec,xfmt,yfmt)=>{
     ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.lineWidth=1; ctx.font='12px '+PLOT_FONT;
     ctx.textAlign='right'; ctx.textBaseline='middle';
     for(const v of yt){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
       ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
-      ctx.fillText(v.toFixed(ydec), mL-9, y); }
+      ctx.fillText(yfmt?yfmt(v):v.toFixed(ydec), mL-9, y); }
     ctx.textAlign='center'; ctx.textBaseline='top';
     for(const v of xt){ const x=X(v);
       ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+5); ctx.stroke();
@@ -7297,7 +7432,100 @@ function drawTruthScorePlot(res){
     ctx.save(); ctx.translate(14,mT+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText(ylab,0,0); ctx.restore();
   };
   let hover;
-  if(mode==='photons'){
+  const legend=items=>{ ctx.textAlign='left'; ctx.textBaseline='alphabetic'; let x=mL+8;
+    for(const [col,txt] of items){ ctx.fillStyle=col; ctx.fillText(txt,x,mT-4); x+=ctx.measureText(txt).width+14; } };
+  const line=(pts,col,wd,dash)=>{ ctx.strokeStyle=col; ctx.lineWidth=wd; if(dash) ctx.setLineDash(dash);
+    ctx.beginPath(); let st=false; for(const [x,y] of pts){ if(!isFinite(x)||!isFinite(y)){ st=false; continue; }
+      st?ctx.lineTo(x,y):ctx.moveTo(x,y); st=true; } ctx.stroke(); ctx.setLineDash([]); };
+  const decades=(l0,l1)=>{ const t=[]; for(let d=Math.ceil(l0); d<=Math.floor(l1); d++) t.push(d);
+    if(t.length<2){ t.length=0; const st=(l1-l0)/4; for(let k=0;k<=4;k++) t.push(l0+k*st); } return t; };
+  const pow10fmt=v=>{ const x=Math.pow(10,v); return x>=100?Math.round(x).toLocaleString():x.toPrecision(2); };
+  if(mode==='jaccz'){
+    // Recall, precision and Jaccard per depth bin. TP/FN are binned by true z, false positives by
+    // their fitted z (they have no true one) — see scoreTruthCore().
+    const bins=res.bins.filter(b=>b.n+b.fn+b.fp>0);
+    const z0=bins[0].zc, z1=bins[bins.length-1].zc;
+    const X=v=>mL+pw*(v-z0)/Math.max(1e-9,z1-z0), Y=v=>mT+ph*(1-v);
+    axis(X,Y,'true z (nm) — false positives at fitted z','fraction',niceTicks(z0,z1,6),[0,0.2,0.4,0.6,0.8,1],0,1);
+    if(res.effZ){ const xa=Math.max(mL,X(res.effZ.z0)), xb=Math.min(mL+pw,X(res.effZ.z1));
+      if(xb>xa){ ctx.fillStyle=C.text; ctx.globalAlpha=0.06; ctx.fillRect(xa,mT,xb-xa,ph); ctx.globalAlpha=1; } }
+    line(bins.map(b=>[X(b.zc),Y(b.recall)]),MAG,1.6);
+    line(bins.map(b=>[X(b.zc),Y(b.precision)]),BLUE,1.6);
+    line(bins.map(b=>[X(b.zc),Y(b.jaccard)]),GREEN,2.2);
+    legend([[GREEN,'Jaccard'],[MAG,'recall'],[BLUE,'precision'],[C.text,`overall J ${res.jaccard.toFixed(3)}`]]);
+    hover={mL,mT,pw,ph,xA:z0,xB:z1,yTop:1,yBot:0,fmt:(vx,vy)=>`z ${vx.toFixed(0)} nm · ${vy.toFixed(3)}`};
+  } else if(mode==='radius'){
+    const R=res.radiusSweep, rmax=R[R.length-1].rNm;
+    const X=v=>mL+pw*v/rmax, Y=v=>mT+ph*(1-v);
+    axis(X,Y,'match radius (nm)','fraction',niceTicks(0,rmax,6),[0,0.2,0.4,0.6,0.8,1],0,1);
+    ctx.strokeStyle=C.text; ctx.lineWidth=1.2; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(X(res.matchRadiusNm),mT); ctx.lineTo(X(res.matchRadiusNm),mT+ph); ctx.stroke(); ctx.setLineDash([]);
+    line(R.map(r=>[X(r.rNm),Y(r.recall)]),MAG,1.6);
+    line(R.map(r=>[X(r.rNm),Y(r.precision)]),BLUE,1.6);
+    line(R.map(r=>[X(r.rNm),Y(r.jaccard)]),GREEN,2.2);
+    ctx.fillStyle=GREEN; for(const r of R) if(isFinite(r.jaccard)){ ctx.beginPath(); ctx.arc(X(r.rNm),Y(r.jaccard),2.5,0,7); ctx.fill(); }
+    legend([[GREEN,'Jaccard'],[MAG,'recall'],[BLUE,'precision'],[C.text,`┊ configured ${res.matchRadiusNm.toFixed(0)} nm`]]);
+    hover={mL,mT,pw,ph,xA:0,xB:rmax,yTop:1,yBot:0,fmt:(vx,vy)=>`${vx.toFixed(0)} nm · ${vy.toFixed(3)}`};
+  } else if(mode==='photometry'){
+    // Fitted against true photons, log-log, identity dashed; the binned median ratio is drawn as a
+    // line so a brightness-dependent bias shows as a bend away from the identity.
+    const T=res.photonPairs.true, F=res.photonPairs.fitted, P=[];
+    for(let i=0;i<T.length;i++) if(T[i]>0&&F[i]>0&&isFinite(T[i])&&isFinite(F[i])) P.push([T[i],F[i]]);
+    let lo=Infinity, hi=0; for(const [t,f] of P){ lo=Math.min(lo,t,f); hi=Math.max(hi,t,f); }
+    const l0=Math.log10(lo)-0.05, l1=Math.log10(hi)+0.05;
+    const X=v=>mL+pw*(Math.log10(v)-l0)/(l1-l0), Y=v=>mT+ph*(1-(Math.log10(v)-l0)/(l1-l0));
+    const t=decades(l0,l1);
+    axis(v=>X(Math.pow(10,v)),v=>Y(Math.pow(10,v)),'true photons in frame','fitted photons',t,t,0,0,pow10fmt,pow10fmt);
+    ctx.fillStyle=BLUE; ctx.globalAlpha=0.5;
+    const step=Math.max(1, Math.ceil(P.length/6000));
+    for(let i=0;i<P.length;i+=step){ ctx.beginPath(); ctx.arc(X(P[i][0]),Y(P[i][1]),1.4,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+    line([[X(Math.pow(10,l0)),Y(Math.pow(10,l0))],[X(Math.pow(10,l1)),Y(Math.pow(10,l1))]],C.text,1.4,[5,3]);
+    if(res.crlbBins){ const pts=[]; for(const b of res.crlbBins){
+        const r=P.filter(q=>q[0]>=b.p0&&q[0]<b.p1).map(q=>q[1]/q[0]).sort((a,c)=>a-c);
+        if(r.length) pts.push([X(b.photons),Y(b.photons*r[Math.floor((r.length-1)/2)])]); }
+      line(pts,GREEN,2); }
+    legend([[C.text,'— y = x'],[GREEN,'binned median'],[C.text,`median ratio ${res.photometry.median.toFixed(3)}`]]);
+    hover={mL,mT,pw,ph,xA:l0,xB:l1,yTop:l1,yBot:l0,fmt:(vx,vy)=>`true ${Math.pow(10,vx).toFixed(0)} · fitted ${Math.pow(10,vy).toFixed(0)}`};
+  } else if(mode==='uncertainty'){
+    // Histogram of error ÷ reported CRLB against the unit normal a calibrated CRLB produces.
+    const U=res.uncertainty, xmax=5, nb=50, bw=2*xmax/nb;
+    const hist=(a)=>{ const h=new Float64Array(nb); for(const v of a){ const k=Math.floor((v+xmax)/bw); if(k>=0&&k<nb) h[k]++; }
+      for(let k=0;k<nb;k++) h[k]/=Math.max(1,a.length)*bw; return h; };
+    const hL=U.normLat.length?hist(U.normLat):null, hZ=U.normZ.length>=10?hist(U.normZ):null;
+    let ymax=1/Math.sqrt(2*Math.PI); for(const h of [hL,hZ]) if(h) for(const v of h) ymax=Math.max(ymax,v); ymax*=1.08;
+    const X=v=>mL+pw*(v+xmax)/(2*xmax), Y=v=>mT+ph*(1-v/ymax);
+    axis(X,Y,'error ÷ reported CRLB','density',[-4,-3,-2,-1,0,1,2,3,4],niceTicks(0,ymax,5),0,2);
+    if(hL){ ctx.fillStyle=C.bar; for(let k=0;k<nb;k++){ const x0=X(-xmax+k*bw), x1=X(-xmax+(k+1)*bw), y=Y(hL[k]);
+      ctx.fillRect(x0,y,Math.max(1,x1-x0-1),(mT+ph)-y); } }
+    if(hZ) line(Array.from(hZ,(v,k)=>[X(-xmax+(k+0.5)*bw),Y(v)]),MAG,1.6);
+    const g=[]; for(let v=-xmax; v<=xmax+1e-9; v+=0.05) g.push([X(v),Y(Math.exp(-v*v/2)/Math.sqrt(2*Math.PI))]);
+    line(g,GREEN,2);
+    const it=[[GREEN,'unit normal (calibrated)']];
+    if(U.lat) it.push([C.axis,`▮ lateral σ ${U.lat.sd.toFixed(2)} (robust ${U.lat.rsd.toFixed(2)})`]);
+    if(U.z) it.push([MAG,`axial σ ${U.z.sd.toFixed(2)} (robust ${U.z.rsd.toFixed(2)})`]);
+    legend(it);
+    hover={mL,mT,pw,ph,xA:-xmax,xB:xmax,yTop:ymax,yBot:0,fmt:(vx,vy)=>`${vx.toFixed(2)} · ${vy.toFixed(3)}`};
+  } else if(mode==='crlb'){
+    // Measured precision (bias removed) against the fit's own CRLB and the theoretical Gaussian-MLE
+    // bound, per true-photon bin, log-log — the slope should be -1/2 and the lines should coincide.
+    const B=res.crlbBins, vals=[];
+    for(const b of B) for(const k of ['measLat','crlbLat','theoLat','measZ','crlbZ']) if(isFinite(b[k])&&b[k]>0) vals.push(b[k]);
+    const lx0=Math.log10(B[0].p0), lx1=Math.log10(B[B.length-1].p1);
+    const ly0=Math.log10(Math.min(...vals))-0.1, ly1=Math.log10(Math.max(...vals))+0.1;
+    const X=v=>mL+pw*(Math.log10(v)-lx0)/Math.max(1e-9,lx1-lx0), Y=v=>mT+ph*(1-(Math.log10(v)-ly0)/Math.max(1e-9,ly1-ly0));
+    axis(v=>X(Math.pow(10,v)),v=>Y(Math.pow(10,v)),'true photons in frame (log)','precision (nm, log)',
+         decades(lx0,lx1),decades(ly0,ly1),0,0,pow10fmt,pow10fmt);
+    const pts=k=>B.map(b=>[X(b.photons), b[k]>0?Y(b[k]):NaN]);
+    line(pts('theoLat'),C.text,1.4,[5,3]);
+    line(pts('crlbLat'),MAG,1.6);
+    line(pts('measLat'),GREEN,2.2);
+    ctx.fillStyle=GREEN; for(const b of B) if(b.measLat>0){ ctx.beginPath(); ctx.arc(X(b.photons),Y(b.measLat),2.5,0,7); ctx.fill(); }
+    const it=[[GREEN,'measured lateral (robust σ)'],[MAG,'reported CRLB'],[C.text,'┄ Gaussian bound']];
+    if(B.some(b=>b.measZ>0)){ line(pts('measZ'),BLUE,2); line(pts('crlbZ'),BLUE,1.2,[2,3]); it.push([BLUE,'axial meas. / ┄ CRLB']); }
+    legend(it);
+    hover={mL,mT,pw,ph,xA:lx0,xB:lx1,yTop:ly1,yBot:ly0,fmt:(vx,vy)=>`${Math.pow(10,vx).toFixed(0)} photons · ${Math.pow(10,vy).toFixed(1)} nm`};
+  } else if(mode==='photons'){
     // Recall (left axis, 0-100%) and median lateral error (same 0-100 scale read as nm) against the
     // photons an emitter put into the frame, on a log x-axis. The dashed line is the counting
     // threshold: everything left of it is what validation_minPhotons keeps out of the headline.
@@ -22411,7 +22639,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-28p — Cell field seed 0 = random (logged); each seed starts at a fixed, well-covered view (Move view pans from there).`);
+log(`webSMLM v0.13.0-dev · build 2026-09-28q — Compare to GT adds Jaccard vs depth and vs match radius, photometry, uncertainty calibration (error ÷ CRLB) and precision vs CRLB.
+— from build 2026-09-28p: Cell field seed 0 = random (logged); each seed starts at a fixed, well-covered view (Move view pans from there).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
