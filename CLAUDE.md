@@ -850,6 +850,8 @@ numerics exist once. Consequences:
   re-declared in `WORKER_PRELUDE` (a runtime check lists `missing` names; otherwise the worker throws
   and the app silently runs single-threaded). The render worker has its own `RENDER_WORKER_PRELUDE`.
 - Every helper a stringified function calls must be in the `workerSource()` body.
+  `fft1d()` needs its radix-4 helpers and per-N cache: include `fftWorkerSource()`, never
+  `fft1d.toString()` alone (the sim and PSF pools do).
 - One pool, several message types (frame batches, FTM preview, FTM chunk, GPU detect), branched on a
   `d.<flag>`. A worker has one `onmessage`, not a queue: never put two job types on the pool at once
   (hence FTM's barrier phases).

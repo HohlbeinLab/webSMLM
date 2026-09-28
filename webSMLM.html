@@ -32,17 +32,17 @@
     fit             7663   phasor, LSQ and Poisson-MLE fitters; aperture photometry
     render          8273   super-resolution accumulation, view, colour maps, plots
     workers         9797   frame-parallel detect/fit worker pool
-    gpu             10430  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          12759  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13050  astigmatic width-vs-z bead calibration
-    drift           13449  AIM and cross-correlation drift correction
-    locprecision    14107  NeNA and FRC
-    sSMLM           15246  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15852  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17942  single-particle tracking and diffusion coefficients
-    pipeline        18992  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20032  Micro-Manager/pycromanager bridge (experimental)
-    table           22433  localizations table, filters, histograms, clustering
+    gpu             10439  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          12768  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13059  astigmatic width-vs-z bead calibration
+    drift           13458  AIM and cross-correlation drift correction
+    locprecision    14116  NeNA and FRC
+    sSMLM           15255  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15861  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             17951  single-particle tracking and diffusion coefficients
+    pipeline        19001  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20041  Micro-Manager/pycromanager bridge (experimental)
+    table           22442  localizations table, filters, histograms, clustering
     headless API    23105  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28g</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -10162,6 +10162,14 @@ async function getRenderWorker(){
   }catch(err){ log(`  (render worker unavailable: ${err.message} — SR reconstruction will run on the main thread)`); return _renderWorker=null; }
 }
 
+// fft1d() (MODULE: locprecision) runs on the radix-4 helpers and their per-N cache below; a worker
+// that stringifies fft1d() needs all of it. The let line mirrors the module-level one next to
+// _fftPrepare(): keep the two identical.
+const FFT_WORKER_STATE="let _fftN=-1, _fftTable=null, _fftBitrev=null, _fftWidth=0, _fftCsize=0, _fftScratch=null, _fftOut=null;";
+function fftWorkerSource(){
+  return [FFT_WORKER_STATE, _fftPrepare.toString(), _fftSingle2.toString(), _fftSingle4.toString(),
+    _fftTransform4.toString(), fft1d.toString()].join('\n');
+}
 /* ---------------------------------------------------------------------------
    Dedicated PSF-kernel-build worker POOL (MODULE: simulation's
    buildPsfKernelStack()) — a third, separate worker family alongside the
@@ -10181,7 +10189,7 @@ function psfWorkerSource(){
   const body=[
     psfIndexToNM.toString(), psfBinomial.toString(), psfZernikeRadial.toString(), psfZernikeValue.toString(),
     laguerreL.toString(), pupilMaskPhase.toString(),
-    fft1d.toString(), psfCzt1d.toString(), psfCztPlan.toString(), psfCztRun.toString(),
+    fftWorkerSource(), psfCzt1d.toString(), psfCztPlan.toString(), psfCztRun.toString(),
     psfPupilPlan.toString(), computePsfPupilCartesianForZPlane.toString(),
     psfIntensityPlans.toString(), computePsfIntensityPlaneFFT.toString(),
     `const FIT_MAX_DRIFT_SIGMA_MULT=${FIT_MAX_DRIFT_SIGMA_MULT};`,
@@ -10297,7 +10305,7 @@ function simWorkerSource(){
   const body=[
     pcg4dInto.toString(), makeSimNoiseRng.toString(), simNoiseGauss.toString(), simNoisePoisson.toString(),
     simNoiseGamma.toString(), simBgScale.toString(), catmullRomWeights.toString(), buildSummedKernel.toString(), simSplatSetup.toString(),
-    nextPow2.toString(), fft1d.toString(), fft2d.toString(), fftShiftKernelTile.toString(),
+    nextPow2.toString(), fftWorkerSource(), fft2d.toString(), fftShiftKernelTile.toString(),
     splatZernikeEmitter.toString(),
     splatSimFrame.toString(), splatBeadsFrame.toString(), applySimCameraNoise.toString(),
     `onmessage=function(e){
@@ -10359,7 +10367,8 @@ function simWorkerSource(){
       }
     };`
   ].join('\n');
-  const declared=new Set((SIM_WORKER_PRELUDE).match(/_[A-Za-z]\w*/g)||[]);
+  // Names the body itself declares (the FFT helpers and their cache) count as declared.
+  const declared=new Set((SIM_WORKER_PRELUDE+'\n'+fftWorkerSource()).match(/_[A-Za-z]\w*/g)||[]);
   const missing=[...new Set(body.match(/\b_[A-Za-z]\w*/g)||[])].filter(x=>!declared.has(x));
   if(missing.length) throw new Error('simulation worker prelude is missing: '+missing.join(', '));
   return SIM_WORKER_PRELUDE+'\n'+body;
@@ -22342,7 +22351,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28g — CellField block updated to insiliscope 57d9595 (core C ABI 5).`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28h — simulation and PSF worker pools run again (fft1d helpers shipped to the workers).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
