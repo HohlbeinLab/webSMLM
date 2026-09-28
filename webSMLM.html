@@ -38,11 +38,11 @@
     locprecision    10066  NeNA and FRC
     sSMLM           11197  spectral SMLM pairing (distance/angle fit, pairCore())
     smFRET          11803  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             13897  single-particle tracking and diffusion coefficients
-    pipeline        14946  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   15918  Micro-Manager/pycromanager bridge (experimental)
-    table           17972  localizations table, filters, histograms, clustering
-    headless API    18654  window.webSMLM.analyze()/analyzeBatch()
+    spt             13902  single-particle tracking and diffusion coefficients
+    pipeline        14951  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   15923  Micro-Manager/pycromanager bridge (experimental)
+    table           17977  localizations table, filters, histograms, clustering
+    headless API    18659  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1656,7 +1656,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28a</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2118,7 +2118,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Save FRET data</b> saves every site's own DD/DA/AA (whichever apply) intensity- and, when a real fit was used (not aperture photometry), width-vs-time trace as one JSON file, one record per site — each carrying its own <code>x</code>/<code>y</code> (and <code>x2</code>/<code>y2</code> once paired), a <code>time_s</code> array, <code>photonsDD</code>/<code>photonsDA</code>/<code>photonsAA</code>, and <code>sigmaDD</code>/<code>sigmaDA</code>/<code>sigmaAA</code> (whichever exist for that site). A gap (no fit attempted that frame, or a frame that wasn't this channel's own turn under ALEX) is written as JSON's native <code>null</code>. Does NOT save the pooled <b>E(S) histogram</b> data — that's directly recomputable from the saved DD/DA/AA arrays, so it was dropped as pure duplication. Enabled as soon as <b>Get FRET data</b> has produced a result. The file also records <code>frametime_s</code>, <code>alex_enabled</code>, <code>alex_first_frame</code>, <code>extraction_method</code> (which of the 4 real extraction paths produced this file), <code>use_elliptical_width</code>, and <code>gain_photons_per_adu</code>/<code>camera_offset_adu</code>/<code>intensity_unit</code> (the intensities are <code>(raw − offset) × gain</code>: photons, or ADU with gain 1) — the settings needed to redraw the trace correctly, not just the raw numbers.</p>
           <p><b>Plot (FRET) data</b> (greyed out until <b>Get (FRET) data</b> has run) re-shows the existing time traces in the left panel, and the <b>E(S) histogram</b> in the right one once paired, without re-extracting — handy after switching a panel to a raw frame or another plot. It keeps the site and zoom you last looked at.</p>
           <p>Selecting a saved traces file with <b>Load movie/data</b> reverses <b>Save FRET data</b> — loads a previously-exported file and shows its Time trace plot / <b>E(S) histogram</b> directly, with no raw movie, <b>Localize SOI</b> or pairing needed at all: it restores <b>Frame time (s)</b>/<b>Alternating-laser excitation</b>/<b>First frame</b> and, when present, the <b>DD + DA</b>/<b>AA</b> range from the file (a missing/<code>null</code> max restores "no upper limit", not whatever the sidebar already had) so both plots redraw exactly as they looked when exported, then reconstructs everything the plots need from the file's own numbers alone. The one thing it can't restore is the <b>SOI composite</b> or the ROI thumbnails' own pixel crops — the composite image itself was never part of this file, only the fitted positions and intensities — so the reconstruction panel is left untouched, and thumbnails only render (and only look meaningful) if a movie happens to already be loaded that's genuinely the same one the traces came from.</p>
-          <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything. With it off, the same button (below the plot) switches between the E histogram and the SOI composite.</p>
+          <p><b>E(S) histogram</b> pools every site's own DD/DA/AA samples across ALL time points into one population-level FRET histogram, drawn in the <b>reconstruction (right)</b> panel — deliberately not the raw (left) one, so it can sit alongside the Time trace plot (or the SOI composite) rather than replacing it. A real per-SITE trace naturally has too few points to histogram meaningfully on its own, so this deliberately mixes every site and every frame into one plot (the Time trace plot's own second E/S-vs-time subplot, above, is the per-site, time-resolved complement to this pooled, population-level one). Without ALEX (or without AA data), it's a 1D histogram of E = DA/(DD+DA). With ALEX and AA data, it's a 2D joint density plot of E vs. <b>S</b> = (DD+DA)/(AA+DD+DA) (the standard ALEX stoichiometry), rendered as hexagonally-tiled bins (no blurring — each hexagon's own fill colour, viridis, reflects its own sample count directly, no colour bar needed), with E's own 1D histogram (with its own count axis, extending the main plot's own left S-axis line upward) along the top and S's own (likewise, extending the main plot's own bottom E-axis line rightward) along the right — the classic ALEX "E-S" plot layout, sized so the two marginal histograms get real visual room rather than being squeezed into thin strips beside a dominant central density plot. <b>DD + DA</b> (and, in E/S mode, <b>AA</b>) — shown as dual-range slider rows underneath the reconstruction panel, styled the same as the raw panel's own <b>Contrast</b> slider (a min AND a max handle, paired min/max number boxes, no +/− steppers) — are per-SAMPLE burst-selection RANGES: a (site, time point) sample is only included once its own donor-excitation total (or, for AA, its own direct-acceptor-excitation) intensity clears the minimum AND stays under the maximum, the standard technique for excluding a sample too dim (or, once a max is set, too bright — e.g. a saturated pixel or outlier) for E (or S) to be a meaningful ratio rather than noise. <b>DD + DA</b> defaults to 0–∞ and <b>AA</b> to 1–∞ (no upper limit) — the Max box is simply left blank; clearing it manually reverts to no limit again. Both sliders' own ceiling is set from the actual loaded traces' observed intensity range, and dragging either handle (or typing a value into either box) redraws live. DD and DA are each also required strictly greater than 0 individually, not just their sum: a rejected/non-converged fit reports a real, meaningful 0 on just one channel, which would otherwise clamp E to exactly 0 or 1 and pile spurious samples at the histogram's own edges rather than dropping them. AA has no such hard rule — only its own <b>AA</b> range: the default minimum of 1 drops frames where the AA fit was rejected (AA = 0), and setting it to 0 includes them, placing them at S = 1 (the donor-only population). Showing either plot hides the SOI composite's own Contrast slider (meaningless here) and folds into the reconstruction panel's own donor/acceptor toggle (next to its title) as a THIRD stop — with <b>Alternating-laser excitation</b> on, that button now cycles DD+DA composite → AA composite → E/S histogram → back to DD+DA, so you can flip between all three without recomputing anything. With it off, the same button (below the plot) switches between the E histogram and the SOI composite. The panel is titled <b>E histogram</b> for the 1D plot and <b>E/S histogram</b> for the 2D one, and the toggle names whichever it leads to (<b>Show E</b> or <b>Show E/S</b>).</p>
           <p>The Time trace plot shows small <b>ROI</b> thumbnails (DD/DA/AA, shown only for whichever channel actually exists for the current site) — in a column right of the plots when the panel is wide, otherwise in a strip below the E/S plot. The trace uses the whole panel (at least 480 px tall; square for a tall movie), so an extreme frame shape no longer squeezes the plots. Each thumbnail is a contrast-stretched crop of the real camera pixels around each channel's own extraction position, one FIXED representative frame per channel (the first donor-excitation frame for DD/DA, the first acceptor-excitation frame for AA), not scrubbed with the main Frame slider — each marked with a magenta crosshair at the EXACT fitted sub-pixel position used for that channel's own extraction, so you can check both that a position genuinely sits on a molecule and that the fit itself actually landed there. Update automatically when scrubbing between sites. The SOI composite (right panel) also highlights the currently-shown site directly — a blue circle around its DD position (and, once paired, a second one around its DA/AA position, joined by a line), so it's easy to see where in the composite the trace you're looking at actually came from while scrolling through sites.</p>
           <p>A third stacked plot (sharing the same time x-axis as the two above it) shows the CURRENT site's own fitted PSF width — sigma, in nm — for DD/DA/AA over time, using the SAME colours as the intensity plot above so each channel reads consistently across both. Only available when a real fit actually ran: unavailable (a placeholder message instead) under <b>Aperture photometry (no fit)</b>, which has no fitted width to report at all, or for a session restored via <b>Load movie/data</b> from a file saved before this plot existed. With the sidebar's <b>Fit method</b> set to the default spherical fitter, this is that fit's own single isotropic sigma per frame. Set to <b>Gauss MLE rotated elliptical</b> instead, each channel is independently fit with its own elliptical width (σx, σy) and rotation, and what's plotted is that ellipse's own EFFECTIVE width specifically along the site's donor→acceptor bearing (the fixed direction between its DD and DA/AA positions) — a rotated ellipse has no single width without picking a direction, and the donor↔acceptor axis is the one this app otherwise cares about (dipole orientation) — falling back to the ellipse's own plain mean width for an unpaired site (DD only), which has no such direction to project onto.</p>
           <p><i>If <b>Average # of frames</b> is set higher than the loaded movie's own frame count, it's silently clamped to the whole movie.</i></p>
@@ -11911,13 +11911,13 @@ async function locateSmfretSOI(preservePairing=false){
       $('srInfo').textContent=`— composite of ${used}/${n} ${chLabel} frames · ${fitted.length} site(s) of interest`;
       $('alexProjToggleBtn').style.display='';
       // From AA the next stop is E/S once it exists (see toggleAlexProjChannel()).
-      $('alexProjToggleBtn').textContent = cfg.smfretSoiChannel==='donor' ? 'Show AA' : (smfretCanShowEHist() ? 'Show E/S' : 'Show DD+DA');
+      $('alexProjToggleBtn').textContent = cfg.smfretSoiChannel==='donor' ? 'Show AA' : (smfretCanShowEHist() ? 'Show '+smfretHistName() : 'Show DD+DA');
     }else{
       $('srInfo').textContent=`— composite of ${used} frame${used>1?'s':''} · ${fitted.length} site(s) of interest`;
-      // Without ALEX the toggle is a plain SOI composite <-> E/S switch,
-      // shown only once E/S data exists (see toggleAlexProjChannel()).
+      // Without ALEX the toggle is a plain SOI composite <-> E histogram
+      // switch, shown only once E data exists (see toggleAlexProjChannel()).
       $('alexProjToggleBtn').style.display = smfretCanShowEHist() ? '' : 'none';
-      $('alexProjToggleBtn').textContent='Show E/S';
+      $('alexProjToggleBtn').textContent='Show '+smfretHistName();
     }
     syncSaveImg();
     // "Fix SOI x,y" is a status flag: set, without dispatching 'change'.
@@ -12313,7 +12313,7 @@ function toggleSmfretAlignOverlay(){
     $('srTitle').textContent='SOI composite';
     $('smfretAlignOverlayBtn').textContent='Show alignment';
     if(alex){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='Show AA'; }
-    else if(smfretCanShowEHist()){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='Show E/S'; }
+    else if(smfretCanShowEHist()){ $('alexProjToggleBtn').style.display=''; $('alexProjToggleBtn').textContent='Show '+smfretHistName(); }
     setSrContrastRowVisible(true);
   }
   clampView(); drawView();
@@ -13166,7 +13166,7 @@ function drawSmfretEHist(){
   const minDex=paramValue('smfretMinDex'), maxDex=paramValue('smfretMaxDex');
   const vals=smfretPoolE(minDex,maxDex);
   srFull=null; srIsPlot=true; const cv=$('sr'); const {ctx,W,H}=setupPlot(cv,true);
-  setSrRecon(false); $('srTitle').textContent='E/S histogram';   // same title for the 1D and 2D plots
+  setSrRecon(false); $('srTitle').textContent='E histogram';   // 1D (no ALEX/AA); the 2D plot is 'E/S histogram'
   setSrContrastRowVisible(false);   // the SOI composite's own Contrast control has no meaning for this plot
   const C=plotColors();
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
@@ -13333,12 +13333,17 @@ function renderSmfretEHistCore(){
   const alex=paramValue('alexEnabled'), hasAA=smfretTraces && smfretTraces.some(s=>s.photonsAA);
   if(alex && hasAA) drawSmfretESPlot(); else drawSmfretEHist();
 }
-// The SR panel has no plot-name variable; srTitle identifies what's shown.
+// The SR panel has no plot-name variable; srTitle identifies what's shown:
+// 'E histogram' (1D) or 'E/S histogram' (2D, ALEX with AA).
+function smfretHistShown(){ const t=$('srTitle').textContent; return t==='E histogram' || t==='E/S histogram'; }
+// What showSmfretEHist() would draw, for the toggle labels: 'E/S' (ALEX with
+// AA data) or 'E'.
+function smfretHistName(){ return paramValue('alexEnabled') && smfretTraces && smfretTraces.some(s=>s.photonsAA) ? 'E/S' : 'E'; }
 function refreshSmfretEHistIfShown(){
-  if($('srTitle').textContent==='E/S histogram') renderSmfretEHistCore();
+  if(smfretHistShown()) renderSmfretEHistCore();
 }
 function smfretEHistLogIfShown(){
-  if($('srTitle').textContent!=='E/S histogram') return;
+  if(!smfretHistShown()) return;
   const cmdCfg={smfretMinDex:paramValue('smfretMinDex'), smfretMaxDex:paramValue('smfretMaxDex')};
   if($('smfretEHistAARow').style.display!=='none'){ cmdCfg.smfretMinAA=paramValue('smfretMinAA'); cmdCfg.smfretMaxAA=paramValue('smfretMaxAA'); }
   logCmd(cmdCfg, overrideWithFields(cmdCfg, 'showSmfretEHist()'));
@@ -13427,9 +13432,9 @@ function toggleAlexEnabled(){
 // No ALEX: E/S <-> SOI composite. The current view is read from srTitle.
 function toggleAlexProjChannel(){
   const title=$('srTitle').textContent, alex=paramValue('alexEnabled');
-  if(alex && title==='E/S histogram'){
+  if(alex && smfretHistShown()){
     // Call locateSmfretSOI() directly: refreshAlexProjectionIfShown() keys on
-    // srTitle, which still says 'E/S histogram'.
+    // srTitle, which still names the histogram.
     alexProjChannel='dirDonorExc';   // E/S -> DD+DA, restarting the cycle
     locateSmfretSOI(true);
     return;
@@ -13440,7 +13445,7 @@ function toggleAlexProjChannel(){
   }
   if(!alex && smfretSOI!==null){
     // No ALEX: E/S <-> SOI composite, keeping the pairing.
-    if(title==='E/S histogram'){ locateSmfretSOI(true); return; }
+    if(smfretHistShown()){ locateSmfretSOI(true); return; }
     if(title==='SOI composite' && smfretCanShowEHist()){ showSmfretEHist(); return; }
   }
   alexProjChannel = alexProjChannel==='dirDonorExc' ? 'dirAcceptorExc' : 'dirDonorExc';
@@ -17881,8 +17886,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28a — below the E/S histogram, the
-alignment button no longer duplicates "Show SOI composite".`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28b — the 1D plot is titled
+"E histogram" (2D: "E/S histogram"); toggles say Show E or Show E/S.`);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
