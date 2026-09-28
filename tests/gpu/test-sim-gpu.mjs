@@ -256,8 +256,10 @@ try {
         `${(100 * r.fracClose).toFixed(3)}% of pixels within 1e-3 ADU, max|Δ| ${r.maxAbs.toExponential(2)}`);
 
     const f = await page.evaluate(async () => {
-      const set = (id, v) => { const el = document.getElementById(id); if (el.type === 'checkbox') el.checked = !!v; else el.value = v; el.dispatchEvent(new Event('change')); };
-      set('simulation_seed', 31); set('simulation_fov', 64); set('frames', 20); set('simulation_3d', true); set('simulation_zRange', 300);
+      // Settings without a control (id:null, e.g. simulation_3d) go through paramOverrides; the cell
+      // field seed is pinned because 0 means a new random field on every Simulate.
+      const set = (id, v) => { const el = document.getElementById(id); if (!el) { paramOverrides[id] = v; return; } if (el.type === 'checkbox') el.checked = !!v; else el.value = v; el.dispatchEvent(new Event('change')); };
+      set('simulation_seed', 31); set('simulation_mt_seed', 7); set('simulation_fov', 64); set('frames', 20); set('simulation_3d', true); set('simulation_zRange', 300);
       set('dens', 0.4); set('simbg', 8); set('simulation_bgCellContrast', 3); set('simulation_hazeRatio', 0.5);
       const out = [];
       for (const camType of ['scmos', 'emccd']) {

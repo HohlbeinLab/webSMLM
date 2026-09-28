@@ -13,6 +13,14 @@
   FRC's radix-4 FFT (fft1d(), MODULE: locprecision) is a structural port of
   indutny/fft.js (MIT, Copyright Fedor Indutny, 2017):
     https://github.com/indutny/fft.js
+
+  The simulator's microtubule cell field (MODULE: simulation, the generated
+  "insiliscope CellField" block) is the insiliscope world model, C++ compiled
+  to WebAssembly and embedded as-is (BSD-3-Clause), source commit
+  57d959596206d027e7b032d9ee5db08697eb067e of
+    https://github.com/kjamartens/inSiliscope
+  Its copyright notice and licence text (BSD-3-Clause requires them with a
+  compiled copy) are still to be added here verbatim before the 0.13.0 release.
   ============================================================================
   Algorithm references (phasor, drift/AIM, NeNA, FRC, FTM, sSMLM, …) are not
   repeated here — see docs/DOCUMENTATION.md §9 "References & further
@@ -24,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2643   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3611   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3839   synthetic stack generator ("Simulate movie")
-    validation      6822   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7681   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7937   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8547   super-resolution accumulation, view, colour maps, plots
-    workers         10071  frame-parallel detect/fit worker pool
-    gpu             10713  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13042  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13333  astigmatic width-vs-z bead calibration
-    drift           13732  AIM and cross-correlation drift correction
-    locprecision    14390  NeNA and FRC
-    sSMLM           15529  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16135  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18242  single-particle tracking and diffusion coefficients
-    pipeline        19292  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20332  Micro-Manager/pycromanager bridge (experimental)
-    table           22741  localizations table, filters, histograms, clustering
-    headless API    23426  window.webSMLM.analyze()/analyzeBatch()
+    params          2651   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3619   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3847   synthetic stack generator ("Simulate movie")
+    validation      6830   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7689   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7945   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8555   super-resolution accumulation, view, colour maps, plots
+    workers         10079  frame-parallel detect/fit worker pool
+    gpu             10721  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13050  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13341  astigmatic width-vs-z bead calibration
+    drift           13740  AIM and cross-correlation drift correction
+    locprecision    14398  NeNA and FRC
+    sSMLM           15537  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16143  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18250  single-particle tracking and diffusion coefficients
+    pipeline        19300  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20340  Micro-Manager/pycromanager bridge (experimental)
+    table           22747  localizations table, filters, histograms, clustering
+    headless API    23432  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1700,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28u</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28v</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1952,12 +1960,12 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           info…". Every field also has a hover tip.</p>
         </div>
         <details class="subsim" id="simTypeBox">
-          <summary>Sample</summary>
+          <summary title="What is imaged: emitter density, labeling efficiency, z range and focus, the view on the cell field, structure size and drift">Sample</summary>
           <label class="row" title="Average number of emitters ON per µm² in any frame — a physical density, independent of how finely the structure is sampled. The Emitter density preset above writes this; editing it switches the preset to Custom.">Emitter density (µm⁻²·frame⁻¹) <input type="number" id="dens" min="0" max="5" step="0.01" value="0.5" class="num"></label>
           <label class="row" title="Percentage of structure sites that carry a working label at all. An unlabelled site never lights up, in any frame — real labels (antibodies, SNAP/Halo, fluorescent proteins) never reach 100%.">Labeling efficiency (%) <input type="number" id="simulation_labelEfficiency" min="0" max="100" step="1" value="70" class="num"></label>
           <label class="row" id="simulation_zRangeRow" title="Half-height of the structure in z. For microtubules it is the optical section: the slab of ±this around Focus height that is imaged. For the geometric structures it scales their z extent.">Structure Z range (± nm) <input type="number" id="simulation_zRange" min="0" max="5000" step="10" value="1000" class="num"></label>
           <label class="row" id="mtFocusRow" style="display:none" title="Height (nm) above the coverslip — the surface the cells lie on, z = 0 — at which the optical section is centred. Microtubules within ±Structure Z range of it are imaged.">Focus height (nm) <input type="number" id="simulation_mt_focusZ" min="0" max="10000" step="10" value="250" class="num"></label>
-          <label class="row" id="mtMoveRow" style="display:none" title="Pan the microtubule window across the sample (+y is down, as in the image). The sample is the same whichever way you get there, so moving back returns the same cells and dyes. Takes effect on the next Simulate movie.">Move view <span class="mtmove"><select id="mtMoveStep" class="sel" style="flex:0 0 62px" title="Step size of one arrow click"><option value="1">1 µm</option><option value="5" selected>5 µm</option><option value="10">10 µm</option></select><button type="button" onclick="moveMtViewStep(-1,0)">&larr;</button><button type="button" onclick="moveMtViewStep(1,0)">&rarr;</button><button type="button" onclick="moveMtViewStep(0,-1)">&uarr;</button><button type="button" onclick="moveMtViewStep(0,1)">&darr;</button></span></label>
+          <label class="row" id="mtMoveRow" style="display:none" title="Pan the microtubule window across the sample (+y is down, as in the image). The sample is the same whichever way you get there, so moving back returns the same cells and dyes. Takes effect on the next Simulate movie.">Move view <span class="mtmove"><select id="mtMoveStep" class="sel" style="flex:0 0 62px" title="Step size of one arrow click"><option value="1">1 µm</option><option value="5" selected>5 µm</option><option value="10">10 µm</option></select><button type="button" onclick="moveMtViewStep(-1,0)" title="Move the view left by the chosen step (applies on the next Simulate movie)">&larr;</button><button type="button" onclick="moveMtViewStep(1,0)" title="Move the view right by the chosen step (applies on the next Simulate movie)">&rarr;</button><button type="button" onclick="moveMtViewStep(0,-1)" title="Move the view up by the chosen step (applies on the next Simulate movie)">&uarr;</button><button type="button" onclick="moveMtViewStep(0,1)" title="Move the view down by the chosen step (applies on the next Simulate movie)">&darr;</button></span></label>
           <label class="row" id="nupCountRow" style="display:none" title="How many nuclear pore complexes are scattered across the field of view.">Number of NPCs <input type="number" id="simulation_nup_count" min="1" max="500" step="1" value="100" class="num"></label>
           <label class="row" id="structureSizeRow" style="display:none" title="Radius of the spherical shell, in nm.">Structure size (nm) <input type="number" id="simulation_structureSize" min="10" max="5000" step="10" value="500" class="num"></label>
           <label class="row" title="Total sample drift over the whole movie, in camera pixels, in a random direction and linear in time. 0 = none. The true drift is kept for scoring drift correction.">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
@@ -2007,7 +2015,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         </details>
         <details class="subsim" id="fluorophoreBox">
-          <summary>Fluorophore</summary>
+          <summary title="Brightness and blinking: photons per frame, illumination profile, on/dark lifetimes, bleaching and blink-to-blink spread">Fluorophore</summary>
           <label class="row" title="Photons a fully-ON emitter emits per frame (at the beam centre, if an illumination profile is set). An emitter ON for part of a frame emits that fraction.">Photons/emitter/frame <input type="number" id="phot" min="0" max="50000" step="50" value="900" class="num"></label>
           <label class="row" title="How the excitation beam falls off across the field of view. The profile has peak 1, so Photons/emitter/frame and Background are the values at the beam centre and nothing is brighter than typed.">Illumination <select id="simulation_illumProfile" class="sel"><option value="flat">Flat</option><option value="gaussian" selected>Gaussian</option><option value="sigmoid">Flat-top</option></select></label>
           <label class="row" id="illumWidthRow" style="padding-left:40px" title="Beam width as a percentage of the field of view: FWHM for the Gaussian, full width of the flat top for the disc.">Beam width (% of FOV) <input type="number" id="simulation_illumFwhmPct" min="10" max="300" step="5" value="70" class="num"></label>
@@ -2040,7 +2048,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         </details>
         <details class="subsim" id="backgroundBox">
-          <summary>Background</summary>
+          <summary title="Diffuse background, cell-shaped autofluorescence that fades, and blinking out-of-focus emitters">Background</summary>
           <label class="row" title="Mean background over the whole field of view, in photons per pixel per frame (Poisson, like the signal). The fields below only reshape it in space and time.">Background (photons/px) <input type="number" id="simbg" min="0" max="500" step="1" value="10" class="num"></label>
           <label class="row" id="bgCellContrastRow" title="How many times brighter the background is inside the simulated cell outline than outside it. 1 = flat. Not applied to the Microtubules structure (its cells will drive this in a later update).">Cell contrast (×) <input type="number" id="simulation_bgCellContrast" min="1" max="20" step="0.5" value="3" class="num"></label>
           <label class="row" title="A second, blinking population on the same structure, 0.3–2 µm out of focus, rendered with the real defocused PSF. Per in-focus emitter; 0 = none. Needs the Zernike-aberrated PSF model. These emitters are in the movie but never in the score.">Out-of-focus emitters (×) <input type="number" id="simulation_hazeRatio" min="0" max="10" step="0.1" value="0" class="num"></label>
@@ -2065,7 +2073,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         </details>
         <details class="subsim" id="cameraBox">
-          <summary>Camera</summary>
+          <summary title="Sensor model: sCMOS/CCD or EMCCD, field of view, pixel size, read noise, quantum efficiency and EM gain">Camera</summary>
           <label class="row" title="sCMOS: Poisson shot noise + Gaussian read noise. EMCCD: photoelectrons through an electron-multiplying register, which doubles the pixel variance — the √2 excess noise factor.">Camera type <select id="simulation_cameraType" class="sel"><option value="scmos">sCMOS / CCD</option><option value="emccd">EMCCD</option></select></label>
           <label class="row" title="The simulated camera's square field of view, in pixels.">FOV (pixels) <input type="number" id="simulation_fov" min="32" max="1024" step="8" value="128" class="num"></label>
           <label class="row" title="The pixel size of the SIMULATED camera. The always-visible Pixel size (nm) at the top is the analysis one; it is set to this after a movie is generated, and the two are separate so a mismatch can be simulated on purpose.">Simulated pixel size (nm) <input type="number" id="simulation_pxnm" min="10" max="500" step="1" value="100" class="num"></label>
@@ -2098,7 +2106,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         </details>
         <details class="subsim" id="psfBox">
-          <summary>PSF</summary>
+          <summary title="Point-spread function: model, aberration preset, NA, wavelength and optional engineered phase mask">PSF</summary>
           <label class="row" title="Zernike-aberrated (default): a physical optical model (Gibson-Lanni + Zernike pupil), needed for 3D. Gaussian: a fixed σ = 1.3 px spot, fast but without depth information.">PSF model <select id="simulation_psfModel" class="sel"><option value="gaussian">Gaussian (fast)</option><option value="zernike" selected>Zernike-aberrated</option></select></label>
           <label class="row" id="psfZernikePresetRow" style="display:none" title="Aberrations built into the objective. Astigmatism encodes depth in the spot's shape (the standard 3D SMLM approach); the saddle-point and extended-depth presets trade precision at focus for a longer usable depth range.">Aberration preset
             <select id="simulation_psfZernikePreset" class="sel">
@@ -2152,7 +2160,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         </details>
         <details class="subsim" id="validationBox">
-          <summary>Ground-truth comparison</summary>
+          <summary title="How Compare to GT scores a Localize run: matching radius and mode, which emitters count, edge handling">Ground-truth comparison</summary>
           <label class="row" id="validationPresetRow" title="webSMLM's own conventions, or the SMLM Challenge 2016 assessment rules so the numbers can be compared with published ones. Writes the four settings below.">Convention <select id="validation_preset" class="sel"><option value="webSMLM">webSMLM</option><option value="challenge2016">Challenge 2016</option><option value="custom">Custom…</option></select></label>
           <label class="row" id="validationMatchRow" title="How close, laterally, a localization must be to a true emitter in the same frame to count as its detection.">Match radius (nm) <input type="number" id="validation_matchRadius" min="20" max="2000" step="10" value="250" class="num"></label>
           <label class="row" id="validationBinsRow" title="Number of depth bins in the score plots.">Score z bins <input type="number" id="validation_zBins" min="4" max="100" step="1" value="20" class="num"></label>
@@ -2177,7 +2185,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         </details>
         <details class="subsim" id="simAdvancedBox">
-          <summary>Advanced</summary>
+          <summary title="Seeds, simulated gain/offset, offset pattern, clock-induced charge, bit depth, refractive indices and depth, custom Zernike, haze and PSF sampling">Advanced</summary>
           <div class="simsec">Sample</div>
           <label class="row" id="mtSeedRow" style="display:none" title="Which cell field is simulated; 0 = a new random one every Simulate movie (logged). The same seed always gives the same cells and the same start view (a well-covered spot, whatever the Movie seed); Move view pans from there.">Cell field seed (0 = random) <input type="number" id="simulation_mt_seed" min="-2147483647" max="2147483647" step="1" value="0" class="num"></label>
           <label class="row" title="0 = a fresh random movie every Simulate movie. Any other value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two runs that differ in one setting can be compared pixel for pixel.">Movie seed (0 = random) <input type="number" id="simulation_seed" min="0" max="2147483647" step="1" value="0" class="num"></label>
@@ -22646,12 +22654,9 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-28u — Defaults: Compare to GT min photons/frame 300; cell field seed 0 (random each movie).
-— from build 2026-09-28t: Compare to GT: axial error histogram; every score plot now names what each mark is and how to read it; error ÷ CRLB view removed.
-— from build 2026-09-28s: Compare to GT: Jaccard vs depth is back.
-— from build 2026-09-28r: Compare to GT: the Gaussian bound removed; error ÷ CRLB plot explains itself; lateral measured/CRLB both pink.
-— from build 2026-09-28q: Compare to GT adds Jaccard vs match radius, photometry, uncertainty calibration (error ÷ CRLB) and precision vs CRLB.
-— from build 2026-09-28p: Cell field seed 0 = random (logged); each seed starts at a fixed, well-covered view (Move view pans from there).`);
+log(`webSMLM v0.13.0-dev · build 2026-09-28v — simulation test fixed, insiliscope
+licence entry in the file header, tooltips on the Simulation sub-sections and view
+buttons.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
