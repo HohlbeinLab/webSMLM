@@ -386,7 +386,7 @@ settings-JSON code).
 
 ## UI conventions and CSS gotchas
 
-- Every sidebar control row and button has a short `title` tooltip (one sentence: what it does,
+- Every module header (`summary`), sidebar control row and button has a short `title` tooltip (one sentence: what it does,
   units, the key trade-off); the section's "more info…" hint carries the detail.
 - Sidebar/panel buttons fit on one line; abbreviate rather than wrap. Compact labels read
   `Word/word` (**Save plot/image**, **View data/filtering**).
