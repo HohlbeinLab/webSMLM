@@ -234,7 +234,7 @@ what makes GUI and command-line use interchangeable.
   Experimental. FRC pixel size: NeNA σ/2, else the mode of per-loc precision, else px/mag. `lastNena`
   feeds spt's "from NeNA" and resets on every load/crop.
 
-- **sSMLM** ("(Caution!) Pairing (sSMLM & FRET)") — pairs 0th/1st-order grating images (Martens et
+- **sSMLM** ("(Caution!) Pairing for sSMLM or FRET") — pairs 0th/1st-order grating images (Martens et
   al., Nano Lett. 2022; port of HohlbeinLab/sSMLMAnalyzer). Roles by **direction**, not brightness:
   `sSmlmAngleCenter` is a signed bearing; a 0th-order candidate has an outgoing match on that bearing
   and none on the opposite one. Position = the 0th order's own; distance in `dist` (colour-by-
@@ -256,8 +256,9 @@ what makes GUI and command-line use interchangeable.
   - **Analyse FRET** unticked disables only Pair DD + DA. **ALEX** (`alexEnabled`/`alexFirstFrame`)
     fixes frame parity; AA is read at the acceptor position once paired, else at the site.
   - Pairing methods: **Via distances and angles** (`getSmfretPairingFromDonor()`, sSMLM Preview +
-    Pair on the donor-excitation composite; **Position donor** picks which of the two bearings points
-    D→A) and **Via channel matching** (`alignSmfretChannels()`: x-gap split, displacement search,
+    Pair on the donor-excitation composite, reading that section's Distance/Angle fields — the note
+    `smfretDistAngleNote` under Pairing method links there, `openSSmlmSection()`; **Position donor**
+    picks which of the two bearings points D→A) and **Via channel matching** (`alignSmfretChannels()`: x-gap split, displacement search,
     affine ICP; its matches are the pairing; shows a green/magenta alignment overlay). Paired sites are
     marked (never hidden) dark orange, AA-sourced matches gold. `smfretEnrichPairedWithAA()` adds
     AA widths (`sxAA/syAA`).

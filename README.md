@@ -56,7 +56,7 @@ in-app, plus acknowledgements and licence.
    camera photon units; **3D calibration** fits an astigmatic width-vs-z
    curve for 3D localization; **Drift correction & precision** removes
    sample drift (AIM or cross correlation) and reports NeNA/FRC; **Pairing
-   (sSMLM & FRET)** pairs 0th/1st-order localizations from a diffraction
+   for sSMLM or FRET** pairs 0th/1st-order localizations from a diffraction
    grating (or a prism-split donor/acceptor pair); **Time traces and FRET**
    finds sites of interest, pairs donor/acceptor channels and reads out
    DD/DA/AA intensity-vs-time traces; **Single-particle tracking** links
