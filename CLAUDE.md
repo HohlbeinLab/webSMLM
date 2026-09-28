@@ -139,10 +139,10 @@ what makes GUI and command-line use interchangeable.
   in both states — don't reintroduce a separate 2D structure path. It defaults to on and has no
   sidebar control since 2026-09-28b (settings JSON / `paramOverrides` only).
 
-  **Sidebar layout (2026-09-28c)**: top level = Structure type (+ Move view for microtubules),
+  **Sidebar layout (2026-09-28c)**: top level = Structure type,
   Frames, Emitter density preset, Physics detail preset, then a 2×2 `.btnrow` grid (`simToolsRow`:
   Preview PSF, Calib. stack, View GT, Compare to GT — disabled, never hidden, when unavailable:
-  `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample / Fluorophore / Background / Camera /
+  `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample (incl. Move view, below Focus height, for microtubules) / Fluorophore / Background / Camera /
   PSF / Ground-truth comparison / Advanced (last). Advanced is split by plain `.simsec` headings (not
   collapsibles) into Sample (cell field seed, movie seed), Camera (simulated gain/offset, offset std,
   EMCCD CIC/bit depth), PSF (ns, ni, emitter depth, working distance, custom Zernike), Background

@@ -24,26 +24,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2643   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3607   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3835   synthetic stack generator ("Simulate movie")
-    validation      6783   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7407   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7663   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8273   super-resolution accumulation, view, colour maps, plots
-    workers         9797   frame-parallel detect/fit worker pool
-    gpu             10439  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          12768  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13059  astigmatic width-vs-z bead calibration
-    drift           13458  AIM and cross-correlation drift correction
-    locprecision    14116  NeNA and FRC
-    sSMLM           15255  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          15861  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             17951  single-particle tracking and diffusion coefficients
-    pipeline        19001  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20041  Micro-Manager/pycromanager bridge (experimental)
-    table           22442  localizations table, filters, histograms, clustering
-    headless API    23105  window.webSMLM.analyze()/analyzeBatch()
+    params          2642   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3606   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3834   synthetic stack generator ("Simulate movie")
+    validation      6782   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7406   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7662   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8272   super-resolution accumulation, view, colour maps, plots
+    workers         9796   frame-parallel detect/fit worker pool
+    gpu             10438  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          12767  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13058  astigmatic width-vs-z bead calibration
+    drift           13457  AIM and cross-correlation drift correction
+    locprecision    14115  NeNA and FRC
+    sSMLM           15254  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          15860  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             17950  single-particle tracking and diffusion coefficients
+    pipeline        19000  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20040  Micro-Manager/pycromanager bridge (experimental)
+    table           22441  localizations table, filters, histograms, clustering
+    headless API    23113  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28j</span></h1>
+    <h1>webSMLM <span class="pill">v0.12.11-dev · build 2026-09-28k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1922,7 +1922,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="simBox">
         <summary>Simulation</summary>
         <label class="row" title="The labelled object emitters attach to. Microtubules (default) is a window onto a seed-addressed field of cells, each with a microtubule network; the others are simple geometric test objects. Every structure is simulated in 3D.">Structure type <select id="simulation_structureType" class="sel"><option value="microtubules" selected>Microtubules (cells)</option><option value="nup">Nuclear pore complex (NPC)</option><option value="filaments_ring">Filaments + ring</option><option value="tiltedPlane">Tilted plane</option><option value="uniform3D">Uniform 3D volume</option><option value="shell">Spherical shell</option></select></label>
-        <label class="row" id="mtMoveRow" style="display:none" title="Pan the microtubule window across the sample (+y is down, as in the image). The sample is the same whichever way you get there, so moving back returns the same cells and dyes. Takes effect on the next Simulate movie.">Move view <span class="mtmove"><select id="mtMoveStep" class="sel" style="flex:0 0 62px" title="Step size of one arrow click"><option value="1">1 µm</option><option value="5" selected>5 µm</option><option value="10">10 µm</option></select><button type="button" onclick="moveMtViewStep(-1,0)">&larr;</button><button type="button" onclick="moveMtViewStep(1,0)">&rarr;</button><button type="button" onclick="moveMtViewStep(0,-1)">&uarr;</button><button type="button" onclick="moveMtViewStep(0,1)">&darr;</button></span></label>
         <label class="row" title="Length of the simulated movie, in frames.">Frames <input type="number" id="frames" min="50" max="5000" step="50" value="2000" class="num"></label>
         <label class="row" title="How many emitters are ON per µm² in an average frame: low 0.05 (PSFs essentially never overlap), medium 0.2, high 0.5 (typical SMLM), very high 2 (dense enough that single-emitter fitting visibly breaks down). Sets Emitter density under Sample; editing that by hand switches this to Custom.">Emitter density <select id="simulation_densityPreset" class="sel"><option value="low">Low (0.05)</option><option value="med">Medium (0.2)</option><option value="high" selected>High (0.5)</option><option value="veryhigh">Very high (2)</option><option value="custom">Custom</option></select></label>
         <label class="row" title="How much physics — and compute — a simulation spends. Basic: every molecule blinks once at constant brightness on a flat, dark background (fastest). Realistic: molecules blink repeatedly and bleach, brightness varies, and the background fades and carries out-of-focus haze — nearly free per frame. Full: also adds blinking out-of-focus emitters rendered with the real defocused PSF — roughly doubles the simulation time. It only writes fields under Fluorophore and Background; edit any of them and this switches to Custom.">Physics detail <select id="simulation_realism" class="sel"><option value="min">Basic (fastest)</option><option value="med" selected>Realistic</option><option value="max">Full (slowest)</option><option value="custom">Custom</option></select></label>
@@ -1937,8 +1936,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
           physically modelled blinking, a vectorial PSF, background and a camera noise model — for validating
           and teaching the rest of the pipeline against known-correct answers.</p>
-          <p>The top of the panel holds the everyday choices: <b>Structure type</b> (with <b>Move view</b> for
-          Microtubules), <b>Frames</b>, <b>Emitter density</b> (a preset; the exact value is under Sample) and
+          <p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Emitter density</b> (a preset; the exact value is under Sample) and
           <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
           spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
           <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
@@ -1959,6 +1957,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <label class="row" title="Percentage of structure sites that carry a working label at all. An unlabelled site never lights up, in any frame — real labels (antibodies, SNAP/Halo, fluorescent proteins) never reach 100%.">Labeling efficiency (%) <input type="number" id="simulation_labelEfficiency" min="0" max="100" step="1" value="70" class="num"></label>
           <label class="row" id="simulation_zRangeRow" title="Half-height of the structure in z. For microtubules it is the optical section: the slab of ±this around Focus height that is imaged. For the geometric structures it scales their z extent.">Structure Z range (± nm) <input type="number" id="simulation_zRange" min="0" max="5000" step="10" value="1000" class="num"></label>
           <label class="row" id="mtFocusRow" style="display:none" title="Height (nm) above the coverslip — the surface the cells lie on, z = 0 — at which the optical section is centred. Microtubules within ±Structure Z range of it are imaged.">Focus height (nm) <input type="number" id="simulation_mt_focusZ" min="0" max="10000" step="10" value="250" class="num"></label>
+          <label class="row" id="mtMoveRow" style="display:none" title="Pan the microtubule window across the sample (+y is down, as in the image). The sample is the same whichever way you get there, so moving back returns the same cells and dyes. Takes effect on the next Simulate movie.">Move view <span class="mtmove"><select id="mtMoveStep" class="sel" style="flex:0 0 62px" title="Step size of one arrow click"><option value="1">1 µm</option><option value="5" selected>5 µm</option><option value="10">10 µm</option></select><button type="button" onclick="moveMtViewStep(-1,0)">&larr;</button><button type="button" onclick="moveMtViewStep(1,0)">&rarr;</button><button type="button" onclick="moveMtViewStep(0,-1)">&uarr;</button><button type="button" onclick="moveMtViewStep(0,1)">&darr;</button></span></label>
           <label class="row" id="nupCountRow" style="display:none" title="How many nuclear pore complexes are scattered across the field of view.">Number of NPCs <input type="number" id="simulation_nup_count" min="1" max="500" step="1" value="100" class="num"></label>
           <label class="row" id="structureSizeRow" style="display:none" title="Radius of the spherical shell, in nm.">Structure size (nm) <input type="number" id="simulation_structureSize" min="10" max="5000" step="10" value="500" class="num"></label>
           <label class="row" title="Total sample drift over the whole movie, in camera pixels, in a random direction and linear in time. 0 = none. The true drift is kept for scoring drift correction.">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
@@ -1981,7 +1980,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <a href="https://github.com/kjamartens/insiliscope" target="_blank" rel="noopener">insiliscope</a> world model, compiled to WebAssembly).
           Every microtubule is a 25 nm cylinder with the 13-protofilament lattice, and each lattice site carries
           a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
-          (next to Structure type) pans the window by the chosen step; a dye's position does not change when the
+          (below Focus height) pans the window by the chosen step; a dye's position does not change when the
           window moves, so panning back returns the same cells. Which cell field is used is set by Advanced →
           <b>Cell field seed</b>; the view centre and the cell and microtubule densities have no sidebar field —
           set them from a settings file or the log terminal (<code>paramOverrides.simulation_mt_x</code> etc.).</p>
@@ -22351,7 +22350,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.12.11-dev · build 2026-09-28j — insiliscope link in the Simulation more-info opens in a new tab.`);
+log(`webSMLM v0.12.11-dev · build 2026-09-28k — Move view (microtubules) now sits in the Sample section, below Focus height.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

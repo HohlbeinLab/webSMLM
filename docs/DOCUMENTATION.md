@@ -1989,7 +1989,7 @@ with nuclei, each carrying a microtubule network (the
 <a href="https://github.com/kjamartens/insiliscope" target="_blank" rel="noopener">insiliscope</a> world model, compiled to WebAssembly).
 Every microtubule is a 25 nm cylinder with the 13-protofilament lattice, and each lattice site carries
 a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
-(next to Structure type) pans the window by the chosen step; a dye's position does not change when the
+(below Focus height) pans the window by the chosen step; a dye's position does not change when the
 window moves, so panning back returns the same cells. Which cell field is used is set by Advanced →
 <b>Cell field seed</b>; the view centre and the cell and microtubule densities have no sidebar field —
 set them from a settings file or the log terminal (<code>paramOverrides.simulation_mt_x</code> etc.).</p>
@@ -2201,8 +2201,7 @@ exact but slow FFT phase shift kept for comparison.</p>
 <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
 physically modelled blinking, a vectorial PSF, background and a camera noise model — for validating
 and teaching the rest of the pipeline against known-correct answers.</p>
-<p>The top of the panel holds the everyday choices: <b>Structure type</b> (with <b>Move view</b> for
-Microtubules), <b>Frames</b>, <b>Emitter density</b> (a preset; the exact value is under Sample) and
+<p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Emitter density</b> (a preset; the exact value is under Sample) and
 <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
 spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
 <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
