@@ -1,5 +1,9 @@
 # Simulation parity: webSMLM vs. demoCam_SMLM_MM
 
+> **Point-in-time snapshot**, kept for reference: a comparison of webSMLM's simulator with the
+> separate demoCam_SMLM_MM Micro-Manager device adapter (the path below is the author's local
+> checkout). Not maintained alongside webSMLM; see `docs/DOCUMENTATION.md` for current behaviour.
+
 This is a point-in-time snapshot of the parameter/feature correspondence
 between this project's simulator (`webSMLM.html`) and the Micro-Manager
 device adapter at `C:\GitHub\demoCam_SMLM_MM`

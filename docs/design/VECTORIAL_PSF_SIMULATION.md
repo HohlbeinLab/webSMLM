@@ -1,5 +1,11 @@
 # Vectorial PSF simulation — design research memo
 
+> **Historical design note.** Written before the vectorial simulator was built; implemented and
+> shipped in webSMLM 0.13.0, with some decisions revised on measurement (the 'direct' polar
+> quadrature evaluator was removed; the 3D path uses the nearest kernel plane rather than a
+> two-plane blend). For current behaviour see `docs/DOCUMENTATION.md` (§2 Simulation and the
+> Simulation guide); for the history, `CHANGELOG.md`.
+
 Status: research/decision memo, no implementation yet. Written for the `vectorial_simulation`
 branch, before any code changes. Covers only the specific question raised: how to *sample and
 place* a vectorial PSF for simulation purposes, given two candidate approaches. Cubic-spline PSF
@@ -209,7 +215,7 @@ close in spirit to, though not literally, the cubic B-spline models above), matc
 footnote's own observation that cubic is the field's actual default. Option 2 (this section's
 FFT-shift approach) was also later added as a genuinely opt-in `'fft'` mode on the same setting —
 not because the rejection reasoning above changed, but purely so it can be loaded and A/B-compared
-against `'cubic'` directly. See `docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md` §10 for what
+against `'cubic'` directly. See `docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md` §10 for what
 shipped.
 
 ## 7. Open questions for implementation (not answered here)

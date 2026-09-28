@@ -41,11 +41,19 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
     scale — which the out-of-focus emitters provide: 5.8% of localizations on a 'max' run were
     out-of-focus light. A filter that rejects them (σ or photon based) can now be scored.
   - Not modelled, in rough order of how much they would change a conclusion: per-pixel sCMOS gain
-    and read-noise maps and EMCCD excess noise (demoCam_SMLM_MM has the former — see `PARITY.md`),
+    and read-noise maps (demoCam_SMLM_MM has them — see `docs/design/SIMULATION_PARITY_DEMOCAM.md`),
     a separate short-lived triplet state, fixed-dipole emission, field-dependent aberration.
-  - `PARITY.md`'s demoCam column is stale for every row the 2026-09-19 builds touched.
-  - Pre-existing, found in passing: `mulberry32()` is declared twice in `webSMLM.html` (the later
-    declaration wins; both are equivalent generators, so harmless today, confusing tomorrow).
+  - `docs/design/SIMULATION_PARITY_DEMOCAM.md`'s demoCam column is stale for every row the 2026-09-19 builds touched.
+  - **Structure FOV**: `simulation_structureFov` has no sidebar control, nothing steers `driftpx`'s
+    direction to explore a larger structure's margin, and no log line reports how much of it drift
+    swept into view.
+  - **No headless generator**: `analyze()` can score a session's simulation (`scoreVsTruth`) but
+    cannot generate one; a `config.simulate` path would make simulation sweeps scriptable.
+  - **Rotate movie vs ground truth**: a simulation made with Rotate movie set drops its truth (it is
+    in unrotated coordinates); rotating the truth with the frames would lift that.
+  - **Custom Zernike is not in `PARAMS`** (no text-type entries), so it is not saved in settings files.
+  - **Microtubule background**: Cell contrast is off for the cell field; drive it from the real cell
+    footprints instead.
 
 
 - **Double-helix mask: shape, not sign.** The sign of z is recovered decisively since the worker

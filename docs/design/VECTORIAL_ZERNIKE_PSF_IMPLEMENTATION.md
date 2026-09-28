@@ -1,8 +1,14 @@
 # Vectorial + Zernike-mode PSF implementation guide
 
+> **Historical design note.** Written before the vectorial simulator was built; implemented and
+> shipped in webSMLM 0.13.0, with some decisions revised on measurement (the 'direct' polar
+> quadrature evaluator was removed; the 3D path uses the nearest kernel plane rather than a
+> two-plane blend). For current behaviour see `docs/DOCUMENTATION.md` (§2 Simulation and the
+> Simulation guide); for the history, `CHANGELOG.md`.
+
 Status: implementation guide, no code written yet. Read this before implementing, and re-scope
 against whatever webSMLM actually needs at the time — it is a design brief, not a spec to execute
-blindly. Companion to `docs/VECTORIAL_PSF_SIMULATION.md`, which settled *how* an oversampled PSF
+blindly. Companion to `docs/design/VECTORIAL_PSF_SIMULATION.md`, which settled *how* an oversampled PSF
 should be sampled/placed; this document is the concrete follow-up covering *what PSF to generate*
 and *where it plugs into webSMLM*.
 
@@ -20,7 +26,7 @@ own deliberate choice (see §2). That keeps "all Zernike coefficients zero" a cl
 regression case (the aberrated model must reduce to the existing symmetric-PSF physics with no
 aberration applied) rather than bundling an unrelated physics change into the same feature.
 
-**Relationship to `docs/VECTORIAL_PSF_SIMULATION.md`.** That memo compared two ways to sample and
+**Relationship to `docs/design/VECTORIAL_PSF_SIMULATION.md`.** That memo compared two ways to sample and
 place *any* pre-computed PSF and recommended Option 1 — a moderately oversampled (2–5× the camera
 pixel) lookup, placed via interpolation, rather than the original 0.1 nm/1 nm proposal or an
 FFT-shift approach. This document is the PSF-*generation* half of the same feature: the physics
@@ -230,13 +236,13 @@ for fixed `y`), and the inner `N_RHO×N_PHI` sum is where essentially all the co
 ## 5. Sampling & performance
 
 **"Oversample once, downsample everywhere"** — the same Option-1 approach
-`docs/VECTORIAL_PSF_SIMULATION.md` independently recommended for placing *any* PSF turns out to be
+`docs/design/VECTORIAL_PSF_SIMULATION.md` independently recommended for placing *any* PSF turns out to be
 exactly what the reference project already does for *this* PSF: compute one oversampled kernel
 per distinct `(zernikeCoeffs, z, NA, wavelength, ns, ni, ti0, particleAxialPosition, pixel size)`
 combination, cache it, and for each emitter placement box-average a fractional-pixel-shifted
 window of the oversampled kernel into the output frame (rather than re-running the physics per
 emitter). This is real cross-validation between the two documents, not a coincidence to gloss
-over — implement the kernel cache and placement exactly per `docs/VECTORIAL_PSF_SIMULATION.md`
+over — implement the kernel cache and placement exactly per `docs/design/VECTORIAL_PSF_SIMULATION.md`
 §5's recommendation (2–5× lateral oversampling of the camera pixel, axial step tuned to the PSF's
 own curvature), keyed on the full parameter tuple above.
 
@@ -248,7 +254,7 @@ half-width (32→16 px) — not micro-optimizing the quadrature loop itself. **T
 webSMLM**: a browser tab has no free multithreading, so:
 
 - Default kernel half-width and oversampling factor need to be conservative out of the box —
-  start near the low end of the 2–5× range `docs/VECTORIAL_PSF_SIMULATION.md` settled on, and a
+  start near the low end of the 2–5× range `docs/design/VECTORIAL_PSF_SIMULATION.md` settled on, and a
   kernel half-width sized to cover only the aberrated PSF's actual extent (e.g. a small multiple
   of the diffraction-limited Airy radius), not an arbitrarily generous margin.
 - `N_RHO=20, N_PHI=40` should stay fixed, not user-configurable — the reference project tuned this
@@ -347,7 +353,7 @@ at the time:
 - **Z-plane interpolation vs. nearest-plane lookup** for the kernel cache. The reference project
   uses nearest-plane lookup only (no interpolation between cached Z-planes, despite having
   considered it during planning) — worth deciding fresh for webSMLM rather than assuming that
-  choice carries over, especially since `docs/VECTORIAL_PSF_SIMULATION.md` already discusses the
+  choice carries over, especially since `docs/design/VECTORIAL_PSF_SIMULATION.md` already discusses the
   general tradeoff (interpolation cost vs. z-step fineness) for PSF placement.
 - **Exact PARAMS IDs, defaults, and ranges** for everything listed in §6 — this document fixes the
   shape of the parameter set, not final numbers.
@@ -387,7 +393,7 @@ nearest-plane lookup" open question for webSMLM specifically.
   microscopy," *bioRxiv* (2017), later published *Nature Methods* 12(4), 449–452, and the same
   cubic-spline family used by SMAP and DECODE. `'fft'` (Fourier-shift-theorem placement via
   `splatZernikeEmitterFFT()`/`fftShiftKernelTile()`, reusing `fft2d()` from MODULE: locprecision)
-  is deliberately **not** the default — see `docs/VECTORIAL_PSF_SIMULATION.md` §3/§4 for why: it
+  is deliberately **not** the default — see `docs/design/VECTORIAL_PSF_SIMULATION.md` §3/§4 for why: it
   needs a full 2D FFT + inverse per emitter (versus `'cubic'`'s fixed `4×4`-tap sum), assumes
   periodic boundaries so a non-periodic kernel tile risks wraparound (Gibbs) ringing without
   padding, and the accuracy gap versus `'cubic'` is small at the oversampling factors this tool
@@ -404,7 +410,7 @@ nearest-plane lookup" open question for webSMLM specifically.
   tried first, silently discarded a factor of `1/oversample²` of every emitter's photons — caught
   by a standalone photon-conservation check, not by inspection). This sum-of-interpolated-samples
   step is the literal "interpolate for sub-pixel placement, then box-downsample" pipeline both
-  `docs/VECTORIAL_PSF_SIMULATION.md` §2 and this document's own §5 describe.
+  `docs/design/VECTORIAL_PSF_SIMULATION.md` §2 and this document's own §5 describe.
 - Verified (standalone Node harness, not checked in): for a synthetic symmetric test kernel, all
   four interpolation modes conserve total photon count exactly regardless of emitter sub-pixel
   position; `'linear'`/`'cubic'`/`'fft'` reproduce the emitter's exact sub-pixel centroid to
@@ -466,7 +472,7 @@ nearest-plane lookup" open question for webSMLM specifically.
 - `webSMLM.html` ~line 2429–2739 (`PARAMS`) — existing parameter-registry convention to match.
 - `webSMLM.html` ~line 6558 (`renderWorkerSource`/`RENDER_WORKER_PRELUDE`) — the dedicated
   -second-worker pattern to follow if/when kernel generation needs to leave the main thread.
-- `docs/VECTORIAL_PSF_SIMULATION.md` — companion memo on PSF sampling/placement strategy this
+- `docs/design/VECTORIAL_PSF_SIMULATION.md` — companion memo on PSF sampling/placement strategy this
   guide's §5 builds on directly.
 
 **External**: [EPFL `psf_generator`](https://github.com/Biomedical-Imaging-Group/psf_generator)

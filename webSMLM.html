@@ -1692,7 +1692,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28m</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-28n</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3196,7 +3196,7 @@ const PARAMS = {
   // real detection of one is never punished); 'exclude' removes both truth and localizations in
   // the border before matching, the challenge's own order.
   validation_borderMode: { type:'enum', id:'validation_borderMode', label:'Score: edge handling', options:['dontcare','exclude'], default:'dontcare' },
-  // ---- PSF simulation (docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md) — a Zernike-aberrated PSF
+  // ---- PSF simulation (docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md) — a Zernike-aberrated PSF
   // model for "Simulate movie", alongside the fixed-sigma=1.3 isotropic Gaussian fallback. These
   // params build/preview an oversampled PSF kernel (see buildPsfKernelStack()) shown in the raw
   // panel, AND (§10 of the implementation doc) generateSynthetic() itself splats this kernel per
@@ -3222,7 +3222,7 @@ const PARAMS = {
   simulation_psfZRange: { type:'number', id:'simulation_psfZRange', label:'PSF z range (± nm)', min:50, max:2000, step:10, default:2000, int:false },
   simulation_psfZStep: { type:'number', id:'simulation_psfZStep', label:'PSF z step (nm)', min:1, max:100, step:1, default:10, int:false },
   // simulation_psfOversample = lateral oversampling factor relative to the camera pixel
-  // (simulation_pxnm) — 4-8x per docs/VECTORIAL_PSF_SIMULATION.md §5's literature-supported range.
+  // (simulation_pxnm) — 4-8x per docs/design/VECTORIAL_PSF_SIMULATION.md §5's literature-supported range.
   simulation_psfOversample: { type:'number', id:'simulation_psfOversample', label:'PSF lateral oversampling (×)', min:4, max:8, step:1, default:4, int:true },
   // simulation_psfKernelWidth = kernel FULL WIDTH in physical nm (not px) — independent of camera
   // pixel size, more informative than a raw pixel count; rescaled to an oversampled-px half-width
@@ -3235,11 +3235,11 @@ const PARAMS = {
   // simulation_psfInterp = how splatZernikeEmitter() samples the oversampled kernel at an
   // emitter's exact sub-pixel position before box-averaging it down to the camera pixel grid (see
   // MODULE: simulation's own "oversample once, downsample everywhere" comment) — 'nearest' (cheap
-  // baseline), 'linear' (bilinear, matches docs/VECTORIAL_PSF_SIMULATION.md §5's own baseline
+  // baseline), 'linear' (bilinear, matches docs/design/VECTORIAL_PSF_SIMULATION.md §5's own baseline
   // recommendation), 'cubic' (bicubic/Catmull-Rom, default — higher quality, worth the extra
   // cost now that 'fft' is the default evaluator, so kernel *building* itself is cheap), or 'fft'
   // (Fourier-shift-theorem placement — mathematically exact but per-emitter FFT cost and
-  // periodic-boundary ringing risk on a non-periodic tile, per docs/VECTORIAL_PSF_SIMULATION.md
+  // periodic-boundary ringing risk on a non-periodic tile, per docs/design/VECTORIAL_PSF_SIMULATION.md
   // §3/§4's own analysis of why it was NOT chosen as the default; kept opt-in purely so it can be
   // compared against 'cubic' directly).
   simulation_psfInterp: { type:'enum', id:'simulation_psfInterp', label:'PSF placement interpolation', options:['nearest','linear','cubic','fft'], default:'cubic' },
@@ -4741,7 +4741,7 @@ async function generateSynthetic(){
   const gt = labelEff>=1 ? gtAll : gtAll.filter(()=>rng()<labelEff);
   if(labelEff<1) log(`Labeling efficiency ${(labelEff*100).toFixed(0)}%: kept ${gt.length}/${gtAll.length} candidate site(s).`);
 
-  // Zernike-aberrated PSF path (docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §10) — builds/reuses
+  // Zernike-aberrated PSF path (docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §10) — builds/reuses
   // the same oversampled kernel the PSF preview uses. Two shapes, chosen by is3d:
   //  - !is3d (2D, unchanged from before): forced to a SINGLE z-plane (readPsfConfigForSimulation(),
   //    one fixed emitter depth for the whole movie) — zKernel.
@@ -5101,9 +5101,9 @@ async function generateCalibrationStack(){
 /* ---------------------------------------------------------------------------
    Zernike-aberrated PSF simulation: kernel build + raw-panel preview, AND
    (§10) wired into generateSynthetic()'s own emitter render loop above via
-   splatZernikeEmitter() — see docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md
+   splatZernikeEmitter() — see docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md
    for the full plan/roadmap (§10 specifically for what shipped and the
-   per-emitter-z/3D follow-up) and docs/VECTORIAL_PSF_SIMULATION.md for the
+   per-emitter-z/3D follow-up) and docs/design/VECTORIAL_PSF_SIMULATION.md for the
    oversampled-kernel-and-cache design this builds on. Scalar Gibson-Lanni +
    Zernike-pupil model, ported
    (not copied) from EPFL BIG's MIT-licensed `psf_generator`
@@ -5145,7 +5145,7 @@ function psfZernikeValue(j,rho,phi){
 // above) — magnitudes are ORDER-OF-MAGNITUDE ESTIMATES carried over from the reference
 // project's own planning docs, NOT paper-sourced calibrated values. j=5 is vertical
 // astigmatism, j=6/9 trefoil, j=7/8 coma, j=12 primary spherical (see the OSA table in
-// docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §4.1 — verify via psfIndexToNM(j) before
+// docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §4.1 — verify via psfIndexToNM(j) before
 // trusting any index by memory, that doc's own table was wrong twice before being checked).
 // 28 terms = every Zernike mode up to n=6. The first 15 (n<=4) are exactly what they were, so
 // every earlier preset, settings file and custom string keeps its meaning — the tail is zero.
@@ -5224,7 +5224,7 @@ function pupilMaskPhase(maskType, rhoNorm, phi, nModes, waist){
 
 /* ---------------------------------------------------------------------------
    PSF evaluation: pupil -> image-plane intensity via the chirp-Z transform. Per
-   docs/VECTORIAL_PSF_SIMULATION.md / VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md's own citation
+   docs/design/VECTORIAL_PSF_SIMULATION.md / VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md's own citation
    (Sedukhin 2024): reformulating the diffraction integral as a Fourier transform of the pupil
    function and evaluating it via FFT is exact, not an approximation, and 2-3 orders of
    magnitude faster than a direct quadrature.
@@ -5508,7 +5508,7 @@ async function buildPsfPlanesParallel(cfg, nx, ny, pool){
   return {slices, globalMax};
 }
 // Builds the full oversampled PSF kernel stack (one 2D intensity slice per z-plane). Per
-// docs/VECTORIAL_PSF_SIMULATION.md §5's "oversample once, cache, reuse" design — see
+// docs/design/VECTORIAL_PSF_SIMULATION.md §5's "oversample once, cache, reuse" design — see
 // getOrBuildPsfKernelStack() for the cache wrapper actually called from the UI. Tries the
 // dedicated PSF worker pool first (z-planes farmed out across cores), falling back to the serial
 // main-thread loop wherever workers aren't usable (file://, an older browser, etc.) — same
@@ -5718,7 +5718,7 @@ async function getOrBuildPsfKernelStack(cfg){
 }
 
 /* ---- Zernike-PSF emitter placement for generateSynthetic() ("Simulate movie") ----
-   Per docs/VECTORIAL_PSF_SIMULATION.md §5 and docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §5/§10:
+   Per docs/design/VECTORIAL_PSF_SIMULATION.md §5 and docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §5/§10:
    "oversample once, downsample everywhere" — the kernel above is built once per movie (2D only:
    readPsfConfigForSimulation() forces cfg.nz=1, one fixed emitter depth for the whole movie; see
    §10 of the implementation doc for exactly how to extend this to per-emitter 3D), then EVERY
@@ -5733,7 +5733,7 @@ async function getOrBuildPsfKernelStack(cfg){
 // (readPsfConfigFromUI()), but forces a single z-plane: an actual movie applies one fixed emitter
 // depth (simulation_psfDepth) to every emitter, so there is nothing to sweep — this is the 2D
 // scope boundary. A future per-emitter-z (3D) version stops overriding nz here and instead selects/
-// blends slices per emitter — see docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §10.
+// blends slices per emitter — see docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §10.
 function readPsfConfigForSimulation(){
   const cfg=readPsfConfigFromUI();
   cfg.nz=1;
@@ -5757,7 +5757,7 @@ function catmullRomWeights(f){
 // same result up to floating-point rounding order (measured: see tests/gpu/test-sim-gpu.mjs).
 // It holds for nearest and linear too (same argument, 1 and 4 taps).
 // Out-of-array kernel reads count as 0 — physically correct, since halfWidthPx is chosen to cover
-// the PSF's real extent (docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §5), so genuine signal never
+// the PSF's real extent (docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §5), so genuine signal never
 // reaches the edge. B keeps that: it spans a in [-(os-1), ny-1] (every block that overlaps K at
 // all), stored with offset off=os-1; splatZernikeEmitter() reads anything outside it as 0.
 // Float32 on purpose: it is what the GPU holds too, so CPU and GPU interpolate the same numbers,
@@ -5800,7 +5800,7 @@ function normalizePsfPlane(slice){
 }
 function nextPow2(n){ let p=1; while(p<n) p<<=1; return p; }
 // FFT phase-shift placement (opt-in 'fft' mode, kept for comparison against 'cubic' — see
-// docs/VECTORIAL_PSF_SIMULATION.md §3/§4 for why this was NOT chosen as the default: per-emitter
+// docs/design/VECTORIAL_PSF_SIMULATION.md §3/§4 for why this was NOT chosen as the default: per-emitter
 // FFT cost, and periodic-boundary ringing risk on a non-periodic tile). Shifts a real oversampled
 // kernel tile by a continuous (shiftX,shiftY), in kernel-grid units, via the Fourier shift theorem —
 // reuses fft2d() (MODULE: locprecision) on a zero-padded square buffer. Padding to >=2x the tile's
@@ -5853,7 +5853,7 @@ function fftShiftKernelTile(kernel, nx, ny, shiftX, shiftY){
 // interpMode 'fft' aligns that shared fraction onto the grid with ONE Fourier shift of the raw
 // kernel per emitter (fftShiftKernelTile()), after which each sub-cell is an integer lookup — i.e.
 // nearest-neighbour into the block sums of the shifted kernel. Kept for comparison against 'cubic'
-// (docs/VECTORIAL_PSF_SIMULATION.md §3/§4 for why it is not the default: per-emitter FFT cost, and
+// (docs/design/VECTORIAL_PSF_SIMULATION.md §3/§4 for why it is not the default: per-emitter FFT cost, and
 // periodic-boundary ringing risk on a non-periodic tile); it has no GPU path.
 // Everything about one emitter's splat that does not depend on the camera pixel: its centre
 // pixel (X0,Y0), the block-sum index (bx,by) of pixel (X0,Y0)'s first interpolation tap, and the
@@ -10199,7 +10199,7 @@ function psfWorkerSource(){
       if(d.ping){
         // Self-test the whole numeric path (not just the message channel) with a tiny
         // unaberrated plane, and confirm it isn't silently all-zero — the exact worker-init
-        // gotcha docs/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §5 warns about (a skipped
+        // gotcha docs/design/VECTORIAL_ZERNIKE_PSF_IMPLEMENTATION.md §5 warns about (a skipped
         // init step upstream producing all-zero output with no exception at all).
         try{
           const cfg={NA:1.4, lambda:660e-9, ns:1.33, ni:1.518, ti0:150e-6, particleAxialPosition:0, zStep:20e-9, zernikeCoeffs:new Array(15).fill(0)};
@@ -22372,7 +22372,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-28m — the simulated ground truth is dropped when a movie is loaded, cropped or rotated (and a simulation made with Rotate movie set has none), so Compare to GT can no longer score real data against a stale simulation; Simulate movie logs every non-default simulation field.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-28n — Quick guide step 1 mentions Compare to GT; docs: Simulation guide, 0.13.0 changelog.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23814,7 +23814,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
 
     <h3>Guided workflow</h3>
     <ol>
-      <li><b>Get data.</b> Click <b>Load data</b> for a real <code>.tif</code>/<code>.tiff</code> stack (or a native Nikon <code>.nd2</code> or camera-generated <code>.fits</code> file — the same button also accepts a CSV previously written by <b>Save localisations</b>), or <b>Simulate movie</b> for a test dataset (open <b>Simulation</b> to adjust frames, blink density and photons).</li>
+      <li><b>Get data.</b> Click <b>Load data</b> for a real <code>.tif</code>/<code>.tiff</code> stack (or a native Nikon <code>.nd2</code> or camera-generated <code>.fits</code> file — the same button also accepts a CSV previously written by <b>Save localisations</b>), or <b>Simulate movie</b> for a test dataset with a known answer (open <b>Simulation</b> to choose the structure, density and physics; <b>Compare to GT</b> then grades your analysis against it).</li>
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. <b>Phasor</b> is the speed option (no iteration); <b>Gaussian (LS)</b> and <b>Gaussian (MLE)</b> trade speed for precision, with MLE reporting a proper per-localization CRLB uncertainty and covering spherical, elliptical, 3D-astigmatic and rotated-elliptical (sSMLM) variants — see the <b>Fit method</b> popup and the full docs for when to use which. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
       <li><b>Localize.</b> The raw view refreshes live with detected ROIs (green boxes) and accepted localizations as the run progresses; the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>

@@ -34,8 +34,9 @@ in-app, plus acknowledgements and licence.
 1. **Get data.** Click **Load data** for a real `.tif`/`.tiff` stack (or
    a native Nikon `.nd2` or camera-generated `.fits` file — the same button
    also accepts a CSV previously written by **Save localisations**), or **Simulate
-   movie** for a test dataset (open **Simulation** to adjust frames,
-   blink density and photons).
+   movie** for a test dataset with a known answer (open **Simulation** to
+   choose the structure, density and physics; **Compare to GT** then grades
+   your analysis against it).
 2. **Set detection & fit.** Pick a **Fit method** first — the relevant
    parameters follow it. **Phasor** is the speed option (no iteration);
    **Gaussian (LS)** and **Gaussian (MLE)** trade speed for precision, with
@@ -62,6 +63,20 @@ in-app, plus acknowledgements and licence.
    DD/DA/AA intensity-vs-time traces; **Single-particle tracking** links
    per-frame localizations into trajectories and estimates diffusion
    coefficients.
+
+## Simulation
+
+**Simulate movie** generates synthetic data with a known ground truth, entirely in the
+browser: a labelled 3D structure (microtubule networks in whole cells, nuclear pore
+complexes, filaments, a tilted plane, a uniform volume or a spherical shell), molecules
+that blink and bleach, a structured background, an sCMOS or EMCCD camera, and a
+physically modelled vectorial PSF (Gibson-Lanni + Zernike aberrations, including
+astigmatism and extended-depth presets). **Compare to GT** then scores a Localize
+result against the truth — detection, lateral and axial error, per molecule and per
+depth — and **Calib. stack** simulates a matching bead stack for 3D calibration.
+Seeded runs are exactly reproducible; rendering runs on the GPU when available.
+Step-by-step instructions and worked recipes:
+[Simulation guide](https://websmlm.readthedocs.io/en/latest/content/02-module-reference.html#websmlm-simulation-guide).
 
 ## Live streaming (experimental)
 
