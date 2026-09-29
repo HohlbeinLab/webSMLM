@@ -423,6 +423,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | **Compare to GT** | `computeTruthScore()` | simulated data only; `cycleTruthPlotMode()` flips its raw-panel view |
 | Preview pairs / Pair & plot sSMLM / Unpair | `previewSSmlmPairs()` / `runSSmlmPair()` / `unpairSSmlm()` | no standalone "Fit dist. & angle" any more — Preview pairs auto-fits internally |
 | Show spectral/standard | `toggleSSmlmColorView()` | |
+| Show data projection / Show reconstruction | `toggleDataProjection()` | needs a reconstruction and the loaded movie |
 | **Track** (spt) | `runSptTrack()` | |
 | Save track data | `exportSptSummary()` | |
 | Show track data | `openTrackTable()` | |
@@ -1004,6 +1005,14 @@ maps, blur and display scaling apply without refitting. `srIsRecon` tracks
 whether `srFull` is the real per-localization reconstruction (vs. the
 pre-Run data projection or a calibration bead composite) — gates the crop
 tool and the nm-per-pixel conversion (`srNmPerPx()`).
+
+**Show data projection** (below the reconstruction panel, once a reconstruction exists and the
+movie is still loaded) switches the panel to the **Data projection** — the average of the raw
+frames shown before Localize (under ALEX, of the excitation the projection toggle shows) — and
+**Show reconstruction** switches back. The reconstruction is kept, not re-rendered, and the view
+keeps the same field of view in both, so a region can be compared directly with the raw data.
+Changing a rendering setting, or anything else that takes the panel, returns to the
+reconstruction.
 
 `renderSuperRes()`'s accumulator buffers are DENSE — one value per
 super-resolution pixel across the *whole* `(w×mag)×(h×mag)` grid,

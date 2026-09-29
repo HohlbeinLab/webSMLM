@@ -230,6 +230,13 @@ what makes GUI and command-line use interchangeable.
     30000-px-wide panel with its zoomed patch).
   - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
     `maxMagForFrame()` since `reconstruction.png` is one canvas. `mag` min is 1.
+  - **Show data projection** (`toggleDataProjection()`, `srProjToggleBtn`): swaps `srFull` to the
+    Data projection (`computeStackProjection()`, shared with `showStackProjection()`) and back,
+    keeping the reconstruction in `srProjSaved` and the field of view (÷/× its magnification).
+    `syncSrProjToggle()` (from `syncSaveImg()`) drops the saved state once anything else owns the
+    panel, and shows the button only while a reconstruction or this projection does.
+  - Simulate movie drives one progress bar over its stages with `setProgRange(lo,hi)` (structure
+    0–10%, PSF build 10–40%, frames 40–100%); inside a range `setProg()` maps 0–100 and ignores null.
   - `rerender()` is async and serialized (one render at a time, latest request wins; `_srRenderSeq`
     discards stale results, also when `lastResult` was cleared mid-render). Previews
     (`isPreview`) never set zmin/zmax and don't log timing. On failure the previous image stays.
