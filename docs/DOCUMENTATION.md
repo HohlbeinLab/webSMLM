@@ -732,7 +732,7 @@ large, or emitters beyond it are clamped to the last plane (the log counts them)
 
 The log warns when the structure reaches beyond the depth over which the PSF's width ratio encodes
 z single-valued (roughly ±450–550 nm for the astigmatism presets at NA 1.4). Beyond it a width-based
-3D fit can put an emitter on the wrong side of focus. The default ±1000 nm deliberately goes past
+3D fit can put an emitter on the wrong side of focus. The default ±750 nm deliberately goes past
 it; set Structure Z range to ~400 nm to stay inside, or to 0 for a flat, 2D-like sample. A truly 2D
 simulation (all z = 0, one PSF plane) is `paramOverrides.simulation_3d = false`.
 
@@ -2192,18 +2192,18 @@ elapsed time instead.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `frames` | Frames | number (int) | 50 | 5000 | 50 | 2000 |
+| `frames` | Frames | number (int) | 50 | 5000 | 50 | 5000 |
 | `simulation_structureType` | Structure type | enum (`microtubules`, `nup`, `filaments_ring`, `tiltedPlane`, `uniform3D`, `shell`) | — | — | — | `microtubules` |
 | `simulation_densityPreset` | Emitter density | enum (`low` 0.05, `med` 0.2, `high` 0.5, `veryhigh` 2, `custom`) | — | — | — | `high` |
 | `simulation_realism` | Physics detail | enum (`min` Basic, `med` Realistic, `max` Full, `custom`) | — | — | — | `med` |
 | `dens` | Emitter density (µm⁻²·frame⁻¹) | number | 0 | 5 | 0.01 | 0.5 |
 | `simulation_labelEfficiency` | Labeling efficiency (%) | number (int) | 0 | 100 | 1 | 70 |
-| `simulation_zRange` | Structure Z range (±nm) | number | 0 | 5000 | 10 | 1000 |
+| `simulation_zRange` | Structure Z range (±nm) | number | 0 | 5000 | 10 | 750 |
 | `simulation_mt_focusZ` | Focus height (nm) | number | 0 | 10000 | 10 | 250 |
 | `simulation_nup_count` | Number of NPCs | number (int) | 1 | 500 | 1 | 100 |
 | `simulation_structureSize` | Structure size (nm) — the spherical shell's radius | number | 10 | 5000 | 10 | 500 |
 | `driftpx` | Drift (px, total) | number | 0 | 30 | 0.5 | 0 |
-| `phot` | Photons/emitter/frame | number (int) | 0 | 50000 | 50 | 900 |
+| `phot` | Photons/emitter/frame | number (int) | 0 | 50000 | 50 | 2000 |
 | `simulation_illumProfile` | Illumination | enum | `flat`, `gaussian`, `sigmoid` | | | `gaussian` |
 | `simulation_illumFwhmPct` | Beam width (% of FOV) | number | 10 | 300 | 5 | 70 |
 | `simlifetime` | ON lifetime (frames, mean) | number | 0.1 | 20 | 0.1 | 1 |
@@ -2223,7 +2223,7 @@ elapsed time instead.
 | `simulation_emGain` | EM gain (×, EMCCD) | number | 1 | 2000 | 10 | 300 |
 | `simulation_psfModel` | PSF model | enum (`gaussian`, `zernike`) | — | — | — | `zernike` |
 | `simulation_psfZernikePreset` | Aberration preset | enum (`none`, `astigWeak`, `astigModerate`, `astigStrong`, `comaWeak`, `comaStrong`, `sphericalWeak`, `sphericalStrong`, `trefoilModerate`, `mixedRealistic`, `saddlePoint`, `extendedRange`, `extendedRangeStrong`) | — | — | — | `astigModerate` |
-| `simulation_psfNA` | Numerical aperture (NA) | number | 0.5 | 1.7 | 0.01 | 1.4 |
+| `simulation_psfNA` | Numerical aperture (NA) | number | 0.5 | 1.7 | 0.01 | 1.49 |
 | `simulation_psfWavelength` | Wavelength (nm) | number | 300 | 900 | 1 | 660 |
 
 **Further settings**, each in its sub-group (in italics), below that sub-group's divider line (*Performance*: the Point spread function sub-group's second divider):
@@ -2244,7 +2244,7 @@ elapsed time instead.
 | `simulation_psfZernikeCustom` | *PSF:* Custom Zernike (mWave) — 15 or 28 comma-separated values; blank = use the preset | text | — | — | — | blank |
 | `simulation_bgHazeWeight` | *Background:* Out-of-focus haze (weight) | number | 0 | 10 | 0.1 | 1 |
 | `simulation_bgHazeWidth` | *Background:* Haze blur σ (nm) | number | 100 | 5000 | 50 | 800 |
-| `simulation_psfZRange` | *Performance:* PSF z range (±nm) | number | 50 | 2000 | 10 | 2000 |
+| `simulation_psfZRange` | *Performance:* PSF z range (±nm) | number | 50 | 2000 | 10 | 750 |
 | `simulation_psfZStep` | *Performance:* PSF z step (nm) | number | 1 | 100 | 1 | 10 |
 | `simulation_psfOversample` | *Performance:* PSF lateral oversampling (×) | number (int) | 4 | 8 | 1 | 4 |
 | `simulation_psfKernelWidth` | *Performance:* PSF kernel width (nm) | number | 500 | 6000 | 50 | 6000 |
@@ -2301,7 +2301,7 @@ arrive as a Poisson process at randomly chosen labelled sites.</p>
 <p><b>Structure Z range</b> is the half-height of the structure. Every simulation is 3D, so each
 emitter keeps its own depth and is rendered with the PSF at that depth. For <b>Microtubules</b> it is
 the optical section: only dyes within ±this of <b>Focus height</b> (nm above the coverslip, the surface
-the cells lie on) are imaged. The default ±1000 nm reaches past the ±500 nm or so over which an
+the cells lie on) are imaged. The default ±750 nm reaches past the ±500 nm or so over which an
 astigmatic PSF encodes depth one-to-one; beyond that a width-based 3D fit can put an emitter on the
 wrong side of focus.</p>
 <p><b>Microtubules (cells)</b> is a window onto an effectively infinite, seed-addressed sample of cells
