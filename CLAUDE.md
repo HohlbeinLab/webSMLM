@@ -430,10 +430,11 @@ on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 **Sidebar**: top level = Structure type, Frames, Emitter density preset, Physics detail preset,
 then a 2×2 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, View ground truth, Compare to GT — disabled,
 never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample (incl.
-Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / PSF /
-Ground-truth comparison (headers upper case, accent triangle). Rarely changed settings sit in their
-own sub-group below a plain `.simsec` divider line (Sample, Background, Camera, PSF; PSF also has a
-labelled "Performance" divider; `advPsfHead`/`advPerfHead` show with the Zernike model).
+Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / Point spread
+function / Ground-truth comparison (headers upper case, accent triangle). Rarely changed settings sit
+in their own sub-group below a plain `.simsec` divider line (Sample, Background, Camera, Point spread
+function; the last also has a right-aligned "Performance" divider; `advPsfHead`/`advPerfHead` show
+with the Zernike model). "more info…" (`.infobtn`) is right-aligned everywhere.
 **Aberration preset** sits at the top level (between Frames and Emitter density), shown with the
 Zernike model. Labels that
 need a fixed break use `<span>…<br>…</span>`. Every `label.row` in `simBox` has a `title` hover tip — keep it that way.

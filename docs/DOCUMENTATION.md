@@ -406,7 +406,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Load settings | `loadSettingsJson(file)` | |
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
-| Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation PSF section |
+| Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation → Point spread function section |
 | View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a Simulate movie from this session |
 | Save sim. movie | `saveSimulatedMovie()` | the last simulated movie/bead stack as a 16-bit TIFF, plus a movie's ground truth as CSV |
 | Move view (microtubules) | `moveMtView(dxUm,dyUm)` / `moveMtViewStep(sx,sy)` | pans the microtubule window; applies on the next Simulate movie |
@@ -725,7 +725,7 @@ settings file or `paramOverrides`.
 
 Every structure has depth: emitters are spread over ±**Structure Z range** (for Microtubules,
 around Focus height) and each is drawn from the PSF plane nearest its own z (depth rounding ±½ PSF z
-step: 2.9 nm RMS at the 10 nm default). Keep **PSF z range** (PSF → Performance) at least as
+step: 2.9 nm RMS at the 10 nm default). Keep **PSF z range** (Point spread function → Performance) at least as
 large, or emitters beyond it are clamped to the last plane (the log counts them).
 
 The log warns when the structure reaches beyond the depth over which the PSF's width ratio encodes
@@ -740,7 +740,7 @@ simulation (all z = 0, one PSF plane) is `paramOverrides.simulation_3d = false`.
    Gaussian model has no depth dependence.
 2. **Optics**: **NA** and **Wavelength** here; refractive indices, **Emitter depth into sample**
    (spherical aberration from imaging into a lower-index sample; the focal shift is compensated so
-   the z sweep stays centred on the true focus) and working distance under PSF.
+   the z sweep stays centred on the true focus) and working distance under Point spread function.
 3. **Aberration preset**: *Astigmatism* is the standard 3D encoding (moderate is the default);
    *coma*, *spherical*, *trefoil* and *mixed* are for robustness tests. The engineered presets trade
    precision at focus for range:
@@ -752,10 +752,10 @@ simulation (all z = 0, one PSF plane) is `paramOverrides.simulation_3d = false`.
    | Extended depth (±1 µm) | 23.6 nm | ±1000 nm | 6.3 nm |
    | Extended depth (±1.3 µm) | 23.9 nm | ±1300 nm | 10.3 nm |
 
-   (3000 photons, 5 background photons/px, 100 nm pixels.) **Custom Zernike** (PSF)
+   (3000 photons, 5 background photons/px, 100 nm pixels.) **Custom Zernike** (Point spread function)
    takes 15 or 28 comma-separated coefficients in milliwaves, OSA order, and overrides the preset.
    Fitting the engineered presets well needs a PSF-model fitter, which is not part of this release.
-4. **Kernel grid** (PSF → Performance): **PSF z range/step**, **lateral oversampling** (4 is
+4. **Kernel grid** (Point spread function → Performance): **PSF z range/step**, **lateral oversampling** (4 is
    plenty), **kernel width** (6 µm, wide enough for a defocused PSF). Finer or wider costs build time
    once; the kernel is cached until an optical field changes.
 5. **Placement**: **PSF placement interpolation** = Cubic (default). Nearest and Linear are faster
@@ -869,7 +869,7 @@ seed, Realistic physics, density Medium. Simulate once; then per **Fit method**:
 GT, note recall, lateral median and the 50%-detection photons. Repeat at density High for crowding.
 
 **B. Astigmatic 3D, end to end, with a simulated calibration.**
-1. PSF: Zernike, *Astigmatism (moderate)*; PSF → Performance: PSF z range ±1000, step 10.
+1. Point spread function: Zernike, *Astigmatism (moderate)*; Point spread function → Performance: PSF z range ±1000, step 10.
 2. Click **Calib. 3D stack**: a bead z-stack from the same kernel, with 3D calibration's **z-step** and
    **z = 0 reference frame** filled in (the true focus is the centre frame).
 3. **3D calibration → Calibrate.**
@@ -2216,7 +2216,7 @@ elapsed time instead.
 | `simulation_psfNA` | Numerical aperture (NA) | number | 0.5 | 1.7 | 0.01 | 1.4 |
 | `simulation_psfWavelength` | Wavelength (nm) | number | 300 | 900 | 1 | 660 |
 
-**Further settings**, each in its sub-group (in italics), below that sub-group's divider line (*Performance*: the PSF sub-group's second divider):
+**Further settings**, each in its sub-group (in italics), below that sub-group's divider line (*Performance*: the Point spread function sub-group's second divider):
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
@@ -2265,9 +2265,9 @@ The sidebar's Simulation panel keeps the everyday choices at the
 top — **Structure type**, **Frames**, **Emitter density** (a preset) and
 **Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib. 3D
 stack**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
-sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **PSF**,
-**Ground-truth comparison** (the settings for Compare to GT); in Sample, Background, Camera and PSF
-the rarely changed settings sit below a divider line (PSF's kernel grid below a second one,
+sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **Point spread function**,
+**Ground-truth comparison** (the settings for Compare to GT); in Sample, Background, Camera and Point spread function
+the rarely changed settings sit below a divider line (the point spread function's kernel grid below a second one,
 *Performance*). Each has its own "more info…" popup, and every field has a
 hover tip. Rows that only apply to one structure, camera type or PSF model
 are shown only when they apply. After a successful "Simulate movie", **View
@@ -2455,7 +2455,7 @@ estimator can beat it, so it is what a fitter should be judged against: the asti
 scored an axial median of 23.4 nm against a bound of ~10 nm, i.e. the width-based fit gives away a
 factor of 2.4.
 
-**PSF** (`hint-simulation-psf`):
+**Point spread function** (`hint-simulation-psf`):
 
 <!-- HINT:simulation-psf -->
 <p><b>PSF model</b> — <code>Zernike-aberrated</code> (default) is a Gibson-Lanni + Zernike-pupil
@@ -2502,7 +2502,7 @@ physically modelled blinking, a vectorial PSF, background and a camera noise mod
 and teaching the rest of the pipeline against known-correct answers.</p>
 <p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Aberration
 preset</b> (Zernike PSF model; <b>None (2D, unaberrated)</b> for 2D data, an astigmatism or extended-depth
-preset for 3D localization — details under PSF), <b>Emitter density</b> (a preset; the exact value is under
+preset for 3D localization — details under Point spread function), <b>Emitter density</b> (a preset; the exact value is under
 Sample) and <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
 spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
 <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
@@ -2519,9 +2519,9 @@ movie (drift included) and without the drift, z, photons in that frame and molec
 units and frame numbering as <b>Save localisations</b>. Loading the TIFF back gives exactly the same
 frames.</p>
 <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
-<b>Camera</b>, <b>PSF</b> and <b>Ground-truth comparison</b>, each with its own "more info…". In
-Sample, Background, Camera and PSF the everyday settings come first and the rarely changed ones follow
-below a divider line (PSF's kernel grid below a second one, <b>Performance</b>). Every field
+<b>Camera</b>, <b>Point spread function</b> and <b>Ground-truth comparison</b>, each with its own "more info…". In
+Sample, Background, Camera and Point spread function the everyday settings come first and the rarely changed ones follow
+below a divider line (the point spread function's kernel grid below a second one, <b>Performance</b>). Every field
 also has a hover tip.</p>
 <!-- /HINT:simulation -->
 
