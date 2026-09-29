@@ -408,6 +408,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation → Point spread function section |
 | View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a Simulate movie from this session |
+| Show movie | `showSimulatedMovie()` | shows the last simulated movie again, with its ground truth (clears the current results) |
 | Save sim. movie | `saveSimulatedMovie()` | the last simulated movie/bead stack as a 16-bit TIFF, plus a movie's ground truth as CSV |
 | Move view (microtubules) | `moveMtView(dxUm,dyUm)` / `moveMtViewStep(sx,sy)` | pans the microtubule window; applies on the next Simulate movie |
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
@@ -2521,7 +2522,9 @@ and editing any of them switches it to Custom.</p>
 <p>The buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
 stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
 true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
-scores a Localize result against them (settings under Ground-truth comparison); <b>Save sim. movie</b>
+scores a Localize result against them (settings under Ground-truth comparison); <b>Show movie</b>
+brings the last simulated movie and its ground truth back after Calib. 3D stack or a crop replaced it
+(it stays in memory until the next Simulate movie or a loaded movie); <b>Save sim. movie</b>
 saves the simulated movie (or bead stack) as a 16-bit TIFF with its pixel size and frame time, and a
 movie's ground truth as a CSV: one row per emitter per frame it was on, with its position in the
 movie (drift included) and without the drift, z, photons in that frame and molecule id, in the same

@@ -484,6 +484,9 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
    messages and the GPU spec): sCMOS = Poisson → read noise (e⁻) → gain → fixed per-pixel offset map;
    EMCCD = QE + CIC → Poisson → `simNoiseGamma(n)` (scale 1) → read noise / EM gain. Both end in
    integer ADU clipped at 2^bits−1 (`simulation_bitDepth`), CPU and GPU alike.
+   **Show movie** (`showSimulatedMovie()`): `simMovie` (stack as generated + ground truth, set by
+   Simulate movie, cleared only by the next one or a movie load, so Calib. 3D stack/crop can't lose
+   it) is restored like a load (`clearAnalysisOutputs()` → `presentStack()`).
    **Save sim. movie** (`saveSimulatedMovie()`): `simSaved` (set by Simulate movie / Calib. 3D stack,
    cleared by `clearSimGroundTruth()`) → `encodeTiff16()` (MODULE: export: uncompressed 16-bit, ImageJ
    description + resolution, BigTIFF past 4 GB) and `buildGroundTruthCsv()` (per emitter-frame via

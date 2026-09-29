@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2660   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3652   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3880   synthetic stack generator ("Simulate movie")
-    validation      6935   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7794   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8050   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8660   super-resolution accumulation, view, colour maps, plots
-    workers         10184  frame-parallel detect/fit worker pool
-    gpu             10826  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13155  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13500  astigmatic width-vs-z bead calibration
-    drift           13899  AIM and cross-correlation drift correction
-    locprecision    14557  NeNA and FRC
-    sSMLM           15696  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16302  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18409  single-particle tracking and diffusion coefficients
-    pipeline        19459  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20499  Micro-Manager/pycromanager bridge (experimental)
-    table           22999  localizations table, filters, histograms, clustering
-    headless API    23684  window.webSMLM.analyze()/analyzeBatch()
+    params          2663   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3656   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3884   synthetic stack generator ("Simulate movie")
+    validation      6939   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7798   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8054   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8664   super-resolution accumulation, view, colour maps, plots
+    workers         10188  frame-parallel detect/fit worker pool
+    gpu             10830  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13159  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13504  astigmatic width-vs-z bead calibration
+    drift           13903  AIM and cross-correlation drift correction
+    locprecision    14561  NeNA and FRC
+    sSMLM           15700  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16306  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18413  single-particle tracking and diffusion coefficients
+    pipeline        19463  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20503  Micro-Manager/pycromanager bridge (experimental)
+    table           23031  localizations table, filters, histograms, clustering
+    headless API    23716  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29h</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29i</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1963,6 +1963,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <button type="button" id="truthBtn" disabled title="Compare the localizations with the simulation's ground truth: detection rate, lateral and axial error versus true depth, per-molecule precision. Available after Simulate movie and Localize; settings under Ground-truth comparison.">Compare to GT</button>
         </div>
         <div class="btnrow">
+          <button type="button" id="simShowBtn" disabled title="Show the last Simulate movie again, with its ground truth (after Calib. 3D stack or a crop replaced it). Clears the current results.">Show movie</button>
           <button type="button" id="simSaveBtn" disabled title="Save the simulated movie (or Calib. 3D stack) as a 16-bit TIFF with its pixel size and frame time, and a movie's ground truth as CSV (one row per emitter per frame it was on)">Save sim. movie</button>
         </div>
         <button type="button" class="infobtn">more info…</button>
@@ -1982,7 +1983,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>The buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
           stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
           true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
-          scores a Localize result against them (settings under Ground-truth comparison); <b>Save sim. movie</b>
+          scores a Localize result against them (settings under Ground-truth comparison); <b>Show movie</b>
+          brings the last simulated movie and its ground truth back after Calib. 3D stack or a crop replaced it
+          (it stays in memory until the next Simulate movie or a loaded movie); <b>Save sim. movie</b>
           saves the simulated movie (or bead stack) as a 16-bit TIFF with its pixel size and frame time, and a
           movie's ground truth as a CSV: one row per emitter per frame it was on, with its position in the
           movie (drift included) and without the drift, z, photons in that frame and molecule id, in the same
@@ -3633,6 +3636,7 @@ let originalStack=null;
 let rawFtmView=false;   // raw panel toggle: show the FTM-corrected preview instead of the raw frame — see ftmFrame()
 let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for scoring drift correction)
 let simSaved=null;       // the last simulated stack + its ground truth, for Save sim. movie (setSimSaved())
+let simMovie=null;       // the last Simulate movie + its ground truth, for Show movie (setSimMovie())
 // ground-truth ON events from the simulator — one entry per instantiated emitter's single
 // activation ({x,y,z,tStart,tEnd,photonsTotal}; x,y in camera px, z in nm, tStart/tEnd in
 // fractional frame units) — for comparison against recovered localizations. Reset alongside
@@ -21058,9 +21062,11 @@ async function runSimulation(){
     // Ground truth is in unrotated camera coordinates: with Rotate movie set it
     // no longer matches the frames, so drop it rather than score against it.
     const simGt=groundTruthEvents, simDrift=simTrueDrift;
+    setSimMovie({stack:generated, groundTruth, groundTruthEvents, groundTruthLocs, simTrueDrift});
     if(appliedRotation){ clearSimGroundTruth(); log(`Rotate movie is ${appliedRotation}°: the ground truth is not rotated with the frames, so Compare to GT and View ground truth are off for this movie.`); }
     // Saved as generated (unrotated), so the ground truth still matches the saved frames.
     setSimSaved({stack:generated, kind:'movie', name:'webSMLM_simulated', gt:simGt, drift:simDrift, frameTimeS:paramValue('frametime')});
+    simMovie.saved=simSaved;
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -21086,6 +21092,32 @@ async function runSimulation(){
   }
 }
 $('genBtn').addEventListener('click',runSimulation);
+
+// "Show movie": the last Simulate movie stays in memory (simMovie) until a new Simulate movie or
+// Load data of a movie replaces it, so Calib. 3D stack or a crop can't lose it. Restoring it
+// clears the current results, like a load, and brings back its ground truth and Save sim. movie.
+function setSimMovie(v){ simMovie=v; const b=$('simShowBtn'); if(b) b.disabled=!v; }
+async function showSimulatedMovie(){
+  const sm=simMovie;
+  if(!sm){ log('⚠ Show movie: no simulated movie in memory — run Simulate movie first.'); return; }
+  if(unrotatedStack===sm.stack && stack===rotatedStack){ log('The simulated movie is already shown.'); return; }
+  logCmd({}, 'showSimulatedMovie()');
+  const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
+  clearAnalysisOutputs();
+  $('zmin').value=''; $('zmax').value='';   // as runSimulation(): View ground truth picks its own z range
+  stack=rotateNewStack(sm.stack); stackName='webSMLM_simulated';
+  setSimSaved(sm.saved);
+  if(appliedRotation) log(`Rotate movie is ${appliedRotation}°: the ground truth is not rotated with the frames, so Compare to GT and View ground truth are off for this movie.`);
+  else{
+    ({groundTruth, groundTruthEvents, groundTruthLocs, simTrueDrift}=sm);
+    setViewGtBtn(!!(groundTruthLocs && groundTruthLocs.length));
+  }
+  $('pxnm').value=stack.px;
+  drawView(); syncSaveImg();
+  if(!await presentStack(myEpoch)) return;
+  log(`Simulated movie shown again: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
+}
+$('simShowBtn').addEventListener('click', showSimulatedMovie);
 
 // "Calib. 3D stack": a bead z-stack from the Preview PSF kernel, shown like a loaded
 // movie, with calStep/calRef written so 3D calibration's Calibrate is ready.
@@ -21354,7 +21386,7 @@ async function loadMovieFiles(fs){
   fs.forEach(registerTerminalFile);   // makes this exact selection recallable-by-name in the log terminal, see registerTerminalFile()'s own comment
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   const multi=fs.length>1;
-  clearAnalysisOutputs();
+  clearAnalysisOutputs(); setSimMovie(null);   // a loaded movie replaces the simulated one (frees its memory)
   syncSaveImg();   // the previous stack's content (if any) is gone; disable Save image until showFrame(0) below draws something new
   stackName = multi ? `${fs[0].name} (+${fs.length-1} more)` : fs[0].name;
   // Logged before loading (announce, then narrate). Single-file only (the CLI
@@ -22907,8 +22939,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29h — log messages follow one convention:
-⚠ <Button>: <what's missing> — <how to fix it>; the ⚠ marker is red.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29i — Show movie brings the last simulated
+movie back after Calib. 3D stack or a crop replaced it.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
