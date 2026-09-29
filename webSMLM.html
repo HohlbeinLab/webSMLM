@@ -35,23 +35,23 @@
     params          2673   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          3667   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3895   synthetic stack generator ("Simulate movie")
-    validation      6951   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7814   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8070   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8680   super-resolution accumulation, view, colour maps, plots
-    workers         10204  frame-parallel detect/fit worker pool
-    gpu             10846  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13175  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13520  astigmatic width-vs-z bead calibration
-    drift           13932  AIM and cross-correlation drift correction
-    locprecision    14590  NeNA and FRC
-    sSMLM           15729  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16335  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18442  single-particle tracking and diffusion coefficients
-    pipeline        19492  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20532  Micro-Manager/pycromanager bridge (experimental)
-    table           23153  localizations table, filters, histograms, clustering
-    headless API    23842  window.webSMLM.analyze()/analyzeBatch()
+    validation      6956   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7939   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8195   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8805   super-resolution accumulation, view, colour maps, plots
+    workers         10329  frame-parallel detect/fit worker pool
+    gpu             10971  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13300  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13645  astigmatic width-vs-z bead calibration
+    drift           14057  AIM and cross-correlation drift correction
+    locprecision    14715  NeNA and FRC
+    sSMLM           15854  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16460  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18567  single-particle tracking and diffusion coefficients
+    pipeline        19617  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20657  Micro-Manager/pycromanager bridge (experimental)
+    table           23282  localizations table, filters, histograms, clustering
+    headless API    23971  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29q</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29r</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2381,7 +2381,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
           <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
           </ul>
-          <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral and axial (signed) error histograms, recall vs photons, Jaccard vs match radius, fitted vs true photons, and measured precision vs the reported CRLB. Each plot's legend names every mark; a box in its corner gives the numbers and how to read it. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
+          <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral and axial (signed) error histograms, recall vs photons, Jaccard vs match radius, fitted vs true photons, and measured precision vs the reported CRLB and the theoretical CRLB (the best any localiser could do on these emitters, from the true PSF, photons, background and camera, so it also shows for phasor, which reports no CRLB). Each plot's legend names every mark; a box in its corner gives the numbers and how to read it. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
         </div>
         </details>
       </details>
@@ -4919,12 +4919,12 @@ async function generateSynthetic(){
   // Both stay null when the Gaussian model (default) is selected, leaving the existing fixed-sigma
   // render loop below untouched for that case — a Gaussian PSF has no z-dependent width to vary.
   const psfModel=paramValue('simulation_psfModel');
-  let zKernel=null, zKernelStack=null, kernelStack=null;
+  let zKernel=null, zKernelStack=null, kernelStack=null, psfCfgUsed=null;   // psfCfgUsed: for the ground truth's CRLB model
   // Out-of-focus emitters need a z-dependent PSF even in a 2D simulation, so they force the full
   // kernel stack too; the in-focus emitters then simply all use its focal plane (their z is 0).
   const hazeRatio=paramValue('simulation_hazeRatio'), hazeDepth=paramValue('simulation_hazeDepth');
   if(psfModel==='zernike' && (is3d || hazeRatio>0)){
-    const cfg=readPsfConfigFromUI();
+    const cfg=readPsfConfigFromUI(); psfCfgUsed=cfg;
     setProgRange(10,40); kernelStack=await getOrBuildPsfKernelStack(cfg); setProgRange(null); setProg(40);
     const kstack=kernelStack;
     // `planes` is filled by prepareSimKernelPlanes() once the events are known (only the planes
@@ -4939,7 +4939,7 @@ async function generateSynthetic(){
         `oversampled, ${kstack.nz} z-planes × ${kstack.zStepNm}nm, camRad=${zKernelStack.camRad}px, `+
         `interp=${zKernelStack.interpMode}).`);
   } else if(psfModel==='zernike'){
-    const cfg=readPsfConfigForSimulation();
+    const cfg=readPsfConfigForSimulation(); psfCfgUsed=cfg;
     setProgRange(10,40); const stack=await getOrBuildPsfKernelStack(cfg); setProgRange(null); setProg(40);
     const {norm, ksum}=normalizePsfPlane(stack.slices[0]);
     const interpMode=paramValue('simulation_psfInterp');
@@ -5108,6 +5108,11 @@ async function generateSynthetic(){
     if(!bgMap) bgMap=new Float32Array(w*h).fill(bg);
     for(let i=0;i<bgMap.length;i++) bgMap[i]*=illumField[i];
   }
+  // What Compare to GT's theoretical CRLB needs (makeTruthCrlbModel()): the PSF (its settings; the
+  // kernel is rebuilt or taken from the cache when scoring), the true background field and fade,
+  // and the camera. Rides on the ground truth, so Save/Load ground truth carry it too.
+  groundTruthEvents._theory={ is3d, psf: psfCfgUsed ? {model:'zernike', cfg:psfCfgUsed} : {model:'gaussian', sigma},
+    bg:{flat:bg, map:bgMap, decay:bgDecay}, cam:{type:cam.type, qe:cam.qe, cic:cam.cic, emGain:cam.emGain, readNoiseE} };
   if(bgMap){ let lo=Infinity,hi=0; for(const v of bgMap){ if(v<lo)lo=v; if(v>hi)hi=v; }
     log(`Background: structured field, mean ${bg} photons/px (range ${lo.toFixed(1)}–${hi.toFixed(1)})`+
         (bgDecay>0?`, fading to 30% with a ${bgDecay}-frame time constant`:'')+`.`); }
@@ -7060,6 +7065,101 @@ function matchFrameCylinder(locs, gts, radiusPx, axialTolNm, pxNm){
 //  - z errors are only accumulated where both sides have a finite z. A 2D fit method, or a 2D
 //    simulation, therefore yields the same detection and lateral numbers through the same code
 //    path, just without the axial ones — no separate 2D branch.
+// Theoretical CRLB of a true emitter-frame (Compare to GT's "theoretical" line): the Fisher
+// information of the simulator's own image model, so it is the best precision ANY unbiased
+// localiser could reach on that emitter, whatever the fit method (phasor included). Model: the true
+// PSF (Zernike kernel plane nearest the true z, binned to camera pixels, or the point-sampled
+// Gaussian), the true photons N and the true local background b (photons/px). Parameters [x,y,N,b],
+// plus z when the simulation is 3D, all nuisance ones marginalised. Pixel noise in photoelectrons:
+// Poisson (after QE for an EMCCD, whose gain register doubles the variance) plus read noise as
+// extra variance (Huang et al., Nat. Methods 2013); an EMCCD's CIC adds to the mean. Lateral
+// derivatives shift the oversampled kernel by one sub-cell (1/os camera px); z derivatives use the
+// neighbouring planes. The variance is averaged over four sub-pixel emitter positions. Light of the
+// out-of-focus population is not counted as background. th = groundTruthEvents._theory, kernel =
+// the kernel stack built from th.psf.cfg (null for the Gaussian model).
+function makeTruthCrlbModel(th, kernel, w, h, pxNm){
+  const {psf,bg,cam,is3d}=th, emccd=cam.type==='emccd';
+  const g=emccd?cam.qe:1, excess=emccd?2:1, cic=emccd?(cam.cic||0):0;
+  const readE2=(emccd?cam.readNoiseE/Math.max(1,cam.emGain):cam.readNoiseE)**2;
+  const R=10, S=2*R+1, NPIX=S*S;                   // Fisher window: ±R camera px around the emitter
+  const PH=[[0.25,0.25],[0.75,0.25],[0.25,0.75],[0.75,0.75]];   // sub-pixel emitter positions
+  const zernike=psf.model==='zernike' && !!kernel;
+  const os=zernike?psf.cfg.oversample:1, nz=zernike?kernel.slices.length:1;
+  const focus=zernike?kernel.focusIndex:0, zStep=zernike?kernel.zStepNm:1;
+  // Binned camera-pixel image (window S×S, emitter in pixel R at fractional (fx,fy)), unit mass.
+  const binned=(k,fx,fy)=>{
+    const img=new Float64Array(NPIX);
+    if(!zernike){ const sg=psf.sigma, A=1/(2*Math.PI*sg*sg);   // as splatSimFrame(): point-sampled
+      for(let j=0;j<S;j++) for(let i=0;i<S;i++){ const dx=i-R+0.5-fx, dy=j-R+0.5-fy;
+        img[j*S+i]=A*Math.exp(-(dx*dx+dy*dy)/(2*sg*sg)); }
+      return img; }
+    const sl=kernel.slices[k], nx=kernel.nx, ny=kernel.ny, cx=(nx-1)/2, cy=(ny-1)/2;
+    let tot=0;
+    for(let v=0;v<ny;v++){ const pyy=Math.floor(fy+(v-cy)/os)+R, row=v*nx;
+      for(let u=0;u<nx;u++){ const val=sl[row+u]; tot+=val;
+        if(pyy<0||pyy>=S) continue; const pxx=Math.floor(fx+(u-cx)/os)+R;
+        if(pxx>=0&&pxx<S) img[pyy*S+pxx]+=val; } }
+    if(tot>0) for(let i=0;i<NPIX;i++) img[i]/=tot;
+    return img;
+  };
+  // Per plane and phase: p and dp/dx, dp/dy (per camera px), cached.
+  const planeCache=new Map();
+  const plane=k=>{
+    let P=planeCache.get(k); if(P) return P;
+    const d=zernike?1/os:1e-3;
+    P=PH.map(([fx,fy])=>{ const p=binned(k,fx,fy), xp=binned(k,fx+d,fy), xm=binned(k,fx-d,fy), yp=binned(k,fx,fy+d), ym=binned(k,fx,fy-d);
+      const dpx=new Float64Array(NPIX), dpy=new Float64Array(NPIX);
+      for(let i=0;i<NPIX;i++){ dpx[i]=(xp[i]-xm[i])/(2*d); dpy[i]=(yp[i]-ym[i])/(2*d); }
+      return {p,dpx,dpy}; });
+    planeCache.set(k,P); return P;
+  };
+  const planeOf=z=>!zernike||nz<2 ? 0 : Math.max(0,Math.min(nz-1, focus+Math.round((isFinite(z)?z:0)/zStep)));
+  const withZ=!!is3d && zernike && nz>=3;
+  const memo=new Map();
+  // {lat, z} (nm) for true depth z (nm), true photons N and background b (photons/px).
+  const bound=(z,N,b)=>{
+    const k=planeOf(z), key=k+'|'+Math.round(Math.log(Math.max(1,N))/0.05)+'|'+Math.round(Math.log(Math.max(1e-3,b))/0.05);
+    let r=memo.get(key); if(r) return r;
+    const P=plane(k), np=withZ?5:4;
+    const k0=Math.max(0,k-1), k1=Math.min(nz-1,k+1), Pm=withZ?plane(k0):null, Pp=withZ?plane(k1):null;
+    let vl=0, vz=0, nOk=0;
+    for(let ph=0;ph<PH.length;ph++){
+      const {p,dpx,dpy}=P[ph], F=Array.from({length:np},()=>new Float64Array(np)), du=new Float64Array(np);
+      for(let i=0;i<NPIX;i++){
+        const mu=N*p[i]+b, varE=excess*(g*mu+cic)+readE2; if(!(varE>0)) continue;
+        du[0]=N*dpx[i]; du[1]=N*dpy[i]; du[2]=p[i]; du[3]=1;
+        if(withZ) du[4]=N*(Pp[ph].p[i]-Pm[ph].p[i])/((k1-k0)*zStep);
+        const wgt=g*g/varE;
+        for(let a=0;a<np;a++){ const da=du[a]*wgt; if(!da) continue; for(let c=a;c<np;c++) F[a][c]+=da*du[c]; }
+      }
+      for(let a=0;a<np;a++) for(let c=0;c<a;c++) F[a][c]=F[c][a];
+      const A=F.map(row=>Array.from(row)), unit=j=>Array.from({length:np},(_,q)=>q===j?1:0);
+      const ex=solveLin(A,unit(0)), ey=solveLin(A,unit(1)), ez=withZ?solveLin(A,unit(4)):null;
+      if(!ex||!ey||!(ex[0]>0)||!(ey[1]>0)) continue;
+      vl+=(ex[0]+ey[1])/2; if(ez&&ez[4]>0) vz+=ez[4]; nOk++;
+    }
+    r = nOk ? {lat:Math.sqrt(vl/nOk)*pxNm, z:withZ&&vz>0?Math.sqrt(vz/nOk):NaN} : {lat:NaN, z:NaN};
+    memo.set(key,r); return r;
+  };
+  // True background at camera pixel (x,y) in frame f, as generateSynthetic() built it.
+  const bgAt=(x,y,f)=>{
+    if(!bg.map) return bg.flat;
+    const xi=Math.max(0,Math.min(w-1,Math.round(x))), yi=Math.max(0,Math.min(h-1,Math.round(y)));
+    return bg.map[yi*w+xi]*simBgScale(f,bg.decay);
+  };
+  return {bound, bgAt, withZ};
+}
+// Builds makeTruthCrlbModel() for a ground truth that carries _theory, rebuilding (or reusing the
+// cached) PSF kernel from its settings. Null when the ground truth has none (older files) or the
+// kernel can't be built; the scorer then just leaves the theoretical line out.
+async function truthCrlbModelFor(gtEvents, onLog=log){
+  const th=gtEvents && gtEvents._theory, mv=gtEvents && gtEvents._movie;
+  if(!th || !mv) return null;
+  try{
+    const kernel = th.psf.model==='zernike' ? await getOrBuildPsfKernelStack(th.psf.cfg) : null;
+    return makeTruthCrlbModel(th, kernel, mv.w, mv.h, mv.pxNm);
+  }catch(err){ onLog(`!!! Compare to GT: the theoretical CRLB is left out — the PSF could not be rebuilt (${err.message}).`); return null; }
+}
 async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLog,onProgress}={}){
   const radiusPx=(cfg.validation_matchRadius||250)/px;
   const nBins=Math.max(4, cfg.validation_zBins||20);
@@ -7150,7 +7250,9 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
   // Per COUNTED matched pair, beyond position: what the fit reported about itself. True photons
   // and fitted photons (photometry), the fit's own CRLB (lpx/lpy px, lpz nm — uncertainty
   // precision vs CRLB). Parallel to dx/dy, i.e. one entry per tp.
-  const pr={phT:[], phF:[], lpx:[], lpy:[], lpz:[], dz:[]};
+  // zT/bgT: true z and true local background, for the theoretical CRLB (cfg._crlbModel).
+  const pr={phT:[], phF:[], lpx:[], lpy:[], lpz:[], dz:[], zT:[], bgT:[]};
+  const crlbModel=cfg._crlbModel||null;
   let fpNoTruth=0;                                 // FPs in frames with no truth at all (radius-independent)
   const fpZ=[];                                    // fitted z of every false positive (Jaccard vs depth)
   const sweep=[];                                  // per-frame {Lf,Gf} kept for the match-radius sweep
@@ -7199,6 +7301,7 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
       { const m=molOf(p.b); if(m){ m.hits++; m.sdx+=p.a.x-p.b.x; m.sdy+=p.a.y-p.b.y; } }
       pr.phT.push(p.b.phot); pr.phF.push(p.a.photons); pr.lpx.push(p.a.lpx); pr.lpy.push(p.a.lpy);
       pr.lpz.push(isFinite(p.a.z)&&isFinite(p.b.z)?p.a.lpz:NaN); pr.dz.push(isFinite(p.a.z)&&isFinite(p.b.z)?p.a.z-p.b.z:NaN);
+      pr.zT.push(p.b.z); pr.bgT.push(crlbModel?crlbModel.bgAt(p.b.x,p.b.y,f):NaN);
       if(isFinite(p.a.z) && isFinite(p.b.z)){ dz.push(p.a.z-p.b.z); zTrue.push(p.b.z); nZ++;
         if(p.a.zClamped) zClampedMatched++; }
     }
@@ -7379,7 +7482,8 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
                                       rsdRel:rsd(ratio)/Math.max(1e-12,med(ratio)) }; }
   // Precision vs CRLB, in true-photon bins: the measured spread (robust σ about the bin's own
   // median, x and y pooled — so bias is excluded, this is precision not accuracy) against the fit's
-  // own reported CRLB (median), laterally and, where the method reports lpz, axially.
+  // own reported CRLB (median), laterally and, where the method reports lpz, axially; and, with a
+  // CRLB model, against the theoretical CRLB of the true emitters (median over the bin's pairs).
   let crlbBins=null;
   { const idx=[]; for(let i=0;i<nPr;i++) if(isFinite(pr.phT[i])&&pr.phT[i]>0) idx.push(i);
     if(idx.length>=40){
@@ -7394,9 +7498,13 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
           const lp=b.ix.map(i=>Math.sqrt((pr.lpx[i]**2+pr.lpy[i]**2)/2)).filter(v=>isFinite(v)&&v>0);
           const N=med(b.ix.map(i=>pr.phT[i]));
           const dzs=b.ix.map(i=>pr.dz[i]).filter(isFinite), lpz=b.ix.map(i=>pr.lpz[i]).filter(v=>isFinite(v)&&v>0);
+          let theoLat=NaN, theoZ=NaN;
+          if(crlbModel){ const bs=b.ix.map(i=>crlbModel.bound(pr.zT[i], pr.phT[i], pr.bgT[i]));
+            const tl=bs.map(q=>q.lat).filter(v=>isFinite(v)&&v>0), tz=bs.map(q=>q.z).filter(v=>isFinite(v)&&v>0);
+            if(tl.length) theoLat=med(tl); if(tz.length) theoZ=med(tz); }
           return { p0:b.p0, p1:b.p1, pc:b.pc, n:b.ix.length, photons:N,
-                   measLat:rsd(dev)*px, crlbLat:lp.length?med(lp)*px:NaN,
-                   measZ:dzs.length>=10?rsd(dzs):NaN, crlbZ:lpz.length?med(lpz):NaN };
+                   measLat:rsd(dev)*px, crlbLat:lp.length?med(lp)*px:NaN, theoLat,
+                   measZ:dzs.length>=10?rsd(dzs):NaN, crlbZ:lpz.length?med(lpz):NaN, theoZ };
         });
         if(!crlbBins.length) crlbBins=null;
       }
@@ -7406,7 +7514,8 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
   // with like at every brightness instead of dividing a pooled spread by a pooled bound.
   const wRatio=(a,b)=>{ if(!crlbBins) return NaN; let s=0,n=0;
     for(const q of crlbBins) if(isFinite(q[a])&&isFinite(q[b])&&q[b]>0){ s+=q.n*q[a]/q[b]; n+=q.n; } return n?s/n:NaN; };
-  const precVsCrlb = crlbBins ? { measOverReported:wRatio('measLat','crlbLat'), zMeasOverReported:wRatio('measZ','crlbZ') } : null;
+  const precVsCrlb = crlbBins ? { measOverReported:wRatio('measLat','crlbLat'), zMeasOverReported:wRatio('measZ','crlbZ'),
+                                  measOverTheory:wRatio('measLat','theoLat'), zMeasOverTheory:wRatio('measZ','theoZ') } : null;
   if(onLog){
     onLog(`matched ${tp.toLocaleString()} of ${(tp+fn).toLocaleString()} ground-truth emitter-frames `+
           `(${fp.toLocaleString()} unmatched localization${fp===1?'':'s'}) · recall ${(tp/(tp+fn)*100).toFixed(1)}% · `+
@@ -7464,8 +7573,13 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
             `a Gaussian model also misses the PSF's tails, so a few % under 1 is expected.`);
     if(precVsCrlb){
       const f=v=>isFinite(v)?v.toFixed(2)+'×':'–';
-      onLog(`precision vs CRLB (photon-binned, bias removed): lateral measured/reported ${f(precVsCrlb.measOverReported)}`+
-            (isFinite(precVsCrlb.zMeasOverReported)?` · axial measured/reported ${f(precVsCrlb.zMeasOverReported)}`:'')+'.');
+      const pv=precVsCrlb, parts=[];
+      if(isFinite(pv.measOverReported)) parts.push(`lateral measured/reported ${f(pv.measOverReported)}`);
+      if(isFinite(pv.zMeasOverReported)) parts.push(`axial measured/reported ${f(pv.zMeasOverReported)}`);
+      if(isFinite(pv.measOverTheory)) parts.push(`lateral measured/theoretical ${f(pv.measOverTheory)}`);
+      if(isFinite(pv.zMeasOverTheory)) parts.push(`axial measured/theoretical ${f(pv.zMeasOverTheory)}`);
+      if(parts.length) onLog(`precision vs CRLB (photon-binned, bias removed): ${parts.join(' · ')}`+
+        (isFinite(pv.measOverTheory)?' — theoretical = the best any unbiased localiser could do on these emitters (true PSF, photons, background, camera).':'.'));
     }
   }
   return { tp, fp, fn, jaccard:tp/(tp+fp+fn), recall:tp/(tp+fn), precision:tp/(tp+fp),
@@ -7615,10 +7729,12 @@ function drawTruthScorePlot(res){
           'true = photons reaching the camera that frame'],'br');
     hover={mL,mT,pw,ph,xA:l0,xB:l1,yTop:l1,yBot:l0,fmt:(vx,vy)=>`true ${Math.pow(10,vx).toFixed(0)} · fitted ${Math.pow(10,vy).toFixed(0)}`};
   } else if(mode==='crlb'){
-    // Measured precision (bias removed, solid) against the fit's own reported CRLB (dashed), per
-    // true-photon bin, log-log; lateral pink, axial blue. A calibrated CRLB makes each pair coincide.
+    // Measured precision (bias removed, solid) against the fit's own reported CRLB (dotted) and the
+    // theoretical CRLB of the true emitters (dash-dot, makeTruthCrlbModel()), per true-photon bin,
+    // log-log; lateral pink, axial blue. A calibrated CRLB makes solid and dotted coincide; solid on
+    // dash-dot is a fitter at the physical limit.
     const B=res.crlbBins, vals=[];
-    for(const b of B) for(const k of ['measLat','crlbLat','measZ','crlbZ']) if(isFinite(b[k])&&b[k]>0) vals.push(b[k]);
+    for(const b of B) for(const k of ['measLat','crlbLat','theoLat','measZ','crlbZ','theoZ']) if(isFinite(b[k])&&b[k]>0) vals.push(b[k]);
     const lx0=Math.log10(B[0].p0), lx1=Math.log10(B[B.length-1].p1);
     const ly0=Math.log10(Math.min(...vals))-0.1, ly1=Math.log10(Math.max(...vals))+0.1;
     const X=v=>mL+pw*(Math.log10(v)-lx0)/Math.max(1e-9,lx1-lx0), Y=v=>mT+ph*(1-(Math.log10(v)-ly0)/Math.max(1e-9,ly1-ly0));
@@ -7626,16 +7742,23 @@ function drawTruthScorePlot(res){
     axis(v=>X(Math.pow(10,v)),v=>Y(Math.pow(10,v)),'true photons in the frame (log)','precision σ (nm, log)',
          tx.major,ty.major,0,0,pow10fmt,pow10fmt,{x:tx.minor,y:ty.minor});
     const pts=k=>B.map(b=>[X(b.photons), b[k]>0?Y(b[k]):NaN]);
-    line(pts('measLat'),MAG,2); line(pts('crlbLat'),MAG,1.2,[2,3]);
-    const it=[[MAG,'lateral: — measured   ┄ reported CRLB']];
-    if(B.some(b=>b.measZ>0)){ line(pts('measZ'),BLUE,2); line(pts('crlbZ'),BLUE,1.2,[2,3]); it.push([BLUE,'axial: — measured   ┄ reported CRLB']); }
+    const DASHDOT=[8,3,2,3], hasRep=k=>B.some(b=>b[k]>0), hasTh=k=>B.some(b=>b[k]>0);
+    const lab=(rep,th)=>'— measured'+(rep?'   ┄ reported CRLB':'')+(th?'   -·- theoretical CRLB':'');
+    line(pts('measLat'),MAG,2); line(pts('crlbLat'),MAG,1.2,[2,3]); line(pts('theoLat'),MAG,1.4,DASHDOT);
+    const it=[[MAG,'lateral: '+lab(hasRep('crlbLat'),hasTh('theoLat'))]];
+    if(B.some(b=>b.measZ>0)){ line(pts('measZ'),BLUE,2); line(pts('crlbZ'),BLUE,1.2,[2,3]); line(pts('theoZ'),BLUE,1.4,DASHDOT);
+      it.push([BLUE,'axial: '+lab(hasRep('crlbZ'),hasTh('theoZ'))]); }
     legend(it);
     const pv=res.precVsCrlb||{};
-    note([`measured ÷ reported: lateral ${isFinite(pv.measOverReported)?pv.measOverReported.toFixed(2)+'×':'–'}`+
-            (isFinite(pv.zMeasOverReported)?` · axial ${pv.zMeasOverReported.toFixed(2)}×`:''),
+    const x2=v=>isFinite(v)?v.toFixed(2)+'×':'–';
+    note([isFinite(pv.measOverReported)?`measured ÷ reported: lateral ${x2(pv.measOverReported)}`+
+            (isFinite(pv.zMeasOverReported)?` · axial ${x2(pv.zMeasOverReported)}`:''):'',
+          isFinite(pv.measOverTheory)?`measured ÷ theoretical: lateral ${x2(pv.measOverTheory)}`+
+            (isFinite(pv.zMeasOverTheory)?` · axial ${x2(pv.zMeasOverTheory)}`:''):'',
           'measured = robust σ of the true error in each bin (bias removed)',
-          'reported = median CRLB the fit gave those localizations',
-          'solid above dashed: the fit claims more precision than it has'],'bl');
+          hasRep('crlbLat')?'reported = median CRLB the fit gave those localizations':'this fit method reports no CRLB of its own',
+          hasTh('theoLat')?'theoretical = best possible for the true PSF, photons, background, camera':'',
+          hasRep('crlbLat')?'solid above dotted: the fit claims more precision than it has':''],'bl');
     hover={mL,mT,pw,ph,xA:lx0,xB:lx1,yTop:ly1,yBot:ly0,fmt:(vx,vy)=>`${Math.pow(10,vx).toFixed(0)} photons · ${Math.pow(10,vy).toFixed(1)} nm`};
   } else if(mode==='photons'){
     // Recall (left axis, 0-100%) and median lateral error (same 0-100 scale read as nm) against the
@@ -7784,7 +7907,7 @@ function truthScoreConfig(cfg, det, run){
 // "Compare to GT" button handler — shaped exactly like computeNeNA().
 async function computeTruthScore(){
   if(!lastResult||!lastResult.locs.length){ log('!!! Compare to GT: no localisations — run Localize or load them with Load data.'); return; }
-  if(!groundTruthEvents){ log('Compare to GT needs a simulated movie — its ground truth is what the localizations are compared against.'); return; }
+  if(!groundTruthEvents){ log('!!! Compare to GT: no ground truth — run Simulate movie, or load one with Load ground truth.'); return; }
   $('truthBtn').disabled=true;
   try{
     logCmd({scoreVsTruth:true, pxnm:paramValue('pxnm'),
@@ -7797,8 +7920,10 @@ async function computeTruthScore(){
     log('\nScoring against simulated ground truth…');
     if(renderLocs) log(`(using the filtered subset: ${renderLocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations)`);
     const t0=performance.now();
+    const scfg=truthScoreConfig(buildConfigFromParams(), lastResult.det, lastResult);
+    scfg._crlbModel=await truthCrlbModelFor(groundTruthEvents);
     const r=await scoreTruthCore(renderLocs||lastResult.locs, groundTruthEvents, stack?stack.n:0,
-                                 lastResult.px, simTrueDrift, truthScoreConfig(buildConfigFromParams(), lastResult.det, lastResult),
+                                 lastResult.px, simTrueDrift, scfg,
                                  {onLog:log, onProgress:p=>setProg(100*p)});
     setProg(null);
     if(r.err){ log(r.err+'.'); return; }
@@ -21406,6 +21531,8 @@ async function saveGroundTruth(){
     `"movie":${JSON.stringify({w,h,frames:n,pxNm:px})},"structureSites":${groundTruth?groundTruth.length:null},"events":{`,
     `"x":${col('x')},"y":${col('y')},"z":${col('z')},"tStart":${col('tStart')},"tEnd":${col('tEnd')},`,
     `"rate":${col('rate')},"moleculeId":${col('moleculeId')},"haze":${JSON.stringify(ev.map(e=>e.haze?1:0))}},`];
+  const th=ev._theory;   // for the theoretical CRLB (makeTruthCrlbModel())
+  if(th) parts.push(`"theory":${JSON.stringify({...th, bg:{...th.bg, map:th.bg.map?Array.from(th.bg.map):null}})},`);
   const d=simTrueDrift;
   if(d){ const dx=new Array(n), dy=new Array(n); for(let f=0;f<n;f++){ dx[f]=d.dx(f); dy[f]=d.dy(f); }
     parts.push(`"drift":{"totalPx":${d.total},"dxNm":${JSON.stringify(dx)},"dyNm":${JSON.stringify(dy)}}}`); }
@@ -21445,6 +21572,7 @@ async function loadGroundTruth(file){
   gtShowing=false; srFullBeforeGT=null;
   groundTruth=o.structureSites ? {length:o.structureSites} : null;   // only its count is ever read
   ev._movie={w:m.w, h:m.h, frames:m.frames, pxNm:m.pxNm};
+  if(o.theory) ev._theory={...o.theory, bg:{...o.theory.bg, map:o.theory.bg.map?Float32Array.from(o.theory.bg.map):null}};
   groundTruthEvents=ev;
   const gtLp=1/(m.pxNm||paramValue('pxnm'));   // 1 nm in camera px, as generateSynthetic()
   groundTruthLocs=ev.filter(e=>!e.haze).map(e=>({x:e.x, y:e.y, z:e.z, photons:e.photonsTotal, moleculeId:e.moleculeId, lpx:gtLp, lpy:gtLp}));
@@ -23062,7 +23190,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29q — log-axis plots mark every 1–9 × 10ⁿ.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29r — Compare to GT shows the theoretical CRLB
+of the true emitters (every fit method, phasor included).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -24140,10 +24269,12 @@ async function analyze(config){
   // other optional step here. Runs last: it only reads, never mutates, so its numbers describe
   // whatever drift/pairing/tracking left behind.
   let truthScore=null;
-  if(cfg.scoreVsTruth && locs.length && groundTruthEvents)
-    truthScore = await scoreTruthCore(locs, groundTruthEvents, stack?stack.n:0, cfg.pxnm, simTrueDrift,
-                                      truthScoreConfig(cfg, r&&r.det, r),
+  if(cfg.scoreVsTruth && locs.length && groundTruthEvents){
+    const scfg=truthScoreConfig(cfg, r&&r.det, r);
+    scfg._crlbModel=await truthCrlbModelFor(groundTruthEvents, onLog);
+    truthScore = await scoreTruthCore(locs, groundTruthEvents, stack?stack.n:0, cfg.pxnm, simTrueDrift, scfg,
                                       {onLog, onProgress:p=>onProgress(100*p)});
+  }
   // config.sptTrack — the headless equivalent of clicking Track (MODULE:
   // spt). Unlike sSmlmPair, runs AFTER drift/NeNA/FRC rather than before:
   // sptCore() never drops rows (track_id/D_coeff are added columns, every

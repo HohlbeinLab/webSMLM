@@ -151,8 +151,11 @@ what makes GUI and command-line use interchangeable.
   - Beyond position (per counted matched pair, `pr` arrays in `scoreTruthCore()`): Jaccard per z
     bin (FPs binned by FITTED z — they have no true one), `radiusSweep` (re-matches the stored
     per-frame `sweep` sets at 10–500 nm; the configured radius must reproduce tp/fp/fn exactly),
-    `photometry` (fitted/true photons) and `crlbBins`/`precVsCrlb` (robust measured σ vs the median reported CRLB, per true-photon
-    bin). These are measurements, not targets: never tune them towards 1. A
+    `photometry` (fitted/true photons) and `crlbBins`/`precVsCrlb` (robust measured σ vs the median reported CRLB and
+    the theoretical CRLB, per true-photon bin). The theoretical one is `makeTruthCrlbModel()`: Fisher information of the
+    simulator's own image model (true PSF plane at the true z, true photons, true local background, camera noise),
+    fed by `groundTruthEvents._theory` (PSF settings, background field/fade, camera; saved with the ground truth) via
+    `truthCrlbModelFor()`, which rebuilds the kernel from the cache. These are measurements, not targets: never tune them towards 1. A
     Localisation gain/offset that differs from the simulated camera's is logged as a warning, since
     it shifts photometry and every CRLB figure.
   - `clearSimGroundTruth()` (from `clearAnalysisOutputs()`, CSV load, `resetAfterCropChange()`)

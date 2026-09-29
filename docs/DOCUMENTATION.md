@@ -408,7 +408,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation → Point spread function section |
-| Save ground truth | `saveGroundTruth()` | the ground truth as JSON (format `webSMLM-groundtruth`: blinks column-wise, per-frame drift, movie size) |
+| Save ground truth | `saveGroundTruth()` | the ground truth as JSON (format `webSMLM-groundtruth`: blinks column-wise, per-frame drift, movie size, and the PSF settings, background field and camera the theoretical CRLB needs) |
 | Load ground truth | `loadGroundTruth(file)` | attaches a saved ground truth to the loaded movie (a File, or the name of one picked this session) |
 | View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a ground truth (Simulate movie, or Load ground truth) |
 | Show movie | `showSimulatedMovie()` | shows the last simulated movie again, with its ground truth (clears the current results) |
@@ -681,7 +681,8 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
    detection crosses 50%; the raw panel shows the first plot, and the toggle in its title cycles
    **Show z error / Show fitted vs true / Show Jaccard vs z / Show lateral hist. / Show axial hist. /
    Show vs photons / Show vs radius / Show photometry / Show vs CRLB** (each view appears only when its data
-   exists — no z views for a 2D fit, no CRLB views for a method that reports none).
+   exists — no z views for a 2D fit; Show vs CRLB appears for every method, since the theoretical CRLB of
+   the true emitters needs no uncertainty from the fit).
 6. Click **View ground truth** to see the true positions rendered like a reconstruction, with your current
    **Colour map** (it is never changed; if the ground truth has depth and **Colour by depth (z)** is off, the log
    says so); **Hide ground truth** returns to your result.
@@ -862,9 +863,23 @@ under **Ground-truth comparison**.
     every CRLB number reflect that mismatch, not the fitter.
   - **Precision vs CRLB** — per true-photon bin: measured spread (robust σ about the bin's median,
     x and y pooled — bias excluded, so this is precision, not accuracy; solid) against the median
-    reported CRLB (dashed); lateral pink, axial blue. The log gives the pair-weighted mean ratio
-    measured/reported. Check (in-focus Gaussian PSF, no read noise, matched gain, Gauss MLE
-    spherical): measured/reported 1.13, photometry 0.98.
+    reported CRLB (dotted; only for methods that report one — not phasor) and the **theoretical CRLB**
+    of the true emitters (dash-dot); lateral pink, axial blue. The log gives the pair-weighted mean
+    ratios measured/reported and measured/theoretical. Check (in-focus Gaussian PSF, no read noise,
+    matched gain, Gauss MLE spherical): measured/reported 1.13, photometry 0.98.
+  - **Theoretical CRLB** — the best precision any unbiased localiser could reach on those emitters,
+    from the Fisher information of the simulator's own image model: the true PSF (the Zernike kernel
+    plane at the emitter's true z, binned to camera pixels, or the Gaussian), the true photons and
+    true local background (field × fade), and the camera (Poisson after QE plus read noise as extra
+    variance, Huang et al. 2013; an EMCCD's gain register doubles the variance). Parameters x, y,
+    photons, background (plus z for a 3D simulation), the others marginalised; averaged over four
+    sub-pixel emitter positions. Light of out-of-focus emitters is not counted as background. The PSF
+    is rebuilt from the settings stored with the ground truth (a cache hit if unchanged), so it also
+    works for a ground truth loaded with Load ground truth. Checks: with no background the Gaussian
+    bound is σ/√N; an EMCCD gives √2 × the Poisson bound; with a Gaussian PSF it matches the MLE's
+    own reported CRLB to 1–2 %, and on sparse emitters Gauss MLE reaches 1.11× of it (phasor on the
+    astigmatic Zernike PSF 1.40×). A reported CRLB *below* the theoretical line means the fit claims
+    precision no estimator could have (e.g. a Gaussian fit on an aberrated PSF at low photon counts).
 - **Convention** = **Challenge 2016** reproduces that challenge's rules (3D cylinder 250 nm ×
   ±500 nm, dimmest 25% not counted, border cut from both sides); **Custom…** shows the rules.
 
@@ -2633,7 +2648,7 @@ edit here, then run the script, never edit the `.hint` div directly):
   <li><b>Min photons/frame</b> and <b>Edge exclusion</b> — emitter-frames too dim, or too close to the edge, to be found are "don't care": detecting one is not a false positive, missing one is not a miss.</li>
   <li><b>Crowding radius</b> splits the result into isolated and crowded emitters; <b>Score z bins</b> sets the depth resolution of the plots.</li>
 </ul>
-<p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral and axial (signed) error histograms, recall vs photons, Jaccard vs match radius, fitted vs true photons, and measured precision vs the reported CRLB. Each plot's legend names every mark; a box in its corner gives the numbers and how to read it. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
+<p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral and axial (signed) error histograms, recall vs photons, Jaccard vs match radius, fitted vs true photons, and measured precision vs the reported CRLB and the theoretical CRLB (the best any localiser could do on these emitters, from the true PSF, photons, background and camera, so it also shows for phasor, which reports no CRLB). Each plot's legend names every mark; a box in its corner gives the numbers and how to read it. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
 <!-- /HINT:validation -->
 
 **Match radius** is how close, laterally, a localization must be to a
