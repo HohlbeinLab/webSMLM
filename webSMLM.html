@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2659   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3640   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3868   synthetic stack generator ("Simulate movie")
-    validation      6923   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7782   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8038   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8648   super-resolution accumulation, view, colour maps, plots
-    workers         10172  frame-parallel detect/fit worker pool
-    gpu             10814  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13143  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13488  astigmatic width-vs-z bead calibration
-    drift           13887  AIM and cross-correlation drift correction
-    locprecision    14545  NeNA and FRC
-    sSMLM           15684  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16290  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18397  single-particle tracking and diffusion coefficients
-    pipeline        19447  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20487  Micro-Manager/pycromanager bridge (experimental)
-    table           22987  localizations table, filters, histograms, clustering
-    headless API    23672  window.webSMLM.analyze()/analyzeBatch()
+    params          2660   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3652   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3880   synthetic stack generator ("Simulate movie")
+    validation      6935   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7794   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8050   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8660   super-resolution accumulation, view, colour maps, plots
+    workers         10184  frame-parallel detect/fit worker pool
+    gpu             10826  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13155  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13500  astigmatic width-vs-z bead calibration
+    drift           13899  AIM and cross-correlation drift correction
+    locprecision    14557  NeNA and FRC
+    sSMLM           15696  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16302  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18409  single-particle tracking and diffusion coefficients
+    pipeline        19459  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20499  Micro-Manager/pycromanager bridge (experimental)
+    table           22999  localizations table, filters, histograms, clustering
+    headless API    23684  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,6 +1582,7 @@ X.B(E,Y);return E}return J}())
   /* log() already wraps prose at 80 columns (wrapCommentLine()); this cap only
      matters for an unbreakable token. */
   .log #logText{max-width:80ch}
+  .log .logwarn{color:var(--danger)}   /* the ⚠ marker, in the Stop button's red (appendLogText()) */
   /* Terminal input below the log, same monospace/dark look, full width.
      field-sizing:content grows it with its content (a fixed box where
      unsupported). Focus shows as a glow, not a border change. */
@@ -1705,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29g</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3486,8 +3487,19 @@ function formatLogEntry(e, isFirst, prevEntry){
 // Full rebuild from logHistory, under whichever logCmdStyle is current —
 // only called on the (rare) style toggle; every other log()/logCmd() call
 // just appends its own one new line via the cheaper fast path below.
+// Appends text to #logText with every ⚠ in a .logwarn span (the Stop button's red); the rest are
+// plain text nodes, so textContent (export, copy, the terminal) is still the plain log.
+function appendLogText(str){
+  const frag=document.createDocumentFragment(), parts=str.split('⚠');
+  parts.forEach((p,i)=>{
+    if(i){ const sp=document.createElement('span'); sp.className='logwarn'; sp.textContent='⚠'; frag.appendChild(sp); }
+    if(p) frag.appendChild(document.createTextNode(p));
+  });
+  $('logText').appendChild(frag);
+}
 function renderLogText(){
-  $('logText').textContent = logHistory.map((e,i)=>formatLogEntry(e,i===0,logHistory[i-1])).join('');
+  $('logText').textContent='';
+  appendLogText(logHistory.map((e,i)=>formatLogEntry(e,i===0,logHistory[i-1])).join(''));
   const l=$('log'); l.scrollTop=l.scrollHeight;
 }
 // Auto-scroll only if the log was already at the bottom (so a streaming
@@ -3495,7 +3507,7 @@ function renderLogText(){
 const log = m => {
   logHistory.push({type:'log', text:m});
   const l=$('log'); const atBottom = l.scrollHeight-l.scrollTop-l.clientHeight<24;
-  $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]);
+  appendLogText(formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]));
   if(atBottom) l.scrollTop=l.scrollHeight;
   $('exportLogBtn').disabled=false;
 };
@@ -3540,7 +3552,7 @@ function overrideWithFields(config, call){
 // a full Localize); CLI style always renders `config`.
 function logCmd(config, jsOverride){
   logHistory.push({type:'cmd', config, jsOverride});
-  $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]);
+  appendLogText(formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]));
   const l=$('log'); l.scrollTop=l.scrollHeight; $('exportLogBtn').disabled=false;
 }
 // Crop bounds for commands that touch `stack` (run, PCFO, calibration), so a
@@ -7751,7 +7763,7 @@ function truthScoreConfig(cfg, det, run){
 
 // "Compare to GT" button handler — shaped exactly like computeNeNA().
 async function computeTruthScore(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ Compare to GT: no localisations — run Localize or load them with Load data.'); return; }
   if(!groundTruthEvents){ log('Compare to GT needs a simulated movie — its ground truth is what the localizations are compared against.'); return; }
   $('truthBtn').disabled=true;
   try{
@@ -13348,7 +13360,7 @@ function encodeTiff16(frames, w, h, {pxNm=0, frameTimeS=0, extraDesc='', bigTiff
 // "Save localisations": builds the ThunderSTORM-compatible CSV (via buildCsvText())
 // from the current filtered/cropped locs and offers it through saveBlob().
 async function exportCSV(){
-  if(!lastResult||!lastResult.locs.length){ log('Nothing to export — run localisations first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ Save localisations: no localisations — run Localize first.'); return; }
   const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
   const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
   const {parts, isClustered, nNoSigma} = buildCsvText(locs, px, sigPSF);
@@ -13382,7 +13394,7 @@ function windowContent(which){
 // (long edge ≥ PARAMS.exportMinLong); plots go to exportPlotEither() (PNG or
 // SVG).
 async function exportPanel(which){
-  const c=windowContent(which); if(!c){ log('Nothing to save — that window is empty.'); return; }
+  const c=windowContent(which); if(!c){ log('⚠ Save plot/image: that window is empty — load a movie or show a plot first.'); return; }
   const isSR = which==='sr', d=$(isSR?'sr':'raw');
   const full = isSR ? srFull : rawFull, V = isSR ? view : rawView;
   if(!full) return exportPlotEither(which);
@@ -13417,7 +13429,7 @@ async function exportPanel(which){
   const note = kExp>1 ? ` — every ${kExp}th reconstruction px (the full view exceeds one image)`
              : s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
-  if(!blob){ log('Image export failed.'); return; }
+  if(!blob){ log('⚠ Save plot/image failed: the browser returned no image data.'); return; }
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix+'.png';
   const saved=await saveBlob(blob,name,'PNG image','image/png','.png');
   if(!saved){ log('Image save cancelled.'); return; }
@@ -13440,21 +13452,21 @@ function saveImageClicked(){
   }
   else if(R) exportPanel('sr');
   else if(L) exportPanel('raw');
-  else log('Nothing to save yet.');
+  else log('⚠ Save plot/image: both windows are empty — load a movie or show a plot first.');
 }
 // Both windows; each exportPanel() logs its own command.
 async function saveBothPanels(){ await exportPanel('raw'); await exportPanel('sr'); }
 // Plot export: renders a PNG (the canvas) and an SVG (SvgRecordingContext via
 // _plotTarget) up front, then the save dialog picks one (savePlotEither()).
 async function exportPlotEither(which){
-  const c=windowContent(which); if(!c){ log('Nothing to save — that window is empty.'); return; }
+  const c=windowContent(which); if(!c){ log('⚠ Save plot/image: that window is empty — load a movie or show a plot first.'); return; }
   const isSR=which==='sr', d=$(isSR?'sr':'raw'), replot=isSR?_replotSr:_replotRaw;
-  if(!replot){ log('Nothing to save — that window is not a plot.'); return; }
+  if(!replot){ log('⚠ Save plot/image: that window shows an image, not a plot — save it as an image instead.'); return; }
   const outW=d.width, outH=d.height;
   _plotExportMode=true; replot();
   const pngBlob=await new Promise(r=>d.toBlob(r,'image/png'));
   _plotExportMode=false; replot();                       // restore the on-screen (dark/light/contrast theme) view
-  if(!pngBlob){ log('Image export failed.'); return; }
+  if(!pngBlob){ log('⚠ Save plot/image failed: the browser returned no image data.'); return; }
   const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;
   const rec=makeSvgPlotCanvas(DW,DH);
   _plotExportMode=true; _plotTarget=rec;
@@ -13715,7 +13727,7 @@ async function calibrationCore(config, stack, hooks={}){
 // results into calib/cal3d/cal3dW/calMethods. Failures arrive as thrown errors
 // ("⚠ Calibration failed: …").
 async function runCalibration(){
-  if(!stack){ log('Load a bead z-stack first.'); return; }
+  if(!stack){ log('⚠ Calibrate: no bead z-stack — load one with Load data (or simulate one with Calib. 3D stack).'); return; }
   const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
   const fixedXY=paramValue('calFixedXY');
   stopRequested=false;
@@ -13875,7 +13887,7 @@ function buildCalibJson(calib){
 }
 // Saves the current 3D calibration as buildCalibJson()'s own JSON shape.
 async function exportCalibration(){
-  if(!calib){ log('Run a calibration first.'); return; }
+  if(!calib){ log('⚠ Save calib.: no calibration in memory — run Calibrate first.'); return; }
   const blob=new Blob([JSON.stringify(buildCalibJson(calib),null,2)],{type:'application/json'});
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_calib.json';
   const saved=await saveBlob(blob,name,'JSON calibration','application/json','.json');
@@ -14383,7 +14395,7 @@ let driftPlotMode='frame';
 // correction to lastResult.locs on success, and always draws whatever
 // curve was computed (including a Stop-truncated partial one).
 async function correctDrift(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ Correct drift: no localisations to correct — run Localize or load them with Load data.'); return; }
   const {locs,px}=lastResult;
   stopRequested=false;
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
@@ -14707,7 +14719,7 @@ let lastNena=null;
 // "NeNA" button handler: runs nenaPrecision() on the current locs and plots
 // the resulting histogram + fit.
 async function computeNeNA(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ NeNA: no localisations — run Localize or load them with Load data.'); return; }
   $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
     // Logged before running, with samplePct, as computeNeNA() (uses the
@@ -15208,7 +15220,7 @@ function drawFrcPlot(r){
 }
 // "Compute FRC" button handler: runs frcResolution() and plots the curve.
 async function computeFRC(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ FRC: no localisations — run Localize or load them with Load data.'); return; }
   if(paramValue('frc3d')) log('(FSC 3D not yet implemented — computing 2D FRC.)');
   $('frcBtn').disabled=true;
   try{
@@ -15652,7 +15664,7 @@ async function pcfoCore(config, stack, hooks={}){
 // "Estimate" button handler: runs pcfoCore() on the loaded stack and plots
 // the signal-vs-noise-variance fit.
 async function estimateGainOffset(){
-  if(!stack){ log('Load a stack first.'); return; }
+  if(!stack){ log('⚠ Estimate: no movie — load one with Load data or run Simulate movie.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true;
   try{
@@ -16114,7 +16126,7 @@ function fitSSmlmAngleFromCands(cands){
 // Sets Distance min/max, then Primary angle/tolerance: distance from the wide
 // candidate pool first, angle within the fitted distance window.
 function fitSSmlmDistAndAngle(){
-  if(!sSmlmLastCands || !sSmlmLastCands.length){ log('Run Preview pairs first — nothing to fit.'); return; }
+  if(!sSmlmLastCands || !sSmlmLastCands.length){ log('⚠ sSMLM fit: no candidate pairs — run Preview pairs first.'); return; }
   const d=fitSSmlmDistanceFromCands(sSmlmLastCands);   // ALL candidates, any angle
   if(d){
     $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
@@ -16153,7 +16165,7 @@ async function previewSSmlmPairsCore(){
   return sSmlmLastCands;
 }
 async function previewSSmlmPairs(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ Preview pairs: no localisations — run Localize or load them with Load data.'); return; }
   $('sSmlmPreviewBtn').disabled=true;
   try{
     // Logged as previewSSmlmPairs() (scans the existing result; the analyze()
@@ -16183,7 +16195,7 @@ async function pairSSmlm(cfg, myEpoch){
 // "Pair & plot sSMLM": pairSSmlm(), then colour-by-distance z-range, LUT and
 // rerender.
 async function runSSmlmPair(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ Pair & plot sSMLM: no localisations — run Localize or load them with Load data.'); return; }
   // pairCore() itself throws on real-3D or already-paired input (see its own
   // guards) — caught below, same as any other pairing failure.
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
@@ -16588,12 +16600,12 @@ async function smfretEnrichPairedWithAA(pairedLocs, myEpoch, acceptorFitted){
 // rerender). With ALEX it needs the donor-excitation SOI and refuses
 // otherwise rather than silently recomputing the composite.
 async function getSmfretPairingFromDonor(){
-  if(!smfretSOI || !smfretSOI.length){ log('Run Localize SOI first.'); return; }
+  if(!smfretSOI || !smfretSOI.length){ log('⚠ Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
   if(paramValue('alexEnabled') && alexProjChannel!=='dirDonorExc'){
     log('⚠ Pair DD + DA needs the donor-excitation SOI composite — switch the composite toggle to donor (DD+DA) and run Localize SOI again first.');
     return;
   }
-  if(!lastResult || !lastResult.locs || !lastResult.locs.length){ log('Run Localize SOI first.'); return; }
+  if(!lastResult || !lastResult.locs || !lastResult.locs.length){ log('⚠ Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('smfretPairingBtn').disabled=true;
   try{
@@ -16814,7 +16826,7 @@ $('smfretAlignOverlayBtn').addEventListener('click', toggleSmfretAlignOverlay);
 async function alignSmfretChannels(){
   if(!stack) return;
   const soi = sSmlmOriginalLocs || smfretSOI;
-  if(!soi || !soi.length){ log('Run Localize SOI first.'); return; }
+  if(!soi || !soi.length){ log('⚠ Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('smfretPairingBtn').disabled=true;
   try{
@@ -17438,7 +17450,7 @@ $('method').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTrace
 // photons/sigma arrays. TypedArrays go through Array.from() (JSON.stringify
 // would write them as objects); NaN gaps become null. x2/y2 only when finite.
 async function exportSmfretTraces(){
-  if(!smfretTraces || !smfretTraces.length){ log('Get traces first.'); return; }
+  if(!smfretTraces || !smfretTraces.length){ log('⚠ Save traces: no time traces — run Get traces first.'); return; }
   const frametime=paramValue('frametime');
   const n=smfretTraces[0].photonsDD.length;
   const time_s=Array.from({length:n},(_,i)=>i*frametime);
@@ -17548,7 +17560,7 @@ async function loadSmfretTraces(f){
 // (smfretTraceIdx/smfretTraceView); the E(S) histogram goes back on the SR
 // panel when a pairing makes it meaningful, same as a fresh Get traces.
 function plotSmfretTraces(){
-  if(!smfretTraces || !smfretTraces.length){ log('smFRET: no time traces yet — run Get traces first.'); return; }
+  if(!smfretTraces || !smfretTraces.length){ log('⚠ Plot traces: no time traces — run Get traces (or load a traces file with Load data).'); return; }
   smfretShowRawFrame=false;
   smfretTraceIdx=Math.max(0, Math.min(smfretTraceIdx, smfretTraces.length-1));
   $('scrubRow').style.display='none';
@@ -17849,7 +17861,7 @@ function smfretCanShowEHist(){
   return !!(smfretTraces && smfretTraces.length && smfretTraces.some(s=>s.photonsDA));
 }
 function showSmfretEHist(){
-  if(!smfretCanShowEHist()){ log('smFRET: E(S) histogram needs Get traces first, with a real DD+DA pairing (Pair DD + DA above).'); return; }
+  if(!smfretCanShowEHist()){ log('⚠ E(S) histogram: needs paired DD + DA traces — run Pair DD + DA, then Get traces.'); return; }
   const alex=paramValue('alexEnabled'), hasAA=smfretTraces.some(s=>s.photonsAA);
   renderSmfretEHistCore();
   $('smfretEHistDexRow').style.display='flex';
@@ -18714,7 +18726,7 @@ let lastSpt=null;
 // "Track" button handler: runs sptCore() (linking + per-track D), stashes
 // the result in lastSpt, and shows the default (MSD-vs-lag) histogram.
 async function runSptTrack(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize or load data first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ Track: no localisations — run Localize or load them with Load data.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('sptTrackBtn').disabled=true;
   try{
@@ -18782,9 +18794,9 @@ function buildSptSummaryCsvText(rows){
 }
 // "Save track data" button handler: one row per track (not per loc).
 async function exportSptSummary(){
-  if(!lastResult || !lastResult.locs.length){ log('Nothing to export — track first.'); return; }
+  if(!lastResult || !lastResult.locs.length){ log('⚠ Save track data: no localisations — run Localize, then Track.'); return; }
   const rows=sptTrackSummary(lastResult.locs, lastResult.px);
-  if(!rows.length){ log('Nothing to export — no tracked localizations found.'); return; }
+  if(!rows.length){ log('⚠ Save track data: no tracked localisations — run Track first.'); return; }
   const csvText=buildSptSummaryCsvText(rows);
   const blob=new Blob([csvText],{type:'text/csv;charset=utf-8'});
   const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_spt_tracks.csv';
@@ -18799,9 +18811,9 @@ async function exportSptSummary(){
 // table machinery, which is tied to the reconstruction, clustering and crop.
 let _trackTableState={sortCol:'track_id', sortDir:1}, _trackTableData=null, _trackTableFiltered=null, _trackTableFilters=[];
 function openTrackTable(){
-  if(!lastResult || !lastResult.locs.length){ log('Track first — nothing to tabulate.'); return; }
+  if(!lastResult || !lastResult.locs.length){ log('⚠ Show track data: no localisations — run Localize, then Track.'); return; }
   const rows=sptTrackSummary(lastResult.locs, lastResult.px);
-  if(!rows.length){ log('Track first — no tracked localizations found.'); return; }
+  if(!rows.length){ log('⚠ Show track data: no tracked localisations — run Track first.'); return; }
   _trackTableData={
     cols:['track_id','n_locs','D_coeff','mean_x','mean_y','first_frame','last_frame'],
     dec:{track_id:0,n_locs:0,D_coeff:4,mean_x:1,mean_y:1,first_frame:0,last_frame:0},
@@ -19061,7 +19073,7 @@ $('sptSaveBtn').addEventListener('click', exportSptSummary);
 // grayscale background, as sptPALM-Python plots them).
 function switchLutToGreyForTracks(){ $('lut').value='grey'; if(srFull) rerender(true); }
 $('sptShowTracksBtn').addEventListener('click', ()=>{
-  if(!lastSpt || !lastSpt.nTracks){ log('Track first — no tracks to show yet.'); return; }
+  if(!lastSpt || !lastSpt.nTracks){ log('⚠ Show tracks: no tracks — run Track first.'); return; }
   srTracksOverlayOn=true;
   const b=$('srTracksOverlayBtn'); if(b){ b.style.display=''; b.textContent='Hide tracks'; }
   switchLutToGreyForTracks();
@@ -19381,7 +19393,7 @@ async function loadSegmentedImage(file){
 }
 // Cell-area histogram (px, linear count axis).
 function drawSegAreaHist(){
-  if(!segmentedImageData || !segmentedImageData.length){ log('No segmentation image loaded — use Load segm. image first.'); return; }
+  if(!segmentedImageData || !segmentedImageData.length){ log('⚠ Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
   computeHist('Cell area', segmentedImageData.map(c=>c.areaPx), 'px');
   drawHistogram();
 }
@@ -19430,14 +19442,14 @@ $('segFile').addEventListener('change', async e=>{
 // Reopens the last segmentation view from the stored labels (colouring is
 // deterministic).
 $('segShowBtn').addEventListener('click', ()=>{
-  if(!segmentedImageLabels){ log('No segmentation image loaded yet — use Load segm. image first.'); return; }
+  if(!segmentedImageLabels){ log('⚠ Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
   drawSegShow();
 });
 $('segShowModeBtn').addEventListener('click', ()=>{ segShowMode = segShowMode==='hist' ? 'image' : 'hist'; drawSegShow(); });
 // Toggles the SR panel between the reconstruction and the segmentation
 // overlay (text-swap button).
 $('srSegOverlayBtn').addEventListener('click', ()=>{
-  if(!segmentedImageLabels){ log('No segmentation image loaded yet — use Load segm. image first.'); return; }
+  if(!segmentedImageLabels){ log('⚠ Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
   srSegOverlayOn=!srSegOverlayOn;
   $('srSegOverlayBtn').textContent = srSegOverlayOn ? 'Show recon.' : 'Show segm.';
   drawView();
@@ -20388,7 +20400,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 // UI wrapper around runCore(): config and calibration from the DOM/globals,
 // hooks for the live previews, then results applied to the page.
 async function run(){
-  if(!stack){ log('No data loaded.'); return; }
+  if(!stack){ log('⚠ Localize: no movie — load one with Load data or run Simulate movie.'); return; }
   const uiRunT0=performance.now();
   stopRequested=false;
   const myEpoch=newEpoch();   // see newEpoch()
@@ -20413,7 +20425,7 @@ async function run(){
     // checked (see PARAMS.localize3D) — unchecked, both just run their own
     // elliptical fit with no z lookup, same as any other 2D method.
     const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
-    if(needCal && !calMethods[needCal]){ log(`This 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
+    if(needCal && !calMethods[needCal]){ log(`⚠ Localize: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json with Load data.`); return; }
     // Reset a colour map left over from another result (e.g. sSMLM's hsvBlue)
     // before the run starts, using updateMethodUI()'s rule.
     if(!currentIs3d() && methodResetsLutToFire(method)) $('lut').value='fire';
@@ -20547,7 +20559,7 @@ function startLiveStreamingSession(){
   // Same calibration guard run() uses — resolved ONCE here rather than per
   // chunk, since a chunk is too short on its own to ever build one.
   const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
-  if(needCal && !calMethods[needCal]){ log(`Live streaming: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json that provides it.`); return; }
+  if(needCal && !calMethods[needCal]){ log(`⚠ Live streaming: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json with Load data.`); return; }
   const cfg=buildConfigFromParams();
   const px=cfg.pxnm;
   const zcal = method==='phasor3d' ? cal3d : null;
@@ -20690,7 +20702,7 @@ let liveStreamWs=null;
 // of that connection's life.
 function liveStreamWsConnect(){
   const url=$('liveStreamWsUrl').value.trim();
-  if(!url){ log('Live streaming: enter a WebSocket URL first.'); return; }
+  if(!url){ log('⚠ Connect: no WebSocket URL — enter one in the field above.'); return; }
   let ws;
   try{ ws=new WebSocket(url); }
   catch(err){ log(`Live streaming: could not open a WebSocket to ${url}: ${err.message}`); return; }
@@ -20720,7 +20732,7 @@ function liveStreamWsConnect(){
       }
       let ok=true;
       try{ await liveStreamPushChunkFile(ev.data); }
-      catch(err){ ok=false; log(`Live streaming: chunk over WebSocket failed: ${err.message}`); }
+      catch(err){ ok=false; log(`⚠ Live streaming failed: chunk over WebSocket: ${err.message}`); }
       if(liveStreamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'ack', framesReceived:liveStreamState.frameOffset, chunkCount:liveStreamState.chunkCount, ok}));
     });
   });
@@ -21118,7 +21130,7 @@ $('genCalBtn').addEventListener('click',runCalibrationSimulation);
 // The View ground truth button stays in its grid slot; it is only enabled while ground truth exists.
 function setViewGtBtn(on){ const b=$('viewGtBtn'); if(b){ b.disabled=!on; b.textContent='View ground truth'; } }
 async function toggleGtLocalizations(){
-  if(!groundTruthLocs || !groundTruthLocs.length || !stack){ log('No simulated ground truth available — click Simulate movie first.'); return; }
+  if(!groundTruthLocs || !groundTruthLocs.length || !stack){ log('⚠ View ground truth: no simulated ground truth — run Simulate movie first.'); return; }
   const btn=$('viewGtBtn'); btn.disabled=true;
   try{
     gtShowing=!gtShowing;
@@ -21271,7 +21283,7 @@ function buildGroundTruthCsv(gtEvents, nFrames, pxNm, drift){
 // "Save sim. movie": the simulated stack as a 16-bit TIFF (encodeTiff16()) and, for a movie, its
 // ground truth as CSV — a second save dialog, only after the TIFF was saved.
 async function saveSimulatedMovie(){
-  const sv=simSaved; if(!sv){ log('Nothing simulated to save — run Simulate movie (or Calib. 3D stack) first.'); return; }
+  const sv=simSaved; if(!sv){ log('⚠ Save sim. movie: nothing simulated — run Simulate movie (or Calib. 3D stack) first.'); return; }
   const btn=$('simSaveBtn'); btn.disabled=true;
   try{
     const st=sv.stack, frames=await st.getFrames(0,st.n);
@@ -21362,7 +21374,7 @@ async function loadMovieFiles(fs){
     if(!(await presentStack(myEpoch))) return;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
   }catch(err){
-    log('TIFF load failed: '+err.message);
+    log('⚠ Load data failed: '+err.message);
     // On error, re-enable the buttons disabled above (a stale return defers).
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
   }
@@ -21534,7 +21546,7 @@ function clearCalFixedXY(){
   if(stack) showFrame(+$('scrub').value);   // drop the fixed-box overlay from the raw panel immediately
 }
 $('calFixedXY').addEventListener('change',()=>{
-  if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('Load a bead z-stack first.'); }
+  if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('⚠ Fix bead x,y: no bead z-stack — load one with Load data first.'); }
   else clearCalFixedXY();
 });
 // re-locate the fixed bead positions whenever a setting that changes detection/fit would affect them
@@ -21747,7 +21759,7 @@ async function previewPsf(){
     $('psfScrub').max=psfPreviewStack.nz-1; $('psfScrubNum').max=psfPreviewStack.nz;
     showPsfSlice(psfPreviewIndex);
     log(`PSF preview shown, starting at focus (plane ${psfPreviewIndex+1}/${psfPreviewStack.nz}).`);
-  } catch(e){ log('PSF preview failed: '+e.message); }
+  } catch(e){ log('⚠ Preview PSF failed: '+e.message); }
   btn.disabled=!psfModelIsZernike();
 }
 function closePsfPreview(){
@@ -21823,7 +21835,7 @@ async function loadSettingsJson(f){
         +`version. If this is unexpected, check for a newer webSMLM release: `
         +`https://github.com/HohlbeinLab/webSMLM/releases`);
     }
-  }catch(err){ log('Settings load failed: '+err.message); }
+  }catch(err){ log('⚠ Load data failed: settings file: '+err.message); }
 }
 $('setFile').addEventListener('change',async e=>{
   const f=e.target.files[0];
@@ -21860,7 +21872,7 @@ async function loadCalibrationJson(f){
     const need=ALGO_CALIB_METHOD[paramValue('method')];   // does it provide what the selected 3D method needs?
     if(need && !calMethods[need]) log(`⚠ The selected method needs a "${CALIB_METHODS[need]}" calibration, which this file does not contain.`);
     updateCalStatus();
-  }catch(err){ log('Calibration load failed: '+err.message); }
+  }catch(err){ log('⚠ Load data failed: calibration file: '+err.message); }
 }
 $('calFile').addEventListener('change',async e=>{
   const f=e.target.files[0];
@@ -21959,7 +21971,7 @@ async function loadCsvFile(f){
         `${nFrames.toLocaleString()} frames (${(locs.length/Math.max(1,nFrames)).toFixed(1)} loc/frame)`+
         `${has3d?' (3D)':''}${hasDist?' (sSMLM paired)':''} — using the current Pixel size (${px} nm) and Magnification to render; `+
         `no raw frame data, so re-detection/live preview aren't available for this data.`);
-  }catch(err){ log('Load data failed: '+err.message+'.'); }
+  }catch(err){ log('⚠ Load data failed: '+err.message+'.'); }
 }
 // Pushes an analyze() result (from the log terminal) into the live session,
 // like loadCsvFile(): same resets, minimal lastResult, buttons. `stack` is
@@ -22217,7 +22229,7 @@ updateMemReadout();
       const text=ta.value; if(!text.trim()) return;
       ta.value=''; ta.style.height='';  histIdx=-1; draft='';
       logHistory.push({type:'term', text});
-      $('logText').textContent += formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]);
+      appendLogText(formatLogEntry(logHistory[logHistory.length-1], logHistory.length===1, logHistory[logHistory.length-2]));
       { const l=$('log'); l.scrollTop=l.scrollHeight; } $('exportLogBtn').disabled=false;
       // New epoch before running, so a later action's result wins.
       const myEpoch=newEpoch();
@@ -22895,8 +22907,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29g — Show data projection below the
-reconstruction; Simulate movie's progress bar no longer jumps back.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29h — log messages follow one convention:
+⚠ <Button>: <what's missing> — <how to fix it>; the ⚠ marker is red.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23239,7 +23251,7 @@ function parseFilter(str,cols,valueOf){
 // "View data/filtering" button handler: builds _tableData from the current
 // base locs and opens the table modal.
 function openTable(){
-  if(!lastResult||!lastResult.locs.length){ log('Localize first — nothing to tabulate.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('⚠ View data/filtering: no localisations — run Localize or load them with Load data.'); return; }
   const base=getBaseLocs();
   let info;
   try{ info=tableColumnInfo(base, base!==lastResult.locs); }
@@ -23376,7 +23388,7 @@ function renderTable(){
 }
 // Column histogram of the currently filtered rows, in the raw panel.
 function plotColumnHistogram(col){
-  if(!_tableFiltered||!_tableFiltered.length){ log('No rows to histogram.'); return; }
+  if(!_tableFiltered||!_tableFiltered.length){ log('⚠ Plot histogram: no rows — loosen the filters in View data/filtering.'); return; }
   const {info,base}=_tableData;
   const vals=_tableFiltered.map(i=>tableColumnValue(base[i],i,col,info)).filter(isFinite);
   if(!vals.length){ log(`Column "${col}" has no finite values.`); return; }
