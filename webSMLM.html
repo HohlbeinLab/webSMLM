@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2669   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3663   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3891   synthetic stack generator ("Simulate movie")
-    validation      6946   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7805   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8061   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8671   super-resolution accumulation, view, colour maps, plots
-    workers         10195  frame-parallel detect/fit worker pool
-    gpu             10837  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13166  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13511  astigmatic width-vs-z bead calibration
-    drift           13910  AIM and cross-correlation drift correction
-    locprecision    14568  NeNA and FRC
-    sSMLM           15707  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16313  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18420  single-particle tracking and diffusion coefficients
-    pipeline        19470  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20510  Micro-Manager/pycromanager bridge (experimental)
-    table           23055  localizations table, filters, histograms, clustering
-    headless API    23740  window.webSMLM.analyze()/analyzeBatch()
+    params          2666   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3660   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3888   synthetic stack generator ("Simulate movie")
+    validation      6943   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7802   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8058   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8668   super-resolution accumulation, view, colour maps, plots
+    workers         10192  frame-parallel detect/fit worker pool
+    gpu             10834  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13163  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13508  astigmatic width-vs-z bead calibration
+    drift           13907  AIM and cross-correlation drift correction
+    locprecision    14565  NeNA and FRC
+    sSMLM           15704  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16310  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18417  single-particle tracking and diffusion coefficients
+    pipeline        19467  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20507  Micro-Manager/pycromanager bridge (experimental)
+    table           23052  localizations table, filters, histograms, clustering
+    headless API    23737  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,10 +1582,7 @@ X.B(E,Y);return E}return J}())
   /* log() already wraps prose at 80 columns (wrapCommentLine()); this cap only
      matters for an unbreakable token. */
   .log #logText{max-width:80ch}
-  /* the ⚠ marker, in the Stop button's red (appendLogText()); 1.45× (the monospace ⚠ is small and has
-     no bold). The span holds "⚠ " and stays exactly two columns wide (ch is the span's own 1.45× width)
-     at line-height 0, so columns, the 80-column wrap and line spacing don't move */
-  .log .logwarn{color:var(--danger);font-size:1.45em;line-height:0;display:inline-block;width:calc(2ch / 1.45);white-space:pre;position:relative;left:-0.1em}   /* nudged into the space before it, so it clears the next word */
+  .log .logwarn{color:var(--danger);font-weight:700}   /* the !!! marker, bold, in the Stop button's red (appendLogText()) */
   /* Terminal input below the log, same monospace/dark look, full width.
      field-sizing:content grows it with its content (a fixed box where
      unsupported). Focus shows as a glow, not a border change. */
@@ -1709,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29n</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29o</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3496,13 +3493,13 @@ function formatLogEntry(e, isFirst, prevEntry){
 // Full rebuild from logHistory, under whichever logCmdStyle is current —
 // only called on the (rare) style toggle; every other log()/logCmd() call
 // just appends its own one new line via the cheaper fast path below.
-// Appends text to #logText with every "⚠ " (marker + its space) in a .logwarn span (the Stop
-// button's red, enlarged); the rest are plain text nodes, so textContent (export, copy, the
-// terminal) is still the plain log.
+// Appends text to #logText with every !!! marker in a .logwarn span (bold, the Stop button's
+// red); the rest are plain text nodes, so textContent (export, copy, the terminal) is still the
+// plain log.
 function appendLogText(str){
-  const frag=document.createDocumentFragment(), parts=str.split('⚠ ');
+  const frag=document.createDocumentFragment(), parts=str.split('!!!');
   parts.forEach((p,i)=>{
-    if(i){ const sp=document.createElement('span'); sp.className='logwarn'; sp.textContent='⚠ '; frag.appendChild(sp); }
+    if(i){ const sp=document.createElement('span'); sp.className='logwarn'; sp.textContent='!!!'; frag.appendChild(sp); }
     if(p) frag.appendChild(document.createTextNode(p));
   });
   $('logText').appendChild(frag);
@@ -3683,7 +3680,7 @@ function makeStack(w,h,n,px,getFrame){
 async function ftmFrame(st, i, win, camoffset, onLog=log){
   const {w,h,n}=st;
   if(n<win){
-    onLog(`⚠ Temporal median filtering needs at least ${win} frames (stack has ${n}) — showing raw.`);
+    onLog(`!!! Temporal median filtering needs at least ${win} frames (stack has ${n}) — showing raw.`);
     return (await st.getFrames(i,i+1))[0];
   }
   const half=win>>1;
@@ -4317,7 +4314,7 @@ async function buildMicrotubuleStructureAsync(w,h){
       worker.postMessage({id, w, h, seed, opts, dxUm:paramValue('simulation_mt_x'), dyUm:paramValue('simulation_mt_y')});
     });
   }catch(err){
-    log(`⚠ Cell-field worker failed (${err.message}) — building on the main thread instead.`);
+    log(`!!! Cell-field worker failed (${err.message}) — building on the main thread instead.`);
     _cellFieldWorker=null; return buildMicrotubuleStructure(w,h);
   }
   const f=r.flat, n=r.n, sites=new Array(n);
@@ -5157,7 +5154,7 @@ async function generateSynthetic(){
         (zKernelStack ? ' — each emitter is splatted from the PSF kernel plane matching its own z.' : '.'));
     if(zKernelStack && zClampedCount>0){
       const halfRangeNm=zKernelStack.zStepNm*(zKernelStack.nz-1)/2;
-      log(`⚠ ${zClampedCount}/${zTotalCount} emitter(s) had z beyond the PSF kernel's own ±${halfRangeNm.toFixed(0)}nm `+
+      log(`!!! ${zClampedCount}/${zTotalCount} emitter(s) had z beyond the PSF kernel's own ±${halfRangeNm.toFixed(0)}nm `+
           `z range (PSF z range/step, Simulation) — clamped to the nearest available z-plane. Widen `+
           `PSF z range to cover the full structure Z range if this matters.`);
     }
@@ -5169,7 +5166,7 @@ async function generateSynthetic(){
     if(zKernelStack && zKernelStack.zUsableNm>0){
       const zExtent=structureZExtent(structure,zRange,structureSize);
       if(zExtent>zKernelStack.zUsableNm)
-        log(`⚠ Structure z extent (±${zExtent.toFixed(0)} nm) exceeds the range this PSF encodes `+
+        log(`!!! Structure z extent (±${zExtent.toFixed(0)} nm) exceeds the range this PSF encodes `+
             `single-valued (±${zKernelStack.zUsableNm.toFixed(0)} nm). Emitters beyond that are simulated `+
             `faithfully but two z values there share one σx/σy pair, so a width-based 3D fit cannot `+
             `resolve which — expect z to fold back. Narrow Structure Z range, or pick a stronger `+
@@ -5701,7 +5698,7 @@ async function buildPsfKernelStack(cfg){
   let built=null, path=pool?'workers':'serial';
   if(engine){
     try{ built=await gpuPsfPlanes(engine, cfg, nx, ny); path='gpu'; }
-    catch(err){ log(`⚠ GPU PSF build failed (${(err&&err.message)||err}) — falling back to the CPU.`); }
+    catch(err){ log(`!!! GPU PSF build failed (${(err&&err.message)||err}) — falling back to the CPU.`); }
   }
   if(!built) built = pool ? await buildPsfPlanesParallel(cfg, nx, ny, pool)
                           : await buildPsfPlanesSerial(cfg, nx, ny);
@@ -6259,7 +6256,7 @@ async function loadNd2File(file, onLog=log){
   const declared=attrs.uiSequenceCount||0, found=frameOffsets.length;
   const n=declared>0 ? Math.min(declared,found) : found;
   if(!n) throw new Error('ND2: no ImageDataSeq chunks found — unsupported/corrupt file');
-  if(declared && declared!==found) onLog(`⚠ ImageAttributesLV declares ${declared} frame(s) but ${found} ImageDataSeq chunk(s) were found — using ${n}.`);
+  if(declared && declared!==found) onLog(`!!! ImageAttributesLV declares ${declared} frame(s) but ${found} ImageDataSeq chunk(s) were found — using ${n}.`);
   for(let i=0;i<n;i++) if(!frameOffsets[i]) throw new Error(`ND2: missing ImageDataSeq|${i}! chunk — corrupt or unsupported file`);
   const px=paramValue('pxnm');
   const scaleParts=[];
@@ -6825,7 +6822,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
     const guess=raw0>0?Math.floor((fileBuf.byteLength-base0)/raw0):0;
     if(guess>1){
       declared=guess;
-      onLog(`⚠ Only 1 IFD, but the file holds ~${guess} frames of raw data.`);
+      onLog(`!!! Only 1 IFD, but the file holds ~${guess} frames of raw data.`);
       onLog(`No images= record found; inferring the count from the file size.`);
     }
   }
@@ -6841,7 +6838,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
     const usable=Math.min(declared,avail);
     onLog(`Contiguous stack: description declares ${declared} frames, ${n} IFD${n===1?'':'s'} present.`);
     if(fileBuf.byteLength<fileSize){
-      onLog(`⚠ Only ${fmtBytes(fileBuf.byteLength)} of the ${fmtBytes(fileSize)} file reached memory`);
+      onLog(`!!! Only ${fmtBytes(fileBuf.byteLength)} of the ${fmtBytes(fileSize)} file reached memory`);
       onLog(`(JS ArrayBuffer size limit) — ${usable} of ${declared} frames are reachable.`);
     }
     if(cmpr===1 && rawBytes>0 && usable>1){
@@ -6876,7 +6873,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
           const st=makeStack(w,h,usable,px, fi=>frames[fi]); st.residentBytes=needC; return st;
         }catch(err){
           setProg(null); if(!isAlloc(err)) throw err;
-          onLog(`⚠ In-memory load hit a memory limit; decoding on demand instead.`);
+          onLog(`!!! In-memory load hit a memory limit; decoding on demand instead.`);
         }
       }
       // Decode per frame from the resident file buffer (no persistent decoded
@@ -6886,7 +6883,7 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
       // transferred frame costs nothing (see runCore()).
       { const st=makeStack(w,h,usable,px, readFrame); st.residentBytes=fileSize; st.framesTransferable=true; return st; }
     }
-    onLog(`⚠ Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
+    onLog(`!!! Cannot index them (compression=${cmpr}, ${usable} reachable) —`);
     onLog(`only ${n} of ${declared} frames will be analysed.`);
   }
   onLog(`Decoded working set if fully cached: ~${fmtBytes(need)} (budget ${fmtBytes(budget)}).`);
@@ -6935,11 +6932,11 @@ async function loadTiff(fileBuf, fileSize, onLog=log){
       setProg(null);
       for(let i=0;i<n;i++) if(ifds[i]) ifds[i].data=null;   // drop partial raw data
       if(!isAlloc(err)) throw err;
-      onLog(`⚠ In-memory load hit a memory limit (${err.name}: ${err.message}). Falling back to streaming — the browser tab likely capped RAM below the budget.`);
+      onLog(`!!! In-memory load hit a memory limit (${err.name}: ${err.message}). Falling back to streaming — the browser tab likely capped RAM below the budget.`);
       return makeStreamStack('Fallback:');
     }
   }
-  return makeStreamStack('⚠ Exceeds budget:');
+  return makeStreamStack('!!! Exceeds budget:');
 }
 
 /* ===========================================================================
@@ -7085,7 +7082,7 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
   // 6 nm, on a 600 nm total drift). Nothing in the data distinguishes the two cases, so say so
   // rather than report a confident wrong number.
   if(trueDrift && trueDrift.total>0 && !locs.some(L=>L.x0!==undefined) && onLog)
-    onLog(`⚠ this dataset was simulated WITH drift (${(trueDrift.total).toFixed(1)} px total) but carries no `+
+    onLog(`!!! this dataset was simulated WITH drift (${(trueDrift.total).toFixed(1)} px total) but carries no `+
           `pre-correction coordinates, which a CSV round-trip drops. If drift correction was applied before `+
           `export, the lateral figures below compare corrected positions against drifted truth and are `+
           `inflated by roughly the drift; score before correcting, or in the same session.`);
@@ -7450,7 +7447,7 @@ async function scoreTruthCore(locs, gtEvents, nFrames, px, trueDrift, cfg, {onLo
       onLog(`Jaccard vs match radius (nm:J): ${J} — a curve still rising at the configured radius means loose matches are being counted.`); }
     if(photometry && isFinite(cfg.gain) && isFinite(cfg.simulation_gain) &&
        (Math.abs(cfg.gain/cfg.simulation_gain-1)>0.05 || Math.abs((cfg.camoffset||0)-(cfg.simulation_offset||0))>2))
-      onLog(`⚠ Localisation gain/offset (${cfg.gain} photons/ADU, ${cfg.camoffset||0} ADU) differ from the simulated camera's `+
+      onLog(`!!! Localisation gain/offset (${cfg.gain} photons/ADU, ${cfg.camoffset||0} ADU) differ from the simulated camera's `+
             `(${cfg.simulation_gain}, ${cfg.simulation_offset||0}) — photometry, the reported CRLB and the bounds below are off by that `+
             `mismatch, not by the fitter. Set Gain/Camera offset to the simulation's values (or use Get estimate) for a fair photometry score.`);
     if(photometry)
@@ -7774,7 +7771,7 @@ function truthScoreConfig(cfg, det, run){
 
 // "Compare to GT" button handler — shaped exactly like computeNeNA().
 async function computeTruthScore(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ Compare to GT: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! Compare to GT: no localisations — run Localize or load them with Load data.'); return; }
   if(!groundTruthEvents){ log('Compare to GT needs a simulated movie — its ground truth is what the localizations are compared against.'); return; }
   $('truthBtn').disabled=true;
   try{
@@ -7797,7 +7794,7 @@ async function computeTruthScore(){
     log(`Scored in ${Math.round(performance.now()-t0)} ms. Matching is lateral only (within ${r.matchRadiusNm.toFixed(0)} nm), `+
         `so the axial error is measured, never used to pair.`);
     drawTruthScorePlot(r);
-  }catch(err){ log(`⚠ Compare to GT failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Compare to GT failed: ${err.name}: ${err.message}`); }
   finally{ $('truthBtn').disabled=false; setProg(null); }
 }
 
@@ -9116,7 +9113,7 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
     return renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo,zhi,hasNorm?normLocs:null,colorField,onLog,renderMode,reserveBytes);
   checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode,reserveBytes,hasNorm);
   const pack=()=>[packSrLocs(locs,colorField,zColor,renderMode), hasNorm?packSrLocs(normLocs,colorField,zColor,'fixed'):null];
-  const satWarn=n=>{ if(n) onLog(`⚠ ${n.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`); };
+  const satWarn=n=>{ if(n) onLog(`!!! ${n.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`); };
   const worker=await getRenderWorker();
   if(worker){
     try{
@@ -9130,7 +9127,7 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
       return cv;
     }catch(err){
       // One-off worker error: fall back to single-threaded for this render.
-      onLog(`⚠ Render worker error, falling back to single-threaded for this render: ${err.message}`);
+      onLog(`!!! Render worker error, falling back to single-threaded for this render: ${err.message}`);
     }
   }
   // ---- single-threaded fallback ----
@@ -9195,7 +9192,7 @@ async function renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo
       const [P,PN]=pack();
       const r=await dispatchRenderWorker(worker,{vpInit:1,id,P,PN,...params,k,pct},[...packSrTransfer(P),...packSrTransfer(PN)]);
       vp.overview=r.imageBitmap; vp.norm=r.norm; vp.worker=worker;
-    }catch(err){ onLog(`⚠ Render worker error, rendering the view on the main thread: ${err.message}`); }
+    }catch(err){ onLog(`!!! Render worker error, rendering the view on the main thread: ${err.message}`); }
   }
   if(!vp.overview){
     const [P,PN]=pack(); vp.local={P};
@@ -9561,7 +9558,7 @@ async function lineProfile(L){
     const rw=Math.min(W,Math.ceil(Math.max(L.x0,L.x1)+4))-ox, rh=Math.min(Hh,Math.ceil(Math.max(L.y0,L.y1)+4))-oy;
     k=Math.max(1,Math.ceil(Math.sqrt(rw*rh/64e6)));
     let img;
-    try{ img=await srViewportRegion(f,ox,oy,rw,rh,k); }catch(err){ log(`⚠ Line profile failed: ${err.message}`); return; }
+    try{ img=await srViewportRegion(f,ox,oy,rw,rh,k); }catch(err){ log(`!!! Line profile failed: ${err.message}`); return; }
     if(srFull!==f) return;
     IW=img.width; IH=img.height;
     const t=getOrMakeSrCanvas(IW,IH), tctx=t.getContext('2d'); tctx.drawImage(img,0,0); if(img.close) img.close();
@@ -9827,7 +9824,7 @@ async function rerenderNow(keepView,isPreview,mySeq){
   }catch(err){
     // Too big to render: keep the previous image; the message says what to
     // change.
-    log(`⚠ Reconstruction not updated: ${err.message}`);
+    log(`!!! Reconstruction not updated: ${err.message}`);
     return;
   }
   // Discard if a newer rerender() started, or lastResult was cleared while
@@ -10929,7 +10926,7 @@ async function runStage(id, ctx, cpuFn, gpuFn, gpuEligibility){
       // A throwing GPU path falls back to CPU, flagged (gpuFailed) so the table
       // distinguishes "no GPU path" from "GPU path broke".
       const meta = STAGE_META[id];
-      ((ctx && ctx.onLog) || log)(`⚠ GPU ${meta?meta.label:id} failed (${(err&&err.message)||err}) — falling back to CPU for this stage.`);
+      ((ctx && ctx.onLog) || log)(`!!! GPU ${meta?meta.label:id} failed (${(err&&err.message)||err}) — falling back to CPU for this stage.`);
       recordStage(t,id,performance.now()-t0,'gpu','failed');
       if(t){ const e=t[id];
         e.gpuFailed=true; e.fallbackCalls++;
@@ -11016,7 +11013,7 @@ function logStageTable(stageTimings, useGpu, onLog, wallMs){
     if(noGpu.length) onLog(`CPU only, no GPU path: ${noGpu.map(id=>STAGE_META[id].label).join(' · ')}`);
   }
   const failed = ids.filter(id => stageTimings[id].gpuFailed);
-  if(failed.length) onLog(`⚠ GPU path FAILED and fell back to CPU: ${failed.map(id=>STAGE_META[id].label).join(' · ')}`);
+  if(failed.length) onLog(`!!! GPU path FAILED and fell back to CPU: ${failed.map(id=>STAGE_META[id].label).join(' · ')}`);
   if(!other) onLog(`(run again with GPU acceleration ${useGpu?'OFF':'ON'} for the speedup column)`);
 }
 // Per-Run GPU counters in one place (init and runCore()'s reset). Underscored
@@ -13371,7 +13368,7 @@ function encodeTiff16(frames, w, h, {pxNm=0, frameTimeS=0, extraDesc='', bigTiff
 // "Save localisations": builds the ThunderSTORM-compatible CSV (via buildCsvText())
 // from the current filtered/cropped locs and offers it through saveBlob().
 async function exportCSV(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ Save localisations: no localisations — run Localize first.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! Save localisations: no localisations — run Localize first.'); return; }
   const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
   const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
   const {parts, isClustered, nNoSigma} = buildCsvText(locs, px, sigPSF);
@@ -13384,7 +13381,7 @@ async function exportCSV(){
   log('This CSV is also written automatically as result.csv by any CLI/analyze() run — no extra flag needed.');
   if(nNoSigma) log(`note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
   if(gain===1&&camoffset===0){
-    log('⚠ gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
+    log('!!! gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
     log('The uncertainty column scales as 1/√N and is therefore not physically');
     log('meaningful until a real ADU→photon conversion is entered.');
   }
@@ -13405,7 +13402,7 @@ function windowContent(which){
 // (long edge ≥ PARAMS.exportMinLong); plots go to exportPlotEither() (PNG or
 // SVG).
 async function exportPanel(which){
-  const c=windowContent(which); if(!c){ log('⚠ Save plot/image: that window is empty — load a movie or show a plot first.'); return; }
+  const c=windowContent(which); if(!c){ log('!!! Save plot/image: that window is empty — load a movie or show a plot first.'); return; }
   const isSR = which==='sr', d=$(isSR?'sr':'raw');
   const full = isSR ? srFull : rawFull, V = isSR ? view : rawView;
   if(!full) return exportPlotEither(which);
@@ -13429,7 +13426,7 @@ async function exportPanel(which){
     const rw=Math.min(full.width,Math.ceil(sx+sw))-rx, rh=Math.min(full.height,Math.ceil(sy+sh))-ry;
     let img;
     try{ img=await srViewportRegion(full,rx,ry,rw,rh,kExp); }
-    catch(err){ log(`⚠ Image export failed: ${err.message}`); return; }
+    catch(err){ log(`!!! Image export failed: ${err.message}`); return; }
     ctx.drawImage(img, (sx-rx)/kExp,(sy-ry)/kExp,sw/kExp,sh/kExp, 0,0,outW,outH);
     if(img.close) img.close();
   } else ctx.drawImage(full, sx,sy,sw,sh, 0,0,outW,outH);
@@ -13440,7 +13437,7 @@ async function exportPanel(which){
   const note = kExp>1 ? ` — every ${kExp}th reconstruction px (the full view exceeds one image)`
              : s>1/V.zoom+1e-6 ? ' — supersampled for crisp overlays' : ' — native resolution';
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
-  if(!blob){ log('⚠ Save plot/image failed: the browser returned no image data.'); return; }
+  if(!blob){ log('!!! Save plot/image failed: the browser returned no image data.'); return; }
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+c.suffix+'.png';
   const saved=await saveBlob(blob,name,'PNG image','image/png','.png');
   if(!saved){ log('Image save cancelled.'); return; }
@@ -13463,21 +13460,21 @@ function saveImageClicked(){
   }
   else if(R) exportPanel('sr');
   else if(L) exportPanel('raw');
-  else log('⚠ Save plot/image: both windows are empty — load a movie or show a plot first.');
+  else log('!!! Save plot/image: both windows are empty — load a movie or show a plot first.');
 }
 // Both windows; each exportPanel() logs its own command.
 async function saveBothPanels(){ await exportPanel('raw'); await exportPanel('sr'); }
 // Plot export: renders a PNG (the canvas) and an SVG (SvgRecordingContext via
 // _plotTarget) up front, then the save dialog picks one (savePlotEither()).
 async function exportPlotEither(which){
-  const c=windowContent(which); if(!c){ log('⚠ Save plot/image: that window is empty — load a movie or show a plot first.'); return; }
+  const c=windowContent(which); if(!c){ log('!!! Save plot/image: that window is empty — load a movie or show a plot first.'); return; }
   const isSR=which==='sr', d=$(isSR?'sr':'raw'), replot=isSR?_replotSr:_replotRaw;
-  if(!replot){ log('⚠ Save plot/image: that window shows an image, not a plot — save it as an image instead.'); return; }
+  if(!replot){ log('!!! Save plot/image: that window shows an image, not a plot — save it as an image instead.'); return; }
   const outW=d.width, outH=d.height;
   _plotExportMode=true; replot();
   const pngBlob=await new Promise(r=>d.toBlob(r,'image/png'));
   _plotExportMode=false; replot();                       // restore the on-screen (dark/light/contrast theme) view
-  if(!pngBlob){ log('⚠ Save plot/image failed: the browser returned no image data.'); return; }
+  if(!pngBlob){ log('!!! Save plot/image failed: the browser returned no image data.'); return; }
   const DW=d.clientWidth||d.width, DH=d.clientHeight||d.height;
   const rec=makeSvgPlotCanvas(DW,DH);
   _plotExportMode=true; _plotTarget=rec;
@@ -13623,7 +13620,7 @@ async function locateBeadsForCalib(){
     if(st){ st.style.display='block';
       st.style.color = fitted.length ? '' : 'var(--danger)';
       st.textContent = fitted.length ? `${fitted.length} bead(s) located and fixed for Calibrate.` : 'No beads found on the composite — lower the threshold or adjust σ_PSF.'; }
-  }catch(err){ log(`⚠ Locate beads failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Locate beads failed: ${err.name}: ${err.message}`); }
 }
 
 // DOM-free detect+fit core for an astigmatic calibration from a bead z-stack
@@ -13736,9 +13733,9 @@ async function calibrationCore(config, stack, hooks={}){
 
 // UI wrapper around calibrationCore(): config from the DOM, preview hooks,
 // results into calib/cal3d/cal3dW/calMethods. Failures arrive as thrown errors
-// ("⚠ Calibration failed: …").
+// ("!!! Calibration failed: …").
 async function runCalibration(){
-  if(!stack){ log('⚠ Calibrate: no bead z-stack — load one with Load data (or simulate one with Calib. 3D stack).'); return; }
+  if(!stack){ log('!!! Calibrate: no bead z-stack — load one with Load data (or simulate one with Calib. 3D stack).'); return; }
   const first=Math.max(1,+$('calFirst').value|0), last=Math.min(stack.n,+$('calLast').value|0);
   const fixedXY=paramValue('calFixedXY');
   stopRequested=false;
@@ -13769,7 +13766,7 @@ async function runCalibration(){
     updateCalStatus();
     srFull=null; srIsPlot=true; srSpots=null; srLocs=null; setSrRecon(false); syncSaveImg();  // hand the SR panel over to the plot
     drawCalibration(); $('calSaveBtn').disabled=false;
-  }catch(err){ log(`⚠ Calibration failed: ${err.message}`); }
+  }catch(err){ log(`!!! Calibration failed: ${err.message}`); }
   finally{ setProg(null); $('calBtn').disabled=false; $('runBtn').disabled=false; $('stopBtn').disabled=true; stopRequested=false; }
 }
 
@@ -13898,7 +13895,7 @@ function buildCalibJson(calib){
 }
 // Saves the current 3D calibration as buildCalibJson()'s own JSON shape.
 async function exportCalibration(){
-  if(!calib){ log('⚠ Save calib.: no calibration in memory — run Calibrate first.'); return; }
+  if(!calib){ log('!!! Save calib.: no calibration in memory — run Calibrate first.'); return; }
   const blob=new Blob([JSON.stringify(buildCalibJson(calib),null,2)],{type:'application/json'});
   const name=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_calib.json';
   const saved=await saveBlob(blob,name,'JSON calibration','application/json','.json');
@@ -14372,7 +14369,7 @@ async function driftCore(locs, px, config, hooks={}){
     // Clamped z carries no drift and is excluded; a large clamped fraction
     // means z-drift is under-estimated.
     const clFrac=(dz.nz+dz.ncl)?dz.ncl/(dz.nz+dz.ncl):0;
-    if(clFrac>0.2) onLog(`⚠ ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
+    if(clFrac>0.2) onLog(`!!! ${(clFrac*100).toFixed(0)}% of z is clamped (out of calibration range) — z-drift is unreliable; widen the z-calibration range.`);
     for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
       L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0))]; }
   }
@@ -14406,7 +14403,7 @@ let driftPlotMode='frame';
 // correction to lastResult.locs on success, and always draws whatever
 // curve was computed (including a Stop-truncated partial one).
 async function correctDrift(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ Correct drift: no localisations to correct — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! Correct drift: no localisations to correct — run Localize or load them with Load data.'); return; }
   const {locs,px}=lastResult;
   stopRequested=false;
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
@@ -14442,7 +14439,7 @@ async function correctDrift(){
     $('driftShowBtn').disabled=false;
     driftPlotMode='frame';   // a fresh correction always opens on the default view, not wherever a previous session's toggle left it
     drawDriftCurve();
-  }catch(err){ log(`⚠ Drift correction failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Drift correction failed: ${err.name}: ${err.message}`); }
   // Not epoch-guarded: always re-enable the buttons.
   finally{ $('driftBtn').disabled=false; $('stopBtn').disabled=true; stopRequested=false; setProg(null); }
 }
@@ -14665,7 +14662,7 @@ async function nenaPrecision(locs, px, onProgress, onLog, samplePct=100){
     if(onProgress && performance.now()-_yld>50){ onProgress(i/frames.length); await tick(); _yld=performance.now(); }
   }
   if(zeroCount && onLog){ const fl=[...zeroFrames].sort((a,b)=>a-b);
-    onLog(`  ⚠ ${zeroCount.toLocaleString()} consecutive-frame pair(s) with a ~0 nm NN distance (<${NENA_ZERO_DIST_NM} nm) excluded —`
+    onLog(`  !!! ${zeroCount.toLocaleString()} consecutive-frame pair(s) with a ~0 nm NN distance (<${NENA_ZERO_DIST_NM} nm) excluded —`
     + ` likely duplicate localizations rather than real repeat-detections. Frames: ${fl.join(', ')}`);
   }
   if(dists.length<50) return {err:`only ${dists.length.toLocaleString()} consecutive-frame pairs — need more localizations`, zeroCount};
@@ -14730,7 +14727,7 @@ let lastNena=null;
 // "NeNA" button handler: runs nenaPrecision() on the current locs and plots
 // the resulting histogram + fit.
 async function computeNeNA(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ NeNA: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! NeNA: no localisations — run Localize or load them with Load data.'); return; }
   $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true;
   try{
     // Logged before running, with samplePct, as computeNeNA() (uses the
@@ -14749,7 +14746,7 @@ async function computeNeNA(){
     log(`σ = ${r.sigma.toFixed(1)}${isFinite(r.sigErr)?' ± '+r.sigErr.toFixed(1):''} nm — mean single-localization precision, from ${r.nPairs.toLocaleString()} nearest-neighbour pairs · ${Math.round(performance.now()-t0)} ms.`);
     log('Measures precision only (Endesfelder et al., NeNA); best run after drift correction — compare with FRC resolution when available.');
     drawNenaPlot(r);                                  // histogram + fit on the left panel
-  }catch(err){ log(`⚠ NeNA failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! NeNA failed: ${err.name}: ${err.message}`); }
   finally{ $('nenaBtn').disabled=false; $('sptLocErrorFromNenaBtn').disabled=false; setProg(null); }
 }
 
@@ -15231,7 +15228,7 @@ function drawFrcPlot(r){
 }
 // "Compute FRC" button handler: runs frcResolution() and plots the curve.
 async function computeFRC(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ FRC: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! FRC: no localisations — run Localize or load them with Load data.'); return; }
   if(paramValue('frc3d')) log('(FSC 3D not yet implemented — computing 2D FRC.)');
   $('frcBtn').disabled=true;
   try{
@@ -15258,7 +15255,7 @@ async function computeFRC(){
     log(`resolution = ${r.res.toFixed(1)}${isFinite(r.resErr)?' ± '+r.resErr.toFixed(1):''} nm  (1/7 threshold · ${r.nResolved}/${r.nSplit} splits · ${r.N}² px @ ${r.pixNm.toFixed(1)} nm/px, Nyquist ${r.nyquist.toFixed(0)} nm · ${Math.round(performance.now()-t0)} ms).`);
     log('FRC folds in labelling density and residual drift — expect it coarser than the NeNA precision; run after drift correction.');
     drawFrcPlot(r);
-  }catch(err){ log(`⚠ FRC failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! FRC failed: ${err.name}: ${err.message}`); }
   finally{ $('frcBtn').disabled=false; setProg(null); }
 }
 
@@ -15641,7 +15638,7 @@ async function pcfoCore(config, stack, hooks={}){
   // variance — so on EMCCD data the number below is gain × F², not gain. Say so: silently
   // dividing by the user's own F² would bury an assumption inside a measurement.
   if((config.cameraExcessNoise||1)>1)
-    onLog(`⚠ Excess noise F² = ${config.cameraExcessNoise} is set: PCFO measures the variance-to-mean slope, which an EM gain register inflates by exactly that factor, so the gain below comes out ~${config.cameraExcessNoise}× too high. Divide it yourself, or estimate gain on data from a camera without a gain register.`);
+    onLog(`!!! Excess noise F² = ${config.cameraExcessNoise} is set: PCFO measures the variance-to-mean slope, which an EM gain register inflates by exactly that factor, so the gain below comes out ~${config.cameraExcessNoise}× too high. Divide it yourself, or estimate gain on data from a camera without a gain register.`);
   // Tile FFTs on the GPU when enabled (stage 'pcfo'), else the CPU.
   let engine=null;
   const pts=await runStage('pcfo', {useGpu:!!config.useGpu, stageTimings:hooks.stageTimings, onLog},
@@ -15675,7 +15672,7 @@ async function pcfoCore(config, stack, hooks={}){
 // "Estimate" button handler: runs pcfoCore() on the loaded stack and plots
 // the signal-vs-noise-variance fit.
 async function estimateGainOffset(){
-  if(!stack){ log('⚠ Estimate: no movie — load one with Load data or run Simulate movie.'); return; }
+  if(!stack){ log('!!! Estimate: no movie — load one with Load data or run Simulate movie.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true;
   try{
@@ -15691,7 +15688,7 @@ async function estimateGainOffset(){
     if(staleEpoch(myEpoch)) return;   // superseded while pcfoCore() was running — see newEpoch()'s own comment
     pcfoLastPts=r.pts; pcfoLastFit=r.fit; pcfoLastR2=r.r2; pcfoLastGain=r.gain; pcfoLastOffset=r.offset;
     drawPcfoPlot();
-  }catch(err){ log(`⚠ PCFO estimate failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! PCFO estimate failed: ${err.name}: ${err.message}`); }
   finally{ $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; setProg(null); }
 }
 // Applies the last PCFO estimate to Gain/Camera offset (a separate step, so a
@@ -16137,18 +16134,18 @@ function fitSSmlmAngleFromCands(cands){
 // Sets Distance min/max, then Primary angle/tolerance: distance from the wide
 // candidate pool first, angle within the fitted distance window.
 function fitSSmlmDistAndAngle(){
-  if(!sSmlmLastCands || !sSmlmLastCands.length){ log('⚠ sSMLM fit: no candidate pairs — run Preview pairs first.'); return; }
+  if(!sSmlmLastCands || !sSmlmLastCands.length){ log('!!! sSMLM fit: no candidate pairs — run Preview pairs first.'); return; }
   const d=fitSSmlmDistanceFromCands(sSmlmLastCands);   // ALL candidates, any angle
   if(d){
     $('sSmlmDistMin').value=d.distMin.toFixed(0); $('sSmlmDistMax').value=d.distMax.toFixed(0);
     log(`\nsSMLM distance fit: background = ${d.regionLabel}; signal peak at ${d.mu.toFixed(0)} nm (σ=${d.sigma.toFixed(0)} nm) — `
       + `Distance min/max set to ${d.distMin.toFixed(0)}/${d.distMax.toFixed(0)} nm (peak ±3σ, a starting window — widen/narrow by hand as needed).`);
   }else{
-    log('⚠ No localization bounding box to fit a background model against — skipping the distance fit, angle only.');
+    log('!!! No localization bounding box to fit a background model against — skipping the distance fit, angle only.');
   }
   const distMin=paramValue('sSmlmDistMin'), distMax=paramValue('sSmlmDistMax');
   const cands=sSmlmLastCands.filter(c=>c.dist>=distMin&&c.dist<=distMax);
-  if(!cands.length){ log('⚠ No candidates in the current Distance min/max window — widen it or re-run Preview first.'); refreshSSmlmHistIfShown(); return; }
+  if(!cands.length){ log('!!! No candidates in the current Distance min/max window — widen it or re-run Preview first.'); refreshSSmlmHistIfShown(); return; }
   const a=fitSSmlmAngleFromCands(cands);
   if(a){
     $('sSmlmAngleCenter').value=a.center.toFixed(1); $('sSmlmAngleTol').value=a.tol;
@@ -16176,7 +16173,7 @@ async function previewSSmlmPairsCore(){
   return sSmlmLastCands;
 }
 async function previewSSmlmPairs(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ Preview pairs: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! Preview pairs: no localisations — run Localize or load them with Load data.'); return; }
   $('sSmlmPreviewBtn').disabled=true;
   try{
     // Logged as previewSSmlmPairs() (scans the existing result; the analyze()
@@ -16206,7 +16203,7 @@ async function pairSSmlm(cfg, myEpoch){
 // "Pair & plot sSMLM": pairSSmlm(), then colour-by-distance z-range, LUT and
 // rerender.
 async function runSSmlmPair(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ Pair & plot sSMLM: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! Pair & plot sSMLM: no localisations — run Localize or load them with Load data.'); return; }
   // pairCore() itself throws on real-3D or already-paired input (see its own
   // guards) — caught below, same as any other pairing failure.
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
@@ -16236,7 +16233,7 @@ async function runSSmlmPair(){
     $('sSmlmColorBtn').style.display='';
     updateSSmlmColorBtnLabel();
       log(`Reconstruction now shows the paired result, colour-coded by inter-order distance (not real z) — click "${$('sSmlmColorBtn').textContent}" above the reconstruction to compare against the original, unpaired data.`);
-  }catch(err){ log(`⚠ sSMLM pairing failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! sSMLM pairing failed: ${err.name}: ${err.message}`); }
   finally{ $('sSmlmPairBtn').disabled=false; setProg(null); }
 }
 // "Unpair" button handler: discards the paired result and restores the
@@ -16447,7 +16444,7 @@ async function locateSmfretSOI(preservePairing=false){
     if(lastResult && !lastResult.fromSmfretSOI && lastResult.locs && lastResult.locs.length){
       const cleared=['previous localizations'];
       if(sSmlmPairedLocs) cleared.push('sSMLM pairing');
-      log(`⚠ Localize SOI — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
+      log(`!!! Localize SOI — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
     }
     lastResult={locs:fitted, w, h, px:paramValue('pxnm'), mag:paramValue('mag'), det:null, fromSmfretSOI:true};
     clearTableState();
@@ -16479,7 +16476,7 @@ async function locateSmfretSOI(preservePairing=false){
     }
     log(`smFRET: Localize SOI — averaged ${used} frame${used>1?'s':''}, found ${fitted.length} site(s) of interest${channelBreakdown} `+
         `— available in View data/filtering and Pairing for sSMLM or FRET (Preview pairs/Pair & plot sSMLM, or Pair DD + DA above) for donor/acceptor pairing.`);
-  }catch(err){ log(`⚠ Localize SOI failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Localize SOI failed: ${err.name}: ${err.message}`); }
 }
 // Wrapped: passing locateSmfretSOI directly would hand it the click Event as
 // a truthy preservePairing.
@@ -16611,12 +16608,12 @@ async function smfretEnrichPairedWithAA(pairedLocs, myEpoch, acceptorFitted){
 // rerender). With ALEX it needs the donor-excitation SOI and refuses
 // otherwise rather than silently recomputing the composite.
 async function getSmfretPairingFromDonor(){
-  if(!smfretSOI || !smfretSOI.length){ log('⚠ Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
+  if(!smfretSOI || !smfretSOI.length){ log('!!! Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
   if(paramValue('alexEnabled') && alexProjChannel!=='dirDonorExc'){
-    log('⚠ Pair DD + DA needs the donor-excitation SOI composite — switch the composite toggle to donor (DD+DA) and run Localize SOI again first.');
+    log('!!! Pair DD + DA needs the donor-excitation SOI composite — switch the composite toggle to donor (DD+DA) and run Localize SOI again first.');
     return;
   }
-  if(!lastResult || !lastResult.locs || !lastResult.locs.length){ log('⚠ Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
+  if(!lastResult || !lastResult.locs || !lastResult.locs.length){ log('!!! Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('smfretPairingBtn').disabled=true;
   try{
@@ -16646,7 +16643,7 @@ async function getSmfretPairingFromDonor(){
     lastResult.smfretPairMethodUsed='distAngle';
     lastResult.smfretPsfEst=smfretEstimatePsfFromPairing(r.locs,'distAngle');
     smfretLogPsfEstimate(lastResult.smfretPsfEst,'distAngle');
-  }catch(err){ log(`⚠ Pair DD + DA failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Pair DD + DA failed: ${err.name}: ${err.message}`); }
   finally{ refreshSmfretPairingBtn(); setProg(null); }
 }
 $('smfretPairingBtn').addEventListener('click', pairSmfretSites);
@@ -16837,7 +16834,7 @@ $('smfretAlignOverlayBtn').addEventListener('click', toggleSmfretAlignOverlay);
 async function alignSmfretChannels(){
   if(!stack) return;
   const soi = sSmlmOriginalLocs || smfretSOI;
-  if(!soi || !soi.length){ log('⚠ Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
+  if(!soi || !soi.length){ log('!!! Pair DD + DA: no sites of interest — run Localize SOI first.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('smfretPairingBtn').disabled=true;
   try{
@@ -16867,7 +16864,7 @@ async function alignSmfretChannels(){
       smfretAcceptorCompositeImg={data:core.proj, w:core.w, h:core.h};   // persist it — see that variable's own comment (was previously computed here and discarded)
     }
     log(`Align channels: ${truthPoints.length.toLocaleString()} truth point(s) (${alex?'DA + AA':'DA only, ALEX off'}).`);
-    if(!ddPoints.length || !truthPoints.length){ log('⚠ Align channels — not enough sites on one side to register; check detection settings.'); return; }
+    if(!ddPoints.length || !truthPoints.length){ log('!!! Align channels — not enough sites on one side to register; check detection settings.'); return; }
     // Log the actual settings (active detection threshold only) so the
     // command is recallable.
     const detFilter=paramValue('detFilter');
@@ -16888,7 +16885,7 @@ async function alignSmfretChannels(){
     const bestAngleDeg=Math.atan2(best.dy,best.dx)*180/Math.PI, bestDistNm=Math.hypot(best.dx,best.dy)*px;
     log(`Align channels: initial (translation-only) displacement dx=${best.dx.toFixed(2)} px, dy=${best.dy.toFixed(2)} px `
       + `(distance ${bestDistNm.toFixed(0)} nm, angle ${bestAngleDeg.toFixed(1)}°) — ${best.score.toLocaleString()}/${ddPoints.length.toLocaleString()} DD site(s) matched within ${SEED_TOL_PX} px seed tolerance.`);
-    if(!best.score){ log('⚠ Align channels — no matches found; widen the match tolerance or check the initial guess (frame split/Position donor-style bearing).'); return; }
+    if(!best.score){ log('!!! Align channels — no matches found; widen the match tolerance or check the initial guess (frame split/Position donor-style bearing).'); return; }
     // Small fixed-round ICP: fit the affine map to the current matches,
     // shrink the tolerance geometrically from SEED_TOL_PX to tolPx, re-match.
     function matchUnder(mapFn, hash, tol){
@@ -16910,7 +16907,7 @@ async function alignSmfretChannels(){
       corr=matchUnder((x,y)=>smfretApplyAffine(transform,x,y), hash, (it<ICP_ROUNDS)?roundTol:tolPx);
     }
     if(staleEpoch(myEpoch)) return;
-    if(!corr.length){ log('⚠ Align channels — affine refinement converged to zero matches within the final tolerance; try a larger "Align channels match tolerance (px)".'); return; }
+    if(!corr.length){ log('!!! Align channels — affine refinement converged to zero matches within the final tolerance; try a larger "Align channels match tolerance (px)".'); return; }
     const scaleX=Math.hypot(transform.a,transform.c), scaleY=Math.hypot(transform.b,transform.d);
     const rotDeg=Math.atan2(transform.c,transform.a)*180/Math.PI;
     log(`Align channels: refined to an affine transform (scale ${scaleX.toFixed(4)}/${scaleY.toFixed(4)}, `
@@ -16950,7 +16947,7 @@ async function alignSmfretChannels(){
         fitView(); clampView(); drawView();
       }
     }
-  }catch(err){ log(`⚠ Align channels failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Align channels failed: ${err.name}: ${err.message}`); }
   finally{ refreshSmfretPairingBtn(); setProg(null); }
 }
 // "Pair DD + DA": dispatch on the Pairing method selector.
@@ -17140,7 +17137,7 @@ async function smfretComputeDrift(){
   const r=await runCore(cfg, stack, {zcal:null, wcal:null}, {onLog:()=>{}, onProgress:p=>setProg(p)});
   const roiNm=paramValue('driftRoi'), samplePct=paramValue('samplePct'), px=paramValue('pxnm');
   if(!alex){
-    if(!r.locs.length){ log('⚠ Apply drift correction: the silent Localize pass found no localizations — skipping drift correction for this run.'); return null; }
+    if(!r.locs.length){ log('!!! Apply drift correction: the silent Localize pass found no localizations — skipping drift correction for this run.'); return null; }
     const d=await aimDrift2D(r.locs, stack.n, px, segF, 15, roiNm, samplePct, 0, p=>setProg(p), ()=>false);
     const f0x=d.fdx[0], f0y=d.fdy[0];
     const fdx=d.fdx.map(v=>v-f0x), fdy=d.fdy.map(v=>v-f0y);
@@ -17155,7 +17152,7 @@ async function smfretComputeDrift(){
   // frame0, so segCenters line up exactly. L.frame is 0-based like fi.
   const donorLocs=r.locs.filter(L=>L.frame%2===donorParity);
   const acceptorLocs=r.locs.filter(L=>L.frame%2!==donorParity);
-  if(!donorLocs.length && !acceptorLocs.length){ log('⚠ Apply drift correction: the silent Localize pass found no localizations on either excitation channel — skipping drift correction for this run.'); return null; }
+  if(!donorLocs.length && !acceptorLocs.length){ log('!!! Apply drift correction: the silent Localize pass found no localizations on either excitation channel — skipping drift correction for this run.'); return null; }
   const dDonor = donorLocs.length ? await aimDrift2D(donorLocs, stack.n, px, segF, 15, roiNm, samplePct, 0, p=>setProg(0.5*p), ()=>false) : null;
   const dAcceptor = acceptorLocs.length ? await aimDrift2D(acceptorLocs, stack.n, px, segF, 15, roiNm, samplePct, 0, p=>setProg(0.5+0.5*p), ()=>false) : null;
   let mergedSegDx, mergedSegDy, segCenters, nSegEff;
@@ -17442,7 +17439,7 @@ async function getSmfretTimeTraces(preserveView=false){
     log(`smFRET: Get traces — done, ${traces.length} site(s) × ${n} frames.`);
     const cmdCfg={psf:sigma, winr:paramValue('winr'), gain, camoffset,  smfretApertureMode:useAperture, smfretFloorZero:floorZero, smfretAnchorBg:paramValue('smfretAnchorBg'), smfretApplyDrift:!!drift};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'getSmfretTimeTraces()'));
-  }catch(err){ log(`⚠ Get traces failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Get traces failed: ${err.name}: ${err.message}`); }
   finally{ refreshSmfretTimeTracesBtn(); setProg(null); }
 }
 // Wrapped: passing the function directly would hand it the click Event as a
@@ -17461,7 +17458,7 @@ $('method').addEventListener('change', ()=>{ if(smfretTraces) getSmfretTimeTrace
 // photons/sigma arrays. TypedArrays go through Array.from() (JSON.stringify
 // would write them as objects); NaN gaps become null. x2/y2 only when finite.
 async function exportSmfretTraces(){
-  if(!smfretTraces || !smfretTraces.length){ log('⚠ Save traces: no time traces — run Get traces first.'); return; }
+  if(!smfretTraces || !smfretTraces.length){ log('!!! Save traces: no time traces — run Get traces first.'); return; }
   const frametime=paramValue('frametime');
   const n=smfretTraces[0].photonsDD.length;
   const time_s=Array.from({length:n},(_,i)=>i*frametime);
@@ -17562,7 +17559,7 @@ async function loadSmfretTraces(f){
     log(`smFRET: Load traces — loaded ${smfretTraces.length} site trace(s) from ${f.name}`
       + (stack ? ' (ROI thumbnails will use the currently loaded movie — only meaningful if it is the same one these traces came from).' : ' (no movie loaded — ROI thumbnails and the SOI composite stay unavailable).'));
     logCmd({}, `loadSmfretTraces("${f.name}")`);
-  }catch(err){ log(`⚠ Load traces failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Load traces failed: ${err.name}: ${err.message}`); }
   finally{ refreshSmfretTimeTracesBtn(); }
 }
 // Plot traces: re-shows the traces already in memory (from Get (FRET)
@@ -17571,7 +17568,7 @@ async function loadSmfretTraces(f){
 // (smfretTraceIdx/smfretTraceView); the E(S) histogram goes back on the SR
 // panel when a pairing makes it meaningful, same as a fresh Get traces.
 function plotSmfretTraces(){
-  if(!smfretTraces || !smfretTraces.length){ log('⚠ Plot traces: no time traces — run Get traces (or load a traces file with Load data).'); return; }
+  if(!smfretTraces || !smfretTraces.length){ log('!!! Plot traces: no time traces — run Get traces (or load a traces file with Load data).'); return; }
   smfretShowRawFrame=false;
   smfretTraceIdx=Math.max(0, Math.min(smfretTraceIdx, smfretTraces.length-1));
   $('scrubRow').style.display='none';
@@ -17872,7 +17869,7 @@ function smfretCanShowEHist(){
   return !!(smfretTraces && smfretTraces.length && smfretTraces.some(s=>s.photonsDA));
 }
 function showSmfretEHist(){
-  if(!smfretCanShowEHist()){ log('⚠ E(S) histogram: needs paired DD + DA traces — run Pair DD + DA, then Get traces.'); return; }
+  if(!smfretCanShowEHist()){ log('!!! E(S) histogram: needs paired DD + DA traces — run Pair DD + DA, then Get traces.'); return; }
   const alex=paramValue('alexEnabled'), hasAA=smfretTraces.some(s=>s.photonsAA);
   renderSmfretEHistCore();
   $('smfretEHistDexRow').style.display='flex';
@@ -18517,7 +18514,7 @@ async function linkTracks(locs, px, config, onProgress=()=>{}){
       }
       if(n>HUNGARIAN_MAX && !hungarianFallbackWarned){
         hungarianFallbackWarned=true;
-        log(`⚠ SPT: a ${n}-point cluster exceeded the exact-assignment size limit (${HUNGARIAN_MAX}) — using a faster nearest-neighbor fallback there instead (may be less accurate for that crowded region only).`);
+        log(`!!! SPT: a ${n}-point cluster exceeded the exact-assignment size limit (${HUNGARIAN_MAX}) — using a faster nearest-neighbor fallback there instead (may be less accurate for that crowded region only).`);
       }
       const rowToCol = n>HUNGARIAN_MAX ? greedyAssign(cost,SENTINEL) : hungarianAssign(cost);
       for(let a=0;a<ts.length;a++){
@@ -18737,7 +18734,7 @@ let lastSpt=null;
 // "Track" button handler: runs sptCore() (linking + per-track D), stashes
 // the result in lastSpt, and shows the default (MSD-vs-lag) histogram.
 async function runSptTrack(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ Track: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! Track: no localisations — run Localize or load them with Load data.'); return; }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('sptTrackBtn').disabled=true;
   try{
@@ -18748,7 +18745,7 @@ async function runSptTrack(){
     const segCtx = ($('applySegmentation').checked&&segmentedImageLabels)
       ? { labels:segmentedImageLabels, areaMin:paramValue('segAreaMin'), areaMax:paramValue('segAreaMax') }
       : null;
-    if($('applySegmentation').checked && !segmentedImageLabels) log('⚠ Apply segmentation is checked but no segmentation image is loaded — tracking the whole field of view instead.');
+    if($('applySegmentation').checked && !segmentedImageLabels) log('!!! Apply segmentation is checked but no segmentation image is loaded — tracking the whole field of view instead.');
     // Logged before sptCore(), as runSptTrack() (tracks the existing locs; the
     // analyze() form would re-Localize). The segmentation mask isn't in the
     // command.
@@ -18775,7 +18772,7 @@ async function runSptTrack(){
     }
     // A new locs array rebuilds the overlay cache; redraw if it's showing.
     if(srTracksOverlayOn) drawView();
-  }catch(err){ log(`⚠ SPT tracking failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! SPT tracking failed: ${err.name}: ${err.message}`); }
   finally{ $('sptTrackBtn').disabled=false; setProg(null); }
 }
 // One row per track (not per loc), from the tracked locs, so every linked
@@ -18805,9 +18802,9 @@ function buildSptSummaryCsvText(rows){
 }
 // "Save track data" button handler: one row per track (not per loc).
 async function exportSptSummary(){
-  if(!lastResult || !lastResult.locs.length){ log('⚠ Save track data: no localisations — run Localize, then Track.'); return; }
+  if(!lastResult || !lastResult.locs.length){ log('!!! Save track data: no localisations — run Localize, then Track.'); return; }
   const rows=sptTrackSummary(lastResult.locs, lastResult.px);
-  if(!rows.length){ log('⚠ Save track data: no tracked localisations — run Track first.'); return; }
+  if(!rows.length){ log('!!! Save track data: no tracked localisations — run Track first.'); return; }
   const csvText=buildSptSummaryCsvText(rows);
   const blob=new Blob([csvText],{type:'text/csv;charset=utf-8'});
   const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_spt_tracks.csv';
@@ -18822,9 +18819,9 @@ async function exportSptSummary(){
 // table machinery, which is tied to the reconstruction, clustering and crop.
 let _trackTableState={sortCol:'track_id', sortDir:1}, _trackTableData=null, _trackTableFiltered=null, _trackTableFilters=[];
 function openTrackTable(){
-  if(!lastResult || !lastResult.locs.length){ log('⚠ Show track data: no localisations — run Localize, then Track.'); return; }
+  if(!lastResult || !lastResult.locs.length){ log('!!! Show track data: no localisations — run Localize, then Track.'); return; }
   const rows=sptTrackSummary(lastResult.locs, lastResult.px);
-  if(!rows.length){ log('⚠ Show track data: no tracked localisations — run Track first.'); return; }
+  if(!rows.length){ log('!!! Show track data: no tracked localisations — run Track first.'); return; }
   _trackTableData={
     cols:['track_id','n_locs','D_coeff','mean_x','mean_y','first_frame','last_frame'],
     dec:{track_id:0,n_locs:0,D_coeff:4,mean_x:1,mean_y:1,first_frame:0,last_frame:0},
@@ -19084,7 +19081,7 @@ $('sptSaveBtn').addEventListener('click', exportSptSummary);
 // grayscale background, as sptPALM-Python plots them).
 function switchLutToGreyForTracks(){ $('lut').value='grey'; if(srFull) rerender(true); }
 $('sptShowTracksBtn').addEventListener('click', ()=>{
-  if(!lastSpt || !lastSpt.nTracks){ log('⚠ Show tracks: no tracks — run Track first.'); return; }
+  if(!lastSpt || !lastSpt.nTracks){ log('!!! Show tracks: no tracks — run Track first.'); return; }
   srTracksOverlayOn=true;
   const b=$('srTracksOverlayBtn'); if(b){ b.style.display=''; b.textContent='Hide tracks'; }
   switchLutToGreyForTracks();
@@ -19385,10 +19382,10 @@ function drawTracksColorBar(ctx,DW,DH){
 async function loadSegmentedImage(file){
   try{
     const segStack=await loadTiffFile(file, log);
-    if(segStack.n>1) log(`⚠ Segmented image has ${segStack.n} frames — using frame 1 only.`);
+    if(segStack.n>1) log(`!!! Segmented image has ${segStack.n} frames — using frame 1 only.`);
     const img=(await segStack.getFrames(0,1))[0];
     if(stack && (segStack.w!==stack.w || segStack.h!==stack.h))
-      log(`⚠ Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
+      log(`!!! Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
     drawSegmentedImage(img, segStack.w, segStack.h);
     // refPxNm: pixel size at load time (for the SR overlay's scale); set only
     // on a fresh load.
@@ -19400,11 +19397,11 @@ async function loadSegmentedImage(file){
     if(srSegOverlayOn && srFull) drawView();   // already toggled on from a prior segmentation image — refresh with the new one
     // Max. cell area defaults to the largest cell (fresh load only).
     if(segmentedImageData.length) $('segAreaMax').value=Math.max(...segmentedImageData.map(c=>c.areaPx));
-  }catch(err){ log(`⚠ Segmented image load failed: ${err.message}`); }
+  }catch(err){ log(`!!! Segmented image load failed: ${err.message}`); }
 }
 // Cell-area histogram (px, linear count axis).
 function drawSegAreaHist(){
-  if(!segmentedImageData || !segmentedImageData.length){ log('⚠ Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
+  if(!segmentedImageData || !segmentedImageData.length){ log('!!! Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
   computeHist('Cell area', segmentedImageData.map(c=>c.areaPx), 'px');
   drawHistogram();
 }
@@ -19453,14 +19450,14 @@ $('segFile').addEventListener('change', async e=>{
 // Reopens the last segmentation view from the stored labels (colouring is
 // deterministic).
 $('segShowBtn').addEventListener('click', ()=>{
-  if(!segmentedImageLabels){ log('⚠ Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
+  if(!segmentedImageLabels){ log('!!! Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
   drawSegShow();
 });
 $('segShowModeBtn').addEventListener('click', ()=>{ segShowMode = segShowMode==='hist' ? 'image' : 'hist'; drawSegShow(); });
 // Toggles the SR panel between the reconstruction and the segmentation
 // overlay (text-swap button).
 $('srSegOverlayBtn').addEventListener('click', ()=>{
-  if(!segmentedImageLabels){ log('⚠ Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
+  if(!segmentedImageLabels){ log('!!! Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
   srSegOverlayOn=!srSegOverlayOn;
   $('srSegOverlayBtn').textContent = srSegOverlayOn ? 'Show recon.' : 'Show segm.';
   drawView();
@@ -19544,7 +19541,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     const stopAt=ceiling.bytes-reserved;
     if(bytes > stopAt){
       locsMemStopLogged=true; memStopTriggered=true;
-      onLog(`⚠ Auto-stopping: ${locs.length.toLocaleString()} localizations so far are estimated at `+
+      onLog(`!!! Auto-stopping: ${locs.length.toLocaleString()} localizations so far are estimated at `+
             `~${fmtBytes(bytes)}, leaving less than the ~${fmtBytes(reserved)} the reconstruction render, `+
             `any in-flight frame batches, and the loaded movie's own ${fmtBytes(stackResidentBytes)} cache `+
             `(if any) still need from ${memCeilingSuffix(ceiling)} — on a `+
@@ -19554,7 +19551,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
             `the detection threshold to reduce candidates, then re-run if you need the rest.`);
     } else if(!locsMemWarned && bytes > stopAt*0.8){
       locsMemWarned=true;
-      onLog(`⚠ ${locs.length.toLocaleString()} localizations so far already use a large share of `+
+      onLog(`!!! ${locs.length.toLocaleString()} localizations so far already use a large share of `+
             `${memCeilingSuffix(ceiling)} — this Run will auto-stop (keeping `+
             `what's found so far) if it keeps growing much further.`);
     }
@@ -19565,14 +19562,14 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // Fixed-angle gaussmleEll needs sSmlmAngleCenter fitted for this dataset;
   // warn (don't block) when it is still at its 0° default.
   if(method==='gaussmleEll' && !config.localize3D && !config.sSmlmAngleCenter){
-    onLog(`⚠ sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs' own automatic fit, on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
+    onLog(`!!! sSmlmAngleCenter is 0° (its default) — if that wasn't deliberately fit for THIS dataset (Preview pairs' own automatic fit, on an earlier Run with a symmetric method), every σx/σy below will be fit against the wrong axis.`);
   }
   // FTM: frames are fetched through makeFtmStack(), so detect/fit see
   // corrected data unchanged. Its window uses the whole stack, not just the
   // analysed range.
   let fetchStack=stack;
   if(config.ftmEnabled){
-    if(nStack<config.ftmWindow) onLog(`⚠ Temporal median filtering needs at least ${config.ftmWindow} frames (stack has ${nStack}) — running on raw data instead.`);
+    if(nStack<config.ftmWindow) onLog(`!!! Temporal median filtering needs at least ${config.ftmWindow} frames (stack has ${nStack}) — running on raw data instead.`);
     else {
       // Chunk size, for the log line only (the serial path's real chunks can
       // differ slightly).
@@ -19592,7 +19589,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       const looksRisky = (config.memBudgetGB===Infinity || config.memBudgetGB<=8) && totalMB>800;
       onLog(`Estimated peak memory: ~${config.chunkmb} MB for FTM's own chunk working set`+
             (stackResidentMB ? ` + ~${stackResidentMB} MB for the already-cached stack = ~${totalMB} MB total` : '')+
-            `.`+(looksRisky ? ` ⚠ That's a lot for a browser tab, especially on mobile — if a Run stops with no further log line, lower Stream heap (chunkmb) and/or set a Total memory budget first.` : ''));
+            `.`+(looksRisky ? ` !!! That's a lot for a browser tab, especially on mobile — if a Run stops with no further log line, lower Stream heap (chunkmb) and/or set a Total memory budget first.` : ''));
     }
   }
   const runT0=performance.now();          // whole-Run wall clock (pool setup + detect/fit + previews + final render)
@@ -19780,7 +19777,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         :runOnGpu(()=>gpuFitFn(gpuEngine, slot.seedsA, slot.seedsB, slot.windows, slot.frameIdx, nb, r, eps, slot, config.auditCandidates?slot.candidatePixels:null))
           .catch(err=>{
             gpuFailed=true; fallbackBatches++;
-            if(!gpuFailureLogged){gpuFailureLogged=true;onLog(`⚠ GPU Fit failed (${(err&&err.message)||err}) — using CPU for this and remaining fit batches.`);}
+            if(!gpuFailureLogged){gpuFailureLogged=true;onLog(`!!! GPU Fit failed (${(err&&err.message)||err}) — using CPU for this and remaining fit batches.`);}
             return fitPackedOnCpu(slot,nb);
           });
       task.then(results=>{
@@ -20411,7 +20408,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
 // UI wrapper around runCore(): config and calibration from the DOM/globals,
 // hooks for the live previews, then results applied to the page.
 async function run(){
-  if(!stack){ log('⚠ Localize: no movie — load one with Load data or run Simulate movie.'); return; }
+  if(!stack){ log('!!! Localize: no movie — load one with Load data or run Simulate movie.'); return; }
   const uiRunT0=performance.now();
   stopRequested=false;
   const myEpoch=newEpoch();   // see newEpoch()
@@ -20422,7 +20419,7 @@ async function run(){
     if(lastDrift) cleared.push('drift correction');
     if(lastSpt) cleared.push('SPT tracking');
     if(sSmlmPairedLocs) cleared.push('sSMLM pairing');
-    log(`⚠ Starting Localize — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
+    log(`!!! Starting Localize — clearing ${cleared.join(', ')} from memory (Save first if you still need it).`);
   }
   // lock the data sources too: swapping the stack mid-run would pull frames
   // out from under the loop.
@@ -20436,7 +20433,7 @@ async function run(){
     // checked (see PARAMS.localize3D) — unchecked, both just run their own
     // elliptical fit with no z lookup, same as any other 2D method.
     const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
-    if(needCal && !calMethods[needCal]){ log(`⚠ Localize: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json with Load data.`); return; }
+    if(needCal && !calMethods[needCal]){ log(`!!! Localize: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json with Load data.`); return; }
     // Reset a colour map left over from another result (e.g. sSMLM's hsvBlue)
     // before the run starts, using updateMethodUI()'s rule.
     if(!currentIs3d() && methodResetsLutToFire(method)) $('lut').value='fire';
@@ -20496,7 +20493,7 @@ async function run(){
     $('sptTrackBtn').disabled = r.locs.length===0;
     if(groundTruth) log(`Ground-truth emitters in structure: ${groundTruth.length}.`);
   }catch(err){
-    log(`⚠ Run failed: ${err.name}: ${err.message}`);
+    log(`!!! Run failed: ${err.name}: ${err.message}`);
   // Not epoch-guarded: always re-enable buttons (a superseding action may not
   // manage them).
   }finally{
@@ -20570,7 +20567,7 @@ function startLiveStreamingSession(){
   // Same calibration guard run() uses — resolved ONCE here rather than per
   // chunk, since a chunk is too short on its own to ever build one.
   const needCal = (method==='mle3d'||method==='gaussmleEll') ? (localize3D?ALGO_CALIB_METHOD[method]:null) : ALGO_CALIB_METHOD[method];
-  if(needCal && !calMethods[needCal]){ log(`⚠ Live streaming: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json with Load data.`); return; }
+  if(needCal && !calMethods[needCal]){ log(`!!! Live streaming: this 3D method needs a "${CALIB_METHODS[needCal]}" calibration — run Calibrate or load a *_calib.json with Load data.`); return; }
   const cfg=buildConfigFromParams();
   const px=cfg.pxnm;
   const zcal = method==='phasor3d' ? cal3d : null;
@@ -20616,8 +20613,8 @@ async function liveStreamPushChunkFile(file){
   if(!liveStreamState || !liveStreamState.active) startLiveStreamingSession();
   const cfg=liveStreamState.cfg;
   // Per-chunk loader/runCore() log lines would flood the log; forward only
-  // '⚠' warnings. A periodic milestone line replaces them.
-  const quietLog=m=>{ if(/⚠/.test(m)) log(m); };
+  // '!!!' warnings. A periodic milestone line replaces them.
+  const quietLog=m=>{ if(/!!!/.test(m)) log(m); };
   const chunkStack=await loadTiffFile(file, quietLog);
   // First chunk: set the Contrast range from this acquisition's data.
   if(liveStreamState.chunkCount===0) await estimateRawContrastRange(chunkStack);
@@ -20713,7 +20710,7 @@ let liveStreamWs=null;
 // of that connection's life.
 function liveStreamWsConnect(){
   const url=$('liveStreamWsUrl').value.trim();
-  if(!url){ log('⚠ Connect: no WebSocket URL — enter one in the field above.'); return; }
+  if(!url){ log('!!! Connect: no WebSocket URL — enter one in the field above.'); return; }
   let ws;
   try{ ws=new WebSocket(url); }
   catch(err){ log(`Live streaming: could not open a WebSocket to ${url}: ${err.message}`); return; }
@@ -20743,7 +20740,7 @@ function liveStreamWsConnect(){
       }
       let ok=true;
       try{ await liveStreamPushChunkFile(ev.data); }
-      catch(err){ ok=false; log(`⚠ Live streaming failed: chunk over WebSocket: ${err.message}`); }
+      catch(err){ ok=false; log(`!!! Live streaming failed: chunk over WebSocket: ${err.message}`); }
       if(liveStreamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'ack', framesReceived:liveStreamState.frameOffset, chunkCount:liveStreamState.chunkCount, ok}));
     });
   });
@@ -21046,13 +21043,13 @@ function checkSimMovieSize(){
   const bytes=n*w*h*4, prev=simMovie ? simMovie.stack.n*simMovie.stack.w*simMovie.stack.h*4 : 0;
   const ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
   if(bytes+prev>ceiling.bytes){
-    log(`⚠ Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px need ~${fmtBytes(bytes)}`+
+    log(`!!! Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px need ~${fmtBytes(bytes)}`+
         (prev ? ` (plus ~${fmtBytes(prev)} for the previous simulated movie until it is replaced)` : '')+
         `, over ${memCeilingSuffix(ceiling)} — lower Frames to simulate or FOV (pixels), or raise the budget if you have the RAM.`);
     return false;
   }
   if(bytes>=SIM_MOVIE_WARN_BYTES)
-    log(`⚠ Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px take ~${fmtBytes(bytes)} of memory; `+
+    log(`!!! Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px take ~${fmtBytes(bytes)} of memory; `+
         `Save sim. movie would write a ~${fmtBytes(n*w*h*2)} TIFF${n*w*h*2>4294967295?' (BigTIFF)':''}, and simulating and Localize take correspondingly long.`);
   return true;
 }
@@ -21110,7 +21107,7 @@ async function runSimulation(){
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
     log(`Stack ready: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
   }catch(err){
-    log(`⚠ Simulation failed: ${err.name}: ${err.message}`); setProgRange(null); setProg(null);
+    log(`!!! Simulation failed: ${err.name}: ${err.message}`); setProgRange(null); setProg(null);
     // On error, re-enable the buttons disabled above (a stale-but-successful
     // return defers to whatever superseded it).
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
@@ -21127,7 +21124,7 @@ $('genBtn').addEventListener('click',runSimulation);
 function setSimMovie(v){ simMovie=v; const b=$('simShowBtn'); if(b) b.disabled=!v; }
 async function showSimulatedMovie(){
   const sm=simMovie;
-  if(!sm){ log('⚠ Show movie: no simulated movie in memory — run Simulate movie first.'); return; }
+  if(!sm){ log('!!! Show movie: no simulated movie in memory — run Simulate movie first.'); return; }
   if(unrotatedStack===sm.stack && stack===rotatedStack){ log('The simulated movie is already shown.'); return; }
   logCmd({}, 'showSimulatedMovie()');
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
@@ -21172,7 +21169,7 @@ async function runCalibrationSimulation(){
     log(`Calibration stack ready: ${stack.n} frames · ${stack.w}×${stack.h} · z-step ${zStepNm}nm · `+
         `z=0 ref frame ${focusIndex+1}. Click "Calibrate" in the 3D calibration section.`);
   }catch(err){
-    log(`⚠ Simulate calib. stack failed: ${err.name}: ${err.message}`); setProg(null);
+    log(`!!! Simulate calib. stack failed: ${err.name}: ${err.message}`); setProg(null);
     if(stack){ $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false; }
   }finally{
     $('genCalBtn').disabled=!psfModelIsZernike(); $('genBtn').disabled=false; $('loadBtn').disabled=false;
@@ -21190,7 +21187,7 @@ $('genCalBtn').addEventListener('click',runCalibrationSimulation);
 // The View ground truth button stays in its grid slot; it is only enabled while ground truth exists.
 function setViewGtBtn(on){ const b=$('viewGtBtn'); if(b){ b.disabled=!on; b.textContent='View ground truth'; } }
 async function toggleGtLocalizations(){
-  if(!groundTruthLocs || !groundTruthLocs.length || !stack){ log('⚠ View ground truth: no simulated ground truth — run Simulate movie first.'); return; }
+  if(!groundTruthLocs || !groundTruthLocs.length || !stack){ log('!!! View ground truth: no simulated ground truth — run Simulate movie first.'); return; }
   const btn=$('viewGtBtn'); btn.disabled=true;
   try{
     gtShowing=!gtShowing;
@@ -21202,7 +21199,7 @@ async function toggleGtLocalizations(){
       // set them: with depth present and depth colour off, a warning says so instead.
       const hasZ=groundTruthLocs.some(L=>isFinite(L.z) && L.z!==0);
       if(hasZ && !paramValue('zcolor'))
-        log('⚠ View ground truth: the ground truth has depth (z), but Colour by depth (z) is off — tick it (and pick a Colour map) to see the depth.');
+        log('!!! View ground truth: the ground truth has depth (z), but Colour by depth (z) is off — tick it (and pick a Colour map) to see the depth.');
       $('zcolorLabel').textContent='Colour by depth (z)';
       $('zminLabel').textContent='z min (nm)'; $('zmaxLabel').textContent='z max (nm)';
       $('zcolorRow').style.display = hasZ ? 'flex' : 'none';
@@ -21255,7 +21252,7 @@ async function toggleGtLocalizations(){
     }
     syncSaveImg();
   }catch(err){
-    log(`⚠ View ground truth failed: ${err.message}`); gtShowing=false;
+    log(`!!! View ground truth failed: ${err.message}`); gtShowing=false;
   }finally{
     btn.disabled=false;
   }
@@ -21340,7 +21337,7 @@ function buildGroundTruthCsv(gtEvents, nFrames, pxNm, drift){
 // "Save sim. movie": the simulated stack as a 16-bit TIFF (encodeTiff16()) and, for a movie, its
 // ground truth as CSV — a second save dialog, only after the TIFF was saved.
 async function saveSimulatedMovie(){
-  const sv=simSaved; if(!sv){ log('⚠ Save sim. movie: nothing simulated — run Simulate movie (or Calib. 3D stack) first.'); return; }
+  const sv=simSaved; if(!sv){ log('!!! Save sim. movie: nothing simulated — run Simulate movie (or Calib. 3D stack) first.'); return; }
   const btn=$('simSaveBtn'); btn.disabled=true;
   try{
     const st=sv.stack, frames=await st.getFrames(0,st.n);
@@ -21355,7 +21352,7 @@ async function saveSimulatedMovie(){
       log(savedCsv ? `Saved its ground truth as ${savedCsv} (one row per emitter per frame it was on).` : 'Ground-truth CSV not saved (cancelled).');
     }
     logCmd({}, 'saveSimulatedMovie()');
-  }catch(err){ log(`⚠ Saving the simulated movie failed: ${err.message}`); }
+  }catch(err){ log(`!!! Saving the simulated movie failed: ${err.message}`); }
   finally{ btn.disabled=!simSaved; }
 }
 $('simSaveBtn').addEventListener('click', saveSimulatedMovie);
@@ -21431,7 +21428,7 @@ async function loadMovieFiles(fs){
     if(!(await presentStack(myEpoch))) return;
     log(`Ready to localize (${stack.px} nm/px). ${stack.n>1?'Drag the Frame slider, type a frame number, or scroll over the image to browse the stack.':''}`);
   }catch(err){
-    log('⚠ Load data failed: '+err.message);
+    log('!!! Load data failed: '+err.message);
     // On error, re-enable the buttons disabled above (a stale return defers).
     $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
   }
@@ -21603,7 +21600,7 @@ function clearCalFixedXY(){
   if(stack) showFrame(+$('scrub').value);   // drop the fixed-box overlay from the raw panel immediately
 }
 $('calFixedXY').addEventListener('change',()=>{
-  if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('⚠ Fix bead x,y: no bead z-stack — load one with Load data first.'); }
+  if(paramValue('calFixedXY')){ if(stack) locateBeadsForCalib(); else log('!!! Fix bead x,y: no bead z-stack — load one with Load data first.'); }
   else clearCalFixedXY();
 });
 // re-locate the fixed bead positions whenever a setting that changes detection/fit would affect them
@@ -21816,7 +21813,7 @@ async function previewPsf(){
     $('psfScrub').max=psfPreviewStack.nz-1; $('psfScrubNum').max=psfPreviewStack.nz;
     showPsfSlice(psfPreviewIndex);
     log(`PSF preview shown, starting at focus (plane ${psfPreviewIndex+1}/${psfPreviewStack.nz}).`);
-  } catch(e){ log('⚠ Preview PSF failed: '+e.message); }
+  } catch(e){ log('!!! Preview PSF failed: '+e.message); }
   btn.disabled=!psfModelIsZernike();
 }
 function closePsfPreview(){
@@ -21861,7 +21858,7 @@ async function loadSettingsJson(f){
     // Remove once old settings files have migrated.
     if(v.sptFrameTime!==undefined && v.frametime===undefined){
       v.frametime=v.sptFrameTime; delete v.sptFrameTime;
-      log('⚠ sptFrameTime is deprecated in this settings file — applying it as frametime instead.');
+      log('!!! sptFrameTime is deprecated in this settings file — applying it as frametime instead.');
     }
     log(`Loading settings from ${f.name}:`);
     logParamValues(v);
@@ -21883,16 +21880,16 @@ async function loadSettingsJson(f){
     // unrecognised keys (checked separately; either can occur alone).
     const cur=currentAppVersion();
     if(o.appVersion && cur && compareSemver(o.appVersion, cur)>0){
-      log(`⚠ This settings file was saved by webSMLM v${o.appVersion}, newer than the v${cur} running here`
+      log(`!!! This settings file was saved by webSMLM v${o.appVersion}, newer than the v${cur} running here`
         +(unknownKeys.length?` — ${unknownKeys.length} setting(s) it carries (${unknownKeys.slice(0,5).join(', ')}${unknownKeys.length>5?', …':''}) aren't recognised by this build`:'')
         +`. Check for a newer webSMLM release: https://github.com/HohlbeinLab/webSMLM/releases`);
     }else if(unknownKeys.length){
-      log(`⚠ ${unknownKeys.length} setting(s) in this file aren't recognised by this build of webSMLM `
+      log(`!!! ${unknownKeys.length} setting(s) in this file aren't recognised by this build of webSMLM `
         +`(${unknownKeys.slice(0,5).join(', ')}${unknownKeys.length>5?', …':''}) — possibly saved by a newer `
         +`version. If this is unexpected, check for a newer webSMLM release: `
         +`https://github.com/HohlbeinLab/webSMLM/releases`);
     }
-  }catch(err){ log('⚠ Load data failed: settings file: '+err.message); }
+  }catch(err){ log('!!! Load data failed: settings file: '+err.message); }
 }
 $('setFile').addEventListener('change',async e=>{
   const f=e.target.files[0];
@@ -21927,9 +21924,9 @@ async function loadCalibrationJson(f){
     const present=Object.keys(CALIB_METHODS).filter(k=>calMethods[k]).map(k=>CALIB_METHODS[k]).join(' + ');
     log(`Loaded calibration ${f.name}: models ${present}.`+(cal3d?` Phasor 3D z(ratio) axial RMS ≈ ${(z.rms_nm||0).toFixed(0)} nm, ratio ${z.rmin.toFixed(2)}–${z.rmax.toFixed(2)}.`:''));
     const need=ALGO_CALIB_METHOD[paramValue('method')];   // does it provide what the selected 3D method needs?
-    if(need && !calMethods[need]) log(`⚠ The selected method needs a "${CALIB_METHODS[need]}" calibration, which this file does not contain.`);
+    if(need && !calMethods[need]) log(`!!! The selected method needs a "${CALIB_METHODS[need]}" calibration, which this file does not contain.`);
     updateCalStatus();
-  }catch(err){ log('⚠ Load data failed: calibration file: '+err.message); }
+  }catch(err){ log('!!! Load data failed: calibration file: '+err.message); }
 }
 $('calFile').addEventListener('change',async e=>{
   const f=e.target.files[0];
@@ -22028,7 +22025,7 @@ async function loadCsvFile(f){
         `${nFrames.toLocaleString()} frames (${(locs.length/Math.max(1,nFrames)).toFixed(1)} loc/frame)`+
         `${has3d?' (3D)':''}${hasDist?' (sSMLM paired)':''} — using the current Pixel size (${px} nm) and Magnification to render; `+
         `no raw frame data, so re-detection/live preview aren't available for this data.`);
-  }catch(err){ log('⚠ Load data failed: '+err.message+'.'); }
+  }catch(err){ log('!!! Load data failed: '+err.message+'.'); }
 }
 // Pushes an analyze() result (from the log terminal) into the live session,
 // like loadCsvFile(): same resets, minimal lastResult, buttons. `stack` is
@@ -22130,18 +22127,18 @@ async function loadFiles(fs){
   const isCsv=f=>/\.csv$/i.test(f.name), isJson=f=>/\.json$/i.test(f.name);
   const jsonFiles=fs.filter(isJson);
   if(jsonFiles.length){
-    if(jsonFiles.length!==fs.length){ log(`⚠ Load data: the selection mixes a JSON file (${jsonFiles[0].name}) with other files — pick one type at a time.`); return; }
-    if(jsonFiles.length>1) log(`⚠ Multiple JSON files selected — loading only ${jsonFiles[0].name}.`);
+    if(jsonFiles.length!==fs.length){ log(`!!! Load data: the selection mixes a JSON file (${jsonFiles[0].name}) with other files — pick one type at a time.`); return; }
+    if(jsonFiles.length>1) log(`!!! Multiple JSON files selected — loading only ${jsonFiles[0].name}.`);
     await loadJsonFile(jsonFiles[0]);
     return;
   }
   const csvFiles=fs.filter(isCsv), movieFiles=fs.filter(f=>!isCsv(f));
   if(csvFiles.length && movieFiles.length){
-    log(`⚠ Load data: the selection mixes a CSV (${csvFiles[0].name}) with movie file(s) (${movieFiles[0].name}${movieFiles.length>1?', …':''}) — pick one type at a time.`);
+    log(`!!! Load data: the selection mixes a CSV (${csvFiles[0].name}) with movie file(s) (${movieFiles[0].name}${movieFiles.length>1?', …':''}) — pick one type at a time.`);
     return;
   }
   if(csvFiles.length){
-    if(csvFiles.length>1) log(`⚠ Multiple CSVs selected — loading only ${csvFiles[0].name}.`);
+    if(csvFiles.length>1) log(`!!! Multiple CSVs selected — loading only ${csvFiles[0].name}.`);
     await loadCsvFile(csvFiles[0]);
   }else{
     await loadMovieFiles(movieFiles);
@@ -22156,12 +22153,12 @@ async function loadJsonFile(f){
   if(!f) return;
   let o;
   try{ o=JSON.parse(await f.text()); }
-  catch(err){ log(`⚠ Load data: ${f.name} is not valid JSON (${err.message}).`); return; }
+  catch(err){ log(`!!! Load data: ${f.name} is not valid JSON (${err.message}).`); return; }
   const fmt=o&&o.format;
   if(fmt==='webSMLM-smfret-traces') await loadSmfretTraces(f);
   else if(fmt==='webSMLM-settings' || (!fmt && o && typeof o.values==='object')) await loadSettingsJson(f);
   else if(fmt==='webSMLM-astig-calibration' || (!fmt && o && (o.phasor_z_from_ratio || o.sigma_x_nm))) await loadCalibrationJson(f);
-  else log(`⚠ Load data: ${f.name} is not a JSON file webSMLM recognises (expected saved smFRET traces, settings, or a 3D calibration${fmt?`; found format "${fmt}"`:''}).`);
+  else log(`!!! Load data: ${f.name} is not a JSON file webSMLM recognises (expected saved smFRET traces, settings, or a 3D calibration${fmt?`; found format "${fmt}"`:''}).`);
 }
 $('loadBtn').addEventListener('click',()=>$('file').click());
 $('file').addEventListener('change', async e=>{
@@ -22201,9 +22198,9 @@ async function copyLogToClipboard(){
       const ok=document.execCommand('copy');
       document.body.removeChild(ta);
       if(ok) log('Copied log to clipboard.');
-      else log(`⚠ Copy log failed: ${err.name}: ${err.message}`);
+      else log(`!!! Copy log failed: ${err.name}: ${err.message}`);
     }catch(err2){
-      log(`⚠ Copy log failed: ${err2.name}: ${err2.message}`);
+      log(`!!! Copy log failed: ${err2.name}: ${err2.message}`);
     }
   }
 }
@@ -22292,7 +22289,7 @@ updateMemReadout();
       const myEpoch=newEpoch();
       let result;
       try{ result=await runTerminalStatement(text); }
-      catch(err){ log(`⚠ ${err.name||'Error'}: ${err.message}`); return; }
+      catch(err){ log(`!!! ${err.name||'Error'}: ${err.message}`); return; }
       if(staleEpoch(myEpoch)) return;   // superseded while the statement above was running
       if(result && Array.isArray(result.locs)){
         applyHeadlessResultToSession(result);
@@ -22533,7 +22530,7 @@ $('cropBtn').addEventListener('click',async()=>{
 async function commitSrCrop(x0, y0, x1, y1){
   // Reject an inverted region (it would match zero rows silently).
   if(x1<=x0 || y1<=y0){
-    log(`⚠ Invalid crop region: x1 (${x1}) must be greater than x0 (${x0}), and y1 (${y1}) greater than y0 (${y0}).`);
+    log(`!!! Invalid crop region: x1 (${x1}) must be greater than x0 (${x0}), and y1 (${y1}) greater than y0 (${y0}).`);
     return;
   }
   // Column info from the current base (clustered events if clustering is
@@ -22541,7 +22538,7 @@ async function commitSrCrop(x0, y0, x1, y1){
   const base=getBaseLocs();
   let info;
   try{ info=tableColumnInfo(base, base!==lastResult.locs); }
-  catch(err){ log(`⚠ Crop filter not applied: ${(err&&err.message)||err}`); return; }   // stay in crop mode; the message also handles non-Error throws
+  catch(err){ log(`!!! Crop filter not applied: ${(err&&err.message)||err}`); return; }   // stay in crop mode; the message also handles non-Error throws
   _tableData={cols:info.cols, dec:info.dec, unit:info.unit, info, base};
   // .expr is the chip's display text; .exprCLI is the replayable clause for
   // logCmd()/tableFiltersCore(). fn tests the raw loc (x/y), so filtering is
@@ -22641,16 +22638,16 @@ async function applyCropToRaw(x0,y0,x1,y1){
   // Validate bounds here (terminal calls can pass anything): distinct
   // messages for inverted, out-of-bounds and too-small regions.
   const base=originalStack||stack;
-  if(!base){ log('⚠ No movie loaded to crop.'); return; }
+  if(!base){ log('!!! No movie loaded to crop.'); return; }
   if(x1<=x0 || y1<=y0){
-    log(`⚠ Invalid crop region: x1 (${x1}) must be greater than x0 (${x0}), and y1 (${y1}) greater than y0 (${y0}).`);
+    log(`!!! Invalid crop region: x1 (${x1}) must be greater than x0 (${x0}), and y1 (${y1}) greater than y0 (${y0}).`);
     drawRawView(); return;
   }
   if(x0<0 || y0<0 || x1>base.w || y1>base.h){
-    log(`⚠ Crop region x ${x0}–${x1}, y ${y0}–${y1} is out of bounds for the ${base.w}×${base.h} stack.`);
+    log(`!!! Crop region x ${x0}–${x1}, y ${y0}–${y1} is out of bounds for the ${base.w}×${base.h} stack.`);
     drawRawView(); return;
   }
-  if(x1-x0<8 || y1-y0<8){ log('⚠ Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
+  if(x1-x0<8 || y1-y0<8){ log('!!! Crop region too small (min 8×8 px) — pick a larger region.'); drawRawView(); return; }
   const myEpoch=newEpoch();   // guards only the display refresh after the awaits (the crop itself is synchronous)
   // Logged before the swap, as applyCropToRaw(...) (crop only). The CLI form
   // uses cropX0.. keys (followed by Localize there).
@@ -22964,7 +22961,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29n — a larger ⚠ marker in the log.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29o — log warnings are marked with a bold red !!!.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23166,7 +23163,7 @@ function rebuildTableData(){
   const base=getBaseLocs();
   let info;
   try{ info=tableColumnInfo(base, base!==lastResult.locs); }
-  catch(err){ log(`⚠ Table not updated: ${(err&&err.message)||err}`); return; }   // keeps the previous table view
+  catch(err){ log(`!!! Table not updated: ${(err&&err.message)||err}`); return; }   // keeps the previous table view
   _tableData={cols:info.cols, dec:info.dec, unit:info.unit, info, base};
   if(!_tableData.cols.includes(_tableState.sortCol)) _tableState.sortCol='id';
   renderTable(); applyFilterToReconstruction();
@@ -23307,11 +23304,11 @@ function parseFilter(str,cols,valueOf){
 // "View data/filtering" button handler: builds _tableData from the current
 // base locs and opens the table modal.
 function openTable(){
-  if(!lastResult||!lastResult.locs.length){ log('⚠ View data/filtering: no localisations — run Localize or load them with Load data.'); return; }
+  if(!lastResult||!lastResult.locs.length){ log('!!! View data/filtering: no localisations — run Localize or load them with Load data.'); return; }
   const base=getBaseLocs();
   let info;
   try{ info=tableColumnInfo(base, base!==lastResult.locs); }
-  catch(err){ log(`⚠ Table not opened: ${(err&&err.message)||err}`); return; }   // stays closed rather than opening on incomplete data
+  catch(err){ log(`!!! Table not opened: ${(err&&err.message)||err}`); return; }   // stays closed rather than opening on incomplete data
   _tableData={cols:info.cols, dec:info.dec, unit:info.unit, info, base};
   $('tableFilter').value=''; $('tableFilter').classList.remove('bad');   // committed filters persist across close/open (cleared only by a new Run or Reset)
   $('tableHistCol').innerHTML=_tableData.cols.filter(c=>c!=='id'&&c!=='frame').map(c=>`<option value="${c}"${c==='intensity'?' selected':''}>${c}</option>`).join('');
@@ -23328,7 +23325,7 @@ function commitFilter(){
   // No new filters while streaming (a filter is a one-time snapshot); viewing
   // and Reset stay available.
   if(liveStreamState && liveStreamState.active){
-    log('⚠ Filtering is unavailable while Live streaming is active (it would freeze the reconstruction on today\'s data) — Stop first, or browse/sort/histogram the table unfiltered.');
+    log('!!! Filtering is unavailable while Live streaming is active (it would freeze the reconstruction on today\'s data) — Stop first, or browse/sort/histogram the table unfiltered.');
     return;
   }
   // "inf"/"infinity" accepted (useful for tempClusteringMemory; harmless for
@@ -23343,7 +23340,7 @@ function commitFilter(){
     $('tableFilter').value=''; $('tableFilter').classList.remove('bad');
     rebuildTableData();
     const {xy,z}=getClusterParams();
-    if(axis==='memory' && !xy && !z) log(`⚠ ${raw} has no effect yet — set tempClusteringXY or tempClusteringZ too (memory only extends an already-active clustering chain).`);
+    if(axis==='memory' && !xy && !z) log(`!!! ${raw} has no effect yet — set tempClusteringXY or tempClusteringZ too (memory only extends an already-active clustering chain).`);
     else log(`Temporal clustering: ${raw} — ${_tableData.base.length.toLocaleString()} events from ${lastResult.locs.length.toLocaleString()} localizations.`);
     logCmd({tableFilters: tableFilterExprList()});
     return;
@@ -23444,7 +23441,7 @@ function renderTable(){
 }
 // Column histogram of the currently filtered rows, in the raw panel.
 function plotColumnHistogram(col){
-  if(!_tableFiltered||!_tableFiltered.length){ log('⚠ Plot histogram: no rows — loosen the filters in View data/filtering.'); return; }
+  if(!_tableFiltered||!_tableFiltered.length){ log('!!! Plot histogram: no rows — loosen the filters in View data/filtering.'); return; }
   const {info,base}=_tableData;
   const vals=_tableFiltered.map(i=>tableColumnValue(base[i],i,col,info)).filter(isFinite);
   if(!vals.length){ log(`Column "${col}" has no finite values.`); return; }
@@ -23891,7 +23888,7 @@ async function analyze(config){
   // TEMPORARY back-compat (v0.12.1-dev rename): sptFrameTime -> frametime.
   if(config.sptFrameTime!==undefined && config.frametime===undefined){
     cfg.frametime=config.sptFrameTime;
-    onLog(`⚠ config.sptFrameTime is deprecated — use frametime instead (same units/effect). Applied frametime=${cfg.frametime}.`);
+    onLog(`!!! config.sptFrameTime is deprecated — use frametime instead (same units/effect). Applied frametime=${cfg.frametime}.`);
   }
 
   let calib=null, cal3d=null, cal3dW=null, calibJsonText=null;
@@ -23906,7 +23903,7 @@ async function analyze(config){
           if(config.calLast==null) defaulted.push(`calLast ${calLast} (default)`); }
     if(config.calStep==null) defaulted.push(`z-step ${cfg.calStep} nm (default — pass calStep if this doesn't match the acquisition!)`);
     if(config.calRef==null) defaulted.push(`z=0 reference: auto (default)`);
-    if(defaulted.length) onLog(`⚠ Calibration parameter default(s) in use — ${defaulted.join(' · ')}.`);
+    if(defaulted.length) onLog(`!!! Calibration parameter default(s) in use — ${defaulted.join(' · ')}.`);
     const sourceFile = cfg.calibrationFiles ? cfg.calibrationFiles[0].name : cfg.calibrationFile.name;
     const calCfg=Object.assign({}, cfg, { calFirst, calLast, calFixedPts:null, sourceFile });
     const cr = await calibrationCore(calCfg, calStack, { onLog, onProgress, onRecord:cfg.onRecord });
@@ -24067,9 +24064,9 @@ async function analyze(config){
     let segCtx=null;
     if(cfg.segmentationFile){
       const segStack = await loadTiffFile(cfg.segmentationFile, onLog);
-      if(segStack.n>1) onLog(`⚠ Segmentation image has ${segStack.n} frames — using frame 1 only.`);
+      if(segStack.n>1) onLog(`!!! Segmentation image has ${segStack.n} frames — using frame 1 only.`);
       const segImg = (await segStack.getFrames(0,1))[0];
-      if(segStack.w!==r.w || segStack.h!==r.h) onLog(`⚠ Segmentation image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${r.w}×${r.h}) — pixel correspondence will be off.`);
+      if(segStack.w!==r.w || segStack.h!==r.h) onLog(`!!! Segmentation image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${r.w}×${r.h}) — pixel correspondence will be off.`);
       segCtx = { labels:{arr:segImg,w:segStack.w,h:segStack.h}, areaMin:cfg.segAreaMin, areaMax:cfg.segAreaMax };
     }
     const sr = await runStage('spt', stageCtx,
@@ -24106,7 +24103,7 @@ async function analyze(config){
   }
   // Warn about gain 1 / offset 0 here too (headless has no Save localisations click).
   if(cfg.gain===1 && cfg.camoffset===0){
-    onLog('⚠ gain 1 / offset 0 — "intensity [photon]" is in ADU, not photons.');
+    onLog('!!! gain 1 / offset 0 — "intensity [photon]" is in ADU, not photons.');
     onLog('The uncertainty column scales as 1/√N and is therefore not physically');
     onLog('meaningful until a real ADU→photon conversion is entered.');
   }
@@ -24160,7 +24157,7 @@ async function analyze(config){
       const nm=toNm.has(col);
       const vals=locs.map(L=>L[col]).filter(isFinite).map(v=>nm?v*cfg.pxnm:v);
       if(vals.length) plots['hist_'+col]=renderHistogramPlotHeadless(col, vals, nm?'nm':'');
-      else onLog(`⚠ exportHistograms: no finite "${col}" values to histogram — skipped.`);
+      else onLog(`!!! exportHistograms: no finite "${col}" values to histogram — skipped.`);
     }
   }
   phases.plotsMs=performance.now()-plotsT0;
@@ -24276,7 +24273,7 @@ async function runAutorun(){
       await saveBlob(pngBlob,'webSMLM_autorun_reconstruction.png','PNG image','image/png','.png');
       log('webSMLM_autorun_{result.json,result.csv,settings.json,log.txt,reconstruction.png} written to Downloads.');
     }
-  }catch(err){ log(`⚠ Autorun failed: ${err.name}: ${err.message}`); }
+  }catch(err){ log(`!!! Autorun failed: ${err.name}: ${err.message}`); }
   finally{ setProg(null); }
 }
 window.webSMLM.runAutorun = runAutorun;   // exposed so a driving script can trigger/re-trigger it explicitly too

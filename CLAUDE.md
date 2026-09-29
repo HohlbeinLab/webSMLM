@@ -398,11 +398,12 @@ what makes GUI and command-line use interchangeable.
     form would do more, e.g. `applyCropToRaw(...)`); `overrideWithFields()` puts the `$('id').value=`
     assignments on one line and the call on the next. Consecutive commands sit on adjacent lines.
   - Log messages, using exact sidebar names ("Load data", "movie", "Calibrate"), one sentence plus a
-    remedy: refused `⚠ <Button>: <what's missing> — <how to fix it>`; failed
-    `⚠ <Button> failed: <reason>`; warning (ran, with a caveat) `⚠ <caveat and what to do>`; info
-    has no marker; headless `throw new Error('analyze(): …')`. `appendLogText()` puts every "⚠ " in a
-    `.logwarn` span (`--danger`, the Stop button's red, 1.45× but exactly two columns wide);
-    `textContent` stays the plain log.
+    remedy: refused `!!! <Button>: <what's missing> — <how to fix it>`; failed
+    `!!! <Button> failed: <reason>`; warning (ran, with a caveat) `!!! <caveat and what to do>`; info
+    has no marker; headless `throw new Error('analyze(): …')`. `appendLogText()` puts every `!!!` in a
+    bold `.logwarn` span (`--danger`, the Stop button's red); `textContent` stays the plain log
+    (live streaming's `quietLog` forwards only `!!!` lines). UI text outside the log (table filter
+    errors, pop-ups) keeps ⚠.
   - The log terminal (`#logTerminal`, ≥ 2 lines tall) runs statements via direct `eval()`
     (`runTerminalStatement()`), with ↑/↓ history (navigates while a recalled entry is unedited).
     `resolveTerminalConfig()` backfills omitted PARAMS from live values and resolves filename strings
@@ -577,7 +578,7 @@ unchanged. `simulation_mt_x/_y` (no control) are an OFFSET from it, moved with `
 **Around it**: `toggleGtLocalizations()` swaps `srFull` directly (stashing the previous one and its
 title/info, since `lastResult` is null before a Localize) and mirrors `rerender()`'s depth-colour
 logic (cached `_zr`, `srFull._zColor`) but never changes Colour map or Colour by depth (z): with
-depth present and depth colour off it logs a ⚠ instead. `runCalibrationSimulation()` renders a
+depth present and depth colour off it logs a `!!!` warning instead. `runCalibrationSimulation()` renders a
 bead z-stack (`generateCalibrationStack()`, focus on the centre frame by construction), resets via
 `clearAnalysisOutputs()`/`presentStack()`, and writes `calStep`/`calRef`; it is not rotated.
 Simulate movie logs every non-default `simulation_*` field with `runSimulation()` so a recalled
