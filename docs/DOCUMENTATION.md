@@ -2293,7 +2293,7 @@ No sidebar control (Settings JSON, `paramOverrides`, or the log terminal):
 The sidebar's Simulation panel keeps the everyday choices at the
 top — **Structure type**, **Frames to simulate**, **Emitter density** (a preset) and
 **Physics detail** (a preset), plus a grid of **Preview PSF**, **Calib. 3D
-stack**, **Save ground truth**, **Load ground truth**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
+stack**, **Load ground truth**, **Save ground truth**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
 sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **Point spread function**,
 **Ground-truth comparison** (the settings for Compare to GT); in Sample, Background, Camera and Point spread function
 the rarely changed settings sit below a divider line (the point spread function's kernel grid below a second one,

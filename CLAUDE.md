@@ -450,7 +450,7 @@ on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 
 **Sidebar**: top level = Structure type, Frames to simulate (no maximum; `checkSimMovieSize()` refuses over the
 memory budget and warns from 1 GB, naming the TIFF size), Emitter density preset, Physics detail preset,
-then a 2×3 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, Save/Load ground truth, View ground truth,
+then a 2×3 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, Load/Save ground truth, View ground truth,
 Compare to GT — disabled, never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()` →
 `syncGtFileBtns()`); sub-groups Sample (incl.
 Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / Point spread
