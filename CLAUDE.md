@@ -118,7 +118,7 @@ what makes GUI and command-line use interchangeable.
     at once). Context windows clamp against the whole stack's ends. Output is floored at `camoffset`
     and stays in raw ADU space.
 
-- **simulation** — "Simulate movie" and "Calib. stack": synthetic movies with a known answer.
+- **simulation** — "Simulate movie" and "Calib. 3D stack": synthetic movies with a known answer.
   Big enough for its own section: see **Simulation** below.
 
 - **validation** — "Compare to GT" (`computeTruthScore()` → `scoreTruthCore()`, DOM-free, also
@@ -428,7 +428,7 @@ Demo/validation/teaching data, not a core analysis path, but everything **Compar
 on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 
 **Sidebar**: top level = Structure type, Frames, Emitter density preset, Physics detail preset,
-then a 2×2 `.btnrow` (`simToolsRow`: Preview PSF, Calib. stack, View GT, Compare to GT — disabled,
+then a 2×2 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, View ground truth, Compare to GT — disabled,
 never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample (incl.
 Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / PSF /
 Ground-truth comparison / Advanced (last, split by plain `.simsec` headings: Sample, Camera, PSF,
@@ -469,7 +469,7 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
    clipped at 2^bits−1. **Poisson∘Gamma has variance 2λ — that is the √2 excess noise**, not a fudge;
    scale 1 keeps `simulation_gain` meaning photons/ADU.
 9. **Ground truth**: `groundTruthEvents` (per blink: x, y, z, times, photons, `moleculeId`, `haze`),
-   `simTrueDrift` (nm), `groundTruthLocs` (non-haze blinks with a fixed 1 nm `lpx/lpy`, so View GT
+   `simTrueDrift` (nm), `groundTruthLocs` (non-haze blinks with a fixed 1 nm `lpx/lpy`, so View ground truth
    renders crisp points in every render mode). `runSimulation()` clears `zmin`/`zmax` (else GT depth
    colour inherits a previous dataset's range) and drops the truth when **Rotate movie** is set
    (truth is in unrotated coordinates).
@@ -630,7 +630,7 @@ settings-JSON code).
   # macOS without Node: osascript -l JavaScript -e "var s=$.NSString.stringWithContentsOfFileEncodingError('/tmp/app.js',4,null).js; try{ new Function(s); 'SYNTAX OK'; }catch(e){ 'ERR: '+e }"
   ```
   A syntax check doesn't catch an undefined identifier: after a merge, also click Simulate movie →
-  Localize → Compare to GT → View GT in a real browser.
+  Localize → Compare to GT → View ground truth in a real browser.
 - Simulation: `tests/gpu/test-sim-gpu.mjs` (CPU/GPU agreement, noise statistics, PSF tail; the CPU
   half runs without WebGPU), `tests/gpu/bench-simulation.mjs`, a seeded pixel hash for the
   byte-identity rule, and `node tools/sync_cellfield.mjs --check`.

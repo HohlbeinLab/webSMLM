@@ -73,7 +73,7 @@ that blink and bleach, a structured background, an sCMOS or EMCCD camera, and a
 physically modelled vectorial PSF (Gibson-Lanni + Zernike aberrations, including
 astigmatism and extended-depth presets). **Compare to GT** then scores a Localize
 result against the truth — detection, lateral and axial error, per molecule and per
-depth — and **Calib. stack** simulates a matching bead stack for 3D calibration.
+depth — and **Calib. 3D stack** simulates a matching bead stack for 3D calibration.
 Seeded runs are exactly reproducible; rendering runs on the GPU when available.
 Step-by-step instructions and worked recipes:
 [Simulation guide](https://websmlm.readthedocs.io/en/latest/content/02-module-reference.html#websmlm-simulation-guide).

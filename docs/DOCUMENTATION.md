@@ -407,7 +407,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation PSF section |
-| View GT localizations / Hide GT | `toggleGtLocalizations()` | needs a Simulate movie from this session |
+| View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a Simulate movie from this session |
 | Move view (microtubules) | `moveMtView(dxUm,dyUm)` / `moveMtViewStep(sx,sy)` | pans the microtubule window; applies on the next Simulate movie |
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
 | **Stop** | `requestStop()` | ends a live-streaming session, else asks a running Localize/drift correction/3D calibration to stop |
@@ -650,7 +650,7 @@ what:
    clock-induced charge, gain register, integer ADU at **Bit depth**). The result is a float ADU
    stack exactly like a loaded movie.
 8. **Ground truth** is kept for this page session: every blink, the true drift, and a point per
-   blink for **View GT**. It is dropped when you load, crop or rotate a movie; a simulation made
+   blink for **View ground truth**. It is dropped when you load, crop or rotate a movie; a simulation made
    with **Rotate movie** set has none (the truth is not rotated with the frames).
 
 After a simulation the analysis **Pixel size (nm)** at the top of the sidebar is set to **Simulated
@@ -675,7 +675,7 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
    **Show z error / Show fitted vs true / Show Jaccard vs z / Show lateral hist. / Show axial hist. /
    Show vs photons / Show vs radius / Show photometry / Show vs CRLB** (each view appears only when its data
    exists — no z views for a 2D fit, no CRLB views for a method that reports none).
-6. Click **View GT** to see the true positions rendered like a reconstruction; **Hide GT** returns to
+6. Click **View ground truth** to see the true positions rendered like a reconstruction; **Hide ground truth** returns to
    your result.
 
 #### Reproducibility and comparisons
@@ -868,7 +868,7 @@ GT, note recall, lateral median and the 50%-detection photons. Repeat at density
 
 **B. Astigmatic 3D, end to end, with a simulated calibration.**
 1. PSF: Zernike, *Astigmatism (moderate)*; Advanced → Performance: PSF z range ±1000, step 10.
-2. Click **Calib. stack**: a bead z-stack from the same kernel, with 3D calibration's **z-step** and
+2. Click **Calib. 3D stack**: a bead z-stack from the same kernel, with 3D calibration's **z-step** and
    **z = 0 reference frame** filled in (the true focus is the centre frame).
 3. **3D calibration → Calibrate.**
 4. Structure *Uniform 3D volume* (or *Tilted plane* to diagnose), Structure Z range ±400. Simulate
@@ -892,7 +892,7 @@ correlation); the log compares the estimate with the true drift (RMS residual in
 localizations from out-of-focus emitters. Try **Fade time constant** with and without FTM.
 
 **G. NPC resolution.** Structure *Nuclear pore complex*, Structure Z range small (e.g. 100),
-labelling 50–100%, density Medium. Localize and inspect single pores next to **View GT**.
+labelling 50–100%, density Medium. Localize and inspect single pores next to **View ground truth**.
 
 #### Performance
 
@@ -2261,8 +2261,8 @@ No sidebar control (Settings JSON, `paramOverrides`, or the log terminal):
 
 The sidebar's Simulation panel keeps the everyday choices at the
 top — **Structure type**, **Frames**, **Emitter density** (a preset) and
-**Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib.
-stack**, **View GT** and **Compare to GT** — and puts the detail in collapsible
+**Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib. 3D
+stack**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
 sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **PSF**,
 **Ground-truth comparison** (the settings for Compare to GT) and, last,
 **Advanced** (itself split into Sample / Camera / PSF / Background /
@@ -2465,7 +2465,7 @@ kernel numerics under Advanced → Performance.</p>
 <p><b>Preview PSF</b> (top of the panel) builds this (cached) kernel and shows it as a z-scrollable
 stack in the raw panel: its z-plane slider takes the place of the Frame slider, and Contrast
 stretches each plane to its own range (Auto) until you move a handle. Click it again (<b>Hide
-PSF</b>) to return to the movie; <b>Calib. stack</b> renders a bead z-stack from the same kernel and fills in
+PSF</b>) to return to the movie; <b>Calib. 3D stack</b> renders a bead z-stack from the same kernel and fills in
 the 3D calibration settings. Both need the Zernike model. With <b>Use GPU acceleration</b> checked, the per-frame splat and camera noise
 of both run on the GPU (4–17× faster than the CPU workers on an integrated laptop GPU), drawing
 exactly the same random numbers as the CPU. FFT phase-shift placement and the Gaussian PSF model
@@ -2516,8 +2516,8 @@ spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat
 out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with
 the defocused PSF, roughly doubling the time. It only writes fields under Fluorophore and Background,
 and editing any of them switches it to Custom.</p>
-<p>The four buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib.
-stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View GT</b> shows the
+<p>The four buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
+stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
 true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
 scores a Localize result against them (settings under Ground-truth comparison).</p>
 <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
