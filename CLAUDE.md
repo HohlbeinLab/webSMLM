@@ -431,8 +431,10 @@ on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 then a 2×2 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, View ground truth, Compare to GT — disabled,
 never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample (incl.
 Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / PSF /
-Ground-truth comparison / Advanced (last, split by plain `.simsec` headings: Sample, Camera, PSF,
-Background, Performance). Every `label.row` in `simBox` has a `title` hover tip — keep it that way.
+Ground-truth comparison (headers upper case, accent triangle). Rarely changed settings sit in their
+own sub-group below a plain `.simsec` "Advanced" divider (Sample, Background, Camera, PSF; PSF also
+has a "Performance" divider, `advPsfHead`/`advPerfHead`, shown with the Zernike model). Labels that
+need a fixed break use `<span>…<br>…</span>`. Every `label.row` in `simBox` has a `title` hover tip — keep it that way.
 A sidebar label and its PARAMS `label` are the same string; only fields that collide with an
 analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidden
 (`SHOW_PSF_PHASE_MASK=false`); their PARAMS and code path stay.
@@ -544,7 +546,7 @@ gives each seed a fixed start: origin if a 3×3 probe of 2 µm sub-windows hits 
 first such of 16 candidates from `mulberry32(seed^const)` within ±500 µm (best otherwise); depends on
 the cell-field seed + settings only, ~1 s/try, cached; origin-first keeps already-covered seeds (1249)
 unchanged. `simulation_mt_x/_y` (no control) are an OFFSET from it, moved with `moveMtViewStep()` →
-`moveMtView()` (+y down, logged); seed under Advanced.
+`moveMtView()` (+y down, logged); seed below the Sample section's Advanced divider.
 
 **Around it**: `toggleGtLocalizations()` swaps `srFull` directly (stashing the previous one and its
 title/info, since `lastResult` is null before a Localize) and mirrors `rerender()`'s depth-colour
@@ -710,9 +712,11 @@ gitignored; distribute jars via a GitHub Release asset.
 - **In-app "more info…" popups** (`.hint` divs, `id="hint-<name>"`) are synced from
   `<!-- HINT:<name> --> … <!-- /HINT:<name> -->` markers in `DOCUMENTATION.md` (raw HTML, after each
   §2 PARAMS table). Edit only the marker, then run `node tools/sync_hints.mjs` (`--check` for a
-  drift check). The `module: X` pill is fixed markup. The 18 hints: `hint-memory` (incl. live
-  streaming), `hint-simulation` (top-level rows + overview) + seven sub-group hints (`-type` = Sample,
-  `-nup`, `-fluorophore`, `-background`, `-camera`, `-psf`, `-advanced`), `hint-pcfo`, `hint-calibration`, `hint-detectfit` (incl.
-  gain/offset), `hint-render`, `hint-drift` (incl. NeNA/FRC), `hint-validation`, `hint-sSMLM`, `hint-smfret`,
+  drift check). The `module: X` pill is fixed markup. The 16 hints: `hint-memory` (incl. live
+  streaming), `hint-simulation` (top-level rows + overview) + five sub-group hints (`-type` = Sample
+  incl. the NPC model, `-fluorophore`, `-background`, `-camera`, `-psf`; each covers its sub-group's
+  Advanced rows too), `hint-pcfo`, `hint-calibration`, `hint-detectfit` (incl. gain/offset),
+  `hint-render`, `hint-drift` (incl. NeNA/FRC), `hint-validation`, `hint-sSMLM`, `hint-smfret`,
+  `hint-spt`. A popup's paragraph order follows its sidebar's field order.
 - **Quick guide** (`helpBtn`) is thin, hand-authored UI copy: intro, the 5-step Guided workflow,
   Acknowledgements, Licence & author. `README.md`'s Guided workflow is a copy; update both together.
