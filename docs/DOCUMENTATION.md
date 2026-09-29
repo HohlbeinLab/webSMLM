@@ -644,7 +644,7 @@ what:
    on the same structure, from just beyond the depth the PSF encodes single-valued (at least 0.3 µm)
    out to **Out-of-focus depth**, drawn with the real defocused PSF. In the movie, never in the score.
 6. **Background.** **Background (photons/px)** is the mean over the field; **Cell contrast**,
-   **Out-of-focus haze** (Background → Advanced) and **Fade time constant** reshape it in space and time, and the
+   **Out-of-focus haze** (Background) and **Fade time constant** reshape it in space and time, and the
    illumination attenuates it. (Cell contrast is not applied to Microtubules.)
 7. **Camera.** Poisson shot noise on signal + background, then the sCMOS path (read noise,
    **Simulated gain**, a fixed per-pixel offset map) or the EMCCD path (quantum efficiency,
@@ -657,14 +657,14 @@ what:
 
 After a simulation the analysis **Pixel size (nm)** at the top of the sidebar is set to **Simulated
 pixel size**. The analysis **Gain** and **Camera offset** (Localisation) are **not** — set them to the
-simulated camera's values (Camera → Advanced; defaults 0.34 photons/ADU and 100 ADU) or use **Get
+simulated camera's values (Camera; defaults 0.34 photons/ADU and 100 ADU) or use **Get
 estimate**, or photon counts and precisions come out on the wrong scale (positions are unaffected).
 
 #### Quick start: your first scored movie
 
 1. Open **Simulation**. The defaults give a realistic 2000-frame movie of microtubules in cells
    (Realistic physics, high density, astigmatic Zernike PSF). For a first try set **Frames** to 300,
-   and under Sample → Advanced set **Movie seed** to any non-zero number (e.g. 7) so the run can be
+   and under Sample set **Movie seed** to any non-zero number (e.g. 7) so the run can be
    repeated exactly.
 2. Click **Simulate movie**. The log reports the PSF kernel, how long rendering took and where (GPU
    or CPU workers), and "Stack ready".
@@ -707,7 +707,7 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
 
 **Microtubules.** **Move view** (Sample, below Focus height) pans the window across the sample by
 the chosen step (1, 5 or 10 µm; ↑ is towards the top of the image); the dyes are fixed in the world,
-so panning back returns the same cells. **Cell field seed** (Sample → Advanced) picks another world; 0 draws a
+so panning back returns the same cells. **Cell field seed** (Sample) picks another world; 0 draws a
 new random one every Simulate movie (logged, so a good one can be typed back in). Each seed starts at a
 fixed, well-covered view, independent of the Movie seed: the world origin if a 3×3 probe of 2 µm
 sub-windows finds dyes in at least 5 of 9, else the first such position from a seed-fixed list within
@@ -740,7 +740,7 @@ simulation (all z = 0, one PSF plane) is `paramOverrides.simulation_3d = false`.
    Gaussian model has no depth dependence.
 2. **Optics**: **NA** and **Wavelength** here; refractive indices, **Emitter depth into sample**
    (spherical aberration from imaging into a lower-index sample; the focal shift is compensated so
-   the z sweep stays centred on the true focus) and working distance under PSF → Advanced.
+   the z sweep stays centred on the true focus) and working distance under PSF.
 3. **Aberration preset**: *Astigmatism* is the standard 3D encoding (moderate is the default);
    *coma*, *spherical*, *trefoil* and *mixed* are for robustness tests. The engineered presets trade
    precision at focus for range:
@@ -752,7 +752,7 @@ simulation (all z = 0, one PSF plane) is `paramOverrides.simulation_3d = false`.
    | Extended depth (±1 µm) | 23.6 nm | ±1000 nm | 6.3 nm |
    | Extended depth (±1.3 µm) | 23.9 nm | ±1300 nm | 10.3 nm |
 
-   (3000 photons, 5 background photons/px, 100 nm pixels.) **Custom Zernike** (PSF → Advanced)
+   (3000 photons, 5 background photons/px, 100 nm pixels.) **Custom Zernike** (PSF)
    takes 15 or 28 comma-separated coefficients in milliwaves, OSA order, and overrides the preset.
    Fitting the engineered presets well needs a PSF-model fitter, which is not part of this release.
 4. **Kernel grid** (PSF → Performance): **PSF z range/step**, **lateral oversampling** (4 is
@@ -797,7 +797,7 @@ Realistic costs almost nothing extra; Full roughly doubles the rendering time.
 - **Background (photons/px)** is always the field mean; the rest only shapes it.
 - **Cell contrast** — a soft-edged cell this many times brighter inside than out (not for
   Microtubules).
-- **Out-of-focus haze** / **Haze blur σ** (Background → Advanced) — the structure's own projected
+- **Out-of-focus haze** / **Haze blur σ** (Background) — the structure's own projected
   density, blurred wide.
 - **Fade time constant** — the background bleaches towards a 30% floor (the case FTM is for).
 - **Out-of-focus emitters** / **Out-of-focus depth** — blinking light at the PSF's own scale, which is
@@ -810,7 +810,7 @@ through shot noise; out-of-focus emitters cost both.
 
 - **Camera type**: **sCMOS / CCD** (default) or **EMCCD**. Here too: **FOV (pixels)**, **Simulated
   pixel size**, **Read noise σ**, and for EMCCD **Quantum efficiency** and **EM gain**; simulated
-  gain, offset, offset std, clock-induced charge and bit depth are under Camera → Advanced.
+  gain, offset, offset std, clock-induced charge and bit depth are under Camera.
 - The EMCCD gain register doubles the variance (the √2 excess noise of a real EMCCD); EM gain decides
   how far read noise is pushed below the signal.
 - **Analysing EMCCD data**: set **Excess noise F²** (Localisation) to **2**. Positions do not change,
@@ -2216,7 +2216,7 @@ elapsed time instead.
 | `simulation_psfNA` | Numerical aperture (NA) | number | 0.5 | 1.7 | 0.01 | 1.4 |
 | `simulation_psfWavelength` | Wavelength (nm) | number | 300 | 900 | 1 | 660 |
 
-**Advanced settings** (below the Advanced divider of the sub-group in italics; *Performance* is the PSF sub-group's second divider):
+**Further settings**, each in its sub-group (in italics), below that sub-group's divider line (*Performance*: the PSF sub-group's second divider):
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
@@ -2266,9 +2266,9 @@ top — **Structure type**, **Frames**, **Emitter density** (a preset) and
 **Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib. 3D
 stack**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
 sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **PSF**,
-**Ground-truth comparison** (the settings for Compare to GT) and, last,
-**Advanced** (itself split into Sample / Camera / PSF / Background /
-Performance sections). Each has its own "more info…" popup, and every field has a
+**Ground-truth comparison** (the settings for Compare to GT); in Sample, Background, Camera and PSF
+the rarely changed settings sit below a divider line (PSF's kernel grid below a second one,
+*Performance*). Each has its own "more info…" popup, and every field has a
 hover tip. Rows that only apply to one structure, camera type or PSF model
 are shown only when they apply. After a successful "Simulate movie", **View
 GT** renders the true simulated emitter positions — one point per simulated
@@ -2300,12 +2300,12 @@ with nuclei, each carrying a microtubule network (the
 Every microtubule is a 25 nm cylinder with the 13-protofilament lattice, and each lattice site carries
 a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
 (below Focus height) pans the window by the chosen step; a dye's position does not change when the
-window moves, so panning back returns the same cells. Which cell field is used is set by Sample → Advanced →
+window moves, so panning back returns the same cells. Which cell field is used is set by
 <b>Cell field seed</b> (0 = random; each seed starts at a fixed, well-covered view); the view offset and the cell and microtubule densities have no sidebar field —
 set them from a settings file or the log terminal (<code>paramOverrides.simulation_mt_x</code> etc.).</p>
 <p><b>Drift (px, total)</b> — total sample drift over the movie, in a random direction and linear in
 time; 0 = none. The true drift is kept for scoring drift correction. The <b>Movie seed</b> that makes
-placement, blinking, drift direction and camera noise reproducible is below the Advanced divider.</p>
+placement, blinking, drift direction and camera noise reproducible is further down in Sample.</p>
 <p><b>Nuclear pore complex (NPC)</b> (Structure type). Models the endogenously SNAP-tagged Nup96 nuclear pore complex (NPC) reference standard from
 Thevathasan <i>et al.</i>, "Nuclear pores as versatile reference standards for quantitative
 superresolution microscopy", <i>Nat. Methods</i> 16, 1045–1053 (2019),
@@ -2320,7 +2320,7 @@ settings file or the log terminal (<code>simulation_nup_radius</code>, <code>_ri
 <code>_curvature</code>), following the parametrized approach of Wanninger <i>et al.</i> ("CIR4MICS"),
 <i>Bioinformatics</i> 39(10), btad587 (2023),
 <a href="https://doi.org/10.1093/bioinformatics/btad587" target="_blank" rel="noopener">doi:10.1093/bioinformatics/btad587</a>.</p>
-<p><b>Advanced.</b> <b>Cell field seed</b> (Microtubules) picks which cell field is simulated; the same seed
+<p><b>Cell field seed</b> (Microtubules) picks which cell field is simulated; the same seed
 always gives the same cells and start view, and 0 picks a random one each Simulate movie. <b>Movie seed</b>: 0 gives a fresh movie every Simulate movie; any other
 value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two
 runs that differ in one setting can be compared pixel for pixel.</p>
@@ -2359,7 +2359,7 @@ the other fields only reshape it in space and time. <b>Cell contrast</b> draws a
 many times brighter inside than outside (autofluorescence); it is not applied to the
 <b>Microtubules</b> structure, whose real cells will drive it in a later update. A static
 <b>out-of-focus haze</b> (the labelled structure's own projected density, blurred wide — a stand-in
-for light from far above and below the focal plane) is set under Background → Advanced.
+for light from far above and below the focal plane) is set further down (<b>Out-of-focus haze</b>, <b>Haze blur σ</b>).
 <b>Fade time constant</b> lets the
 background bleach down to a 30% floor over the movie, which is what a temporal-median (FTM) correction
 exists for. <b>Out-of-focus emitters</b> goes further: a second, blinking population on the same
@@ -2368,7 +2368,7 @@ it needs the Zernike-aberrated PSF model, and it is the one setting here with a 
 tripling the simulation time at a ratio of 1. Those emitters are in the movie but never in the score.
 A smooth background costs the <i>detector</i> almost nothing — the band-pass removes it before
 thresholding — but it costs <i>precision</i>, through the extra shot noise.</p>
-<p><b>Advanced.</b> <b>Out-of-focus haze</b> adds the labelled structure's own projected density,
+<p><b>Out-of-focus haze</b> adds the labelled structure's own projected density,
 blurred to <b>Haze blur σ</b>, relative to the flat/cell part — a static stand-in for light from far
 above and below the focal plane.</p>
 <!-- /HINT:simulation-background -->
@@ -2379,7 +2379,7 @@ above and below the focal plane.</p>
 <p><b>FOV</b> and <b>Simulated pixel size</b> set the simulated camera's square field of view and its
 pixel size. The pixel size is copied into the analysis <b>Pixel size (nm)</b> after a movie is
 generated; the two are separate so a mismatch can be simulated on purpose.</p>
-<p><b>Read noise</b> and, under Camera → Advanced, <b>Simulated gain/offset</b> and <b>Offset std. deviation</b>
+<p><b>Read noise</b>, <b>Simulated gain/offset</b> and <b>Offset std. deviation</b>
 forward-model the sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
 gain conversion, then a fixed per-pixel offset map is added. Gain and offset are independent of the <b>Gain</b>/<b>Camera
 offset</b> used for localization, so a wrong analysis gain can be simulated too. For a clean
@@ -2391,13 +2391,13 @@ panel's gain) — a static per-pixel offset pattern looks identical to read nois
 charge</b>) through an electron-multiplying register, modelled as a Gamma draw: compounded with the
 Poisson draw that gives the pixel variance <i>twice</i> its mean, which is the √2 excess noise a real
 EMCCD has. <b>EM gain</b> only decides how far the register pushes read noise below the signal, and
-<b>Bit depth</b> (Advanced, both camera types) rounds ADU to whole numbers and clips at saturation. Measured on a flat field:
+<b>Bit depth</b> (both camera types) rounds ADU to whole numbers and clips at saturation. Measured on a flat field:
 variance/mean = 2.00 on EMCCD against 1.08 on sCMOS at the same 100 photons/px. On a scored run the
 cost was 1.34× the lateral error (5.69 vs 4.25 nm per axis) — less than the √2 the excess noise alone
 would give, because the register also makes read noise negligible. When you simulate EMCCD data, set
 <b>Excess noise F²</b> to 2 in Localisation settings, or the fit's own uncertainty will claim a
 precision it does not have.</p>
-<p><b>Advanced.</b> <b>Simulated gain</b> and <b>Simulated offset</b> are the simulated camera's own,
+<p><b>Simulated gain</b> and <b>Simulated offset</b> are the simulated camera's own,
 separate from the Gain/Camera offset used for localization. <b>Offset std. deviation</b> is the fixed per-pixel
 spread of the offset map, the static pattern a real sCMOS has. <b>Clock-induced charge</b> applies to the EMCCD model only; <b>Bit depth</b> to both: the
 ADU are rounded to whole numbers and clipped at 2<sup>bits</sup> − 1.</p>
@@ -2461,14 +2461,15 @@ factor of 2.4.
 <p><b>PSF model</b> — <code>Zernike-aberrated</code> (default) is a Gibson-Lanni + Zernike-pupil
 optical model; every emitter is rendered from its kernel at the emitter's own depth.
 <code>Gaussian</code> is a fixed σ = 1.3 px spot: fast, but it carries no depth information.</p>
-<p><b>Aberration preset</b> sets the objective's aberrations: astigmatism (the standard way to encode
+<p><b>Aberration preset</b> (at the top of the panel) sets the objective's aberrations —
+<b>None (2D, unaberrated)</b> for plain 2D data — astigmatism (the standard way to encode
 depth), coma, spherical, trefoil or a realistic mix, at a few strengths — order-of-magnitude values,
 not calibrated ones. <b>Saddle point</b> and <b>Extended depth</b> stack astigmatism at higher orders
 to lengthen the depth range over which z is readable, at the cost of precision at focus.
 <b>NA</b> and <b>Wavelength</b> set the objective and the dye. The pupil is turned into an image with
 a chirp-Z transform, which matches an ideal Airy disk out to the edge of the kernel. The refractive
-indices, emitter depth, working distance and a custom Zernike vector are under PSF → Advanced; the
-kernel numerics under PSF → Performance.</p>
+indices, emitter depth, working distance and a custom Zernike vector follow further down; the
+kernel numerics under Performance.</p>
 <p><b>Preview PSF</b> (top of the panel) builds this (cached) kernel and shows it as a z-scrollable
 stack in the raw panel: its z-plane slider takes the place of the Frame slider, and Contrast
 stretches each plane to its own range (Auto) until you move a handle. Click it again (<b>Hide
@@ -2477,7 +2478,7 @@ the 3D calibration settings. Both need the Zernike model. With <b>Use GPU accele
 of both run on the GPU (4–17× faster than the CPU workers on an integrated laptop GPU), drawing
 exactly the same random numbers as the CPU. FFT phase-shift placement and the Gaussian PSF model
 always run on the CPU.</p>
-<p><b>Advanced</b> (Zernike model). <b>Sample</b>/<b>immersion refractive index</b> and <b>Emitter depth into
+<p>Zernike model: <b>Sample</b>/<b>immersion refractive index</b> and <b>Emitter depth into
 sample</b> (where the focal plane sits above the coverslip) set the depth-induced aberration; the focal
 shift is compensated, so the kernel's z range is centred on the emitter's actual focus. <b>Working
 distance</b> is the Gibson-Lanni model's nominal coverslip-to-objective distance. <b>Custom Zernike</b>
@@ -2499,8 +2500,10 @@ exact but slow FFT phase shift kept for comparison.</p>
 <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
 physically modelled blinking, a vectorial PSF, background and a camera noise model — for validating
 and teaching the rest of the pipeline against known-correct answers.</p>
-<p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Emitter density</b> (a preset; the exact value is under Sample) and
-<b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
+<p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Aberration
+preset</b> (Zernike PSF model; <b>None (2D, unaberrated)</b> for 2D data, an astigmatism or extended-depth
+preset for 3D localization — details under PSF), <b>Emitter density</b> (a preset; the exact value is under
+Sample) and <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
 spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
 <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
 out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with
@@ -2517,8 +2520,8 @@ units and frame numbering as <b>Save localisations</b>. Loading the TIFF back gi
 frames.</p>
 <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
 <b>Camera</b>, <b>PSF</b> and <b>Ground-truth comparison</b>, each with its own "more info…". In
-Sample, Background, Camera and PSF the everyday settings come first; the rarely changed ones sit below
-an <b>Advanced</b> divider (PSF also has a <b>Performance</b> divider for the kernel grid). Every field
+Sample, Background, Camera and PSF the everyday settings come first and the rarely changed ones follow
+below a divider line (PSF's kernel grid below a second one, <b>Performance</b>). Every field
 also has a hover tip.</p>
 <!-- /HINT:simulation -->
 

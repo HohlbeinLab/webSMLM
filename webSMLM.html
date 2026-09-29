@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2654   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3623   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3851   synthetic stack generator ("Simulate movie")
-    validation      6836   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7695   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7951   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8561   super-resolution accumulation, view, colour maps, plots
-    workers         10085  frame-parallel detect/fit worker pool
-    gpu             10727  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13056  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13401  astigmatic width-vs-z bead calibration
-    drift           13800  AIM and cross-correlation drift correction
-    locprecision    14458  NeNA and FRC
-    sSMLM           15597  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16203  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18310  single-particle tracking and diffusion coefficients
-    pipeline        19360  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20400  Micro-Manager/pycromanager bridge (experimental)
-    table           22856  localizations table, filters, histograms, clustering
-    headless API    23541  window.webSMLM.analyze()/analyzeBatch()
+    params          2658   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3627   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3855   synthetic stack generator ("Simulate movie")
+    validation      6840   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7699   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7955   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8565   super-resolution accumulation, view, colour maps, plots
+    workers         10089  frame-parallel detect/fit worker pool
+    gpu             10731  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13060  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13405  astigmatic width-vs-z bead calibration
+    drift           13804  AIM and cross-correlation drift correction
+    locprecision    14462  NeNA and FRC
+    sSMLM           15601  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16207  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18314  single-particle tracking and diffusion coefficients
+    pipeline        19364  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20404  Micro-Manager/pycromanager bridge (experimental)
+    table           22860  localizations table, filters, histograms, clustering
+    headless API    23545  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1510,6 +1510,7 @@ X.B(E,Y);return E}return J}())
   details.subsim>*:not(summary){padding-left:14px}
   /* .simsec: a divider inside a sub-group (Simulation → Sample/Camera/PSF/Background), separating
      the standard from the advanced settings; not a collapsible */
+  details.subsim>.simsec:empty{margin:8px 0 6px 14px;padding:0}
   details.subsim>.simsec{margin:10px 0 4px 14px;padding:0 0 2px;border-bottom:1px solid var(--line);
     font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
   /* "more info…" trigger: a plain button styled to read as a secondary
@@ -1703,7 +1704,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29c</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1934,6 +1935,23 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <summary title="Settings for Simulate movie: a synthetic test movie with a known answer — structure, blinking, background, camera and PSF">Simulation</summary>
         <label class="row" title="The labelled object emitters attach to. Microtubules (default) is a window onto a seed-addressed field of cells, each with a microtubule network; the others are simple geometric test objects. Every structure is simulated in 3D.">Structure type <select id="simulation_structureType" class="sel"><option value="microtubules" selected>Microtubules (cells)</option><option value="nup">Nuclear pore complex (NPC)</option><option value="filaments_ring">Filaments + ring</option><option value="tiltedPlane">Tilted plane</option><option value="uniform3D">Uniform 3D volume</option><option value="shell">Spherical shell</option></select></label>
         <label class="row" title="Length of the simulated movie, in frames.">Frames <input type="number" id="frames" min="50" max="5000" step="50" value="2000" class="num"></label>
+        <label class="row" id="psfZernikePresetRow" style="display:none" title="Aberrations built into the objective (Zernike PSF). None (2D, unaberrated) for 2D data; astigmatism encodes depth in the spot's shape (the standard 3D SMLM approach); the saddle-point and extended-depth presets trade precision at focus for a longer usable depth range.">Aberration preset
+          <select id="simulation_psfZernikePreset" class="sel">
+            <option value="none">None (2D, unaberrated)</option>
+            <option value="astigWeak">Astigmatism (weak)</option>
+            <option value="astigModerate" selected>Astigmatism (moderate)</option>
+            <option value="astigStrong">Astigmatism (strong)</option>
+            <option value="comaWeak">Coma (weak)</option>
+            <option value="comaStrong">Coma (strong)</option>
+            <option value="sphericalWeak">Spherical (weak)</option>
+            <option value="sphericalStrong">Spherical (strong)</option>
+            <option value="trefoilModerate">Trefoil (moderate)</option>
+            <option value="mixedRealistic">Mixed (realistic objective)</option>
+            <option value="saddlePoint">Saddle point (±700 nm)</option>
+            <option value="extendedRange">Extended depth (±1 µm)</option>
+            <option value="extendedRangeStrong">Extended depth (±1.3 µm)</option>
+          </select>
+        </label>
         <label class="row" title="How many emitters are ON per µm² in an average frame: low 0.05 (PSFs essentially never overlap), medium 0.2, high 0.5 (typical SMLM), very high 2 (dense enough that single-emitter fitting visibly breaks down). Sets Emitter density under Sample; editing that by hand switches this to Custom.">Emitter density <select id="simulation_densityPreset" class="sel"><option value="low">Low (0.05)</option><option value="med">Medium (0.2)</option><option value="high" selected>High (0.5)</option><option value="veryhigh">Very high (2)</option><option value="custom">Custom</option></select></label>
         <label class="row" title="How much physics — and compute — a simulation spends. Basic: every molecule blinks once at constant brightness on a flat, dark background (fastest). Realistic: molecules blink repeatedly and bleach, brightness varies, and the background fades and carries out-of-focus haze — nearly free per frame. Full: also adds blinking out-of-focus emitters rendered with the real defocused PSF — roughly doubles the simulation time. It only writes fields under Fluorophore and Background; edit any of them and this switches to Custom.">Physics detail <select id="simulation_realism" class="sel"><option value="min">Basic (fastest)</option><option value="med" selected>Realistic</option><option value="max">Full (slowest)</option><option value="custom">Custom</option></select></label>
         <div class="btnrow" id="simToolsRow">
@@ -1950,8 +1968,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
           physically modelled blinking, a vectorial PSF, background and a camera noise model — for validating
           and teaching the rest of the pipeline against known-correct answers.</p>
-          <p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Emitter density</b> (a preset; the exact value is under Sample) and
-          <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
+          <p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Aberration
+          preset</b> (Zernike PSF model; <b>None (2D, unaberrated)</b> for 2D data, an astigmatism or extended-depth
+          preset for 3D localization — details under PSF), <b>Emitter density</b> (a preset; the exact value is under
+          Sample) and <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
           spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
           <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
           out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with
@@ -1968,8 +1988,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           frames.</p>
           <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
           <b>Camera</b>, <b>PSF</b> and <b>Ground-truth comparison</b>, each with its own "more info…". In
-          Sample, Background, Camera and PSF the everyday settings come first; the rarely changed ones sit below
-          an <b>Advanced</b> divider (PSF also has a <b>Performance</b> divider for the kernel grid). Every field
+          Sample, Background, Camera and PSF the everyday settings come first and the rarely changed ones follow
+          below a divider line (PSF's kernel grid below a second one, <b>Performance</b>). Every field
           also has a hover tip.</p>
         </div>
         <details class="subsim" id="simTypeBox">
@@ -1982,7 +2002,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <label class="row" id="nupCountRow" style="display:none" title="How many nuclear pore complexes are scattered across the field of view.">Number of NPCs <input type="number" id="simulation_nup_count" min="1" max="500" step="1" value="100" class="num"></label>
           <label class="row" id="structureSizeRow" style="display:none" title="Radius of the spherical shell, in nm.">Structure size (nm) <input type="number" id="simulation_structureSize" min="10" max="5000" step="10" value="500" class="num"></label>
           <label class="row" title="Total sample drift over the whole movie, in camera pixels, in a random direction and linear in time. 0 = none. The true drift is kept for scoring drift correction.">Drift (px, total) <input type="number" id="driftpx" min="0" max="30" step="0.5" value="0" class="num"></label>
-          <div class="simsec">Advanced</div>
+          <div class="simsec"></div>
           <label class="row" id="mtSeedRow" style="display:none" title="Which cell field is simulated; 0 = a new random one every Simulate movie (logged). The same seed always gives the same cells and the same start view (a well-covered spot, whatever the Movie seed); Move view pans from there."><span>Cell field seed<br>(0 = random)</span> <input type="number" id="simulation_mt_seed" min="-2147483647" max="2147483647" step="1" value="0" class="num"></label>
           <label class="row" title="0 = a fresh random movie every Simulate movie. Any other value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two runs that differ in one setting can be compared pixel for pixel."><span>Movie seed<br>(0 = random)</span> <input type="number" id="simulation_seed" min="0" max="2147483647" step="1" value="0" class="num"></label>
           <button type="button" class="infobtn">more info…</button>
@@ -2005,12 +2025,12 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           Every microtubule is a 25 nm cylinder with the 13-protofilament lattice, and each lattice site carries
           a binder + dye at a random 2–5 nm linker offset; <b>each dye is one emitter site</b>. <b>Move view</b>
           (below Focus height) pans the window by the chosen step; a dye's position does not change when the
-          window moves, so panning back returns the same cells. Which cell field is used is set by Sample → Advanced →
+          window moves, so panning back returns the same cells. Which cell field is used is set by
           <b>Cell field seed</b> (0 = random; each seed starts at a fixed, well-covered view); the view offset and the cell and microtubule densities have no sidebar field —
           set them from a settings file or the log terminal (<code>paramOverrides.simulation_mt_x</code> etc.).</p>
           <p><b>Drift (px, total)</b> — total sample drift over the movie, in a random direction and linear in
           time; 0 = none. The true drift is kept for scoring drift correction. The <b>Movie seed</b> that makes
-          placement, blinking, drift direction and camera noise reproducible is below the Advanced divider.</p>
+          placement, blinking, drift direction and camera noise reproducible is further down in Sample.</p>
           <p><b>Nuclear pore complex (NPC)</b> (Structure type). Models the endogenously SNAP-tagged Nup96 nuclear pore complex (NPC) reference standard from
           Thevathasan <i>et al.</i>, "Nuclear pores as versatile reference standards for quantitative
           superresolution microscopy", <i>Nat. Methods</i> 16, 1045–1053 (2019),
@@ -2025,7 +2045,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <code>_curvature</code>), following the parametrized approach of Wanninger <i>et al.</i> ("CIR4MICS"),
           <i>Bioinformatics</i> 39(10), btad587 (2023),
           <a href="https://doi.org/10.1093/bioinformatics/btad587" target="_blank" rel="noopener">doi:10.1093/bioinformatics/btad587</a>.</p>
-          <p><b>Advanced.</b> <b>Cell field seed</b> (Microtubules) picks which cell field is simulated; the same seed
+          <p><b>Cell field seed</b> (Microtubules) picks which cell field is simulated; the same seed
           always gives the same cells and start view, and 0 picks a random one each Simulate movie. <b>Movie seed</b>: 0 gives a fresh movie every Simulate movie; any other
           value makes emitter placement, blinking, drift direction and camera noise exactly reproducible, so two
           runs that differ in one setting can be compared pixel for pixel.</p>
@@ -2071,7 +2091,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <label class="row" title="A second, blinking population on the same structure, 0.3–2 µm out of focus, rendered with the real defocused PSF. Per in-focus emitter; 0 = none. Needs the Zernike-aberrated PSF model. These emitters are in the movie but never in the score.">Out-of-focus emitters (×) <input type="number" id="simulation_hazeRatio" min="0" max="10" step="0.1" value="0" class="num"></label>
           <label class="row" title="How far from focus the out-of-focus emitters reach. Capped at the PSF z range.">Out-of-focus depth (±nm) <input type="number" id="simulation_hazeDepth" min="300" max="2000" step="50" value="1500" class="num"></label>
           <label class="row" title="Time constant of the background fading to a 30% floor over the movie. 0 = constant.">Fade time constant (frames) <input type="number" id="simulation_bgDecayFrames" min="0" max="100000" step="10" value="150" class="num"></label>
-          <div class="simsec">Advanced</div>
+          <div class="simsec"></div>
           <label class="row" title="Static out-of-focus haze: the labelled structure's own projected density, blurred wide, relative to the flat/cell part. 0 = none.">Out-of-focus haze (weight) <input type="number" id="simulation_bgHazeWeight" min="0" max="10" step="0.1" value="1" class="num"></label>
           <label class="row" title="How wide the haze is blurred (Gaussian σ).">Haze blur σ (nm) <input type="number" id="simulation_bgHazeWidth" min="100" max="5000" step="50" value="800" class="num"></label>
           <button type="button" class="infobtn">more info…</button>
@@ -2081,7 +2101,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           many times brighter inside than outside (autofluorescence); it is not applied to the
           <b>Microtubules</b> structure, whose real cells will drive it in a later update. A static
           <b>out-of-focus haze</b> (the labelled structure's own projected density, blurred wide — a stand-in
-          for light from far above and below the focal plane) is set under Background → Advanced.
+          for light from far above and below the focal plane) is set further down (<b>Out-of-focus haze</b>, <b>Haze blur σ</b>).
           <b>Fade time constant</b> lets the
           background bleach down to a 30% floor over the movie, which is what a temporal-median (FTM) correction
           exists for. <b>Out-of-focus emitters</b> goes further: a second, blinking population on the same
@@ -2090,7 +2110,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           tripling the simulation time at a ratio of 1. Those emitters are in the movie but never in the score.
           A smooth background costs the <i>detector</i> almost nothing — the band-pass removes it before
           thresholding — but it costs <i>precision</i>, through the extra shot noise.</p>
-          <p><b>Advanced.</b> <b>Out-of-focus haze</b> adds the labelled structure's own projected density,
+          <p><b>Out-of-focus haze</b> adds the labelled structure's own projected density,
           blurred to <b>Haze blur σ</b>, relative to the flat/cell part — a static stand-in for light from far
           above and below the focal plane.</p>
         </div>
@@ -2103,7 +2123,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <label class="row" title="Gaussian read noise per pixel per frame, in electrons, added before the gain conversion.">Read noise σ (e⁻) <input type="number" id="simulation_readnoise" min="0" max="200" step="0.1" value="2.7" class="num"></label>
           <label class="row" id="simQeRow" style="display:none;padding-left:40px" title="Fraction of incident photons that become photoelectrons.">Quantum efficiency <input type="number" id="simulation_qe" min="0.05" max="1" step="0.01" value="0.9" class="num"></label>
           <label class="row" id="simEmGainRow" style="display:none;padding-left:40px" title="Electron-multiplying gain. Here it only sets how far the register pushes read noise below the signal; the excess noise itself comes from the register's own statistics.">EM gain (×) <input type="number" id="simulation_emGain" min="1" max="2000" step="10" value="300" class="num"></label>
-          <div class="simsec">Advanced</div>
+          <div class="simsec"></div>
           <label class="row" title="Photons per ADU of the simulated camera. Separate from the Gain used for localization, so a wrong analysis gain can be simulated on purpose.">Simulated gain (photons/ADU) <input type="number" id="simulation_gain" min="0.001" max="1000" step="0.01" value="0.34" class="num"></label>
           <label class="row" title="Mean dark level of the simulated camera, in ADU. Separate from the Camera offset used for localization.">Simulated offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
           <label class="row" title="Fixed per-pixel spread of the camera offset map (ADU), constant over the stack — the static pattern a real sCMOS sensor has."><span>Offset std. deviation<br>(ADU, per-pixel)</span> <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
@@ -2114,7 +2134,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>FOV</b> and <b>Simulated pixel size</b> set the simulated camera's square field of view and its
           pixel size. The pixel size is copied into the analysis <b>Pixel size (nm)</b> after a movie is
           generated; the two are separate so a mismatch can be simulated on purpose.</p>
-          <p><b>Read noise</b> and, under Camera → Advanced, <b>Simulated gain/offset</b> and <b>Offset std. deviation</b>
+          <p><b>Read noise</b>, <b>Simulated gain/offset</b> and <b>Offset std. deviation</b>
           forward-model the sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
           gain conversion, then a fixed per-pixel offset map is added. Gain and offset are independent of the <b>Gain</b>/<b>Camera
           offset</b> used for localization, so a wrong analysis gain can be simulated too. For a clean
@@ -2126,13 +2146,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           charge</b>) through an electron-multiplying register, modelled as a Gamma draw: compounded with the
           Poisson draw that gives the pixel variance <i>twice</i> its mean, which is the √2 excess noise a real
           EMCCD has. <b>EM gain</b> only decides how far the register pushes read noise below the signal, and
-          <b>Bit depth</b> (Advanced, both camera types) rounds ADU to whole numbers and clips at saturation. Measured on a flat field:
+          <b>Bit depth</b> (both camera types) rounds ADU to whole numbers and clips at saturation. Measured on a flat field:
           variance/mean = 2.00 on EMCCD against 1.08 on sCMOS at the same 100 photons/px. On a scored run the
           cost was 1.34× the lateral error (5.69 vs 4.25 nm per axis) — less than the √2 the excess noise alone
           would give, because the register also makes read noise negligible. When you simulate EMCCD data, set
           <b>Excess noise F²</b> to 2 in Localisation settings, or the fit's own uncertainty will claim a
           precision it does not have.</p>
-          <p><b>Advanced.</b> <b>Simulated gain</b> and <b>Simulated offset</b> are the simulated camera's own,
+          <p><b>Simulated gain</b> and <b>Simulated offset</b> are the simulated camera's own,
           separate from the Gain/Camera offset used for localization. <b>Offset std. deviation</b> is the fixed per-pixel
           spread of the offset map, the static pattern a real sCMOS has. <b>Clock-induced charge</b> applies to the EMCCD model only; <b>Bit depth</b> to both: the
           ADU are rounded to whole numbers and clipped at 2<sup>bits</sup> − 1.</p>
@@ -2141,23 +2161,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <details class="subsim" id="psfBox">
           <summary title="Point-spread function: model, aberration preset, NA, wavelength and optional engineered phase mask">PSF</summary>
           <label class="row" title="Zernike-aberrated (default): a physical optical model (Gibson-Lanni + Zernike pupil), needed for 3D. Gaussian: a fixed σ = 1.3 px spot, fast but without depth information.">PSF model <select id="simulation_psfModel" class="sel"><option value="gaussian">Gaussian (fast)</option><option value="zernike" selected>Zernike-aberrated</option></select></label>
-          <label class="row" id="psfZernikePresetRow" style="display:none" title="Aberrations built into the objective. Astigmatism encodes depth in the spot's shape (the standard 3D SMLM approach); the saddle-point and extended-depth presets trade precision at focus for a longer usable depth range.">Aberration preset
-            <select id="simulation_psfZernikePreset" class="sel">
-              <option value="none">None (unaberrated)</option>
-              <option value="astigWeak">Astigmatism (weak)</option>
-              <option value="astigModerate" selected>Astigmatism (moderate)</option>
-              <option value="astigStrong">Astigmatism (strong)</option>
-              <option value="comaWeak">Coma (weak)</option>
-              <option value="comaStrong">Coma (strong)</option>
-              <option value="sphericalWeak">Spherical (weak)</option>
-              <option value="sphericalStrong">Spherical (strong)</option>
-              <option value="trefoilModerate">Trefoil (moderate)</option>
-              <option value="mixedRealistic">Mixed (realistic objective)</option>
-              <option value="saddlePoint">Saddle point (±700 nm)</option>
-              <option value="extendedRange">Extended depth (±1 µm)</option>
-              <option value="extendedRangeStrong">Extended depth (±1.3 µm)</option>
-            </select>
-          </label>
           <label class="row" id="psfNARow" style="display:none" title="Numerical aperture of the objective.">Numerical aperture (NA) <input type="number" id="simulation_psfNA" min="0.5" max="1.7" step="0.01" value="1.4" class="num"></label>
           <label class="row" id="psfWavelengthRow" style="display:none" title="Emission wavelength.">Wavelength (nm) <input type="number" id="simulation_psfWavelength" min="300" max="900" step="1" value="660" class="num"></label>
           <!-- PSF phase mask rows: hidden for now (SHOW_PSF_PHASE_MASK=false, see updatePsfModelUI()); revisit. -->
@@ -2169,7 +2172,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           </label>
           <label class="row" id="psfMaskModesRow" style="display:none;padding-left:40px" title="How many Gauss-Laguerre modes make up the mask. More modes give a cleaner two-lobe pattern over a longer depth range, at the cost of light thrown into side lobes.">Mask GL modes <input type="number" id="simulation_psfMaskModes" min="2" max="8" step="1" value="5" class="num"></label>
           <label class="row" id="psfMaskWaistRow" style="display:none;padding-left:40px" title="Beam waist of those modes, in pupil radii: how much of the pupil the mask pattern fills.">Mask beam waist <input type="number" id="simulation_psfMaskWaist" min="0.2" max="2" step="0.05" value="1.0" class="num"></label>
-          <div class="simsec" id="advPsfHead" style="display:none">Advanced</div>
+          <div class="simsec" id="advPsfHead" style="display:none"></div>
           <label class="row" id="psfNsRow" style="display:none" title="Refractive index of the sample medium (1.33 = water)."><span>Sample refractive index (n<sub>sample</sub>)</span> <input type="number" id="simulation_psfNs" min="1.0" max="1.7" step="0.001" value="1.33" class="num"></label>
           <label class="row" id="psfNiRow" style="display:none" title="Refractive index of the immersion medium (1.518 = standard oil)."><span>Immersion refractive index (n<sub>immersion</sub>)</span> <input type="number" id="simulation_psfNi" min="1.0" max="1.7" step="0.001" value="1.518" class="num"></label>
           <label class="row" id="psfDepthRow" style="display:none" title="How far into the sample (above the coverslip) the focal plane sits. Depth-induced spherical aberration and focal shift follow from the refractive-index mismatch.">Emitter depth into sample (nm) <input type="number" id="simulation_psfDepth" min="0" max="5000" step="10" value="0" class="num"></label>
@@ -2193,14 +2196,15 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>PSF model</b> — <code>Zernike-aberrated</code> (default) is a Gibson-Lanni + Zernike-pupil
           optical model; every emitter is rendered from its kernel at the emitter's own depth.
           <code>Gaussian</code> is a fixed σ = 1.3 px spot: fast, but it carries no depth information.</p>
-          <p><b>Aberration preset</b> sets the objective's aberrations: astigmatism (the standard way to encode
+          <p><b>Aberration preset</b> (at the top of the panel) sets the objective's aberrations —
+          <b>None (2D, unaberrated)</b> for plain 2D data — astigmatism (the standard way to encode
           depth), coma, spherical, trefoil or a realistic mix, at a few strengths — order-of-magnitude values,
           not calibrated ones. <b>Saddle point</b> and <b>Extended depth</b> stack astigmatism at higher orders
           to lengthen the depth range over which z is readable, at the cost of precision at focus.
           <b>NA</b> and <b>Wavelength</b> set the objective and the dye. The pupil is turned into an image with
           a chirp-Z transform, which matches an ideal Airy disk out to the edge of the kernel. The refractive
-          indices, emitter depth, working distance and a custom Zernike vector are under PSF → Advanced; the
-          kernel numerics under PSF → Performance.</p>
+          indices, emitter depth, working distance and a custom Zernike vector follow further down; the
+          kernel numerics under Performance.</p>
           <p><b>Preview PSF</b> (top of the panel) builds this (cached) kernel and shows it as a z-scrollable
           stack in the raw panel: its z-plane slider takes the place of the Frame slider, and Contrast
           stretches each plane to its own range (Auto) until you move a handle. Click it again (<b>Hide
@@ -2209,7 +2213,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           of both run on the GPU (4–17× faster than the CPU workers on an integrated laptop GPU), drawing
           exactly the same random numbers as the CPU. FFT phase-shift placement and the Gaussian PSF model
           always run on the CPU.</p>
-          <p><b>Advanced</b> (Zernike model). <b>Sample</b>/<b>immersion refractive index</b> and <b>Emitter depth into
+          <p>Zernike model: <b>Sample</b>/<b>immersion refractive index</b> and <b>Emitter depth into
           sample</b> (where the focal plane sits above the coverslip) set the depth-induced aberration; the focal
           shift is compensated, so the kernel's z range is centred on the emitter's actual focus. <b>Working
           distance</b> is the Gibson-Lanni model's nominal coverslip-to-objective distance. <b>Custom Zernike</b>
@@ -3114,7 +3118,7 @@ const PARAMS = {
   // with the 13-protofilament dye lattice. The window is the structure FOV (px x pxnm) centred on
   // world (simulation_mt_x, simulation_mt_y) µm; each DYE position is one candidate emitter site.
   // The same seed reproduces the identical world, so moving X/Y pans across one continuous sample.
-  // Focus height (Sample) and the seed (Sample → Advanced, "Cell field seed") have sidebar fields;
+  // Focus height and the seed ("Cell field seed", both in Sample) have sidebar fields;
   // X/Y (moved by the Move view arrows, moveMtView()) and the two densities are id:null (Settings
   // JSON, paramOverrides or the log terminal).
   simulation_mt_seed: { type:'number', id:'simulation_mt_seed', label:'Cell field seed (0 = random)', min:-2147483647, max:2147483647, step:1, default:0, int:true },
@@ -21493,7 +21497,7 @@ updateMethodUI();
 
 // Simulation PSF model rows (simBox) — same "one selector, a list of rows toggled together"
 // pattern as updateMethodUI() above, just for the Zernike-only fields.
-// (Several of these rows sit below the PSF section's Advanced/Performance dividers; the toggle
+// (Several of these rows sit below the PSF section's dividers, the preset at the top level; the toggle
 // doesn't care where. The two dividers are block elements; Preview PSF / Calib. 3D stack are disabled, not hidden, so the
 // top-level button grid keeps its shape.)
 const PSF_ZERNIKE_ROW_IDS=['psfNARow','psfWavelengthRow','psfNsRow','psfNiRow','psfTi0Row','psfDepthRow','psfZRangeRow','psfZStepRow','psfOversampleRow','psfKernelWidthRow','psfZernikePresetRow','psfZernikeCustomRow','psfInterpRow'];
@@ -22764,8 +22768,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29c — Simulation layout: no Advanced
-section; each sub-section shows its advanced settings below a divider.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29d — Simulation: plain divider lines;
+Aberration preset at the top, "None (2D, unaberrated)" first.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
