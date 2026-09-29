@@ -445,8 +445,9 @@ on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 
 **Sidebar**: top level = Structure type, Frames to simulate (no maximum; `checkSimMovieSize()` refuses over the
 memory budget and warns from 1 GB, naming the TIFF size), Emitter density preset, Physics detail preset,
-then a 2×2 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, View ground truth, Compare to GT — disabled,
-never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample (incl.
+then a 2×3 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, Save/Load ground truth, View ground truth,
+Compare to GT — disabled, never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()` →
+`syncGtFileBtns()`); sub-groups Sample (incl.
 Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / Point spread
 function / Ground-truth comparison (headers upper case, accent triangle). Rarely changed settings sit
 in their own sub-group below a plain `.simsec` divider line (Sample, Background, Camera, Point spread
@@ -575,6 +576,10 @@ the cell-field seed + settings only, ~1 s/try, cached; origin-first keeps alread
 unchanged. `simulation_mt_x/_y` (no control) are an OFFSET from it, moved with `moveMtViewStep()` →
 `moveMtView()` (+y down, logged); seed below the Sample section's divider.
 
+**Save/Load ground truth** (`saveGroundTruth()`/`loadGroundTruth()`, also via `loadJsonFile()`): JSON format
+`webSMLM-groundtruth`, `groundTruthEvents` column-wise + per-frame drift + `_movie` (size, frames, px, set where
+the truth is made or loaded); lossless, so a reloaded truth scores identically. Load refuses a rotated/cropped or
+differently sized movie.
 **Around it**: `toggleGtLocalizations()` swaps `srFull` directly (stashing the previous one and its
 title/info, since `lastResult` is null before a Localize) and mirrors `rerender()`'s depth-colour
 logic (cached `_zr`, `srFull._zColor`) but never changes Colour map or Colour by depth (z): with

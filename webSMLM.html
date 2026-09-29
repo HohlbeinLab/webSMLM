@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2666   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3660   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3888   synthetic stack generator ("Simulate movie")
-    validation      6943   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7802   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8058   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8668   super-resolution accumulation, view, colour maps, plots
-    workers         10192  frame-parallel detect/fit worker pool
-    gpu             10834  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13163  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13508  astigmatic width-vs-z bead calibration
-    drift           13907  AIM and cross-correlation drift correction
-    locprecision    14565  NeNA and FRC
-    sSMLM           15704  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16310  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18417  single-particle tracking and diffusion coefficients
-    pipeline        19467  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20507  Micro-Manager/pycromanager bridge (experimental)
-    table           23052  localizations table, filters, histograms, clustering
-    headless API    23737  window.webSMLM.analyze()/analyzeBatch()
+    params          2673   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3667   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3895   synthetic stack generator ("Simulate movie")
+    validation      6951   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7810   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8066   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8676   super-resolution accumulation, view, colour maps, plots
+    workers         10200  frame-parallel detect/fit worker pool
+    gpu             10842  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13171  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13516  astigmatic width-vs-z bead calibration
+    drift           13915  AIM and cross-correlation drift correction
+    locprecision    14573  NeNA and FRC
+    sSMLM           15712  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16318  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18425  single-particle tracking and diffusion coefficients
+    pipeline        19475  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20515  Micro-Manager/pycromanager bridge (experimental)
+    table           23137  localizations table, filters, histograms, clustering
+    headless API    23822  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29o</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2074,6 +2074,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <div class="btnrow" id="simToolsRow">
           <button type="button" id="psfPreviewBtn" title="Build the PSF kernel from the PSF settings and show it in the raw panel as a z-scrollable stack. Zernike PSF model only.">Preview PSF</button>
           <button type="button" id="genCalBtn" title="Simulate a bead z-stack from the same PSF kernel as Preview PSF (PSF z range/step), focus exactly on the centre frame, and write z-step/z=0 ref frame into the 3D calibration section — Calibrate then needs no other setting changed. Zernike PSF model only.">Calib. 3D stack</button>
+          <button type="button" id="gtSaveBtn" disabled title="Save the simulated movie's ground truth (every blink with its position, z, on/off times and photons, plus the simulated drift) as a JSON file, to score this movie again later">Save ground truth</button>
+          <button type="button" id="gtLoadBtn" disabled title="Load a ground truth saved with Save ground truth for the movie now loaded (e.g. the TIFF from Save sim. movie), so View ground truth and Compare to GT work on it">Load ground truth</button>
+          <input type="file" id="gtFileInput" accept=".json" hidden>
           <button type="button" id="viewGtBtn" disabled title="Render the true simulated emitter positions (one point per simulated blink) into the reconstruction panel, the same way a real reconstruction is drawn. Available after Simulate movie.">View ground truth</button>
           <button type="button" id="truthBtn" disabled title="Compare the localizations with the simulation's ground truth: detection rate, lateral and axial error versus true depth, per-molecule precision. Available after Simulate movie and Localize; settings under Ground-truth comparison.">Compare to GT</button>
         </div>
@@ -2099,7 +2102,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           the defocused PSF, roughly doubling the time. It only writes fields under Fluorophore and Background,
           and editing any of them switches it to Custom.</p>
           <p>The buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
-          stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
+          stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>Save ground truth</b> writes the
+          simulated movie's ground truth (every blink with position, z, on/off times and photons, plus the simulated drift) as a
+          JSON file, and <b>Load ground truth</b> attaches such a file to the movie now loaded (for example the TIFF from Save sim.
+          movie in a later session; same size, not rotated or cropped), so View ground truth and Compare to GT work on it again
+          with identical scores (<b>Load data</b> accepts the file too); <b>View ground truth</b> shows the
           true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
           scores a Localize result against them (settings under Ground-truth comparison); <b>Show movie</b>
           brings the last simulated movie and its ground truth back after Calib. 3D stack or a crop replaced it
@@ -5073,6 +5080,7 @@ async function generateSynthetic(){
     const rate = e.rate===undefined ? photPerFrame : e.rate;   // per-blink once brightness varies
     return {x:e.x, y:e.y, z:e.z, tStart:e.tStart, tEnd:e.tEnd, rate, moleculeId:e.moleculeId, haze:!!e.haze, photonsTotal:rate*Math.max(0,t-s)};
   });
+  groundTruthEvents._movie={w, h, frames:n, pxNm:px};   // the movie it describes, for saveGroundTruth()
 
   // fixed per-pixel camera offset map — real sensor fixed-pattern offset noise is a static
   // per-pixel property, so it's drawn once per stack and reused for every frame, not resampled.
@@ -21185,7 +21193,13 @@ $('genCalBtn').addEventListener('click',runCalibrationSimulation);
 // rather than going through lastResult, since lastResult is null right after Simulate movie,
 // before any Localize run.
 // The View ground truth button stays in its grid slot; it is only enabled while ground truth exists.
-function setViewGtBtn(on){ const b=$('viewGtBtn'); if(b){ b.disabled=!on; b.textContent='View ground truth'; } }
+function setViewGtBtn(on){ const b=$('viewGtBtn'); if(b){ b.disabled=!on; b.textContent='View ground truth'; } syncGtFileBtns(); }
+// Save ground truth needs one; Load ground truth needs a movie to attach it to.
+function syncGtFileBtns(){
+  const sb=$('gtSaveBtn'), lb=$('gtLoadBtn');
+  if(sb) sb.disabled=!(groundTruthEvents && groundTruthEvents.length);
+  if(lb) lb.disabled=!stack;
+}
 async function toggleGtLocalizations(){
   if(!groundTruthLocs || !groundTruthLocs.length || !stack){ log('!!! View ground truth: no simulated ground truth — run Simulate movie first.'); return; }
   const btn=$('viewGtBtn'); btn.disabled=true;
@@ -21361,6 +21375,74 @@ function clearSimGroundTruth(){
   setSimSaved(null);
   $('truthBtn').disabled=true; setViewGtBtn(false);
 }
+// "Save ground truth": groundTruthEvents (one entry per blink, camera px of the unrotated,
+// uncropped movie, with fractional on/off times), the per-frame true drift and the movie's size,
+// as JSON (format webSMLM-groundtruth), column-wise. Lossless, so loadGroundTruth() restores
+// exactly what Compare to GT and View ground truth read. (Save sim. movie's CSV is the per-frame
+// view for other tools.)
+async function saveGroundTruth(){
+  const ev=groundTruthEvents;
+  if(!ev || !ev.length){ log('!!! Save ground truth: no ground truth in memory — run Simulate movie (or load one with Load ground truth) first.'); return; }
+  const {w,h,frames:n,pxNm:px}=ev._movie;   // set where the ground truth is made or loaded
+  const col=k=>JSON.stringify(ev.map(e=>e[k]));
+  const parts=[`{"format":"webSMLM-groundtruth","version":1,"appVersion":${JSON.stringify(currentAppVersion())},"created":${JSON.stringify(new Date().toISOString())},`,
+    `"movie":${JSON.stringify({w,h,frames:n,pxNm:px})},"structureSites":${groundTruth?groundTruth.length:null},"events":{`,
+    `"x":${col('x')},"y":${col('y')},"z":${col('z')},"tStart":${col('tStart')},"tEnd":${col('tEnd')},`,
+    `"rate":${col('rate')},"moleculeId":${col('moleculeId')},"haze":${JSON.stringify(ev.map(e=>e.haze?1:0))}},`];
+  const d=simTrueDrift;
+  if(d){ const dx=new Array(n), dy=new Array(n); for(let f=0;f<n;f++){ dx[f]=d.dx(f); dy[f]=d.dy(f); }
+    parts.push(`"drift":{"totalPx":${d.total},"dxNm":${JSON.stringify(dx)},"dyNm":${JSON.stringify(dy)}}}`); }
+  else parts.push('"drift":null}');
+  const blob=new Blob(parts,{type:'application/json'});
+  const name=(stackName||'webSMLM_simulated').replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_ground_truth.json';
+  const saved=await saveBlob(blob, name, 'Ground truth (JSON)', 'application/json', '.json');
+  if(!saved){ log('Save cancelled.'); return; }
+  log(`Saved the ground truth as ${saved}: ${ev.length.toLocaleString()} blinks over ${n.toLocaleString()} frames of ${w}×${h} px (${fmtBytes(blob.size)}).`);
+  logCmd({}, 'saveGroundTruth()');
+}
+// "Load ground truth": the inverse of saveGroundTruth(), attached to the movie now loaded (Load data
+// routes the same files here). Refused unless the movie has the saved size and is neither rotated
+// nor cropped (the ground truth is in the uncropped, unrotated movie's pixels). Replaces any ground
+// truth in memory; the movie itself is untouched.
+async function loadGroundTruth(file){
+  if(typeof file==='string'){   // from the terminal: a file picked earlier this session
+    const name=file; file=_terminalFileRegistry.get(name);
+    if(!file){ log(`!!! Load ground truth: ${name} was not picked this session — use Load ground truth to choose it.`); return; }
+  }
+  if(!file) return;
+  if(!stack){ log('!!! Load ground truth: no movie — load the simulated movie with Load data first.'); return; }
+  let o;
+  try{ o=JSON.parse(await file.text()); }
+  catch(err){ log(`!!! Load ground truth failed: ${file.name} is not valid JSON (${err.message}).`); return; }
+  if(!o || o.format!=='webSMLM-groundtruth' || !o.events || !o.movie){ log(`!!! Load ground truth: ${file.name} is not a webSMLM ground-truth file — save one with Save ground truth.`); return; }
+  const m=o.movie, E=o.events, N=E.x.length;
+  if(appliedRotation || originalStack){ log('!!! Load ground truth: the movie is rotated or cropped — set Rotate movie to 0 and undo the crop, then load it again.'); return; }
+  if(m.w!==stack.w || m.h!==stack.h){ log(`!!! Load ground truth: ${file.name} is for a ${m.w}×${m.h} px movie, the loaded one is ${stack.w}×${stack.h} px — load the matching movie first.`); return; }
+  if(m.frames!==stack.n) log(`!!! Load ground truth: ${file.name} describes ${m.frames.toLocaleString()} frames, the loaded movie has ${stack.n.toLocaleString()} — scores cover only the frames both have.`);
+  const ev=new Array(N);
+  for(let i=0;i<N;i++){
+    const t0=E.tStart[i], t1=E.tEnd[i], rate=E.rate[i];
+    ev[i]={x:E.x[i], y:E.y[i], z:E.z[i], tStart:t0, tEnd:t1, rate, moleculeId:E.moleculeId[i], haze:!!E.haze[i],
+           photonsTotal:rate*Math.max(0, Math.min(t1,m.frames)-Math.max(t0,0))};
+  }
+  gtShowing=false; srFullBeforeGT=null;
+  groundTruth=o.structureSites ? {length:o.structureSites} : null;   // only its count is ever read
+  ev._movie={w:m.w, h:m.h, frames:m.frames, pxNm:m.pxNm};
+  groundTruthEvents=ev;
+  const gtLp=1/(m.pxNm||paramValue('pxnm'));   // 1 nm in camera px, as generateSynthetic()
+  groundTruthLocs=ev.filter(e=>!e.haze).map(e=>({x:e.x, y:e.y, z:e.z, photons:e.photonsTotal, moleculeId:e.moleculeId, lpx:gtLp, lpy:gtLp}));
+  const d=o.drift;
+  simTrueDrift = d ? {n:m.frames, px:m.pxNm, total:d.totalPx, dx:f=>d.dxNm[Math.min(f,d.dxNm.length-1)]||0, dy:f=>d.dyNm[Math.min(f,d.dyNm.length-1)]||0} : null;
+  setViewGtBtn(groundTruthLocs.length>0);
+  $('truthBtn').disabled=!(lastResult && lastResult.locs && lastResult.locs.length);
+  $('zmin').value=''; $('zmax').value='';   // View ground truth picks its own z range, as after Simulate movie
+  log(`Loaded ground truth from ${file.name}: ${N.toLocaleString()} blinks over ${m.frames.toLocaleString()} frames`+
+      (d?`, ${d.totalPx} px simulated drift`:'')+`. View ground truth and Compare to GT now use it.`);
+  logCmd({}, `loadGroundTruth(${JSON.stringify(file.name)})`);
+}
+$('gtSaveBtn').addEventListener('click', saveGroundTruth);
+$('gtLoadBtn').addEventListener('click', ()=>$('gtFileInput').click());
+$('gtFileInput').addEventListener('change', async e=>{ const f=e.target.files[0]; e.target.value=''; registerTerminalFile(f); await loadGroundTruth(f); });
 // Shows a newly set `stack` (load or rotation): scrubber, contrast, SR-panel
 // projection, frame 1; re-enables the stack actions. False if superseded.
 async function presentStack(myEpoch){
@@ -21373,6 +21455,7 @@ async function presentStack(myEpoch){
   await showFrame(0);         // paints frame 1 (live preview if RT-update is checked)
   if(staleEpoch(myEpoch)) return false;   // superseded during the await just above
   $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false;
+  syncGtFileBtns();
   return true;
 }
 // Rotate movie: unrotatedStack is the stack as loaded; `stack` is it wrapped
@@ -22158,7 +22241,8 @@ async function loadJsonFile(f){
   if(fmt==='webSMLM-smfret-traces') await loadSmfretTraces(f);
   else if(fmt==='webSMLM-settings' || (!fmt && o && typeof o.values==='object')) await loadSettingsJson(f);
   else if(fmt==='webSMLM-astig-calibration' || (!fmt && o && (o.phasor_z_from_ratio || o.sigma_x_nm))) await loadCalibrationJson(f);
-  else log(`!!! Load data: ${f.name} is not a JSON file webSMLM recognises (expected saved smFRET traces, settings, or a 3D calibration${fmt?`; found format "${fmt}"`:''}).`);
+  else if(fmt==='webSMLM-groundtruth') await loadGroundTruth(f);
+  else log(`!!! Load data: ${f.name} is not a JSON file webSMLM recognises (expected saved smFRET traces, settings, a 3D calibration or a ground truth${fmt?`; found format "${fmt}"`:''}).`);
 }
 $('loadBtn').addEventListener('click',()=>$('file').click());
 $('file').addEventListener('change', async e=>{
@@ -22961,7 +23045,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29o — log warnings are marked with a bold red !!!.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29p — Save ground truth / Load ground truth in
+the Simulation section.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

@@ -408,7 +408,9 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation → Point spread function section |
-| View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a Simulate movie from this session |
+| Save ground truth | `saveGroundTruth()` | the ground truth as JSON (format `webSMLM-groundtruth`: blinks column-wise, per-frame drift, movie size) |
+| Load ground truth | `loadGroundTruth(file)` | attaches a saved ground truth to the loaded movie (a File, or the name of one picked this session) |
+| View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a ground truth (Simulate movie, or Load ground truth) |
 | Show movie | `showSimulatedMovie()` | shows the last simulated movie again, with its ground truth (clears the current results) |
 | Save sim. movie | `saveSimulatedMovie()` | the last simulated movie/bead stack as a 16-bit TIFF, plus a movie's ground truth as CSV |
 | Move view (microtubules) | `moveMtView(dxUm,dyUm)` / `moveMtViewStep(sx,sy)` | pans the microtubule window; applies on the next Simulate movie |
@@ -2275,8 +2277,8 @@ No sidebar control (Settings JSON, `paramOverrides`, or the log terminal):
 
 The sidebar's Simulation panel keeps the everyday choices at the
 top — **Structure type**, **Frames to simulate**, **Emitter density** (a preset) and
-**Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib. 3D
-stack**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
+**Physics detail** (a preset), plus a grid of **Preview PSF**, **Calib. 3D
+stack**, **Save ground truth**, **Load ground truth**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
 sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **Point spread function**,
 **Ground-truth comparison** (the settings for Compare to GT); in Sample, Background, Camera and Point spread function
 the rarely changed settings sit below a divider line (the point spread function's kernel grid below a second one,
@@ -2525,7 +2527,11 @@ out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focu
 the defocused PSF, roughly doubling the time. It only writes fields under Fluorophore and Background,
 and editing any of them switches it to Custom.</p>
 <p>The buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
-stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
+stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>Save ground truth</b> writes the
+simulated movie's ground truth (every blink with position, z, on/off times and photons, plus the simulated drift) as a
+JSON file, and <b>Load ground truth</b> attaches such a file to the movie now loaded (for example the TIFF from Save sim.
+movie in a later session; same size, not rotated or cropped), so View ground truth and Compare to GT work on it again
+with identical scores (<b>Load data</b> accepts the file too); <b>View ground truth</b> shows the
 true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
 scores a Localize result against them (settings under Ground-truth comparison); <b>Show movie</b>
 brings the last simulated movie and its ground truth back after Calib. 3D stack or a crop replaced it
