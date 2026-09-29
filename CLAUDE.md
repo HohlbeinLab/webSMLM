@@ -573,7 +573,8 @@ unchanged. `simulation_mt_x/_y` (no control) are an OFFSET from it, moved with `
 
 **Around it**: `toggleGtLocalizations()` swaps `srFull` directly (stashing the previous one and its
 title/info, since `lastResult` is null before a Localize) and mirrors `rerender()`'s depth-colour
-logic (auto-tick, `turbo`, cached `_zr`, `srFull._zColor`). `runCalibrationSimulation()` renders a
+logic (cached `_zr`, `srFull._zColor`) but never changes Colour map or Colour by depth (z): with
+depth present and depth colour off it logs a ⚠ instead. `runCalibrationSimulation()` renders a
 bead z-stack (`generateCalibrationStack()`, focus on the centre frame by construction), resets via
 `clearAnalysisOutputs()`/`presentStack()`, and writes `calStep`/`calRef`; it is not rotated.
 Simulate movie logs every non-default `simulation_*` field with `runSimulation()` so a recalled

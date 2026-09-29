@@ -679,8 +679,9 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
    **Show z error / Show fitted vs true / Show Jaccard vs z / Show lateral hist. / Show axial hist. /
    Show vs photons / Show vs radius / Show photometry / Show vs CRLB** (each view appears only when its data
    exists — no z views for a 2D fit, no CRLB views for a method that reports none).
-6. Click **View ground truth** to see the true positions rendered like a reconstruction; **Hide ground truth** returns to
-   your result.
+6. Click **View ground truth** to see the true positions rendered like a reconstruction, with your current
+   **Colour map** (it is never changed; if the ground truth has depth and **Colour by depth (z)** is off, the log
+   says so); **Hide ground truth** returns to your result.
 
 #### Reproducibility and comparisons
 

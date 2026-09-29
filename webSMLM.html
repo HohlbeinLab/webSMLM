@@ -50,8 +50,8 @@
     spt             18416  single-particle tracking and diffusion coefficients
     pipeline        19466  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   20506  Micro-Manager/pycromanager bridge (experimental)
-    table           23055  localizations table, filters, histograms, clustering
-    headless API    23740  window.webSMLM.analyze()/analyzeBatch()
+    table           23052  localizations table, filters, histograms, clustering
+    headless API    23737  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29k</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29l</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -21193,15 +21193,12 @@ async function toggleGtLocalizations(){
     if(gtShowing){
       srFullBeforeGT=srFull;
       srTitleBeforeGT=$('srTitle').textContent; srInfoBeforeGT=$('srInfo').textContent;
-      // Same depth-colour setup rerender() does for a real reconstruction (see its own
-      // comment): auto-check "Colour by depth (z)" + pick a LUT the first time THIS
-      // groundTruthLocs array turns out to be colourable, compute zlo/zhi (cached on the array,
-      // same "per-field cache" idea as lastResult.zr), and show the zcolor/zrange rows.
-      const hasZ=groundTruthLocs.some(L=>isFinite(L.z));
-      if(hasZ && !groundTruthLocs._zColorAutoChecked){
-        groundTruthLocs._zColorAutoChecked=true;
-        $('zcolor').checked=true; $('lut').value='turbo';
-      }
+      // Depth colour as rerender() does for a real reconstruction (zlo/zhi cached on the array,
+      // the zcolor/zrange rows shown), but Colour map and Colour by depth (z) stay as the user
+      // set them: with depth present and depth colour off, a warning says so instead.
+      const hasZ=groundTruthLocs.some(L=>isFinite(L.z) && L.z!==0);
+      if(hasZ && !paramValue('zcolor'))
+        log('⚠ View ground truth: the ground truth has depth (z), but Colour by depth (z) is off — tick it (and pick a Colour map) to see the depth.');
       $('zcolorLabel').textContent='Colour by depth (z)';
       $('zminLabel').textContent='z min (nm)'; $('zmaxLabel').textContent='z max (nm)';
       $('zcolorRow').style.display = hasZ ? 'flex' : 'none';
@@ -22963,8 +22960,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29k — "Frames to simulate" has no maximum;
-Simulate movie checks the memory it needs first.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29l — View ground truth keeps your Colour
+map and Colour by depth; it warns when depth colour is off for 3D ground truth.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
