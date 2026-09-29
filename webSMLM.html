@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2653   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3621   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3849   synthetic stack generator ("Simulate movie")
-    validation      6832   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7691   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7947   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8557   super-resolution accumulation, view, colour maps, plots
-    workers         10081  frame-parallel detect/fit worker pool
-    gpu             10723  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13052  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13343  astigmatic width-vs-z bead calibration
-    drift           13742  AIM and cross-correlation drift correction
-    locprecision    14400  NeNA and FRC
-    sSMLM           15539  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16145  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18252  single-particle tracking and diffusion coefficients
-    pipeline        19302  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20342  Micro-Manager/pycromanager bridge (experimental)
-    table           22748  localizations table, filters, histograms, clustering
-    headless API    23433  window.webSMLM.analyze()/analyzeBatch()
+    params          2656   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3625   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3853   synthetic stack generator ("Simulate movie")
+    validation      6838   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7697   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             7953   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8563   super-resolution accumulation, view, colour maps, plots
+    workers         10087  frame-parallel detect/fit worker pool
+    gpu             10729  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13058  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13403  astigmatic width-vs-z bead calibration
+    drift           13802  AIM and cross-correlation drift correction
+    locprecision    14460  NeNA and FRC
+    sSMLM           15599  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16205  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18312  single-particle tracking and diffusion coefficients
+    pipeline        19362  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20402  Micro-Manager/pycromanager bridge (experimental)
+    table           22861  localizations table, filters, histograms, clustering
+    headless API    23546  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1702,7 +1702,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1941,6 +1941,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <button type="button" id="viewGtBtn" disabled title="Render the true simulated emitter positions (one point per simulated blink) into the reconstruction panel, the same way a real reconstruction is drawn. Available after Simulate movie.">View ground truth</button>
           <button type="button" id="truthBtn" disabled title="Compare the localizations with the simulation's ground truth: detection rate, lateral and axial error versus true depth, per-molecule precision. Available after Simulate movie and Localize; settings under Ground-truth comparison.">Compare to GT</button>
         </div>
+        <div class="btnrow">
+          <button type="button" id="simSaveBtn" disabled title="Save the simulated movie (or Calib. 3D stack) as a 16-bit TIFF with its pixel size and frame time, and a movie's ground truth as CSV (one row per emitter per frame it was on)">Save sim. movie</button>
+        </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-simulation"><span class="pill">module: simulation</span>
           <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
@@ -1953,10 +1956,15 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with
           the defocused PSF, roughly doubling the time. It only writes fields under Fluorophore and Background,
           and editing any of them switches it to Custom.</p>
-          <p>The four buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
+          <p>The buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
           stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
           true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
-          scores a Localize result against them (settings under Ground-truth comparison).</p>
+          scores a Localize result against them (settings under Ground-truth comparison); <b>Save sim. movie</b>
+          saves the simulated movie (or bead stack) as a 16-bit TIFF with its pixel size and frame time, and a
+          movie's ground truth as a CSV: one row per emitter per frame it was on, with its position in the
+          movie (drift included) and without the drift, z, photons in that frame and molecule id, in the same
+          units and frame numbering as <b>Save localisations</b>. Loading the TIFF back gives exactly the same
+          frames.</p>
           <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
           <b>Camera</b>, <b>PSF</b>, <b>Ground-truth comparison</b> and <b>Advanced</b>, each with its own "more
           info…". Every field also has a hover tip.</p>
@@ -2099,7 +2107,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           charge</b>) through an electron-multiplying register, modelled as a Gamma draw: compounded with the
           Poisson draw that gives the pixel variance <i>twice</i> its mean, which is the √2 excess noise a real
           EMCCD has. <b>EM gain</b> only decides how far the register pushes read noise below the signal, and
-          Advanced → <b>Bit depth</b> rounds ADU to integers and clips at saturation. Measured on a flat field:
+          Advanced → <b>Bit depth</b> (both camera types) rounds ADU to whole numbers and clips at saturation. Measured on a flat field:
           variance/mean = 2.00 on EMCCD against 1.08 on sCMOS at the same 100 photons/px. On a scored run the
           cost was 1.34× the lateral error (5.69 vs 4.25 nm per axis) — less than the √2 the excess noise alone
           would give, because the register also makes read noise negligible. When you simulate EMCCD data, set
@@ -2196,7 +2204,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <label class="row" title="Mean dark level of the simulated camera, in ADU. Separate from the Camera offset used for localization.">Simulated offset (ADU) <input type="number" id="simulation_offset" min="0" max="65535" step="1" value="100" class="num"></label>
           <label class="row" title="Fixed per-pixel spread of the camera offset map (ADU), constant over the stack — the static pattern a real sCMOS sensor has.">Offset std (ADU, per-pixel) <input type="number" id="simulation_offset_std" min="0" max="200" step="0.5" value="3" class="num"></label>
           <label class="row" id="simCicRow" style="display:none" title="EMCCD only: spurious electrons generated by clocking the sensor, per pixel per frame — an EMCCD's own noise floor in the dark.">Clock-induced charge (e⁻/px) <input type="number" id="simulation_cic" min="0" max="1" step="0.001" value="0.002" class="num"></label>
-          <label class="row" id="simBitDepthRow" style="display:none" title="EMCCD only: ADU are rounded to integers and clipped at 2^bits − 1.">Bit depth <input type="number" id="simulation_bitDepth" min="8" max="16" step="1" value="16" class="num"></label>
+          <label class="row" id="simBitDepthRow" title="ADU are rounded to whole numbers and clipped at 2^bits − 1, as the camera delivers them">Bit depth <input type="number" id="simulation_bitDepth" min="8" max="16" step="1" value="16" class="num"></label>
           <div class="simsec" id="advPsfHead" style="display:none">PSF</div>
           <label class="row" id="psfNsRow" style="display:none" title="Refractive index of the sample medium (1.33 = water).">Sample refractive index (ns) <input type="number" id="simulation_psfNs" min="1.0" max="1.7" step="0.001" value="1.33" class="num"></label>
           <label class="row" id="psfNiRow" style="display:none" title="Refractive index of the immersion medium (1.518 = standard oil).">Immersion refractive index (ni) <input type="number" id="simulation_psfNi" min="1.0" max="1.7" step="0.001" value="1.518" class="num"></label>
@@ -3602,6 +3610,7 @@ function staleEpoch(myEpoch){ return myEpoch!==_sessionEpoch; }
 let originalStack=null;
 let rawFtmView=false;   // raw panel toggle: show the FTM-corrected preview instead of the raw frame — see ftmFrame()
 let simTrueDrift=null;   // ground-truth per-frame drift from the simulator (for scoring drift correction)
+let simSaved=null;       // the last simulated stack + its ground truth, for Save sim. movie (setSimSaved())
 // ground-truth ON events from the simulator — one entry per instantiated emitter's single
 // activation ({x,y,z,tStart,tEnd,photonsTotal}; x,y in camera px, z in nm, tStart/tEnd in
 // fractional frame units) — for comparison against recovered localizations. Reset alongside
@@ -4589,8 +4598,7 @@ function prepareSimKernelPlanes(zks, slices, frameEvents){
 }
 // The simulated sensor's own model as one bundle, so the three frame-producing paths (serial,
 // worker pool, calibration stack) each carry one object instead of five more positional
-// parameters. type 'scmos' (the default) leaves applySimCameraNoise() on its original
-// expression, which is what keeps a seeded movie byte-identical to every earlier build.
+// parameters. bitDepth applies to both camera types (whole ADU, clipped at 2^bits − 1).
 function readSimCameraModel(){
   return { type:paramValue('simulation_cameraType'), qe:paramValue('simulation_qe'),
            emGain:paramValue('simulation_emGain'), cic:paramValue('simulation_cic'),
@@ -4620,11 +4628,14 @@ function applySimCameraNoise(img, offsetMap, simGain, readNoiseE, noiseSeed, fra
     }
     return;
   }
+  // sCMOS/CCD: whole ADU clipped at the bit depth, as a real camera delivers (and a 16-bit TIFF
+  // stores exactly).
+  const maxAdu=Math.pow(2,(cam&&cam.bitDepth)||16)-1;
   for(let i=0;i<img.length;i++){
     u.pixel(i);
     const ne=simNoisePoisson(img[i], u);
-    const adu=offsetMap[i]+(ne+readNoiseE*simNoiseGauss(u))/simGain;
-    img[i]=adu<0?0:adu;
+    const adu=Math.floor(offsetMap[i]+(ne+readNoiseE*simNoiseGauss(u))/simGain+0.5);
+    img[i]=adu<0?0:(adu>maxAdu?maxAdu:adu);
   }
 }
 // generateCalibrationStack()'s own splat step — a fixed bead grid (beadXY, same x,y at every
@@ -12766,7 +12777,7 @@ fn main(@builtin(global_invocation_id) id:vec3u){
       v=clamp(floor(offsetMap[pix]+(o+p.readE*gaussN())/p.simGain+0.5), 0.0, p.maxAdu);
     } else {
       let ne=poissonN(v);
-      v=max(offsetMap[pix]+(ne+p.readNoiseE*gaussN())/p.simGain, 0.0);
+      v=clamp(floor(offsetMap[pix]+(ne+p.readNoiseE*gaussN())/p.simGain+0.5), 0.0, p.maxAdu);
     }
   }
   outF[g]=v;
@@ -12876,7 +12887,7 @@ async function gpuSimFramesNow(engine, spec){
       pi[8]=bh; pi[9]=off; pu[10]=d.strideX; pu[11]=noiseSeed>>>0;
       pu[12]=spec.doNoise===false?0:1; pu[13]=emccd?1:0; pu[14]=bgMap?1:0;
       pf[16]=simGain; pf[17]=readNoiseE; pf[18]=emccd?cam.qe:1; pf[19]=emccd?cam.cic:0;
-      pf[20]=emccd?readNoiseE/Math.max(1,cam.emGain):0; pf[21]=emccd?Math.pow(2,cam.bitDepth)-1:0;
+      pf[20]=emccd?readNoiseE/Math.max(1,cam.emGain):0; pf[21]=Math.pow(2,(cam&&cam.bitDepth)||16)-1;
       const pBuf=mkb(96, U.UNIFORM|U.COPY_DST, 'sim:params'); engine.write(pBuf,0,new Uint8Array(raw));
       const bg=engine.bindGroup({label:'sim:frames-bg', layout:pipe.getBindGroupLayout(0),
         entries:[pBuf,planeBuf,emBuf,foBuf,fbBuf,bgBuf,offBuf,outBuf].map((buffer,binding)=>({binding,resource:{buffer}}))});
@@ -13199,6 +13210,60 @@ function buildCsvText(locs, px, sigPSF){
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
   return { parts, has3d, hasZUnc, isClustered, nNoSigma };
+}
+// Uncompressed 16-bit greyscale multi-page TIFF, one strip per page, returned as Blob parts so
+// no single buffer holds the whole movie. ImageJ-style description (images/frames, unit=micron,
+// finterval) plus X/YResolution in pixels per µm, so webSMLM (tiffScaleHint()) and Fiji read the
+// scale back. BigTIFF (64-bit offsets) once the classic 32-bit offsets would overflow; webSMLM
+// reads both (loadMultiIfdStreaming()). Values are rounded and clipped to 0–65535.
+// Test: tests/gpu/test-save-sim-movie.mjs.
+function encodeTiff16(frames, w, h, {pxNm=0, frameTimeS=0, extraDesc='', bigTiff=false}={}){
+  const n=frames.length, frameBytes=w*h*2, enc=new TextEncoder();
+  const desc=enc.encode(`ImageJ=1.54f\nimages=${n}\nframes=${n}\n`+(pxNm>0?'unit=micron\n':'')+
+    (frameTimeS>0?`finterval=${frameTimeS}\n`:'')+'loop=false\n'+extraDesc+'\0');
+  const hasRes=pxNm>0, nTags0=hasRes?14:11, nTags=hasRes?13:10;   // IFD 0 also carries the description
+  const estimate=16+desc.length+16+n*(frameBytes+8+nTags0*20+8);
+  const big=bigTiff || estimate>0xFFFF0000;   // bigTiff: force it (tests)
+  const hdr=big?16:8, ent=big?20:12, cnt=big?8:2, nxt=big?8:4;
+  const ifdBytes=k=>cnt+k*ent+nxt;
+  // Layout: header | description | XRes | YRes | pad to even | per frame: IFD, pixel data.
+  const descOff=hdr, resOff=descOff+desc.length, firstIfd=(resOff+(hasRes?16:0)+1)&~1;
+  const parts=[];
+  { const b=new ArrayBuffer(firstIfd), v=new DataView(b), u8=new Uint8Array(b);
+    v.setUint8(0,0x49); v.setUint8(1,0x49);
+    if(big){ v.setUint16(2,43,true); v.setUint16(4,8,true); v.setUint16(6,0,true); v.setBigUint64(8,BigInt(firstIfd),true); }
+    else { v.setUint16(2,42,true); v.setUint32(4,firstIfd,true); }
+    u8.set(desc,descOff);
+    if(hasRes){ const num=Math.round(1000/pxNm*1e6); for(const o of [resOff,resOff+8]){ v.setUint32(o,num,true); v.setUint32(o+4,1e6,true); } }
+    parts.push(b); }
+  let pos=firstIfd;
+  for(let f=0;f<n;f++){
+    const k=f===0?nTags0:nTags, ifd=new ArrayBuffer(ifdBytes(k)), v=new DataView(ifd);
+    const dataOff=pos+ifd.byteLength, nextIfd=f<n-1 ? dataOff+frameBytes : 0;
+    const tags=[[256,4,1,w],[257,4,1,h],[258,3,1,16],[259,3,1,1],[262,3,1,1]];
+    if(f===0) tags.push([270,2,desc.length,descOff]);
+    tags.push([273,big?16:4,1,dataOff],[277,3,1,1],[278,4,1,h],[279,big?16:4,1,frameBytes]);
+    if(hasRes) tags.push([282,5,1,resOff],[283,5,1,resOff+8],[296,3,1,1]);
+    tags.push([339,3,1,1]);
+    let p=0;
+    if(big) v.setBigUint64(p,BigInt(k),true); else v.setUint16(p,k,true);
+    p+=cnt;
+    for(const [tag,type,count,val] of tags){
+      v.setUint16(p,tag,true); v.setUint16(p+2,type,true);
+      if(big){ v.setBigUint64(p+4,BigInt(count),true);
+        if(type===3) v.setUint16(p+12,val,true); else if(type===4) v.setUint32(p+12,val,true);
+        else if(type===5){ v.setUint32(p+12,Math.round(1000/pxNm*1e6),true); v.setUint32(p+16,1e6,true); }   // 8 bytes fit inline, so BigTIFF requires them inline
+        else v.setBigUint64(p+12,BigInt(val),true); }
+      else { v.setUint32(p+4,count,true); if(type===3) v.setUint16(p+8,val,true); else v.setUint32(p+8,val,true); }
+      p+=ent;
+    }
+    if(big) v.setBigUint64(p,BigInt(nextIfd),true); else v.setUint32(p,nextIfd,true);
+    const src=frames[f], px16=new Uint16Array(w*h);
+    for(let i=0;i<px16.length;i++){ const a=Math.round(src[i]); px16[i]=a<0?0:(a>65535?65535:a); }
+    parts.push(ifd, px16.buffer);
+    pos=dataOff+frameBytes;
+  }
+  return {parts, big, bytes:pos};
 }
 // "Save localisations": builds the ThunderSTORM-compatible CSV (via buildCsvText())
 // from the current filtered/cropped locs and offers it through saveBlob().
@@ -20720,9 +20785,9 @@ const SHOW_PSF_PHASE_MASK=false;
   sel.addEventListener('change', sync); sync();
 })();
 // The EMCCD-only camera rows: hidden on the sCMOS path, which is the default and has no
-// quantum efficiency, register or bit depth of its own in this model.
+// quantum efficiency or gain register of its own in this model (bit depth applies to both).
 (function(){
-  const sel=$('simulation_cameraType'), rows=['simQeRow','simEmGainRow','simCicRow','simBitDepthRow'];
+  const sel=$('simulation_cameraType'), rows=['simQeRow','simEmGainRow','simCicRow'];
   const sync=()=>{ const on=sel.value==='emccd'; for(const id of rows) $(id).style.display = on ? '' : 'none'; };
   sel.addEventListener('change', sync); sync();
 })();
@@ -20857,7 +20922,10 @@ async function runSimulation(){
     setViewGtBtn(!!(groundTruthLocs && groundTruthLocs.length));
     // Ground truth is in unrotated camera coordinates: with Rotate movie set it
     // no longer matches the frames, so drop it rather than score against it.
+    const simGt=groundTruthEvents, simDrift=simTrueDrift;
     if(appliedRotation){ clearSimGroundTruth(); log(`Rotate movie is ${appliedRotation}°: the ground truth is not rotated with the frames, so Compare to GT and View ground truth are off for this movie.`); }
+    // Saved as generated (unrotated), so the ground truth still matches the saved frames.
+    setSimSaved({stack:generated, kind:'movie', name:'webSMLM_simulated', gt:simGt, drift:simDrift, frameTimeS:paramValue('frametime')});
     $('sSmlmPreviewBtn').disabled=true; $('sSmlmPairBtn').disabled=true; $('sSmlmUnpairBtn').disabled=true; $('sSmlmHistBtn').disabled=true; $('sSmlmHistModeBtn').style.display='none'; $('sSmlmColorBtn').style.display='none'; $('smfretAlignOverlayBtn').style.display='none'; smfretAlignOverlayCanvas=null; smfretAlignOverlayData=null; smfretAlignOverlayShowing=false; $('alexProjToggleBtn').style.display='none'; setSrContrastRowVisible(false); sSmlmOriginalLocs=null; sSmlmPairedLocs=null; sSmlmShowingRaw=false; sSmlmPrevLut=null; $('sptTrackBtn').disabled=true; $('sptHistBtn').disabled=true; $('sptHistModeBtn').style.display='none'; $('sptSaveBtn').disabled=true; $('sptShowTracksBtn').disabled=true; $('sptShowTrackDataBtn').disabled=true; { const b=$('srTracksOverlayBtn'); if(b){ b.style.display='none'; b.textContent='Show tracks'; } } srTracksOverlayOn=false; selectedTrackId=null; lastSpt=null;
     // a fresh stack replaces any crop wholesale — a crop rect from a differently-sized
     // previous stack (or the previous stack itself, as originalStack) is meaningless now.
@@ -20896,6 +20964,8 @@ async function runCalibrationSimulation(){
     if(staleEpoch(myEpoch)) return;   // superseded while generating — see newEpoch()
     // Not rotated: calStep/calRef below describe the stack as generated.
     stack=s; stackName='webSMLM_simulated_calib';
+    setSimSaved({stack:s, kind:'bead stack', name:'webSMLM_simulated_calib', gt:null, drift:null, frameTimeS:0,
+      extraDesc:`webSMLM z-step (nm)=${zStepNm}\nwebSMLM focus frame=${focusIndex+1}\n`});
     $('pxnm').value=stack.px;   // keep the shared pixel size in sync with the simulated stack
     drawView(); syncSaveImg();
     // The true focus is the centre frame by construction, so calRef is set
@@ -21049,8 +21119,56 @@ function clearAnalysisOutputs(){
 }
 // Drops the simulator's ground truth (it describes a stack that is gone, or
 // one rotated or cropped away from it) and the controls that read it.
+// The last simulated stack for "Save sim. movie": frames as generated (unrotated, uncropped),
+// with the ground truth and drift they were made with (simSaved, declared with the other
+// ground-truth state). Cleared with the ground truth (clearSimGroundTruth()) whenever other data
+// replaces the simulation.
+function setSimSaved(v){ simSaved=v; const b=$('simSaveBtn'); if(b) b.disabled=!v; }
+// Ground truth of a simulated movie as CSV parts: one row per emitter per frame it was on, in the
+// localisation CSV's conventions (1-based frame, nm = camera px × pixel size). x/y are where the
+// emitter appears in the movie (simulated drift included); x/y_structure leave the drift out, for
+// comparison with drift-corrected localizations; photons = what it put into that frame.
+function buildGroundTruthCsv(gtEvents, nFrames, pxNm, drift){
+  const byFrame=groundTruthByFrame(gtEvents, nFrames, 0, nFrames-1);
+  const parts=['"frame","x [nm]","y [nm]","z [nm]","x_structure [nm]","y_structure [nm]","photons","molecule_id","out_of_focus"\n'];
+  let buf=[];
+  for(const f of [...byFrame.keys()].sort((a,b)=>a-b)){
+    const dx=drift?drift.dx(f):0, dy=drift?drift.dy(f):0;   // nm
+    for(const g of byFrame.get(f)){
+      const xs=g.x*pxNm, ys=g.y*pxNm;
+      buf.push(`${f+1},${(xs+dx).toFixed(1)},${(ys+dy).toFixed(1)},${isFinite(g.z)?g.z.toFixed(1):''},`+
+        `${xs.toFixed(1)},${ys.toFixed(1)},${isFinite(g.phot)?g.phot.toFixed(1):''},${g.mol??''},${g.haze?1:0}`);
+      if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }
+    }
+  }
+  if(buf.length) parts.push(buf.join('\n')+'\n');
+  return parts;
+}
+// "Save sim. movie": the simulated stack as a 16-bit TIFF (encodeTiff16()) and, for a movie, its
+// ground truth as CSV — a second save dialog, only after the TIFF was saved.
+async function saveSimulatedMovie(){
+  const sv=simSaved; if(!sv){ log('Nothing simulated to save — run Simulate movie (or Calib. 3D stack) first.'); return; }
+  const btn=$('simSaveBtn'); btn.disabled=true;
+  try{
+    const st=sv.stack, frames=await st.getFrames(0,st.n);
+    const {parts,big}=encodeTiff16(frames, st.w, st.h, {pxNm:st.px, frameTimeS:sv.frameTimeS, extraDesc:sv.extraDesc||''});
+    const blob=new Blob(parts,{type:'image/tiff'});
+    const saved=await saveBlob(blob, sv.name+'.tif', 'TIFF movie', 'image/tiff', '.tif');
+    if(!saved){ log('Save cancelled.'); return; }
+    log(`Saved the simulated ${sv.kind} as ${saved}: ${st.n} frames of ${st.w}×${st.h} px, 16-bit${big?' BigTIFF':''} (${fmtBytes(blob.size)}).`);
+    if(sv.gt){
+      const csv=new Blob(buildGroundTruthCsv(sv.gt, st.n, st.px, sv.drift), {type:'text/csv'});
+      const savedCsv=await saveBlob(csv, sv.name+'_ground_truth.csv', 'CSV (ground truth)', 'text/csv', '.csv');
+      log(savedCsv ? `Saved its ground truth as ${savedCsv} (one row per emitter per frame it was on).` : 'Ground-truth CSV not saved (cancelled).');
+    }
+    logCmd({}, 'saveSimulatedMovie()');
+  }catch(err){ log(`⚠ Saving the simulated movie failed: ${err.message}`); }
+  finally{ btn.disabled=!simSaved; }
+}
+$('simSaveBtn').addEventListener('click', saveSimulatedMovie);
 function clearSimGroundTruth(){
   groundTruth=null; groundTruthEvents=null; groundTruthLocs=null; simTrueDrift=null; gtShowing=false; srFullBeforeGT=null;
+  setSimSaved(null);
   $('truthBtn').disabled=true; setViewGtBtn(false);
 }
 // Shows a newly set `stack` (load or rotation): scrubber, contrast, SR-panel
@@ -22656,8 +22774,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29a — Simulation sub-headers in blue,
-not bold; buttons renamed Calib. 3D stack and View ground truth.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29b — Save sim. movie (16-bit TIFF +
+ground-truth CSV); sCMOS simulation now gives whole ADU at the bit depth.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

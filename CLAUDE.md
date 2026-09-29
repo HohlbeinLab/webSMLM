@@ -465,8 +465,12 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
    (`runStage('simFrames', …)`), all through `splatSimFrame()` + `applySimCameraNoise()`.
 8. **Camera** (one `cam` bundle from `readSimCameraModel()` through `simCtx`/`calibCtx`, both init
    messages and the GPU spec): sCMOS = Poisson → read noise (e⁻) → gain → fixed per-pixel offset map;
-   EMCCD = QE + CIC → Poisson → `simNoiseGamma(n)` (scale 1) → read noise / EM gain → integer ADU
-   clipped at 2^bits−1. **Poisson∘Gamma has variance 2λ — that is the √2 excess noise**, not a fudge;
+   EMCCD = QE + CIC → Poisson → `simNoiseGamma(n)` (scale 1) → read noise / EM gain. Both end in
+   integer ADU clipped at 2^bits−1 (`simulation_bitDepth`), CPU and GPU alike.
+   **Save sim. movie** (`saveSimulatedMovie()`): `simSaved` (set by Simulate movie / Calib. 3D stack,
+   cleared by `clearSimGroundTruth()`) → `encodeTiff16()` (MODULE: export: uncompressed 16-bit, ImageJ
+   description + resolution, BigTIFF past 4 GB) and `buildGroundTruthCsv()` (per emitter-frame via
+   `groundTruthByFrame()`, drift added). Test: `tests/gpu/test-save-sim-movie.mjs`. **Poisson∘Gamma has variance 2λ — that is the √2 excess noise**, not a fudge;
    scale 1 keeps `simulation_gain` meaning photons/ADU.
 9. **Ground truth**: `groundTruthEvents` (per blink: x, y, z, times, photons, `moleculeId`, `haze`),
    `simTrueDrift` (nm), `groundTruthLocs` (non-haze blinks with a fixed 1 nm `lpx/lpy`, so View ground truth

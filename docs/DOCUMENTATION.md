@@ -408,6 +408,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation PSF section |
 | View ground truth / Hide ground truth | `toggleGtLocalizations()` | needs a Simulate movie from this session |
+| Save sim. movie | `saveSimulatedMovie()` | the last simulated movie/bead stack as a 16-bit TIFF, plus a movie's ground truth as CSV |
 | Move view (microtubules) | `moveMtView(dxUm,dyUm)` / `moveMtViewStep(sx,sy)` | pans the microtubule window; applies on the next Simulate movie |
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
 | **Stop** | `requestStop()` | ends a live-streaming session, else asks a running Localize/drift correction/3D calibration to stop |
@@ -647,8 +648,9 @@ what:
    illumination attenuates it. (Cell contrast is not applied to Microtubules.)
 7. **Camera.** Poisson shot noise on signal + background, then the sCMOS path (read noise,
    **Simulated gain**, a fixed per-pixel offset map) or the EMCCD path (quantum efficiency,
-   clock-induced charge, gain register, integer ADU at **Bit depth**). The result is a float ADU
-   stack exactly like a loaded movie.
+   clock-induced charge, gain register). Both end in whole ADU clipped at **Bit depth**, as a
+   real camera delivers them, so the movie is exactly like a loaded one (and saves losslessly as
+   a 16-bit TIFF).
 8. **Ground truth** is kept for this page session: every blink, the true drift, and a point per
    blink for **View ground truth**. It is dropped when you load, crop or rotate a movie; a simulation made
    with **Rotate movie** set has none (the truth is not rotated with the frames).
@@ -2224,7 +2226,7 @@ elapsed time instead.
 | `simulation_offset` | *Camera:* Simulated offset (ADU) | number | 0 | 65535 | 1 | 100 |
 | `simulation_offset_std` | *Camera:* Offset std (ADU, per-pixel) | number | 0 | 200 | 0.5 | 3 |
 | `simulation_cic` | *Camera:* Clock-induced charge (e⁻/px), EMCCD | number | 0 | 1 | 0.001 | 0.002 |
-| `simulation_bitDepth` | *Camera:* Bit depth, EMCCD | number | 8 | 16 | 1 | 16 |
+| `simulation_bitDepth` | *Camera:* Bit depth (both camera types) | number | 8 | 16 | 1 | 16 |
 | `simulation_psfNs` | *PSF:* Sample refractive index (ns) | number | 1 | 1.7 | 0.001 | 1.33 |
 | `simulation_psfNi` | *PSF:* Immersion refractive index (ni) | number | 1 | 1.7 | 0.001 | 1.518 |
 | `simulation_psfDepth` | *PSF:* Emitter depth into sample (nm) | number | 0 | 5000 | 10 | 0 |
@@ -2388,7 +2390,7 @@ panel's gain) — a static per-pixel offset pattern looks identical to read nois
 charge</b>) through an electron-multiplying register, modelled as a Gamma draw: compounded with the
 Poisson draw that gives the pixel variance <i>twice</i> its mean, which is the √2 excess noise a real
 EMCCD has. <b>EM gain</b> only decides how far the register pushes read noise below the signal, and
-Advanced → <b>Bit depth</b> rounds ADU to integers and clips at saturation. Measured on a flat field:
+Advanced → <b>Bit depth</b> (both camera types) rounds ADU to whole numbers and clips at saturation. Measured on a flat field:
 variance/mean = 2.00 on EMCCD against 1.08 on sCMOS at the same 100 photons/px. On a scored run the
 cost was 1.34× the lateral error (5.69 vs 4.25 nm per axis) — less than the √2 the excess noise alone
 would give, because the register also makes read noise negligible. When you simulate EMCCD data, set
@@ -2516,10 +2518,15 @@ spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat
 out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with
 the defocused PSF, roughly doubling the time. It only writes fields under Fluorophore and Background,
 and editing any of them switches it to Custom.</p>
-<p>The four buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
+<p>The buttons: <b>Preview PSF</b> shows the PSF kernel as a z-stack in the raw panel; <b>Calib. 3D
 stack</b> simulates a bead z-stack from the same kernel for 3D calibration; <b>View ground truth</b> shows the
 true emitter positions of the last simulated movie in the reconstruction panel; <b>Compare to GT</b>
-scores a Localize result against them (settings under Ground-truth comparison).</p>
+scores a Localize result against them (settings under Ground-truth comparison); <b>Save sim. movie</b>
+saves the simulated movie (or bead stack) as a 16-bit TIFF with its pixel size and frame time, and a
+movie's ground truth as a CSV: one row per emitter per frame it was on, with its position in the
+movie (drift included) and without the drift, z, photons in that frame and molecule id, in the same
+units and frame numbering as <b>Save localisations</b>. Loading the TIFF back gives exactly the same
+frames.</p>
 <p>The sub-groups hold the detail: <b>Sample</b>, <b>Fluorophore</b>, <b>Background</b>,
 <b>Camera</b>, <b>PSF</b>, <b>Ground-truth comparison</b> and <b>Advanced</b>, each with its own "more
 info…". Every field also has a hover tip.</p>

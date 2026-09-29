@@ -30,6 +30,7 @@ const TESTS = [
   ['gpu:test:load-clears', 'test-load-clears-state.mjs'],
   ['gpu:test:report', 'test-report-generation.mjs'],
   ['gpu:test:simulation', 'test-sim-gpu.mjs'],
+  ['gpu:test:save-sim', 'test-save-sim-movie.mjs'],
 ];
 
 const BENCHES = [
