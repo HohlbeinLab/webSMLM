@@ -439,7 +439,8 @@ what makes GUI and command-line use interchangeable.
 Demo/validation/teaching data, not a core analysis path, but everything **Compare to GT** relies
 on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 
-**Sidebar**: top level = Structure type, Frames, Emitter density preset, Physics detail preset,
+**Sidebar**: top level = Structure type, Frames to simulate (no maximum; `checkSimMovieSize()` refuses over the
+memory budget and warns from 1 GB, naming the TIFF size), Emitter density preset, Physics detail preset,
 then a 2×2 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, View ground truth, Compare to GT — disabled,
 never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()`); sub-groups Sample (incl.
 Move view below Focus height, microtubules only) / Fluorophore / Background / Camera / Point spread

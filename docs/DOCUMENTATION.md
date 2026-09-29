@@ -665,7 +665,7 @@ estimate**, or photon counts and precisions come out on the wrong scale (positio
 #### Quick start: your first scored movie
 
 1. Open **Simulation**. The defaults give a realistic 2000-frame movie of microtubules in cells
-   (Realistic physics, high density, astigmatic Zernike PSF). For a first try set **Frames** to 300,
+   (Realistic physics, high density, astigmatic Zernike PSF). For a first try set **Frames to simulate** to 300,
    and under Sample set **Movie seed** to any non-zero number (e.g. 7) so the run can be
    repeated exactly.
 2. Click **Simulate movie**. The log reports the PSF kernel, how long rendering took and where (GPU
@@ -2192,7 +2192,7 @@ elapsed time instead.
 
 | id | Label | Type | Min | Max | Step | Default |
 |---|---|---|---|---|---|---|
-| `frames` | Frames | number (int) | 50 | 5000 | 50 | 5000 |
+| `frames` | Frames to simulate | number (int) | 50 | — | 50 | 5000 |
 | `simulation_structureType` | Structure type | enum (`microtubules`, `nup`, `filaments_ring`, `tiltedPlane`, `uniform3D`, `shell`) | — | — | — | `microtubules` |
 | `simulation_densityPreset` | Emitter density | enum (`low` 0.05, `med` 0.2, `high` 0.5, `veryhigh` 2, `custom`) | — | — | — | `high` |
 | `simulation_realism` | Physics detail | enum (`min` Basic, `med` Realistic, `max` Full, `custom`) | — | — | — | `med` |
@@ -2272,7 +2272,7 @@ No sidebar control (Settings JSON, `paramOverrides`, or the log terminal):
 | `simulation_nup_curvature` | Membrane curvature amplitude (nm) | number | 0 | 2000 | 10 | 150 |
 
 The sidebar's Simulation panel keeps the everyday choices at the
-top — **Structure type**, **Frames**, **Emitter density** (a preset) and
+top — **Structure type**, **Frames to simulate**, **Emitter density** (a preset) and
 **Physics detail** (a preset), plus a 2×2 grid of **Preview PSF**, **Calib. 3D
 stack**, **View ground truth** and **Compare to GT** — and puts the detail in collapsible
 sub-groups: **Sample**, **Fluorophore**, **Background**, **Camera**, **Point spread function**,
@@ -2510,10 +2510,13 @@ exact but slow FFT phase shift kept for comparison.</p>
 <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
 physically modelled blinking, a vectorial PSF, background and a camera noise model — for validating
 and teaching the rest of the pipeline against known-correct answers.</p>
-<p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Aberration
+<p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames to simulate</b>, <b>Aberration
 preset</b> (Zernike PSF model; <b>None (2D, unaberrated)</b> for 2D data, an astigmatism or extended-depth
 preset for 3D localization — details under Point spread function), <b>Emitter density</b> (a preset; the exact value is under
-Sample) and <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
+Sample) and <b>Physics detail</b>. <b>Frames to simulate</b> has no upper limit: the movie takes 4 bytes per
+pixel per frame in memory (a 5000-frame, 128×128 movie ~330 MB), so Simulate movie refuses a movie over the memory
+budget (Memory, rotation, GPU &amp; streaming) and warns from 1 GB, with the TIFF size Save sim. movie
+would write. Physics detail is a preset for how much physics — and compute — the simulation
 spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
 <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
 out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with

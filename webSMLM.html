@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2663   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3656   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3884   synthetic stack generator ("Simulate movie")
-    validation      6939   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7798   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8054   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8664   super-resolution accumulation, view, colour maps, plots
-    workers         10188  frame-parallel detect/fit worker pool
-    gpu             10830  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13159  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13504  astigmatic width-vs-z bead calibration
-    drift           13903  AIM and cross-correlation drift correction
-    locprecision    14561  NeNA and FRC
-    sSMLM           15700  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16306  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18413  single-particle tracking and diffusion coefficients
-    pipeline        19463  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20503  Micro-Manager/pycromanager bridge (experimental)
-    table           23031  localizations table, filters, histograms, clustering
-    headless API    23716  window.webSMLM.analyze()/analyzeBatch()
+    params          2666   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3659   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3887   synthetic stack generator ("Simulate movie")
+    validation      6942   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7801   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8057   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8667   super-resolution accumulation, view, colour maps, plots
+    workers         10191  frame-parallel detect/fit worker pool
+    gpu             10833  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13162  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13507  astigmatic width-vs-z bead calibration
+    drift           13906  AIM and cross-correlation drift correction
+    locprecision    14564  NeNA and FRC
+    sSMLM           15703  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16309  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18416  single-particle tracking and diffusion coefficients
+    pipeline        19466  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20506  Micro-Manager/pycromanager bridge (experimental)
+    table           23055  localizations table, filters, histograms, clustering
+    headless API    23740  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29j</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29k</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1936,7 +1936,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="simBox">
         <summary title="Settings for Simulate movie: a synthetic test movie with a known answer — structure, blinking, background, camera and PSF">Simulation</summary>
         <label class="row" title="The labelled object emitters attach to. Microtubules (default) is a window onto a seed-addressed field of cells, each with a microtubule network; the others are simple geometric test objects. Every structure is simulated in 3D.">Structure type <select id="simulation_structureType" class="sel"><option value="microtubules" selected>Microtubules (cells)</option><option value="nup">Nuclear pore complex (NPC)</option><option value="filaments_ring">Filaments + ring</option><option value="tiltedPlane">Tilted plane</option><option value="uniform3D">Uniform 3D volume</option><option value="shell">Spherical shell</option></select></label>
-        <label class="row" title="Length of the simulated movie, in frames.">Frames <input type="number" id="frames" min="50" max="5000" step="50" value="5000" class="num"></label>
+        <label class="row" title="Length of the simulated movie, in frames. No upper limit; Simulate movie checks the memory it needs (4 bytes per pixel per frame) against the memory budget first.">Frames to simulate <input type="number" id="frames" min="50" step="50" value="5000" class="num"></label>
         <label class="row" id="psfZernikePresetRow" style="display:none" title="Aberrations built into the objective (Zernike PSF). None (2D, unaberrated) for 2D data; astigmatism encodes depth in the spot's shape (the standard 3D SMLM approach); the saddle-point and extended-depth presets trade precision at focus for a longer usable depth range.">Aberration preset
           <select id="simulation_psfZernikePreset" class="sel">
             <option value="none">None (2D, unaberrated)</option>
@@ -1971,10 +1971,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>"Simulate movie" builds a fully synthetic ground-truth stack — emitters on a labelled 3D structure,
           physically modelled blinking, a vectorial PSF, background and a camera noise model — for validating
           and teaching the rest of the pipeline against known-correct answers.</p>
-          <p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames</b>, <b>Aberration
+          <p>The top of the panel holds the everyday choices: <b>Structure type</b>, <b>Frames to simulate</b>, <b>Aberration
           preset</b> (Zernike PSF model; <b>None (2D, unaberrated)</b> for 2D data, an astigmatism or extended-depth
           preset for 3D localization — details under Point spread function), <b>Emitter density</b> (a preset; the exact value is under
-          Sample) and <b>Physics detail</b>. Physics detail is a preset for how much physics — and compute — the simulation
+          Sample) and <b>Physics detail</b>. <b>Frames to simulate</b> has no upper limit: the movie takes 4 bytes per
+          pixel per frame in memory (a 5000-frame, 128×128 movie ~330 MB), so Simulate movie refuses a movie over the memory
+          budget (Memory, rotation, GPU &amp; streaming) and warns from 1 GB, with the TIFF size Save sim. movie
+          would write. Physics detail is a preset for how much physics — and compute — the simulation
           spends: <b>Basic</b> blinks every molecule once at constant brightness on a flat, dark background;
           <b>Realistic</b> adds repeated blinking with bleaching, brightness spread, a fading background and
           out-of-focus haze, at almost no cost; <b>Full</b> also adds blinking out-of-focus emitters rendered with
@@ -2923,7 +2926,7 @@ const PARAMS = {
 
   // ---- simulation ----
   // frames = number of frames the built-in synthetic-stack generator produces
-  frames: { type:'number', id:'frames', label:'Frames', min:50, max:5000, step:50, default:5000, int:true },
+  frames: { type:'number', id:'frames', label:'Frames to simulate', min:50, max:null, step:50, default:5000, int:true },   // no ceiling: checkSimMovieSize() guards memory
   // simulation_fov = simulated camera field of view, in pixels — square (w=h=this), replacing the
   // previous hardcoded 128x128 in generateSynthetic()/generateCalibrationStack(). Kept modest by
   // default (matches the old fixed value) since buildNupStructure()'s own rejection-sampling
@@ -21029,7 +21032,28 @@ async function toggleDataProjection(){
 $('srProjToggleBtn').addEventListener('click', toggleDataProjection);
 // "Simulate movie": session reset around generateSynthetic() (like
 // loadMovieFiles()'s reset).
+// Memory the simulated movie needs: its Float32 frames (4 bytes/px) plus, until it is replaced,
+// the previous simulated movie (Show movie keeps it). Refused over the memory budget
+// (effectiveMemBudgetBytes()); above SIM_MOVIE_WARN_BYTES it runs with a warning that also
+// names the TIFF size Save sim. movie would write (2 bytes/px).
+const SIM_MOVIE_WARN_BYTES=1073741824;
+function checkSimMovieSize(){
+  const n=paramValue('frames'), w=paramValue('simulation_fov'), h=w;
+  const bytes=n*w*h*4, prev=simMovie ? simMovie.stack.n*simMovie.stack.w*simMovie.stack.h*4 : 0;
+  const ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
+  if(bytes+prev>ceiling.bytes){
+    log(`⚠ Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px need ~${fmtBytes(bytes)}`+
+        (prev ? ` (plus ~${fmtBytes(prev)} for the previous simulated movie until it is replaced)` : '')+
+        `, over ${memCeilingSuffix(ceiling)} — lower Frames to simulate or FOV (pixels), or raise the budget if you have the RAM.`);
+    return false;
+  }
+  if(bytes>=SIM_MOVIE_WARN_BYTES)
+    log(`⚠ Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px take ~${fmtBytes(bytes)} of memory; `+
+        `Save sim. movie would write a ~${fmtBytes(n*w*h*2)} TIFF${n*w*h*2>4294967295?' (BigTIFF)':''}, and simulating and Localize take correspondingly long.`);
+  return true;
+}
 async function runSimulation(){
+  if(!checkSimMovieSize()) return;
   log('Simulating movie…');
   // The core fields always, plus every other simulation field with a sidebar
   // control that is off its default (presets only write these fields).
@@ -22939,8 +22963,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29j — new simulation defaults: 5000 frames,
-2000 photons, structure and PSF z range ±750 nm, NA 1.49.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29k — "Frames to simulate" has no maximum;
+Simulate movie checks the memory it needs first.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
