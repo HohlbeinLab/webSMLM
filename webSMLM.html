@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29l</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29m</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1931,6 +1931,121 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           </ul>
           <p>FRC folds in labelling density and drift while NeNA does not, so reporting both is diagnostic (they disagree when drift remains). Results go to the Log — run localisations first.</p>
           <p><i>NeNA and FRC are new in 0.8.0 and still <b>experimental</b> — cross-check against established tools before relying on the numbers; FSC 3D is not yet implemented.</i></p>
+        </div>
+      </details>
+      <details class="sim" id="memBox">
+        <summary title="Memory limits and cache-vs-stream loading, movie rotation, GPU acceleration, and live streaming from a microscope">Memory, rotation, GPU &amp; streaming</summary>
+        <label class="row" title="Opt-in total-memory safety ceiling — leave blank (∞) unless a Run has actually crashed or warned on this device.">Total memory budget (GB) <input type="number" id="memBudgetGB" min="0.1" step="0.5" placeholder="∞" class="num"></label>
+        <label class="row" title="Movies whose decoded size fits are kept in memory (fast re-runs); larger ones stream from disk. 0 = always stream">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0" max="64" step="0.5" class="num"></label>
+        <label class="row" title="Working-set size of one streamed chunk">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
+        <label class="row" title="Rotates every frame of the movie clockwise (the loaded one now, and any loaded later). Changing it clears all results.">Rotate movie
+          <select id="rotateMovie" class="sel">
+            <option value="0" selected>0°</option>
+            <option value="90">90° clockwise</option>
+            <option value="180">180° clockwise</option>
+            <option value="270">270° clockwise</option>
+          </select></label>
+        <label class="row" id="useGpuRow" style="margin-top:8px" title="Adaptive WebGPU acceleration for all four MLE fits, fixed/precision rendering, FRC and PCFO. Each stage uses the GPU only when supported and above its measured crossover; otherwise it reports a CPU fallback. GPU f32 results are scientifically equivalent, not bit-identical, to CPU f64 results.">Use GPU acceleration (experimental) <input type="checkbox" id="useGpu"></label>
+        <label class="row" style="margin-top:8px" title="Show the controls to receive frames live from a Micro-Manager bridge (experimental)">Enable live streaming <input type="checkbox" id="liveStreamEnabled"></label>
+        <label class="row" id="liveStreamUrlRow" style="display:none" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" class="num" style="width:150px"></label>
+        <div class="btnrow" id="liveStreamBtnRow" style="display:none;margin-top:6px">
+          <button id="liveStreamConnectBtn" title="Connect this tab to a WebSocket bridge server (e.g. tools/test_livestream_demo.py) at the URL above to start receiving live frame chunks — streaming runs for as long as the connection stays open, no separate start/stop step needed. The top-level Stop button ends a session started this way too (closing the connection first).">Connect</button>
+          <button id="liveStreamClearBtn" disabled title="Discard every localization/frame accumulated so far and restart the reconstruction from empty — the connection/session itself keeps running, so new chunks keep arriving without reconnecting.">Clear</button>
+        </div>
+        <div id="liveStreamStatus" style="display:none;margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden id="hint-memory"><span class="pill">module: in/out &amp; liveStreaming</span>
+          <ul>
+          <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>0.5 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
+          <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
+          <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
+          <li><b>Rotate movie</b> — rotates every raw frame by 0° (default), 90°, 180° or 270° clockwise, e.g. to lay a tall dual-view (FRET) camera split side by side. Applies to the movie loaded now (in memory or streamed) and to every movie or simulation loaded later; changing it clears all results (localizations, reconstruction, drift, smFRET, tracking) and any raw crop, which is then set on the rotated frames. Headless: <code>rotateMovie</code> in the <code>analyze()</code> config, applied before <code>cropX0…</code>. Live-streamed chunks are not rotated.</li>
+          <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, FRC and the PCFO gain/offset estimate — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
+          <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
+          </ul>
+          <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
+          <p><b>Enable live streaming</b> reveals <b>WebSocket URL</b> and the <b>Connect</b>/<b>Clear</b> buttons — hidden otherwise, since this path is rarely used compared to a normal file load. Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
+          <ul>
+          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment. The connection dropping unexpectedly also ends the session, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session, leaving the connection itself open.</li>
+          <li><b>tools/webSMLM-livestream-bridge.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.liveStream.pushChunk()</code>. This path never touches Connect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.liveStream.end()</code> ends it — <b>Enable live streaming</b> doesn't need to be checked for this path at all, since it never reaches for the Connect button this checkbox reveals.</li>
+          </ul>
+          <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) is the one control that ends an active streaming session from either path — closing the WebSocket first if one is open — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect of its own to click. (An earlier version of this sidebar had a separate Disconnect button; folded into Stop and removed, since Stop does everything it did and also covers the bridge path.)</p>
+          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. That repaint (and milestone line) is throttled adaptively by elapsed time, not a frame count — frequent while cheap, self-throttling once the growing dataset makes a render expensive — the same mechanism a normal Localize run's own live preview uses.</p>
+          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Budget raw movies (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
+          <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
+          <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
+        </div>
+      </details>
+      <details class="sim" id="pcfoBox">
+        <summary title="Estimate camera gain and offset from the loaded movie itself (PCFO), no calibration acquisition needed">Gain &amp; offset estimation</summary>
+        <label class="row" title="How many random frames the estimate uses">Frames sampled <input type="number" id="pcfoFrames" value="200" min="1" max="5000" step="10" class="num"></label>
+        <label class="row" title="Spatial frequencies above this fraction of Nyquist are treated as pure noise">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1" step="0.05" class="num"></label>
+        <label class="row" title="Read noise plus fixed-pattern offset noise (electrons); 0 if unknown or negligible">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.89" min="0" max="200" step="0.01" class="num"></label>
+        <div class="btnrow" style="margin-top:6px">
+          <button id="pcfoBtn" type="button" disabled style="grid-column:2" title="Estimate gain/offset from the loaded/simulated stack">Estimate</button>
+        </div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden id="hint-pcfo"><span class="pill">module: fit</span>
+          <p>Estimates camera gain (photons/ADU) and offset (ADU) directly from the loaded stack via the
+          Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen, Lidke &amp;
+          Rieger, <a href="https://arxiv.org/abs/1611.05654" target="_blank" rel="noopener">arXiv:1611.05654</a>) —
+          no separate calibration acquisition needed. Tiles a sample of frames, measures mean signal vs.
+          high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
+          draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
+          linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
+          it doesn't touch the Gain / Camera offset fields in Localisation itself; use <b>Get estimate</b>,
+          underneath those two fields, to fill them in (running Estimate first if it hasn't been run yet).</p>
+          <ul>
+          <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
+          <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
+          noise-only; 0.9 follows the Rieger–Heintzman default.</li>
+          <li><b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible. Must
+          include ANY spatially-white, frame-invariant noise, not just true per-frame read noise — a static
+          per-pixel offset pattern (fixed-pattern noise) looks identical to read noise in a single frame's
+          Fourier content, so it biases the fitted offset the same way if left out. If both are present, combine
+          them in quadrature (√(read_noise²+offset_std²), in photon-equivalent units); the default (2.89) matches
+          the Simulation panel's own default read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this
+          way, for a clean self-test.</li>
+          </ul>
+          <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
+          rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
+          2×2) so there's nothing to re-tune per stack.</p>
+          <p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
+          the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
+          GPU); the Log reports which path ran and how long it took.</p>
+        </div>
+      </details>
+      <details class="sim" id="calibBox">
+        <summary title="Build an astigmatic 3D calibration (PSF width vs. z) from a bead z-stack, or load a saved one">3D calibration</summary>
+        <label class="row" style="margin-top:6px" title="First frame of the bead z-stack used for the calibration">First frame
+          <input type="number" id="calFirst" value="1" min="1" step="1" class="num"></label>
+        <label class="row" title="Last frame of the bead z-stack used for the calibration">Last frame
+          <input type="number" id="calLast" value="1" min="1" step="1" class="num"></label>
+        <label class="row" title="Stage step between consecutive calibration frames (nm)">z-step (nm)
+          <input type="number" id="calStep" value="10" min="0.1" step="1" class="num"></label>
+        <label class="row" title="Frame taken as z = 0; 0 = automatic (where σx = σy)">z=0 ref frame (0=auto)
+          <input type="number" id="calRef" value="0" min="0" step="1" class="num"></label>
+        <label class="row" style="margin-top:6px" title="Take each bead&#x27;s x,y once from a composite instead of re-detecting it in every frame (robust when defocused)">Fix bead x,y (robust at high defocus)
+          <input type="checkbox" id="calFixedXY"></label>
+        <div class="hint" id="calLocateStatus" style="display:none"></div>
+        <div class="btnrow">
+          <button id="calBtn" title="Build a 3D (astigmatic) calibration from the loaded bead z-stack: PSF width vs. z over the calibration frame range" disabled>Calibrate</button>
+          <button id="calSaveBtn" disabled title="Save the calibration curves as JSON">Save calib.</button>
+        </div>
+        <button type="button" class="infobtn">more info…</button>
+        <div class="hint" hidden id="hint-calibration"><span class="pill">module: 3D calibration</span>
+          <p>Load a bead z-stack (stage scanned through focus). Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</p>
+          <ul>
+          <li>Detects every spot per frame.</li>
+          <li>Fits an elliptical Gaussian → σ_x / σ_y vs z.</li>
+          <li>Fits σ = a(z−c)² + b to each axis.</li>
+          </ul>
+          <p><b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width curve. Ticking this:</p>
+          <ul>
+          <li>Averages every frame in the range into one composite (shown in the raw panel).</li>
+          <li>Runs detection once on that stable image, fixing each bead's x,y from it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter changes.</li>
+          <li>Calibrate then only fits amplitude/σx/σy/background per frame at those fixed positions, so x,y — the two most failure-prone degrees of freedom — never move.</li>
+          </ul>
         </div>
       </details>
       <details class="sim" id="simBox">
@@ -2262,121 +2377,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>The raw-panel toggle cycles the plot between z error vs depth, fitted vs true z, Jaccard vs depth, the lateral and axial (signed) error histograms, recall vs photons, Jaccard vs match radius, fitted vs true photons, and measured precision vs the reported CRLB. Each plot's legend names every mark; a box in its corner gives the numbers and how to read it. Median and percentiles are the headline numbers, not RMSE — the axial error has heavy tails. Set Localisation <b>Gain</b>/<b>Camera offset</b> to the simulated camera's values, or photometry and the CRLB comparison measure that mismatch instead of the fitter.</p>
         </div>
         </details>
-      </details>
-      <details class="sim" id="memBox">
-        <summary title="Memory limits and cache-vs-stream loading, movie rotation, GPU acceleration, and live streaming from a microscope">Memory, rotation, GPU &amp; streaming</summary>
-        <label class="row" title="Opt-in total-memory safety ceiling — leave blank (∞) unless a Run has actually crashed or warned on this device.">Total memory budget (GB) <input type="number" id="memBudgetGB" min="0.1" step="0.5" placeholder="∞" class="num"></label>
-        <label class="row" title="Movies whose decoded size fits are kept in memory (fast re-runs); larger ones stream from disk. 0 = always stream">Budget raw movies (GB) <input type="number" id="memgb" value="3" min="0" max="64" step="0.5" class="num"></label>
-        <label class="row" title="Working-set size of one streamed chunk">Stream heap (MB) <input type="number" id="chunkmb" value="500" min="50" max="2000" step="50" class="num"></label>
-        <label class="row" title="Rotates every frame of the movie clockwise (the loaded one now, and any loaded later). Changing it clears all results.">Rotate movie
-          <select id="rotateMovie" class="sel">
-            <option value="0" selected>0°</option>
-            <option value="90">90° clockwise</option>
-            <option value="180">180° clockwise</option>
-            <option value="270">270° clockwise</option>
-          </select></label>
-        <label class="row" id="useGpuRow" style="margin-top:8px" title="Adaptive WebGPU acceleration for all four MLE fits, fixed/precision rendering, FRC and PCFO. Each stage uses the GPU only when supported and above its measured crossover; otherwise it reports a CPU fallback. GPU f32 results are scientifically equivalent, not bit-identical, to CPU f64 results.">Use GPU acceleration (experimental) <input type="checkbox" id="useGpu"></label>
-        <label class="row" style="margin-top:8px" title="Show the controls to receive frames live from a Micro-Manager bridge (experimental)">Enable live streaming <input type="checkbox" id="liveStreamEnabled"></label>
-        <label class="row" id="liveStreamUrlRow" style="display:none" title="A local process (e.g. tools/test_livestream_demo.py) opens a WebSocket SERVER on this address for webSMLM to connect out to — this page never listens for/accepts incoming connections itself.">WebSocket URL <input type="text" id="liveStreamWsUrl" value="ws://localhost:8765" class="num" style="width:150px"></label>
-        <div class="btnrow" id="liveStreamBtnRow" style="display:none;margin-top:6px">
-          <button id="liveStreamConnectBtn" title="Connect this tab to a WebSocket bridge server (e.g. tools/test_livestream_demo.py) at the URL above to start receiving live frame chunks — streaming runs for as long as the connection stays open, no separate start/stop step needed. The top-level Stop button ends a session started this way too (closing the connection first).">Connect</button>
-          <button id="liveStreamClearBtn" disabled title="Discard every localization/frame accumulated so far and restart the reconstruction from empty — the connection/session itself keeps running, so new chunks keep arriving without reconnecting.">Clear</button>
-        </div>
-        <div id="liveStreamStatus" style="display:none;margin-top:6px;color:var(--muted);font-size:12px">Not streaming.</div>
-        <button type="button" class="infobtn">more info…</button>
-        <div class="hint" hidden id="hint-memory"><span class="pill">module: in/out &amp; liveStreaming</span>
-          <ul>
-          <li><b>Total memory budget</b> — an overall safety ceiling, blank (∞) by default on desktop/laptop. With no number set, nothing here warns or auto-stops on memory use. On a phone/tablet-class device this defaults to <b>0.5 GB</b> instead — a real, enforced ceiling from the first load, not something you have to already know to turn on. The existing graceful warn/stop behaviour (a growing Localize run, the reconstruction buffers, the locs table) compares its own real, combined memory estimate against whatever value is set here.</li>
-          <li><b>Budget raw movies</b> — a separate setting: if the decoded stack fits within it, keep it all in RAM; re-runs then skip decoding entirely. Beyond it, frames are decoded as the analysis reaches them and discarded (“streaming”), so memory stays bounded but re-runs re-decode. Unrelated to the Total memory budget above. Defaults to 3 GB on desktop/laptop, but <b>0 GB</b> on a phone/tablet-class device — meaning every movie load there streams frame-by-frame, never caching a whole file in memory.</li>
-          <li><b>Heap</b> — chunk size for streaming, used only when every frame must go through the TIFF decoder (contiguous ImageJ stacks decode one frame at a time and ignore this). Defaults to 500 MB, or 250 MB on a phone/tablet-class device, since streaming is the only load path there.</li>
-          <li><b>Rotate movie</b> — rotates every raw frame by 0° (default), 90°, 180° or 270° clockwise, e.g. to lay a tall dual-view (FRET) camera split side by side. Applies to the movie loaded now (in memory or streamed) and to every movie or simulation loaded later; changing it clears all results (localizations, reconstruction, drift, smFRET, tracking) and any raw crop, which is then set on the rotated frames. Headless: <code>rotateMovie</code> in the <code>analyze()</code> config, applied before <code>cropX0…</code>. Live-streamed chunks are not rotated.</li>
-          <li><b>Use GPU acceleration</b> — adaptive WebGPU acceleration, on by default. Speeds up all four MLE fits, fixed/precision rendering, FRC and the PCFO gain/offset estimate — each stage only actually uses the GPU when supported and above its own measured crossover, otherwise it falls back to CPU and says so in the Log. GPU (f32) results are scientifically equivalent to, not bit-identical with, CPU (f64) ones. Placed here rather than under any one of Localisation/Rendering/Localization precision, since it's genuinely shared by all three.</li>
-          <li>Loading a movie on a phone/tablet-class device also shows a one-time pop-up (once per page load) restating these three settings and suggesting what to try next if analysis keeps crashing.</li>
-          </ul>
-          <p><i>Live streaming (below) is new and still <b>experimental</b> — real and used, but younger and less battle-tested than the rest of the app.</i></p>
-          <p><b>Enable live streaming</b> reveals <b>WebSocket URL</b> and the <b>Connect</b>/<b>Clear</b> buttons — hidden otherwise, since this path is rarely used compared to a normal file load. Lets an external process push frame chunks into webSMLM as they're acquired, localized and rendered here live, without a full stack ever being loaded upfront. Two ways in:</p>
-          <ul>
-          <li><b>WebSocket</b> (for hooking into a tab you already have open, in any browser) — a local process you run (e.g. <code>tools/test_livestream_demo.py</code>) opens a WebSocket <i>server</i>; this page only ever <i>connects out</i> to it as a client, opt-in, when you click <b>Connect</b> — webSMLM never listens for incoming connections itself. <b>Connect</b> arms the session using whatever pxnm/gain/method/etc. the sidebar is currently set to at that moment. The connection dropping unexpectedly also ends the session, without closing this tab. Each binary WebSocket message is treated as one chunk's raw TIFF bytes; a text message <code>{"cmd":"stop"}</code> also finalizes the session, leaving the connection itself open.</li>
-          <li><b>tools/webSMLM-livestream-bridge.mjs</b> (for a fully automated/headless session, e.g. a Gladoscopy RT node) — a Playwright-driven bridge that launches and owns its own browser window, feeding chunks in via <code>window.webSMLM.liveStream.pushChunk()</code>. This path never touches Connect either — the session arms itself automatically on the very first pushed chunk, using whatever pxnm/gain/method/etc. the sidebar is set to at that moment, and <code>window.webSMLM.liveStream.end()</code> ends it — <b>Enable live streaming</b> doesn't need to be checked for this path at all, since it never reaches for the Connect button this checkbox reveals.</li>
-          </ul>
-          <p>The top-level <b>Stop</b> button (used to interrupt a Localize/drift/calibration run) is the one control that ends an active streaming session from either path — closing the WebSocket first if one is open — so there's one consistent way to end a session regardless of how it was started, including the bridge path, which has no Connect of its own to click. (An earlier version of this sidebar had a separate Disconnect button; folded into Stop and removed, since Stop does everything it did and also covers the bridge path.)</p>
-          <p>Each chunk is localized independently (no cross-chunk context) and appended to a running total, so temporal median filtering (FTM) — which needs surrounding frames a chunk doesn't have — is not available in streaming mode; routine per-chunk log lines are also suppressed (only genuine warnings still reach the log) so a fast, small-chunk session — down to one frame per chunk — doesn't flood it, replaced by a single compact "N frames received since streaming start" milestone line each time the reconstruction repaints. That repaint (and milestone line) is throttled adaptively by elapsed time, not a frame count — frequent while cheap, self-throttling once the growing dataset makes a render expensive — the same mechanism a normal Localize run's own live preview uses.</p>
-          <p>The <b>Raw frame</b> panel gets its own Frame scrubber during streaming, just like a loaded movie — it auto-follows the newest incoming frame by default; dragging it back inspects history (any accepted localizations for that frame still overlay, from the running total) and stops auto-following until you drag it back to the newest frame. Unlike a loaded file, raw pixel data can't all stay in memory forever for an open-ended acquisition — only the most recent frames are kept, sized from <b>Budget raw movies (GB)</b> (this same section) the same way a loaded stack's own frame cache is; scrubbing further back than that shows a note instead of a frame, though every accepted localization from the whole acquisition remains in the reconstruction regardless of whether its raw frame is still retained.</p>
-          <p><b>Clear localizations</b> discards every localization/frame accumulated so far — the reconstruction, the raw-frame scrub history, the table/CSV export state — and restarts the reconstruction from empty, WITHOUT stopping the session or closing the connection: new chunks keep arriving and accumulating (from frame 1 again) right through the click. Use it to throw away a bad start (focus drift, wrong sample, a settings mistake) partway through an open-ended acquisition without having to reconnect. It's also available once a session has ended, to clear a finished run's leftovers before a fresh <b>Connect</b>/first pushed chunk.</p>
-          <p><b>Correct drift</b>/<b>NeNA</b>/<b>FRC</b> become available as soon as any localizations have been accumulated, and can be run at any point — including while the session is still active — the same as after a normal Localize. Re-running <b>Correct drift</b> mid-stream always re-estimates from scratch across everything accumulated so far, so it stays safe to re-run as more chunks arrive, but localizations that arrive <i>after</i> a click won't retroactively pick up that correction until it's run again. Temporal median filtering (FTM), by contrast, genuinely isn't available in streaming mode (no cross-chunk context, see above) — for that, run a full accurate Localize on the complete saved acquisition file afterwards (e.g. via <code>tools/webSMLM-cli.mjs</code>).</p>
-        </div>
-      </details>
-      <details class="sim" id="pcfoBox">
-        <summary title="Estimate camera gain and offset from the loaded movie itself (PCFO), no calibration acquisition needed">Gain &amp; offset estimation</summary>
-        <label class="row" title="How many random frames the estimate uses">Frames sampled <input type="number" id="pcfoFrames" value="200" min="1" max="5000" step="10" class="num"></label>
-        <label class="row" title="Spatial frequencies above this fraction of Nyquist are treated as pure noise">k_thresh (spatial freq.) <input type="number" id="pcfoK" value="0.9" min="0.1" max="1" step="0.05" class="num"></label>
-        <label class="row" title="Read noise plus fixed-pattern offset noise (electrons); 0 if unknown or negligible">Readout noise σ (e⁻) <input type="number" id="pcfoRnstd" value="2.89" min="0" max="200" step="0.01" class="num"></label>
-        <div class="btnrow" style="margin-top:6px">
-          <button id="pcfoBtn" type="button" disabled style="grid-column:2" title="Estimate gain/offset from the loaded/simulated stack">Estimate</button>
-        </div>
-        <button type="button" class="infobtn">more info…</button>
-        <div class="hint" hidden id="hint-pcfo"><span class="pill">module: fit</span>
-          <p>Estimates camera gain (photons/ADU) and offset (ADU) directly from the loaded stack via the
-          Rieger–Heintzman photon-conversion-factor method (PCFO; Heintzmann, Relich, Nieuwenhuizen, Lidke &amp;
-          Rieger, <a href="https://arxiv.org/abs/1611.05654" target="_blank" rel="noopener">arXiv:1611.05654</a>) —
-          no separate calibration acquisition needed. Tiles a sample of frames, measures mean signal vs.
-          high-spatial-frequency (noise-only) variance per tile, and fits gain/offset by linear regression, and
-          draws a diagnostic signal-vs-noise-variance scatter + fitted line (R²) on the raw panel so the underlying
-          linearity assumption can be checked visually rather than trusted blindly. <b>Estimate</b> only computes —
-          it doesn't touch the Gain / Camera offset fields in Localisation itself; use <b>Get estimate</b>,
-          underneath those two fields, to fill them in (running Estimate first if it hasn't been run yet).</p>
-          <ul>
-          <li><b>Frames sampled</b> — how many seeded-random frames to average over.</li>
-          <li><b>k_thresh</b> — spatial-frequency cutoff (fraction of Nyquist) above which content is assumed
-          noise-only; 0.9 follows the Rieger–Heintzman default.</li>
-          <li><b>Readout noise σ</b> — camera dark-frame std, in electrons; set to 0 if unknown/negligible. Must
-          include ANY spatially-white, frame-invariant noise, not just true per-frame read noise — a static
-          per-pixel offset pattern (fixed-pattern noise) looks identical to read noise in a single frame's
-          Fourier content, so it biases the fitted offset the same way if left out. If both are present, combine
-          them in quadrature (√(read_noise²+offset_std²), in photon-equivalent units); the default (2.89) matches
-          the Simulation panel's own default read noise (2.7 e⁻) and per-pixel offset std (3 ADU) combined this
-          way, for a clean self-test.</li>
-          </ul>
-          <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
-          rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
-          2×2) so there's nothing to re-tune per stack.</p>
-          <p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
-          the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
-          GPU); the Log reports which path ran and how long it took.</p>
-        </div>
-      </details>
-      <details class="sim" id="calibBox">
-        <summary title="Build an astigmatic 3D calibration (PSF width vs. z) from a bead z-stack, or load a saved one">3D calibration</summary>
-        <label class="row" style="margin-top:6px" title="First frame of the bead z-stack used for the calibration">First frame
-          <input type="number" id="calFirst" value="1" min="1" step="1" class="num"></label>
-        <label class="row" title="Last frame of the bead z-stack used for the calibration">Last frame
-          <input type="number" id="calLast" value="1" min="1" step="1" class="num"></label>
-        <label class="row" title="Stage step between consecutive calibration frames (nm)">z-step (nm)
-          <input type="number" id="calStep" value="10" min="0.1" step="1" class="num"></label>
-        <label class="row" title="Frame taken as z = 0; 0 = automatic (where σx = σy)">z=0 ref frame (0=auto)
-          <input type="number" id="calRef" value="0" min="0" step="1" class="num"></label>
-        <label class="row" style="margin-top:6px" title="Take each bead&#x27;s x,y once from a composite instead of re-detecting it in every frame (robust when defocused)">Fix bead x,y (robust at high defocus)
-          <input type="checkbox" id="calFixedXY"></label>
-        <div class="hint" id="calLocateStatus" style="display:none"></div>
-        <div class="btnrow">
-          <button id="calBtn" title="Build a 3D (astigmatic) calibration from the loaded bead z-stack: PSF width vs. z over the calibration frame range" disabled>Calibrate</button>
-          <button id="calSaveBtn" disabled title="Save the calibration curves as JSON">Save calib.</button>
-        </div>
-        <button type="button" class="infobtn">more info…</button>
-        <div class="hint" hidden id="hint-calibration"><span class="pill">module: 3D calibration</span>
-          <p>Load a bead z-stack (stage scanned through focus). Uses the detection settings above. Crop the range to ~±500 nm around focus for a good fit.</p>
-          <ul>
-          <li>Detects every spot per frame.</li>
-          <li>Fits an elliptical Gaussian → σ_x / σ_y vs z.</li>
-          <li>Fits σ = a(z−c)² + b to each axis.</li>
-          </ul>
-          <p><b>Fix bead x,y</b> — at large defocus the PSF can flatten, ring or split into two maxima, so per-frame detection can jitter or mis-pick the centre and corrupt the width curve. Ticking this:</p>
-          <ul>
-          <li>Averages every frame in the range into one composite (shown in the raw panel).</li>
-          <li>Runs detection once on that stable image, fixing each bead's x,y from it — re-run automatically whenever the range, threshold, σ_PSF, fit radius or filter changes.</li>
-          <li>Calibrate then only fits amplitude/σx/σy/background per frame at those fixed positions, so x,y — the two most failure-prone degrees of freedom — never move.</li>
-          </ul>
-        </div>
       </details>
       <details class="sim" id="sSmlmBox">
         <summary title="Pair 0th/1st-order images of spectral SMLM (grating) by distance and direction; also used by smFRET&#x27;s Via distances and angles. (Caution!): one specific method with real assumptions">(Caution!) Pairing for sSMLM or FRET</summary>
@@ -22960,8 +22960,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29l — View ground truth keeps your Colour
-map and Colour by depth; it warns when depth colour is off for 3D ground truth.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29m — Simulation moved below 3D calibration
+in the sidebar (Alt+Shift+6 = 3D calibration, Alt+Shift+7 = Simulation).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23599,7 +23599,7 @@ function wireFilterAutocomplete(inp, box, getCols, onCommit){
 const HOTKEY_DIGITS=['1','2','3','4','5','6','7','8','9','0'];
 const HOTKEY_CODES=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0'];
 const HOTKEY_BUTTONS=['loadBtn','genBtn','loadSetBtn','saveSetBtn','runBtn','stopBtn','saveBtn','saveImgBtn','tableBtn','helpBtn'];
-const HOTKEY_SECTIONS=['locBox','renderBox','driftBox','simBox','memBox','pcfoBox','calibBox','sSmlmBox','smfretBox','sptBox'];
+const HOTKEY_SECTIONS=['locBox','renderBox','driftBox','memBox','pcfoBox','calibBox','simBox','sSmlmBox','smfretBox','sptBox'];
 // Alt+<letter> fixed bindings (either Shift state, badges shown with both hint
 // sets). 'focus' focuses and selects an input; 'click' clicks a button.
 const HOTKEY_LETTERS={

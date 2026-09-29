@@ -141,10 +141,6 @@ says.
   enough — correct drift, then measure how good the corrected result is —
   to combine in the sidebar). See
   [§3](#drift-params)/[§2](#drift)/[§2](#locprecision).
-- **Simulation** (`simBox`) — only relevant when using **Simulate
-  movie**: structure, blinking, background, camera and a physical (vectorial Zernike) PSF, plus
-  **Compare to GT**. Start with the [Simulation guide](#simulation-guide); reference in
-  [§2](#simulation) and [§3](#simulation-params).
 - **Memory, rotation, GPU & streaming** (`memBox`) — `memBudgetGB`/`memgb`/`chunkmb`,
   plus **Use GPU acceleration** (`useGpu`, declared/read by **fit** and also
   consumed by **render**/**locprecision**'s own FRC — physically placed
@@ -156,6 +152,11 @@ says.
   the main Localize. See [§3](#pcfo-params)/[§2](#fit).
 - **3D calibration** (`calibBox`) — **Calibrate**/**Save calib.**. See
   [§3](#3d-calibration-params)/[§7](#7-calibration-json-format)/[§2](#3d-calibration).
+- **Simulation** (`simBox`) — only relevant when using **Simulate
+  movie**: structure, blinking, background, camera and a physical (vectorial Zernike) PSF, plus
+  **Compare to GT**. It sits right below **3D calibration**, which simulations use often (Calib. 3D
+  stack → Calibrate), so that module isn't buried under the Simulation sub-groups. Start with the [Simulation guide](#simulation-guide); reference in
+  [§2](#simulation) and [§3](#simulation-params).
 - **(Caution!) Pairing for sSMLM or FRET** (`sSmlmBox`) — pairs 0th/1st-order
   localizations from a diffraction grating (or a prism-split donor/acceptor
   pair, for smFRET); enabled as soon as there are localizations (Run or

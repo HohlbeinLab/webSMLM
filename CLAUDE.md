@@ -409,7 +409,9 @@ what makes GUI and command-line use interchangeable.
   - **Load data** (`loadFiles()`): movie, CSV, or JSON routed by its `format` field
     (`loadJsonFile()`: smFRET traces, settings, calibration; older files by their keys).
   - Hotkeys (`wireHotkeys()`, matched by `e.code`): Alt+1..0 action buttons, Alt+Shift+1..0 module
-    sections, Alt+T terminal, Alt+P/F/S pixel size, frame time, panel layout (any Shift state).
+    sections in sidebar order (`HOTKEY_SECTIONS`: Localisation, Rendering, Drift, Memory, PCFO, 3D
+    calibration, Simulation, sSMLM, smFRET, SPT — reorder it with any section move), Alt+T terminal,
+    Alt+P/F/S pixel size, frame time, panel layout (any Shift state).
   - `makeNavigator()` handles pan/zoom; click tools check `wasDrag()` so a pan doesn't plant points.
   - Mem readout (`updateMemReadout()`, polled): webSMLM's estimate, plus real heap/device RAM where
     the browser exposes them (not Safari). `maybeShowMemWarning()`: one pop-up per page load on
