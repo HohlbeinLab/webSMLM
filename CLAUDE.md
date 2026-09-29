@@ -542,7 +542,11 @@ Nup96-SNAP (Thevathasan et al. 2019; parametrised as in CIR4MICS, Wanninger et a
 × 4 copies on a half-circle arc (`NUP_CORNER_ARC_ANGLES`) × 2 rings = 64 sites, linker displacement
 uniform in volume, pore axis along z with a gentle curvature bowl; only `simulation_nup_count` has a
 control (geometry via settings JSON/`paramOverrides`); uses the seeded stream. Microtubules:
-`buildMicrotubuleStructure()` → `CellField.buildWindow()` (see **CellField**), clipped to
+`buildMicrotubuleStructure()` → `CellField.buildWindow()` (see **CellField**); Simulate movie runs it,
+with `mtStartPosition()`, in a background worker (`buildStructureAsync()` →
+`buildMicrotubuleStructureAsync()`, `getCellFieldWorker()`: the block's `workerSource()` + those two
+functions; sites return as one transferred Float64Array and are rebuilt in chunks; identical sites,
+test `tests/gpu/test-cellfield-worker.mjs`; main-thread fallback), clipped to
 ±`simulation_zRange` around `simulation_mt_focusZ`, consuming nothing from the movie's `mulberry32`
 stream. `simulation_mt_seed` 0 (default) = random per movie (`resolveMtSeed()`, logged). `mtStartPosition()`
 gives each seed a fixed start: origin if a 3×3 probe of 2 µm sub-windows hits dyes in ≥5/9, else the

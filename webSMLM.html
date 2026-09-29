@@ -35,23 +35,23 @@
     params          2659   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          3633   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3861   synthetic stack generator ("Simulate movie")
-    validation      6847   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7706   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             7962   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8572   super-resolution accumulation, view, colour maps, plots
-    workers         10096  frame-parallel detect/fit worker pool
-    gpu             10738  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13067  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13412  astigmatic width-vs-z bead calibration
-    drift           13811  AIM and cross-correlation drift correction
-    locprecision    14469  NeNA and FRC
-    sSMLM           15608  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16214  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18321  single-particle tracking and diffusion coefficients
-    pipeline        19371  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20411  Micro-Manager/pycromanager bridge (experimental)
-    table           22870  localizations table, filters, histograms, clustering
-    headless API    23555  window.webSMLM.analyze()/analyzeBatch()
+    validation      6915   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7774   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8030   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8640   super-resolution accumulation, view, colour maps, plots
+    workers         10164  frame-parallel detect/fit worker pool
+    gpu             10806  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13135  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13480  astigmatic width-vs-z bead calibration
+    drift           13879  AIM and cross-correlation drift correction
+    locprecision    14537  NeNA and FRC
+    sSMLM           15676  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16282  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18389  single-particle tracking and diffusion coefficients
+    pipeline        19439  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20479  Micro-Manager/pycromanager bridge (experimental)
+    table           22938  localizations table, filters, histograms, clustering
+    headless API    23623  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1705,7 +1705,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29e</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29f</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3999,8 +3999,18 @@ function buildStructure(w,h,zRange=0,rng=Math.random){
   // (generateSynthetic() already passes zRange=0 when 3D is off, which flattens the structures
   // sized BY zRange on its own; this also covers the ones sized by something else — the shell by
   // its radius, the NUP by its ring separation.)
+  return finishStructure(pts);
+}
+function finishStructure(pts){
   if(!paramValue('simulation_3d')) for(const p of pts) p[2]=0;
   return pts;
+}
+// buildStructure() with the microtubule cell field built in a background worker (0.5–3 s of
+// WASM work, which would otherwise freeze the page); every other structure is fast and is built
+// here directly. Same sites, same order, so seeded movies are unchanged.
+async function buildStructureAsync(w,h,zRange=0,rng=Math.random){
+  if(paramValue('simulation_structureType')!=='microtubules') return buildStructure(w,h,zRange,rng);
+  return finishStructure(await buildMicrotubuleStructureAsync(w,h));
 }
 
 /* ---- Microtubule structure (cell field + labelled microtubules) ----
@@ -4223,13 +4233,70 @@ function buildMicrotubuleStructure(w,h){
   const st=mtStartPosition(seed,w,h,opts);
   const xUm=Math.round((st.x+paramValue('simulation_mt_x'))*1000)/1000, yUm=Math.round((st.y+paramValue('simulation_mt_y'))*1000)/1000;
   const res=CellField.buildWindow(w,h,Object.assign({seed,xUm,yUm},opts));
+  logMicrotubuleStructure(seed,st,xUm,yUm,w,h,px,res,res.sites.length);
+  return res.sites;
+}
+function logMicrotubuleStructure(seed,st,xUm,yUm,w,h,px,res,nSites){
   log(`Microtubules (seed ${seed}${paramValue('simulation_mt_seed')===0?' (random)':''}, start ${st.x}, ${st.y} µm`+
       ` (${Math.round(st.cover*100)}% probe cover), centre ${xUm}, ${yUm} µm, `+
       `window ${(w*px/1000).toFixed(1)}×${(h*px/1000).toFixed(1)} µm): ${res.nCells} cell(s) reach the window, `+
-      `${res.nMt} microtubule(s) inside it, ${res.sites.length.toLocaleString()} dye site(s) within ±${paramValue('simulation_zRange')} nm of ${paramValue('simulation_mt_focusZ')} nm above the coverslip`+
+      `${res.nMt} microtubule(s) inside it, ${nSites.toLocaleString()} dye site(s) within ±${paramValue('simulation_zRange')} nm of ${paramValue('simulation_mt_focusZ')} nm above the coverslip`+
       (res.packed?' (cells packed on fixed 8×8-chunk blocks).':' (packing off).'));
-  if(!res.sites.length) log('Microtubules: no dye sites landed in this window/slab — move the view (X/Y) or raise Structure Z range / Focus height.');
-  return res.sites;
+  if(!nSites) log('Microtubules: no dye sites landed in this window/slab — move the view (X/Y) or raise Structure Z range / Focus height.');
+}
+// The cell-field worker: its own CellField (the block's workerSource()) plus mtStartPosition() and
+// its constants, so the start-view search runs there too. Sites come back as one flat Float64Array
+// (x px, y px, z nm per site; transferred, exact) and are rebuilt into [x,y,z] triplets here in
+// chunks, so the page stays responsive. null when no Worker can be made: the caller falls back to
+// the main thread.
+let _cellFieldWorker, _cellFieldSeq=0;
+function getCellFieldWorker(){
+  if(_cellFieldWorker!==undefined) return _cellFieldWorker;
+  try{
+    const src='const CellField='+CellField.workerSource()+';\n'+
+      `const MT_START_MIN_COVER=${MT_START_MIN_COVER}, MT_START_TRIES=${MT_START_TRIES}, MT_START_RANGE_UM=${MT_START_RANGE_UM};\n`+
+      'const _mtStartCache=new Map();\n'+mulberry32.toString()+'\n'+mtStartPosition.toString()+'\n'+
+      `onmessage=e=>{ const d=e.data;
+        try{
+          const st=mtStartPosition(d.seed,d.w,d.h,d.opts);
+          const xUm=Math.round((st.x+d.dxUm)*1000)/1000, yUm=Math.round((st.y+d.dyUm)*1000)/1000;
+          const res=CellField.buildWindow(d.w,d.h,Object.assign({seed:d.seed,xUm,yUm},d.opts));
+          const n=res.sites.length, flat=new Float64Array(3*n);
+          for(let i=0;i<n;i++){ const p=res.sites[i]; flat[3*i]=p[0]; flat[3*i+1]=p[1]; flat[3*i+2]=p[2]; }
+          postMessage({id:d.id, st, xUm, yUm, n, flat, nCells:res.nCells, nMt:res.nMt, packed:res.packed},[flat.buffer]);
+        }catch(err){ postMessage({id:d.id, err:String(err&&err.message||err)}); }
+      };`;
+    _cellFieldWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+  }catch(err){ _cellFieldWorker=null; }
+  return _cellFieldWorker;
+}
+async function buildMicrotubuleStructureAsync(w,h){
+  const worker=getCellFieldWorker();
+  if(!worker) return buildMicrotubuleStructure(w,h);
+  const px=paramValue('simulation_pxnm'), seed=resolveMtSeed();
+  const opts={pxnm:px, mtDensity:paramValue('simulation_mt_density'), cellDensity:paramValue('simulation_mt_cellDensity'),
+    focusUm:paramValue('simulation_mt_focusZ')/1000, slabNm:paramValue('simulation_zRange')};
+  const id=++_cellFieldSeq;
+  let r;
+  try{
+    r=await new Promise((resolve,reject)=>{
+      const onMsg=e=>{ if(e.data.id!==id) return; worker.removeEventListener('message',onMsg); worker.removeEventListener('error',onErr);
+        e.data.err ? reject(new Error(e.data.err)) : resolve(e.data); };
+      const onErr=e=>{ worker.removeEventListener('message',onMsg); worker.removeEventListener('error',onErr); reject(new Error(e.message||'cell-field worker error')); };
+      worker.addEventListener('message',onMsg); worker.addEventListener('error',onErr);
+      worker.postMessage({id, w, h, seed, opts, dxUm:paramValue('simulation_mt_x'), dyUm:paramValue('simulation_mt_y')});
+    });
+  }catch(err){
+    log(`⚠ Cell-field worker failed (${err.message}) — building on the main thread instead.`);
+    _cellFieldWorker=null; return buildMicrotubuleStructure(w,h);
+  }
+  const f=r.flat, n=r.n, sites=new Array(n);
+  for(let i=0;i<n;i++){
+    sites[i]=[f[3*i],f[3*i+1],f[3*i+2]];
+    if((i&262143)===262143){ setProg(5+5*i/n); await tick(); }
+  }
+  logMicrotubuleStructure(seed,r.st,r.xUm,r.yUm,w,h,px,r,n);
+  return sites;
 }
 // Pans the microtubule window (simulation_mt_x/_y, µm offset from mtStartPosition(); +y is down). Those two have no sidebar field,
 // so the new centre lives in paramOverrides like any other id:null parameter and is logged.
@@ -4787,7 +4854,8 @@ async function generateSynthetic(){
   const structFov = ('simulation_structureFov' in paramOverrides)
     ? paramValue('simulation_structureFov') : Math.round(w*1.1);
   const structShift=(structFov-w)/2;
-  let gtAll=buildStructure(structFov, structFov, zRange, rng);
+  setProg(5);
+  let gtAll=await buildStructureAsync(structFov, structFov, zRange, rng);
   setProg(10); await nextPaint();   // structure built; the PSF build and frames report their own progress
   if(structShift!==0){
     for(const p of gtAll){ p[0]-=structShift; p[1]-=structShift; }
@@ -20917,8 +20985,8 @@ async function runSimulation(){
   // a range from THIS dataset instead of silently reusing a stale, unrelated one (a real,
   // reported bug: GT clipped to z values that had nothing to do with the new simulation).
   $('zmin').value=''; $('zmax').value='';
-  // The structure (the microtubule cell field: ~1-3 s) is built synchronously first, so paint
-  // the log line and a started progress bar before it.
+  // Paint the log line and a started progress bar before the work begins (the microtubule cell
+  // field itself is built in a background worker, buildStructureAsync()).
   setProg(3); await nextPaint();
   try{
     const generated=await generateSynthetic();
@@ -22778,8 +22846,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29e — Simulate movie shows its start at
-once; "Point spread function"; "more info…" right-aligned everywhere.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29f — the microtubule cell field is built
+in a background worker, so Simulate movie no longer freezes the page.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
