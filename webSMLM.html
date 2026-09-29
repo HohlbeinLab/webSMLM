@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2666   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3659   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3887   synthetic stack generator ("Simulate movie")
-    validation      6942   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7801   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8057   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8667   super-resolution accumulation, view, colour maps, plots
-    workers         10191  frame-parallel detect/fit worker pool
-    gpu             10833  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13162  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13507  astigmatic width-vs-z bead calibration
-    drift           13906  AIM and cross-correlation drift correction
-    locprecision    14564  NeNA and FRC
-    sSMLM           15703  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16309  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18416  single-particle tracking and diffusion coefficients
-    pipeline        19466  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20506  Micro-Manager/pycromanager bridge (experimental)
-    table           23052  localizations table, filters, histograms, clustering
-    headless API    23737  window.webSMLM.analyze()/analyzeBatch()
+    params          2669   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3663   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3891   synthetic stack generator ("Simulate movie")
+    validation      6946   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7805   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8061   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8671   super-resolution accumulation, view, colour maps, plots
+    workers         10195  frame-parallel detect/fit worker pool
+    gpu             10837  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13166  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13511  astigmatic width-vs-z bead calibration
+    drift           13910  AIM and cross-correlation drift correction
+    locprecision    14568  NeNA and FRC
+    sSMLM           15707  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16313  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18420  single-particle tracking and diffusion coefficients
+    pipeline        19470  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20510  Micro-Manager/pycromanager bridge (experimental)
+    table           23055  localizations table, filters, histograms, clustering
+    headless API    23740  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1582,7 +1582,10 @@ X.B(E,Y);return E}return J}())
   /* log() already wraps prose at 80 columns (wrapCommentLine()); this cap only
      matters for an unbreakable token. */
   .log #logText{max-width:80ch}
-  .log .logwarn{color:var(--danger)}   /* the ⚠ marker, in the Stop button's red (appendLogText()) */
+  /* the ⚠ marker, in the Stop button's red (appendLogText()); 1.45× (the monospace ⚠ is small and has
+     no bold). The span holds "⚠ " and stays exactly two columns wide (ch is the span's own 1.45× width)
+     at line-height 0, so columns, the 80-column wrap and line spacing don't move */
+  .log .logwarn{color:var(--danger);font-size:1.45em;line-height:0;display:inline-block;width:calc(2ch / 1.45);white-space:pre;position:relative;left:-0.1em}   /* nudged into the space before it, so it clears the next word */
   /* Terminal input below the log, same monospace/dark look, full width.
      field-sizing:content grows it with its content (a fixed box where
      unsupported). Focus shows as a glow, not a border change. */
@@ -1706,7 +1709,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29m</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29n</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -3493,12 +3496,13 @@ function formatLogEntry(e, isFirst, prevEntry){
 // Full rebuild from logHistory, under whichever logCmdStyle is current —
 // only called on the (rare) style toggle; every other log()/logCmd() call
 // just appends its own one new line via the cheaper fast path below.
-// Appends text to #logText with every ⚠ in a .logwarn span (the Stop button's red); the rest are
-// plain text nodes, so textContent (export, copy, the terminal) is still the plain log.
+// Appends text to #logText with every "⚠ " (marker + its space) in a .logwarn span (the Stop
+// button's red, enlarged); the rest are plain text nodes, so textContent (export, copy, the
+// terminal) is still the plain log.
 function appendLogText(str){
-  const frag=document.createDocumentFragment(), parts=str.split('⚠');
+  const frag=document.createDocumentFragment(), parts=str.split('⚠ ');
   parts.forEach((p,i)=>{
-    if(i){ const sp=document.createElement('span'); sp.className='logwarn'; sp.textContent='⚠'; frag.appendChild(sp); }
+    if(i){ const sp=document.createElement('span'); sp.className='logwarn'; sp.textContent='⚠ '; frag.appendChild(sp); }
     if(p) frag.appendChild(document.createTextNode(p));
   });
   $('logText').appendChild(frag);
@@ -22960,8 +22964,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29m — Simulation moved below 3D calibration
-in the sidebar (Alt+Shift+6 = 3D calibration, Alt+Shift+7 = Simulation).`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29n — a larger ⚠ marker in the log.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

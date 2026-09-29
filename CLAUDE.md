@@ -400,8 +400,9 @@ what makes GUI and command-line use interchangeable.
   - Log messages, using exact sidebar names ("Load data", "movie", "Calibrate"), one sentence plus a
     remedy: refused `⚠ <Button>: <what's missing> — <how to fix it>`; failed
     `⚠ <Button> failed: <reason>`; warning (ran, with a caveat) `⚠ <caveat and what to do>`; info
-    has no marker; headless `throw new Error('analyze(): …')`. `appendLogText()` puts every ⚠ in a
-    `.logwarn` span (`--danger`, the Stop button's red); `textContent` stays the plain log.
+    has no marker; headless `throw new Error('analyze(): …')`. `appendLogText()` puts every "⚠ " in a
+    `.logwarn` span (`--danger`, the Stop button's red, 1.45× but exactly two columns wide);
+    `textContent` stays the plain log.
   - The log terminal (`#logTerminal`, ≥ 2 lines tall) runs statements via direct `eval()`
     (`runTerminalStatement()`), with ↑/↓ history (navigates while a recalled entry is unedited).
     `resolveTerminalConfig()` backfills omitted PARAMS from live values and resolves filename strings
