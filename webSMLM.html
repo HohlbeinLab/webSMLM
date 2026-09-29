@@ -36,22 +36,22 @@
     in/out          3667   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3895   synthetic stack generator ("Simulate movie")
     validation      6951   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7810   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8066   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8676   super-resolution accumulation, view, colour maps, plots
-    workers         10200  frame-parallel detect/fit worker pool
-    gpu             10842  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13171  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13516  astigmatic width-vs-z bead calibration
-    drift           13915  AIM and cross-correlation drift correction
-    locprecision    14573  NeNA and FRC
-    sSMLM           15712  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16318  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18425  single-particle tracking and diffusion coefficients
-    pipeline        19475  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20515  Micro-Manager/pycromanager bridge (experimental)
-    table           23137  localizations table, filters, histograms, clustering
-    headless API    23822  window.webSMLM.analyze()/analyzeBatch()
+    detect          7814   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8070   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8680   super-resolution accumulation, view, colour maps, plots
+    workers         10204  frame-parallel detect/fit worker pool
+    gpu             10846  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13175  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13520  astigmatic width-vs-z bead calibration
+    drift           13932  AIM and cross-correlation drift correction
+    locprecision    14590  NeNA and FRC
+    sSMLM           15729  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16335  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18442  single-particle tracking and diffusion coefficients
+    pipeline        19492  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20532  Micro-Manager/pycromanager bridge (experimental)
+    table           23153  localizations table, filters, histograms, clustering
+    headless API    23842  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29p</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-29q</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -7518,8 +7518,13 @@ function drawTruthScorePlot(res){
   ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
   const mL=62,mR=16,mT=46,mB=44, pw=W-mL-mR, ph=H-mT-mB;   // mT fits up to three legend rows
   const GREEN='#0a7d32', MAG='#c81cc8', BLUE='#3572b0';
-  const axis=(X,Y,xlab,ylab,xt,yt,xdec,ydec,xfmt,yfmt)=>{
+  // minor: {x,y} unlabelled tick positions (log axes, logAxisTicks()), drawn as short ticks.
+  const axis=(X,Y,xlab,ylab,xt,yt,xdec,ydec,xfmt,yfmt,minor)=>{
     ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.lineWidth=1; ctx.font='12px '+PLOT_FONT;
+    if(minor){ ctx.strokeStyle=C.text;
+      for(const v of minor.y||[]){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL-3,y); ctx.lineTo(mL,y); ctx.stroke(); }
+      for(const v of minor.x||[]){ const x=X(v); ctx.beginPath(); ctx.moveTo(x,mT+ph); ctx.lineTo(x,mT+ph+3); ctx.stroke(); }
+      ctx.strokeStyle=C.grid; }
     ctx.textAlign='right'; ctx.textBaseline='middle';
     for(const v of yt){ const y=Y(v); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
       ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;
@@ -7551,9 +7556,7 @@ function drawTruthScorePlot(res){
   const line=(pts,col,wd,dash)=>{ ctx.strokeStyle=col; ctx.lineWidth=wd; if(dash) ctx.setLineDash(dash);
     ctx.beginPath(); let st=false; for(const [x,y] of pts){ if(!isFinite(x)||!isFinite(y)){ st=false; continue; }
       st?ctx.lineTo(x,y):ctx.moveTo(x,y); st=true; } ctx.stroke(); ctx.setLineDash([]); };
-  const decades=(l0,l1)=>{ const t=[]; for(let d=Math.ceil(l0); d<=Math.floor(l1); d++) t.push(d);
-    if(t.length<2){ t.length=0; const st=(l1-l0)/4; for(let k=0;k<=4;k++) t.push(l0+k*st); } return t; };
-  const pow10fmt=v=>{ const x=Math.pow(10,v); return x>=100?Math.round(x).toLocaleString():x.toPrecision(2); };
+  const pow10fmt=v=>{ const x=Math.pow(10,v); return x>=100?Math.round(x).toLocaleString():String(+x.toPrecision(2)); };
   if(mode==='jaccz'){
     // Recall, precision and Jaccard per depth bin. TP/FN are binned by true z, false positives by
     // their fitted z (they have no true one) — see scoreTruthCore().
@@ -7594,8 +7597,8 @@ function drawTruthScorePlot(res){
     let lo=Infinity, hi=0; for(const [t,f] of P){ lo=Math.min(lo,t,f); hi=Math.max(hi,t,f); }
     const l0=Math.log10(lo)-0.05, l1=Math.log10(hi)+0.05;
     const X=v=>mL+pw*(Math.log10(v)-l0)/(l1-l0), Y=v=>mT+ph*(1-(Math.log10(v)-l0)/(l1-l0));
-    const t=decades(l0,l1);
-    axis(v=>X(Math.pow(10,v)),v=>Y(Math.pow(10,v)),'true photons in the frame (log)','fitted photons (log)',t,t,0,0,pow10fmt,pow10fmt);
+    const t=logAxisTicks(l0,l1);
+    axis(v=>X(Math.pow(10,v)),v=>Y(Math.pow(10,v)),'true photons in the frame (log)','fitted photons (log)',t.major,t.major,0,0,pow10fmt,pow10fmt,{x:t.minor,y:t.minor});
     ctx.fillStyle=BLUE; ctx.globalAlpha=0.5;
     const step=Math.max(1, Math.ceil(P.length/6000));
     for(let i=0;i<P.length;i+=step){ ctx.beginPath(); ctx.arc(X(P[i][0]),Y(P[i][1]),1.4,0,7); ctx.fill(); }
@@ -7619,8 +7622,9 @@ function drawTruthScorePlot(res){
     const lx0=Math.log10(B[0].p0), lx1=Math.log10(B[B.length-1].p1);
     const ly0=Math.log10(Math.min(...vals))-0.1, ly1=Math.log10(Math.max(...vals))+0.1;
     const X=v=>mL+pw*(Math.log10(v)-lx0)/Math.max(1e-9,lx1-lx0), Y=v=>mT+ph*(1-(Math.log10(v)-ly0)/Math.max(1e-9,ly1-ly0));
+    const tx=logAxisTicks(lx0,lx1), ty=logAxisTicks(ly0,ly1);
     axis(v=>X(Math.pow(10,v)),v=>Y(Math.pow(10,v)),'true photons in the frame (log)','precision σ (nm, log)',
-         decades(lx0,lx1),decades(ly0,ly1),0,0,pow10fmt,pow10fmt);
+         tx.major,ty.major,0,0,pow10fmt,pow10fmt,{x:tx.minor,y:ty.minor});
     const pts=k=>B.map(b=>[X(b.photons), b[k]>0?Y(b[k]):NaN]);
     line(pts('measLat'),MAG,2); line(pts('crlbLat'),MAG,1.2,[2,3]);
     const it=[[MAG,'lateral: — measured   ┄ reported CRLB']];
@@ -7642,9 +7646,9 @@ function drawTruthScorePlot(res){
     let latMax=0; for(const b of B) if(isFinite(b.lat50)&&b.lat50>latMax) latMax=b.lat50;
     const ymax=Math.max(100, latMax*1.1);
     const X=v=>mL+pw*(Math.log10(v)-l0)/Math.max(1e-9,l1-l0), Y=v=>mT+ph*(1-v/ymax);
-    const xt=[]; for(let d=Math.ceil(l0); d<=Math.floor(l1); d++) xt.push(d);
-    axis(v=>X(Math.pow(10,v)),Y,'true photons in the frame (log)','recall (%)  ·  median lateral error (nm)',xt,niceTicks(0,ymax,5),0,0,
-         v=>Math.pow(10,v).toLocaleString());
+    const xt=logAxisTicks(l0,l1);
+    axis(v=>X(Math.pow(10,v)),Y,'true photons in the frame (log)','recall (%)  ·  median lateral error (nm)',xt.major,niceTicks(0,ymax,5),0,0,
+         v=>Math.round(Math.pow(10,v)).toLocaleString(),null,{x:xt.minor});
     ctx.fillStyle=C.bar; ctx.globalAlpha=0.55;
     for(const b of B){ const x0=X(b.p0), x1=X(b.p1), y=Y(100*b.recall);
       ctx.fillRect(x0,y,Math.max(1,x1-x0-1),(mT+ph)-y); }
@@ -13872,6 +13876,19 @@ function renderCalibrationPlotHeadless(calibObj){
   calib=calibObj; calView='sigma';   // 'sigma' (Gaussian width) is always present; 'mag'/'ratio' are interactive-toggle-only views of the same beads
   try{ return renderPlotBothFormats(drawCalibration); }
   finally{ calib=prevCalib; calView=prevView; }
+}
+// Ticks for a log axis over [l0,l1] in log10 units: every k·10^d (k = 1…9) inside it. `major` (the
+// labelled ones) are the decades, plus 2 and 5 when the axis spans under two decades, plus every k
+// when that still leaves fewer than two; `minor` are the rest (short unlabelled ticks).
+function logAxisTicks(l0,l1){
+  const all=[];
+  for(let d=Math.floor(l0); d<=Math.ceil(l1); d++) for(let k=1;k<=9;k++){
+    const v=d+Math.log10(k); if(v>=l0-1e-9 && v<=l1+1e-9) all.push({v,k}); }
+  let major=all.filter(t=>t.k===1);
+  if(l1-l0<2) major=all.filter(t=>t.k===1||t.k===2||t.k===5);
+  if(major.length<2) major=all;
+  const isMajor=new Set(major);
+  return {major:major.map(t=>t.v), minor:all.filter(t=>!isMajor.has(t)).map(t=>t.v)};
 }
 // simple "nice" axis ticks
 function niceTicks(lo,hi,n){
@@ -23045,8 +23062,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-29p — Save ground truth / Load ground truth in
-the Simulation section.`);
+log(`webSMLM v0.13.0-dev · build 2026-09-29q — log-axis plots mark every 1–9 × 10ⁿ.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23564,12 +23580,16 @@ function drawHistogram(){
   let trueMax=0; for(const c of hist) if(c>trueMax) trueMax=c;
   const logTop=Math.max(1,Math.ceil(Math.log10(Math.max(1,trueMax))));
   const Y = logY ? (c=>mT+ph*(1-Math.log10(Math.max(1,c))/logTop)) : (c=>mT+ph*(1-c/Math.max(1,ymax)));
-  const yticks = logY ? Array.from({length:logTop+1},(_,p)=>Math.pow(10,p)) : niceTicks(0,ymax,5);
+  const logT = logY ? logAxisTicks(0,logTop) : null;
+  const yticks = logY ? logT.major.map(v=>Math.round(Math.pow(10,v))) : niceTicks(0,ymax,5);
   // log mode's own tick values (powers of ten, ≤logTop digits) never need scaling;
   // linear mode's raw counts can run into the hundreds of thousands, so scale into
   // small ticks + a shared "×10ⁿ" multiplier like drawPcfoPlot() does (axisScale()).
   const yScale = logY ? {scale:1,decimals:0,label:''} : axisScale(ymax);
   ctx.strokeStyle=C.grid; ctx.fillStyle=C.text; ctx.font='12px '+PLOT_FONT; ctx.textAlign='right'; ctx.textBaseline='middle';
+  if(logT){ ctx.strokeStyle=C.text;   // minor ticks at 2…9 × 10ⁿ, short and unlabelled
+    for(const v of logT.minor){ const y=Y(Math.pow(10,v)); ctx.beginPath(); ctx.moveTo(mL-3,y); ctx.lineTo(mL,y); ctx.stroke(); }
+    ctx.strokeStyle=C.grid; }
   for(const c of yticks){ const y=Y(c); ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke();
     ctx.strokeStyle=C.text; ctx.beginPath(); ctx.moveTo(mL-5,y); ctx.lineTo(mL,y); ctx.stroke(); ctx.strokeStyle=C.grid;   // major tick, outward
     ctx.fillText(logY?c.toFixed(0):(c/yScale.scale).toFixed(yScale.decimals),mL-9,y); }

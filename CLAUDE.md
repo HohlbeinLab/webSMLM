@@ -240,6 +240,8 @@ what makes GUI and command-line use interchangeable.
   - `rerender()` is async and serialized (one render at a time, latest request wins; `_srRenderSeq`
     discards stale results, also when `lastResult` was cleared mid-render). Previews
     (`isPreview`) never set zmin/zmax and don't log timing. On failure the previous image stays.
+  - Log axes take their ticks from `logAxisTicks(l0,l1)` (log10 units): labels on decades (plus 2 and 5 under
+    two decades), short unlabelled ticks at every other 1–9 × 10ⁿ.
   - `setupPlot(cv, isPlot, ratio)` letterboxes plots (default 4:3; square for the polar plot;
     `null` = whole canvas, the smFRET trace); `canvas#sr,#raw{min-height:320px}` keeps plots usable at extreme frame aspects.
   - SVG export: `SvgRecordingContext` duck-types the Canvas2D subset the vector plots use. `arc()`
