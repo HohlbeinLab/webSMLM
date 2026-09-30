@@ -118,7 +118,7 @@ what makes GUI and command-line use interchangeable.
     at once). Context windows clamp against the whole stack's ends. Output is floored at `camoffset`
     and stays in raw ADU space.
 
-- **simulation** — "Simulate movie" and "Calib. 3D stack": synthetic movies with a known answer.
+- **simulation** ("(Caution!) Simulation") — "Simulate movie" and "Calib. 3D stack": synthetic movies with a known answer.
   Big enough for its own section: see **Simulation** below.
 
 - **validation** — "Compare to GT" (`computeTruthScore()` → `scoreTruthCore()`, DOM-free, also
