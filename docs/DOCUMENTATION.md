@@ -999,6 +999,24 @@ just a 2D elliptical fit reporting σx/σy directly (see the CSV
 way, use **Pair & plot sSMLM** afterward to get real per-axis widths for
 both the 0th and 1st order of an sSMLM pair, not just the plain
 symmetric-σ proxy every other method reports.
+**Shape test** (`shapeTest`/`shapeTestThr`, MLE methods only, **on** by default at −1) is a
+second gate after the fit, from Smith et al. (*Nat. Methods* 7, 373, 2010): a fit is dropped when its
+mean per-pixel log-likelihood ratio over the fit window, (1/N) Σ [x·ln(μ/x) − μ + x] (x = 0 → −μ), is below
+the threshold. This is the *Stirling form* of their likelihood (SI eq. 7 with ln x! replaced by x ln x − x),
+which is what their CUDA code and Picasso compute; the exact Poisson likelihood is never above −1 even for
+a perfect model, so it could not carry a fixed threshold. The value is stored per localization as `llr`
+(CSV column `llr`, a column in View data/filtering). Measured on webSMLM's own fitters, a correct single
+emitter scores −0.44…−0.53 whatever the photons (100–3000), background (1–10) or window (7×7, 9×9) — none
+fall below −1 — while a second emitter of equal brightness 4.5 px away (just outside the window) is caught in
+99 % of fits at 1000 photons. It therefore removes mostly windows with a neighbour in reach, not pairs closer
+than a fixed distance (a pair closer than ~2 px fits as one wide spot and is caught only about half the time);
+a larger window sees more neighbours. It also fires when the model does not describe the data: sCMOS read
+noise is allowed for by adding its variance (Readout noise σ, Gain &amp; offset estimation; none with an EMCCD,
+whose read noise sits behind the gain) to data and model alike (Huang et al. 2013) — without it 41 % of clean
+fits at 2.9 e⁻ fell below −1, with it none; a Gaussian fitted to an aberrated PSF (astigmatism, double helix)
+scores below −1 at high photon counts, so switch the test off there. The same quantity is computed identically
+on the CPU, the worker pool and the GPU (agreeing to ~1e-6); `result.shapeTest` / the log report how many fits
+it dropped. Compare to GT scores what is left, so dropped detections of real emitters count as misses.
 `gaussianMLEspheric`/`gaussianMLEelliptic`/`gaussianMLEellipticangled` all share one
 Fisher-scoring Newton driver (`mleNewtonFit()`) rather than three
 independently-coded copies. On the built-in synthetic model at 900
@@ -2691,6 +2709,8 @@ single control group in the sidebar.
 | `fitFirstFrame` | First frame (1-based, inclusive) | number (int) | 1 | — | 1 | 1 |
 | `fitLastFrame` | Last frame (1-based, inclusive) | number (int) | 1 | — | 1 | `Infinity` (blank field — see below) |
 | `mleEps` | MLE convergence tolerance (px) | number | 1e-6 | 0.1 | 0.0001 | 0.001 |
+| `shapeTest` | Shape test | bool | — | — | — | true (MLE methods only — see §2/fit) |
+| `shapeTestThr` | Min. log-lik. ratio | number | -20 | 0 | 0.1 | -1 |
 | `ftmEnabled` | Temporal median filtering | bool | — | — | — | false |
 | `ftmWindow` | Window size | number (int) | 3 | 2000 | 1 | 50 |
 
@@ -2714,6 +2734,7 @@ here, then run the script, never edit the `.hint` div directly):
 </ul>
 <p><b>3D localisation</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as <b>Gauss MLE elliptical</b>. <b>Unchecked</b>: a calibration-free fit with no z — for <b>Gauss MLE elliptical</b> this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing for sSMLM or FRET → Primary angle).</p>
 <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
+<p><b>Shape test</b> (MLE methods only, on by default) drops a fit whose shape does not match the Gaussian model: the mean log-likelihood ratio per pixel over the fit window (Smith et al. 2010, Stirling form) must be at least <b>Min. log-lik. ratio</b>. A correct single-emitter fit scores about −0.5 whatever its photons or background, so the default −1 leaves a wide margin; a second emitter reaching into the window, or a PSF the model does not describe, scores far lower. Mostly it removes windows with a neighbour in reach, not pairs closer than a fixed distance. sCMOS read noise (<b>Readout noise σ</b> under Gain &amp; offset estimation) is allowed for; for an aberrated PSF fitted with a Gaussian (astigmatism, double helix) switch it off. The score is kept as <code>llr</code> in the table and CSV.</p>
 <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
 <ul>
   <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -3698,7 +3719,7 @@ view zoomed/panned where the crop left it.
 Written by **Save localisations** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"sx_AA [nm]","sy_AA [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"]
+"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"sx_AA [nm]","sy_AA [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"][,"llr"]
 ```
 
 - `z [nm]` only present for a real 3D result (a 3D fit method).
@@ -3709,6 +3730,9 @@ Written by **Save localisations** (`exportCSV()`), ThunderSTORM-compatible:
   (`mle3d`/`gaussmleEll`, see §2/fit) — the fitted per-axis width directly,
   independent of `sigma1st [nm]`/`sx0th [nm]` etc. below (those are
   sSMLM-**Pair**-specific). Round-trips through **Load data**.
+- `llr` is present on every localization of an MLE fit: the shape-test statistic (mean log-likelihood
+  ratio per pixel, §2/fit), about −0.5 for a good fit; the last column, so existing readers are unaffected.
+  Round-trips through **Load data**.
 - `sigma_z [nm]`, `dist [nm]`, `sigma1st [nm]`, `sx0th [nm]`/`sy0th [nm]`/
   `sx1st [nm]`/`sy1st [nm]`, `track_id`, `D_coeff [um^2/s]`, `cell_id`/
   `cell_area [px]` (each when available) and `n_merged [frames]` (when
@@ -4136,7 +4160,10 @@ const result = await window.webSMLM.analyze({
   reverted: it just repeated the same handful of numbers for every phase
   with no other information), so `onProgress` is the only progress channel.
 
-**Returns** `{locs, csvText, csvParts, logText, settingsText, timings, performance, execution, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
+**Returns** `{locs, csvText, csvParts, logText, settingsText, timings, shapeTest, performance, execution, reconstructionPng, drift, nena, frc, w, h, px, mag, calib, calibJsonText, pcfo, sSmlmPair, spt, plots}`:
+- `shapeTest` is `{enabled, threshold, readNoiseVar, fits, rejected}` for the Run's shape test (§2/fit):
+  the MLE fits made and the number it dropped (`null` for a CSV input, which has no Run). Set
+  `shapeTest: false` in the config to keep every fit.
 - `performance` is a phase-timing object for the whole `analyze()` call
   (`inputMs`, `localizationMs`, `postprocessMs`, `csvMs`, `renderMs`,
   `pngEncodeMs`, `plotsMs`, etc.).

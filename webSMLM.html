@@ -32,26 +32,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2673   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3667   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3895   synthetic stack generator ("Simulate movie")
-    validation      6956   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7939   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8195   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8805   super-resolution accumulation, view, colour maps, plots
-    workers         10329  frame-parallel detect/fit worker pool
-    gpu             10971  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13300  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13645  astigmatic width-vs-z bead calibration
-    drift           14057  AIM and cross-correlation drift correction
-    locprecision    14715  NeNA and FRC
-    sSMLM           15854  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16460  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18567  single-particle tracking and diffusion coefficients
-    pipeline        19617  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20657  Micro-Manager/pycromanager bridge (experimental)
-    table           23281  localizations table, filters, histograms, clustering
-    headless API    23970  window.webSMLM.analyze()/analyzeBatch()
+    params          2676   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3677   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3905   synthetic stack generator ("Simulate movie")
+    validation      6966   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7949   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8205   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8827   super-resolution accumulation, view, colour maps, plots
+    workers         10351  frame-parallel detect/fit worker pool
+    gpu             10994  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13334  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13683  astigmatic width-vs-z bead calibration
+    drift           14095  AIM and cross-correlation drift correction
+    locprecision    14753  NeNA and FRC
+    sSMLM           15892  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16498  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18605  single-particle tracking and diffusion coefficients
+    pipeline        19655  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20711  Micro-Manager/pycromanager bridge (experimental)
+    table           23349  localizations table, filters, histograms, clustering
+    headless API    24040  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-09-30a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1812,6 +1812,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" style="display:none" title="The active fit window half-width, internally auto-set from Fit radius 2D/3D below — no longer a separate control; see winr2d/winr3d.">Fit radius (px) <input type="number" id="winr" min="2" max="10" step="1" value="3" class="num"></label>
         <label class="row" title="The fit window half-width used whenever a 2D method (or a 3D-capable method with 3D localisation unchecked) is active.">Fit radius 2D (px) <input type="number" id="winr2d" min="2" max="10" step="1" value="3" class="num"></label>
         <label class="row" title="The fit window half-width used whenever a genuinely 3D fit (real z coming out) is active — wider, since an astigmatic PSF's elongated axis needs more pixels.">Fit radius 3D (px) <input type="number" id="winr3d" min="2" max="10" step="1" value="4" class="num"></label>
+        <label class="row" id="shapeTestRow" style="margin-top:8px" title="Drop an MLE fit whose shape does not match the Gaussian model: the mean log-likelihood ratio per pixel over the fit window (Smith et al. 2010) is below the threshold. Catches windows with a second emitter and PSFs the model does not describe. MLE methods only">Shape test <input type="checkbox" id="shapeTest" checked></label>
+        <label class="row" id="shapeTestThrRow" style="padding-left:40px" title="Fits scoring below this are dropped. A correct single-emitter fit scores about -0.5 per pixel whatever its photons or background, so -1 leaves a wide margin; lower is more permissive, 0 drops almost everything. sCMOS read noise (Readout noise σ under Gain &amp; offset estimation) is allowed for">Min. log-lik. ratio <input type="number" id="shapeTestThr" value="-1" min="-20" max="0" step="0.1" class="num"></label>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-detectfit"><span class="pill">module: detect/fit &amp; export</span>
           <ul>
@@ -1827,6 +1829,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           </ul>
           <p><b>3D localisation</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as <b>Gauss MLE elliptical</b>. <b>Unchecked</b>: a calibration-free fit with no z — for <b>Gauss MLE elliptical</b> this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing for sSMLM or FRET → Primary angle).</p>
           <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
+          <p><b>Shape test</b> (MLE methods only, on by default) drops a fit whose shape does not match the Gaussian model: the mean log-likelihood ratio per pixel over the fit window (Smith et al. 2010, Stirling form) must be at least <b>Min. log-lik. ratio</b>. A correct single-emitter fit scores about −0.5 whatever its photons or background, so the default −1 leaves a wide margin; a second emitter reaching into the window, or a PSF the model does not describe, scores far lower. Mostly it removes windows with a neighbour in reach, not pairs closer than a fixed distance. sCMOS read noise (<b>Readout noise σ</b> under Gain &amp; offset estimation) is allowed for; for an aberrated PSF fitted with a Gaussian (astigmatism, double helix) switch it off. The score is kept as <code>llr</code> in the table and CSV.</p>
           <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
           <ul>
           <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -2745,6 +2748,13 @@ const PARAMS = {
   // mleEps: Newton convergence tolerance (px), Picasso's default (1e-4 was
   // needlessly tight: 19% slower for ~0.008 px difference).
   mleEps: { type:'number', id:null, label:'MLE convergence tolerance (px)', min:1e-6, max:0.1, step:0.0001, default:0.001, int:false },
+  // shapeTest/shapeTestThr: Smith et al. 2010's shape criterion (Nat. Methods 7, 373; SI Note, eq. 7):
+  // drop an MLE fit whose mean per-pixel log-likelihood ratio over the fit window (the Stirling form
+  // the reference code computes, see mleWindowLlr()) is below the threshold. A correct model scores
+  // about -0.5 whatever the photons, background or window, so -1 leaves a wide margin; a second emitter
+  // in the window, or a PSF the fit model does not describe, scores far lower. MLE methods only.
+  shapeTest: { type:'bool', id:'shapeTest', label:'Shape test', default:true },
+  shapeTestThr: { type:'number', id:'shapeTestThr', label:'Min. log-lik. ratio', min:-20, max:0, step:0.1, default:-1, int:false },
   // ftmEnabled: temporal median filter (FTM), computed live per frame (not a
   // corrected copy of the stack). Nieuwenhuizen et al., Nat. Methods 10,
   // 557–562 (2013), doi:10.1038/nmeth.2448; ported from HohlbeinLab/FTM2
@@ -8311,6 +8321,15 @@ function mleModelElliptical(px,py,th,duOut){
   duOut[0]=th[2]*PY*dPXmu; duOut[1]=th[2]*PX*dPYmu; duOut[2]=PX*PY; duOut[3]=1; duOut[4]=th[2]*PY*dPXs; duOut[5]=th[2]*PX*dPYs;
   return model;
 }
+// Mean per-pixel log-likelihood ratio of a fit, the "shape test" statistic (PARAMS.shapeTest):
+// (1/N) sum_k [x ln(mu/x) - mu + x], x = 0 -> -mu. This is Smith et al.'s likelihood (SI eq. 7)
+// with ln x! replaced by its Stirling form, as in their CUDA code and Picasso; the exact Poisson
+// likelihood is never above -1 even for a perfect model, so it could not carry a fixed threshold.
+// rnVar (photons^2): an sCMOS pixel's read-noise variance, added to data and model alike
+// (Huang et al., Nat. Methods 2013) so read noise does not read as misfit; 0 for pure Poisson data.
+// The MLE fitters inline this term in their residual loop (they are stringified into workers) and
+// the GPU kernels repeat it, so change all of them together.
+function mleLlrTerm(x,mu,rnVar){ const xr=x+rnVar, mr=mu+rnVar; return xr>0 ? xr*Math.log(mr/xr)-mr+xr : -mr; }
 // Per-iteration parameter clamps (photon count >=1, background >=0, sigma
 // >=0.5px) keeping mleNewtonFit()'s Newton step in a physically valid
 // region — spherical (one sigma) and elliptical (sigma_x/sigma_y) variants.
@@ -8398,7 +8417,7 @@ function applyExcessNoise(L, f2){
 // Spherical Poisson MLE. Input converted to photons first (Poisson variance =
 // mean holds only in photons). eps: x,y tolerance (px, PARAMS.mleEps).
 // Self-contained for the worker. Unbiased, CRLB matches the empirical scatter.
-function gaussianMLEspheric(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
+function gaussianMLEspheric(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,rnVar=0){
   const r=(win-1)/2, n=5;
   let sum=0,mx=0,my=0,mn=Infinity;                                             // centre-of-mass init
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
@@ -8413,10 +8432,11 @@ function gaussianMLEspheric(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.00
   const ex=solveLin(fisher,[1,0,0,0,0]), ey=solveLin(fisher,[0,1,0,0,0]);
   if(ex) lpx=Math.sqrt(Math.max(0,ex[0])); if(ey) lpy=Math.sqrt(Math.max(0,ey[1]));
   if(!isFinite(lpx) || !isFinite(lpy)) return null;   // singular Fisher matrix — can't be trusted
-  let e2=0,cnt=0;                                                              // residual RMS → bgstd (as for LS)
+  let e2=0,cnt=0,llr=0;                                                        // residual RMS → bgstd (as for LS); llr: shape test (mleLlrTerm())
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
-    const res=th[2]*mleGInt(px,th[0],th[4])*mleGInt(py,th[1],th[4])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
-  return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:th[4], lpx, lpy };
+    const mu=th[2]*mleGInt(px,th[0],th[4])*mleGInt(py,th[1],th[4])+th[3], dat=(img[py*w+px]-camoffset)*gain, res=mu-dat; e2+=res*res; cnt++;
+    const xr=dat+rnVar, mr=mu+rnVar; llr+= xr>0 ? xr*Math.log(mr/xr)-mr+xr : -mr; }
+  return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)), sigma:th[4], lpx, lpy, llr:llr/Math.max(1,cnt) };
 }
 // gaussianMLEsphericFixedBg(): the spherical fit with the background held at
 // a given value (photons/px), fitting [x,y,N,σ]. With all five free on a small
@@ -8472,7 +8492,7 @@ function gaussianMLEsphericFixedBg(img,w,h,cx,cy,win,sigma0,bgPhotons,gain=1,cam
 // -- astigmatic Poisson MLE: [x,y,N,bg,σx,σy] on the shared driver. Returns
 // σx/σy (z from widths) and the lateral CRLB. Unbiased, CRLB matches. gain,
 // camoffset, eps as gaussianMLEspheric().
-function gaussianMLEelliptic(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001){
+function gaussianMLEelliptic(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,rnVar=0){
   const r=(win-1)/2, n=6;
   let sum=0,mx=0,my=0,mn=Infinity;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const v=(img[(cy+dy)*w+(cx+dx)]-camoffset)*gain; sum+=v; mx+=(cx+dx)*v; my+=(cy+dy)*v; if(v<mn)mn=v; }
@@ -8491,11 +8511,12 @@ function gaussianMLEelliptic(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.0
   // diagonal, rows 4/5) — feeds zFromWidths' z-precision estimate below.
   const esx=solveLin(fisher,[0,0,0,0,1,0]), esy=solveLin(fisher,[0,0,0,0,0,1]);
   if(esx) lpsx=Math.sqrt(Math.max(0,esx[4])); if(esy) lpsy=Math.sqrt(Math.max(0,esy[5]));
-  let e2=0,cnt=0;
+  let e2=0,cnt=0,llr=0;
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
-    const res=th[2]*mleGInt(px,th[0],th[4])*mleGInt(py,th[1],th[5])+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
+    const mu=th[2]*mleGInt(px,th[0],th[4])*mleGInt(py,th[1],th[5])+th[3], dat=(img[py*w+px]-camoffset)*gain, res=mu-dat; e2+=res*res; cnt++;
+    const xr=dat+rnVar, mr=mu+rnVar; llr+= xr>0 ? xr*Math.log(mr/xr)-mr+xr : -mr; }
   return { x:th[0], y:th[1], photons:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
-           sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, lpx, lpy, lpsx, lpsy };
+           sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, lpx, lpy, lpsx, lpsy, llr:llr/Math.max(1,cnt) };
 }
 // -- rotated-elliptical Poisson MLE: [x,y,N,bg,σx,σy] + angle (rad, CCW from
 // +x), fixed (6 free) or free (7, angle = θ[6]). Needed for dispersed spots
@@ -8531,7 +8552,7 @@ function ellPinnedSeed(img,w,cx,cy,r,gain,camoffset,sigma0,bg){
   const npix=(2*r+1)*(2*r+1);
   return [sum>0?mx/sum:cx, sum>0?my/sum:cy, Math.max(1,sum-mn*npix), Math.max(1e-3,mn)];
 }
-function gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,fixedAngle=null,fixedBg=null,pinnedAngle=null){
+function gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,eps=0.001,fixedAngle=null,fixedBg=null,pinnedAngle=null,rnVar=0){
   const r=(win-1)/2, n=fixedAngle==null?7:6;
   const sx0=fixedAngle==null?sigma0*1.05:sigma0, sy0=fixedAngle==null?sigma0*0.95:sigma0;
   let th, angleSeed=0.01;
@@ -8563,14 +8584,15 @@ function gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma0,gain=1,camoffset=0,e
   if(esx) lpsx=Math.sqrt(Math.max(0,esx[4])); if(esy) lpsy=Math.sqrt(Math.max(0,esy[5]));
   if(fixedAngle==null){ const ea=solveLin(fisher,unit(6)); if(ea) lpangle=Math.sqrt(Math.max(0,ea[6])); }
   const angleUsed = fixedAngle==null ? th[6] : fixedAngle;
-  let e2=0,cnt=0; const cosA=Math.cos(angleUsed), sinA=Math.sin(angleUsed), sx2=th[4]*th[4], sy2=th[5]*th[5];
+  let e2=0,cnt=0,llr=0; const cosA=Math.cos(angleUsed), sinA=Math.sin(angleUsed), sx2=th[4]*th[4], sy2=th[5]*th[5];
   for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ const px=cx+dx,py=cy+dy;
     const ux=px-th[0], uy=py-th[1], arga=ux*cosA-uy*sinA, argb=ux*sinA+uy*cosA;
-    const res=th[2]*Math.exp(-0.5*(arga*arga/sx2+argb*argb/sy2))+th[3]-(img[py*w+px]-camoffset)*gain; e2+=res*res; cnt++; }
+    const mu=th[2]*Math.exp(-0.5*(arga*arga/sx2+argb*argb/sy2))+th[3], dat=(img[py*w+px]-camoffset)*gain, res=mu-dat; e2+=res*res; cnt++;
+    const xr=dat+rnVar, mr=mu+rnVar; llr+= xr>0 ? xr*Math.log(mr/xr)-mr+xr : -mr; }
   // th[2] is a peak amplitude here (point-sampled); photons = amp·2π·σx·σy, so
   // `photons` means the same for every fitter. `amp` is returned too.
   return { x:th[0], y:th[1], photons:th[2]*2*Math.PI*th[4]*th[5], amp:th[2], bg:th[3], bgstd:Math.sqrt(e2/Math.max(1,cnt)),
-           sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, angle:angleUsed, lpx, lpy, lpsx, lpsy, lpangle };
+           sx:th[4], sy:th[5], sigma:(th[4]+th[5])/2, angle:angleUsed, lpx, lpy, lpsx, lpsy, lpangle, llr:llr/Math.max(1,cnt) };
 }
 // z from astigmatic widths (px): least-squares match to the calibration
 // σx(z), σy(z) (nm) on a z grid + parabolic refinement. wcal = {qx, qy, zmin,
@@ -10472,7 +10494,7 @@ function workerSource(){
                     [seedsA.buffer,seedsB.buffer,windows.buffer,frameIdx.buffer,candidatePixels.buffer,preview.buffer]);
         return;
       }
-      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,auditCandidates}=d;
+      const {frames,start,w,h,sigma,k,win,method,border,exact,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,rnVar,auditCandidates}=d;
       const out=[]; let tD=0,tF=0,nC=0;
       for(let i=0;i<frames.length;i++){
         const img=frames[i], t0=performance.now();
@@ -10480,9 +10502,9 @@ function workerSource(){
         const t1=performance.now(); tD+=t1-t0; nC+=maxima.length;
         const isPh = method==='phasor'||method==='phasor3d';
         for(const mm of maxima){
-          const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
-                         : method==='mle3d' ? gaussianMLEelliptic(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps)
-                         : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,sSmlmAngleRad)
+          const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,rnVar)
+                         : method==='mle3d' ? gaussianMLEelliptic(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,rnVar)
+                         : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset,eps,sSmlmAngleRad,null,null,rnVar)
                          : isPh ? phasorFit(img,w,h,mm[0],mm[1],win,gain,camoffset)
                          : gaussianFit(img,w,h,mm[0],mm[1],win,sigma,gain,camoffset), excessF2);
           if(L){
@@ -10494,14 +10516,15 @@ function workerSource(){
             out.push(L.x,L.y,L.photons,L.bg,L.bgstd,L.sigma,z,cl,start+i,      // cl: z clamped out-of-range
                      L.lpx==null?NaN:L.lpx, L.lpy==null?NaN:L.lpy, lpz,        // CRLB precision (MLE only; NaN otherwise)
                      L.sx==null?NaN:L.sx, L.sy==null?NaN:L.sy,                 // per-axis width (mle3d/gaussmleEll only; NaN otherwise)
-                     L.angle==null?NaN:L.angle);                               // rotation, radians (gaussmleEll only; NaN otherwise)
+                     L.angle==null?NaN:L.angle,                                // rotation, radians (gaussmleEll only; NaN otherwise)
+                     L.llr==null?NaN:L.llr);                                   // shape-test statistic (MLE only; NaN otherwise)
             if(auditCandidates) out.push(mm[1]*w+mm[0]);
           }
         }
         tF+=performance.now()-t1;
       }
       const arr=new Float64Array(out);
-      postMessage({arr,stride:auditCandidates?16:15,tD,tF,nC,count:frames.length},[arr.buffer]);
+      postMessage({arr,stride:auditCandidates?17:16,tD,tF,nC,count:frames.length},[arr.buffer]);
     };`
   ].join('\n');
   // Fail loudly when a function gained module-level state missing from
@@ -11409,7 +11432,7 @@ async function tuneGpuWorkgroup(engine){
         windows[m*k2+y*k+x]=10+500*Math.exp(-(dx*dx+dy*dy)/(2*1.3*1.3));
       }
     }
-    const spec={key:'fit-spherical', wgsl:WGSL_FIT_SPHERICAL, maxIter:20, results:[16,16,4]};
+    const spec={key:'fit-spherical', wgsl:WGSL_FIT_SPHERICAL, maxIter:20, results:[16,16,8]};
     const t0=performance.now(), timings=[];
     for(const wg of sizes){
       // Budget checked only between sizes: the first rep of each size includes
@@ -12066,14 +12089,14 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
 // Port of mleErf/mleGInt/mleModelSpherical and mleNewtonFit's separable path,
 // one candidate per thread; iteration cap 20 as on the CPU.
 function wgslFitSpherical(fixBg){ return `
-struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32 };
+struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32, rn:f32 };
 @group(0) @binding(0) var<uniform> fp: Params;
 @group(0) @binding(1) var<storage, read> seedsA: array<vec4f>;
 @group(0) @binding(2) var<storage, read> seedsB: array<vec4f>;
 @group(0) @binding(3) var<storage, read> windows: array<f32>;
 @group(0) @binding(4) var<storage, read_write> resultsA: array<vec4f>;
 @group(0) @binding(5) var<storage, read_write> resultsB: array<vec4f>;
-@group(0) @binding(6) var<storage, read_write> resultsC: array<f32>;
+@group(0) @binding(6) var<storage, read_write> resultsC: array<vec2f>;   // (bgstd, shape-test llr)
 const SQ2PI: f32 = 2.5066282746;
 fn erfApprox(xIn: f32) -> f32 {
   let s = select(1.0, -1.0, xIn < 0.0); let x = abs(xIn);
@@ -12163,16 +12186,18 @@ ${fixBg?'    // FIX_BG: background pinned at its seed (smFRET "Background from a
   for (var a=0;a<5;a=a+1) { for (var b=0;b<5;b=b+1) { augY[a][b]=fisher[a][b]; } augY[a][5]=select(0.0,1.0,a==1); }
   var lpy = -1.0; if (gaussJordan5(&augY)) { lpy = sqrt(max(0.0, augY[1][5])); }
   resultsB[m] = vec4f(sigma, lpx, lpy, converged);
-  var e2=0.0; var cnt=0.0;
+  var e2=0.0; var cnt=0.0; var llr=0.0;
   for (var iy=0; iy<K; iy=iy+1) {
     let py = cy - fp.r + f32(iy); let PY = gInt(py,y0,sigma);
     for (var ix=0; ix<K; ix=ix+1) {
       let px = cx - fp.r + f32(ix); let PX = gInt(px,x0,sigma);
-      let model = N0*PX*PY + bg0; let res = model - windows[base+iy*K+ix];
+      let model = N0*PX*PY + bg0; let dat = windows[base+iy*K+ix]; let res = model - dat;
       e2 = e2 + res*res; cnt = cnt + 1.0;
+      let xr = dat + fp.rn; let mr = model + fp.rn;
+      if (xr > 0.0) { llr = llr + xr*log(mr/xr) - mr + xr; } else { llr = llr - mr; }
     }
   }
-  resultsC[m] = sqrt(e2 / max(1.0, cnt));
+  resultsC[m] = vec2f(sqrt(e2 / max(1.0, cnt)), llr / max(1.0, cnt));
 }`; }
 const WGSL_FIT_SPHERICAL=wgslFitSpherical(false);
 // Writes one candidate's seed (centre of mass, as gaussianMLEspheric()) and fit
@@ -12199,7 +12224,7 @@ function buildFitSeedRowPhasor(img,w,h,cx,cy,r,K,k2,gain,camoffset,seedsA,seedsB
 // one dispatch, staging copies, readback. Per-model parts (WGSL, iteration
 // cap, unpacking and rejection) stay in thin wrappers. spec.results = byte
 // size per candidate of each result buffer (its length = buffer count);
-// spec.extra = extra uniform floats after [r, maxIter, eps, nMax]. frameIdx[m]
+// spec.extra = extra uniform floats after [r, maxIter, eps, nMax, rn]. frameIdx[m]
 // reattaches each accepted result to its frame; only accepted rows return.
 // makeGpuFitSlotPool(): persistent per-batch resources, allocated once per Run.
 // A slot owns its JS arrays, input/result/staging buffers and a bind group,
@@ -12274,7 +12299,7 @@ async function runGpuFitBatch(engine, spec, seedsA, seedsB, windows, nMax, r, ep
   device.pushErrorScope('validation');
   // Allocations go through the engine so they're counted in the run log.
   const U=GPUBufferUsage, mk=(size,usage,label)=>engine.mkBuf(size,usage,label);
-  const pv=new Float32Array([r,spec.maxIter,eps,nMax,...(spec.extra||[])]);
+  const pv=new Float32Array([r,spec.maxIter,eps,nMax,engine.fitRnVar||0,...(spec.extra||[])]);   // rn: read-noise variance of the shape-test statistic (the accumulator sets engine.fitRnVar)
   let paramsBuf,seedsABuf,seedsBBuf,windowsBuf,resBufs,staging,bind,owned=null;
   if(slot){
     ({paramsBuf,seedsABuf,seedsBBuf,windowsBuf,resBufs,staging}=slot);
@@ -12356,10 +12381,10 @@ async function runGpuFitBatch(engine, spec, seedsA, seedsB, windows, nMax, r, ep
 // Fit specs are module-level consts because the slot pool needs `results` to
 // size its buffers before any batch. Each is declared next to its wrapper (a
 // const can't reference a later const). `extra` (the fixed angle) is per call.
-const GPU_FIT_SPEC_SPHERICAL={key:'fit-spherical', wgsl:WGSL_FIT_SPHERICAL, maxIter:20, results:[16,16,4]};
+const GPU_FIT_SPEC_SPHERICAL={key:'fit-spherical', wgsl:WGSL_FIT_SPHERICAL, maxIter:20, results:[16,16,8]};
 // Background-pinned variant (smFRET "Background from annulus") — same kernel
 // source with FIX_BG on, same result layout, so the same wrapper reads it.
-const GPU_FIT_SPEC_SPHERICAL_FIXBG={key:'fit-spherical-fixbg', wgsl:wgslFitSpherical(true), maxIter:20, results:[16,16,4]};
+const GPU_FIT_SPEC_SPHERICAL_FIXBG={key:'fit-spherical-fixbg', wgsl:wgslFitSpherical(true), maxIter:20, results:[16,16,8]};
 async function fitBatchGpuFlat(engine, seedsA, seedsB, windows, frameIdx, nMax, r, eps, slot, candidatePixels, spec=GPU_FIT_SPEC_SPHERICAL){
   if(!nMax) return [];
   const [rA,rB,rC]=await runGpuFitBatch(engine, spec,
@@ -12368,10 +12393,10 @@ async function fitBatchGpuFlat(engine, seedsA, seedsB, windows, frameIdx, nMax, 
   // out of window, non-finite, or singular Fisher (lpx/lpy = -1 here).
   const out=[];
   for(let m=0;m<nMax;m++){
-    const x=rA[m*4],y=rA[m*4+1],photons=rA[m*4+2],bg=rA[m*4+3],sig=rB[m*4],lpx=rB[m*4+1],lpy=rB[m*4+2],conv=rB[m*4+3],bgstd=rC[m];
+    const x=rA[m*4],y=rA[m*4+1],photons=rA[m*4+2],bg=rA[m*4+3],sig=rB[m*4],lpx=rB[m*4+1],lpy=rB[m*4+2],conv=rB[m*4+3],bgstd=rC[m*2],llr=rC[m*2+1];
     const cx=seedsB[m*4+1], cy=seedsB[m*4+2];
     if(conv>0.5 && photons>1+1e-9 && Math.abs(x-cx)<=r && Math.abs(y-cy)<=r && isFinite(x) && isFinite(lpx) && isFinite(lpy) && lpx>=0 && lpy>=0){
-      out.push({x,y,photons,bg,bgstd,sigma:sig,lpx,lpy,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
+      out.push({x,y,photons,bg,bgstd,sigma:sig,lpx,lpy,llr,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
     }
   }
   return out;
@@ -12493,9 +12518,9 @@ function buildFitSeedRowEllPinned(img,w,cx,cy,r,K,k2,sigma0,angle,bg,gain,camoff
 }
 // Port of mleModelElliptical and mleNewtonFit's separable path (independent
 // σx/σy, pixel-integrated); maxIter 25 as gaussianMLEelliptic(). resultsC is a
-// vec4f (lpsx, lpsy, bgstd, converged).
+// vec4f (lpsx, lpsy, bgstd, converged); resultsD the shape-test llr.
 const WGSL_FIT_ELL3D=`
-struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32 };
+struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32, rn:f32 };
 @group(0) @binding(0) var<uniform> fp: Params;
 @group(0) @binding(1) var<storage, read> seedsA: array<vec4f>;
 @group(0) @binding(2) var<storage, read> seedsB: array<vec4f>;
@@ -12503,6 +12528,7 @@ struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32 };
 @group(0) @binding(4) var<storage, read_write> resultsA: array<vec4f>;
 @group(0) @binding(5) var<storage, read_write> resultsB: array<vec4f>;
 @group(0) @binding(6) var<storage, read_write> resultsC: array<vec4f>;
+@group(0) @binding(7) var<storage, read_write> resultsD: array<f32>;   // shape-test llr
 const SQ2PI: f32 = 2.5066282746;
 fn erfApprox(xIn: f32) -> f32 {
   let s = select(1.0, -1.0, xIn < 0.0); let x = abs(xIn);
@@ -12585,34 +12611,37 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   for (var a=0;a<6;a=a+1) { for (var b=0;b<6;b=b+1) { augSY[a][b]=fisher[a][b]; } augSY[a][6]=select(0.0,1.0,a==5); }
   var lpsy = -1.0; if (gaussJordan6(&augSY)) { lpsy = sqrt(max(0.0, augSY[5][6])); }
   resultsB[m] = vec4f(sigmaX, sigmaY, lpx, lpy);
-  var e2=0.0; var cnt=0.0;
+  var e2=0.0; var cnt=0.0; var llr=0.0;
   for (var iy=0; iy<K; iy=iy+1) {
     let py = cy - fp.r + f32(iy); let PY = gInt(py,y0,sigmaY);
     for (var ix=0; ix<K; ix=ix+1) {
       let px = cx - fp.r + f32(ix); let PX = gInt(px,x0,sigmaX);
-      let model = N0*PX*PY + bg0; let res = model - windows[base+iy*K+ix];
+      let model = N0*PX*PY + bg0; let dat = windows[base+iy*K+ix]; let res = model - dat;
       e2 = e2 + res*res; cnt = cnt + 1.0;
+      let xr = dat + fp.rn; let mr = model + fp.rn;
+      if (xr > 0.0) { llr = llr + xr*log(mr/xr) - mr + xr; } else { llr = llr - mr; }
     }
   }
   resultsC[m] = vec4f(lpsx, lpsy, sqrt(e2 / max(1.0, cnt)), converged);
+  resultsD[m] = llr / max(1.0, cnt);
 }`;
 // GPU fit dispatch for mle3d — same flat multi-frame batching shape as
 // fitBatchGpuFlat, just wider result buffers (resultsB/C both vec4f now,
 // carrying sigmaX/sigmaY/lpx/lpy and lpsx/lpsy/bgstd/converged respectively).
-const GPU_FIT_SPEC_ELL3D={key:'fit-ell3d', wgsl:WGSL_FIT_ELL3D, maxIter:25, results:[16,16,16]};
+const GPU_FIT_SPEC_ELL3D={key:'fit-ell3d', wgsl:WGSL_FIT_ELL3D, maxIter:25, results:[16,16,16,4]};
 async function fitBatchGpuFlatEll3D(engine, seedsA, seedsB, windows, frameIdx, nMax, r, eps, slot, candidatePixels){
   if(!nMax) return [];
-  const [rA,rB,rC]=await runGpuFitBatch(engine, GPU_FIT_SPEC_ELL3D,
+  const [rA,rB,rC,rD]=await runGpuFitBatch(engine, GPU_FIT_SPEC_ELL3D,
     seedsA, seedsB, windows, nMax, r, eps, slot);
   // Rejection as gaussianMLEelliptic() (no gate on lpsx/lpsy).
   const out=[];
   for(let m=0;m<nMax;m++){
     const x=rA[m*4],y=rA[m*4+1],photons=rA[m*4+2],bg=rA[m*4+3];
     const sx=rB[m*4],sy=rB[m*4+1],lpx=rB[m*4+2],lpy=rB[m*4+3];
-    const lpsx=rC[m*4],lpsy=rC[m*4+1],bgstd=rC[m*4+2],conv=rC[m*4+3];
+    const lpsx=rC[m*4],lpsy=rC[m*4+1],bgstd=rC[m*4+2],conv=rC[m*4+3],llr=rD[m];
     const cx=seedsB[m*4+2], cy=seedsB[m*4+3];
     if(conv>0.5 && photons>1+1e-9 && Math.abs(x-cx)<=r && Math.abs(y-cy)<=r && isFinite(x) && isFinite(lpx) && isFinite(lpy) && lpx>=0 && lpy>=0){
-      out.push({x,y,photons,bg,bgstd,sx,sy,sigma:(sx+sy)/2,lpx,lpy,lpsx,lpsy,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
+      out.push({x,y,photons,bg,bgstd,sx,sy,sigma:(sx+sy)/2,lpx,lpy,lpsx,lpsy,llr,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
     }
   }
   return out;
@@ -12624,7 +12653,7 @@ async function fitBatchGpuFlatEll3D(engine, seedsA, seedsB, windows, frameIdx, n
 // computed on the host after readback, as on the CPU. angle/lpangle aren't
 // outputs here.
 const WGSL_FIT_ROT_FIXED=`
-struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32, angleFixed:f32 };
+struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32, rn:f32, angleFixed:f32 };
 @group(0) @binding(0) var<uniform> fp: Params;
 @group(0) @binding(1) var<storage, read> seedsA: array<vec4f>;
 @group(0) @binding(2) var<storage, read> seedsB: array<vec4f>;
@@ -12632,6 +12661,7 @@ struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32, angleFixed:f32 };
 @group(0) @binding(4) var<storage, read_write> resultsA: array<vec4f>;
 @group(0) @binding(5) var<storage, read_write> resultsB: array<vec4f>;
 @group(0) @binding(6) var<storage, read_write> resultsC: array<vec4f>;
+@group(0) @binding(7) var<storage, read_write> resultsD: array<f32>;   // shape-test llr
 ${wgslGaussJordan(6)}
 override WG: u32 = 64u;
 @compute @workgroup_size(WG)
@@ -12706,7 +12736,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   for (var a=0;a<6;a=a+1) { for (var b=0;b<6;b=b+1) { augSY[a][b]=fisher[a][b]; } augSY[a][6]=select(0.0,1.0,a==5); }
   var lpsy = -1.0; if (gaussJordan6(&augSY)) { lpsy = sqrt(max(0.0, augSY[5][6])); }
   resultsB[m] = vec4f(sigmaX, sigmaY, lpx, lpy);
-  var e2=0.0; var cnt=0.0;
+  var e2=0.0; var cnt=0.0; var llr=0.0;
   let sx2f = sigmaX*sigmaX; let sy2f = sigmaY*sigmaY;
   for (var iy=0; iy<K; iy=iy+1) {
     let py = cy - fp.r + f32(iy);
@@ -12715,19 +12745,22 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       let dx = px-x0; let dy = py-y0;
       let arga = dx*cosA - dy*sinA; let argb = dx*sinA + dy*cosA;
       let model = amp0*exp(-0.5*(arga*arga/sx2f + argb*argb/sy2f)) + bg0;
-      let res = model - windows[base+iy*K+ix];
+      let dat = windows[base+iy*K+ix]; let res = model - dat;
       e2 = e2 + res*res; cnt = cnt + 1.0;
+      let xr = dat + fp.rn; let mr = model + fp.rn;
+      if (xr > 0.0) { llr = llr + xr*log(mr/xr) - mr + xr; } else { llr = llr - mr; }
     }
   }
   resultsC[m] = vec4f(lpsx, lpsy, sqrt(e2 / max(1.0, cnt)), converged);
+  resultsD[m] = llr / max(1.0, cnt);
 }`;
 // Fixed-angle dispatch; amp -> photons (amp·2π·σx·σy) after readback. The spec
 // is cloned per call with the angle in `extra` (the pool reads only
 // results/key).
-const GPU_FIT_SPEC_ROT_FIXED={key:'fit-rot-fixed', wgsl:WGSL_FIT_ROT_FIXED, maxIter:25, results:[16,16,16]};
+const GPU_FIT_SPEC_ROT_FIXED={key:'fit-rot-fixed', wgsl:WGSL_FIT_ROT_FIXED, maxIter:25, results:[16,16,16,4]};
 async function fitBatchGpuFlatRotFixed(engine, seedsA, seedsB, windows, frameIdx, nMax, r, eps, angleFixed, slot, candidatePixels){
   if(!nMax) return [];
-  const [rA,rB,rC]=await runGpuFitBatch(engine, {...GPU_FIT_SPEC_ROT_FIXED, extra:[angleFixed]},
+  const [rA,rB,rC,rD]=await runGpuFitBatch(engine, {...GPU_FIT_SPEC_ROT_FIXED, extra:[angleFixed]},
     seedsA, seedsB, windows, nMax, r, eps, slot);
   // Rejection as gaussianMLEellipticangled(): on amplitude (before conversion);
   // no gate on lpsx/lpsy.
@@ -12735,10 +12768,10 @@ async function fitBatchGpuFlatRotFixed(engine, seedsA, seedsB, windows, frameIdx
   for(let m=0;m<nMax;m++){
     const x=rA[m*4],y=rA[m*4+1],amp=rA[m*4+2],bg=rA[m*4+3];
     const sx=rB[m*4],sy=rB[m*4+1],lpx=rB[m*4+2],lpy=rB[m*4+3];
-    const lpsx=rC[m*4],lpsy=rC[m*4+1],bgstd=rC[m*4+2],conv=rC[m*4+3];
+    const lpsx=rC[m*4],lpsy=rC[m*4+1],bgstd=rC[m*4+2],conv=rC[m*4+3],llr=rD[m];
     const cx=seedsB[m*4+2], cy=seedsB[m*4+3];
     if(conv>0.5 && amp>1+1e-9 && Math.abs(x-cx)<=r && Math.abs(y-cy)<=r && isFinite(x) && isFinite(lpx) && isFinite(lpy) && lpx>=0 && lpy>=0){
-      out.push({x,y,photons:amp*2*Math.PI*sx*sy,bg,bgstd,sx,sy,sigma:(sx+sy)/2,angle:angleFixed,lpx,lpy,lpsx,lpsy,lpangle:NaN,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
+      out.push({x,y,photons:amp*2*Math.PI*sx*sy,bg,bgstd,sx,sy,sigma:(sx+sy)/2,angle:angleFixed,lpx,lpy,lpsx,lpsy,lpangle:NaN,llr,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
     }
   }
   return out;
@@ -12752,7 +12785,7 @@ async function fitBatchGpuFlatRotFixed(engine, seedsA, seedsB, windows, frameIdx
 // (seedsB.y, with sx=sy seed in seedsB.x) and pinned like FIX_BG; smFRET uses it
 // to align σx with each site's D->A bearing (angle = -bearing).
 function wgslFitRotFree(fixBg, pinAngle=false){ return `
-struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32 };
+struct Params { r:f32, maxIter:f32, eps:f32, nMax:f32, rn:f32 };
 @group(0) @binding(0) var<uniform> fp: Params;
 @group(0) @binding(1) var<storage, read> seedsA: array<vec4f>;
 @group(0) @binding(2) var<storage, read> seedsB: array<vec4f>;
@@ -12860,7 +12893,7 @@ ${fixBg?'    // FIX_BG: background pinned at its seed — see wgslFitSpherical()
   for (var a=0;a<7;a=a+1) { for (var b=0;b<7;b=b+1) { augA[a][b]=fisher[a][b]; } augA[a][7]=select(0.0,1.0,a==6); }
   var lpangle = -1.0; if (gaussJordan7(&augA)) { lpangle = sqrt(max(0.0, augA[6][7])); }
   resultsB[m] = vec4f(sigmaX, sigmaY, lpx, lpy);
-  var e2=0.0; var cnt=0.0;
+  var e2=0.0; var cnt=0.0; var llr=0.0;
   let cosAf = cos(angle0); let sinAf = sin(angle0); let sx2f = sigmaX*sigmaX; let sy2f = sigmaY*sigmaY;
   for (var iy=0; iy<K; iy=iy+1) {
     let py = cy - fp.r + f32(iy);
@@ -12869,12 +12902,14 @@ ${fixBg?'    // FIX_BG: background pinned at its seed — see wgslFitSpherical()
       let dx = px-x0; let dy = py-y0;
       let arga = dx*cosAf - dy*sinAf; let argb = dx*sinAf + dy*cosAf;
       let model = amp0*exp(-0.5*(arga*arga/sx2f + argb*argb/sy2f)) + bg0;
-      let res = model - windows[base+iy*K+ix];
+      let dat = windows[base+iy*K+ix]; let res = model - dat;
       e2 = e2 + res*res; cnt = cnt + 1.0;
+      let xr = dat + fp.rn; let mr = model + fp.rn;
+      if (xr > 0.0) { llr = llr + xr*log(mr/xr) - mr + xr; } else { llr = llr - mr; }
     }
   }
   resultsC[m] = vec4f(lpsx, lpsy, sqrt(e2 / max(1.0, cnt)), converged);
-  resultsD[m] = vec4f(angle0, lpangle, 0.0, 0.0);
+  resultsD[m] = vec4f(angle0, lpangle, llr / max(1.0, cnt), 0.0);   // z: shape-test llr
 }`; }
 const WGSL_FIT_ROT_FREE=wgslFitRotFree(false);
 // GPU fit dispatch for gaussmleEll free-angle — same shape as
@@ -12886,9 +12921,8 @@ const GPU_FIT_SPEC_ROT_PIN={key:'fit-rot-pin', wgsl:wgslFitRotFree(false,true), 
 const GPU_FIT_SPEC_ROT_PIN_FIXBG={key:'fit-rot-pin-fixbg', wgsl:wgslFitRotFree(true,true), maxIter:25, results:[16,16,16,16]};
 async function fitBatchGpuFlatRotFree(engine, seedsA, seedsB, windows, frameIdx, nMax, r, eps, slot, candidatePixels, spec=GPU_FIT_SPEC_ROT_FREE){
   if(!nMax) return [];
-  // 4 result buffers => 8 storage bindings, one more than every other kernel —
-  // which is why this one is gated on the adapter's own real
-  // maxStorageBuffersPerShaderStage>=7 (gpuEllRotFreeEligible, MODULE: pipeline).
+  // 4 result buffers => 8 bindings (7 storage), as the other elliptical kernels, which is why they
+  // are gated on the adapter's own real maxStorageBuffersPerShaderStage>=7 (gpuStorage7, MODULE: pipeline).
   const [rA,rB,rC,rD]=await runGpuFitBatch(engine, spec,
     seedsA, seedsB, windows, nMax, r, eps, slot);
   // Rejection as fitBatchGpuFlatRotFixed() (on amplitude; no lpangle gate).
@@ -12897,10 +12931,10 @@ async function fitBatchGpuFlatRotFree(engine, seedsA, seedsB, windows, frameIdx,
     const x=rA[m*4],y=rA[m*4+1],amp=rA[m*4+2],bg=rA[m*4+3];
     const sx=rB[m*4],sy=rB[m*4+1],lpx=rB[m*4+2],lpy=rB[m*4+3];
     const lpsx=rC[m*4],lpsy=rC[m*4+1],bgstd=rC[m*4+2],conv=rC[m*4+3];
-    const angle=rD[m*4],lpangle=rD[m*4+1];
+    const angle=rD[m*4],lpangle=rD[m*4+1],llr=rD[m*4+2];
     const cx=seedsB[m*4+2], cy=seedsB[m*4+3];
     if(conv>0.5 && amp>1+1e-9 && Math.abs(x-cx)<=r && Math.abs(y-cy)<=r && isFinite(x) && isFinite(lpx) && isFinite(lpy) && lpx>=0 && lpy>=0){
-      out.push({x,y,photons:amp*2*Math.PI*sx*sy,bg,bgstd,sx,sy,sigma:(sx+sy)/2,angle,lpx,lpy,lpsx,lpsy,lpangle,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
+      out.push({x,y,photons:amp*2*Math.PI*sx*sy,bg,bgstd,sx,sy,sigma:(sx+sy)/2,angle,lpx,lpy,lpsx,lpsy,lpangle,llr,frame:frameIdx[m],_candidatePixel:candidatePixels?candidatePixels[m]:undefined});
     }
   }
   return out;
@@ -13393,6 +13427,8 @@ function buildCsvText(locs, px, sigPSF){
   // cell_id/cell_area: per-cell tracking only; −1 = no qualifying cell (as
   // sptPALM-Python).
   const hasCellId=locs.some(L=>L.cell_id!==undefined);
+  // llr: the MLE shape-test statistic (mean log-likelihood ratio per pixel, PARAMS.shapeTest).
+  const hasLlr=locs.some(L=>isFinite(L.llr));
   const zcol=has3d?'"z [nm]",':'';
   // "sigma [nm]" kept as-is (not "sigma_xy") for ThunderSTORM CSV compatibility;
   // sigma_z/dist/sigma1st/track_id/D_coeff are webSMLM-specific additions,
@@ -13410,7 +13446,8 @@ function buildCsvText(locs, px, sigPSF){
   const tidcol=hasTrackId?',"track_id"':'';
   const dcoeffcol=hasDCoeff?',"D_coeff [um^2/s]"':'';   // ASCII "um^2" — CSV compatibility, matches ThunderSTORM's own ASCII-only header convention
   const cellcol=hasCellId?',"cell_id","cell_area [px]"':'';
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol}${anglecol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${x2y2col}${pairanglecol}${s1col}${ellcol}${aacol}${mcol}${tidcol}${dcoeffcol}${cellcol}\n`];
+  const llrcol=hasLlr?',"llr"':'';
+  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol}${anglecol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${x2y2col}${pairanglecol}${s1col}${ellcol}${aacol}${mcol}${tidcol}${dcoeffcol}${cellcol}${llrcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -13441,8 +13478,9 @@ function buildCsvText(locs, px, sigPSF){
     const tidc=hasTrackId?`,${L.track_id!==undefined?L.track_id:''}`:'';
     const dcoeffc=hasDCoeff?`,${isFinite(L.D_coeff)?L.D_coeff.toFixed(4):''}`:'';
     const cellc=hasCellId?`,${L.cell_id!==undefined?L.cell_id:''},${L.cell_area!==undefined?L.cell_area:''}`:'';
+    const llrc=hasLlr?`,${isFinite(L.llr)?L.llr.toFixed(3):''}`:'';
     buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)}${sxsyc}${anglec},`+
-             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${x2y2c}${pairanglec}${s1c}${ellc}${aac}${mc}${tidc}${dcoeffc}${cellc}`);
+             `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${x2y2c}${pairanglec}${s1c}${ellc}${aac}${mc}${tidc}${dcoeffc}${cellc}${llrc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
@@ -19661,6 +19699,13 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // EMCCD excess noise (PARAMS.cameraExcessNoise): fit in F^2-photon units, report photons — see
   // applyExcessNoise(). `gain` from here on is what the FITTER sees, not what the user typed.
   const excessF2=Math.max(1, config.cameraExcessNoise||1), gain=config.gain/excessF2;
+  // Shape test (PARAMS.shapeTest), MLE fits only. rnVar: the sCMOS read-noise variance the statistic
+  // allows for (Readout noise σ, Gain & offset estimation); none behind an EMCCD's gain register.
+  const shapeTestOn=config.shapeTest!==false && (method==='gaussmle'||method==='mle3d'||method==='gaussmleEll');
+  const shapeThr=isFinite(config.shapeTestThr)?config.shapeTestThr:-1;
+  const rnVar=excessF2>1 ? 0 : Math.pow(Math.max(0,config.pcfoRnstd||0),2);
+  let nFitsAll=0, nShapeRej=0;   // every accepted MLE fit / those the shape test then dropped
+  const acceptShape=L=>{ nFitsAll++; if(shapeTestOn && L.llr<shapeThr){ nShapeRej++; return false; } return true; };
   if(excessF2>1) onLog(`Excess noise factor F² = ${excessF2}: fitting in F²-photon units, so photon counts stay in real photons while the reported precision (lpx/lpy/lpz) is the √F² = ${Math.sqrt(excessF2).toFixed(2)}× wider one an EM gain register actually gives.`);
   // 'gaussmleEll' rotation angle — see PARAMS.localize3D: checked (default)
   // means FREE angle (null here — gaussianMLEellipticangled fits its own
@@ -19765,10 +19810,12 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     if(t.error) onLog(`(GPU auto-tune skipped: ${t.error}; using the device heuristic, workgroup ${t.heuristic}.)`);
     else if(t.timings.length) onLog(`GPU auto-tune: workgroup ${t.chosen} chosen — ${t.timings.map(x=>x.wg+': '+x.ms.toFixed(1)+' ms').join(' · ')}`);
   }
-  const gpuEllRotFixedEligible = method==='gaussmleEll' && !config.localize3D;
-  const gpuEllRotFreeEligible = method==='gaussmleEll' && config.localize3D
-    && gpuEngine.available && gpuEngine.limits.maxStorageBuffersPerShaderStage>=7;
-  const gpuFitEligible = gpuEngine.available && (GPU_FIT_METHODS.has(method) || gpuEllRotFixedEligible || gpuEllRotFreeEligible);
+  // The elliptical kernels (mle3d, both gaussmleEll ones) return the shape-test llr in a 4th result
+  // buffer, so they need 7 storage buffers; spherical (6) and phasor (4) need fewer.
+  const gpuStorage7 = gpuEngine.available && gpuEngine.limits.maxStorageBuffersPerShaderStage>=7;
+  const gpuEllRotFixedEligible = method==='gaussmleEll' && !config.localize3D && gpuStorage7;
+  const gpuEllRotFreeEligible = method==='gaussmleEll' && config.localize3D && gpuStorage7;
+  const gpuFitEligible = gpuEngine.available && ((GPU_FIT_METHODS.has(method) && (method!=='mle3d' || gpuStorage7)) || gpuEllRotFixedEligible || gpuEllRotFreeEligible);
   const gpuFitReason=!config.useGpu?'disabled':!gpuMethodSupported?'unsupported':!gpuFitLargeEnough?'below-crossover':!gpuEngine.available?'unavailable':gpuFitEligible?'selected':'unsupported';
   // A small FTM-enabled stack that fails the size thresholds below used to
   // fall all the way through useGpuFit's own pool-based FTM
@@ -19803,12 +19850,10 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // own detect/fit phase through makeGpuFitAccumulator() when eligible,
   // instead of being excluded outright. Detect stays on CPU either way —
   // it's already cheap next to the per-emitter fit cost.
-  // gaussmleEll's free-angle kernel (WGSL_FIT_ROT_FREE, 7 params) needs a
-  // 4th result buffer — 7 storage buffers total, one more than every other
-  // fit kernel here — so it's only eligible when THIS adapter's own real
-  // maxStorageBuffersPerShaderStage (captured in initGpuEngine(), never
-  // assumed) actually supports it; fixed-angle needs only 6, same as every
-  // other kernel, so it has no such extra guard.
+  // The elliptical kernels (WGSL_FIT_ELL3D, ..._ROT_FIXED, ..._ROT_FREE) have a 4th result buffer —
+  // 7 storage buffers in all, one more than spherical — so they are only eligible when THIS
+  // adapter's own real maxStorageBuffersPerShaderStage (captured in initGpuEngine(), never
+  // assumed) supports it (gpuStorage7).
   // Method/adapter eligibility ALONE, independent of FTM (GPU_FIT_METHODS/
   // gpuEngine/gpuEllRot*Eligible/gpuFitEligible are now hoisted above
   // useWorkers, see its own comment for why) — the ordinary (non-FTM)
@@ -19822,7 +19867,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   if(config.useGpu && !gpuFitLargeEnough && gpuMethodSupported){
     onLog(`(GPU fit below crossover for ${(n*w*h).toLocaleString()} input pixels; running fit on CPU. GPU render is selected independently.)`);
   } else if(config.useGpu && gpuEngine.available && !gpuFitEligible){
-    const why = method==='gaussmleEll' && config.localize3D ? `this adapter's storage-buffer limit (${gpuEngine.limits.maxStorageBuffersPerShaderStage}) is below the 7 gaussmleEll's free-angle kernel needs`
+    const why = (method==='gaussmleEll'||method==='mle3d') ? `this adapter's storage-buffer limit (${gpuEngine.limits.maxStorageBuffersPerShaderStage}) is below the 7 the elliptical fit kernels need`
               : !GPU_FIT_METHODS.has(method) && method!=='gaussmleEll' ? `method '${method}' — only ${[...GPU_FIT_METHODS,'gaussmleEll'].join('/')} are GPU-accelerated`
               : 'unknown reason';   // should be unreachable given the checks above
     onLog(`(GPU fit not available: ${why}; running fit on CPU. GPU render is unaffected.)`);
@@ -19857,6 +19902,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
     // main thread batches candidates from many frames per GPU dispatch (one
     // dispatch per frame was too small to pay off).
     const r=(win-1)/2, K=win, k2=K*K;
+    gpuEngine.fitRnVar=rnVar;   // the kernels' shape-test read-noise variance (runGpuFitBatch())
     // Batch size from the real adapter limits, never hardcoded.
     const bytesPerCandidate=k2*4+16+16;   // windows row (k2 floats) + seedsA + seedsB (vec4f each)
     // Smallest of three ceilings: two device limits (hard caps) and
@@ -19901,10 +19947,10 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         const img=slot.windows.subarray(m*k2,(m+1)*k2);
         const ell=method==='mle3d'||method==='gaussmleEll';
         const cx=slot.seedsB[m*4+(ell?2:1)],cy=slot.seedsB[m*4+(ell?3:2)];
-        const L=method==='gaussmle'?gaussianMLEspheric(img,K,K,r,r,K,sigma,1,0,eps)
-          :method==='mle3d'?gaussianMLEelliptic(img,K,K,r,r,K,sigma,1,0,eps)
+        const L=method==='gaussmle'?gaussianMLEspheric(img,K,K,r,r,K,sigma,1,0,eps,rnVar)
+          :method==='mle3d'?gaussianMLEelliptic(img,K,K,r,r,K,sigma,1,0,eps,rnVar)
           :(method==='phasor'||method==='phasor3d')?phasorResultFromSlot(img,K,r,slot.seedsA,m)
-          :gaussianMLEellipticangled(img,K,K,r,r,K,sigma,1,0,eps,sSmlmAngleRad);
+          :gaussianMLEellipticangled(img,K,K,r,r,K,sigma,1,0,eps,sSmlmAngleRad,null,null,rnVar);
         if(!L) continue;
         L.x+=cx-r; L.y+=cy-r; L.frame=slot.frameIdx[m];
         if(config.auditCandidates)L._candidatePixel=slot.candidatePixels[m];
@@ -19933,6 +19979,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
       task.then(results=>{
         tFit+=performance.now()-t1;
         for(const L of results){
+          if(!acceptShape(L)) continue;   // shape test (PARAMS.shapeTest): the kernels report llr
           // Excess noise F² (see applyExcessNoise()): the seeds and windows were packed with
           // runCore's gain, which is already gain/F², so the GPU (and fitPackedOnCpu's fallback)
           // fitted in F²-photon units exactly like the CPU paths — scale the photon-like outputs
@@ -20243,11 +20290,11 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
             // owned and frames[0] is still read below).
             if(useGpuFitInFtm) wk.postMessage({gpuDetect:1,frames,start:s,w,h,sigma,k,border,exact:exactBP,mode,
                                                win,gain,camoffset,seedMode:ftmAcc.seedMode,auditCandidates:!!config.auditCandidates});
-            else wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,auditCandidates:!!config.auditCandidates});
+            else wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,rnVar,auditCandidates:!!config.auditCandidates});
           };
           pool.forEach(wk=>{
             wk.onmessage=ev=>{
-              const d=ev.data, a=d.arr, stride=d.stride||15;
+              const d=ev.data, a=d.arr, stride=d.stride||16;
               const frames=wk._pendFrames, batchImg=frames[0], batchStart=wk._pendStart;
               let batchLocs=null;
               if(useGpuFitInFtm){
@@ -20255,7 +20302,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
                 tDetect+=d.tD; nCand+=d.nC;
               } else {
                 for(let i=0;i<a.length;i+=stride){ const L={x:a[i],y:a[i+1],photons:a[i+2],
-                    bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11],sx:a[i+12],sy:a[i+13],angle:a[i+14],_candidatePixel:stride===16?a[i+15]:undefined};
+                    bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11],sx:a[i+12],sy:a[i+13],angle:a[i+14],llr:a[i+15],_candidatePixel:stride===17?a[i+16]:undefined};
+                  if(!acceptShape(L)) continue;
                   locs.push(L);
                   if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
                 tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
@@ -20303,15 +20351,16 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         // the right frame (a shared variable races ahead with many workers).
         wk._pendImg=frames[0]; wk._pendStart=s;
         // no transfer list: frames are cloned, so any RAM cache survives
-        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,auditCandidates:!!config.auditCandidates});
+        wk.postMessage({frames,start:s,w,h,sigma,k,win,method,border,exact:exactBP,mode,zcal,wcal,gain,camoffset,eps,sSmlmAngleRad,excessF2,rnVar,auditCandidates:!!config.auditCandidates});
       };
       pool.forEach(wk=>{
         wk.onmessage=ev=>{
-          const d=ev.data, a=d.arr, stride=d.stride||15;
+          const d=ev.data, a=d.arr, stride=d.stride||16;
           const batchImg=wk._pendImg, batchStart=wk._pendStart;   // this worker's own just-completed batch
           let batchLocs=null;
           for(let i=0;i<a.length;i+=stride){ const L={x:a[i],y:a[i+1],photons:a[i+2],
-              bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11],sx:a[i+12],sy:a[i+13],angle:a[i+14],_candidatePixel:stride===16?a[i+15]:undefined};
+              bg:a[i+3],bgstd:a[i+4],sigma:a[i+5],z:a[i+6],zClamped:a[i+7]===1,frame:a[i+8],lpx:a[i+9],lpy:a[i+10],lpz:a[i+11],sx:a[i+12],sy:a[i+13],angle:a[i+14],llr:a[i+15],_candidatePixel:stride===17?a[i+16]:undefined};
+            if(!acceptShape(L)) continue;
             locs.push(L);
             if(L.frame===batchStart) (batchLocs||(batchLocs=[])).push({x:L.x,y:L.y}); }
           tDetect+=d.tD; tFit+=d.tF; nCand+=d.nC;
@@ -20367,7 +20416,8 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         const tc=performance.now(); tDetect+=tc-tb; nCand+=maxima.length;
         const frameLocs=[];                         // this frame's accepted fits, for the raw-panel overlay below
         for(const [cx,cy] of maxima){
-          const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,w,h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset), excessF2);
+          const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,rnVar) : method==='mle3d' ? gaussianMLEelliptic(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,rnVar) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,w,h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad,null,null,rnVar) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,w,h,cx,cy,win,gain,camoffset) : gaussianFit(img,w,h,cx,cy,win,sigma,gain,camoffset), excessF2);
+          if(L && !acceptShape(L)) continue;
           if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                    const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                    L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -20406,6 +20456,9 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   const runMs=performance.now()-runT0;           // runCore wall; final UI render is awaited in run()
 
   onLog(`${stopped?'Stopped':'Done'}: ${locs.length} localizations from ${processed}/${n} frames (${(locs.length/per).toFixed(1)} loc/frame) in ${Math.round(runMs/1000)} s through localization (${Math.round(dt/1000)} s localization wall · ${(dt/per).toFixed(2)} ms/frame · ${(locs.length/(dt/1000)|0).toLocaleString()} loc/s).`);
+  if(shapeTestOn && nFitsAll)
+    onLog(`Shape test (mean log-likelihood ratio per pixel ≥ ${shapeThr}${rnVar>0?`, read noise σ ${Math.sqrt(rnVar).toFixed(2)} e⁻ allowed for`:''}): `+
+          `dropped ${nShapeRej.toLocaleString()} of ${nFitsAll.toLocaleString()} fits (${(100*nShapeRej/nFitsAll).toFixed(1)}%) — a second emitter in the window, or a PSF the fit model does not describe.`);
   if((method==='gaussmle'||method==='mle3d'||method==='gaussmleEll')&&locs.length){   // at-a-glance MLE confirmation + quality stat
     const ps=locs.map(L=>Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px).filter(isFinite).sort((a,b)=>a-b);
     if(ps.length) onLog(`${label}: median CRLB precision ≈ ${ps[ps.length>>1].toFixed(1)} nm (lateral).`); }
@@ -20549,6 +20602,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
            // Per-stage cpu/gpu breakdown (see runStage(), MODULE: gpu). Additive:
            // `timings` right below keeps its exact existing shape for the CLI/tests.
            stageTimings, auditCandidatePixels,
+           shapeTest:{enabled:shapeTestOn, threshold:shapeThr, readNoiseVar:rnVar, fits:nFitsAll, rejected:nShapeRej},
            timings:{tGet,tDetect,tFit,nCand,dt,previewMs,runMs,otherMs,gpuFitSpanMs,
                      frameIoWorkerMs:poolUsed?tGet:0,detectWorkerMs:poolUsed?tDetect:0,
                      fitWorkerMs:poolUsed&&!gpuFitActive?tFit:0,
@@ -20627,7 +20681,7 @@ async function run(){
     });
     // Superseded while runCore() ran: discard (see newEpoch()).
     if(staleEpoch(myEpoch)) return;
-    lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det,firstIdx:r.firstIdx,lastIdx:r.lastIdx,stopped:r.stopped};
+    lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det,firstIdx:r.firstIdx,lastIdx:r.lastIdx,stopped:r.stopped,shapeTest:r.shapeTest};
     await rerender(true);
     log(`Ready in ${((performance.now()-uiRunT0)/1000).toFixed(1)} s including final reconstruction.`);
     // refresh the raw panel with the accepted localizations (magenta) overlaid,
@@ -21711,6 +21765,9 @@ async function showFrame(i){
       const exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter');
       const camoffset=paramValue('camoffset'), eps=paramValue('mleEps');
       const excessF2=Math.max(1,paramValue('cameraExcessNoise')), gain=paramValue('gain')/excessF2;   // see applyExcessNoise()
+      // Shape test as runCore() (its own copy of these three lines): MLE methods only.
+      const shapeTestOn=paramValue('shapeTest') && (method==='gaussmle'||method==='mle3d'||method==='gaussmleEll'), shapeThr=paramValue('shapeTestThr');
+      const rnVar=excessF2>1 ? 0 : Math.pow(Math.max(0,paramValue('pcfoRnstd')||0),2);
       const localize3D=paramValue('localize3D');
       const zcal = method==='phasor3d' ? cal3d : null;
       const wcal = (method==='mle3d'||method==='gaussmleEll') && localize3D && cal3dW ? {qx:cal3dW.qx,qy:cal3dW.qy,zmin:cal3dW.zmin,zmax:cal3dW.zmax,px:paramValue('pxnm')} : null;
@@ -21721,7 +21778,8 @@ async function showFrame(i){
       const {firstIdx,lastIdx}=fitFrameRange(paramValue('fitFirstFrame'), paramValue('fitLastFrame'), stack.n);
       const inRange = i>=firstIdx && i<lastIdx;
       if(inRange) for(const [cx,cy] of spots){
-        const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='mle3d' ? gaussianMLEelliptic(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset), excessF2);
+        const L = applyExcessNoise(method==='gaussmle' ? gaussianMLEspheric(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,rnVar) : method==='mle3d' ? gaussianMLEelliptic(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,rnVar) : method==='gaussmleEll' ? gaussianMLEellipticangled(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset,eps,sSmlmAngleRad,null,null,rnVar) : (method==='phasor'||method==='phasor3d') ? phasorFit(img,stack.w,stack.h,cx,cy,win,gain,camoffset) : gaussianFit(img,stack.w,stack.h,cx,cy,win,sigma,gain,camoffset), excessF2);
+        if(L && shapeTestOn && L.llr<shapeThr) continue;   // as runCore()'s shape test
         if(L){ if(method==='phasor3d'&&zcal){ const raw=L.pratio; L.zClamped=(raw<zcal.rmin||raw>zcal.rmax);
                  const rc=Math.max(zcal.rmin,Math.min(zcal.rmax,raw));
                  L.z=polyEval(zcal.coef, zcal.basis==='ln'?Math.log(rc):rc); }
@@ -21886,9 +21944,17 @@ function applyWinrDefault(is3d){
 }
 $('winr2d').addEventListener('change',()=>applyWinrDefault(currentIs3d()));
 $('winr3d').addEventListener('change',()=>applyWinrDefault(currentIs3d()));
+// Shape test rows: only for the MLE methods, the threshold only while the test is on.
+function syncShapeTestRows(){
+  const m=paramValue('method'), mle = m==='gaussmle'||m==='mle3d'||m==='gaussmleEll';
+  $('shapeTestRow').style.display = mle ? 'flex' : 'none';
+  $('shapeTestThrRow').style.display = mle && paramValue('shapeTest') ? 'flex' : 'none';
+}
+$('shapeTest').addEventListener('change', syncShapeTestRows);
 function updateMethodUI(){
   const m=paramValue('method'), is3dMethod = m==='mle3d'||m==='gaussmleEll';
   $('localize3DRow').style.display = is3dMethod ? 'flex' : 'none';
+  syncShapeTestRows();
   const localize3D = paramValue('localize3D');
   const is3d = currentIs3d();
   applyWinrDefault(is3d);
@@ -22177,7 +22243,7 @@ function parseCsvLocs(text){
         iSx=idx('sigma_x'), iSy=idx('sigma_y'), iAngle=idx('angle'),
         iSx0=idx('sx0th'), iSy0=idx('sy0th'), iSx1=idx('sx1st'), iSy1=idx('sy1st'),
         iSxAA=idx('sx_AA'), iSyAA=idx('sy_AA'),
-        iCellId=idx('cell_id'), iCellArea=idx('cell_area');
+        iCellId=idx('cell_id'), iCellArea=idx('cell_area'), iLlr=idx('llr');
   if(iFrame<0||iX<0||iY<0||iN<0) throw new Error('missing required columns (frame/x/y/intensity) — not a webSMLM CSV export?');
   const px=paramValue('pxnm'), locs=new Array(lines.length-1);
   let maxXpx=0, maxYpx=0;
@@ -22208,6 +22274,7 @@ function parseCsvLocs(text){
     if(iDCoeff>=0 && p[iDCoeff]!=='') L.D_coeff=+p[iDCoeff];   // already µm²/s
     if(iCellId>=0 && p[iCellId]!=='') L.cell_id=+p[iCellId];
     if(iCellArea>=0 && p[iCellArea]!=='') L.cell_area=+p[iCellArea];   // already px, no conversion
+    if(iLlr>=0 && p[iLlr]!=='') L.llr=+p[iLlr];
     if(iMerged>=0) L.nMerged=+p[iMerged];
     if(L.x>maxXpx) maxXpx=L.x; if(L.y>maxYpx) maxYpx=L.y;
     locs[i-1]=L;
@@ -22581,7 +22648,7 @@ $('pxnm').addEventListener('change',()=>{
 });
 // live preview: re-detect/re-fit the current raw frame (not the whole stack) when
 // detection/fit settings change, if "Real-time update" is checked.
-['method','localize3D','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter'].forEach(id=>{
+['method','localize3D','detection_wavelet_thr','detection_DoG_thr','detection_box_thr','psf','winr','detection_DoG_exactbp','detFilter','shapeTest','shapeTestThr','pcfoRnstd'].forEach(id=>{
   $(id).addEventListener('change',()=>{ if(stack && paramValue('liveUpdate')) showFrame(+$('scrub').value); });
 });
 // toggling "Real-time update" itself must refresh the overlay right away, not
@@ -23190,7 +23257,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-09-30a — the Simulation section is marked (Caution!).`);
+log(`webSMLM v0.13.0-dev · build 2026-10-01a — MLE shape test (Smith et al. 2010): fits whose
+log-likelihood ratio per pixel is below -1 are dropped; on by default, off for aberrated PSFs.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23450,9 +23518,10 @@ function tableColumnInfo(baseLocs, isClustered, px){
   // buildCsvText's own matching comment for the -1 = "not in a qualifying
   // cell" convention.
   const hasCellId=locs.some(L=>L.cell_id!==undefined);
-  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(hasX2Y2?['x2','y2']:[]).concat(hasPairAngle?['pairAngle']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasAngle?['angle']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(hasAA?['sx_AA','sy_AA']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]).concat(hasCellId?['cell_id','cell_area']:[]);
-  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,x2:1,y2:1,pairAngle:1,sigma_xy:1,sigma_x:1,sigma_y:1,angle:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,sx_AA:1,sy_AA:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,nmerged:0,track_id:0,D_coeff:4,cell_id:0,cell_area:0};
-  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',x2:'nm',y2:'nm',pairAngle:'deg',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',angle:'deg',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',sx_AA:'nm',sy_AA:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s',cell_area:'px'};
+  const hasLlr=locs.some(L=>isFinite(L.llr));   // MLE shape-test statistic (PARAMS.shapeTest)
+  const cols=['id','frame','x','y'].concat(hasZ?['z']:[]).concat(hasDist?['dist']:[]).concat(hasX2Y2?['x2','y2']:[]).concat(hasPairAngle?['pairAngle']:[]).concat(['sigma_xy']).concat(hasSxSy?['sigma_x','sigma_y']:[]).concat(hasAngle?['angle']:[]).concat(hasZUnc?['sigma_z']:[]).concat(hasSigma1st?['sigma1st']:[]).concat(hasEllSSmlm?['sx0th','sy0th','sx1st','sy1st']:[]).concat(hasAA?['sx_AA','sy_AA']:[]).concat(['intensity','offset','bkgstd','uncertainty']).concat(hasLlr?['llr']:[]).concat(isClustered?['nmerged']:[]).concat(hasTrackId?['track_id']:[]).concat(hasDCoeff?['D_coeff']:[]).concat(hasCellId?['cell_id','cell_area']:[]);
+  const dec={id:0,frame:0,x:1,y:1,z:1,dist:1,x2:1,y2:1,pairAngle:1,sigma_xy:1,sigma_x:1,sigma_y:1,angle:1,sigma_z:1,sigma1st:1,sx0th:1,sy0th:1,sx1st:1,sy1st:1,sx_AA:1,sy_AA:1,intensity:1,offset:1,bkgstd:1,uncertainty:1,llr:2,nmerged:0,track_id:0,D_coeff:4,cell_id:0,cell_area:0};
+  const unit={x:'nm',y:'nm',z:'nm',dist:'nm',x2:'nm',y2:'nm',pairAngle:'deg',sigma_xy:'nm',sigma_x:'nm',sigma_y:'nm',angle:'deg',sigma_z:'nm',sigma1st:'nm',sx0th:'nm',sy0th:'nm',sx1st:'nm',sy1st:'nm',sx_AA:'nm',sy_AA:'nm',intensity:'photon',offset:'photon',bkgstd:'photon',uncertainty:'nm',nmerged:'frames',D_coeff:'µm²/s',cell_area:'px',llr:'/px'};
   return {cols,dec,unit,px,sigPSF,isClustered};
 }
 // One column's display value for one loc; `i` (its index in base) is only
@@ -23492,6 +23561,7 @@ function tableColumnValue(L, i, col, info){
       let sPx=L.sigma||0; if(!(sPx>0)) sPx=sigPSF; const sNm=sPx*px;
       return (isFinite(L.lpx)&&isFinite(L.lpy))?Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px:precisionNm(sNm,px,N,bs);
     }
+    case 'llr': return isFinite(L.llr)?L.llr:NaN;
     case 'nmerged': return L.nMerged||1;
     case 'track_id': return L.track_id!==undefined?L.track_id:NaN;
     case 'D_coeff': return isFinite(L.D_coeff)?L.D_coeff:NaN;
@@ -24414,7 +24484,7 @@ async function analyze(config){
     adapter,stages:executionFromStages(mergedStages,!!cfg.useGpu)};
   return { locs, auditCandidatePixels:r&&r.auditCandidatePixels, csvText, csvParts, logText:logLines.join('\n'),
            settingsText:JSON.stringify(buildSettingsJson(paramsOnly),null,2),
-           timings:r.timings, reconstructionPng, performance:performanceResult, execution,
+           timings:r.timings, shapeTest:r&&r.shapeTest, reconstructionPng, performance:performanceResult, execution,
            // Absent for CSV input (no Run).
            stageTimings: mergedStages,
            drift, nena, frc, truthScore, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,

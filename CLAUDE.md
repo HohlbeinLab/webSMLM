@@ -179,6 +179,20 @@ what makes GUI and command-line use interchangeable.
   - Rejection: not converged; amplitude at its floor; σ pinned at `MLE_MIN_SIGMA`/`MLE_MAX_SIGMA`
     (0.5/6 px); position beyond `FIT_MAX_DRIFT_SIGMA_MULT` (2) × the *seed* σ_PSF (not the window
     radius). These constants are also in `WORKER_PRELUDE`.
+  - **Shape test** (`shapeTest`/`shapeTestThr`, on at −1, MLE methods only; Smith et al. 2010): the
+    fitters return `llr`, the mean per-pixel log-likelihood ratio over the window, in the *Stirling form*
+    `x·ln(μ/x) − μ + x` (x = 0 → −μ) — the exact Poisson likelihood of SI eq. 7 is never above −1, so
+    it cannot carry a fixed threshold. A correct model scores ≈ −0.5 independent of photons, background
+    and window. sCMOS read noise is allowed for by adding `rnVar` (= `pcfoRnstd`², none when F² > 1) to
+    data and model. `mleLlrTerm()` is the reference formula; the CPU fitters inline it (stringified into
+    workers), the four GPU kernels repeat it (uniform `rn`, an extra result buffer: spherical's
+    `resultsC` is a vec2f, the elliptical kernels have a 4th/`resultsD` output, so they need ≥ 7
+    storage buffers, `gpuStorage7`), **change all together**. `runCore()`'s `acceptShape()` drops fits at
+    every site a loc is made (worker unpack ×2, serial loop, GPU result loop) and `showFrame()`'s live
+    preview does the same; the worker message carries `llr` as its 16th float (stride 16/17).
+    `result.shapeTest` and a log line count the dropped fits. Not applied to phasor/LS or smFRET
+    extraction. Test: `tests/gpu/test-shape-test.mjs`. The `psf_fitting` branch's `psfmle` fitter would
+    need the same `llr`/`rnVar` and an `acceptShape()` call when it comes back.
   - `gaussianMLEellipticangled()`: fixed angle (from `sSmlmAngleCenter` when **3D localisation** is
     unticked) or free (7 params; seed split 1.05/0.95·σ0); optional `fixedBg` (seeded from second
     moments, `momentEllipseSeed()`) and `pinnedAngle`.
@@ -282,10 +296,10 @@ what makes GUI and command-line use interchangeable.
 
 - **export** — ThunderSTORM-compatible CSV (`buildCsvText()` returns ~5000-row `parts`, never one
   string). Optional columns appear only when a loc carries the field (`sigma_x/y`, `angle`, `x2/y2/
-  pairAngle`, `sx0th…`, `sx_AA/sy_AA`, `cell_id/cell_area`, `track_id/D_coeff`). `analyze()` returns
+  pairAngle`, `sx0th…`, `sx_AA/sy_AA`, `cell_id/cell_area`, `track_id/D_coeff`, `llr`). `analyze()` returns
   `csvParts` always and `csvText` only below `CSV_TEXT_MAX_CHARS`; `config.exportCsvRows` streams
-  chunks via `onRecord('csv', …)` (the CLI always sets it). **The worker message protocol (15
-  floats/loc) must be widened at all 3 sites together** — the worker's `out.push(...)` and both
+  chunks via `onRecord('csv', …)` (the CLI always sets it). **The worker message protocol (16
+  floats/loc, 17 with the candidate audit) must be widened at all 3 sites together** — the worker's `out.push(...)` and both
   `wk.onmessage` unpack loops (plain pool and FTM barrier) — or a new per-loc field is silently lost
   on the worker path only.
 
