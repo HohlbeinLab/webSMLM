@@ -316,10 +316,63 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   still ship marked experimental.
 - **3D FSC** (Fourier Shell Correlation) — the spherical-shell counterpart to 2D FRC, once the 3D
   voxel-grid memory cost is bounded.
-- **Multi-emitter fitting** for dense/overlapping PSFs. Single-emitter fitting biases positions
-  where PSFs overlap, and a faster single-emitter fit can't fix that — a better initial guess
-  doesn't help when there's no good single-emitter optimum to find in the first place (see the
-  rejected phasor-seeding idea in the v0.3.0 changelog entry, which ran into exactly this).
+- **Multi-emitter fitting** for dense/overlapping PSFs, as the follow-up to the MLE **shape test**
+  (`shapeTest`, v0.13.0; Smith et al. 2010). Single-emitter fitting biases positions where PSFs
+  overlap, and a faster single-emitter fit can't fix that — a better initial guess doesn't help when
+  there's no good single-emitter optimum to find in the first place (see the rejected phasor-seeding
+  idea in the v0.3.0 changelog entry). The shape test only *drops* those fits; this would recover
+  them. Investigated 2026-10-01 with a throwaway prototype of a joint two-emitter Poisson MLE
+  (shared σ and background, 8 parameters) on the existing `mleNewtonFit()` generic path; not built.
+  - **Design.** The shape test is the trigger (a window whose `llr` is below the threshold), a
+    sequential likelihood-ratio test the selector, the shape test on the pair model the validator.
+    Seed the second emitter at the residual peak of the single fit, or split the window along its
+    principal axis for merged pairs; keep the better converged solution. Both maxima of one pair
+    give the same solution, so de-duplicate emitters closer than ~1 px within a frame (and against
+    kept single fits). Each emitter gets its CRLB from the *joint* Fisher matrix, so the overlap
+    shows in the precision. ThunderSTORM's multi-emitter fitting (`MFA_MLEFitter`) does the same:
+    add an emitter while the χ² p-value of −2·ΔlogL (degrees of freedom = the extra parameters) is
+    below 1e-6, at most 5 per region (`CrowdedFieldEstimatorUI` defaults); for one extra emitter
+    (3 parameters) that is 2·ΔlogL ≈ 30.7. The method originates in Huang, Schwartz, Byars & Lidke,
+    *Biomed. Opt. Express* 2, 1377 (2011), already cited for the box filter. Use that p-value; the
+    prototype's threshold of 25 gave no false splits either.
+  - **Measured on synthetic pairs** (σ 1.3 px, 100 nm pixels, background 10 photons; 2·ΔlogL > 25):
+    1500 photons each, equal brightness: 89% resolved at 1.5 px, 100% from 2 px (single-fit error
+    73 → pair-fit 15 nm at 1.5 px; 147 → 7 nm at 3 px). 500 photons: 56% at 2 px, 99% at 2.5 px.
+    Brightness 1:3 at 1500 photons: 90% at 2 px. Single emitters were never split (0% of trials).
+    A pair refit costs 0.4–1.6 ms on the CPU (unoptimised generic driver) against 0.05 ms for a
+    single fit.
+  - **Measured on simulated movies** (300 frames, 128×128 px, Gaussian PSF, 2000 photons; Compare to
+    GT, recall *no test → shape test → shape test + rescue*): density 0.1: 66.3% → 59.6% → 68.3%;
+    density 0.3: 37.6% → 26.2% → **42.1%** (2717 failing windows, 2046 of 2622 refits became two
+    emitters); density 0.6: 20.7% → 9.5% → 25.1%; density 0.3 at 600 photons: 71.4% → 62.4% →
+    73.7%. Precision stayed ≥ 99.9% (3 false positives at density 0.3) and the lateral median error
+    5–8 nm (12 nm without the test at density 0.6). About a quarter of the failing windows stay
+    unresolved: three or more emitters, or pairs too close. Refits cost ~0.65 ms each, ~1.7 s of
+    single-thread CPU for the density 0.3 movie.
+  - **Risk: an aberrated PSF.** With the astigmatic Zernike PSF fitted by the Gaussian model
+    (density 0.1), 2239 of 2424 refits became phantom pairs: precision 99.2% → 68.8%, lateral median
+    error 7.8 → 22.9 nm. The shape test misfires there for the same reason, so the rescue needs a
+    gate. A bare failing fraction does not separate the cases (54% at density 0.6 with a Gaussian
+    PSF, 61% for the aberrated PSF at density 0.1); the fraction of *isolated* candidates (no other
+    maximum within the window) that fail the shape test should, but is untested. The proper fix is
+    a PSF-matched model: `psfmle` on the `psf_fitting` branch uses the real PSF and would take the
+    same two-emitter wrapper (it would also need `llr`/`rnVar` and `acceptShape()`; see CLAUDE.md).
+  - **Integration difficulty.** Small: the two-emitter model, seeding, selection and de-duplication
+    (~60 lines). Small to medium: the CPU, worker-pool, serial and live-preview paths (refit the
+    failing windows after each frame's single fits; no change to the worker message format).
+    **The GPU path is the hard part**: the workers only detect and pack the K×K fit window, so a
+    pair has no larger region to work on. Either a second phase on the worker pool that re-reads
+    the failing frames and refits on the CPU (medium; ~500k refits for a 2.5M-candidate run is
+    ~45 s on 8 workers), or a 2-emitter WGSL kernel (`wgslGaussJordan(8)` is parameterised) plus
+    packing larger windows for the failing candidates and CPU/GPU parity tests (about the GPU half
+    of the shape test again). Three or more emitters is the same loop (11 parameters at three);
+    the 3D elliptical/astigmatic case (eleven or more parameters, weaker identifiability, and the
+    aberration problem above) is out of scope.
+  - **Open decisions.** Two emitters per region, or up to ThunderSTORM's five; the worker-pool
+    second phase or the GPU kernel for GPU runs; on by default (as the shape test) only with the
+    isolated-fit gate, opt-in without it; whether a rescued emitter is marked (CSV column/flag).
+    Recommended first version: 2D spherical Gaussian only, up to two emitters, CPU and worker
+    paths, GPU runs through the worker-pool phase, gated.
 - **Robust detection threshold.** `mean + k·σ_noise` is computed over the whole filtered frame
   including signal, so at high blink density the threshold rises and dim localizations get
   silently dropped — detection sensitivity is density-dependent. Consider MAD or a low percentile
