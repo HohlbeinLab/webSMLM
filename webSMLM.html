@@ -15,12 +15,48 @@
     https://github.com/indutny/fft.js
 
   The simulator's microtubule cell field (MODULE: simulation, the generated
-  "insiliscope CellField" block) is the insiliscope world model, C++ compiled
-  to WebAssembly and embedded as-is (BSD-3-Clause), source commit
+  "insiliscope CellField" block) is the insiliscope world model of Koen J.A.
+  Martens, C++ compiled to WebAssembly and embedded as-is, source commit
   57d959596206d027e7b032d9ee5db08697eb067e of
-    https://github.com/kjamartens/inSiliscope
-  Its copyright notice and licence text (BSD-3-Clause requires them with a
-  compiled copy) are still to be added here verbatim before the 0.13.0 release.
+    https://github.com/kjamartens/inSiliScope
+  The block is BSD-3-Clause and contains no GPL code (the Micro-Manager adapter
+  of that repository, which does, is not part of it). BSD-3-Clause requires the
+  notice with a compiled copy; this is the licence text of that repository's
+  LICENSE file, verbatim (an earlier revision, the one at the pinned commit,
+  names "the demoCam_SMLM_MM contributors" as holder, under the same terms):
+
+      BSD 3-Clause License
+
+      Copyright (c) 2026, Koen J.A. Martens and the inSiliScope contributors
+      All rights reserved.
+
+      Redistribution and use in source and binary forms, with or without modification, are permitted
+      provided that the following conditions are met:
+
+      1. Redistributions of source code must retain the above copyright notice, this list of conditions
+         and the following disclaimer.
+
+      2. Redistributions in binary form must reproduce the above copyright notice, this list of
+         conditions and the following disclaimer in the documentation and/or other materials provided
+         with the distribution.
+
+      3. Neither the name of the copyright holder nor the names of its contributors may be used to
+         endorse or promote products derived from this software without specific prior written
+         permission.
+
+      THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+      IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+      FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+      CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+      DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+      DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+      IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+      THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+  The module also contains Emscripten's runtime glue (MIT/UIUC) and
+  fdlibm-derived maths (BSD-style); the repository's THIRD_PARTY_NOTICES.md
+  lists them with their notices:
+    https://github.com/kjamartens/inSiliScope/blob/main/THIRD_PARTY_NOTICES.md
   ============================================================================
   Algorithm references (phasor, drift/AIM, NeNA, FRC, FTM, sSMLM, …) are not
   repeated here — see docs/DOCUMENTATION.md §9 "References & further
@@ -32,16 +68,16 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2676   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3677   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3905   synthetic stack generator ("Simulate movie")
-    validation      6966   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7949   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8205   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8827   super-resolution accumulation, view, colour maps, plots
-    workers         10356  frame-parallel detect/fit worker pool
-    gpu             10999  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13339  ThunderSTORM-compatible CSV, plot/image export
+    params          2712   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3713   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3941   synthetic stack generator ("Simulate movie")
+    validation      7002   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7985   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8241   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8863   super-resolution accumulation, view, colour maps, plots
+    workers         10392  frame-parallel detect/fit worker pool
+    gpu             11035  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13375  ThunderSTORM-compatible CSV, plot/image export
     3D calibration  13688  astigmatic width-vs-z bead calibration
     drift           14100  AIM and cross-correlation drift correction
     locprecision    14758  NeNA and FRC
@@ -1706,7 +1742,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01d</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0 · proof-of-concept</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5213,7 +5249,7 @@ async function generateSynthetic(){
 // generateSynthetic()'s own 2D emitter path uses. buildPsfKernelStack() always centres its
 // z-planes on focus (focusIndex=floor((nz-1)/2)), so the true PSF focus in the returned stack
 // always lands exactly on its CENTER frame by construction — genCalBtn's click handler writes
-// that frame number straight into calRef (plus zStepNm into calStep), so "Simulate calib.
+// that frame number straight into calRef (plus zStepNm into calStep), so "Calib. 3D
 // stack" -> "Calibrate" works back-to-back with no other calibration setting needing to change.
 // Requires simulation_psfModel==='zernike' — the fixed-sigma Gaussian PSF has no z-dependent
 // width for the astigmatic calibration model to fit against.
@@ -21399,7 +21435,7 @@ async function runCalibrationSimulation(){
     log(`Calibration stack ready: ${stack.n} frames · ${stack.w}×${stack.h} · z-step ${zStepNm}nm · `+
         `z=0 ref frame ${focusIndex+1}. Click "Calibrate" in the 3D calibration section.`);
   }catch(err){
-    log(`!!! Simulate calib. stack failed: ${err.name}: ${err.message}`); setProg(null);
+    log(`!!! Calib. 3D stack failed: ${err.name}: ${err.message}`); setProg(null);
     if(stack){ $('runBtn').disabled=false; $('pcfoBtn').disabled=false; $('gainOffsetFromPcfoBtn').disabled=false; $('rawCropBtn').disabled=false; $('calBtn').disabled=false; $('smfretLocateBtn').disabled=false; }
   }finally{
     $('genCalBtn').disabled=!psfModelIsZernike(); $('genBtn').disabled=false; $('loadBtn').disabled=false;
@@ -23297,8 +23333,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-10-01d — View/Hide ground truth keeps the reconstruction's
-zoom and position.`);
+log(`webSMLM v0.13.0 · proof-of-concept — physically modelled simulator with a known answer,
+Compare to GT, MLE shape test.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -24765,7 +24801,8 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
 
     <h3>Acknowledgements</h3>
     <ul>
-      <li><b>Koen J. A. Martens</b> contributed the uniform box-filter detection method (Huang et al. 2011), the <b>Real-time update</b> live-preview toggle, the wheel-zoom / ctrl+wheel-scrub raw-panel scroll rework, sizing the green ROI box from the actual fit radius (<a href="https://github.com/HohlbeinLab/webSMLM/pull/4" target="_blank">PR #4</a>, v0.9.1), <b>Gain &amp; offset estimation</b> (the PCFO photon-conversion-factor method), and the Simulation module's physically-motivated emitter-lifetime and camera forward models (<a href="https://github.com/HohlbeinLab/webSMLM/pull/5" target="_blank">PR #5</a>, v0.10.2).</li>
+      <li><b>Koen J. A. Martens</b> contributed the uniform box-filter detection method (Huang et al. 2011), the <b>Real-time update</b> live-preview toggle, the wheel-zoom / ctrl+wheel-scrub raw-panel scroll rework, sizing the green ROI box from the actual fit radius (<a href="https://github.com/HohlbeinLab/webSMLM/pull/4" target="_blank">PR #4</a>, v0.9.1), <b>Gain &amp; offset estimation</b> (the PCFO photon-conversion-factor method), and the Simulation module's physically-motivated emitter-lifetime and camera forward models (<a href="https://github.com/HohlbeinLab/webSMLM/pull/5" target="_blank">PR #5</a>, v0.10.2)., and the 0.13.0 simulator &mdash; the Zernike-aberrated PSF and 3D simulation, worker-pool frame rendering, the nuclear-pore-complex model and the microtubule cell field from his <a href="https://github.com/kjamartens/inSiliScope" target="_blank">inSiliScope</a> world model (<a href="https://github.com/HohlbeinLab/webSMLM/pull/10" target="_blank">PR #10</a>, v0.13.0).</li>
+      <li><b>Carlas Smith</b> contributed, on the same pull request, the simulator's photophysics (three-state blinking, brightness spread), structured background, illumination profile and EMCCD camera model, its test-structure library and engineered-PSF presets, and the ground-truth scoring behind <b>Compare to GT</b> (<a href="https://github.com/HohlbeinLab/webSMLM/pull/10" target="_blank">PR #10</a>, v0.13.0).</li>
       <li><b>Aun Al Atiat</b> contributed the Read the Docs manual build (Sphinx + MyST, splitting <code>docs/DOCUMENTATION.md</code> into a multi-page reference site) (<a href="https://github.com/HohlbeinLab/webSMLM/pull/6" target="_blank">PR #6</a>, v0.11.4).</li>
       <li><b>Hazen Babcock</b> contributed a separable-Fisher-build fast path for the spherical and axis-aligned-elliptical Gaussian MLE fitters — hoisting per-axis erf/exp terms instead of recomputing them per pixel, ~1.7&ndash;1.9&times; faster fitting with bit-identical output (<a href="https://github.com/HohlbeinLab/webSMLM/pull/7" target="_blank">PR #7</a>, v0.11.10) — and identified and diagnosed a real bug in AIM drift correction's second refinement round, which compared each segment against a reference that included the segment itself, silently reducing it to a no-op — with a proposed leave-one-out fix (<a href="https://github.com/HohlbeinLab/webSMLM/issues/9" target="_blank">issue #9</a>, v0.12.1-dev).</li>
     </ul>
@@ -24775,7 +24812,8 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a>.<br>
       Versions 0.1.0–0.11.2 remain available under their original CC BY 4.0 terms; this
       license applies going forward. Bundled decoders retain their own licenses: UTIF.js and pako
-      are MIT-licensed.</p>
+      are MIT-licensed; the simulator's microtubule cell field is Koen J. A. Martens's
+      inSiliScope world model (BSD-3-Clause, notice in the page source).</p>
   </div>
 </div>
 </body>

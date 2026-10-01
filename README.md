@@ -73,8 +73,12 @@ that blink and bleach, a structured background, an sCMOS or EMCCD camera, and a
 physically modelled vectorial PSF (Gibson-Lanni + Zernike aberrations, including
 astigmatism and extended-depth presets). **Compare to GT** then scores a Localize
 result against the truth — detection, lateral and axial error, per molecule and per
-depth — and **Calib. 3D stack** simulates a matching bead stack for 3D calibration.
-Seeded runs are exactly reproducible; rendering runs on the GPU when available.
+depth, and measured precision against both the fit's own CRLB and the theoretical
+bound for the true emitters — and **Calib. 3D stack** simulates a matching bead stack
+for 3D calibration. The simulated camera is copied into the Localisation fields, the
+ground truth can be saved and loaded (**Save/Load ground truth**), and the movie
+itself saved as a 16-bit TIFF (**Save sim. movie**). Seeded runs are exactly
+reproducible; rendering runs on the GPU when available.
 Step-by-step instructions and worked recipes:
 [Simulation guide](https://websmlm.readthedocs.io/en/latest/content/02-module-reference.html#websmlm-simulation-guide).
 
@@ -159,4 +163,7 @@ this MIT license applies going forward.
 
 Bundled third-party decoders retain their own MIT licenses:
 [UTIF.js](https://github.com/photopea/UTIF.js) and
-[pako](https://github.com/nodeca/pako).
+[pako](https://github.com/nodeca/pako). The simulator's microtubule cell field is the
+[inSiliScope](https://github.com/kjamartens/inSiliScope) world model of Koen J.A. Martens
+(BSD-3-Clause, no GPL code), embedded as a generated block; its licence text is in the
+head comment of `webSMLM.html`.

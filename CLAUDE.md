@@ -12,7 +12,7 @@ paragraph here to the new current behaviour; don't append a "reported… fixed�
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM): the
 whole application — HTML, CSS, JavaScript and the two bundled decoders (pako, UTIF) — lives in
-`webSMLM.html` (~23,500 lines). It loads a raw movie, detects/localizes emitters and renders a
+`webSMLM.html` (~24,900 lines). It loads a raw movie, detects/localizes emitters and renders a
 super-resolution image, **entirely client-side** (no upload, no server, no network calls at runtime).
 `index.html` only redirects to `webSMLM.html` for the bare Pages URL.
 

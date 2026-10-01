@@ -304,6 +304,12 @@ spacing, not because it's log-specific). The single shared progress bar
 (`#bar`/`#prog`, below the action buttons) is fed by every long-running
 operation (Localize, Calibrate, drift, NeNA, FRC, file loads).
 
+Lines that start with a bold red `!!!` are refusals, failures and warnings, and say what to do:
+`!!! <Button>: <what is missing> — <how to fix it>` when an action cannot run (for example
+`!!! Compare to GT: no localisations — run Localize or load them with Load data.`),
+`!!! <Button> failed: <reason>` when it ran and failed, and `!!! <caveat and what to do>` when it ran
+with a caveat. Everything else is information. The marker is plain text in an exported or copied log.
+
 On every load, the page also compares the release number in the `<h1>`
 pill against whichever version this browser last saw (`localStorage`'s
 `webSMLM_lastVersion` — see **Header** above) and, if different, logs one
@@ -407,7 +413,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Load calibration… | `loadCalibrationJson(file)` | |
 | Load settings | `loadSettingsJson(file)` | |
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
-| Simulate calib. stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
+| Calib. 3D stack | `runCalibrationSimulation()` | no args — a bead z-stack, with calStep/calRef set for **Calibrate** |
 | Preview PSF | `previewPsf()` | no args — builds (or reuses the cached) kernel from the Simulation → Point spread function section |
 | Save ground truth | `saveGroundTruth()` | the ground truth as JSON (format `webSMLM-groundtruth`: blinks column-wise, per-frame drift, movie size, and the PSF settings, background field and camera the theoretical CRLB needs) |
 | Load ground truth | `loadGroundTruth(file)` | attaches a saved ground truth to the loaded movie (a File, or the name of one picked this session) |
@@ -1296,7 +1302,7 @@ its own describes the failures rather than the method.
 The single most useful thing this scoring reveals needs no new settings, only
 a deliberate mismatch — and it reproduces the failure that silently corrupts
 real 3D data. Calibrate on beads at the coverslip (**Emitter depth into
-sample** = 0, then *Simulate calib. stack* → *Calibrate*), then raise the depth
+sample** = 0, then *Calib. 3D stack* → *Calibrate*), then raise the depth
 to, say, 2000 nm and simulate a movie there. Imaging into a lower-index sample
 through higher-index immersion shifts and aberrates the PSF, and the
 calibration no longer describes it:
@@ -3149,7 +3155,7 @@ slightly (Phasor has no such boundary — it never rejects a candidate, on
 either path).
 
 The simulator has a GPU path too, taken whenever `useGpu` is on: the
-splat + camera-noise stage of Simulate movie and Simulate calib. stack.
+splat + camera-noise stage of Simulate movie and Calib. 3D stack.
 Camera noise is drawn from a
 counter-based generator (pcg4d, addressed by seed, frame, pixel and draw
 count) that the CPU and the GPU compute identically, so a seeded movie is
