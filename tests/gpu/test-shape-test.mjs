@@ -151,6 +151,26 @@ try {
   }
   console.log(lines.join(' · '));
 
+  // ---- uncalibrated counts: Gain/Camera offset at their defaults must not drop every fit -------
+  await page.evaluate(() => {   // a low-gain camera: 20 ADU per photon, so values are far from photons at Gain 1
+    for (const [k, v] of Object.entries({ simulation_gain: 0.05, simulation_offset: 100, simulation_readnoise: 0.5, simulation_offset_std: 0 })) { const el = $(k); el.value = v; el.dispatchEvent(new Event('change')); }
+    $('shapeTest').checked = true; $('shapeTest').dispatchEvent(new Event('change'));
+  });
+  await page.evaluate(() => runSimulation());
+  const calib = async (gain, off) => {
+    await page.evaluate(({ gain, off }) => { $('gain').value = gain; $('camoffset').value = off; $('logText').textContent = ''; logHistory.length = 0; }, { gain, off });
+    await page.evaluate(() => run()); await page.waitForFunction(() => !$('runBtn').disabled && lastResult && lastResult.locs.length, null, { timeout: 600000 });
+    return page.evaluate(() => ({ n: lastResult.locs.length, st: lastResult.shapeTest, warned: /Shape test skipped/.test($('logText').textContent),
+      preview: (async () => { await showFrame(20); return $('rawInfo').textContent; })() }));
+  };
+  const raw = await calib(1, 0), good = await calib(0.05, 100);
+  assert.ok(raw.st.skipped && raw.st.skipped.median < -3 && raw.n > 0 && !raw.st.enabled && raw.warned,
+    `defaults on raw counts: the test must skip itself with a warning and keep the fits (kept ${raw.n}, ${JSON.stringify(raw.st)})`);
+  assert.ok(good.st.skipped === null && good.st.enabled && !good.warned, 'with the right Gain/Camera offset the test applies');
+  const pvRaw = await page.evaluate(async () => { $('gain').value = 1; $('camoffset').value = 0; $('liveUpdate').checked = true; await showFrame(20); return $('rawInfo').textContent; });
+  assert.ok(!/ 0 locs/.test(pvRaw), `the live preview must not hide every fit on uncalibrated counts (${pvRaw})`);
+  console.log(`  uncalibrated counts (20 ADU/photon at Gain 1): median llr ${raw.st.skipped.median.toFixed(1)} -> test skipped, ${raw.n} fits kept; right settings: test on`);
+
   // ---- the column survives export, reload and the table -------------------------------------
   await page.evaluate(() => { $('ftmEnabled').checked = false; $('ftmEnabled').dispatchEvent(new Event('change')); });
   await localize('final', { useGpu: false, shape: true, workers: false });

@@ -190,7 +190,11 @@ what makes GUI and command-line use interchangeable.
     storage buffers, `gpuStorage7`), **change all together**. `runCore()`'s `acceptShape()` drops fits at
     every site a loc is made (worker unpack ×2, serial loop, GPU result loop) and `showFrame()`'s live
     preview does the same; the worker message carries `llr` as its 16th float (stride 16/17).
-    `result.shapeTest` and a log line count the dropped fits. Not applied to phasor/LS or smFRET
+    `result.shapeTest` and a log line count the dropped fits. The statistic needs photon units: a probe of
+    ~8 frames before the Run (`probeShapeCalibration()`/`shapeMiscalibrated()`) skips the test with a
+    warning when the median `llr` is below −3 (`SHAPE_MISCAL_MEDIAN`; Gain/Camera offset at their defaults
+    on raw counts gives tens below), and `showFrame()` decides per frame, reusing the Run's decision
+    (`_shapeCalCache`) on sparse frames. Not applied to phasor/LS or smFRET
     extraction. Test: `tests/gpu/test-shape-test.mjs`. The `psf_fitting` branch's `psfmle` fitter would
     need the same `llr`/`rnVar` and an `acceptShape()` call when it comes back.
   - `gaussianMLEellipticangled()`: fixed angle (from `sSmlmAngleCenter` when **3D localisation** is
