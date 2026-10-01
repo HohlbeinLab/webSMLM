@@ -74,10 +74,10 @@
     validation      7002   ground-truth scoring for simulated data ("Compare to GT")
     detect          7985   band-pass (wavelet/DoG/box) + local-maxima detection
     fit             8241   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8888   super-resolution accumulation, view, colour maps, plots
-    workers         10417  frame-parallel detect/fit worker pool
-    gpu             11060  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13400  ThunderSTORM-compatible CSV, plot/image export
+    render          8895   super-resolution accumulation, view, colour maps, plots
+    workers         10424  frame-parallel detect/fit worker pool
+    gpu             11067  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13407  ThunderSTORM-compatible CSV, plot/image export
     3D calibration  13688  astigmatic width-vs-z bead calibration
     drift           14100  AIM and cross-correlation drift correction
     locprecision    14758  NeNA and FRC
@@ -1742,7 +1742,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.1-dev · build 2026-10-01b</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.1-dev · build 2026-10-01c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1865,7 +1865,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           </ul>
           <p><b>3D localisation</b> (only shown for the two elliptical methods above) — <b>checked</b> (default): a free rotation angle recovered per emitter, plus z from a loaded calibration, same as <b>Gauss MLE elliptical</b>. <b>Unchecked</b>: a calibration-free fit with no z — for <b>Gauss MLE elliptical</b> this is a plain 2D elliptical fit; for the rotated method the angle is instead fixed to the sSMLM pairing step's own dispersion bearing (Pairing for sSMLM or FRET → Primary angle).</p>
           <p><b>Fit radius 2D</b>/<b>Fit radius 3D</b> set the fit window half-width used for a 2D vs. a genuinely 3D fit respectively — whichever one is relevant switches in automatically as you change method/<b>3D localisation</b>, so there's no separate "current Fit radius" field to keep in sync by hand.</p>
-          <p><b>Shape test</b> (MLE methods only, on by default) drops a fit whose shape does not match the Gaussian model: the mean log-likelihood ratio per pixel over the fit window (Smith et al. 2010, Stirling form) must be at least <b>Min. log-lik. ratio</b>. A correct single-emitter fit scores about −0.5 whatever its photons or background, so the default −1 leaves a wide margin; a second emitter reaching into the window, or a PSF the model does not describe, scores far lower. Mostly it removes windows with a neighbour in reach, not pairs closer than a fixed distance. sCMOS read noise (<b>Readout noise σ</b> under Gain &amp; offset estimation) is allowed for; for an aberrated PSF fitted with a Gaussian (astigmatism, double helix) switch it off. The score is kept as <code>llr</code> in the table and CSV. It assumes photon units: with Gain and Camera offset at their defaults on raw camera counts the test skips itself (the log says so) rather than dropping every fit.</p>
+          <p><b>Shape test</b> (MLE methods only, on by default) drops a fit whose shape does not match the Gaussian model: the mean log-likelihood ratio per pixel over the fit window (Smith et al. 2010, Stirling form) must be at least <b>Min. log-lik. ratio</b>. A correct single-emitter fit scores about −0.5 whatever its photons or background, so the default −1 leaves a wide margin; a second emitter reaching into the window, or a PSF the model does not describe, scores far lower. Mostly it removes windows with a neighbour in reach, not pairs closer than a fixed distance. sCMOS read noise (<b>Readout noise σ</b> under Gain &amp; offset estimation) is allowed for; for an aberrated PSF fitted with a Gaussian (astigmatism, double helix) switch it off. The score is kept as <code>llr</code> in the table and CSV. It assumes photon units: with Gain and Camera offset at their defaults on raw camera counts the test skips itself and unticks the box (the log says so) rather than dropping every fit; tick it again once they are set.</p>
           <p><b>Detection filter</b> — Wavelet and DoG both band-pass the frame (suppress smooth background, enhance PSF-sized spots); candidates are strict local maxima above <b>k·σ_noise</b>. The three filters respond very differently, so <b>re-tune the threshold</b> when switching between them.</p>
           <ul>
           <li><b>Wavelet (B-spline)</b> (default) — the à trous cubic-B-spline wavelet used by ThunderSTORM: no σ (scale is fixed by the wavelet levels), roughly 2× faster to filter, and the recommended choice.</li>
@@ -8381,6 +8381,13 @@ function shapeMiscalibrated(llrs, minN){
 // Which settings a calibration decision was made under (the preview reuses the Run's on sparse frames).
 let _shapeCalCache=null;
 const shapeCalKey=(gain,camoffset,f2,rnVar,method,win,sigma,w,h)=>[gain,camoffset,f2,rnVar,method,win,sigma,w,h].join('|');
+// The test skipped itself on uncalibrated counts: untick Shape test so the control shows it is off (the
+// user ticks it again once Gain/Camera offset are set).
+function untickShapeTestUncalibrated(){
+  const el=$('shapeTest'); if(!el || !el.checked) return;
+  el.checked=false; el.dispatchEvent(new Event('change'));
+  log('Shape test unticked — tick it again once Gain and Camera offset are set.');
+}
 // Fits up to ~8 frames spread over [firstIdx,lastIdx) (60 candidates each) and returns
 // shapeMiscalibrated() of their llr. getFrame(i) -> image, detect(img) -> maxima, fitAt(img,cx,cy) -> fit|null.
 async function probeShapeCalibration(getFrame, firstIdx, lastIdx, detect, fitAt){
@@ -19911,7 +19918,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
         shapeTestOn=false; shapeSkipped={median:pr.median, n:pr.n};
         onLog(`!!! Shape test skipped: the median log-likelihood ratio of this movie's fits is ${pr.median.toFixed(1)} per pixel (a correct model scores about -0.5), `+
               `too far off to be a PSF mismatch — Gain (${config.gain} photons/ADU) and Camera offset (${camoffset} ADU) probably do not describe this camera. `+
-              `Set them (Get estimate under Gain & offset estimation; Excess noise F² 2 for an EMCCD) and the test applies again, or untick Shape test.`);
+              `Set them (Get estimate under Gain & offset estimation; Excess noise F² 2 for an EMCCD) to use the test.`);
       }
     }catch(err){ onLog(`(Shape test calibration check failed: ${err.message} — the test stays on.)`); }
   }
@@ -20768,6 +20775,7 @@ async function run(){
     // Superseded while runCore() ran: discard (see newEpoch()).
     if(staleEpoch(myEpoch)) return;
     lastResult={locs:r.locs,w:r.w,h:r.h,px,mag:paramValue('mag'),det:r.det,firstIdx:r.firstIdx,lastIdx:r.lastIdx,stopped:r.stopped,shapeTest:r.shapeTest};
+    if(r.shapeTest && r.shapeTest.skipped) untickShapeTestUncalibrated();
     await rerender(true);
     log(`Ready in ${((performance.now()-uiRunT0)/1000).toFixed(1)} s including final reconstruction.`);
     // refresh the raw panel with the accepted localizations (magenta) overlaid,
@@ -21914,6 +21922,7 @@ async function showFrame(i){
         if(d.decided) _shapeCalCache={key, miscal:d.miscal};
         const miscal = d.decided ? d.miscal : !!(_shapeCalCache && _shapeCalCache.key===key && _shapeCalCache.miscal);
         if(!miscal) locsF=locsF.filter(L=>!(L.llr<shapeThr));
+        else if(d.decided) setTimeout(untickShapeTestUncalibrated,0);   // after this draw: the change event refits the preview
       }
       drawRaw(img,stack.w,stack.h,spots,locsF);
       $('rawInfo').textContent=`frame ${i+1}/${stack.n} — ${spots.length} spots`+(inRange?`, ${locsF.length} locs (live preview)`:' (outside analysis range — not fit)');
@@ -23386,8 +23395,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.1-dev · build 2026-10-01b — the shape test skips itself, with a warning, when
-Gain/Camera offset are evidently not set (raw counts), instead of dropping every fit.`);
+log(`webSMLM v0.13.1-dev · build 2026-10-01c — when the shape test skips itself on uncalibrated
+counts, the Shape test checkbox is unticked too.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

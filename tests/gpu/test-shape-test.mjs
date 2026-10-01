@@ -163,12 +163,20 @@ try {
     return page.evaluate(() => ({ n: lastResult.locs.length, st: lastResult.shapeTest, warned: /Shape test skipped/.test($('logText').textContent),
       preview: (async () => { await showFrame(20); return $('rawInfo').textContent; })() }));
   };
-  const raw = await calib(1, 0), good = await calib(0.05, 100);
+  const raw = await calib(1, 0);
+  assert.equal(await page.evaluate(() => $('shapeTest').checked), false, 'a skipped test unticks Shape test');
+  // the user sets the camera, then ticks it again (ticking at the defaults would be unticked again by the live preview)
+  await page.evaluate(() => { $('gain').value = 0.05; $('camoffset').value = 100; $('gain').dispatchEvent(new Event('change')); $('camoffset').dispatchEvent(new Event('change'));
+    $('shapeTest').checked = true; $('shapeTest').dispatchEvent(new Event('change')); });
+  const good = await calib(0.05, 100);
   assert.ok(raw.st.skipped && raw.st.skipped.median < -3 && raw.n > 0 && !raw.st.enabled && raw.warned,
     `defaults on raw counts: the test must skip itself with a warning and keep the fits (kept ${raw.n}, ${JSON.stringify(raw.st)})`);
   assert.ok(good.st.skipped === null && good.st.enabled && !good.warned, 'with the right Gain/Camera offset the test applies');
-  const pvRaw = await page.evaluate(async () => { $('gain').value = 1; $('camoffset').value = 0; $('liveUpdate').checked = true; await showFrame(20); return $('rawInfo').textContent; });
-  assert.ok(!/ 0 locs/.test(pvRaw), `the live preview must not hide every fit on uncalibrated counts (${pvRaw})`);
+  assert.equal(await page.evaluate(() => $('shapeTest').checked), true, 'and stays ticked');
+  const pvRaw = await page.evaluate(async () => { $('gain').value = 1; $('camoffset').value = 0; $('liveUpdate').checked = true; await showFrame(20); const info = $('rawInfo').textContent;
+    await new Promise(r => setTimeout(r, 400)); return { info, ticked: $('shapeTest').checked }; });
+  assert.ok(!/ 0 locs/.test(pvRaw.info), `the live preview must not hide every fit on uncalibrated counts (${pvRaw.info})`);
+  assert.equal(pvRaw.ticked, false, 'the preview also unticks Shape test on uncalibrated counts');
   console.log(`  uncalibrated counts (20 ADU/photon at Gain 1): median llr ${raw.st.skipped.median.toFixed(1)} -> test skipped, ${raw.n} fits kept; right settings: test on`);
 
   // ---- the column survives export, reload and the table -------------------------------------
