@@ -39,19 +39,19 @@
     detect          7949   band-pass (wavelet/DoG/box) + local-maxima detection
     fit             8205   phasor, LSQ and Poisson-MLE fitters; aperture photometry
     render          8827   super-resolution accumulation, view, colour maps, plots
-    workers         10351  frame-parallel detect/fit worker pool
-    gpu             10994  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13334  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13683  astigmatic width-vs-z bead calibration
-    drift           14095  AIM and cross-correlation drift correction
-    locprecision    14753  NeNA and FRC
-    sSMLM           15892  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16498  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18605  single-particle tracking and diffusion coefficients
-    pipeline        19655  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   20711  Micro-Manager/pycromanager bridge (experimental)
-    table           23370  localizations table, filters, histograms, clustering
-    headless API    24061  window.webSMLM.analyze()/analyzeBatch()
+    workers         10356  frame-parallel detect/fit worker pool
+    gpu             10999  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13339  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  13688  astigmatic width-vs-z bead calibration
+    drift           14100  AIM and cross-correlation drift correction
+    locprecision    14758  NeNA and FRC
+    sSMLM           15897  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          16503  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             18610  single-particle tracking and diffusion coefficients
+    pipeline        19660  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   20716  Micro-Manager/pycromanager bridge (experimental)
+    table           23380  localizations table, filters, histograms, clustering
+    headless API    24071  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01b</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9436,7 +9436,12 @@ function srDrawImage(ctx,sx,sy,sw,sh,DW,DH,transparent){
 // View math is in CSS pixels (the canvas backing is CSS×dpr for crisp overlays,
 // so use clientWidth/Height — NOT the backing width/height — as the logical size).
 function fitZoom(){ const d=$('sr'); return Math.min((d.clientWidth||d.width)/srFull.width, (d.clientHeight||d.height)/srFull.height); }
-function fitView(){ view.zoom=fitZoom(); view.cx=srFull.width/2; view.cy=srFull.height/2; view.atFit=true; }
+// _srFitSize: the reconstruction canvas's CSS size at the last fit; refitCanvases() keeps a zoomed
+// view through a size change of at most SR_RESIZE_KEEP_PX from it (a scrollbar appearing).
+let _srFitSize=null;
+const SR_RESIZE_KEEP_PX=24;
+function fitView(){ view.zoom=fitZoom(); view.cx=srFull.width/2; view.cy=srFull.height/2; view.atFit=true;
+  const d=$('sr'); _srFitSize=[d.clientWidth,d.clientHeight]; }
 // keep the visible window inside the reconstruction: clamp the centre by the
 // current half-window, or recentre on the axis where the view is wider than the image.
 function clampView(){
@@ -23278,8 +23283,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-10-01b — Simulate movie sets the Localisation Gain, Camera
-offset, Excess noise F² and Readout noise σ to the simulated camera.`);
+log(`webSMLM v0.13.0-dev · build 2026-10-01c — a zoomed reconstruction keeps its view when the
+panel size changes by a few pixels (e.g. a scrollbar appearing).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -23336,7 +23341,8 @@ $('layoutToggleBtn').addEventListener('click', ()=>{
 // layout switch, scrollbar). Observe the canvases, not #canvases: the crop
 // note appearing below #sr resized the container without resizing the
 // canvas and reset the crop zoom. A real resize always re-fits, regardless
-// of atFit (which any zoom/pan clears).
+// of atFit (which any zoom/pan clears) — except a zoomed reconstruction keeps its view through a
+// change of at most SR_RESIZE_KEEP_PX from the size it was last fitted at.
 let _plotResizeT=null, _refitTriggerReason='';
 // TEMPORARY diagnostic: logs when a queued refit is about to discard a
 // non-fit view, with the trigger and the canvas size, to find a remaining
@@ -23347,7 +23353,11 @@ let _plotResizeT=null, _refitTriggerReason='';
 let _refitWhich=new Set();
 const refitCanvases=(which=['raw','sr'])=>{ for(const w of which) _refitWhich.add(w); clearTimeout(_plotResizeT); _plotResizeT=setTimeout(()=>{
   const doRaw=_refitWhich.has('raw'), doSr=_refitWhich.has('sr'); _refitWhich=new Set();
-  if(doSr && srFull && !srIsPlot && !view.atFit){
+  // A zoomed reconstruction survives a canvas size change of a few px (a scrollbar appearing after
+  // Compare to GT, or a sub-pixel layout shift); any real resize still re-fits.
+  const keepSr = doSr && srFull && !srIsPlot && !view.atFit && _srFitSize &&
+    Math.abs($('sr').clientWidth-_srFitSize[0])<=SR_RESIZE_KEEP_PX && Math.abs($('sr').clientHeight-_srFitSize[1])<=SR_RESIZE_KEEP_PX;
+  if(doSr && srFull && !srIsPlot && !view.atFit && !keepSr){
     const cv=$('sr');
     log(`(diagnostic) reconstruction auto-refit — trigger: ${_refitTriggerReason||'unknown'}, `+
         `canvas ${cv.clientWidth}×${cv.clientHeight}px, discarding zoom ${view.zoom.toFixed(4)} `+
@@ -23356,7 +23366,7 @@ const refitCanvases=(which=['raw','sr'])=>{ for(const w of which) _refitWhich.ad
   if(doRaw){ if(rawIsPlot && _replotRaw) _replotRaw();
     else if(rawFull){ fitRawView(); clampRawView(); drawRawView(); } }
   if(doSr){ if(srIsPlot && _replotSr) _replotSr();
-    else if(srFull){ fitView(); clampView(); drawView(); } }
+    else if(srFull){ if(keepSr){ clampView(); drawView(); } else { fitView(); clampView(); drawView(); } } }
 }, 120); };
 window.addEventListener('resize', ()=>{ _refitTriggerReason='window resize event'; refitCanvases(); });
 if(typeof ResizeObserver!=='undefined'){

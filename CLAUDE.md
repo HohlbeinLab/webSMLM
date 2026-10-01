@@ -668,7 +668,10 @@ settings-JSON code).
   `var(--line)` border; the canvases have none.
 - A `getBoundingClientRect()` value feeding a `position:fixed` offset must add `window.scrollY`
   (`measureHeader()`).
-- A real window/panel resize re-fits the views (`refitCanvases(which)`), regardless of `atFit`;
+- A real window/panel resize re-fits the views (`refitCanvases(which)`), regardless of `atFit` —
+  except that a zoomed reconstruction keeps its view through a canvas size change of at most
+  `SR_RESIZE_KEEP_PX` (24) from where it was last fitted (`_srFitSize`: a scrollbar appearing, a
+  sub-pixel layout shift);
   its `ResizeObserver` watches the two canvases, not their container, and re-fits only the canvas
   that changed (the taller time-trace panel keeps the reconstruction's zoom); window resize and the
   layout toggle re-fit both.
