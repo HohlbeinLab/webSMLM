@@ -194,9 +194,11 @@ what makes GUI and command-line use interchangeable.
     ~8 frames before the Run (`probeShapeCalibration()`/`shapeMiscalibrated()`) skips the test with a
     warning when the median `llr` is below −3 (`SHAPE_MISCAL_MEDIAN`; Gain/Camera offset at their defaults
     on raw counts gives tens below), and `showFrame()` decides per frame, reusing the Run's decision
-    (`_shapeCalCache`) on sparse frames. Either way the **Shape test checkbox is unticked**
+    (`_shapeCalCache`) on sparse frames; the **Shape test checkbox is then unticked**
     (`untickShapeTestUncalibrated()`, from the `run()` wrapper and the preview; `runCore()` stays DOM-free
-    and only reports `shapeTest.skipped`), so the control shows the truth. Not applied to phasor/LS or smFRET
+    and only reports `shapeTest.skipped = {reason:'probe', median, n}`). Before that, `shapeCameraSet()`:
+    while Gain is 1 and Camera offset 0 (the defaults) the rows are greyed out (`syncShapeTestRows()`,
+    `.row.dimmed`) and `runCore()`/`showFrame()` do not apply the test (`skipped = {reason:'defaults'}`). Not applied to phasor/LS or smFRET
     extraction. Test: `tests/gpu/test-shape-test.mjs`. The `psf_fitting` branch's `psfmle` fitter would
     need the same `llr`/`rnVar` and an `acceptShape()` call when it comes back.
   - `gaussianMLEellipticangled()`: fixed angle (from `sSmlmAngleCenter` when **3D localisation** is

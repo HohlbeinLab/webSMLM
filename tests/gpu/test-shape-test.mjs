@@ -151,33 +151,38 @@ try {
   }
   console.log(lines.join(' · '));
 
-  // ---- uncalibrated counts: Gain/Camera offset at their defaults must not drop every fit -------
+  // ---- uncalibrated counts: the camera at its defaults, or set but wrong ------------------------
   await page.evaluate(() => {   // a low-gain camera: 20 ADU per photon, so values are far from photons at Gain 1
     for (const [k, v] of Object.entries({ simulation_gain: 0.05, simulation_offset: 100, simulation_readnoise: 0.5, simulation_offset_std: 0 })) { const el = $(k); el.value = v; el.dispatchEvent(new Event('change')); }
     $('shapeTest').checked = true; $('shapeTest').dispatchEvent(new Event('change'));
   });
   await page.evaluate(() => runSimulation());
+  const camera = (gain, off) => page.evaluate(({ gain, off }) => { for (const [k, v] of [['gain', gain], ['camoffset', off]]) { const el = $(k); el.value = v; el.dispatchEvent(new Event('change')); } }, { gain, off });
   const calib = async (gain, off) => {
-    await page.evaluate(({ gain, off }) => { $('gain').value = gain; $('camoffset').value = off; $('logText').textContent = ''; logHistory.length = 0; }, { gain, off });
+    await camera(gain, off);
+    await page.evaluate(() => { $('logText').textContent = ''; logHistory.length = 0; });
     await page.evaluate(() => run()); await page.waitForFunction(() => !$('runBtn').disabled && lastResult && lastResult.locs.length, null, { timeout: 600000 });
-    return page.evaluate(() => ({ n: lastResult.locs.length, st: lastResult.shapeTest, warned: /Shape test skipped/.test($('logText').textContent),
-      preview: (async () => { await showFrame(20); return $('rawInfo').textContent; })() }));
+    return page.evaluate(() => ({ n: lastResult.locs.length, st: lastResult.shapeTest, log: $('logText').textContent, disabled: $('shapeTest').disabled, ticked: $('shapeTest').checked }));
   };
-  const raw = await calib(1, 0);
-  assert.equal(await page.evaluate(() => $('shapeTest').checked), false, 'a skipped test unticks Shape test');
-  // the user sets the camera, then ticks it again (ticking at the defaults would be unticked again by the live preview)
-  await page.evaluate(() => { $('gain').value = 0.05; $('camoffset').value = 100; $('gain').dispatchEvent(new Event('change')); $('camoffset').dispatchEvent(new Event('change'));
-    $('shapeTest').checked = true; $('shapeTest').dispatchEvent(new Event('change')); });
+  const tick = () => page.evaluate(() => { $('shapeTest').checked = true; $('shapeTest').dispatchEvent(new Event('change')); });
+  // (a) Gain 1 / Camera offset 0: the control is greyed out, the test is not applied, every fit is kept, the live preview shows them
+  const def = await calib(1, 0);
+  assert.ok(def.disabled && def.ticked && !def.st.enabled && def.st.skipped.reason === 'defaults' && def.n > 0 && /Shape test not applied/.test(def.log),
+    `at the defaults the Shape test is greyed out and not applied (kept ${def.n}, ${JSON.stringify(def.st)})`);
+  const pvDef = await page.evaluate(async () => { $('liveUpdate').checked = true; await showFrame(20); return $('rawInfo').textContent; });
+  assert.ok(!/ 0 locs/.test(pvDef), `the live preview shows its fits at the defaults (${pvDef})`);
+  // (b) set but wrong (10x too many photons): the probe skips the test and unticks the box
+  const wrong = await calib(0.5, 100);
+  assert.ok(!wrong.disabled && wrong.st.skipped && wrong.st.skipped.reason === 'probe' && wrong.st.skipped.median < -3 && wrong.n > 0 && /Shape test skipped/.test(wrong.log) && !wrong.ticked,
+    `a wrong but set camera: the probe skips the test and unticks it (kept ${wrong.n}, ${JSON.stringify(wrong.st)}, ticked ${wrong.ticked})`);
+  await tick(); await camera(0.5, 100);
+  const pvWrong = await page.evaluate(async () => { await showFrame(20); const info = $('rawInfo').textContent; await new Promise(r => setTimeout(r, 400)); return { info, ticked: $('shapeTest').checked }; });
+  assert.ok(!/ 0 locs/.test(pvWrong.info) && pvWrong.ticked === false, `the preview also unticks it on a wrong camera (${JSON.stringify(pvWrong)})`);
+  // (c) the right camera: ticked again, the test applies
+  await camera(0.05, 100); await tick();
   const good = await calib(0.05, 100);
-  assert.ok(raw.st.skipped && raw.st.skipped.median < -3 && raw.n > 0 && !raw.st.enabled && raw.warned,
-    `defaults on raw counts: the test must skip itself with a warning and keep the fits (kept ${raw.n}, ${JSON.stringify(raw.st)})`);
-  assert.ok(good.st.skipped === null && good.st.enabled && !good.warned, 'with the right Gain/Camera offset the test applies');
-  assert.equal(await page.evaluate(() => $('shapeTest').checked), true, 'and stays ticked');
-  const pvRaw = await page.evaluate(async () => { $('gain').value = 1; $('camoffset').value = 0; $('liveUpdate').checked = true; await showFrame(20); const info = $('rawInfo').textContent;
-    await new Promise(r => setTimeout(r, 400)); return { info, ticked: $('shapeTest').checked }; });
-  assert.ok(!/ 0 locs/.test(pvRaw.info), `the live preview must not hide every fit on uncalibrated counts (${pvRaw.info})`);
-  assert.equal(pvRaw.ticked, false, 'the preview also unticks Shape test on uncalibrated counts');
-  console.log(`  uncalibrated counts (20 ADU/photon at Gain 1): median llr ${raw.st.skipped.median.toFixed(1)} -> test skipped, ${raw.n} fits kept; right settings: test on`);
+  assert.ok(good.st.skipped === null && good.st.enabled && good.ticked && !good.disabled && !/Shape test skipped|not applied/.test(good.log), 'with the right Gain/Camera offset the test applies');
+  console.log(`  uncalibrated counts (20 ADU/photon): at Gain 1 / offset 0 greyed out, ${def.n} fits kept; Gain 0.5 (median llr ${wrong.st.skipped.median.toFixed(1)}) skipped and unticked, ${wrong.n} kept; right settings: test on`);
 
   // ---- the column survives export, reload and the table -------------------------------------
   await page.evaluate(() => { $('ftmEnabled').checked = false; $('ftmEnabled').dispatchEvent(new Event('change')); });
