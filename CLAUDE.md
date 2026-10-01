@@ -509,6 +509,9 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
    messages and the GPU spec): sCMOS = Poisson → read noise (e⁻) → gain → fixed per-pixel offset map;
    EMCCD = QE + CIC → Poisson → `simNoiseGamma(n)` (scale 1) → read noise / EM gain. Both end in
    integer ADU clipped at 2^bits−1 (`simulation_bitDepth`), CPU and GPU alike.
+   Simulate movie / Calib. 3D stack write the simulated camera into the Localisation Gain, Camera offset, Excess
+   noise F² and Readout noise σ (`simulatedCameraSettings()`/`applySimulatedCameraSettings()`; `simMovie.camera`
+   restores them for Show movie).
    **Show movie** (`showSimulatedMovie()`): `simMovie` (stack as generated + ground truth, set by
    Simulate movie, cleared only by the next one or a movie load, so Calib. 3D stack/crop can't lose
    it) is restored like a load (`clearAnalysisOutputs()` → `presentStack()`).

@@ -50,8 +50,8 @@
     spt             18605  single-particle tracking and diffusion coefficients
     pipeline        19655  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   20711  Micro-Manager/pycromanager bridge (experimental)
-    table           23349  localizations table, filters, histograms, clustering
-    headless API    24040  window.webSMLM.analyze()/analyzeBatch()
+    table           23370  localizations table, filters, histograms, clustering
+    headless API    24061  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2269,8 +2269,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           generated; the two are separate so a mismatch can be simulated on purpose.</p>
           <p><b>Read noise</b>, <b>Simulated gain/offset</b> and <b>Offset std. deviation</b>
           forward-model the sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
-          gain conversion, then a fixed per-pixel offset map is added. Gain and offset are independent of the <b>Gain</b>/<b>Camera
-          offset</b> used for localization, so a wrong analysis gain can be simulated too. For a clean
+          gain conversion, then a fixed per-pixel offset map is added. Simulate movie copies them into the Localisation <b>Gain</b>/<b>Camera
+          offset</b>/<b>Excess noise F²</b>/<b>Readout noise σ</b> fields, which stay independent afterwards, so a wrong analysis gain can be simulated too. For a clean
           self-consistency test with <b>Gain/offset estimation</b>'s readout-noise field, combine read noise and
           offset std in quadrature (√(read_noise²+offset_std²), offset std converted to photons via this
           panel's gain) — a static per-pixel offset pattern looks identical to read noise in a single frame.</p>
@@ -21237,6 +21237,23 @@ async function toggleDataProjection(){
 $('srProjToggleBtn').addEventListener('click', toggleDataProjection);
 // "Simulate movie": session reset around generateSynthetic() (like
 // loadMovieFiles()'s reset).
+// The simulated camera as the Localisation fields would describe it: Gain, Camera offset, Excess
+// noise F² (2 for an EMCCD, whose Poisson∘Gamma pixel has variance 2λ), and Readout noise σ — the
+// white noise the shape test allows for (read noise plus the fixed-pattern offset spread in photons;
+// referred to the input behind an EMCCD's gain register).
+function simulatedCameraSettings(){
+  const emccd=paramValue('simulation_cameraType')==='emccd', gain=paramValue('simulation_gain');
+  const read=paramValue('simulation_readnoise')/(emccd?Math.max(1,paramValue('simulation_emGain')):1);
+  return { gain, camoffset:paramValue('simulation_offset'), cameraExcessNoise:emccd?2:1,
+           pcfoRnstd:+Math.hypot(read, paramValue('simulation_offset_std')*gain).toFixed(2) };
+}
+// Writes those into the Localisation fields (so a simulated movie localizes and scores with its own
+// camera, no Get estimate needed) and says so in the log.
+function applySimulatedCameraSettings(cam){
+  for(const [id,v] of Object.entries(cam)){ const el=$(id); el.value=v; el.dispatchEvent(new Event('change')); }
+  log(`Localisation camera set to the simulated one: Gain ${cam.gain} photons/ADU, Camera offset ${cam.camoffset} ADU, `+
+      `Excess noise F² ${cam.cameraExcessNoise}, Readout noise σ ${cam.pcfoRnstd} e⁻.`);
+}
 // Memory the simulated movie needs: its Float32 frames (4 bytes/px) plus, until it is replaced,
 // the previous simulated movie (Show movie keeps it). Refused over the memory budget
 // (effectiveMemBudgetBytes()); above SIM_MOVIE_WARN_BYTES it runs with a warning that also
@@ -21291,7 +21308,8 @@ async function runSimulation(){
     // Ground truth is in unrotated camera coordinates: with Rotate movie set it
     // no longer matches the frames, so drop it rather than score against it.
     const simGt=groundTruthEvents, simDrift=simTrueDrift;
-    setSimMovie({stack:generated, groundTruth, groundTruthEvents, groundTruthLocs, simTrueDrift});
+    const simCamera=simulatedCameraSettings();
+    setSimMovie({stack:generated, groundTruth, groundTruthEvents, groundTruthLocs, simTrueDrift, camera:simCamera});
     if(appliedRotation){ clearSimGroundTruth(); log(`Rotate movie is ${appliedRotation}°: the ground truth is not rotated with the frames, so Compare to GT and View ground truth are off for this movie.`); }
     // Saved as generated (unrotated), so the ground truth still matches the saved frames.
     setSimSaved({stack:generated, kind:'movie', name:'webSMLM_simulated', gt:simGt, drift:simDrift, frameTimeS:paramValue('frametime')});
@@ -21302,6 +21320,7 @@ async function runSimulation(){
     originalStack=null; rawCropMode=false; rawCropPt0=null; $('rawCropBtn').classList.remove('on');
     rawFtmView=false; $('rawFtmBtn').textContent='Show FTM corrected';   // a new stack starts on the raw view
     $('pxnm').value=stack.px;   // keep the shared pixel-size control (scale bar, re-run config, …) in sync with the simulated stack's own px
+    applySimulatedCameraSettings(simCamera);
     const d=$('sr'); d.getContext('2d').clearRect(0,0,d.width,d.height); drawView();
     syncSaveImg();   // the old stack's content is gone; disable Save image until showFrame(0) below draws something new
     initScrub();
@@ -21342,6 +21361,7 @@ async function showSimulatedMovie(){
     setViewGtBtn(!!(groundTruthLocs && groundTruthLocs.length));
   }
   $('pxnm').value=stack.px;
+  if(sm.camera) applySimulatedCameraSettings(sm.camera);   // the camera this movie was simulated with, not the sidebar's current one
   drawView(); syncSaveImg();
   if(!await presentStack(myEpoch)) return;
   log(`Simulated movie shown again: ${stack.n} frames · ${stack.w}×${stack.h}. Click “Localize”.`);
@@ -21364,6 +21384,7 @@ async function runCalibrationSimulation(){
     setSimSaved({stack:s, kind:'bead stack', name:'webSMLM_simulated_calib', gt:null, drift:null, frameTimeS:0,
       extraDesc:`webSMLM z-step (nm)=${zStepNm}\nwebSMLM focus frame=${focusIndex+1}\n`});
     $('pxnm').value=stack.px;   // keep the shared pixel size in sync with the simulated stack
+    applySimulatedCameraSettings(simulatedCameraSettings());
     drawView(); syncSaveImg();
     // The true focus is the centre frame by construction, so calRef is set
     // exactly rather than left to auto-detect.
@@ -23257,8 +23278,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-10-01a — MLE shape test (Smith et al. 2010): fits whose
-log-likelihood ratio per pixel is below -1 are dropped; on by default, off for aberrated PSFs.`);
+log(`webSMLM v0.13.0-dev · build 2026-10-01b — Simulate movie sets the Localisation Gain, Camera
+offset, Excess noise F² and Readout noise σ to the simulated camera.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

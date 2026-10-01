@@ -662,9 +662,11 @@ what:
    with **Rotate movie** set has none (the truth is not rotated with the frames).
 
 After a simulation the analysis **Pixel size (nm)** at the top of the sidebar is set to **Simulated
-pixel size**. The analysis **Gain** and **Camera offset** (Localisation) are **not** — set them to the
-simulated camera's values (Camera; defaults 0.34 photons/ADU and 100 ADU) or use **Get
-estimate**, or photon counts and precisions come out on the wrong scale (positions are unaffected).
+pixel size**, and the Localisation camera fields to the simulated camera: **Gain**, **Camera offset**,
+**Excess noise F²** (2 for an EMCCD, else 1) and the **Readout noise σ** the shape test allows for (read
+noise plus the offset spread, in photons). **Show movie** restores the values of the movie it brings back.
+Change them afterwards to simulate a wrong analysis gain; left at other values, photon counts and
+precisions come out on the wrong scale (positions are unaffected).
 
 #### Quick start: your first scored movie
 
@@ -2429,8 +2431,8 @@ pixel size. The pixel size is copied into the analysis <b>Pixel size (nm)</b> af
 generated; the two are separate so a mismatch can be simulated on purpose.</p>
 <p><b>Read noise</b>, <b>Simulated gain/offset</b> and <b>Offset std. deviation</b>
 forward-model the sensor: Gaussian read noise (σ in electrons) is added to the photon count before the
-gain conversion, then a fixed per-pixel offset map is added. Gain and offset are independent of the <b>Gain</b>/<b>Camera
-offset</b> used for localization, so a wrong analysis gain can be simulated too. For a clean
+gain conversion, then a fixed per-pixel offset map is added. Simulate movie copies them into the Localisation <b>Gain</b>/<b>Camera
+offset</b>/<b>Excess noise F²</b>/<b>Readout noise σ</b> fields, which stay independent afterwards, so a wrong analysis gain can be simulated too. For a clean
 self-consistency test with <b>Gain/offset estimation</b>'s readout-noise field, combine read noise and
 offset std in quadrature (√(read_noise²+offset_std²), offset std converted to photons via this
 panel's gain) — a static per-pixel offset pattern looks identical to read noise in a single frame.</p>
