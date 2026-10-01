@@ -50,8 +50,8 @@
     spt             18610  single-particle tracking and diffusion coefficients
     pipeline        19660  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   20716  Micro-Manager/pycromanager bridge (experimental)
-    table           23380  localizations table, filters, histograms, clustering
-    headless API    24071  window.webSMLM.analyze()/analyzeBatch()
+    table           23394  localizations table, filters, histograms, clustering
+    headless API    24085  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1706,7 +1706,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01c</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.0-dev · build 2026-10-01d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -21422,11 +21422,23 @@ function syncGtFileBtns(){
   if(sb) sb.disabled=!(groundTruthEvents && groundTruthEvents.length);
   if(lb) lb.disabled=!stack;
 }
+// The reconstruction panel's view as it is now, to carry across a swap of srFull (keepViewAfterSwap()).
+function snapshotSrView(){ return {zoom:view.zoom, cx:view.cx, cy:view.cy, atFit:view.atFit, w:srFull?srFull.width:0}; }
+// After srFull was replaced by an image of another size (ground truth in or out): a zoomed view keeps
+// its field of view (centre and zoom scaled by the width ratio, as toggleDataProjection()); a view at
+// fit re-fits to the new image.
+function keepViewAfterSwap(v0){
+  if(!srFull) return;
+  if(v0 && !v0.atFit && v0.w>0){ const k=srFull.width/v0.w; view.cx=v0.cx*k; view.cy=v0.cy*k; view.zoom=v0.zoom/k; view.atFit=false; }
+  else fitView();
+  clampView(); drawView();
+}
 async function toggleGtLocalizations(){
   if(!groundTruthLocs || !groundTruthLocs.length || !stack){ log('!!! View ground truth: no simulated ground truth — run Simulate movie first.'); return; }
   const btn=$('viewGtBtn'); btn.disabled=true;
   try{
     gtShowing=!gtShowing;
+    const v0=snapshotSrView();   // GT in/out must not reset a zoomed view
     if(gtShowing){
       srFullBeforeGT=srFull;
       srTitleBeforeGT=$('srTitle').textContent; srInfoBeforeGT=$('srInfo').textContent;
@@ -21459,7 +21471,7 @@ async function toggleGtLocalizations(){
       srFull=await renderSuperRes(groundTruthLocs, stack.w, stack.h, paramValue('mag'), 1/stack.px,
                         paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi, groundTruthLocs, 'z', log, paramValue('renderMode'));
       srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi;
-      srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); fitView(); clampView(); drawView();
+      srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); keepViewAfterSwap(v0);
       $('srTitle').textContent='Ground truth';
       $('srInfo').textContent=`— ${groundTruthLocs.length.toLocaleString()} simulated emitter blink(s) · true positions, not a fit`+
         (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'');
@@ -21468,6 +21480,7 @@ async function toggleGtLocalizations(){
       srFull=srFullBeforeGT; srFullBeforeGT=null;
       if(lastResult){
         await rerender(true);
+        keepViewAfterSwap(v0);   // rerender(true) keeps the view as is; scale it if the sizes differ
       } else if(srFull){
         // restore whatever non-null srFull preceded the GT view (e.g. a bead composite, or the
         // pre-Run data projection already built by the time GT was clicked) — title/info were
@@ -21475,7 +21488,7 @@ async function toggleGtLocalizations(){
         // GT-specific labels stuck on screen. No colourable data outside a real result, so hide
         // the zcolor/zrange rows rather than leaving GT's own state showing.
         $('zcolorRow').style.display='none'; $('zrangeRow').style.display='none';
-        setSrRecon(false); fitView(); clampView(); drawView();
+        setSrRecon(false); keepViewAfterSwap(v0);
         $('srTitle').textContent=srTitleBeforeGT; $('srInfo').textContent=srInfoBeforeGT;
       } else {
         // nothing preceded the GT view — restore the pre-Run data projection instead of leaving
@@ -21483,6 +21496,7 @@ async function toggleGtLocalizations(){
         $('zcolorRow').style.display='none'; $('zrangeRow').style.display='none';
         setSrRecon(false); drawView();
         await showStackProjection();
+        keepViewAfterSwap(v0);
       }
       btn.textContent='View ground truth';
     }
@@ -23283,8 +23297,8 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.0-dev · build 2026-10-01c — a zoomed reconstruction keeps its view when the
-panel size changes by a few pixels (e.g. a scrollbar appearing).`);
+log(`webSMLM v0.13.0-dev · build 2026-10-01d — View/Hide ground truth keeps the reconstruction's
+zoom and position.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

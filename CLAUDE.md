@@ -604,7 +604,9 @@ the truth is made or loaded); lossless, so a reloaded truth scores identically. 
 differently sized movie.
 **Around it**: `toggleGtLocalizations()` swaps `srFull` directly (stashing the previous one and its
 title/info, since `lastResult` is null before a Localize) and mirrors `rerender()`'s depth-colour
-logic (cached `_zr`, `srFull._zColor`) but never changes Colour map or Colour by depth (z): with
+logic (cached `_zr`, `srFull._zColor`) and keeps the view across the swap (`snapshotSrView()`/
+`keepViewAfterSwap()`: a zoomed view keeps its field of view, scaled if the image sizes differ; a fit view
+re-fits) but never changes Colour map or Colour by depth (z): with
 depth present and depth colour off it logs a `!!!` warning instead. `runCalibrationSimulation()` renders a
 bead z-stack (`generateCalibrationStack()`, focus on the centre frame by construction), resets via
 `clearAnalysisOutputs()`/`presentStack()`, and writes `calStep`/`calRef`; it is not rotated.
