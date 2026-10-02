@@ -511,6 +511,11 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   "Robust detection threshold" above, not assumed solved here.
 - Optional **fiducial-based drift correction** when beads are present (simpler and more accurate
   than AIM for that specific case).
-- **3D point-cloud view** — an interactive, rotatable scatter (orthographic projection, colour = z)
-  as an alternative to the depth-coded 2D reconstruction, where localizations at different z that
-  overlap in x/y currently blend together.
+- **Tilt/rotate view, next steps** (Phase 1, the turntable reconstruction of the frozen field of view, is
+  in 0.13.2): an optional **z stretch factor** (the refractive-index mismatch compresses fitted z, so
+  a user-set factor would restore true proportions in the view); **Save rotation movie** (a frame
+  sequence while Rotate sweeps 0–360° at a fixed tilt, PNGs or a GIF); tilting **View ground truth**
+  (the same transform on the truth locs); a **depth cue** (dim or shrink points far from the viewer);
+  a **GPU rotation kernel** (the transform costs ~13 ns/loc on the CPU, ~0.4 s at 20M locs, so
+  only the live drag preview is subsampled); and an `analyze({view3d:{tilt,rotate,box}})` option so
+  the CLI can write tilted reconstructions.

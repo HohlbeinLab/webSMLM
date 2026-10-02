@@ -255,6 +255,17 @@ what makes GUI and command-line use interchangeable.
     30000-px-wide panel with its zoomed patch).
   - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
     `maxMagForFrame()` since `reconstruction.png` is one canvas. `mag` min is 1.
+  - **Tilt/rotate view** (`view3d`, `enterView3D()`/`setView3D()`/`exitView3D()`; results with z): a
+    turntable of the field of view frozen on entry. Rotate φ (0–360°) about z through the pivot, then
+    Tilt θ (0–180°) about screen x: `x'=X cosφ+Y sinφ`, `y'=(−X sinφ+Y cosφ)cosθ−Z sinθ` (θ=0 top view). It is
+    an ordinary viewport reconstruction: `renderSuperResViewport(…, xf)` packs with `packSrLocs3d()`
+    (cull to the box, transform, project lpx/lpy/lpz), W=H=the box×z circumscribing sphere, domain
+    origin an integer srFull-px offset so 0°/0° equals the normal render exactly. The pivot follows the panel centre: `view3dRepivot()` (from `setView3D()`) moves it to the world point
+    under the centre in the plane facing the viewer. Colour is the world
+    z (the z range is a slab). `rerender()` delegates to `view3dRequest()` while on; drag previews
+    are capped at `VIEW3D_DRAG_MAX_LOCS`. Crop/measure/overlays are off; `view3dForget()` (Run,
+    `clearAnalysisOutputs()`, `syncSrProjToggle()` when srFull was replaced) drops the mode.
+    Test: `tests/gpu/test-view3d.mjs`.
   - **Show data projection** (`toggleDataProjection()`, `srProjToggleBtn`): swaps `srFull` to the
     Data projection (`computeStackProjection()`, shared with `showStackProjection()`) and back,
     keeping the reconstruction in `srProjSaved` and the field of view (÷/× its magnification).
@@ -673,7 +684,7 @@ settings-JSON code).
   stops mobile text autosizing. Below 860 px, inputs are 16px (no iOS zoom) while labels stay 12px.
 - Checkboxes are CSS toggle switches on the real input; the knob's `::before` needs its own
   `box-sizing:border-box` (the `*` reset doesn't reach pseudo-elements).
-- Slider thumbs are 10px; `DUALRANGE_THUMB_PX` (three JS copies) must match.
+- Slider thumbs are 12px everywhere (`.scrubslider` and the dual contrast ranges); `DUALRANGE_THUMB_PX` (three JS copies) must match.
 - Resting borders are colour-matched to their background; value inputs keep a visible
   `var(--line)` border; the canvases have none.
 - A `getBoundingClientRect()` value feeding a `position:fixed` offset must add `window.scrollY`

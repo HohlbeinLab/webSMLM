@@ -435,6 +435,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Preview pairs / Pair & plot sSMLM / Unpair | `previewSSmlmPairs()` / `runSSmlmPair()` / `unpairSSmlm()` | no standalone "Fit dist. & angle" any more — Preview pairs auto-fits internally |
 | Show spectral/standard | `toggleSSmlmColorView()` | |
 | Show data projection / Show reconstruction | `toggleDataProjection()` | needs a reconstruction and the loaded movie |
+| Tilt/rotate view / Exit tilt view | `toggleView3D()` (`enterView3D()`, `exitView3D()`, `setView3D(tilt,rot)`, `resetView3dAngles()`, `setView3dField()`) | needs a reconstruction with z |
 | **Track** (spt) | `runSptTrack()` | |
 | Save track data | `exportSptSummary()` | |
 | Show track data | `openTrackTable()` | |
@@ -1069,6 +1070,21 @@ frames shown before Localize (under ALEX, of the excitation the projection toggl
 keeps the same field of view in both, so a region can be compared directly with the raw data.
 Changing a rendering setting, or anything else that takes the panel, returns to the
 reconstruction.
+
+**Tilt/rotate view** (button left of Show data projection, for results with z) turns the
+reconstruction into a turntable. Zoom to the region of interest first: the field of view on screen
+is frozen when the view is entered, and only the localizations inside it are shown. **Tilt** (0–180°)
+tips the view about the horizontal axis (0° = the normal top view, 90° = side view with z vertical,
+180° = from below) and **Rotate** (0–360°) turns it about the vertical axis through the centre of
+the field shown on screen (pan or zoom within the frozen field and the pivot moves to the new centre
+with the next angle change); Shift-drag the image to orbit, **Reset angles** returns to the top view, and **Set FoV**
+(at Tilt 0°/Rotate 0° only) freezes what is on screen now. Colour stays the world z, so
+the z range fields still act as a slab. Positions and precision are projected, the image is an
+ordinary reconstruction (any render mode, blur and magnification), and Tilt 0°/Rotate 0° equals the
+normal render of the field. While a slider moves, at most 500 000 localizations are drawn; the full
+render follows on release. Crop, line profile, tracks and segmentation overlays are off while tilted;
+**Exit tilt view** restores the reconstruction and view. Every action is logged as a runnable command (the sliders once, on release: `setView3D(60, 45)`). Terminal: `enterView3D()`,
+`setView3D(tilt, rotate)`, `exitView3D()`.
 
 `renderSuperRes()`'s accumulator buffers are DENSE — one value per
 super-resolution pixel across the *whole* `(w×mag)×(h×mag)` grid,
@@ -3061,6 +3077,7 @@ headless equivalent.
   <li><b>Colour by depth (z)</b> (3D results) sets each pixel's hue from the mean z and its brightness from density; <b>z min / z max</b> set the colour range and render anything outside it black — narrow the window to optically section through the volume. After clicking <b>Pair &amp; plot sSMLM</b>, this same toggle reads "Colour by distance (sSMLM)" and colours by inter-order spectral distance instead of real z.</li>
 </ul>
 <p>All render settings apply instantly — no refit. Scroll/pinch to zoom, drag to pan, double-click/tap to reset.</p>
+<p><b>Tilt/rotate view</b> (3D results, button under the reconstruction) freezes the field of view on screen and turns it into a turntable: <b>Tilt</b> 0–180° (0° top view, 90° side view, 180° from below) and <b>Rotate</b> 0–360°; Shift-drag to orbit. Zoom to the region first — only localizations inside the frozen field are shown.</p>
 <!-- /HINT:render -->
 
 **Choosing Magnification relative to localization precision.** `mag` (with
