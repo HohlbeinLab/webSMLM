@@ -12,7 +12,7 @@ paragraph here to the new current behaviour; don't append a "reported… fixed�
 
 webSMLM is a **single-file** browser tool for single-molecule localization microscopy (SMLM): the
 whole application — HTML, CSS, JavaScript and the two bundled decoders (pako, UTIF) — lives in
-`webSMLM.html` (~24,900 lines). It loads a raw movie, detects/localizes emitters and renders a
+`webSMLM.html` (about 25,000 lines). It loads a raw movie, detects/localizes emitters and renders a
 super-resolution image, **entirely client-side** (no upload, no server, no network calls at runtime).
 `index.html` only redirects to `webSMLM.html` for the bare Pages URL.
 
@@ -248,11 +248,19 @@ what makes GUI and command-line use interchangeable.
     `ovK` (≤ `SR_OVERVIEW_MAX` 4096/side); the display max comes from its samples. `patch` = the
     view ± ¼ at ≥ 1 sample per device px, requested `SR_PATCH_DELAY_MS` (150) after the last
     `drawView()` (`scheduleSrPatch()`/`requestSrPatch()`, one at a time), so pan/zoom only ever
-    redraw bitmaps (60 fps measured at 16920×39000 px). The render worker keeps the packed locs
+    redraw bitmaps. With **Use GPU acceleration** (and no `normLocs`, 'fixed'/'precision' mode)
+    `renderSuperResViewport()` keeps the locs resident on the GPU in chunks of ≤ `maxStorageBufferBindingSize/16`
+    (`gpuViewportInit()`, `vp.gpu`) and `gpuViewportRegion()` runs `WGSL_RENDER_SAMPLE` (one thread per loc,
+    f32 compare-and-swap adds) into a sample-grid accumulator (≤ ~16.7M samples), then the whole-image colour map,
+    max-reduction and histogram kernels: the buffers are independent of the image size, so they fit the default
+    128 MiB buffer limit. `srRenderPlan()` also picks the viewport for an image whose accumulator exceeds one storage
+    buffer (`W·H·4 > maxStorageBufferBindingSize`), where the whole-image GPU path would fall back to the CPU. A GPU
+    failure drops to the CPU sampler on `vp.local` (main thread). Otherwise the render worker keeps the packed locs
     (`vpInit`/`vpRegion` messages, `_rwVp`); no worker → main thread. Draw through `srDrawImage()`;
-    export and line profile render their own region (`srViewportRegion()`). No GPU path. Test:
+    export and line profile render their own region (`srViewportRegion()`). Tests:
     `tests/gpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
-    30000-px-wide panel with its zoomed patch).
+    30000-px-wide panel with its zoomed patch) and `tests/gpu/test-viewport-gpu.mjs` (GPU sampler vs CPU sampler,
+    resident chunks, the GPU-served panel).
   - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
     `maxMagForFrame()` since `reconstruction.png` is one canvas. `mag` min is 1.
   - **Tilt/rotate view** (`view3d`, `enterView3D()`/`setView3D()`/`exitView3D()`; results with z): a
@@ -456,8 +464,8 @@ what makes GUI and command-line use interchangeable.
   - Mem readout (`updateMemReadout()`, polled): webSMLM's estimate, plus real heap/device RAM where
     the browser exposes them (not Safari). `maybeShowMemWarning()`: one pop-up per page load on
     constrained devices.
-  - Open issue: a "crop zoom reverts" report remains; `refitCanvases()` logs a temporary diagnostic
-    naming the trigger when it discards a non-fit view. Remove once explained.
+  - Open issue: a zoomed crop view sometimes reverts, cause unknown; `refitCanvases()` logs a temporary
+    diagnostic naming the trigger when it discards a non-fit view. Remove once explained.
 
 - **liveStreaming** (`window.webSMLM.liveStream`, experimental) — chunks from a Micro-Manager bridge
   (`tools/webSMLM-livestream-bridge.mjs` via `#liveStreamChunkInput`, or an opt-in outbound
@@ -552,7 +560,7 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
   `psfWorkerSource()`'s list).
 - **One evaluator: chirp-Z** (`computePsfPupilCartesianForZPlane()`, `computePsfIntensityPlaneFFT()`,
   `psfCzt1d()`), with everything z/row-independent hoisted (`psfCztPlan()`, `psfPupilPlan()`;
-  bit-identical to unplanned, ~3× faster). A 40-angle polar quadrature aliased beyond ~1.6 µm and
+  bit-identical to unplanned). A 40-angle polar quadrature aliased beyond ~1.6 µm and
   dimmed every emitter ~17–20% on the 6 µm kernel: **don't reintroduce one** without an angular
   count that grows with the kernel radius. `tests/gpu/test-sim-gpu.mjs` pins the tail to Airy.
 - GPU path `gpuPsfPlanes()` (same `useGpu` rule, falls back to the PSF pool): pupils composed on the
@@ -578,7 +586,6 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
 frame's emitters in list order (no atomics, the CPU's summation order); batches ≤ 64 MB, k+1 packed
 before k is read back; `simulateFramesGpu()`/`simulateCalibFramesGpu()` over one `gpuSimFrames()`.
 Taken whenever `useGpu` is on (no threshold); not for 'fft' placement or the Gaussian model.
-Measured 4–17× over 8 CPU workers on an Iris Xe (`bench-simulation.mjs`).
 
 **Randomness and the byte-identity rule.** Emitters/events: `mulberry32(simulation_seed)` (0 =
 unseeded); background and haze each draw from their own seed-derived stream after all emitter draws,
@@ -649,8 +656,8 @@ numerics exist once. Consequences:
 - The worker source is a template literal: no backticks in comments inside it.
 - The same holds one layer up for **explicit field lists across a postMessage**: the PSF worker and
   `buildPsfPlanesParallel()` spell the optical parameters out by hand (not `cfg`), so a new PSF
-  parameter goes on both ends or pooled kernels silently ignore it (this once built every
-  double-helix kernel unaberrated: six mask settings gave the same z-CRLB — the tell). Same for
+  parameter goes on both ends or pooled kernels silently ignore it (identical z-CRLB across
+  mask settings is the tell). Same for
   `simCtx`/`calibCtx` and for the helper lists of `simWorkerSource()`/`psfWorkerSource()` (a missing
   noise, mask or FFT helper kills the pool with a ReferenceError). When a physics result says a
   setting "does nothing", first check the setting reached the model.
@@ -729,7 +736,7 @@ settings-JSON code).
   Safari-like check). Throwaway scripts go in the scratchpad or `tools/` prefixed `_tmp_`, deleted
   afterwards, never committed. For UI timing, measure real paints.
 
-### `micromanager_plugin/webSMLM_Streaming` (Java) — rebuild locally to test, never commit the jar
+### `tools/micromanager_plugin/webSMLM_Streaming` (Java) — rebuild locally to test, never commit the jar
 
 Editing a `.java` file does not update `target/webSMLM_Streaming.jar`; rebuild before testing:
 

@@ -34,6 +34,7 @@ const TESTS = [
   ['gpu:test:cellfield-worker', 'test-cellfield-worker.mjs'],
   ['gpu:test:shape-test', 'test-shape-test.mjs'],
   ['gpu:test:view3d', 'test-view3d.mjs'],
+  ['gpu:test:viewport-gpu', 'test-viewport-gpu.mjs'],
 ];
 
 const BENCHES = [

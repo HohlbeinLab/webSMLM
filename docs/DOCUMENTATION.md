@@ -1110,7 +1110,10 @@ overview. Both are evaluated straight from the localizations at just those
 pixels, giving exactly the values the whole-image render would have there
 (to float rounding), in every render mode. Pan and zoom only redraw the
 two images, so they stay as smooth as before; rendering cost depends on the
-number of localizations and screen pixels, not on the magnification. The
+number of localizations and screen pixels, not on the magnification. With
+**Use GPU acceleration** on, both are rendered on the GPU (the localizations stay
+there between renders), which also takes over images that are too large for the
+GPU's single-buffer limit instead of falling back to the CPU. The
 display maximum (**Display max percentile**) comes from the overview's
 pixels, a uniform sample of the whole image. **Save plot/image** renders
 the current view at up to 16384 px per side, and the line profile renders

@@ -75,19 +75,19 @@
     detect          7993   band-pass (wavelet/DoG/box) + local-maxima detection
     fit             8249   phasor, LSQ and Poisson-MLE fitters; aperture photometry
     render          8906   super-resolution accumulation, view, colour maps, plots
-    workers         10634  frame-parallel detect/fit worker pool
-    gpu             11277  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13617  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  13966  astigmatic width-vs-z bead calibration
-    drift           14378  AIM and cross-correlation drift correction
-    locprecision    15036  NeNA and FRC
-    sSMLM           13617  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          16781  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             18888  single-particle tracking and diffusion coefficients
-    pipeline        19938  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   21022  Micro-Manager/pycromanager bridge (experimental)
-    table           23727  localizations table, filters, histograms, clustering
-    headless API    24418  window.webSMLM.analyze()/analyzeBatch()
+    workers         10890  frame-parallel detect/fit worker pool
+    gpu             11533  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13873  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14222  astigmatic width-vs-z bead calibration
+    drift           14634  AIM and cross-correlation drift correction
+    locprecision    15292  NeNA and FRC
+    sSMLM           13873  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17037  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19144  single-particle tracking and diffusion coefficients
+    pipeline        20194  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   21278  Micro-Manager/pycromanager bridge (experimental)
+    table           23983  localizations table, filters, histograms, clustering
+    headless API    24674  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02g</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02h</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9331,6 +9331,10 @@ function getOrMakeSrCanvas(W,H){
 // movie) exceed the memory ceiling.
 function srRenderPlan(W,H,zColor,blurPx,renderMode,hasNorm,reserveBytes){
   if(W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM) return 'viewport';
+  // With the GPU on, an image whose accumulator exceeds one storage buffer is drawn per view too: the GPU
+  // sampler renders it at any size, where the whole-image GPU path would fall back to the CPU.
+  if(!hasNorm && _gpuEngine && _gpuEngine.available && paramValue('useGpu') && GPU_RENDER_MODES.has(renderMode)
+     && W*H*4>_gpuEngine.limits.maxStorageBufferBindingSize) return 'viewport';
   const ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
   return estimateRenderBytes(W,H,zColor,blurPx,renderMode,hasNorm)+reserveBytes>ceiling.bytes ? 'viewport' : 'full';
 }
@@ -9426,6 +9430,18 @@ async function renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo
   const params={W,H,mag,blurPx,zColor,zlo,zhi,renderMode,lutName};
   const vp={width:W,height:H,_viewport:true,id,ovK:k,overview:null,norm:0,params,worker:null,local:null,patch:null};
   const pack=()=>[xf?packSrLocs3d(locs,colorField,zColor,renderMode,xf):packSrLocs(locs,colorField,zColor,renderMode), normLocs?packSrLocs(normLocs,colorField,zColor,'fixed'):null];
+  // GPU first (no normLocs: the display maximum comes from the overview's own samples); any failure falls back to the worker.
+  if(!normLocs){
+    try{
+      const P0=pack()[0], g=await gpuViewportInit(P0,renderMode);
+      if(g){
+        vp.gpu=g; vp.local={P:P0};
+        const r=await gpuViewportRegion(g,params,0,0,W,H,k,pct,null);
+        vp.norm=r.norm; vp.overview=r.canvas;
+        return vp;
+      }
+    }catch(err){ onLog(`!!! GPU viewport render failed, using the CPU: ${err.message}`); gpuViewportFree(vp.gpu); vp.gpu=null; vp.local=null; }
+  }
   const worker=await getRenderWorker();
   if(worker){
     try{
@@ -9451,16 +9467,255 @@ function srRegionCanvas(r,norm,p){
 // the caller, of a viewport reconstruction: an ImageBitmap from the worker,
 // else a canvas. Rejects if the worker has since moved on to another render.
 async function srViewportRegion(vp,rx,ry,rw,rh,k){
+  if(vp.gpu){
+    try{ return (await gpuViewportRegion(vp.gpu,vp.params,rx,ry,rw,rh,k,null,vp.norm)).canvas; }
+    catch(err){
+      if(!vp.local) throw err;   // disposed meanwhile
+      log(`!!! GPU viewport render failed, using the CPU for this image: ${err.message}`);
+      gpuViewportFree(vp.gpu); vp.gpu=null;
+    }
+  }
   if(vp.worker){ const r=await dispatchRenderWorker(vp.worker,{vpRegion:1,id:vp.id,rx,ry,rw,rh,k}); return r.imageBitmap; }
   const p=vp.params;
   const r=srRenderRegion(vp.local.P,null,p.W,p.H,rx,ry,rw,rh,k,p.mag,p.blurPx,p.zColor,p.zlo,p.zhi,p.renderMode,null);
   return srRegionCanvas(r,vp.norm,p);
 }
-// Frees a replaced viewport reconstruction's bitmaps.
+// ---- GPU viewport sampler ----------------------------------------------------------------------
+// GPU twin of srSampleAccumulate()/srRenderRegion(): one thread per loc adds its bin, blur kernel
+// (with srMirrorWeight()'s mirrored edges) or splat to the samples (rx+a·k, ry+b·k) it reaches, so the
+// buffers are the sample grid only (≤ ~16.7M samples for the overview) whatever the image size, and fit
+// the default storage-buffer limit. The locs stay resident in chunks of ≤ maxStorageBufferBindingSize/16.
+// Accumulators are f32 compare-and-swap adds (as WGSL_RENDER_PRECISION), colour map and display maximum
+// reuse the whole-image kernels; no 65,535-hit cap on unblurred bins. 'dither' and normLocs stay on the CPU.
+const WGSL_RENDER_SAMPLE=`
+struct Params { Wg:f32, Hg:f32, rx:f32, ry:f32, ow:f32, oh:f32, k:f32, mag:f32,
+                zColorFlag:f32, zlo:f32, zhi:f32, nLocs:f32, blurPx:f32, maxSigma:f32, mode:f32, rad:f32,
+                pad0:f32, pad1:f32, pad2:f32, pad3:f32 };
+@group(0) @binding(0) var<uniform> p: Params;
+@group(0) @binding(1) var<storage, read> locs: array<vec4f>;
+@group(0) @binding(2) var<storage, read> prec: array<vec2f>;
+@group(0) @binding(3) var<storage, read> kern: array<f32>;
+@group(0) @binding(4) var<storage, read_write> acc: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> zacc: array<atomic<u32>>;
+override WG: u32 = 64u;
+fn isFin(v: f32) -> bool { return v == v && abs(v) < 3.4e38; }
+fn erfApprox(xIn: f32) -> f32 {
+  let s = select(1.0, -1.0, xIn < 0.0); let x = abs(xIn);
+  let t = 1.0 / (1.0 + 0.3275911*x);
+  let y = 1.0 - (((((1.061405429*t - 1.453152027)*t) + 1.421413741)*t - 0.284496736)*t + 0.254829592) * t * exp(-x*x);
+  return s*y;
+}
+fn gInt(pix: f32, mu: f32, sig: f32) -> f32 {
+  let sn = 0.7071067811865476 / sig; let d = pix - mu;
+  return 0.5 * (erfApprox((d+0.5)*sn) - erfApprox((d-0.5)*sn));
+}
+fn addAcc(idx: u32, v: f32) {
+  var old = atomicLoad(&acc[idx]);
+  loop {
+    let r = atomicCompareExchangeWeak(&acc[idx], old, bitcast<u32>(bitcast<f32>(old) + v));
+    if (r.exchanged) { break; }
+    old = r.old_value;
+  }
+}
+fn addZacc(idx: u32, v: f32) {
+  var old = atomicLoad(&zacc[idx]);
+  loop {
+    let r = atomicCompareExchangeWeak(&zacc[idx], old, bitcast<u32>(bitcast<f32>(old) + v));
+    if (r.exchanged) { break; }
+    old = r.old_value;
+  }
+}
+fn ceilDiv(n: i32, d: i32) -> i32 { return select(-((-n) / d), (n + d - 1) / d, n >= 0); }
+fn floorDiv(n: i32, d: i32) -> i32 { return select(-((-n + d - 1) / d), n / d, n >= 0); }
+// Weight of a unit bin at q in the blurred value at p, with the taps mirrored at both edges (srMirrorWeight()).
+fn mirrorW(pp: i32, q: i32, hi: i32, rad: i32) -> f32 {
+  var w = 0.0;
+  var d = q - pp;
+  if (d >= -rad && d <= rad) { w = w + kern[u32(d + rad)]; }
+  if (q > 0) { d = -q - pp; if (d >= -rad) { w = w + kern[u32(d + rad)]; } }
+  if (q <= hi - 2) { d = 2*hi - 2 - q - pp; if (d <= rad) { w = w + kern[u32(d + rad)]; } }
+  return w;
+}
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let i = gid.x;
+  if (i >= u32(p.nLocs)) { return; }
+  let L = locs[i];
+  let zc = p.zColorFlag > 0.5;
+  if (zc && !(isFin(L.z) && L.z >= p.zlo && L.z <= p.zhi)) { return; }
+  let zval = select(0.0, L.z, zc);
+  let Wg = i32(p.Wg); let Hg = i32(p.Hg); let rx = i32(p.rx); let ry = i32(p.ry);
+  let ow = i32(p.ow); let oh = i32(p.oh); let k = i32(p.k);
+  let mode = u32(p.mode);
+  if (mode == 2u) {
+    let px = L.x * p.mag; let py = L.y * p.mag;
+    if (px < 0.0 || py < 0.0 || px >= p.Wg || py >= p.Hg) { return; }
+    let lp = prec[i];
+    let sx = min(p.maxSigma, select(p.blurPx, lp.x, isFin(lp.x) && lp.x > 0.0) * p.mag);
+    let sy = min(p.maxSigma, select(p.blurPx, lp.y, isFin(lp.y) && lp.y > 0.0) * p.mag);
+    if (!(sx > 0.0) || !(sy > 0.0)) { return; }
+    let jMin = max(0, i32(floor(px - 3.0 * sx))); let jMax = min(Wg, i32(ceil(px + 3.0 * sx)) + 1);
+    let iMin = max(0, i32(floor(py - 3.0 * sy))); let iMax = min(Hg, i32(ceil(py + 3.0 * sy)) + 1);
+    let a0 = max(0, ceilDiv(jMin - rx, k)); let a1 = min(ow - 1, floorDiv(jMax - 1 - rx, k));
+    let b0 = max(0, ceilDiv(iMin - ry, k)); let b1 = min(oh - 1, floorDiv(iMax - 1 - ry, k));
+    if (a0 > a1 || b0 > b1) { return; }
+    let na = a1 - a0 + 1; let nb = b1 - b0 + 1;
+    if (na > 40 || nb > 40) { return; }
+    var gx: array<f32, 40>;
+    var gy: array<f32, 40>;
+    for (var a = 0; a < na; a = a + 1) { gx[a] = gInt(f32(rx + (a0 + a) * k) + 0.5, px, sx); }
+    for (var b = 0; b < nb; b = b + 1) { gy[b] = gInt(f32(ry + (b0 + b) * k) + 0.5, py, sy); }
+    for (var b = 0; b < nb; b = b + 1) {
+      let row = (b0 + b) * ow;
+      for (var a = 0; a < na; a = a + 1) {
+        let w = gy[b] * gx[a];
+        let idx = u32(row + a0 + a);
+        addAcc(idx, w);
+        if (zc) { addZacc(idx, w * zval); }
+      }
+    }
+    return;
+  }
+  let ix = i32(floor(L.x * p.mag + 0.5)); let iy = i32(floor(L.y * p.mag + 0.5));
+  if (ix < 0 || iy < 0 || ix >= Wg || iy >= Hg) { return; }
+  if (mode == 0u) {
+    let tx = ix - rx; let ty = iy - ry;
+    if (tx < 0 || ty < 0 || tx % k != 0 || ty % k != 0) { return; }
+    let a = tx / k; let b = ty / k;
+    if (a >= ow || b >= oh) { return; }
+    let idx = u32(b * ow + a);
+    addAcc(idx, 1.0);
+    if (zc) { addZacc(idx, zval); }
+    return;
+  }
+  let rad = i32(p.rad);
+  let a0 = max(0, ceilDiv(ix - rad - rx, k)); let a1 = min(ow - 1, floorDiv(ix + rad - rx, k));
+  let b0 = max(0, ceilDiv(iy - rad - ry, k)); let b1 = min(oh - 1, floorDiv(iy + rad - ry, k));
+  if (a0 > a1 || b0 > b1) { return; }
+  for (var b = b0; b <= b1; b = b + 1) {
+    let gyv = mirrorW(ry + b * k, iy, Hg, rad);
+    let row = b * ow;
+    for (var a = a0; a <= a1; a = a + 1) {
+      let w = gyv * mirrorW(rx + a * k, ix, Wg, rad);
+      let idx = u32(row + a);
+      addAcc(idx, w);
+      if (zc) { addZacc(idx, w * zval); }
+    }
+  }
+}`;
+// Uploads the packed locs P as resident chunks; null when the GPU is off or unusable (the CPU path then runs).
+async function gpuViewportInit(P,renderMode){
+  if(!paramValue('useGpu') || !GPU_RENDER_MODES.has(renderMode)) return null;
+  const engine=await getGpuEngine(); if(!engine || !engine.available) return null;
+  return runGpuExclusive(()=>withGpuErrorScopes(engine.device,'GPU viewport upload',async()=>{
+    const U=GPUBufferUsage, device=engine.device, precision=renderMode==='precision';
+    const per=Math.max(1,Math.min(Math.floor(engine.limits.maxStorageBufferBindingSize/16), engine.limits.maxComputeWorkgroupsPerDimension*engine.wg1D, 1<<22));
+    const g={engine,chunks:[],n:P.n,precision};
+    try{
+      for(let from=0;from<P.n;from+=per){
+        const cnt=Math.min(per,P.n-from), d=new Float32Array(cnt*4);
+        for(let i=0;i<cnt;i++){ d[i*4]=P.x[from+i]; d[i*4+1]=P.y[from+i]; d[i*4+2]=P.c?P.c[from+i]:0; }
+        const locs=engine.mkBuf(d.byteLength,U.STORAGE|U.COPY_DST,'vp:locs'); device.queue.writeBuffer(locs,0,d);
+        let precBuf=null;
+        if(precision){
+          const q=new Float32Array(cnt*2);
+          for(let i=0;i<cnt;i++){ q[i*2]=P.lpx[from+i]; q[i*2+1]=P.lpy[from+i]; }
+          precBuf=engine.mkBuf(q.byteLength,U.STORAGE|U.COPY_DST,'vp:prec'); device.queue.writeBuffer(precBuf,0,q);
+        } else precBuf=engine.mkBuf(8,U.STORAGE,'vp:prec-dummy');
+        g.chunks.push({locs,prec:precBuf,n:cnt});
+      }
+    }catch(err){ gpuViewportFree(g); throw err; }
+    return g;
+  }));
+}
+function gpuViewportFree(g){
+  if(!g) return;
+  for(const c of g.chunks){ try{ c.locs.destroy(); c.prec.destroy(); }catch(_){} }
+  g.chunks=[];
+}
+// The ow×oh samples of the srFull-px rect (rx,ry,rw,rh) at stride k, coloured: {canvas, norm}. pct computes
+// the display maximum from these samples (the overview); otherwise normGiven is used (patches).
+function gpuViewportRegion(g,p,rx,ry,rw,rh,k,pct,normGiven){
+  return runGpuExclusive(()=>withGpuErrorScopes(g.engine.device,'GPU viewport render',()=>gpuViewportRegionNow(g,p,rx,ry,rw,rh,k,pct,normGiven)));
+}
+async function gpuViewportRegionNow(g,p,rx,ry,rw,rh,k,pct,normGiven){
+  const eng=g.engine, device=eng.device, U=GPUBufferUsage;
+  if(!g.chunks.length) throw new Error('the GPU locs were released');
+  const ow=Math.ceil(rw/k), oh=Math.ceil(rh/k), N=ow*oh;
+  if(N*4>eng.limits.maxStorageBufferBindingSize) throw new Error(`${ow}×${oh} samples need a ${fmtBytes(N*4)} buffer, over this GPU's ${fmtBytes(eng.limits.maxStorageBufferBindingSize)} per-buffer limit`);
+  const created=[], mk=(s,u,l)=>{ const b=eng.mkBuf(s,u,l); created.push(b); return b; };
+  try{
+    const doBlur=p.renderMode==='fixed' && p.blurPx>0, mode=p.renderMode==='precision'?2:(doBlur?1:0);
+    let rad=0, kern=new Float32Array(1);
+    if(doBlur){   // blurInto()'s kernel
+      const sigma=p.blurPx*p.mag*0.3; rad=Math.max(1,Math.ceil(sigma*3));
+      kern=new Float32Array(2*rad+1); let s=0;
+      for(let i=-rad;i<=rad;i++){ kern[i+rad]=Math.exp(-i*i/(2*sigma*sigma)); s+=kern[i+rad]; }
+      for(let i=0;i<kern.length;i++) kern[i]/=s;
+    }
+    const kernBuf=mk(kern.byteLength,U.STORAGE|U.COPY_DST,'vp:kern'); device.queue.writeBuffer(kernBuf,0,kern);
+    const acc=mk(N*4,U.STORAGE,'vp:acc'), zacc=mk(p.zColor?N*4:4,U.STORAGE,'vp:zacc');   // buffers start zeroed
+    const pipe=await eng.compilePipeline('viewport-sample',WGSL_RENDER_SAMPLE,'main',{WG:eng.wg1D});
+    const enc=device.createCommandEncoder(), pass=enc.beginComputePass();
+    pass.setPipeline(pipe);
+    for(const c of g.chunks){
+      const ub=mk(80,U.UNIFORM|U.COPY_DST,'vp:params');
+      device.queue.writeBuffer(ub,0,new Float32Array([p.W,p.H,rx,ry, ow,oh,k,p.mag, p.zColor?1:0,p.zlo,p.zhi,c.n, p.blurPx,MAX_SPLAT_SIGMA_PX,mode,rad, 0,0,0,0]));
+      const bind=device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:[
+        {binding:0,resource:{buffer:ub}},{binding:1,resource:{buffer:c.locs}},{binding:2,resource:{buffer:c.prec}},
+        {binding:3,resource:{buffer:kernBuf}},{binding:4,resource:{buffer:acc}},{binding:5,resource:{buffer:zacc}}]});
+      pass.setBindGroup(0,bind); pass.dispatchWorkgroups(Math.ceil(c.n/eng.wg1D));
+    }
+    pass.end(); device.queue.submit([enc.finish()]);
+    const wg2D={WGX:eng.wg2D[0],WGY:eng.wg2D[1]}, wgX=Math.ceil(ow/wg2D.WGX), wgY=Math.ceil(oh/wg2D.WGY);
+    let norm=normGiven||0;
+    if(pct!=null){   // display maximum from these samples: on-device max reduction + 4096-bucket histogram
+      const redPipe=await eng.compilePipeline('render-maxreduce',WGSL_RENDER_MAXREDUCE,'main',wg2D);
+      const histPipe=await eng.compilePipeline('render-histogram',WGSL_RENDER_HISTOGRAM,'main',wg2D);
+      const rp=mk(16,U.UNIFORM|U.COPY_DST); device.queue.writeBuffer(rp,0,new Float32Array([ow,oh,wgX,0]));
+      const partials=mk(wgX*wgY*4,U.STORAGE|U.COPY_SRC), pStage=mk(wgX*wgY*4,U.MAP_READ|U.COPY_DST);
+      const e1=device.createCommandEncoder(), p1=e1.beginComputePass();
+      p1.setPipeline(redPipe);
+      p1.setBindGroup(0,device.createBindGroup({layout:redPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:rp}},{binding:1,resource:{buffer:acc}},{binding:2,resource:{buffer:partials}}]}));
+      p1.dispatchWorkgroups(wgX,wgY); p1.end();
+      e1.copyBufferToBuffer(partials,0,pStage,0,wgX*wgY*4); device.queue.submit([e1.finish()]);
+      await pStage.mapAsync(GPUMapMode.READ);
+      const pv=new Float32Array(pStage.getMappedRange().slice(0)); pStage.unmap();
+      let mx=0; for(let i=0;i<pv.length;i++) if(pv[i]>mx) mx=pv[i];
+      const NB=4096, hist=mk(NB*4,U.STORAGE|U.COPY_SRC,'vp:hist'), hStage=mk(NB*4,U.MAP_READ|U.COPY_DST);
+      const hp=mk(16,U.UNIFORM|U.COPY_DST); device.queue.writeBuffer(hp,0,new Float32Array([ow,oh,mx,0]));
+      const e2=device.createCommandEncoder(), p2=e2.beginComputePass();
+      p2.setPipeline(histPipe);
+      p2.setBindGroup(0,device.createBindGroup({layout:histPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:hp}},{binding:1,resource:{buffer:acc}},{binding:2,resource:{buffer:hist}}]}));
+      p2.dispatchWorkgroups(wgX,wgY); p2.end();
+      e2.copyBufferToBuffer(hist,0,hStage,0,NB*4); device.queue.submit([e2.finish()]);
+      await hStage.mapAsync(GPUMapMode.READ);
+      const hv=new Uint32Array(hStage.getMappedRange().slice(0)); hStage.unmap();
+      norm=percentileFromHistogram(hv,mx,N,pct);
+    }
+    const cmapPipe=await eng.compilePipeline('render-colormap',WGSL_RENDER_COLORMAP,'main',wg2D);
+    const lut=getLUT(p.lutName), lutF=new Float32Array(768); for(let i=0;i<768;i++) lutF[i]=lut[i];
+    const cp=mk(48,U.UNIFORM|U.COPY_DST); device.queue.writeBuffer(cp,0,new Float32Array([ow,oh,norm,p.zColor?1:0,p.zlo,p.zhi,Math.max(1e-9,p.zhi-p.zlo),1,0,0,0,0]));
+    const lutBuf=mk(lutF.byteLength,U.STORAGE|U.COPY_DST); device.queue.writeBuffer(lutBuf,0,lutF);
+    const outPix=mk(N*4,U.STORAGE|U.COPY_SRC), stage=mk(N*4,U.MAP_READ|U.COPY_DST);
+    const e3=device.createCommandEncoder(), p3=e3.beginComputePass();
+    p3.setPipeline(cmapPipe);
+    p3.setBindGroup(0,device.createBindGroup({layout:cmapPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:cp}},{binding:1,resource:{buffer:acc}},{binding:2,resource:{buffer:zacc}},{binding:3,resource:{buffer:lutBuf}},{binding:4,resource:{buffer:outPix}}]}));
+    p3.dispatchWorkgroups(wgX,wgY); p3.end();
+    e3.copyBufferToBuffer(outPix,0,stage,0,N*4); device.queue.submit([e3.finish()]);
+    await stage.mapAsync(GPUMapMode.READ);
+    const px=new Uint8ClampedArray(stage.getMappedRange().slice(0)); stage.unmap();
+    const cv=getOrMakeSrCanvas(ow,oh), ctx=cv.getContext('2d'), img=ctx.createImageData(ow,oh);
+    img.data.set(px); ctx.putImageData(img,0,0);
+    return {canvas:cv,norm};
+  } finally { for(const b of created){ try{ if(b.mapState==='mapped') b.unmap(); b.destroy(); }catch(_){} } }
+}
+// Frees a replaced viewport reconstruction's bitmaps and GPU locs.
 function srDisposeViewport(vp){
   if(!vp || !vp._viewport) return;
   for(const b of [vp.overview, vp.patch&&vp.patch.img]) if(b && b.close) b.close();
   vp.overview=null; vp.patch=null;
+  if(vp.gpu){ gpuViewportFree(vp.gpu); vp.gpu=null; vp.local=null; }
 }
 // Patch for the current view: the visible rect plus a quarter of it on each
 // side (so small pans need none), at the stride that gives at least one
@@ -10235,6 +10490,7 @@ async function rerenderNow(keepView,isPreview,mySeq){
                  paramValue('lut'), +paramValue('lutpct'), zColor, zlo, zhi,
                  lastResult.locs, colorField||'z'];   // colour scale always pinned to the full dataset, see renderSuperRes
     const rStackResidentBytes = stack ? (stack.residentBytes||0) : 0;
+    if(paramValue('useGpu')) await getGpuEngine();   // srRenderPlan() reads the device limits
     // Previews always use the final render mode, so the image doesn't change
     // style when the Run ends.
     const rMode = paramValue('renderMode');
@@ -23632,7 +23888,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.2-dev · build 2026-10-02g — start of the 0.13.2 development cycle.`);
+log(`webSMLM v0.13.2-dev · build 2026-10-02h — start of the 0.13.2 development cycle.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
