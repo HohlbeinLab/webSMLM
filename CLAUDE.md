@@ -318,7 +318,7 @@ what makes GUI and command-line use interchangeable.
   The free-angle rotated kernel needs `maxStorageBuffersPerShaderStage ≥ 7`. `WGSL_FRC_BIN`
   dispatches 2D (loc count can exceed 65,535 workgroups in one dimension). PCFO's tile FFTs
   (`pcfoTilePointsGpu()`, stage `pcfo`: mirror fill with the tile mean removed, batched row FFTs,
-  per-tile transpose, masked power sum) match the CPU to ~1e-7; its jackknife is the exact
+  per-tile transpose, masked power sum; several frames per submission, twiddles from a CPU table) match the CPU to ~1e-7; its jackknife is the exact
   O(n log n) `pcfoJackknife()`. Test: `tests/gpu/test-pcfo.mjs`. The simulator's two GPU stages
   (frames, PSF planes) are described under **Simulation**. WGSL strings can't share
   functions (e.g. `erfApprox()` is duplicated); no backticks or `${` in comments inside them.
