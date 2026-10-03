@@ -105,7 +105,7 @@ what makes GUI and command-line use interchangeable.
     `byteLen` as a bound. **FITS** (experimental, camera-movie subset): row 1 is at the bottom, so
     output row `y` reads source row `h−1−y`.
   - Stacks may carry `residentBytes` (the decoded cache, for the memory guards and Mem readout;
-    a getter on the streaming fallback). Not yet set by `loadTiffSequence()`/`makeConcatStack()`/
+    a getter on the streaming fallback). Simulated stacks set it (all frames cached); not yet set by `loadTiffSequence()`/`makeConcatStack()`/
     `loadNd2File()`/`loadFitsFile()`. `framesTransferable` is set only on decode-per-call stacks:
     only those frames may be *transferred* to workers (a cached stack returns the same array every
     call; transferring it would detach the cache). Guarded by `tests/gpu/test-frame-cache-integrity.mjs`.
@@ -305,7 +305,7 @@ what makes GUI and command-line use interchangeable.
   `min(12, hardwareConcurrency)` workers, 2 on a memory-constrained device (each holds a cloned batch).
   A separate single render worker (`getRenderWorker()`, OffscreenCanvas) runs `renderSuperResPixels()`
   with its own `RENDER_WORKER_PRELUDE`. Both self-test on startup and fall back to single-threaded.
-  Two more pools serve the simulator: the PSF pool (`psfWorkerSource()`/`getPsfWorkerPool()`: kernel
+  Two more pools serve the simulator (both capped at 2 on a memory-constrained device: each worker holds kernel planes): the PSF pool (`psfWorkerSource()`/`getPsfWorkerPool()`: kernel
   planes, and `widthFit` for `psfUsableZRange()`) and the simulation pool (`simWorkerSource()`/
   `SIM_WORKER_PRELUDE`/`getSimWorkerPool()`: `simInit`/`simBatch` for movies, `calibInit`/`calibBatch`
   for bead stacks).
@@ -492,7 +492,7 @@ Demo/validation/teaching data, not a core analysis path, but everything **Compar
 on. User walk-through: `docs/DOCUMENTATION.md` §2, "Simulation guide".
 
 **Sidebar**: top level = Structure type, Frames to simulate (no maximum; `checkSimMovieSize()` refuses over the
-memory budget and warns from 1 GB, naming the TIFF size), Emitter density preset, Physics detail preset,
+memory budget — half of it on a memory-constrained device, `SIM_MOVIE_CONSTRAINED_SHARE` — and warns from 1 GB, naming the TIFF size), Emitter density preset, Physics detail preset,
 then a 2×3 `.btnrow` (`simToolsRow`: Preview PSF, Calib. 3D stack, Load/Save ground truth, View ground truth,
 Compare to GT — disabled, never hidden, when unavailable: `updatePsfModelUI()`, `setViewGtBtn()` →
 `syncGtFileBtns()`); sub-groups Sample (incl.

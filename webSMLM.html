@@ -71,23 +71,23 @@
     params          2722   PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out          3723   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation      3951   synthetic stack generator ("Simulate movie")
-    validation      7012   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7995   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8251   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8908   super-resolution accumulation, view, colour maps, plots
-    workers         10948  frame-parallel detect/fit worker pool
-    gpu             11591  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13937  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14286  astigmatic width-vs-z bead calibration
-    drift           14698  AIM and cross-correlation drift correction
-    locprecision    15356  NeNA and FRC
-    sSMLM           13937  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17129  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19236  single-particle tracking and diffusion coefficients
-    pipeline        20286  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   21370  Micro-Manager/pycromanager bridge (experimental)
-    table           24078  localizations table, filters, histograms, clustering
-    headless API    24769  window.webSMLM.analyze()/analyzeBatch()
+    validation      7014   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7997   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8253   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8910   super-resolution accumulation, view, colour maps, plots
+    workers         10950  frame-parallel detect/fit worker pool
+    gpu             11594  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13940  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14289  astigmatic width-vs-z bead calibration
+    drift           14701  AIM and cross-correlation drift correction
+    locprecision    15359  NeNA and FRC
+    sSMLM           13940  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17132  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19239  single-particle tracking and diffusion coefficients
+    pipeline        20289  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   21373  Micro-Manager/pycromanager bridge (experimental)
+    table           24091  localizations table, filters, histograms, clustering
+    headless API    24782  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-03c</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-03d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -5250,7 +5250,8 @@ async function generateSynthetic(){
         (photCV>0?`, photon rate spread CV ${photCV}`:'')+`.`);
   else
   log(`Simulated ${events.length} emitters (of ${gt.length} candidates) over ${n} frames.`);
-  return makeStack(w,h,n,px, fi=>frames[fi]);
+  const st=makeStack(w,h,n,px, fi=>frames[fi]); st.residentBytes=n*w*h*4;   // Float32 frames, all cached: counts toward the Mem readout and Localize's memory guards
+  return st;
 }
 
 // Builds a synthetic bead z-stack matching what the "3D calibration" tab (MODULE: 3D
@@ -5325,7 +5326,8 @@ async function generateCalibrationStack(){
   groundTruth=null; groundTruthEvents=null; simTrueDrift=null; groundTruthLocs=null;   // no filament ground truth / drift / GT locs to score for a calibration stack
   log(`Simulated calibration stack: ${nz} z-planes × ${zStepNm}nm (focus @ frame ${focusIndex+1}/${nz}), `+
       `${beadXY.length} bead(s) at fixed x,y.`);
-  return { stack: makeStack(w,h,nz,px, fi=>frames[fi]), focusIndex, zStepNm };
+  const calStack=makeStack(w,h,nz,px, fi=>frames[fi]); calStack.residentBytes=nz*w*h*4;
+  return { stack: calStack, focusIndex, zStepNm };
 }
 
 /* ---------------------------------------------------------------------------
@@ -11433,7 +11435,7 @@ async function getPsfWorkerPool(){
       log(`(PSF workers unavailable${ok.err?' — '+ok.err:''}; building the PSF kernel on the main thread)`);
       return _psfPool=null;
     }
-    const nw=Math.max(1,Math.min(8, navigator.hardwareConcurrency||4));
+    const nw=isMemoryConstrainedDevice() ? Math.max(1,Math.min(2, navigator.hardwareConcurrency||2)) : Math.max(1,Math.min(8, navigator.hardwareConcurrency||4));   // 2 on a memory-constrained device: each worker holds its own plane buffers
     const pool=[]; for(let i=0;i<nw;i++){ const w=new Worker(url); wirePsfWorker(w); pool.push(w); }
     return _psfPool=pool;
   }catch(err){ log(`(PSF workers unavailable: ${err.message} — building the PSF kernel on the main thread)`); return _psfPool=null; }
@@ -11543,7 +11545,8 @@ async function getSimWorkerPool(){
       log(`(simulation workers unavailable${ok.err?' — '+ok.err:''}; Simulate movie will run on the main thread)`);
       return _simPool=null;
     }
-    const nw=Math.max(1,Math.min(12, navigator.hardwareConcurrency||4));
+    // Capped at 2 on a memory-constrained device: every worker holds its own copy of the PSF kernel planes.
+    const nw=isMemoryConstrainedDevice() ? Math.max(1,Math.min(2, navigator.hardwareConcurrency||2)) : Math.max(1,Math.min(12, navigator.hardwareConcurrency||4));
     const pool=[]; for(let i=0;i<nw;i++) pool.push(new Worker(url));
     return _simPool=pool;
   }catch(err){ log(`(simulation workers unavailable: ${err.message} — Simulate movie will run on the main thread)`); return _simPool=null; }
@@ -21926,14 +21929,18 @@ function applySimulatedCameraSettings(cam){
 // (effectiveMemBudgetBytes()); above SIM_MOVIE_WARN_BYTES it runs with a warning that also
 // names the TIFF size Save sim. movie would write (2 bytes/px).
 const SIM_MOVIE_WARN_BYTES=1073741824;
+const SIM_MOVIE_CONSTRAINED_SHARE=0.5;
 function checkSimMovieSize(){
   const n=paramValue('frames'), w=paramValue('simulation_fov'), h=w;
   const bytes=n*w*h*4, prev=simMovie ? simMovie.stack.n*simMovie.stack.w*simMovie.stack.h*4 : 0;
   const ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
+  // The movie is cached whole, next to the PSF kernel, the localizations and the render: on a memory-constrained device
+  // it may take SIM_MOVIE_CONSTRAINED_SHARE of the budget, not all of it.
+  if(isMemoryConstrainedDevice() && isFinite(ceiling.bytes)) ceiling.bytes*=SIM_MOVIE_CONSTRAINED_SHARE;
   if(bytes+prev>ceiling.bytes){
     log(`!!! Simulate movie: ${n.toLocaleString()} frames of ${w}×${h} px need ~${fmtBytes(bytes)}`+
         (prev ? ` (plus ~${fmtBytes(prev)} for the previous simulated movie until it is replaced)` : '')+
-        `, over ${memCeilingSuffix(ceiling)} — lower Frames to simulate or FOV (pixels), or raise the budget if you have the RAM.`);
+        `, over ${isMemoryConstrainedDevice()&&isFinite(ceiling.bytes) ? `the ${fmtBytes(ceiling.bytes)} this device can spare for a movie (${Math.round(SIM_MOVIE_CONSTRAINED_SHARE*100)}% of its memory budget)` : memCeilingSuffix(ceiling)} — lower Frames to simulate or FOV (pixels), or raise the budget if you have the RAM.`);
     return false;
   }
   if(bytes>=SIM_MOVIE_WARN_BYTES)
@@ -23224,6 +23231,11 @@ $('copyLogBtn').addEventListener('click',copyLogToClipboard);
 // LOC_ROW_BYTES × locs + estimateReconBytes(), as the guards use), plus the
 // real JS heap and approximate device RAM where the browser exposes them
 // (Chrome/Edge; not Safari, which offers neither).
+// Memory held by the cached PSF kernel stack (the simulator's planes: Float32 nx×ny per z plane).
+function psfKernelBytes(){
+  const k=_psfKernelCache; if(!k||!k.nx) return 0;
+  return k.nx*k.ny*(k.slices?k.slices.length:(k.nz||0))*4;
+}
 function updateMemReadout(){
   const el=$('memReadout'); if(!el) return;
   // No "Infinity GB" when memBudgetGB is unset.
@@ -23236,12 +23248,13 @@ function updateMemReadout(){
   const locsBytes = locsN*LOC_ROW_BYTES;
   // Prospective cost of the next render with the current settings.
   const renderBytes = lastResult ? estimateReconBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode'), locsN) : 0;
-  const estBytes = stackBytes+locsBytes+renderBytes;
+  const kernelBytes = psfKernelBytes();
+  const estBytes = stackBytes+locsBytes+renderBytes+kernelBytes;
   const pct = budgetSet ? Math.round(100*estBytes/budget) : null;
   let text, title =
-    `Estimated memory in use: ~${fmtBytes(stackBytes)} (the loaded movie, if cached) + `+
+    `Estimated memory in use: ~${fmtBytes(stackBytes)} (the loaded or simulated movie, if cached) + `+
     `~${fmtBytes(locsBytes)} (${locsN.toLocaleString()} localizations) + `+
-    `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification) ≈ ${fmtBytes(estBytes)}`+
+    `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification)`+(kernelBytes?` + ~${fmtBytes(kernelBytes)} (cached simulation PSF kernel)`:'')+` ≈ ${fmtBytes(estBytes)}`+
     (budgetSet ? `, ${pct}% of the ${fmtBytes(budget)} Total memory budget (Memory, rotation, GPU & streaming).\n`
                 : ` (no Total memory budget set — see Memory, rotation, GPU & streaming to set one).\n`)+
     `This is webSMLM's own ESTIMATE, not a real measurement`;
@@ -23983,7 +23996,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.3-dev · build 2026-10-03c — start of the 0.13.3 development cycle.`);
+log(`webSMLM v0.13.3-dev · build 2026-10-03d — start of the 0.13.3 development cycle.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

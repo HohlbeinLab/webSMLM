@@ -2213,6 +2213,12 @@ memory accounting is:
 - **Stream heap** defaults to **250 MB** — a smaller working set per streamed chunk, since streaming
   is now the *only* path on these devices, not an occasional fallback for an unusually large file.
 
+A **simulated** movie is cached whole (it has no file to stream from), so it counts toward the Mem readout
+and Localize's memory checks like a cached movie, and on a memory-constrained device **Simulate movie**
+refuses a movie larger than half the Total memory budget (the rest is left for the PSF kernel, the
+localizations and the render); the simulation and PSF worker pools are capped at 2 there, since each
+worker holds its own copy of the kernel planes.
+
 Only the INITIAL default changes (a later resize/rotation doesn't re-trigger it); a loaded settings
 JSON's own value for any of these three fields always overrides its default, mobile or not.
 
