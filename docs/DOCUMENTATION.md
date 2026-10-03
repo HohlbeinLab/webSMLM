@@ -104,7 +104,8 @@ parameter entry. Gain/Camera offset stay inside **Localisation**
 for now.
 
 Changing **Pixel size (nm)** re-renders a shown reconstruction and repaints a shown plot; if the plot
-is the **FRC** it is recomputed, because the curve, the sampling pixel and the resolution are all in nm.
+is the **FRC** or **NeNA** it is recomputed, because their results are in nm (for FRC also the curve and the
+sampling pixel).
 
 `frametime` (labelled **Frame time (s)**, renamed from `sptFrameTime` in
 v0.12.1-dev) joined it for the same reason: a per-dataset acquisition

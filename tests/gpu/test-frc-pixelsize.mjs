@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Changing Pixel size while the FRC plot is shown recomputes the FRC in the new scale: the resolution, the
-// sampling pixel and the Nyquist limit all follow the camera pixel size (positions are in camera px).
+// Changing Pixel size while the FRC or NeNA plot is shown recomputes it in the new scale: the resolution, the
+// sampling pixel and the Nyquist limit (FRC) and sigma (NeNA) all follow the camera pixel size (positions are in camera px).
 import { launchPage } from '../lib/launch.mjs';
 import assert from 'node:assert/strict';
 
@@ -29,5 +29,18 @@ try {
   const res = t => +/res = ([\d.]+)/.exec(t)[1], ratio = res(r.info) / res(r.a.info);
   assert.ok(ratio > 1.3 && ratio < 1.9, `the resolution follows the pixel size (x${ratio.toFixed(2)} for 100 -> 160 nm)`);
   console.log(`  FRC recomputed on a pixel size change (${r.info}, x${ratio.toFixed(2)})`);
-  console.log('FRC pixel size: PASS');
+  // NeNA: the precision in nm follows the pixel size too.
+  const ne = await page.evaluate(async () => {
+    $('pxnm').value = 100; $('pxnm').dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 300));
+    for (let i = 0; i < 400 && $('frcBtn').disabled; i++) await new Promise(r => setTimeout(r, 50));
+    await computeNeNA(); const name = rawPlotName, s1 = lastNena && lastNena.sigma, t0 = $('logText').textContent.length;
+    $('pxnm').value = 160; $('pxnm').dispatchEvent(new Event('change'));
+    for (let i = 0; i < 400 && (lastNena.sigma === s1); i++) await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 200));
+    return { name, s1, s2: lastNena.sigma, after: rawPlotName, recomputed: /NeNA precision \(nearest-neighbour/.test($('logText').textContent.slice(t0)) };
+  });
+  assert.equal(ne.name, 'nena'); assert.equal(ne.after, 'nena'); assert.ok(ne.recomputed, `NeNA recomputed: ${JSON.stringify(ne)}`);
+  assert.ok(ne.s2 / ne.s1 > 1.3 && ne.s2 / ne.s1 < 1.9, `NeNA sigma follows the pixel size: ${ne.s1} -> ${ne.s2}`);
+  console.log(`  NeNA recomputed on a pixel size change (sigma ${ne.s1.toFixed(1)} -> ${ne.s2.toFixed(1)} nm)`);
+  console.log('FRC/NeNA pixel size: PASS');
 } finally { await browser.close(); }
