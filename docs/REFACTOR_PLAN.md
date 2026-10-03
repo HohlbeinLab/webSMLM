@@ -519,3 +519,17 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   a **GPU rotation kernel** (the transform costs ~13 ns/loc on the CPU, ~0.4 s at 20M locs, so
   only the live drag preview is subsampled); and an `analyze({view3d:{tilt,rotate,box}})` option so
   the CLI can write tilted reconstructions.
+- **Firefox WebGPU is slow here (seen in Firefox 157.0, macOS, Apple GPU, 2026-10-02)**: the PCFO tile
+  FFTs (stage `pcfo`) take about 22 s for 200 frames of a 928×900 movie, against 2.5–3 s in Chrome
+  and Safari on the same machine, the same file and identical results; the CPU path in Chrome takes
+  21 s, so Firefox's GPU path is merely as slow as no GPU. The cost is in the GPU part: reads (2 s)
+  and the CPU tile means plus upload (0.8 s) are normal, and a first batch timed pass by pass showed
+  roughly 100 ms for every pass, even the trivial power kernel, which points at a fixed per-pass or
+  per-submit cost rather than the FFT arithmetic. Batching 5 frames per submission and replacing the
+  per-butterfly `sin`/`cos` with a twiddle table changed nothing in Firefox (neutral in Chrome).
+  Not investigated further (no Firefox automation here; Playwright's Firefox lacks WebGPU). Other GPU
+  stages (fit, render, FRC, simulation) have not been timed in Firefox and may behave the same way.
+  To retest on a newer Firefox: run **Get estimate** (200 frames) and read the `PCFO time split` log
+  line, which lists the first batch by pass. Ideas if it matters: far fewer, larger batches (needs
+  the adapter's real buffer limits via `requiredLimits`, see the GPU render limit note), or a
+  Firefox fallback to the CPU path. Meanwhile time-critical measurements use Chrome.

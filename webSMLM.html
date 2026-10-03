@@ -82,12 +82,12 @@
     drift           14634  AIM and cross-correlation drift correction
     locprecision    15292  NeNA and FRC
     sSMLM           13873  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17037  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19144  single-particle tracking and diffusion coefficients
-    pipeline        20194  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   21278  Micro-Manager/pycromanager bridge (experimental)
-    table           23983  localizations table, filters, histograms, clustering
-    headless API    24674  window.webSMLM.analyze()/analyzeBatch()
+    smFRET          17057  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19164  single-particle tracking and diffusion coefficients
+    pipeline        20214  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   21298  Micro-Manager/pycromanager bridge (experimental)
+    table           24003  localizations table, filters, histograms, clustering
+    headless API    24694  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02h</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02l</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -2054,7 +2054,9 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           2×2) so there's nothing to re-tune per stack.</p>
           <p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
           the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
-          GPU); the Log reports which path ran and how long it took.</p>
+          GPU); the Log reports which path ran and how long it took. Firefox (157 on macOS) runs the GPU path
+          no faster than the CPU (see the roadmap note on browser WebGPU performance): use Chrome or Safari for
+          time-critical work, or sample fewer frames (50 give the same gain on clean data).</p>
         </div>
       </details>
       <details class="sim" id="calibBox">
@@ -16138,7 +16140,7 @@ function pcfoJackknife(pts,rnstd){
 // so f32 round-off scales with the noise, not the offset. imsig stays on the
 // CPU (one pass over the pixels).
 const WGSL_PCFO_FILL=`
-struct P { w:u32, S:u32, N:u32, tilesX:u32, tile0:u32, nTiles:u32, pad0:u32, pad1:u32 }
+struct P { w:u32, S:u32, N:u32, tilesX:u32, tile0:u32, nTiles:u32, tilesPerFrame:u32, frameSize:u32 }
 @group(0) @binding(0) var<storage,read> img:array<f32>;
 @group(0) @binding(1) var<storage,read> means:array<f32>;
 @group(0) @binding(2) var<uniform> p:P;
@@ -16147,15 +16149,17 @@ override WGX:u32=16u; override WGY:u32=16u;
 @compute @workgroup_size(WGX,WGY)
 fn main(@builtin(global_invocation_id) id:vec3u){
   let t=id.z; if(id.x>=p.N||id.y>=p.N||t>=p.nTiles){return;}
-  let g=p.tile0+t; let x0=(g%p.tilesX)*p.S; let y0=(g/p.tilesX)*p.S;
+  let g=p.tile0+t; let fr=g/p.tilesPerFrame; let l=g%p.tilesPerFrame;
+  let x0=(l%p.tilesX)*p.S; let y0=(l/p.tilesX)*p.S; let base=fr*p.frameSize;
   var sx=id.x; if(sx>=p.S){sx=p.N-1u-sx;}
   var sy=id.y; if(sy>=p.S){sy=p.N-1u-sy;}
-  dst[t*p.N*p.N+id.y*p.N+id.x]=vec2f(img[(y0+sy)*p.w+x0+sx]-means[t],0.0);
+  dst[t*p.N*p.N+id.y*p.N+id.x]=vec2f(img[base+(y0+sy)*p.w+x0+sx]-means[t],0.0);
 }`;
 const WGSL_PCFO_FFT=`
 @group(0) @binding(0) var<storage,read> src:array<vec2f>;
 @group(0) @binding(1) var<storage,read_write> dst:array<vec2f>;
 @group(0) @binding(2) var<uniform> rows:vec4u;
+@group(0) @binding(3) var<storage,read> tw:array<vec2f>;   // exp(-2 pi i m / N), m < N/2, from the CPU
 override N:u32=256u; override LOG_N:u32=8u; override WG:u32=256u;
 var<workgroup> scratch:array<vec2f,N>;
 fn cmul(a:vec2f,b:vec2f)->vec2f{return vec2f(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
@@ -16169,8 +16173,7 @@ fn main(@builtin(workgroup_id) wid:vec3u,@builtin(local_invocation_id) lid:vec3u
     if(len>N){break;} let half=len>>1u;
     for(var k=lid.x;k<(N>>1u);k=k+WG){
       let block=(k/half)*len; let j=k%half; let ia=block+j; let ib=ia+half;
-      let angle=-6.283185307179586*f32(j)/f32(len);
-      let u=scratch[ia]; let v=cmul(scratch[ib],vec2f(cos(angle),sin(angle)));
+      let u=scratch[ia]; let v=cmul(scratch[ib],tw[j*(N/len)]);
       scratch[ia]=u+v; scratch[ib]=u-v;
     }
     workgroupBarrier(); len=len<<1u;
@@ -16229,7 +16232,10 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
     const device=engine.device, U=GPUBufferUsage, created=[];
     const mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); created.push(b); return b; };
     try{
-      const imgBuf=mk(w*h*4,U.STORAGE|U.COPY_DST,'pcfo:frame');
+      // Several frames per submission: one readback per batch, not per frame (a round trip costs far more than
+      // a frame's FFTs in some browsers' WebGPU). Falls back to one frame, tiles in batches, for a frame too big.
+      const FB=Math.max(1,Math.min(8,Math.floor(TB/nTiles)));
+      const imgBuf=mk(FB*w*h*4,U.STORAGE|U.COPY_DST,'pcfo:frame');
       const meansBuf=mk(TB*4,U.STORAGE|U.COPY_DST,'pcfo:means');
       const a0=mk(TB*NN*8,U.STORAGE,'pcfo:ping'), a1=mk(TB*NN*8,U.STORAGE,'pcfo:pong');
       const outBuf=mk(TB*4,U.STORAGE|U.COPY_SRC,'pcfo:power');
@@ -16243,38 +16249,55 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
       const trPipe=await engine.compilePipeline(`pcfo-transpose-${N}`,WGSL_PCFO_TRANSPOSE,'main',{N,...c2});
       const powPipe=await engine.compilePipeline(`pcfo-power-${N}`,WGSL_PCFO_POWER,'main',{N,WG:pw});
       const bg=(pipe,entries,label)=>engine.bindGroup({label,layout:pipe.getBindGroupLayout(0),entries:entries.map((buffer,binding)=>({binding,resource:{buffer}}))});
+      // exp(-2πi m/N) for m < N/2, in double precision on the CPU: no sin/cos in the butterflies.
+      const twData=new Float32Array(N); for(let m=0;m<N/2;m++){ twData[2*m]=Math.cos(-2*Math.PI*m/N); twData[2*m+1]=Math.sin(-2*Math.PI*m/N); }
+      const twBuf=mk(twData.byteLength,U.STORAGE|U.COPY_DST,'pcfo:twiddle'); engine.write(twBuf,0,twData);
       const fillBg=bg(fillPipe,[imgBuf,meansBuf,fillP,a0],'pcfo:fill');
-      const fft01=bg(fftPipe,[a0,a1,rowsP],'pcfo:fft-01'), fft01b=bg(fftPipe,[a0,a1,rowsP],'pcfo:fft-01b');
+      const fft01=bg(fftPipe,[a0,a1,rowsP,twBuf],'pcfo:fft-01'), fft01b=bg(fftPipe,[a0,a1,rowsP,twBuf],'pcfo:fft-01b');
       const tr10=bg(trPipe,[a1,a0,rowsP],'pcfo:transpose');
       const powBg=bg(powPipe,[a1,powP,outBuf],'pcfo:power');
       const wgX=Math.ceil(N/engine.wg2D[0]), wgY=Math.ceil(N/engine.wg2D[1]);
-      const pts=[];
-      for(let f=0;f<idx.length;f++){
-        const img=(await stack.getFrames(idx[f],idx[f]+1))[0];
-        engine.write(imgBuf,0,img instanceof Float32Array?img:Float32Array.from(img));
-        for(let t0=0;t0<nTiles;t0+=TB){
-          const nb=Math.min(TB,nTiles-t0), means=new Float32Array(nb), imsig=new Float64Array(nb);
-          for(let t=0;t<nb;t++){ const g=t0+t, x0=(g%tilesX)*S, y0=Math.floor(g/tilesX)*S; let s=0;
-            for(let y=0;y<S;y++){ const r=(y0+y)*w+x0; for(let x=0;x<S;x++) s+=img[r+x]; }
-            imsig[t]=s/(S*S); means[t]=imsig[t]; }
-          engine.write(meansBuf,0,means);
-          engine.write(fillP,0,new Uint32Array([w,S,N,tilesX,t0,nb,0,0]));
+      const pts=[]; pts.timing={readMs:0,deviceMs:0,prepMs:0,gpuMs:0};   // frame reads, then upload + tile means (CPU), then GPU submit + readback, for the log
+      for(let f0=0;f0<idx.length;f0+=FB){
+        const nf=Math.min(FB,idx.length-f0);
+        let tm=performance.now();
+        const imgs=await Promise.all(Array.from({length:nf},(_,k)=>stack.getFrames(idx[f0+k],idx[f0+k]+1).then(a=>a[0])));   // reads overlap
+        pts.timing.readMs+=performance.now()-tm; tm=performance.now();
+        const nAll=nf*nTiles, meansAll=new Float32Array(nAll), tPrep=performance.now();
+        for(let k=0;k<nf;k++){
+          const img=imgs[k];
+          engine.write(imgBuf,k*w*h*4,img instanceof Float32Array?img:Float32Array.from(img));
+          for(let t=0;t<nTiles;t++){ const x0=(t%tilesX)*S, y0=Math.floor(t/tilesX)*S; let sum=0;
+            for(let y=0;y<S;y++){ const r=(y0+y)*w+x0; for(let x=0;x<S;x++) sum+=img[r+x]; }
+            meansAll[k*nTiles+t]=sum/(S*S); }
+        }
+        pts.timing.prepMs+=performance.now()-tPrep;
+        for(let t0=0;t0<nAll;t0+=TB){
+          const nb=Math.min(TB,nAll-t0), tGpu=performance.now();
+          engine.write(meansBuf,0,meansAll.subarray(t0,t0+nb));
+          engine.write(fillP,0,new Uint32Array([w,S,N,tilesX,t0,nb,nTiles,w*h]));
           engine.write(rowsP,0,new Uint32Array([nb*N,nb,0,0]));
+          const plan=[['fill',fillPipe,fillBg,wgX,wgY,nb],['fft rows',fftPipe,fft01,nb*N,1,1],['transpose',trPipe,tr10,wgX,wgY,nb],['fft columns',fftPipe,fft01b,nb*N,1,1],['power',powPipe,powBg,nb,1,1]];
+          if(f0===0&&t0===0){
+            // First batch only: each pass submitted and awaited on its own, so the log can say which kernel is slow.
+            pts.timing.passMs={};
+            for(const [name,pipe,group,x,y,z] of plan){
+              const e=device.createCommandEncoder({label:'pcfo:diag'}), ps=e.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end();
+              const tp=performance.now(); engine.submit([e.finish()]); await device.queue.onSubmittedWorkDone(); pts.timing.passMs[name]=performance.now()-tp;
+            }
+          }
           const enc=device.createCommandEncoder({label:'pcfo:batch'});
-          const pass=(pipe,group,x,y=1,z=1)=>{ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end(); };
-          pass(fillPipe,fillBg,wgX,wgY,nb);
-          pass(fftPipe,fft01,nb*N);          // rows: a0 -> a1
-          pass(trPipe,tr10,wgX,wgY,nb);      // a1 -> a0 (per tile)
-          pass(fftPipe,fft01b,nb*N);         // columns: a0 -> a1
-          pass(powPipe,powBg,nb);
+          if(!(f0===0&&t0===0)) for(const [,pipe,group,x,y,z] of plan){ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end(); }
           enc.copyBufferToBuffer(outBuf,0,staging,0,nb*4);
           engine.submit([enc.finish()]);
           await staging.mapAsync(GPUMapMode.READ);
           const pow=new Float32Array(staging.getMappedRange(0,nb*4).slice(0)); staging.unmap();
-          for(let t=0;t<nb;t++) pts.push({imsig:imsig[t], noisevar:pow[t]*norm});
+          for(let t=0;t<nb;t++) pts.push({imsig:meansAll[t0+t], noisevar:pow[t]*norm});
+          pts.timing.gpuMs+=performance.now()-tGpu;
         }
         if(!engine.available) throw new Error('GPU device lost during PCFO');
-        onProgress(100*(f+1)/idx.length);
+        pts.timing.deviceMs+=performance.now()-tm;
+        onProgress(100*Math.min(idx.length,f0+nf)/idx.length);
       }
       return pts;
     } finally { created.forEach(b=>{ try{ b.destroy(); }catch(_){} }); }
@@ -16282,10 +16305,13 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
 }
 // CPU tile points for the same frames (pcfoFrameTilePoints() per frame).
 async function pcfoTilePointsCpu(stack,idx,S,kThresh,onProgress){
-  const pts=[];
+  const pts=[]; pts.timing={readMs:0,deviceMs:0};
   for(let i=0;i<idx.length;i++){
+    let tm=performance.now();
     const img=(await stack.getFrames(idx[i],idx[i]+1))[0];
+    pts.timing.readMs+=performance.now()-tm; tm=performance.now();
     pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,kThresh));
+    pts.timing.deviceMs+=performance.now()-tm;
     onProgress(100*(i+1)/idx.length);
     await tick();
   }
@@ -16373,6 +16399,10 @@ async function pcfoCore(config, stack, hooks={}){
     ()=>pcfoTilePointsCpu(stack,idx,S,K_THRESH,onProgress),
     ()=>pcfoTilePointsGpu(engine,stack,idx,S,K_THRESH,onProgress),
     async()=>{ engine=await getGpuEngine(); return engine&&engine.available?{eligible:true,reason:'selected'}:{eligible:false,reason:'unavailable'}; });
+  if(pts.timing&&pts.timing.readMs+pts.timing.deviceMs>3000)
+    onLog(`PCFO time split: frame reads ${(pts.timing.readMs/1000).toFixed(1)} s, tile statistics ${(pts.timing.deviceMs/1000).toFixed(1)} s`+
+      (pts.timing.gpuMs?` (frame upload + tile means ${(pts.timing.prepMs/1000).toFixed(1)} s, GPU submit + readback ${(pts.timing.gpuMs/1000).toFixed(1)} s)`:'')+'.'+
+      (pts.timing.passMs?` First batch by pass (ms): ${Object.entries(pts.timing.passMs).map(([k,v])=>k+' '+Math.round(v)).join(', ')}.`:''));
   const fit=pcfoRegress(pts,RNSTD);
   if(!fit){ onLog(`too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return null; }
   // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
@@ -23888,7 +23918,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.2-dev · build 2026-10-02h — start of the 0.13.2 development cycle.`);
+log(`webSMLM v0.13.2-dev · build 2026-10-02l — start of the 0.13.2 development cycle.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

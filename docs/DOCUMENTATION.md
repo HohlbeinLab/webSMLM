@@ -3032,7 +3032,9 @@ rounded to a power of two since the noise-variance estimate needs an FFT, floore
 2×2) so there's nothing to re-tune per stack.</p>
 <p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
 the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
-GPU); the Log reports which path ran and how long it took.</p>
+GPU); the Log reports which path ran and how long it took. Firefox (157 on macOS) runs the GPU path
+no faster than the CPU (see the roadmap note on browser WebGPU performance): use Chrome or Safari for
+time-critical work, or sample fewer frames (50 give the same gain on clean data).</p>
 <!-- /HINT:pcfo -->
 
 Implementation detail beyond the popup above: tiles are pooled and robustly
