@@ -77,6 +77,24 @@ try {
   assert.ok(vp.viewport && vp.gpu, `viewport served from the GPU: ${JSON.stringify(vp)}`);
   assert.ok(vp.patch && vp.patch.k === 1, `native patch from the GPU: ${JSON.stringify(vp.patch)}`);
   console.log(`  30000 px wide panel: GPU viewport, overview ${vp.ov} px, patch at k=${vp.patch.k}`);
+  // The whole-image 'precision' GPU render (integer atomics, no compare-and-swap) against the CPU render, with and
+  // without depth colour, and an appended second batch of locs (the cache's incremental path).
+  const prec = await page.evaluate(async () => {
+    const rnd = mulberry32(21), mk = n => Array.from({ length: n }, () => ({ x: rnd() * 80, y: rnd() * 60, z: rnd() * 600 - 300, lpx: 0.02 + rnd() * 0.08, lpy: 0.02 + rnd() * 0.08 }));
+    const a = mk(6000), all = a.concat(mk(3000)), eng = await getGpuEngine(), out = [];
+    const cmp = (c1, c2) => { const d1 = c1.getContext('2d').getImageData(0, 0, c1.width, c1.height).data, d2 = c2.getContext('2d').getImageData(0, 0, c2.width, c2.height).data;
+      let bad = 0; for (let i = 0; i < d1.length; i += 4) if (Math.abs(d1[i] - d2[i]) + Math.abs(d1[i + 1] - d2[i + 1]) + Math.abs(d1[i + 2] - d2[i + 2]) > 24) bad++; return bad / (d1.length / 4); };
+    for (const zc of [false, true]) {
+      destroyGpuAccumCache();
+      const args = locs => [locs, 80, 60, 6, 0.4, 'viridis', 99.9, zc, -300, 300, locs, 'z'];
+      const g1 = await renderSuperResGpu(eng, ...args(a), 'precision'), c1 = await renderSuperRes(...args(a), () => {}, 'precision', 0, false);
+      const g2 = await renderSuperResGpu(eng, ...args(all), 'precision'), c2 = await renderSuperRes(...args(all), () => {}, 'precision', 0, false);   // appended
+      out.push({ zc, first: cmp(g1, c1), appended: cmp(g2, c2) });
+    }
+    return out;
+  });
+  for (const r of prec) assert.ok(r.first < 0.002 && r.appended < 0.002, `precision whole-image GPU vs CPU (z=${r.zc}): ${JSON.stringify(r)}`);
+  console.log('  whole-image precision render: GPU = CPU, with depth colour and an appended batch');
   // An 8000×8000 px image (a 256 MB accumulator, over the default 128 MiB buffer) is drawn per view from the GPU,
   // not rendered whole on the CPU; a small one stays a whole-image render.
   const big = await page.evaluate(async () => {

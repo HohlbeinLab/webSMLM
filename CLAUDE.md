@@ -253,7 +253,8 @@ what makes GUI and command-line use interchangeable.
     (`gpuViewportInit()`, `vp.gpu`) and `gpuViewportRegion()` runs `WGSL_RENDER_SAMPLE` (one thread per loc,
     64-bit fixed-point integer atomic adds, no compare-and-swap: that does not compile in Safari 27's Metal back end) into a
     sample-grid accumulator (≤ ~16.7M samples), a combine pass to f32, then the whole-image colour map,
-    max-reduction and histogram kernels: the buffers are independent of the image size, so they fit the default
+    max-reduction and histogram kernels (the whole-image 'precision' kernel, `WGSL_RENDER_PRECISION`, likewise accumulates
+    64-bit fixed point in four buffers, `GPU_PREC_SC`/`GPU_PREC_SCZ`, then the same combine pass; **never use `atomicCompareExchangeWeak`**, Safari 27 cannot compile it): the buffers are independent of the image size, so they fit the default
     128 MiB buffer limit. `srRenderPlan()` also picks the viewport for an image whose accumulator exceeds one storage
     buffer (`W·H·4 > maxStorageBufferBindingSize`), where the whole-image GPU path would fall back to the CPU. A GPU
     failure (or an empty overview) drops to the CPU sampler on `vp.local` (main thread). Otherwise the render worker keeps the packed locs

@@ -75,19 +75,19 @@
     detect          7995   band-pass (wavelet/DoG/box) + local-maxima detection
     fit             8251   phasor, LSQ and Poisson-MLE fitters; aperture photometry
     render          8908   super-resolution accumulation, view, colour maps, plots
-    workers         10949  frame-parallel detect/fit worker pool
-    gpu             11592  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13932  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14281  astigmatic width-vs-z bead calibration
-    drift           14693  AIM and cross-correlation drift correction
-    locprecision    15351  NeNA and FRC
-    sSMLM           13932  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17124  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19231  single-particle tracking and diffusion coefficients
-    pipeline        20281  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   21365  Micro-Manager/pycromanager bridge (experimental)
-    table           24070  localizations table, filters, histograms, clustering
-    headless API    24761  window.webSMLM.analyze()/analyzeBatch()
+    workers         10948  frame-parallel detect/fit worker pool
+    gpu             11591  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13937  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14286  astigmatic width-vs-z bead calibration
+    drift           14698  AIM and cross-correlation drift correction
+    locprecision    15356  NeNA and FRC
+    sSMLM           13937  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17129  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19236  single-particle tracking and diffusion coefficients
+    pipeline        20286  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   21370  Micro-Manager/pycromanager bridge (experimental)
+    table           24075  localizations table, filters, histograms, clustering
+    headless API    24766  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02o</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02p</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9610,7 +9610,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }`;
 // Folds the 64-bit fixed-point sums into f32 density and z-sum for the colour map.
 const WGSL_RENDER_COMBINE=`
-struct Params { ow:f32, oh:f32, zColorFlag:f32, zlo:f32 };
+struct Params { ow:f32, oh:f32, zColorFlag:f32, zlo:f32, sc:f32, scz:f32, pad0:f32, pad1:f32 };
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage, read> accLo: array<u32>;
 @group(0) @binding(2) var<storage, read> accHi: array<u32>;
@@ -9618,7 +9618,6 @@ struct Params { ow:f32, oh:f32, zColorFlag:f32, zlo:f32 };
 @group(0) @binding(4) var<storage, read> zHi: array<u32>;
 @group(0) @binding(5) var<storage, read_write> dens: array<f32>;
 @group(0) @binding(6) var<storage, read_write> zsum: array<f32>;
-const SC: f32 = 262144.0;
 override WGX: u32 = 8u;
 override WGY: u32 = 8u;
 @compute @workgroup_size(WGX,WGY)
@@ -9626,9 +9625,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let ow=u32(p.ow); let oh=u32(p.oh);
   if (gid.x>=ow || gid.y>=oh) { return; }
   let i = gid.y*ow+gid.x;
-  let d = (f32(accHi[i])*4294967296.0 + f32(accLo[i])) / SC;
+  let d = (f32(accHi[i])*4294967296.0 + f32(accLo[i])) / p.sc;
   dens[i] = d;
-  if (p.zColorFlag > 0.5) { zsum[i] = (f32(zHi[i])*4294967296.0 + f32(zLo[i])) / SC + p.zlo*d; }
+  if (p.zColorFlag > 0.5) { zsum[i] = (f32(zHi[i])*4294967296.0 + f32(zLo[i])) / p.scz + p.zlo*d; }
 }`;
 // Uploads the packed locs P as resident chunks; null when the GPU is off or unusable (the CPU path then runs).
 async function gpuViewportInit(P,renderMode){
@@ -9722,7 +9721,7 @@ async function gpuViewportRegionNow(g,p,rx,ry,rw,rh,k,pct,normGiven){
     const wg2D={WGX:eng.wg2D[0],WGY:eng.wg2D[1]}, wgX=Math.ceil(ow/wg2D.WGX), wgY=Math.ceil(oh/wg2D.WGY);
     const acc=mk(N*4,U.STORAGE,'vp:dens'), zacc=mk(p.zColor?N*4:4,U.STORAGE,'vp:zsum');
     { const comb=await eng.compilePipeline('viewport-combine',WGSL_RENDER_COMBINE,'main',wg2D);
-      const cb=mk(16,U.UNIFORM|U.COPY_DST,'vp:combine'); device.queue.writeBuffer(cb,0,new Float32Array([ow,oh,p.zColor?1:0,p.zlo]));
+      const cb=mk(32,U.UNIFORM|U.COPY_DST,'vp:combine'); device.queue.writeBuffer(cb,0,new Float32Array([ow,oh,p.zColor?1:0,p.zlo,262144,262144,0,0]));   // the sampler's own scales (2^18)
       const e0=device.createCommandEncoder(), p0=e0.beginComputePass(); p0.setPipeline(comb);
       p0.setBindGroup(0,device.createBindGroup({layout:comb.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:cb}},{binding:1,resource:{buffer:accLo}},{binding:2,resource:{buffer:accHi}},
         {binding:3,resource:{buffer:zLo}},{binding:4,resource:{buffer:zHi}},{binding:5,resource:{buffer:acc}},{binding:6,resource:{buffer:zacc}}]}));
@@ -12096,17 +12095,22 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 //    MAX_WIN = 40 is fixed (WGSL has no dynamic local arrays) and covers the
 //    MAX_SPLAT_SIGMA_PX = 6 worst case of 38.
 // Bounds use unrounded px/py (as the CPU code), unlike the fixed-mode kernel.
-// Accumulation: a real f32 atomic add via a compare-exchange loop on u32 bits.
-// Fixed-point i32 was tried and rejected: the values span orders of magnitude,
-// and per-add rounding biased 6.5–7.1% of pixels.
+// Accumulation: 64-bit fixed point in four u32 buffers (SC = 2^20 for weights, a coarser SCZ for the z-sum,
+// whose terms are up to the z range times larger), so a weight below ~1e-6 is dropped; a combine pass turns
+// the sums into f32. (A compare-exchange f32 add does not compile in Safari 27.)
+const GPU_PREC_SC=1048576, GPU_PREC_SCZ=16384;   // 'precision' accumulator scales: density (2^20) and z-sum (2^14); the WGSL consts and the combine uniform use these
 const WGSL_RENDER_PRECISION=`
 struct Params { W:f32, H:f32, mag:f32, zColorFlag:f32, zlo:f32, zhi:f32, zscale:f32, nLocs:f32,
                 blurPx:f32, maxSigma:f32, pad0:f32, pad1:f32 };
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var<storage, read> locs: array<vec4f>;
 @group(0) @binding(2) var<storage, read> prec: array<vec2f>;
-@group(0) @binding(3) var<storage, read_write> acc: array<atomic<u32>>;
-@group(0) @binding(4) var<storage, read_write> zacc: array<atomic<u32>>;
+@group(0) @binding(3) var<storage, read_write> accLo: array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read_write> zLo: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> accHi: array<atomic<u32>>;
+@group(0) @binding(6) var<storage, read_write> zHi: array<atomic<u32>>;
+const SC: f32 = ${GPU_PREC_SC}.0;     // fixed-point scales, equal to the combine pass's (GPU_PREC_SC / GPU_PREC_SCZ)
+const SCZ: f32 = ${GPU_PREC_SCZ}.0;
 override WG: u32 = 64u;
 const MAX_WIN: u32 = 40u;
 // WGSL has no isFinite(): NaN fails v==v, and both infinities fail the magnitude
@@ -12125,23 +12129,20 @@ fn gInt(pix: f32, mu: f32, sig: f32) -> f32 {
   let sn = 0.7071067811865476 / sig; let d = pix - mu;
   return 0.5 * (erfApprox((d+0.5)*sn) - erfApprox((d-0.5)*sn));
 }
-// Two near-identical add functions: pointer parameters to storage need
-// unrestricted_pointer_parameters, which isn't universally available.
-fn addAcc(idx: u32, v: f32) {
-  var old = atomicLoad(&acc[idx]);
-  loop {
-    let r = atomicCompareExchangeWeak(&acc[idx], old, bitcast<u32>(bitcast<f32>(old) + v));
-    if (r.exchanged) { break; }
-    old = r.old_value;
-  }
+// Integer atomics only: atomicCompareExchangeWeak does not compile in Safari 27's Metal back end. A weight is
+// added as round(w * SC) to a low word, a carry out of it goes to the high word; z enters as w * (z - zlo) >= 0
+// at its own scale so it fits in 32 bits.
+fn addAcc(idx: u32, w: f32) {
+  let q = u32(w * SC + 0.5);
+  if (q == 0u) { return; }
+  let old = atomicAdd(&accLo[idx], q);
+  if (old + q < old) { atomicAdd(&accHi[idx], 1u); }
 }
 fn addZacc(idx: u32, v: f32) {
-  var old = atomicLoad(&zacc[idx]);
-  loop {
-    let r = atomicCompareExchangeWeak(&zacc[idx], old, bitcast<u32>(bitcast<f32>(old) + v));
-    if (r.exchanged) { break; }
-    old = r.old_value;
-  }
+  let q = u32(v * SCZ + 0.5);
+  if (q == 0u) { return; }
+  let old = atomicAdd(&zLo[idx], q);
+  if (old + q < old) { atomicAdd(&zHi[idx], 1u); }
 }
 @compute @workgroup_size(WG)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -12171,7 +12172,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   var gy: array<f32, 40>;
   for (var jj: u32 = 0u; jj < nx; jj = jj + 1u) { gx[jj] = gInt(f32(jMin) + f32(jj) + 0.5, px, sx); }
   for (var ii: u32 = 0u; ii < ny; ii = ii + 1u) { gy[ii] = gInt(f32(iMin) + f32(ii) + 0.5, py, sy); }
-  let zval = select(0.0, L.z, p.zColorFlag > 0.5);
+  let zval = select(0.0, L.z - p.zlo, p.zColorFlag > 0.5);
   for (var ii: u32 = 0u; ii < ny; ii = ii + 1u) {
     let row = (iMin + i32(ii)) * Wi;
     let gyi = gy[ii];
@@ -12179,9 +12180,6 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       let w = gyi * gx[jj];
       let idx = u32(row + jMin + i32(jj));
       addAcc(idx, w);
-      // No p.zscale here, unlike WGSL_RENDER_ACCUMULATE: that factor exists only
-      // to give the integer z-sum some sub-unit resolution, and this accumulator
-      // is already f32. The colormap is told to divide by 1 instead.
       if (p.zColorFlag > 0.5) { addZacc(idx, w * zval); }
     }
   }
@@ -12325,7 +12323,7 @@ let _gpuAccumCache=null, _gpuNormCache=null;
 // during a render is unchanged.
 function destroyGpuAccumCache(){
   const c=_gpuAccumCache;
-  if(c) [c.accF,c.zaccF,c.accBuf,c.zaccBuf,c.widenParamsBuf].forEach(b=>{ if(b) b.destroy(); });
+  if(c) [c.accF,c.zaccF,c.accBuf,c.zaccBuf,c.accHi,c.zHi,c.widenParamsBuf].forEach(b=>{ if(b) b.destroy(); });
   if(_gpuNormCache&&_gpuNormCache.naccF) _gpuNormCache.naccF.destroy();
   _gpuAccumCache=null; _gpuNormCache=null;
 }
@@ -12387,6 +12385,8 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
     ? await engine.compilePipeline('render-precision', WGSL_RENDER_PRECISION, 'main', {WG:engine.wg1D})
     : accPipe;
   const widenPipe=await engine.compilePipeline('render-widen', WGSL_RENDER_WIDEN, 'main', wg2D);
+  // 'precision' keeps 64-bit sums in four buffers (lo/hi for density and z); its final pass is the combine kernel.
+  const finalPipe=isPrecision ? await engine.compilePipeline('viewport-combine', WGSL_RENDER_COMBINE, 'main', wg2D) : widenPipe;
 
   // Cache key without the loc count (a grown array is an append, below).
   // renderMode is in it (the two modes' accumulators differ); blurPx only for
@@ -12403,14 +12403,15 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   // over a Run). Sound because accumulation is commutative; a sort keeps the
   // length (hit), a filter makes a new array (rebuild).
   const canAppend = keyMatch && nLocs > _gpuAccumCache.n && _gpuAccumCache.accBuf;
-  let accF, zaccF, accBuf, zaccBuf;
+  let accF, zaccF, accBuf, zaccBuf, accHi=null, zHi=null;
   // Chunk size also respects maxStorageBufferBindingSize (16 bytes/loc); which
   // limit binds depends on the adapter and the tuned wg1D.
   const maxLocsPerChunk=Math.min(maxLocsPerCall, Math.floor(engine.limits.maxStorageBufferBindingSize/16));
   // Uploads, dispatches and awaits one chunk, then frees its upload buffers
   // (keeping every chunk's buffers until the end crashed a 40M-loc render).
   // Widen runs once after all chunks.
-  const dispatchAccumulateChunk=async(from, cnt, accBufL, zaccBufL)=>{
+  const dispatchAccumulateChunk=async(from, cnt, rawL)=>{
+    const [accBufL,zaccBufL,accHiL,zHiL]=rawL;
     const locData=new Float32Array(cnt*4);
     for(let i=0;i<cnt;i++){ const L=locs[from+i];
       locData[i*4]=L.x; locData[i*4+1]=L.y; locData[i*4+2]=zColor?L[colorField]:0; locData[i*4+3]=0; }
@@ -12427,7 +12428,8 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
       device.queue.writeBuffer(accParamsBuf,0,new Float32Array([W,H,mag,zColor?1:0, zlo,zhi,GPU_Z_FIXED_SCALE, cnt,
                                                                 blurPx, MAX_SPLAT_SIGMA_PX, 0, 0]));
       accEntries.push({binding:2,resource:{buffer:precBuf}},
-                      {binding:3,resource:{buffer:accBufL}},{binding:4,resource:{buffer:zaccBufL}});
+                      {binding:3,resource:{buffer:accBufL}},{binding:4,resource:{buffer:zaccBufL}},
+                      {binding:5,resource:{buffer:accHiL}},{binding:6,resource:{buffer:zHiL}});
     } else {
       device.queue.writeBuffer(accParamsBuf,0,new Float32Array([W,H,mag,zColor?1:0, zlo,zhi,GPU_Z_FIXED_SCALE, cnt]));
       accEntries.push({binding:2,resource:{buffer:accBufL}},{binding:3,resource:{buffer:zaccBufL}});
@@ -12443,17 +12445,17 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   };
   // Accumulate locs[from…nLocs) chunk by chunk, then widen once over the whole
   // grid; shared by rebuild (from 0) and append.
-  const accumulateFrom=async(from, accBufL, zaccBufL, widenBind)=>{
+  const accumulateFrom=async(from, rawL, widenBind)=>{
     const total=nLocs-from;
     let done=0;
     do{   // a 0-loc call (nothing new to append) still needs its widen pass skipped, not a 0-sized dispatch
       const cnt=Math.min(maxLocsPerChunk, total-done);
-      if(cnt>0) await dispatchAccumulateChunk(from+done, cnt, accBufL, zaccBufL);
+      if(cnt>0) await dispatchAccumulateChunk(from+done, cnt, rawL);
       done+=cnt;
     }while(done<total);
     const enc=device.createCommandEncoder();
     const p=enc.beginComputePass();
-    p.setPipeline(widenPipe); p.setBindGroup(0,widenBind); p.dispatchWorkgroups(wgX,wgY);
+    p.setPipeline(finalPipe); p.setBindGroup(0,widenBind); p.dispatchWorkgroups(wgX,wgY);
     p.end();
     device.queue.submit([enc.finish()]);
   };
@@ -12461,32 +12463,35 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
     ({accF,zaccF}=_gpuAccumCache);
   } else if(canAppend){
     const c=_gpuAccumCache;
-    ({accF,zaccF,accBuf,zaccBuf}=c);
-    await accumulateFrom(c.n, accBuf, zaccBuf, c.widenBind);
+    ({accF,zaccF,accBuf,zaccBuf,accHi,zHi}=c);
+    await accumulateFrom(c.n, [accBuf,zaccBuf,accHi,zHi], c.widenBind);
     c.n=nLocs;
   } else {
     if(_gpuAccumCache) destroyGpuAccumCache();
     // accBuf/zaccBuf are RETAINED now (not mkT/toDestroy): they are the raw
     // pre-widen accumulator the append path adds into. accF/zaccF are the
     // post-widen result and were already retained.
-    accBuf=mk(N*4, U.STORAGE|U.COPY_DST); device.queue.writeBuffer(accBuf,0,new Uint32Array(N));
-    zaccBuf=mk(N*4, U.STORAGE|U.COPY_DST); if(zColor) device.queue.writeBuffer(zaccBuf,0,new Int32Array(N));
+    accBuf=mk(N*4, U.STORAGE|U.COPY_DST); zaccBuf=mk(zColor||!isPrecision?N*4:4, U.STORAGE|U.COPY_DST);
+    if(isPrecision){ accHi=mk(N*4, U.STORAGE|U.COPY_DST); zHi=mk(zColor?N*4:4, U.STORAGE|U.COPY_DST); }   // new buffers start zeroed
+    else { device.queue.writeBuffer(accBuf,0,new Uint32Array(N)); if(zColor) device.queue.writeBuffer(zaccBuf,0,new Int32Array(N)); }
 
     // widenParamsBuf/widenBind are retained too: the append path re-runs the
     // widen pass every tick against the SAME five buffers, so rebuilding either
     // per tick would be the churn this cache exists to avoid.
-    const widenParamsBuf=mk(16, U.UNIFORM|U.COPY_DST);
-    device.queue.writeBuffer(widenParamsBuf,0,new Float32Array([W,H,zColor?1:0,isPrecision?1:0]));
+    const widenParamsBuf=mk(32, U.UNIFORM|U.COPY_DST);
+    device.queue.writeBuffer(widenParamsBuf,0,new Float32Array(isPrecision?[W,H,zColor?1:0,zlo,GPU_PREC_SC,GPU_PREC_SCZ,0,0]:[W,H,zColor?1:0,0]));
     // accF/zaccF are retained in _gpuAccumCache (freed on the next miss).
     accF=mk(N*4, U.STORAGE|U.COPY_SRC|U.COPY_DST);
     zaccF=mk(N*4, U.STORAGE|U.COPY_SRC|U.COPY_DST);
-    const widenBind=device.createBindGroup({layout:widenPipe.getBindGroupLayout(0), entries:[
+    const widenBind=device.createBindGroup({layout:finalPipe.getBindGroupLayout(0), entries:isPrecision?[
+      {binding:0,resource:{buffer:widenParamsBuf}},{binding:1,resource:{buffer:accBuf}},{binding:2,resource:{buffer:accHi}},
+      {binding:3,resource:{buffer:zaccBuf}},{binding:4,resource:{buffer:zHi}},{binding:5,resource:{buffer:accF}},{binding:6,resource:{buffer:zaccF}}]:[
       {binding:0,resource:{buffer:widenParamsBuf}},{binding:1,resource:{buffer:accBuf}},
       {binding:2,resource:{buffer:zaccBuf}},{binding:3,resource:{buffer:accF}},{binding:4,resource:{buffer:zaccF}}]});
-    await accumulateFrom(0, accBuf, zaccBuf, widenBind);
+    await accumulateFrom(0, [accBuf,zaccBuf,accHi,zHi], widenBind);
 
     _gpuAccumCache={engine,locs,n:nLocs,w,h,mag,zColor,colorField,zlo,zhi,renderMode,blurPx,
-                    accF,zaccF,accBuf,zaccBuf,widenParamsBuf,widenBind};
+                    accF,zaccF,accBuf,zaccBuf,accHi,zHi,widenParamsBuf,widenBind};
   }
 
   // Separate accumulate + widen for normLocs (same z-range handling); only
@@ -12674,10 +12679,10 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
     const retained=new Set();
     if(renderComplete){
       const a=_gpuAccumCache,n=_gpuNormCache;
-      if(a) for(const key of ['accF','zaccF','accBuf','zaccBuf','widenParamsBuf']) if(a[key]) retained.add(a[key]);
+      if(a) for(const key of ['accF','zaccF','accBuf','zaccBuf','accHi','zHi','widenParamsBuf']) if(a[key]) retained.add(a[key]);
       if(n&&n.naccF) retained.add(n.naccF);
     }else{
-      if(_gpuAccumCache && ['accF','zaccF','accBuf','zaccBuf','widenParamsBuf'].some(k=>created.has(_gpuAccumCache[k]))) _gpuAccumCache=null;
+      if(_gpuAccumCache && ['accF','zaccF','accBuf','zaccBuf','accHi','zHi','widenParamsBuf'].some(k=>created.has(_gpuAccumCache[k]))) _gpuAccumCache=null;
       if(_gpuNormCache && created.has(_gpuNormCache.naccF)) _gpuNormCache=null;
     }
     for(const b of created) if(!retained.has(b)){ try{ if(b.mapState==='mapped') b.unmap(); b.destroy(); }catch(_){} }
@@ -23975,7 +23980,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.2-dev · build 2026-10-02o — start of the 0.13.2 development cycle.`);
+log(`webSMLM v0.13.2-dev · build 2026-10-02p — start of the 0.13.2 development cycle.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
