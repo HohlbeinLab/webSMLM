@@ -68,26 +68,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2720   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3721   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3949   synthetic stack generator ("Simulate movie")
-    validation      7010   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7993   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8249   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8906   super-resolution accumulation, view, colour maps, plots
-    workers         10890  frame-parallel detect/fit worker pool
-    gpu             11533  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13873  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14222  astigmatic width-vs-z bead calibration
-    drift           14634  AIM and cross-correlation drift correction
-    locprecision    15292  NeNA and FRC
-    sSMLM           13873  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17057  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19164  single-particle tracking and diffusion coefficients
-    pipeline        20214  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   21298  Micro-Manager/pycromanager bridge (experimental)
-    table           24003  localizations table, filters, histograms, clustering
-    headless API    24694  window.webSMLM.analyze()/analyzeBatch()
+    params          2722   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3723   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3951   synthetic stack generator ("Simulate movie")
+    validation      7012   ground-truth scoring for simulated data ("Compare to GT")
+    detect          7995   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8251   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8908   super-resolution accumulation, view, colour maps, plots
+    workers         10949  frame-parallel detect/fit worker pool
+    gpu             11592  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13932  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14281  astigmatic width-vs-z bead calibration
+    drift           14693  AIM and cross-correlation drift correction
+    locprecision    15351  NeNA and FRC
+    sSMLM           13932  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17124  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19231  single-particle tracking and diffusion coefficients
+    pipeline        20281  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   21365  Micro-Manager/pycromanager bridge (experimental)
+    table           24070  localizations table, filters, histograms, clustering
+    headless API    24761  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02l</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.2-dev · build 2026-10-02o</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9439,6 +9439,7 @@ async function renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo
       if(g){
         vp.gpu=g; vp.local={P:P0};
         const r=await gpuViewportRegion(g,params,0,0,W,H,k,pct,null);
+        if(!(r.norm>0) && P0.n>0) throw new Error('the GPU render came back empty');   // a silently failing browser: let the CPU draw it
         vp.norm=r.norm; vp.overview=r.canvas;
         return vp;
       }
@@ -9487,8 +9488,8 @@ async function srViewportRegion(vp,rx,ry,rw,rh,k){
 // (with srMirrorWeight()'s mirrored edges) or splat to the samples (rx+a·k, ry+b·k) it reaches, so the
 // buffers are the sample grid only (≤ ~16.7M samples for the overview) whatever the image size, and fit
 // the default storage-buffer limit. The locs stay resident in chunks of ≤ maxStorageBufferBindingSize/16.
-// Accumulators are f32 compare-and-swap adds (as WGSL_RENDER_PRECISION), colour map and display maximum
-// reuse the whole-image kernels; no 65,535-hit cap on unblurred bins. 'dither' and normLocs stay on the CPU.
+// Accumulators are 64-bit fixed-point integer atomic adds (compare-and-swap does not compile in Safari 27); a
+// combine pass makes them f32 for the whole-image colour map and display-maximum kernels. No 65,535-hit cap. 'dither' and normLocs stay on the CPU.
 const WGSL_RENDER_SAMPLE=`
 struct Params { Wg:f32, Hg:f32, rx:f32, ry:f32, ow:f32, oh:f32, k:f32, mag:f32,
                 zColorFlag:f32, zlo:f32, zhi:f32, nLocs:f32, blurPx:f32, maxSigma:f32, mode:f32, rad:f32,
@@ -9497,8 +9498,11 @@ struct Params { Wg:f32, Hg:f32, rx:f32, ry:f32, ow:f32, oh:f32, k:f32, mag:f32,
 @group(0) @binding(1) var<storage, read> locs: array<vec4f>;
 @group(0) @binding(2) var<storage, read> prec: array<vec2f>;
 @group(0) @binding(3) var<storage, read> kern: array<f32>;
-@group(0) @binding(4) var<storage, read_write> acc: array<atomic<u32>>;
-@group(0) @binding(5) var<storage, read_write> zacc: array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read_write> accLo: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> accHi: array<atomic<u32>>;
+@group(0) @binding(6) var<storage, read_write> zLo: array<atomic<u32>>;
+@group(0) @binding(7) var<storage, read_write> zHi: array<atomic<u32>>;
+const SC: f32 = 262144.0;   // fixed point: weight * 2^18, held as a 64-bit sum (lo word + carries in hi)
 override WG: u32 = 64u;
 fn isFin(v: f32) -> bool { return v == v && abs(v) < 3.4e38; }
 fn erfApprox(xIn: f32) -> f32 {
@@ -9511,21 +9515,20 @@ fn gInt(pix: f32, mu: f32, sig: f32) -> f32 {
   let sn = 0.7071067811865476 / sig; let d = pix - mu;
   return 0.5 * (erfApprox((d+0.5)*sn) - erfApprox((d-0.5)*sn));
 }
-fn addAcc(idx: u32, v: f32) {
-  var old = atomicLoad(&acc[idx]);
-  loop {
-    let r = atomicCompareExchangeWeak(&acc[idx], old, bitcast<u32>(bitcast<f32>(old) + v));
-    if (r.exchanged) { break; }
-    old = r.old_value;
-  }
+// Integer atomics only: atomicCompareExchangeWeak does not compile in Safari 27's Metal back end. A weight is
+// added as round(w * 2^18) to the low word, and a carry out of it goes to the high word.
+fn addDen(idx: u32, w: f32) {
+  let q = u32(w * SC + 0.5);
+  if (q == 0u) { return; }
+  let old = atomicAdd(&accLo[idx], q);
+  if (old + q < old) { atomicAdd(&accHi[idx], 1u); }
 }
-fn addZacc(idx: u32, v: f32) {
-  var old = atomicLoad(&zacc[idx]);
-  loop {
-    let r = atomicCompareExchangeWeak(&zacc[idx], old, bitcast<u32>(bitcast<f32>(old) + v));
-    if (r.exchanged) { break; }
-    old = r.old_value;
-  }
+// z enters as w * (z - zlo) >= 0, so it needs no sign handling.
+fn addZ(idx: u32, v: f32) {
+  let q = u32(v * SC + 0.5);
+  if (q == 0u) { return; }
+  let old = atomicAdd(&zLo[idx], q);
+  if (old + q < old) { atomicAdd(&zHi[idx], 1u); }
 }
 fn ceilDiv(n: i32, d: i32) -> i32 { return select(-((-n) / d), (n + d - 1) / d, n >= 0); }
 fn floorDiv(n: i32, d: i32) -> i32 { return select(-((-n + d - 1) / d), n / d, n >= 0); }
@@ -9545,7 +9548,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let L = locs[i];
   let zc = p.zColorFlag > 0.5;
   if (zc && !(isFin(L.z) && L.z >= p.zlo && L.z <= p.zhi)) { return; }
-  let zval = select(0.0, L.z, zc);
+  let zval = select(0.0, L.z - p.zlo, zc);
   let Wg = i32(p.Wg); let Hg = i32(p.Hg); let rx = i32(p.rx); let ry = i32(p.ry);
   let ow = i32(p.ow); let oh = i32(p.oh); let k = i32(p.k);
   let mode = u32(p.mode);
@@ -9572,8 +9575,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       for (var a = 0; a < na; a = a + 1) {
         let w = gy[b] * gx[a];
         let idx = u32(row + a0 + a);
-        addAcc(idx, w);
-        if (zc) { addZacc(idx, w * zval); }
+        addDen(idx, w);
+        if (zc) { addZ(idx, w * zval); }
       }
     }
     return;
@@ -9586,8 +9589,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let a = tx / k; let b = ty / k;
     if (a >= ow || b >= oh) { return; }
     let idx = u32(b * ow + a);
-    addAcc(idx, 1.0);
-    if (zc) { addZacc(idx, zval); }
+    addDen(idx, 1.0);
+    if (zc) { addZ(idx, zval); }
     return;
   }
   let rad = i32(p.rad);
@@ -9600,10 +9603,32 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     for (var a = a0; a <= a1; a = a + 1) {
       let w = gyv * mirrorW(rx + a * k, ix, Wg, rad);
       let idx = u32(row + a);
-      addAcc(idx, w);
-      if (zc) { addZacc(idx, w * zval); }
+      addDen(idx, w);
+      if (zc) { addZ(idx, w * zval); }
     }
   }
+}`;
+// Folds the 64-bit fixed-point sums into f32 density and z-sum for the colour map.
+const WGSL_RENDER_COMBINE=`
+struct Params { ow:f32, oh:f32, zColorFlag:f32, zlo:f32 };
+@group(0) @binding(0) var<uniform> p: Params;
+@group(0) @binding(1) var<storage, read> accLo: array<u32>;
+@group(0) @binding(2) var<storage, read> accHi: array<u32>;
+@group(0) @binding(3) var<storage, read> zLo: array<u32>;
+@group(0) @binding(4) var<storage, read> zHi: array<u32>;
+@group(0) @binding(5) var<storage, read_write> dens: array<f32>;
+@group(0) @binding(6) var<storage, read_write> zsum: array<f32>;
+const SC: f32 = 262144.0;
+override WGX: u32 = 8u;
+override WGY: u32 = 8u;
+@compute @workgroup_size(WGX,WGY)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let ow=u32(p.ow); let oh=u32(p.oh);
+  if (gid.x>=ow || gid.y>=oh) { return; }
+  let i = gid.y*ow+gid.x;
+  let d = (f32(accHi[i])*4294967296.0 + f32(accLo[i])) / SC;
+  dens[i] = d;
+  if (p.zColorFlag > 0.5) { zsum[i] = (f32(zHi[i])*4294967296.0 + f32(zLo[i])) / SC + p.zlo*d; }
 }`;
 // Uploads the packed locs P as resident chunks; null when the GPU is off or unusable (the CPU path then runs).
 async function gpuViewportInit(P,renderMode){
@@ -9629,6 +9654,29 @@ async function gpuViewportInit(P,renderMode){
     }catch(err){ gpuViewportFree(g); throw err; }
     return g;
   }));
+}
+// Diagnostic (terminal): renders a small random set through the GPU sampler and the CPU sampler in each
+// mode and logs how many samples differ, so a browser whose GPU render comes out wrong can be identified.
+async function gpuViewportSelfTest(){
+  const eng=await getGpuEngine();
+  if(!eng || !eng.available){ log('GPU viewport self-test: no WebGPU engine.'); return false; }
+  const rnd=mulberry32(11), locs=[];
+  for(let i=0;i<5000;i++) locs.push({x:rnd()*60,y:rnd()*45,z:rnd()*400,lpx:0.03+rnd()*0.05,lpy:0.03+rnd()*0.05});
+  let allOk=true;
+  for(const [mode,blurPx,zc] of [['fixed',0,false],['fixed',0.5,false],['fixed',0.5,true],['precision',0.5,false],['precision',0.5,true]]){
+    const mag=8, W=60*mag, H=45*mag, P=packSrLocs(locs,'z',zc,mode);
+    const params={W,H,mag,blurPx,zColor:zc,zlo:0,zhi:400,renderMode:mode,lutName:'viridis'};
+    try{
+      const g=await gpuViewportInit(P,mode);
+      const r=srRenderRegion(P,null,W,H,0,0,W,H,2,mag,blurPx,zc,0,400,mode,99.9);
+      const cpu=srRegionCanvas(r,r.norm,params), gpu=await gpuViewportRegion(g,params,0,0,W,H,2,99.9,null); gpuViewportFree(g);
+      const a=cpu.getContext('2d').getImageData(0,0,cpu.width,cpu.height).data, b=gpu.canvas.getContext('2d').getImageData(0,0,gpu.canvas.width,gpu.canvas.height).data;
+      let bad=0, lit=0; for(let i=0;i<a.length;i+=4){ if(a[i]+a[i+1]+a[i+2]>0) lit++; if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>36) bad++; }
+      const ok=bad<=a.length/4*0.002; allOk=allOk&&ok;
+      log(`GPU viewport self-test ${mode} blur ${blurPx} z ${zc}: ${ok?'OK':'!!! DIFFERS'} (${bad} of ${a.length/4} samples differ, CPU lit ${lit}, display max GPU ${gpu.norm.toPrecision(3)} vs CPU ${r.norm.toPrecision(3)})`);
+    }catch(err){ allOk=false; log(`!!! GPU viewport self-test ${mode} blur ${blurPx} z ${zc} failed: ${err.message}`); }
+  }
+  return allOk;
 }
 function gpuViewportFree(g){
   if(!g) return;
@@ -9656,7 +9704,8 @@ async function gpuViewportRegionNow(g,p,rx,ry,rw,rh,k,pct,normGiven){
       for(let i=0;i<kern.length;i++) kern[i]/=s;
     }
     const kernBuf=mk(kern.byteLength,U.STORAGE|U.COPY_DST,'vp:kern'); device.queue.writeBuffer(kernBuf,0,kern);
-    const acc=mk(N*4,U.STORAGE,'vp:acc'), zacc=mk(p.zColor?N*4:4,U.STORAGE,'vp:zacc');   // buffers start zeroed
+    const zb=p.zColor?N*4:4;   // all buffers start zeroed
+    const accLo=mk(N*4,U.STORAGE,'vp:accLo'), accHi=mk(N*4,U.STORAGE,'vp:accHi'), zLo=mk(zb,U.STORAGE,'vp:zLo'), zHi=mk(zb,U.STORAGE,'vp:zHi');
     const pipe=await eng.compilePipeline('viewport-sample',WGSL_RENDER_SAMPLE,'main',{WG:eng.wg1D});
     const enc=device.createCommandEncoder(), pass=enc.beginComputePass();
     pass.setPipeline(pipe);
@@ -9665,11 +9714,19 @@ async function gpuViewportRegionNow(g,p,rx,ry,rw,rh,k,pct,normGiven){
       device.queue.writeBuffer(ub,0,new Float32Array([p.W,p.H,rx,ry, ow,oh,k,p.mag, p.zColor?1:0,p.zlo,p.zhi,c.n, p.blurPx,MAX_SPLAT_SIGMA_PX,mode,rad, 0,0,0,0]));
       const bind=device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:[
         {binding:0,resource:{buffer:ub}},{binding:1,resource:{buffer:c.locs}},{binding:2,resource:{buffer:c.prec}},
-        {binding:3,resource:{buffer:kernBuf}},{binding:4,resource:{buffer:acc}},{binding:5,resource:{buffer:zacc}}]});
+        {binding:3,resource:{buffer:kernBuf}},{binding:4,resource:{buffer:accLo}},{binding:5,resource:{buffer:accHi}},
+        {binding:6,resource:{buffer:zLo}},{binding:7,resource:{buffer:zHi}}]});
       pass.setBindGroup(0,bind); pass.dispatchWorkgroups(Math.ceil(c.n/eng.wg1D));
     }
     pass.end(); device.queue.submit([enc.finish()]);
     const wg2D={WGX:eng.wg2D[0],WGY:eng.wg2D[1]}, wgX=Math.ceil(ow/wg2D.WGX), wgY=Math.ceil(oh/wg2D.WGY);
+    const acc=mk(N*4,U.STORAGE,'vp:dens'), zacc=mk(p.zColor?N*4:4,U.STORAGE,'vp:zsum');
+    { const comb=await eng.compilePipeline('viewport-combine',WGSL_RENDER_COMBINE,'main',wg2D);
+      const cb=mk(16,U.UNIFORM|U.COPY_DST,'vp:combine'); device.queue.writeBuffer(cb,0,new Float32Array([ow,oh,p.zColor?1:0,p.zlo]));
+      const e0=device.createCommandEncoder(), p0=e0.beginComputePass(); p0.setPipeline(comb);
+      p0.setBindGroup(0,device.createBindGroup({layout:comb.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:cb}},{binding:1,resource:{buffer:accLo}},{binding:2,resource:{buffer:accHi}},
+        {binding:3,resource:{buffer:zLo}},{binding:4,resource:{buffer:zHi}},{binding:5,resource:{buffer:acc}},{binding:6,resource:{buffer:zacc}}]}));
+      p0.dispatchWorkgroups(wgX,wgY); p0.end(); device.queue.submit([e0.finish()]); }
     let norm=normGiven||0;
     if(pct!=null){   // display maximum from these samples: on-device max reduction + 4096-bucket histogram
       const redPipe=await eng.compilePipeline('render-maxreduce',WGSL_RENDER_MAXREDUCE,'main',wg2D);
@@ -23918,7 +23975,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.2-dev · build 2026-10-02l — start of the 0.13.2 development cycle.`);
+log(`webSMLM v0.13.2-dev · build 2026-10-02o — start of the 0.13.2 development cycle.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

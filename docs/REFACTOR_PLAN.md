@@ -533,3 +533,10 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   line, which lists the first batch by pass. Ideas if it matters: far fewer, larger batches (needs
   the adapter's real buffer limits via `requiredLimits`, see the GPU render limit note), or a
   Firefox fallback to the CPU path. Meanwhile time-critical measurements use Chrome.
+- **WebGPU compare-and-swap does not compile in Safari 27.0.1** (`atomicCompareExchangeWeak` on a storage
+  `atomic<u32>`: the generated Metal fails with "field may not be qualified with an address space").
+  The GPU viewport sampler therefore uses integer atomics (build 2026-10-02o). The whole-image
+  **precision**-mode GPU render (`WGSL_RENDER_PRECISION`, `addAcc`/`addZacc`) still uses the compare-and-swap
+  loop and so cannot compile in Safari 27: it falls back to the CPU there. Port it to the same
+  64-bit fixed-point accumulation (`gpuViewportSelfTest()` in the log terminal checks a browser's GPU
+  sampler against the CPU one).

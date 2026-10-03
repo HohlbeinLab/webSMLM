@@ -251,11 +251,12 @@ what makes GUI and command-line use interchangeable.
     redraw bitmaps. With **Use GPU acceleration** (and no `normLocs`, 'fixed'/'precision' mode)
     `renderSuperResViewport()` keeps the locs resident on the GPU in chunks of ≤ `maxStorageBufferBindingSize/16`
     (`gpuViewportInit()`, `vp.gpu`) and `gpuViewportRegion()` runs `WGSL_RENDER_SAMPLE` (one thread per loc,
-    f32 compare-and-swap adds) into a sample-grid accumulator (≤ ~16.7M samples), then the whole-image colour map,
+    64-bit fixed-point integer atomic adds, no compare-and-swap: that does not compile in Safari 27's Metal back end) into a
+    sample-grid accumulator (≤ ~16.7M samples), a combine pass to f32, then the whole-image colour map,
     max-reduction and histogram kernels: the buffers are independent of the image size, so they fit the default
     128 MiB buffer limit. `srRenderPlan()` also picks the viewport for an image whose accumulator exceeds one storage
     buffer (`W·H·4 > maxStorageBufferBindingSize`), where the whole-image GPU path would fall back to the CPU. A GPU
-    failure drops to the CPU sampler on `vp.local` (main thread). Otherwise the render worker keeps the packed locs
+    failure (or an empty overview) drops to the CPU sampler on `vp.local` (main thread). Otherwise the render worker keeps the packed locs
     (`vpInit`/`vpRegion` messages, `_rwVp`); no worker → main thread. Draw through `srDrawImage()`;
     export and line profile render their own region (`srViewportRegion()`). Tests:
     `tests/gpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
