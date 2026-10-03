@@ -86,8 +86,8 @@
     spt             19236  single-particle tracking and diffusion coefficients
     pipeline        20286  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   21370  Micro-Manager/pycromanager bridge (experimental)
-    table           24075  localizations table, filters, histograms, clustering
-    headless API    24766  window.webSMLM.analyze()/analyzeBatch()
+    table           24077  localizations table, filters, histograms, clustering
+    headless API    24768  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-03a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-03b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -23361,8 +23361,10 @@ $('pxnm').addEventListener('change',()=>{
   if(srIsRecon && !srIsPlot) rerender(true);
   else if(srFull && !srIsPlot){ clampView(); drawView(); }
   // A raw-panel plot is replotted (drawRawView() would blank it); nm axes
-  // pick up the new value.
-  if(rawIsPlot){ if(_replotRaw) _replotRaw(); }
+  // pick up the new value. The FRC curve is in nm (positions × pixel size, and a sampling grid sized from
+  // it), so a shown FRC is recomputed rather than replotted.
+  if(rawIsPlot && rawPlotName==='frc' && lastResult && lastResult.locs.length && !$('frcBtn').disabled) computeFRC();
+  else if(rawIsPlot){ if(_replotRaw) _replotRaw(); }
   else drawRawView();                                     // raw-frame bar (uses the live value)
 });
 // live preview: re-detect/re-fit the current raw frame (not the whole stack) when
@@ -23980,7 +23982,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.3-dev · build 2026-10-03a — start of the 0.13.3 development cycle.`);
+log(`webSMLM v0.13.3-dev · build 2026-10-03b — start of the 0.13.3 development cycle.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

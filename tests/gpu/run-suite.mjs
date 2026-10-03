@@ -35,6 +35,7 @@ const TESTS = [
   ['gpu:test:shape-test', 'test-shape-test.mjs'],
   ['gpu:test:view3d', 'test-view3d.mjs'],
   ['gpu:test:viewport-gpu', 'test-viewport-gpu.mjs'],
+  ['gpu:test:frc-pixelsize', 'test-frc-pixelsize.mjs'],
 ];
 
 const BENCHES = [

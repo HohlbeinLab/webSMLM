@@ -103,6 +103,9 @@ every exported CSV coordinate — see [§3](#render-params) for the full
 parameter entry. Gain/Camera offset stay inside **Localisation**
 for now.
 
+Changing **Pixel size (nm)** re-renders a shown reconstruction and repaints a shown plot; if the plot
+is the **FRC** it is recomputed, because the curve, the sampling pixel and the resolution are all in nm.
+
 `frametime` (labelled **Frame time (s)**, renamed from `sptFrameTime` in
 v0.12.1-dev) joined it for the same reason: a per-dataset acquisition
 property exactly like pixel size. It sets the time axis of the smFRET time
