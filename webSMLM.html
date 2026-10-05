@@ -68,26 +68,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params          2722   PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out          3723   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation      3951   synthetic stack generator ("Simulate movie")
-    validation      7014   ground-truth scoring for simulated data ("Compare to GT")
-    detect          7997   band-pass (wavelet/DoG/box) + local-maxima detection
-    fit             8253   phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render          8910   super-resolution accumulation, view, colour maps, plots
-    workers         10950  frame-parallel detect/fit worker pool
-    gpu             11594  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          13940  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14289  astigmatic width-vs-z bead calibration
-    drift           14701  AIM and cross-correlation drift correction
-    locprecision    15359  NeNA and FRC
-    sSMLM           13940  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17132  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19239  single-particle tracking and diffusion coefficients
-    pipeline        20289  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   21373  Micro-Manager/pycromanager bridge (experimental)
-    table           24091  localizations table, filters, histograms, clustering
-    headless API    24782  window.webSMLM.analyze()/analyzeBatch()
+    params          2736   PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out          3745   TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation      3973   synthetic stack generator ("Simulate movie")
+    validation      7036   ground-truth scoring for simulated data ("Compare to GT")
+    detect          8019   band-pass (wavelet/DoG/box) + local-maxima detection
+    fit             8275   phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render          8932   super-resolution accumulation, view, colour maps, plots
+    workers         10972  frame-parallel detect/fit worker pool
+    gpu             11616  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          13962  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14311  astigmatic width-vs-z bead calibration
+    drift           14723  AIM and cross-correlation drift correction
+    locprecision    15754  NeNA and FRC
+    sSMLM           13962  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17527  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19635  single-particle tracking and diffusion coefficients
+    pipeline        20685  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   21769  Micro-Manager/pycromanager bridge (experimental)
+    table           24493  localizations table, filters, histograms, clustering
+    headless API    25184  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-05a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-05b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1935,13 +1935,26 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <summary title="Estimate and correct sample drift (AIM or cross correlation); measure precision (NeNA) and resolution (FRC)">Drift correction &amp; precision</summary>
         <label class="row" style="margin-top:6px" title="Shared speed/precision trade for AIM's own shift search and NeNA — subsample once before each, on a large dataset where either is slow. Does NOT affect FRC: its resolution number is fundamentally density-dependent, not just noisier when subsampled, so FRC always uses the full dataset. 100% = no change.">Sampling (AIM &amp; NeNA) %
           <input type="number" id="samplePct" value="100" min="5" max="100" step="5" class="num"></label>
-        <label class="row" title="Shared by both methods below: for AIM, how many already-fitted localizations' own frames go into one drift-estimation segment; for Cross correlation, how many raw frames get averaged into one segment's own representative image.">Average # of frames
+        <label class="row" id="driftSegRow" title="Shared by both methods below: for AIM, how many already-fitted localizations' own frames go into one drift-estimation segment; for Cross correlation, how many raw frames get averaged into one segment's own representative image.">Average # of frames
           <input type="number" id="driftSeg" value="100" min="5" max="2000" step="5" class="num"></label>
         <label class="row" title="AIM: point-based, needs localizations (x, y and z). Cross correlation: image-based, works on the raw movie">Drift correction method
           <select id="driftMethod" class="sel">
             <option value="aim">AIM</option>
             <option value="correlation">Cross correlation</option>
+            <option value="comet">COMET (experimental)</option>
           </select></label>
+        <label class="row" id="driftCometSegRow" style="display:none;padding-left:40px" title="COMET: frames per time window; it stays stable down to a few tens of localizations per window, so windows can be much shorter than AIM's">Frames per window
+          <input type="number" id="driftCometSeg" value="5" min="1" max="2000" step="1" class="num"></label>
+        <label class="row" id="driftCometRadiusRow" style="display:none;padding-left:40px" title="COMET: the largest TOTAL drift expected over the whole acquisition, peak to peak (nm); it is the radius within which localizations are compared. Too small a value gives a poor, noisy result; each cost evaluation grows with its square">Max drift (nm)
+          <input type="number" id="driftCometRadius" value="400" min="20" max="5000" step="10" class="num"></label>
+        <label class="row" id="driftCometMinLocsRow" style="display:none;padding-left:40px" title="COMET: adjacent windows are merged until each holds at least this many localizations (about 250 or more keeps the drift curve smooth); 0 = use Frames per window exactly">Min localizations per window
+          <input type="number" id="driftCometMinLocs" value="250" min="0" max="100000" step="50" class="num"></label>
+        <label class="row" id="driftCometSmoothRow" style="display:none;padding-left:40px" title="COMET: moving average over this many neighbouring windows after every length scale, which suppresses the noise of short windows (1 = off; larger values blur real fast drift)">Smoothing (windows)
+          <input type="number" id="driftCometSmooth" value="5" min="1" max="99" step="2" class="num"></label>
+        <label class="row" id="driftCometSigmaRow" style="display:none;padding-left:40px" title="COMET: Gaussian length scale (nm) of the final refinement; it should match the localization precision (a much smaller value fits noise). Empty (auto) = the mode of the per-localization precision">Final length scale (nm)
+          <input type="number" id="driftCometSigma" value="" placeholder="auto" min="0" max="50" step="0.5" class="num"></label>
+        <label class="row" id="driftCometPairsRow" style="display:none;padding-left:40px" title="COMET: cap on the localization pairs evaluated (8 bytes each on the CPU; twice as many on the GPU); above it a random share of the localizations is used. Each cost evaluation scales with it">Max pairs (millions)
+          <input type="number" id="driftCometMaxPairs" value="20" min="1" max="400" step="1" class="num"></label>
         <label class="row" id="driftRoiRow" style="padding-left:40px" title="AIM: largest shift searched between segments (nm)">Search radius (nm)
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
         <label class="row" id="driftZRow" style="display:none;padding-left:40px" title="Also correct drift in z (3D data)">Correct z too (3D)
@@ -1959,12 +1972,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-drift"><span class="pill">module: drift &amp; locprecision</span>
           <p><b>Sampling (AIM &amp; NeNA) %</b> is a shared speed/precision trade for AIM's own shift search and NeNA — each deterministically subsamples once via its own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where either is slow. It does <b>not</b> affect FRC: FRC's own resolution number is fundamentally a function of localization density, not just noisier with fewer points, so subsampling it would silently report the (much worse) resolution of a sparser dataset rather than a faster measurement of the real one — FRC always runs on the full loc set regardless of this setting.</p>
-          <p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
+          <p>Three drift-estimation methods, picked by <b>Drift correction method</b> (<b>COMET</b>, below, is the third). <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
           <ul>
-          <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
+          <li><b>Average # of frames</b> is shared by AIM and Cross correlation — smaller segments track faster drift more closely but are noisier to estimate.</li>
           <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
           <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
-          <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
+          <li><b>COMET</b> (experimental; Reinkensmeier et al., bioRxiv 2026) maximises the overlap of all localizations over time windows of <b>Frames per window</b>, in x, y and z at once, and stays stable with only a few tens of localizations per window, where AIM does not. <b>Max drift (nm)</b> must exceed the total drift of the whole acquisition, peak to peak (not AIM's per-segment search radius — too small a value gives a poor, noisy result and the log warns); <b>Min localizations per window</b> merges short windows until each holds that many (about 250 or more keeps the curve smooth); <b>Smoothing (windows)</b> averages the drift over that many neighbouring windows (1 = off; smooth drift gains a lot, fast drift is blurred); <b>Final length scale (nm)</b> should match the localization precision (empty, "auto", = estimated from it); <b>Max pairs (millions)</b> caps the work and memory (a random share of the localizations is used above it). Slower than AIM on the CPU (seconds rather than a fraction of a second); the GPU brings it close.</li>
+          <li>Each run re-estimates from scratch, so settings can be swept and compared, and any method can be tried on the same result.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
           </ul>
           <ul>
@@ -2881,7 +2895,15 @@ const PARAMS = {
   // correlation: raw frames averaged per segment).
   driftSeg: { type:'number', id:'driftSeg', label:'Average # of frames', min:5, max:2000, step:5, default:100, int:true },
   // driftMethod: AIM (needs localizations) or cross correlation (raw movie).
-  driftMethod: { type:'enum', id:'driftMethod', label:'Drift correction method', options:['aim','correlation'], default:'aim' },
+  driftMethod: { type:'enum', id:'driftMethod', label:'Drift correction method', options:['aim','correlation','comet'], default:'aim' },
+  // COMET (driftMethod 'comet'): own window length (it works down to a few tens of localizations per window,
+  // where AIM does not), the final Gaussian length scale of the overlap cost, and a cap on the pair list.
+  driftCometSeg: { type:'number', id:'driftCometSeg', label:'Frames per window', min:1, max:2000, step:1, default:5, int:true },
+  driftCometRadius: { type:'number', id:'driftCometRadius', label:'Max drift (nm)', min:20, max:5000, step:10, default:400, int:false },   // COMET pair radius: the TOTAL drift expected (peak to peak), not AIM's per-segment search radius
+  driftCometMinLocs: { type:'number', id:'driftCometMinLocs', label:'Min localizations per window', min:0, max:100000, step:50, default:250, int:true },   // 0 = windows are exactly Frames per window
+  driftCometSmooth: { type:'number', id:'driftCometSmooth', label:'Smoothing (windows)', min:1, max:99, step:2, default:5, int:true },   // moving average over this many windows after each length scale; 1 = off
+  driftCometSigma: { type:'number', id:'driftCometSigma', label:'Final length scale (nm)', min:0, max:50, step:0.5, default:0, int:false, blankAtDefault:true },   // empty or 0 = from the localization precision (the field shows "auto")
+  driftCometMaxPairs: { type:'number', id:'driftCometMaxPairs', label:'Max pairs (millions)', min:1, max:400, step:1, default:20, int:true },
   // driftRoi = "region of interest", the AIM intersection-search radius in nm
   driftRoi: { type:'number', id:'driftRoi', label:'Drift search radius (nm)', min:10, max:1000, step:10, default:120, int:false },
   // driftZ = also run the 1-D z-drift correction alongside the 2-D x/y correction
@@ -3453,7 +3475,7 @@ function syncParamControls(){
     el.min = spec.min==null ? '' : spec.min;
     if(spec.max!=null) el.max = spec.max;
     el.step = spec.step;
-    el.value = def;
+    el.value = (spec.blankAtDefault && def===0) ? '' : def;   // blank field + placeholder instead of a bare 0
   }
 }
 
@@ -15005,6 +15027,356 @@ async function aimDriftZ(locs, nFrames, segFrames, binNm, roiNm, samplePct, fram
 }
 
 /* ===========================================================================
+   COMET drift (the third `driftMethod`): maximal overlap of all localizations.
+   After Reinkensmeier, Aufmkolk, Farabella, Egner & Bates, bioRxiv 2026
+   (doi 10.64898/2026.03.27.714864; reference implementation gpufit/comet, MIT), written
+   from the published description, not ported line by line. One drift vector per time window
+   is found by minimising  −Σᵢⱼ exp(−dᵢⱼ²/(4σ²))/σ  over all pairs of localizations in different windows
+   closer than the search radius (dᵢⱼ: their distance after subtracting each one's window drift),
+   with σ shrunk from radius/3 to the final length scale (coarse to fine). x/y and, when every
+   localization has z, z in one 3D problem. Unlike AIM it stays stable down to a few tens of
+   localizations per window, at the price of O(pairs) work per evaluation.
+   =========================================================================== */
+const COMET_MIN_WINDOW_LOCS=3;
+const COMET_STAGE_MAX_ITER=80;
+const COMET_PAIR_BYTES=8;                       // two Int32 indices per pair (driftCore() sizes the pair cap from it)
+// Natural cubic spline through (xs, ys), evaluated at the integers 0..n-1; held flat outside [xs[0], xs[last]].
+function cometSplineToFrames(xs, ys, n){
+  const m=xs.length, out=new Float64Array(n);
+  const M=new Float64Array(m);                  // second derivatives
+  if(m>2){
+    const a=new Float64Array(m), b=new Float64Array(m), c=new Float64Array(m), r=new Float64Array(m);
+    b[0]=1; b[m-1]=1;
+    for(let i=1;i<m-1;i++){ const h0=xs[i]-xs[i-1], h1=xs[i+1]-xs[i];
+      a[i]=h0; b[i]=2*(h0+h1); c[i]=h1; r[i]=6*((ys[i+1]-ys[i])/h1-(ys[i]-ys[i-1])/h0); }
+    for(let i=1;i<m;i++){ const w=a[i]/b[i-1]; b[i]-=w*c[i-1]; r[i]-=w*r[i-1]; }
+    M[m-1]=r[m-1]/b[m-1]; for(let i=m-2;i>=0;i--) M[i]=(r[i]-c[i]*M[i+1])/b[i];
+  }
+  let k=0;
+  for(let f=0;f<n;f++){
+    if(f<=xs[0]){ out[f]=ys[0]; continue; }
+    if(f>=xs[m-1]){ out[f]=ys[m-1]; continue; }
+    while(k<m-2 && xs[k+1]<f) k++;
+    const h=xs[k+1]-xs[k], A=(xs[k+1]-f)/h, B=(f-xs[k])/h;
+    out[f]=A*ys[k]+B*ys[k+1]+((A*A*A-A)*M[k]+(B*B*B-B)*M[k+1])*h*h/6;
+  }
+  return out;
+}
+// Spatial hash grid (cell = radius) over the kept localizations, counting sort by cell.
+function cometGrid(X,Y,Z,n,cell){
+  let x0=Infinity,y0=Infinity,z0=Infinity,x1=-Infinity,y1=-Infinity,z1=-Infinity;
+  for(let i=0;i<n;i++){ if(X[i]<x0)x0=X[i]; if(X[i]>x1)x1=X[i]; if(Y[i]<y0)y0=Y[i]; if(Y[i]>y1)y1=Y[i];
+    if(Z){ if(Z[i]<z0)z0=Z[i]; if(Z[i]>z1)z1=Z[i]; } }
+  const nx=Math.floor((x1-x0)/cell)+1, ny=Math.floor((y1-y0)/cell)+1, nz=Z?Math.floor((z1-z0)/cell)+1:1, nc=nx*ny*nz;
+  if(!(nc<=(1<<26))) throw new Error(`the search radius (${cell} nm) is too small for this field of view (${nc.toExponential(1)} grid cells) — raise "Search radius (nm)"`);
+  const cellOf=new Int32Array(n), start=new Int32Array(nc+1), order=new Int32Array(n);
+  for(let i=0;i<n;i++){ const c=Math.floor((X[i]-x0)/cell)+nx*(Math.floor((Y[i]-y0)/cell)+(Z?ny*Math.floor((Z[i]-z0)/cell):0)); cellOf[i]=c; start[c+1]++; }
+  for(let c=0;c<nc;c++) start[c+1]+=start[c];
+  const fill=start.slice(0,nc); for(let i=0;i<n;i++) order[fill[cellOf[i]]++]=i;
+  return {nx,ny,nz,nc,start,order,cellOf};
+}
+// Visits every pair i<j (both kept) in different windows closer than radius; `emit` null = count only.
+async function cometPairs(G,X,Y,Z,seg,keep,n,radius,Pi,Pj,onP){
+  const {nx,ny,nz,start,order,cellOf}=G, r2=radius*radius; let p=0, last=performance.now();
+  for(let i=0;i<n;i++){
+    if(keep && !keep[i]) continue;
+    const c=cellOf[i], cx=c%nx, cy=((c/nx)|0)%ny, cz=Z?((c/(nx*ny))|0):0, si=seg[i], xi=X[i], yi=Y[i], zi=Z?Z[i]:0;
+    for(let az=Z?Math.max(0,cz-1):0; az<=(Z?Math.min(nz-1,cz+1):0); az++)
+      for(let ay=Math.max(0,cy-1); ay<=Math.min(ny-1,cy+1); ay++)
+        for(let ax=Math.max(0,cx-1); ax<=Math.min(nx-1,cx+1); ax++){
+          const cc=ax+nx*(ay+ny*az);
+          for(let q=start[cc]; q<start[cc+1]; q++){ const j=order[q];
+            if(j<=i || (keep && !keep[j]) || seg[j]===si) continue;
+            const dx=xi-X[j], dy=yi-Y[j], dz=Z?zi-Z[j]:0;
+            if(dx*dx+dy*dy+dz*dz<r2){ if(Pi){ Pi[p]=i; Pj[p]=j; } p++; } } }
+    if((i&4095)===0 && performance.now()-last>40){ if(onP) onP(i/n); await tick(); last=performance.now(); }
+  }
+  return p;
+}
+// Estimated number of pairs from localizations visited in a scattered order until `budget` candidate checks are
+// spent (a full count of millions of dense localizations would itself take minutes): pairs ≈ neighbours seen from
+// the visited ones × n_kept / visited / 2. Exact when the whole set fits in the budget.
+async function cometEstimatePairs(G,X,Y,Z,seg,keep,n,radius,budget){
+  const {nx,ny,nz,start,order,cellOf}=G, r2=radius*radius; let nKept=0; if(keep){ for(let i=0;i<n;i++) nKept+=keep[i]; } else nKept=n;
+  let step=Math.max(1,Math.floor(n*0.6180339887)); while(gcdInt(step,n)!==1) step++;
+  let found=0, checks=0, visited=0, i=0, last=performance.now();
+  for(let k=0;k<n && checks<budget;k++, i=(i+step)%n){
+    if(keep && !keep[i]) continue;
+    visited++;
+    const c=cellOf[i], cx=c%nx, cy=((c/nx)|0)%ny, cz=Z?((c/(nx*ny))|0):0, si=seg[i], xi=X[i], yi=Y[i], zi=Z?Z[i]:0;
+    for(let az=Z?Math.max(0,cz-1):0; az<=(Z?Math.min(nz-1,cz+1):0); az++)
+      for(let ay=Math.max(0,cy-1); ay<=Math.min(ny-1,cy+1); ay++)
+        for(let ax=Math.max(0,cx-1); ax<=Math.min(nx-1,cx+1); ax++){
+          const cc=ax+nx*(ay+ny*az); checks+=start[cc+1]-start[cc];
+          for(let q=start[cc]; q<start[cc+1]; q++){ const j=order[q];
+            if((keep && !keep[j]) || seg[j]===si) continue;
+            const dx=xi-X[j], dy=yi-Y[j], dz=Z?zi-Z[j]:0;
+            if(dx*dx+dy*dy+dz*dz<r2) found++; } }
+    if((visited&255)===0 && performance.now()-last>40){ await tick(); last=performance.now(); }
+  }
+  return {pairs:Math.round(found/Math.max(1,visited)*nKept/2), exact:visited>=nKept};
+}
+function gcdInt(a,b){ while(b){ const t=a%b; a=b; b=t; } return a; }
+// Limited-memory BFGS with a backtracking line search and box clamp |x| ≤ lim. fg(x) → {f, g}; returns {iters, stopped}.
+async function cometLbfgs(x,fg,maxIter,lim,step0,shouldStop,onIter){
+  const n=x.length, M=8, S=[], Yv=[], RHO=[];
+  const dot=(a,b)=>{ let s=0; for(let i=0;i<n;i++) s+=a[i]*b[i]; return s; };
+  let {f,g}=await fg(x), it=0;
+  for(; it<maxIter; it++){
+    if(shouldStop()) return {iters:it,stopped:true};
+    const q=Float64Array.from(g), al=new Array(S.length);
+    for(let k=S.length-1;k>=0;k--){ al[k]=RHO[k]*dot(S[k],q); const y=Yv[k]; for(let i=0;i<n;i++) q[i]-=al[k]*y[i]; }
+    let gamma=step0; if(S.length){ const k=S.length-1; gamma=dot(S[k],Yv[k])/dot(Yv[k],Yv[k]); }
+    else { let gm=0; for(let i=0;i<n;i++) gm=Math.max(gm,Math.abs(g[i])); gamma=step0/Math.max(gm,1e-30); }
+    for(let i=0;i<n;i++) q[i]*=gamma;
+    for(let k=0;k<S.length;k++){ const b=RHO[k]*dot(Yv[k],q), s=S[k]; for(let i=0;i<n;i++) q[i]+=s[i]*(al[k]-b); }
+    let dir=q.map(v=>-v), gd=dot(g,dir);
+    if(!(gd<0)){ S.length=0; Yv.length=0; RHO.length=0; let gm=0; for(let i=0;i<n;i++) gm=Math.max(gm,Math.abs(g[i])); dir=g.map(v=>-v*step0/Math.max(gm,1e-30)); gd=dot(g,dir); }
+    let step=1, xn=new Float64Array(n), r=null, ok=false;
+    for(let ls=0; ls<24; ls++){
+      for(let i=0;i<n;i++) xn[i]=Math.max(-lim,Math.min(lim,x[i]+step*dir[i]));
+      r=await fg(xn); let dd=0; for(let i=0;i<n;i++) dd+=g[i]*(xn[i]-x[i]);
+      if(r.f<=f+1e-4*dd){ ok=true; break; } step*=0.5;
+    }
+    if(!ok) break;
+    const s=new Float64Array(n), y=new Float64Array(n); for(let i=0;i<n;i++){ s[i]=xn[i]-x[i]; y[i]=r.g[i]-g[i]; }
+    const sy=dot(s,y); if(sy>1e-12*dot(s,s)){ S.push(s); Yv.push(y); RHO.push(1/sy); if(S.length>M){ S.shift(); Yv.shift(); RHO.shift(); } }
+    const rel=Math.abs(f-r.f)/(Math.abs(f)+1e-30); x.set(xn); g=r.g; f=r.f;
+    let gm=0; for(let i=0;i<n;i++) gm=Math.max(gm,Math.abs(g[i]));
+    if(onIter) onIter(it+1);
+    if(rel<1e-7 || gm<1e-12) { it++; break; }
+  }
+  return {iters:it,stopped:false};
+}
+// GPU cost and gradient (see cometDrift()): one thread per localization, in CELL order (neighbouring threads share
+// their neighbour cells, so loops stay uniform and the reads coalesce), scans the 27 (9 in 2D) neighbouring cells of a
+// static spatial grid and accumulates its own value and gradient; a second kernel sums each window's threads through
+// an index list. No pair list, no atomics (neither float atomics nor compare-and-swap is needed), so the work is
+// deterministic. Pairs are the same set as the CPU's: different windows, closer than the radius at the ORIGINAL
+// coordinates, each seen from both ends (the value is halved on the CPU).
+const WGSL_COMET_COST=`
+struct P { n:u32, nx:u32, ny:u32, nz:u32, use3d:u32, pad0:u32, pad1:u32, pad2:u32, r2:f32, s2:f32, inv:f32, c0:f32 };
+@group(0) @binding(0) var<uniform> p: P;
+@group(0) @binding(1) var<storage, read> cellOfQ: array<u32>;
+@group(0) @binding(2) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(3) var<storage, read> cpts: array<vec4f>;
+@group(0) @binding(4) var<storage, read> mu: array<vec4f>;
+@group(0) @binding(5) var<storage, read_write> outv: array<vec4f>;
+override WG: u32 = 64u;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * WG) + gid.x;
+  if (i >= p.n) { return; }
+  let a = cpts[i]; let si = bitcast<u32>(a.w); let mi = mu[si].xyz;
+  let c = cellOfQ[i]; let cx = c % p.nx; let cy = (c / p.nx) % p.ny; let cz = c / (p.nx * p.ny);
+  var g = vec3f(0.0); var tot = 0.0;
+  let z0 = select(0u, max(cz, 1u) - 1u, p.use3d == 1u); let z1 = select(0u, min(cz + 1u, p.nz - 1u), p.use3d == 1u);
+  for (var az = z0; az <= z1; az = az + 1u) {
+    for (var ay = max(cy, 1u) - 1u; ay <= min(cy + 1u, p.ny - 1u); ay = ay + 1u) {
+      for (var ax = max(cx, 1u) - 1u; ax <= min(cx + 1u, p.nx - 1u); ax = ax + 1u) {
+        let cc = ax + p.nx * (ay + p.ny * az);
+        for (var q = cellStart[cc]; q < cellStart[cc + 1u]; q = q + 1u) {
+          let b = cpts[q]; let sj = bitcast<u32>(b.w);
+          if (sj == si) { continue; }
+          let d0 = a.xyz - b.xyz;
+          if (dot(d0, d0) >= p.r2) { continue; }
+          let d = d0 - (mi - mu[sj].xyz);
+          let v = exp(-dot(d, d) / p.s2) * p.inv;
+          tot = tot + v; g = g + (v * p.c0) * d;
+        }
+      }
+    }
+  }
+  outv[i] = vec4f(g, tot);
+}`;
+const WGSL_COMET_WINDOWS=`
+@group(0) @binding(0) var<storage, read> perLoc: array<vec4f>;
+@group(0) @binding(1) var<storage, read> winIdx: array<u32>;
+@group(0) @binding(2) var<storage, read> winStart: array<u32>;
+@group(0) @binding(3) var<storage, read_write> outw: array<vec4f>;
+var<workgroup> sh: array<vec4f, 64>;
+@compute @workgroup_size(64)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(local_invocation_index) t: u32) {
+  let s = w.x;
+  var acc = vec4f(0.0);
+  for (var k = winStart[s] + t; k < winStart[s + 1u]; k = k + 64u) { acc = acc + perLoc[winIdx[k]]; }
+  sh[t] = acc;
+  workgroupBarrier();
+  var st = 32u;
+  loop {
+    if (st == 0u) { break; }
+    if (t < st) { sh[t] = sh[t] + sh[t + st]; }
+    workgroupBarrier();
+    st = st / 2u;
+  }
+  if (t == 0u) { outw[s] = sh[0]; }
+}`;
+const COMET_MIN_KEEP=120, COMET_MIN_RADIUS=40, COMET_RADIUS_PER_SIGMA=6.5;   // thinning keeps this many localizations per window; the pair radius never drops below 40 nm or 6.5 length scales
+const COMET_ESTIMATE_BUDGET=4e7;                 // candidate checks spent on estimating the pair count
+const COMET_GPU_MIN_PAIRS=500000, COMET_GPU_MAX_LOCS=8000000;   // below, the CPU is as fast; above, one storage buffer (16 B/loc) is full
+// Uploads the kept localizations in cell order with their grid; returns {fg(mu,sigma), nk, destroy()} or throws.
+async function cometGpuSetup(eng,X,Y,Z,seg,keep,n,S,radius,use3d){
+  const kept=[]; for(let i=0;i<n;i++) if(!keep||keep[i]) kept.push(i);
+  const nk=kept.length; let ox=Infinity,oy=Infinity,oz=Infinity;
+  for(const i of kept){ if(X[i]<ox)ox=X[i]; if(Y[i]<oy)oy=Y[i]; if(use3d&&Z[i]<oz)oz=Z[i]; }
+  const Xk=new Float64Array(nk), Yk=new Float64Array(nk), Zk=use3d?new Float64Array(nk):null, sk=new Int32Array(nk);
+  for(let q=0;q<nk;q++){ const i=kept[q]; Xk[q]=X[i]-ox; Yk[q]=Y[i]-oy; if(Zk) Zk[q]=Z[i]-oz; sk[q]=seg[i]; }
+  const G=cometGrid(Xk,Yk,Zk,nk,radius);
+  const cpts=new Float32Array(nk*4), cptsU=new Uint32Array(cpts.buffer), cellOfQ=new Uint32Array(nk);
+  for(let q=0;q<nk;q++){ const i=G.order[q]; cpts[4*q]=Xk[i]; cpts[4*q+1]=Yk[i]; cpts[4*q+2]=Zk?Zk[i]:0; cptsU[4*q+3]=sk[i]; cellOfQ[q]=G.cellOf[i]; }
+  // each window's threads (cell-order indices), contiguous in winIdx
+  const winStart=new Uint32Array(S+1); for(let q=0;q<nk;q++) winStart[cptsU[4*q+3]+1]++;
+  for(let w=0;w<S;w++) winStart[w+1]+=winStart[w];
+  const winIdx=new Uint32Array(nk), fillAt=winStart.slice(0,S); for(let q=0;q<nk;q++) winIdx[fillAt[cptsU[4*q+3]]++]=q;
+  const device=eng.device, U=GPUBufferUsage, bufs=[], mk=(size,usage,label)=>{ const b=eng.mkBuf(size,usage,label); bufs.push(b); return b; };
+  const up=(arr,label)=>{ const b=mk(arr.byteLength,U.STORAGE|U.COPY_DST,label); device.queue.writeBuffer(b,0,arr); return b; };
+  const bCell=up(cellOfQ,'comet:cell'), bStart=up(Uint32Array.from(G.start),'comet:cellStart'), bCpts=up(cpts,'comet:cpts'), bIdx=up(winIdx,'comet:winIdx'), bWin=up(winStart,'comet:winStart');
+  const bMu=mk(S*16,U.STORAGE|U.COPY_DST,'comet:mu'), bPer=mk(nk*16,U.STORAGE,'comet:perLoc'), bOut=mk(S*16,U.STORAGE|U.COPY_SRC,'comet:out'), bStage=mk(S*16,U.MAP_READ|U.COPY_DST,'comet:stage'), bPar=mk(48,U.UNIFORM|U.COPY_DST,'comet:params');
+  const wg=eng.wg1D, pipeC=await eng.compilePipeline('comet-cost2',WGSL_COMET_COST,'main',{WG:wg}), pipeW=await eng.compilePipeline('comet-windows2',WGSL_COMET_WINDOWS,'main');
+  const bindC=device.createBindGroup({layout:pipeC.getBindGroupLayout(0),entries:[bPar,bCell,bStart,bCpts,bMu,bPer].map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const bindW=device.createBindGroup({layout:pipeW.getBindGroupLayout(0),entries:[bPer,bIdx,bWin,bOut].map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const nWG=Math.ceil(nk/wg), dx=Math.min(nWG,65535), dy=Math.ceil(nWG/65535), D=use3d?3:2;
+  const par=new ArrayBuffer(48), parU=new Uint32Array(par), parF=new Float32Array(par); parU[0]=nk; parU[1]=G.nx; parU[2]=G.ny; parU[3]=G.nz; parU[4]=use3d?1:0; parF[8]=radius*radius;
+  const fg=(mu,sigma)=>runGpuExclusive(()=>withGpuErrorScopes(device,'GPU COMET',async()=>{
+    const m=new Float32Array(S*4); for(let s=0;s<S;s++){ m[4*s]=mu[s*D]; m[4*s+1]=mu[s*D+1]; if(use3d) m[4*s+2]=mu[s*D+2]; }
+    parF[9]=4*sigma*sigma; parF[10]=1/sigma; parF[11]=1/(2*sigma*sigma);
+    device.queue.writeBuffer(bMu,0,m); device.queue.writeBuffer(bPar,0,par);
+    const enc=device.createCommandEncoder({label:'comet:eval'});
+    let ps=enc.beginComputePass(); ps.setPipeline(pipeC); ps.setBindGroup(0,bindC); ps.dispatchWorkgroups(dx,dy); ps.end();
+    ps=enc.beginComputePass(); ps.setPipeline(pipeW); ps.setBindGroup(0,bindW); ps.dispatchWorkgroups(S); ps.end();
+    enc.copyBufferToBuffer(bOut,0,bStage,0,S*16); eng.submit([enc.finish()]);
+    await bStage.mapAsync(GPUMapMode.READ);
+    const o=new Float32Array(bStage.getMappedRange().slice(0)); bStage.unmap();
+    let tot=0; const g=new Float64Array(S*D);
+    for(let s=0;s<S;s++){ tot+=o[4*s+3]; g[s*D]=-o[4*s]; g[s*D+1]=-o[4*s+1]; if(use3d) g[s*D+2]=-o[4*s+2]; }
+    if(!eng.available) throw new Error('GPU device lost');
+    return {f:-tot/2,g};
+  }));
+  return {fg,nk,destroy:()=>{ for(const b of bufs){ try{ b.destroy(); }catch(_){} } }};
+}
+// cfg: {radiusNm, framesPerWindow, minLocs, sigmaNm (final), maxPairs, use3d, useGpu}. Returns driftCore()'s per-frame
+// correction to add (fdx/fdy in camera px, fdz in nm) and the per-window values; stopped = discarded run.
+// The pair radius shrinks with the length scale (6.5σ, never above the Max drift): once the coarse stages have placed
+// the windows, only localizations within a few σ of each other still overlap, so later stages re-pair on the shifted
+// coordinates with a much smaller radius and need little or no thinning (pairs ∝ radius²).
+async function cometDrift(locs, nFrames, px, cfg, frame0, onProgress, shouldStop=()=>false, onLog=()=>{}){
+  const t0=performance.now(), W=Math.max(1,cfg.framesPerWindow|0), nWinReq=Math.max(1,Math.ceil(nFrames/W));
+  const radius=cfg.radiusNm, use3d=!!cfg.use3d, D=use3d?3:2;
+  // windows with enough localizations, renumbered 0..S-1
+  const blockCount=new Int32Array(nWinReq), win=new Int32Array(locs.length);
+  for(let i=0;i<locs.length;i++){ let s=((locs[i].frame-frame0)/W)|0; if(s>=nWinReq)s=nWinReq-1; if(s<0)s=0; win[i]=s; blockCount[s]++; }
+  // blocks of W frames are merged forward until a window holds minLocs localizations (a short tail joins the last window)
+  const grp=new Int32Array(nWinReq); { let cur=0, acc=0; const minL=Math.max(0,cfg.minLocs|0);
+    for(let b=0;b<nWinReq;b++){ if(acc>=minL && acc>0){ cur++; acc=0; } grp[b]=cur; acc+=blockCount[b]; }
+    if(cur>0 && acc<minL){ for(let b=0;b<nWinReq;b++) if(grp[b]===cur) grp[b]=cur-1; } }
+  for(let i=0;i<locs.length;i++) win[i]=grp[win[i]];
+  const nGrp=grp[nWinReq-1]+1, count=new Int32Array(nGrp); for(let i=0;i<locs.length;i++) count[win[i]]++;
+  const remap=new Int32Array(nGrp).fill(-1); let S=0; for(let s=0;s<nGrp;s++) if(count[s]>=COMET_MIN_WINDOW_LOCS) remap[s]=S++;
+  if(S<2) throw new Error(`COMET found ${S} usable time window(s) of ${W} frame(s) — lower "Frames per window"`);
+  let n=0; for(let i=0;i<locs.length;i++) if(remap[win[i]]>=0) n++;
+  const X=new Float64Array(n), Y=new Float64Array(n), Z=use3d?new Float64Array(n):null, seg=new Int32Array(n), fsum=new Float64Array(S), cnt=new Float64Array(S);
+  { let k=0; for(let i=0;i<locs.length;i++){ const s=remap[win[i]]; if(s<0) continue; const L=locs[i];
+      X[k]=L.x*px; Y[k]=L.y*px; if(Z) Z[k]=L.z; seg[k]=s; fsum[s]+=L.frame-frame0; cnt[s]++; k++; } }
+  const centers=new Float64Array(S); for(let s=0;s<S;s++) centers[s]=fsum[s]/cnt[s];
+  let eng=null;
+  if(cfg.useGpu && n<=COMET_GPU_MAX_LOCS){ try{ const e=await getGpuEngine(); if(e&&e.available) eng=e; }catch(_){} }
+  // The GPU holds no pair list, so it may take more pairs for the same memory (its evaluations still cost time).
+  const cap=eng?cfg.maxPairs*2:cfg.maxPairs;
+  const sigmas=[]; for(let sg=Math.max(cfg.sigmaNm,radius/3); ; sg=Math.max(cfg.sigmaNm,sg/1.5)){ sigmas.push(sg); if(sg<=cfg.sigmaNm) break; }
+  const medianWin=Math.round(Array.from(cnt).sort((a,b)=>a-b)[S>>1]);
+  const mu=new Float64Array(S*D);                 // cumulative drift (nm) = base + delta
+  const base=new Float64Array(S*D);               // the estimate the current pair set was built on
+  let delta=new Float64Array(S*D);
+  const Xs=new Float64Array(n), Ys=new Float64Array(n), Zs=use3d?new Float64Array(n):null;
+  let set=null, nSets=0, nEval=0, last=performance.now();
+  const freeSet=()=>{ if(set&&set.gpu) set.gpu.destroy(); };
+  const mkKeep=f=>{ const k=new Uint8Array(n); for(let i=0;i<n;i++){ const pw=Math.min(1,Math.max(f,COMET_MIN_KEEP/cnt[seg[i]])); k[i]=(mix32(i)>>>0)/4294967296<pw?1:0; } return k; };
+  const buildCpuPairs=async s=>{ s.Pi=new Int32Array(s.P); s.Pj=new Int32Array(s.P); await cometPairs(s.G,Xs,Ys,Zs,seg,s.keep,n,s.rk,s.Pi,s.Pj,null); };
+  // pair set on the coordinates shifted by the current estimate, within radius rk
+  const buildSet=async(rk,sg)=>{
+    freeSet();
+    for(let k=0;k<S*D;k++){ base[k]=mu[k]; delta[k]=0; }
+    for(let i=0;i<n;i++){ const o=seg[i]*D; Xs[i]=X[i]-mu[o]; Ys[i]=Y[i]-mu[o+1]; if(Zs) Zs[i]=Z[i]-mu[o+2]; }
+    const G=cometGrid(Xs,Ys,Zs,n,rk);
+    let keep=null, fraction=1, est=await cometEstimatePairs(G,Xs,Ys,Zs,seg,null,n,rk,COMET_ESTIMATE_BUDGET), P=est.pairs;
+    for(let tries=0; P>cap && tries<5; tries++){
+      fraction*=Math.sqrt(cap/P)*0.97; keep=mkKeep(fraction);
+      est=await cometEstimatePairs(G,Xs,Ys,Zs,seg,keep,n,rk,COMET_ESTIMATE_BUDGET); P=est.pairs;
+    }
+    let exact=est.exact;
+    const s={rk,G,keep,fraction,P,exact,gpu:null,Pi:null,Pj:null};
+    if(!exact && !(eng && P>=COMET_GPU_MIN_PAIRS)){   // stored on the CPU: allocate from an exact count
+      s.P=await cometPairs(G,Xs,Ys,Zs,seg,keep,n,rk,null,null,null); s.exact=true;
+      if(s.P>cap*1.5) throw new Error(`${s.P.toLocaleString()} pairs within ${rk.toFixed(0)} nm even after thinning — lower "Max drift (nm)" or "Max pairs (millions)"`);
+    }
+    if(s.P===0) throw new Error(`no localization pairs closer than ${rk.toFixed(0)} nm between different windows — raise "Max drift (nm)"`);
+    if(eng && s.P>=COMET_GPU_MIN_PAIRS){ try{ s.gpu=await cometGpuSetup(eng,Xs,Ys,Zs,seg,keep,n,S,rk,use3d); }catch(err){ onLog(`(COMET: the GPU could not be set up — ${String(err.message).slice(0,120)}; using the CPU.)`); } }
+    if(!s.gpu) await buildCpuPairs(s);
+    set=s; nSets++;
+    onLog(`COMET: length scale ${sg.toFixed(1)} nm — ${S.toLocaleString()} window(s), ${n.toLocaleString()} localizations (median ${medianWin}/window), radius ${rk.toFixed(0)} nm, ${s.P.toLocaleString()} pairs`+(s.exact?'':' (estimated)')+
+      (keep?`, keeping ${(fraction*100).toFixed(0)}% of the localizations (at least ${COMET_MIN_KEEP} per window) to stay under ${(cap/1e6).toFixed(0)} M pairs`:'')+`, ${use3d?'3D':'2D'}, cost on the ${s.gpu?'GPU':'CPU'}.`);
+    return s;
+  };
+  const cpuFg=async(d,sigma)=>{
+    const s2=4*sigma*sigma, inv=1/sigma, c0=1/(2*sigma*sigma), gr=new Float64Array(S*D), Pi=set.Pi, Pj=set.Pj, P=set.P; let tot=0;
+    for(let b0=0;b0<P;b0+=1<<21){
+      const b1=Math.min(P,b0+(1<<21));
+      if(use3d) for(let p=b0;p<b1;p++){ const i=Pi[p], j=Pj[p], ti=seg[i]*3, tj=seg[j]*3;
+        const dx=Xs[i]-d[ti]-(Xs[j]-d[tj]), dy=Ys[i]-d[ti+1]-(Ys[j]-d[tj+1]), dz=Zs[i]-d[ti+2]-(Zs[j]-d[tj+2]);
+        const v=Math.exp(-(dx*dx+dy*dy+dz*dz)/s2)*inv, c=v*c0; tot+=v;
+        gr[tj]-=c*dx; gr[tj+1]-=c*dy; gr[tj+2]-=c*dz; gr[ti]+=c*dx; gr[ti+1]+=c*dy; gr[ti+2]+=c*dz; }
+      else for(let p=b0;p<b1;p++){ const i=Pi[p], j=Pj[p], ti=seg[i]*2, tj=seg[j]*2;
+        const dx=Xs[i]-d[ti]-(Xs[j]-d[tj]), dy=Ys[i]-d[ti+1]-(Ys[j]-d[tj+1]);
+        const v=Math.exp(-(dx*dx+dy*dy)/s2)*inv, c=v*c0; tot+=v;
+        gr[tj]-=c*dx; gr[tj+1]-=c*dy; gr[ti]+=c*dx; gr[ti+1]+=c*dy; }
+      if(performance.now()-last>40){ await tick(); last=performance.now(); }
+    }
+    nEval++;
+    for(let k=0;k<gr.length;k++) gr[k]=-gr[k];      // minimise −Σ val
+    return {f:-tot,g:gr};
+  };
+  let evalNote=false;
+  const fgOnce=async(d,sigma)=>{
+    if(set.gpu){
+      try{ nEval++; return await set.gpu.fg(d,sigma); }
+      catch(err){ onLog(`!!! COMET GPU failed (${String(err.message).slice(0,120)}) — continuing on the CPU.`); set.gpu.destroy(); set.gpu=null; await buildCpuPairs(set); nEval--; }
+    }
+    return cpuFg(d,sigma);
+  };
+  const fg=async(d,sigma)=>{
+    const tEval=performance.now();
+    try{ return await fgOnce(d,sigma); }
+    finally{ if(!evalNote && nEval>=1){ evalNote=true; const dt=(performance.now()-tEval)/1000;
+      if(dt>0.3) onLog(`COMET: one cost evaluation takes about ${dt.toFixed(1)} s and a run needs roughly 40–150 of them; lower "Max pairs (millions)" (or Max drift) to speed it up, or Stop.`); } }
+  };
+  let stopped=false;
+  for(let k=0;k<sigmas.length && !stopped;k++){
+    const sg=sigmas[k], want=k===0 ? radius : Math.max(COMET_MIN_RADIUS, Math.min(radius, COMET_RADIUS_PER_SIGMA*sg));
+    onProgress((k+0.02)/sigmas.length);
+    if(!set || want<set.rk*0.85){ if(set) for(let q=0;q<S*D;q++) mu[q]=base[q]+delta[q]; await buildSet(want,sg); }
+    const res=await cometLbfgs(delta,d=>fg(d,sg),COMET_STAGE_MAX_ITER,set.rk/2,sg,shouldStop,it=>onProgress((k+0.1+0.9*(1-Math.exp(-it/12)))/sigmas.length));
+    stopped=res.stopped;
+    // temporal regularisation: a moving average over `smooth` neighbouring windows of the whole estimate after every stage
+    if(!stopped && cfg.smooth>1){ const m=cfg.smooth|0, half=m>>1, tot=new Float64Array(S*D);
+      for(let q=0;q<S*D;q++) tot[q]=base[q]+delta[q];
+      for(let s=0;s<S;s++){ const a=Math.max(0,s-half), b=Math.min(S-1,s+half), h=Math.min(s-a,b-s);   // symmetric window at the ends
+        for(let d=0;d<D;d++){ let acc=0; for(let t=s-h;t<=s+h;t++) acc+=tot[t*D+d]; delta[s*D+d]=acc/(2*h+1)-base[s*D+d]; } } }
+  }
+  for(let q=0;q<S*D;q++) mu[q]=base[q]+delta[q];
+  const lastP=set?set.P:0; freeSet();
+  // zero-reference like AIM (mean over windows), then the correction to ADD = −drift, spline-interpolated to every frame
+  const dxs=new Float64Array(S), dys=new Float64Array(S), dzs=use3d?new Float64Array(S):null; let mx=0,my=0,mz=0;
+  for(let s=0;s<S;s++){ mx+=mu[s*D]; my+=mu[s*D+1]; if(use3d) mz+=mu[s*D+2]; } mx/=S; my/=S; mz/=S;
+  for(let s=0;s<S;s++){ dxs[s]=-(mu[s*D]-mx)/px; dys[s]=-(mu[s*D+1]-my)/px; if(use3d) dzs[s]=-(mu[s*D+2]-mz); }
+  const fdx=cometSplineToFrames(centers,dxs,nFrames), fdy=cometSplineToFrames(centers,dys,nFrames), fdz=use3d?cometSplineToFrames(centers,dzs,nFrames):null;
+  { let lo=[Infinity,Infinity,Infinity], hi=[-Infinity,-Infinity,-Infinity]; for(let sI=0;sI<S;sI++) for(let k=0;k<D;k++){ const v=mu[sI*D+k]; if(v<lo[k])lo[k]=v; if(v>hi[k])hi[k]=v; }
+    let span=0; for(let k=0;k<D;k++) span=Math.max(span,hi[k]-lo[k]);
+    if(!stopped && span>0.6*radius) onLog(`!!! The estimated drift spans ${span.toFixed(0)} nm, close to the ${radius.toFixed(0)} nm Max drift: windows further apart than that cannot be compared directly, so the result is poor — raise "Max drift (nm)" to at least ${Math.ceil(span*1.5/50)*50} nm and run again.`); }
+  onLog(`COMET: ${sigmas.length} length scale(s) ${sigmas[0].toFixed(0)}→${sigmas[sigmas.length-1].toFixed(1)} nm, ${nSets} pair set(s), ${nEval} cost evaluation(s), ${((performance.now()-t0)/1000).toFixed(1)} s.`);
+  return {fdx,fdy,fdz,segCenters:Array.from(centers),segdx:dxs,segdy:dys,nSeg:S,nSegRequested:nGrp,stopped,cometStopped:stopped,stoppedAtFrame:null,pairs:lastP,evals:nEval};
+}
+
+/* ===========================================================================
    Cross-correlation drift: the image-based `driftMethod` (AIM is point-based).
    Works on the raw movie, so no Localize is needed (smFRET's drift option uses
    this). Averages each segment of segFrames raw frames into one image (the
@@ -15130,6 +15502,16 @@ async function driftCore(locs, px, config, hooks={}){
           (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
     d=await correlationDrift2D(config.stack, nFrames, segF, frame0, p=>onProgress(100*p), shouldStop);
     if(d.segFramesUsed!==segF) onLog(`(rounded segment length from ${segF} to ${d.segFramesUsed} frames — an odd segment length can bias this method under any strictly periodic frame alternation in the raw movie, e.g. ALEX.)`);
+  }else if(config.driftMethod==='comet'){
+    const dp=PARAMS, pick=(k,def)=>config[k]==null?dp[k].default:config[k];
+    const W=pick('driftCometSeg'), has3dAll=config.driftZ && locs.length>0 && locs.every(L=>isFinite(L.z));
+    const budget=effectiveMemBudgetBytes(config.memBudgetGB==null?Infinity:config.memBudgetGB).bytes;
+    const maxPairs=Math.min(pick('driftCometMaxPairs')*1e6, isFinite(budget)?budget*0.4/COMET_PAIR_BYTES:Infinity, (typeof isMemoryConstrainedDevice==='function' && typeof window!=='undefined' && isMemoryConstrainedDevice())?5e6:Infinity);
+    let sigmaNm=pick('driftCometSigma'), sigmaNote='';
+    if(!(sigmaNm>0)){ const m=modeUncertaintyNm(locs,px); sigmaNm=m?Math.max(1,Math.min(30,m)):10; sigmaNote=m?' (from the localization precision)':' (default: no precision estimate)'; }
+    const radiusNm=pick('driftCometRadius');
+    onLog(`\nDrift correction (COMET): ${W}-frame windows (at least ${pick('driftCometMinLocs')} localizations), max drift ${radiusNm} nm, final length scale ${sigmaNm.toFixed(1)} nm${sigmaNote}`+(frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
+    d=await cometDrift(locs,nFrames,px,{radiusNm,minLocs:pick('driftCometMinLocs'),framesPerWindow:W,sigmaNm,maxPairs,use3d:has3dAll,useGpu:!!config.useGpu,smooth:pick('driftCometSmooth')},frame0,p=>onProgress(100*p),shouldStop,onLog);
   }else{
     onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
           (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
@@ -15137,16 +15519,20 @@ async function driftCore(locs, px, config, hooks={}){
     d=await aimDrift2D(locs,nFrames,px,segF,intD,roiNm, samplePct, frame0, p=>onProgress(100*p), shouldStop, onLog);
   }
   d.frame0=frame0;   // so plots and scoring can label real frame numbers
-  // z drift (Phasor 3D): separate 1-D pass; skipped if 2D stopped, and for
-  // the correlation method.
+  // z drift (Phasor 3D): separate 1-D pass for AIM; skipped if 2D stopped, and for the correlation method
+  // (no z) and COMET (z is part of its 3D cost, d.fdz).
   const has3d=locs.some(L=>isFinite(L.z));
   let dz=null;
-  if(!d.stopped && has3d && config.driftZ && config.driftMethod!=='correlation'){
+  if(!d.stopped && has3d && config.driftZ && config.driftMethod==='aim'){
     dz=await aimDriftZ(locs,nFrames,segF,40,roiNm, samplePct, frame0, p=>onProgress(100*p), onLog, shouldStop);
     d.fdz=dz.fdz;
   }
   // A stop in either pass: nothing is applied.
   const stopped = d.stopped || (dz && dz.stopped);
+  if(stopped && d.cometStopped){
+    onLog(`Stopped during the COMET optimisation — the current, unconverged drift is shown; NOT applied — the reconstruction/CSV export still use the ORIGINAL, uncorrected coordinates. Run to completion to correct the data.`);
+    return { drift:d, nFrames, frame0, stopped:true, ms:Math.round(performance.now()-t0) };
+  }
   if(stopped){
     const reqSeg=d.nSegRequested, doneSeg=d.nSeg;
     onLog(`Stopped after ${doneSeg} of ${reqSeg} segment(s) (frames ${frame0+1}–${Math.round(d.stoppedAtFrame+frame0)+1} of ${frame0+1}–${maxFrame+1})`+
@@ -15160,6 +15546,10 @@ async function driftCore(locs, px, config, hooks={}){
   // apply reversibly — keep the raw coordinates in x0/y0
   for(const L of locs){ if(L.x0===undefined){ L.x0=L.x; L.y0=L.y; }
     const f=Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0)); L.x=L.x0+d.fdx[f]; L.y=L.y0+d.fdy[f]; }
+  if(!dz && d.fdz){   // COMET: z drift from the 3D cost
+    for(const L of locs){ if(!isFinite(L.z)) continue; if(L.z0===undefined) L.z0=L.z;
+      L.z=L.z0+d.fdz[Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0))]; }
+  }
   if(dz){
     // Clamped z carries no drift and is excluded; a large clamped fraction
     // means z-drift is under-estimated.
@@ -15179,14 +15569,16 @@ async function driftCore(locs, px, config, hooks={}){
   return { drift:d, nFrames, frame0, ms:Math.round(performance.now()-t0) };
 }
 
-// Shows AIM's own settings (search radius, z) only for AIM. The shared
+// Shows each method's own settings: AIM (search radius, z), COMET (radius, window, length scale, pair cap, z). The shared
 // Sampling % control stays visible (NeNA uses it). hasZ: passed by rerender(),
 // else derived from lastResult.
 function refreshDriftMethodUI(hasZ){
-  const isAim = paramValue('driftMethod')==='aim';
+  const method = paramValue('driftMethod'), isAim = method==='aim', isComet = method==='comet';
   $('driftRoiRow').style.display = isAim ? '' : 'none';
+  $('driftSegRow').style.display = isComet ? 'none' : '';
+  for(const id of ['driftCometSegRow','driftCometRadiusRow','driftCometMinLocsRow','driftCometSmoothRow','driftCometSigmaRow','driftCometPairsRow']) $(id).style.display = isComet ? '' : 'none';
   if(hasZ===undefined) hasZ = !!(lastResult && lastResult.locs && lastResult.locs.some(L=>isFinite(L.z)));
-  $('driftZRow').style.display = (isAim && hasZ) ? 'flex' : 'none';
+  $('driftZRow').style.display = ((isAim||isComet) && hasZ) ? 'flex' : 'none';
 }
 $('driftMethod').addEventListener('change', ()=>refreshDriftMethodUI());
 refreshDriftMethodUI();   // sync once at load (default or loaded settings)
@@ -15205,10 +15597,13 @@ async function correctDrift(){
   $('driftBtn').disabled=true; $('stopBtn').disabled=false;
   try{
     const driftMethod=paramValue('driftMethod');
-    const config={driftSeg:paramValue('driftSeg'), driftMethod, driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), samplePct:paramValue('samplePct'), stack};
+    const config={driftSeg:paramValue('driftSeg'), driftMethod, driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), samplePct:paramValue('samplePct'), stack,
+      driftCometSeg:paramValue('driftCometSeg'), driftCometSigma:paramValue('driftCometSigma'), driftCometMaxPairs:paramValue('driftCometMaxPairs'), memBudgetGB:paramValue('memBudgetGB'), useGpu:paramValue('useGpu'), driftCometRadius:paramValue('driftCometRadius'), driftCometMinLocs:paramValue('driftCometMinLocs'), driftCometSmooth:paramValue('driftCometSmooth')};
     // Logged before driftCore(), as correctDrift() (corrects the existing
     // result; the analyze() form would Localize first).
-    const cmdCfg={correctDrift:true, driftSeg:config.driftSeg, driftMethod, driftRoi:config.driftRoi, driftZ:config.driftZ, samplePct:config.samplePct};
+    const cmdCfg=driftMethod==='comet'
+      ? {correctDrift:true, driftMethod, driftZ:config.driftZ, driftCometRadius:config.driftCometRadius, driftCometMinLocs:config.driftCometMinLocs, driftCometSmooth:config.driftCometSmooth, driftCometSeg:config.driftCometSeg, driftCometSigma:config.driftCometSigma, driftCometMaxPairs:config.driftCometMaxPairs}
+      : {correctDrift:true, driftSeg:config.driftSeg, driftMethod, driftRoi:config.driftRoi, driftZ:config.driftZ, samplePct:config.samplePct};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'correctDrift()'));
     const {drift:d, nFrames, stopped} = await driftCore(locs, px, config, {onLog:log, onProgress:setProg, shouldStop:()=>stopRequested});
     // Superseded while driftCore() ran: discard.
@@ -17939,6 +18334,7 @@ function smfretWidthValue(width,useElliptical,bearing){
 async function smfretComputeDrift(){
   if(!stack) return null;
   const method=paramValue('driftMethod'), segF=paramValue('driftSeg');
+  if(method==='comet') log('(smFRET: Apply drift correction uses AIM or cross correlation; COMET is not used here.)');
   // ALEX: donor- and acceptor-excitation frames can image at different
   // sensor positions (grating/prism), so AIM treats the channels separately.
   const alex=paramValue('alexEnabled');
@@ -24002,7 +24398,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.3-dev · build 2026-10-05a — fixed Live streaming restarting itself after Stop/Disconnect or a sender "stop" (chunks still queued in wsQueue re-armed the session).`);
+log(`webSMLM v0.13.3-dev · build 2026-10-05b — COMET drift correction (experimental), GPU cost kernel, smoothing; simulated movies in the memory accounting; FRC/NeNA follow a pixel size change.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

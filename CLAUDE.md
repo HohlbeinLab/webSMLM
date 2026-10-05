@@ -349,6 +349,18 @@ what makes GUI and command-line use interchangeable.
   - `correlationDrift2D()`: segment 0 is the fixed reference (no zero-mean re-referencing — smFRET
     relies on frame-0 anchoring); odd segment lengths are rounded up to even (`segFramesUsed`) because
     a period-2 ALEX alternation otherwise biases the correlation.
+  - **COMET** (`driftMethod 'comet'`, `cometDrift()`; Reinkensmeier et al., bioRxiv 2026, written from the paper, not
+    ported from gpufit/comet): windows of `driftCometSeg` frames merged until `driftCometMinLocs` locs, one x/y(/z when every loc has z) vector per
+    window from minimising `−Σ exp(−d²/(4σ²))/σ` over all cross-window pairs within `driftCometRadius` (the TOTAL drift,
+    not AIM's per-segment `driftRoi`: below the real range the result is poor; a `!!!` log fires above 60 % of it) (`cometGrid()` spatial hash,
+    `cometPairs()` counted then filled; above `driftCometMaxPairs` a deterministic share of the locs is kept), by
+    `cometLbfgs()` with σ stepped /1.5 from radius/3 to `driftCometSigma`, the pair radius shrinking with σ (`COMET_RADIUS_PER_SIGMA`, pairs rebuilt on the shifted coordinates when it drops ≥ 15 %, thinning keeps `COMET_MIN_KEEP` locs per window) and a moving average over `driftCometSmooth` windows after each stage (empty/0 = `modeUncertaintyNm()`; `blankAtDefault` PARAMS flag shows the field blank with an "auto" placeholder; a σ far below the
+    localization precision fits noise), `cometSplineToFrames()` interpolation, zero-mean referenced, same return shape as
+    `aimDrift2D()` plus `fdz`. Main thread with `tick()` yields; Stop discards (`cometStopped`). With **Use GPU
+    acceleration** and ≥ `COMET_GPU_MIN_PAIRS` pairs the cost and gradient run on the GPU (`cometGpuSetup()`, `WGSL_COMET_COST`:
+    one thread per loc in cell order over a static cell grid, no pair list, no atomics; `WGSL_COMET_WINDOWS` sums each window's run of
+    threads), 6–17× the CPU at 3–290 M pairs and equal to it to the sub-nm; the pair cap is ×2 there (default `driftCometMaxPairs` 20 M); the pair count is estimated from a budget of candidate checks (`cometEstimatePairs()`, `COMET_ESTIMATE_BUDGET`; a full count of millions of dense locs took minutes) and counted exactly only for the CPU's pair list; any GPU error continues
+    on the CPU. Progress: grid/pair search 0–12 %, then per length scale. Test: `tests/gpu/test-comet-drift.mjs`.
   - `drawDriftCurve()`'s green/magenta/blue palette is the app's reference pairing for two-curve plots.
 
 - **locprecision** — NeNA (Endesfelder fit, `nenaPrecision()`) and FRC (`prepareFrc()`,

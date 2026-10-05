@@ -37,6 +37,7 @@ const TESTS = [
   ['gpu:test:viewport-gpu', 'test-viewport-gpu.mjs'],
   ['gpu:test:frc-pixelsize', 'test-frc-pixelsize.mjs'],
   ['gpu:test:sim-memory', 'test-sim-memory.mjs'],
+  ['gpu:test:comet-drift', 'test-comet-drift.mjs'],
 ];
 
 const BENCHES = [

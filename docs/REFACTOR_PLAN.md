@@ -533,3 +533,13 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
   line, which lists the first batch by pass. Ideas if it matters: far fewer, larger batches (needs
   the adapter's real buffer limits via `requiredLimits`, see the GPU render limit note), or a
   Firefox fallback to the CPU path. Meanwhile time-critical measurements use Chrome.
+- **COMET drift, next steps** (CPU and WebGPU cost shipped in 0.13.3-dev): a benchmark on real data against
+  AIM (synthetic tests, 60k localizations, showed equal accuracy at the best AIM window and stability COMET alone keeps
+  below ~3 frames per window); a worker-pool path for browsers without WebGPU or where it is slow (Firefox 157:
+  fixed per-pass cost); optional temporal smoothing between length scales (the reference code's `boxcar_width`) and its
+  quality-control mode (flagging windows with a poor overlap); a time-ordered window layout for the GPU kernel when
+  windows hold fewer than 64 localizations.
+- **COMET status**: shipped as an experimental option (0.13.3-dev) beside AIM, which stays the default; its strength is fast
+  drift and, untested on real data, z drift where AIM's 1-D z pass returns flat lines. Compare on a real 3D dataset
+  before promoting it; it needs tight settings (Max drift, final length scale, window size, smoothing) where AIM
+  needs two.

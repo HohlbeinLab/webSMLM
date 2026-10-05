@@ -1168,7 +1168,7 @@ widths per frame — see [§7](#7-calibration-json-format).
 
 ### Drift correction (`drift`) {#drift}
 
-Two drift-ESTIMATION methods (`driftMethod`), sharing one
+Three drift-ESTIMATION methods (`driftMethod`), sharing one
 downstream "apply the estimated per-frame shift to localizations"
 implementation (`driftCore()`) regardless of which produced it.
 
@@ -1215,6 +1215,36 @@ absolute anchor rather than an arbitrary one; this is what makes it usable
 as a genuine "where does a fixed reference position sit right now"
 lookup, e.g. by **Time traces and FRET**'s own **Apply drift correction**
 (see [§2](#smfret)).
+
+**COMET** (`cometDrift()`, **experimental**; start from: Max drift ≈ 1.5× the total drift, Frames per window 20, Min
+localizations per window 1000, Smoothing 11–25, Final length scale auto), point-based like AIM, after Reinkensmeier et al. (bioRxiv 2026,
+see [§9](#9--references--further-reading)): the localizations are cut into time windows of **Frames per
+window** (`driftCometSeg`) frames and one drift vector per window — x, y and, when every localization has
+z, z — is found by maximising the overlap of all localizations, i.e. minimising
+`−Σᵢⱼ exp(−dᵢⱼ²/(4σ²))/σ` over every pair in different windows closer than **Max drift (nm)** (`driftCometRadius`),
+which must exceed the TOTAL drift of the acquisition, peak to peak — unlike AIM's per-segment **Search radius** —
+because only windows whose localizations lie within that distance can be compared (a value below the real drift range
+gives a poor, noisy curve; the log warns when the estimate spans more than 60% of it). `dᵢⱼ` is the pair's distance after each localization is moved by its own window's
+drift; adjacent frame blocks are merged until a window holds **Min localizations per window** (`driftCometMinLocs`, default
+250; about 250 or more keeps the curve smooth, 0 uses **Frames per window** exactly); the minimiser is a limited-memory BFGS, and σ is lowered from radius/3 to **Final length scale (nm)**
+(`driftCometSigma`) in steps of 1.5 (coarse to fine). The pair radius shrinks with σ (6.5σ, never above Max drift and
+never below 40 nm): once the coarse stages have placed the windows only nearby localizations still overlap, so each
+later stage re-pairs on the shifted coordinates and needs little or no thinning. After every stage a moving average
+over **Smoothing (windows)** (`driftCometSmooth`, default 5; 1 = off) neighbouring windows suppresses the noise of
+short windows, which cuts the error several-fold on smooth drift but blurs real fast drift. The per-window drift is interpolated to every frame with
+a natural cubic spline and, like AIM's, zero-mean referenced. Unlike AIM it stays stable down to a few tens of
+localizations per window (AIM breaks down below ~3 frames of a dense movie), so fast drift or vibration can be
+followed with short windows, and it estimates z together with x and y in one 3D problem (on synthetic data its z
+drift error was about 4 nm where AIM's separate 1-D z pass gave 12 nm; AIM's z pass can return a flat line), at a cost of O(pairs) per cost evaluation (seconds for 10⁴–10⁵ localizations).
+Settings: the **final length scale** should match the localization precision — much smaller values fit noise
+(empty, shown as "auto", the default, or 0, uses the mode of the per-localization precision, else 10 nm); **Max pairs (millions)**
+(`driftCometMaxPairs`, 8 bytes per pair; 5 M on a memory-constrained device, and at most 40% of the memory
+budget) caps the pair list, above which a deterministic random share of the localizations is used (the log says
+so). Stop discards the run. With **Use GPU acceleration** (and at least 500,000 pairs) the cost and
+gradient run on the GPU, one thread per localization over a spatial grid, so no pair list is stored and the
+cap is twice as high; it matches the CPU result to well below a nanometre and is 6–17× faster
+(about 1.4 s against 23 s for 40 million pairs; each cost evaluation scales with the pair count, a run needs roughly 40–150 of them, and the log reports the time of the first); otherwise the main thread does the work, yielding to the UI. The
+progress bar covers the pair search and each length scale. Test: `tests/gpu/test-comet-drift.mjs`.
 
 ### Ground-truth scoring (`validation`) {#validation}
 
@@ -3319,7 +3349,13 @@ the corrected result's own precision/resolution).
 |---|---|---|---|---|---|---|
 | `samplePct` | Sampling (AIM & NeNA) % | number (int) | 5 | 100 | 5 | 100 |
 | `driftSeg` | Average # of frames | number (int) | 5 | 2000 | 5 | 100 |
-| `driftMethod` | Drift correction method | enum (`aim`, `correlation`) | — | — | — | `aim` |
+| `driftMethod` | Drift correction method | enum (`aim`, `correlation`, `comet`) | — | — | — | `aim` |
+| `driftCometSeg` | Frames per window | number (int) | 1 | 2000 | 1 | 5 |
+| `driftCometRadius` | Max drift (nm) | number | 20 | 5000 | 10 | 400 |
+| `driftCometMinLocs` | Min localizations per window | number (int) | 0 | 100000 | 50 | 250 |
+| `driftCometSmooth` | Smoothing (windows) | number (int) | 1 | 99 | 2 | 5 |
+| `driftCometSigma` | Final length scale (nm) | number | 0 | 50 | 0.5 | empty = auto (from the localization precision; 0 means the same) |
+| `driftCometMaxPairs` | Max pairs (millions) | number (int) | 1 | 400 | 1 | 20 |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
@@ -3330,12 +3366,13 @@ the corrected result's own precision/resolution).
 
 <!-- HINT:drift -->
 <p><b>Sampling (AIM &amp; NeNA) %</b> is a shared speed/precision trade for AIM's own shift search and NeNA — each deterministically subsamples once via its own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where either is slow. It does <b>not</b> affect FRC: FRC's own resolution number is fundamentally a function of localization density, not just noisier with fewer points, so subsampling it would silently report the (much worse) resolution of a sparser dataset rather than a faster measurement of the real one — FRC always runs on the full loc set regardless of this setting.</p>
-<p>Two drift-estimation methods, picked by <b>Drift correction method</b>. <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
+<p>Three drift-estimation methods, picked by <b>Drift correction method</b> (<b>COMET</b>, below, is the third). <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
 <ul>
-  <li><b>Average # of frames</b> is shared by both methods — smaller segments track faster drift more closely but are noisier to estimate.</li>
+  <li><b>Average # of frames</b> is shared by AIM and Cross correlation — smaller segments track faster drift more closely but are noisier to estimate.</li>
   <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
   <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
-  <li>Each run re-estimates from scratch, so settings can be swept and compared, and either method can be tried on the same result.</li>
+  <li><b>COMET</b> (experimental; Reinkensmeier et al., bioRxiv 2026) maximises the overlap of all localizations over time windows of <b>Frames per window</b>, in x, y and z at once, and stays stable with only a few tens of localizations per window, where AIM does not. <b>Max drift (nm)</b> must exceed the total drift of the whole acquisition, peak to peak (not AIM's per-segment search radius — too small a value gives a poor, noisy result and the log warns); <b>Min localizations per window</b> merges short windows until each holds that many (about 250 or more keeps the curve smooth); <b>Smoothing (windows)</b> averages the drift over that many neighbouring windows (1 = off; smooth drift gains a lot, fast drift is blurred); <b>Final length scale (nm)</b> should match the localization precision (empty, "auto", = estimated from it); <b>Max pairs (millions)</b> caps the work and memory (a random share of the localizations is used above it). Slower than AIM on the CPU (seconds rather than a fraction of a second); the GPU brings it close.</li>
+  <li>Each run re-estimates from scratch, so settings can be swept and compared, and any method can be tried on the same result.</li>
   <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
 </ul>
 <ul>
@@ -3992,7 +4029,7 @@ const result = await window.webSMLM.analyze({
   rather than erroring. `validation_matchRadius`/`validation_zBins` are
   ordinary `PARAMS` fields and configure it.
   `config.correctDrift`'s own ESTIMATION method is the ordinary `PARAMS`
-  field `driftMethod` (`'aim'`/`'correlation'`, default `'aim'`) — with
+  field `driftMethod` (`'aim'`/`'correlation'`/`'comet'`, default `'aim'`) — with
   `driftMethod:'correlation'`, the raw movie itself is needed to estimate
   the drift (image-based, not point-based), so this combination throws a
   clear error against a `.csv` input (which has no raw frame data at all —
@@ -4676,6 +4713,9 @@ What this tool borrows from, and where to read more.
 **Nuclear pore complex (NPC) simulation**
 - "Nuclear pores as versatile reference standards for quantitative superresolution microscopy," J. V. Thevathasan et al., *Nat. Methods* **16**, 1045–1053 (2019). [doi:10.1038/s41592-019-0574-9](https://doi.org/10.1038/s41592-019-0574-9)
 - "CIR4MICS: simulating structurally variable nuclear pore complexes for microscopy," R. Wanninger et al., *Bioinformatics* **39**(10), btad587 (2023). [doi:10.1093/bioinformatics/btad587](https://doi.org/10.1093/bioinformatics/btad587)
+
+**COMET drift**
+- "Cost-function Optimized Maximal Overlap Drift Estimation for Single Molecule Localization Microscopy," L. Reinkensmeier, S. Aufmkolk, I. Farabella, A. Egner, M. Bates, bioRxiv (2026). [doi:10.64898/2026.03.27.714864](https://doi.org/10.64898/2026.03.27.714864). Reference implementation (MIT): [github.com/gpufit/comet](https://github.com/gpufit/comet); webSMLM's `cometDrift()` is written from the published description, not ported from that code.
 
 **Picasso** (reference implementation for the ported MLE and AIM drift code above, [github.com/jungmannlab/picasso](https://github.com/jungmannlab/picasso))
 - "Super-resolution microscopy with DNA-PAINT," J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, *Nat. Protoc.* **12**, 1198–1228 (2017). [doi:10.1038/nprot.2017.024](https://doi.org/10.1038/nprot.2017.024)
