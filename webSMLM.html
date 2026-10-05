@@ -1744,7 +1744,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-03d</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.3-dev · build 2026-10-05a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -21551,7 +21551,7 @@ async function liveStreamPushChunkFile(file){
   $('liveStreamScrubTotal').textContent=` / ${liveStreamState.frameOffset.toLocaleString()}`;
   // Repaint the raw panel only while following the newest frame.
   if(liveStreamState.followLive) liveStreamShowRawFrame(liveStreamState.frameOffset-1);
-  $('liveStreamStatus').textContent=`Streaming — ${liveStreamState.frameOffset} frames · ${liveStreamState.chunkCount} chunks · ${liveStreamState.allLocs.length.toLocaleString()} locs`;
+  if(liveStreamState.active) $('liveStreamStatus').textContent=`Streaming — ${liveStreamState.frameOffset} frames · ${liveStreamState.chunkCount} chunks · ${liveStreamState.allLocs.length.toLocaleString()} locs`;
   return {chunkFrames:chunkStack.n, chunkLocs:r.locs.length, totalFrames:liveStreamState.frameOffset, totalLocs:liveStreamState.allLocs.length};
 }
 
@@ -21594,12 +21594,18 @@ function liveStreamWsConnect(){
   // trailing stop end the session while earlier chunks were still running.
   // In-order processing also makes stopAck authoritative.
   let wsQueue=Promise.resolve();
+  // Drop messages still queued after Stop/close or a sender "stop":
+  // liveStreamPushChunkFile() re-arms (and wipes) an inactive session, so a
+  // late chunk would silently restart streaming.
+  let wsEnded=false;
   ws.addEventListener('message', (ev)=>{
     wsQueue=wsQueue.then(async ()=>{
+      if(wsEnded || liveStreamWs!==ws) return;
       if(typeof ev.data==='string'){
         let msg=null; try{ msg=JSON.parse(ev.data); }catch{ msg={cmd:ev.data}; }
         if(msg && msg.cmd==='stop'){
           log('Live streaming: sender signalled stop.');
+          wsEnded=true;
           endLiveStreamingSession();
           if(liveStreamState && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({cmd:'stopAck', framesReceived:liveStreamState.frameOffset, chunkCount:liveStreamState.chunkCount}));
         }
@@ -23996,7 +24002,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.3-dev · build 2026-10-03d — start of the 0.13.3 development cycle.`);
+log(`webSMLM v0.13.3-dev · build 2026-10-05a — fixed Live streaming restarting itself after Stop/Disconnect or a sender "stop" (chunks still queued in wsQueue re-armed the session).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
