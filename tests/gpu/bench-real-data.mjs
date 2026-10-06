@@ -13,18 +13,23 @@
 // git-ignored, multi-GB data that won't exist on a fresh clone.
 //
 // Usage: cd tests && npm install (once), then node bench-real-data.mjs [--full]
-import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
-import { diffLocsExact, expectGpuUsed, p99Typed, printTable, speedup, verdict, writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { diffLocsExact, expectGpuUsed, p99Typed, printTable, speedup, TOLERANCE, verdict, writeResults } from '../lib/report.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
+import { DATASETS, parseGpuMode } from '../lib/datasets.mjs';
 
 const FULL = process.argv.includes('--full');
-const TARGET = await resolveDataFile('STORM_STACK', join('19165061', 'Aquired STORM.tif'));
+const DATASET = process.argv.find(arg => arg.startsWith('--dataset='))?.slice('--dataset='.length) || 'storm3d';
+if (DATASET !== 'storm3d') throw new Error('bench-real-data currently supports --dataset=storm3d.');
+const GPU_MODE = parseGpuMode();
+const RUN_CPU = GPU_MODE !== 'gpu';
+const RUN_GPU = GPU_MODE !== 'cpu';
+const TARGET = await resolveDatasetFile(DATASET, 'stack');
 if (!TARGET) { console.log('Skipping real-data benchmark.'); process.exit(0); }
 
 const BASE_CONFIG = {
   method: 'gaussmle',   // the only GPU-fit-accelerated method
-  pxnm: 160, gain: 0.1248, camoffset: 100,   // this dataset's real camera parameters
+  ...DATASETS[DATASET].parameters,
   ...(FULL
     // --full genuinely needs a real ceiling: the desktop default (unset,
     // i.e. Infinity) leaves checkLocsMemory()'s own auto-stop as a no-op,
@@ -82,7 +87,7 @@ try {
     return result;
   }
 
-  async function runGpuPassAndDiff(diffSrc, p99Src) {
+  async function runGpuPassAndDiff(diffSrc, p99Src, cpuTimings) {
     let lastPct = -10;
     page.removeAllListeners('console');
     page.on('console', msg => {
@@ -90,7 +95,7 @@ try {
       if (m) { const pct = +m[1]; if (pct - lastPct >= 5) { process.stdout.write(`\r  GPU run: ${pct.toFixed(0)}%  `); lastPct = pct; } }
       else if (msg.type() === 'error') console.error('  [page error]', msg.text());
     });
-    const result = await page.evaluate(async ({ cfg, fileInputId, diffSrc, p99Src, nCandidates }) => {
+    const result = await page.evaluate(async ({ cfg, fileInputId, diffSrc, p99Src, tolerance, nCandidates, compare }) => {
       const config = Object.assign({}, cfg, { useGpu: true, auditCandidates: true });
       config.file = document.getElementById(fileInputId).files[0];
       config.onProgress = pct => console.log('[progress]' + pct);
@@ -102,30 +107,42 @@ try {
       // expression. Parens force both into an EXPRESSION eval() actually
       // returns, uniformly for a `const x=(...)=>{}` arrow or a plain
       // `function x(){}` declaration alike.
-      const p99Typed = eval('(' + p99Src + ')');
-      const diffLocsExact = eval('(' + diffSrc + ')');
-      const diff = diffLocsExact(window._cpuLocs, r.locs, window._cpuPixels, r.auditCandidatePixels, nCandidates);
+      let diff = null;
+      if (compare) {
+        const TOLERANCE = tolerance;
+        const p99Typed = eval('(' + p99Src + ')');
+        const diffLocsExact = eval('(' + diffSrc + ')');
+        diff = diffLocsExact(window._cpuLocs, r.locs, window._cpuPixels, r.auditCandidatePixels, nCandidates);
+      }
       delete window._cpuLocs; delete window._cpuPixels;
       return { nLocalizations: r.locs.length, timings: r.timings, execution: r.execution, logText: r.logText, diff };
-    }, { cfg: BASE_CONFIG, fileInputId: 'analyzeFileInput', diffSrc, p99Src, nCandidates: cpu.timings.nCand });
+    }, { cfg: BASE_CONFIG, fileInputId: 'analyzeFileInput', diffSrc, p99Src, tolerance: TOLERANCE,
+      nCandidates: cpuTimings?.nCand ?? null, compare: !!cpuTimings });
     process.stdout.write('\n');
     return result;
   }
 
-  console.log('\nRunning CPU pass...');
-  const cpu = await runCpuPass();
-  console.log(`CPU: ${cpu.nLocalizations} localizations in ${Math.round(cpu.timings.runMs)} ms (fit ${Math.round(cpu.timings.tFit)} ms).`);
+  let cpu = null;
+  if (RUN_CPU) {
+    console.log('\nRunning CPU pass...');
+    cpu = await runCpuPass();
+    console.log(`CPU: ${cpu.nLocalizations} localizations in ${Math.round(cpu.timings.runMs)} ms (fit ${Math.round(cpu.timings.tFit)} ms).`);
+    if (!RUN_GPU) await page.evaluate(() => { delete window._cpuLocs; delete window._cpuPixels; });
+  }
 
-  console.log('\nRunning GPU pass...');
-  const gpuRun = await runGpuPassAndDiff(diffLocsExact.toString(), p99Typed.toString());
-  console.log(`GPU: ${gpuRun.nLocalizations} localizations in ${Math.round(gpuRun.timings.runMs)} ms (fit ${Math.round(gpuRun.timings.tFit)} ms).`);
+  let gpuRun = null;
+  if (RUN_GPU) {
+    console.log('\nRunning GPU pass...');
+    gpuRun = await runGpuPassAndDiff(diffLocsExact.toString(), p99Typed.toString(), cpu?.timings);
+    console.log(`GPU: ${gpuRun.nLocalizations} localizations in ${Math.round(gpuRun.timings.runMs)} ms (fit ${Math.round(gpuRun.timings.tFit)} ms).`);
   // method:'gaussmle' + useGpu:true is the one case where GPU fit SHOULD
   // engage (webSMLM.html runCore(), ~line 10764) — turns the already-inferred
   // "GPU ran" (from the speed numbers) into an explicit, direct check.
-  expectGpuUsed(gpuRun.logText, true);
-  console.log('  (confirmed: logText contains a "GPU fit: ..." line)');
+    expectGpuUsed(gpuRun.logText, true);
+    console.log('  (confirmed: logText contains a "GPU fit: ..." line)');
+  }
 
-  const diff = gpuRun.diff;
+  const diff = gpuRun?.diff;
   // A dataset this size clears runCore()'s worker-pool threshold on the CPU
   // side, so cpu.timings.tFit is SUMMED ACROSS EVERY WORKER THREAD (see
   // runCore()'s own comment on this — it "legitimately exceeds the wall
@@ -133,18 +150,19 @@ try {
   // no such multiplier. Comparing tFit directly is comparing apples to
   // oranges. wallSpeedup is the trustworthy number; fitSpeedup is kept as a
   // labelled, explicitly-caveated secondary column.
-  const fitSp = speedup(cpu.timings.tFit, gpuRun.timings.tFit);
-  const wallSp = speedup(cpu.timings.runMs, gpuRun.timings.runMs);
+  const fitSp = cpu && gpuRun ? speedup(cpu.timings.tFit, gpuRun.timings.tFit) : null;
+  const wallSp = cpu && gpuRun ? speedup(cpu.timings.runMs, gpuRun.timings.runMs) : null;
   const row = {
-    label: FULL ? 'full stack' : 'frames 1-5000', nCand: cpu.timings.nCand, nLocs: cpu.nLocalizations,
-    cpuFitMs: Math.round(cpu.timings.tFit), gpuFitMs: Math.round(gpuRun.timings.tFit),
-    cpuRunMs: Math.round(cpu.timings.runMs), gpuRunMs: Math.round(gpuRun.timings.runMs),
+    label: FULL ? 'full stack' : 'frames 1-5000', nCand: (cpu || gpuRun).timings.nCand,
+    nLocs: (cpu || gpuRun).nLocalizations,
+    cpuFitMs: cpu ? Math.round(cpu.timings.tFit) : null, gpuFitMs: gpuRun ? Math.round(gpuRun.timings.tFit) : null,
+    cpuRunMs: cpu ? Math.round(cpu.timings.runMs) : null, gpuRunMs: gpuRun ? Math.round(gpuRun.timings.runMs) : null,
     fitSpeedup: fitSp, wallSpeedup: wallSp,
-    acceptDiscord: diff.acceptanceDiscordance, netBias: diff.netAcceptanceBias,
-    posP99: diff.posP99, paramP99: diff.paramP99,
-    maxDx: diff.maxDx,
-    maxDPhotonsRel: diff.maxDPhotonsRel,
-    verdict: diff.lengthMismatch ? `LENGTH MISMATCH (cpu ${diff.n} vs gpu ${diff.nGpu})` : verdict(wallSp, diff.withinTolerance),
+    acceptDiscord: diff?.acceptanceDiscordance, netBias: diff?.netAcceptanceBias,
+    posP99: diff?.posP99, paramP99: diff?.paramP99,
+    maxDx: diff?.maxDx,
+    maxDPhotonsRel: diff?.maxDPhotonsRel,
+    verdict: diff ? (diff.lengthMismatch ? `LENGTH MISMATCH (cpu ${diff.n} vs gpu ${diff.nGpu})` : verdict(wallSp, diff.withinTolerance)) : `${GPU_MODE.toUpperCase()} completed`,
   };
 
   console.log('');
@@ -165,14 +183,14 @@ try {
   ]);
   console.log('(*) fit-only compares runCore()\'s own tFit field directly — misleading whenever the CPU side used its worker pool (tFit is summed across every worker thread there, not wall time); WALL speedup is the trustworthy number.');
 
-  const fitStage = gpuRun.execution && gpuRun.execution.stages && gpuRun.execution.stages.fit;
-  const fitFailed = !fitStage || fitStage.path !== 'gpu' || fitStage.fallbackCalls || (fitStage.reasons || []).includes('failed');
-  const realFailed = cpu.timings.nCand !== gpuRun.timings.nCand || !diff.withinTolerance || fitFailed || (FULL && (!wallSp || wallSp < 2));
+  const fitStage = gpuRun?.execution?.stages?.fit;
+  const fitFailed = RUN_GPU && (!fitStage || fitStage.path !== 'gpu' || fitStage.fallbackCalls || (fitStage.reasons || []).includes('failed'));
+  const realFailed = !!(cpu && gpuRun && (cpu.timings.nCand !== gpuRun.timings.nCand || !diff.withinTolerance || (FULL && (!wallSp || wallSp < 2)))) || fitFailed;
   if (realFailed) {
-    if (cpu.timings.nCand !== gpuRun.timings.nCand) console.error(`Candidate count mismatch: CPU ${cpu.timings.nCand}, GPU ${gpuRun.timings.nCand}`);
-    if (!diff.withinTolerance) console.error('CPU/GPU localization diff exceeded exact audit gates.');
+    if (cpu && gpuRun && cpu.timings.nCand !== gpuRun.timings.nCand) console.error(`Candidate count mismatch: CPU ${cpu.timings.nCand}, GPU ${gpuRun.timings.nCand}`);
+    if (diff && !diff.withinTolerance) console.error('CPU/GPU localization diff exceeded exact audit gates.');
     if (fitFailed) console.error(`GPU fit did not complete cleanly: ${JSON.stringify(fitStage || null)}`);
-    if (FULL && (!wallSp || wallSp < 2)) console.error(`Full-stack GPU wall speedup below 2x gate: ${wallSp ? wallSp.toFixed(2) : 'n/a'}x`);
+    if (cpu && gpuRun && FULL && (!wallSp || wallSp < 2)) console.error(`Full-stack GPU wall speedup below 2x gate: ${wallSp ? wallSp.toFixed(2) : 'n/a'}x`);
     process.exitCode = 1;
   }
 
@@ -181,6 +199,9 @@ try {
   // CPU-only — the isolated method:'gaussmle'-only comparison above can't
   // catch an integration issue between these features on a real, noisy
   // dataset. Not a GPU/CPU speed comparison (no GPU column here on purpose).
+  let pipeline = null;
+  let pipelineFailed = false;
+  if (RUN_CPU) {
   console.log('\nRunning full-pipeline scenario (drift + NeNA + FRC + plots, CPU)...');
   let lastPct2 = -10;
   page.removeAllListeners('console');
@@ -189,11 +210,11 @@ try {
     if (m) { const pct = +m[1]; if (pct - lastPct2 >= 5) { process.stdout.write(`\r  pipeline run: ${pct.toFixed(0)}%  `); lastPct2 = pct; } }
     else if (msg.type() === 'error') console.error('  [page error]', msg.text());
   });
-  const pipeline = await page.evaluate(async ({ fileInputId }) => {
+  pipeline = await page.evaluate(async ({ fileInputId, parameters }) => {
     const config = {
-      method: 'gaussmle', pxnm: 160, gain: 0.1248, camoffset: 100,
+      method: 'gaussmle', ...parameters,
       fitFirstFrame: 1, fitLastFrame: 3000,
-      correctDrift: true, computeNeNA: true, computeFRC: true, exportPlots: true,
+      useGpu: false, correctDrift: true, computeNeNA: true, computeFRC: true, exportPlots: true,
     };
     config.file = document.getElementById(fileInputId).files[0];
     config.onProgress = pct => console.log('[progress]' + pct);
@@ -203,12 +224,13 @@ try {
       driftOk: !!(r.drift && !r.drift.stopped), nenaOk: !!(r.nena && !r.nena.err),
       frcOk: !!(r.frc && !r.frc.err), plotKeys: r.plots ? Object.keys(r.plots) : [],
     };
-  }, { fileInputId: 'analyzeFileInput' });
+  }, { fileInputId: 'analyzeFileInput', parameters: DATASETS[DATASET].parameters });
   process.stdout.write('\n');
   console.log(`Pipeline: ${pipeline.nLocalizations} locs in ${Math.round(pipeline.runMs)} ms — drift ${pipeline.driftOk ? 'OK' : 'FAILED'}, NeNA ${pipeline.nenaOk ? 'OK' : 'FAILED'}, FRC ${pipeline.frcOk ? 'OK' : 'FAILED'}, plots: [${pipeline.plotKeys.join(', ')}]`);
-  const pipelineFailed = !pipeline.driftOk || !pipeline.nenaOk || !pipeline.frcOk || !pipeline.plotKeys.length;
+  pipelineFailed = !pipeline.driftOk || !pipeline.nenaOk || !pipeline.frcOk || !pipeline.plotKeys.length;
+  }
 
-  const outFile = writeResults('bench-real-data', { target: TARGET, full: FULL, ...row, pipeline });
+  const outFile = writeResults('bench-real-data', { dataset: DATASET, gpuMode: GPU_MODE, parameters: BASE_CONFIG, target: TARGET, full: FULL, ...row, pipeline });
   console.log(`Full results written to ${outFile}`);
   if (pipelineFailed) { console.error('\nFull-pipeline scenario had a failing component — see above.'); process.exitCode = 1; }
 } finally {

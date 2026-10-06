@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>webSMLM test dashboard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172126;
+      --muted: #647177;
+      --line: #d9e0e2;
+      --soft: #f4f7f7;
+      --paper: #ffffff;
+      --accent: #086f83;
+      --accent-dark: #075565;
+      --green: #16805b;
+      --red: #b13a3a;
+      --amber: #a86608;
+      --violet: #7554a6;
+      --shadow: 0 4px 18px rgba(23, 33, 38, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--soft); font-size: 14px; }
+    button, input { font: inherit; letter-spacing: 0; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    :focus-visible { outline: 3px solid rgba(8, 111, 131, .28); outline-offset: 2px; }
+    header {
+      min-height: 72px; padding: 14px clamp(16px, 3vw, 38px); color: white; background: #172126;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    }
+    .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+    .brand h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: 0; white-space: nowrap; }
+    .brand span { color: #aebbc0; font-size: 13px; }
+    .top-status { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #839096; flex: 0 0 auto; }
+    .status-dot.ok { background: #4ecb91; }
+    .status-dot.fail { background: #ed7777; }
+    .status-dot.busy { background: #f0b454; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 50% { opacity: .38; } }
+    nav { background: var(--paper); border-bottom: 1px solid var(--line); padding: 0 clamp(16px, 3vw, 38px); display: flex; gap: 22px; }
+    .tab { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); padding: 14px 2px 11px; font-weight: 650; }
+    .tab[aria-selected="true"] { color: var(--accent-dark); border-color: var(--accent); }
+    main { max-width: 1600px; margin: 0 auto; padding: 22px clamp(14px, 2.5vw, 34px) 48px; }
+    [hidden] { display: none !important; }
+    .workspace { display: grid; grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+    .rail { display: grid; gap: 16px; }
+    .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); min-width: 0; }
+    .panel-head { min-height: 49px; padding: 12px 15px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .panel-head h2, .panel-head h3 { margin: 0; font-size: 14px; letter-spacing: 0; }
+    .panel-body { padding: 14px 15px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .button { min-height: 34px; border: 1px solid #b7c3c7; border-radius: 5px; background: white; color: var(--ink); padding: 7px 11px; font-weight: 650; text-decoration: none; }
+    .button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: white; }
+    .button.primary:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+    .button.danger { border-color: #d6a7a7; color: var(--red); }
+    .button.small { min-height: 29px; padding: 5px 8px; font-size: 12px; }
+    .icon-button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 1px solid #b7c3c7; border-radius: 5px; background: white; font-size: 17px; }
+    .segmented { display: inline-flex; border: 1px solid #b7c3c7; border-radius: 5px; overflow: hidden; }
+    .segmented button { min-height: 32px; border: 0; border-right: 1px solid #b7c3c7; background: white; padding: 5px 10px; color: var(--muted); }
+    .segmented button:last-child { border-right: 0; }
+    .segmented button.active { color: white; background: var(--accent-dark); }
+    .search { width: min(260px, 100%); min-height: 34px; border: 1px solid #b7c3c7; border-radius: 5px; padding: 6px 10px; color: var(--ink); background: white; }
+    select { min-height: 34px; max-width: min(520px, 100%); border: 1px solid #b7c3c7; border-radius: 5px; padding: 6px 30px 6px 9px; color: var(--ink); background: white; }
+    .diagnostic-list, .dataset-list { display: grid; gap: 0; }
+    .diagnostic, .dataset { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 9px 0; border-bottom: 1px solid #edf0f1; }
+    .diagnostic:last-child, .dataset:last-child { border-bottom: 0; }
+    .diagnostic strong, .dataset strong { display: block; font-size: 12px; }
+    .diagnostic small, .dataset small { color: var(--muted); display: block; margin-top: 2px; overflow-wrap: anywhere; }
+    .dataset progress { display: block; width: 100%; height: 6px; margin-top: 6px; accent-color: var(--accent); }
+    .dataset-actions { display: grid; grid-template-columns: repeat(2, auto); gap: 5px; }
+    .setup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .setup-actions .button { white-space: normal; }
+    .command-panel .panel-body { padding: 0; }
+    .command-panel .suite-help { padding: 9px 14px; color: var(--muted); border-bottom: 1px solid var(--line); }
+    .command-toolbar { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .command-groups { max-height: 470px; overflow: auto; }
+    .command-group { border-bottom: 1px solid var(--line); }
+    .command-group:last-child { border-bottom: 0; }
+    .group-name { padding: 10px 14px 7px; color: var(--muted); font-size: 11px; font-weight: 750; text-transform: uppercase; }
+    .command-row { min-height: 43px; padding: 8px 14px; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+    .command-row:hover { background: #f8fafb; }
+    .command-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+    .command-name { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+    .command-copy { min-width: 0; }
+    .command-copy strong, .command-copy small { display: block; overflow-wrap: anywhere; }
+    .command-copy strong { font-size: 12px; }
+    .command-copy small { color: var(--muted); margin-top: 2px; }
+    .command-copy .missing-data, .reason { color: #9a3d22; }
+    .badges { display: flex; gap: 5px; }
+    .badge { border: 1px solid #ccd5d7; border-radius: 999px; padding: 2px 6px; color: var(--muted); font-size: 10px; line-height: 1.3; white-space: nowrap; }
+    .badge.full { color: var(--amber); border-color: #ddc18e; }
+    .badge.manual { color: var(--violet); border-color: #c8b9df; }
+    .run-strip { padding: 12px 14px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fbfcfc; }
+    .selection-count { color: var(--muted); font-size: 12px; }
+    .run-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+    .metric { padding: 13px 15px; border-right: 1px solid var(--line); }
+    .metric:last-child { border-right: 0; }
+    .metric .value { display: block; font-size: 20px; font-weight: 760; font-variant-numeric: tabular-nums; }
+    .metric .label { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .command-status { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .command-status th, .command-status td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #edf0f1; }
+    .command-status th { color: var(--muted); font-weight: 650; }
+    .command-status td:last-child, .command-status th:last-child { text-align: right; }
+    .pill { display: inline-block; min-width: 54px; border-radius: 999px; padding: 3px 7px; text-align: center; font-size: 10px; font-weight: 750; text-transform: uppercase; }
+    .pill.pass { color: #075c3f; background: #dff4ea; }
+    .pill.fail, .pill.cancelled { color: #8c2424; background: #f8dfdf; }
+    .pill.skip { color: #76520c; background: #fbefce; }
+    .pill.running { color: #73500a; background: #faedcc; }
+    .command-status small, .result-name small { display: block; color: var(--muted); margin-top: 3px; }
+    .command-status .reason, .result-name .reason { color: #9a3d22; }
+    .log { margin: 0; min-height: 170px; max-height: 310px; overflow: auto; padding: 13px 15px; color: #d9e6e8; background: #152025; font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .analytics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .kpi { border-top: 3px solid var(--accent); padding: 15px; background: white; box-shadow: var(--shadow); }
+    .kpi:nth-child(2) { border-color: var(--green); }
+    .kpi:nth-child(3) { border-color: var(--amber); }
+    .kpi:nth-child(4) { border-color: var(--violet); }
+    .kpi .value { font-size: 25px; font-weight: 780; font-variant-numeric: tabular-nums; }
+    .kpi .label { color: var(--muted); margin-top: 3px; }
+    .chart-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 16px; }
+    .chart { min-height: 250px; padding: 15px; }
+    .chart h3 { margin: 0 0 14px; font-size: 13px; }
+    .donut-wrap { min-height: 185px; display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 16px; }
+    .donut { width: 144px; height: 144px; }
+    .legend { display: grid; gap: 9px; }
+    .legend-row { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; }
+    .legend-swatch { width: 10px; height: 10px; }
+    .bar-chart { display: grid; gap: 9px; }
+    .bar-row { display: grid; grid-template-columns: minmax(90px, 170px) minmax(100px, 1fr) 64px; gap: 9px; align-items: center; }
+    .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .bar-track { display: block; height: 12px; background: #e9eeef; }
+    .bar-fill { display: block; height: 100%; min-width: 2px; background: var(--accent); }
+    .bar-value { color: var(--muted); text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .results-layout { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(330px, .8fr); gap: 16px; align-items: start; }
+    .table-wrap { overflow: auto; max-height: 650px; }
+    table.data { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.data th, table.data td { padding: 9px 11px; text-align: left; border-bottom: 1px solid #e8edef; vertical-align: top; }
+    table.data th { position: sticky; top: 0; z-index: 1; background: #f7f9f9; color: var(--muted); font-weight: 700; }
+    table.data tbody tr { cursor: pointer; }
+    table.data tbody tr:hover td:first-child, table.data tbody tr.selected td:first-child { box-shadow: inset 3px 0 var(--ink); }
+    .result-name { max-width: 340px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .detail-table th, .detail-table td { border-bottom: 1px solid #edf0f1; padding: 7px 3px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    .detail-table th { width: 42%; color: var(--muted); font-weight: 650; }
+    details { margin-top: 13px; }
+    summary { cursor: pointer; color: var(--accent-dark); font-weight: 650; }
+    .json { max-height: 360px; overflow: auto; padding: 12px; background: #152025; color: #d9e6e8; font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .detail-log { min-height: 300px; max-height: 560px; }
+    .reports { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; min-height: 720px; }
+    .report-list { padding: 10px; }
+    .report-list button { width: 100%; margin-bottom: 7px; text-align: left; }
+    .report-list button.active { border: 2px solid var(--ink); color: var(--ink); background: white; }
+    .report-list small { display: block; margin-top: 3px; color: var(--muted); overflow-wrap: anywhere; }
+    iframe { width: 100%; height: 760px; border: 0; background: white; }
+    .empty { padding: 28px 16px; color: var(--muted); text-align: center; }
+    .toast { position: fixed; right: 18px; bottom: 18px; z-index: 10; max-width: min(420px, calc(100vw - 36px)); padding: 11px 14px; border-radius: 5px; color: white; background: #26363d; box-shadow: var(--shadow); }
+    .toast.error { background: #8d3030; }
+    @media (max-width: 1050px) {
+      .workspace, .results-layout { grid-template-columns: 1fr; }
+      .rail { grid-template-columns: 1fr 1fr; }
+      .chart-grid { grid-template-columns: 1fr; }
+      .command-groups { max-height: 520px; }
+    }
+    @media (max-width: 700px) {
+      header { align-items: flex-start; }
+      .brand { display: block; }
+      .brand span { display: block; margin-top: 4px; }
+      nav { overflow-x: auto; }
+      .workspace, .rail, .analytics-grid, .chart-grid, .reports { display: grid; grid-template-columns: 1fr; }
+      .analytics-grid { grid-template-columns: 1fr 1fr; }
+      .reports { min-height: 0; }
+      .report-list { display: grid; gap: 8px; }
+      .report-list button { width: 100%; white-space: normal; overflow-wrap: anywhere; }
+      iframe { height: 620px; }
+      .run-summary { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .donut-wrap { grid-template-columns: 1fr; justify-items: center; }
+      .legend { width: 100%; }
+      .bar-row { grid-template-columns: minmax(80px, 120px) minmax(80px, 1fr) 52px; }
+      .setup-actions { grid-template-columns: 1fr; }
+      .top-status span:last-child { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><h1>webSMLM test dashboard</h1><span>Tests, benchmarks, validation, and real data</span></div>
+    <div class="top-status" aria-live="polite"><span id="header-dot" class="status-dot"></span><strong id="header-status">Connecting</strong><span id="header-detail">Local controller</span></div>
+  </header>
+  <nav aria-label="Dashboard sections">
+    <button class="tab" data-tab="commands" aria-selected="true">Commands</button>
+    <button class="tab" data-tab="analytics" aria-selected="false">Analytics</button>
+    <button class="tab" data-tab="results" aria-selected="false">Results</button>
+    <button class="tab" data-tab="reports" aria-selected="false">Reports</button>
+  </nav>
+  <main>
+    <section id="tab-commands">
+      <div class="workspace">
+        <aside class="rail">
+          <section class="panel">
+            <div class="panel-head"><h2>Diagnostics</h2><button id="refresh-diagnostics" class="icon-button" title="Refresh diagnostics" aria-label="Refresh diagnostics">&#8635;</button></div>
+            <div class="panel-body">
+              <div id="diagnostics" class="diagnostic-list"><div class="empty">Checking...</div></div>
+              <div class="setup-actions">
+                <button class="button" data-setup="javascript">Install JS + Chromium</button>
+                <button class="button" data-setup="validation">Install Picasso requirements</button>
+                <button id="gpu-probe" class="button">Probe WebGPU</button>
+              </div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Real data</h2><span id="dataset-count" class="badge">0 / 0</span></div>
+            <div class="panel-body"><div id="datasets" class="dataset-list"></div></div>
+          </section>
+        </aside>
+        <div class="rail">
+          <section class="panel command-panel">
+            <div class="panel-head"><h2>What to run</h2><div class="toolbar"><button id="select-all-suite" class="button small">Standard run</button><button id="select-everything" class="button small">Everything available</button></div></div>
+            <div class="panel-body suite-help"><small>A predefined run is one command that executes a maintained group of tests and benchmarks in order. Full runs use larger workloads and take longer.</small></div>
+            <div class="command-toolbar">
+              <input id="command-search" class="search" type="search" placeholder="Filter commands" aria-label="Filter commands">
+              <div class="segmented" aria-label="Command type">
+                <button class="active" data-kind="all">All commands</button><button data-kind="test">Tests</button><button data-kind="benchmark">Benchmarks</button><button data-kind="suite">Predefined runs</button>
+              </div>
+            </div>
+            <div id="commands" class="command-groups"></div>
+            <div class="run-strip">
+              <span id="selection-count" class="selection-count">0 selected</span>
+              <div class="toolbar"><button id="clear-selection" class="button">Clear</button><button id="run-selected" class="button primary" disabled>Run selected</button></div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Current run</h2><button id="cancel-run" class="button danger small" disabled>Cancel</button></div>
+            <div class="run-summary">
+              <div class="metric"><span id="run-total" class="value">0</span><span class="label">Commands</span></div>
+              <div class="metric"><span id="run-passed" class="value">0</span><span class="label">Passed</span></div>
+              <div class="metric"><span id="run-failed" class="value">0</span><span class="label">Failed</span></div>
+              <div class="metric"><span id="run-skipped" class="value">0</span><span class="label">Skipped</span></div>
+              <div class="metric"><span id="run-elapsed" class="value">0s</span><span class="label">Elapsed</span></div>
+            </div>
+            <div id="run-table-wrap"></div>
+            <pre id="run-log" class="log" aria-live="polite">No command output yet.</pre>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-analytics" hidden>
+      <section class="panel" style="margin-bottom:16px"><div class="panel-body toolbar"><strong>Run</strong><select id="analytics-run" aria-label="Analytics run"></select><span id="analytics-run-time" class="selection-count"></span></div></section>
+      <div id="analytics-kpis" class="analytics-grid"></div>
+      <div class="chart-grid">
+        <section class="panel chart"><h3>Selected run status</h3><div id="status-chart"></div></section>
+        <section class="panel chart"><h3>Command duration</h3><div id="duration-chart"></div></section>
+      </div>
+      <section class="panel" style="margin-top:16px">
+        <div class="panel-head"><h3>Results by group</h3></div>
+        <div id="group-table" class="table-wrap"></div>
+      </section>
+      <section class="panel" style="margin-top:16px">
+        <div class="panel-head"><h3>Latest real-data benchmarks</h3></div>
+        <div id="benchmark-table" class="table-wrap"></div>
+      </section>
+    </section>
+
+    <section id="tab-results" hidden>
+      <section class="panel" style="margin-bottom:16px">
+        <div class="panel-head"><h2>Run history</h2><span class="badge">Last 25 runs</span></div>
+        <div id="run-history" class="table-wrap"></div>
+      </section>
+      <div class="results-layout" style="margin-bottom:16px">
+        <section class="panel">
+          <div class="panel-head"><h2 id="saved-run-title">Selected run</h2><span id="saved-run-summary" class="badge">0 commands</span></div>
+          <div id="saved-run-commands" class="table-wrap"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Command log</h2><span id="saved-log-status" class="badge">Select a command</span></div>
+          <pre id="saved-command-log" class="log detail-log">No command selected.</pre>
+        </section>
+      </div>
+      <div class="results-layout">
+        <section class="panel">
+          <div class="panel-head"><h2>Artifacts from selected run</h2><button id="refresh-results" class="button small">Refresh</button></div>
+          <div id="results-table" class="table-wrap"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Artifact detail</h2><span id="result-type" class="badge">Select a JSON result</span></div>
+          <div id="result-detail" class="panel-body"><div class="empty">No result selected.</div></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="tab-reports" hidden>
+      <section class="panel" style="margin-bottom:16px"><div class="panel-body toolbar"><strong>Run</strong><select id="reports-run" aria-label="Reports run"></select><span id="reports-run-time" class="selection-count"></span></div></section>
+      <div class="reports">
+        <section class="panel"><div class="panel-head"><h2>Reports from selected run</h2></div><div class="report-list" id="report-list"></div></section>
+        <section class="panel"><div id="report-empty" class="empty">Select a run with an HTML report.</div><iframe id="report-frame" title="Generated test report" hidden></iframe></section>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script>
+    const TOKEN = '__DASHBOARD_TOKEN__';
+    const selected = new Set();
+    let state = null;
+    let kindFilter = 'all';
+    let searchFilter = '';
+    let selectedResult = null;
+    let selectedReport = null;
+    let selectedRunId = null;
+    let selectedCommandIndex = null;
+
+    const $ = selector => document.querySelector(selector);
+    const $$ = selector => [...document.querySelectorAll(selector)];
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    const formatMs = value => value == null ? '-' : value < 1000 ? `${Math.round(value)} ms` : `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} s`;
+    const formatBytes = value => { const units = ['B', 'KB', 'MB', 'GB', 'TB']; let n = Number(value) || 0, i = 0; while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; } return `${n.toFixed(i ? 1 : 0)} ${units[i]}`; };
+    const formatDate = value => value ? new Date(value).toLocaleString() : '-';
+    const countStatus = (commands, status) => commands.filter(command => command.status === status).length;
+    const kindLabel = kind => ({ suite: 'predefined run', benchmark: 'benchmark', test: 'test', bench: 'benchmark' })[kind] || kind || 'command';
+    const groupLabel = group => ({ suites: 'Predefined runs', gpu: 'GPU', cpu: 'CPU', io: 'File loading and saving', livestream: 'Livestream', datasets: 'Real data', validation: 'Validation', harness: 'Test system', picasso: 'Picasso' })[group] || group;
+    const statusLabel = status => ({ pass: 'Passed', fail: 'Failed', skip: 'Skipped', cancelled: 'Cancelled', running: 'Running' })[status] || status;
+
+    function datasetNote(datasets = []) {
+      if (!datasets.length) return '';
+      const ready = datasets.filter(dataset => dataset.present).map(dataset => dataset.label);
+      const missing = datasets.filter(dataset => !dataset.present);
+      const parts = [];
+      if (ready.length) parts.push(`Data: ${ready.join(', ')} (ready)`);
+      if (missing.length) parts.push(`Missing data: ${missing.map(dataset => dataset.label).join(', ')}. ${missing.some(dataset => dataset.downloadable) ? 'Download it under Real data, then rerun.' : 'Provide the documented local fixture, then rerun.'}`);
+      return `<small class="${missing.length ? 'missing-data' : ''}">${esc(parts.join(' · '))}</small>`;
+    }
+
+    function toast(message, error = false) {
+      const node = $('#toast');
+      node.textContent = message;
+      node.className = `toast${error ? ' error' : ''}`;
+      node.hidden = false;
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => { node.hidden = true; }, 4500);
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: { 'content-type': 'application/json', 'x-dashboard-token': TOKEN, ...(options.headers || {}) },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      return data;
+    }
+
+    function setTab(name) {
+      $$('.tab').forEach(button => button.setAttribute('aria-selected', String(button.dataset.tab === name)));
+      ['commands', 'analytics', 'results', 'reports'].forEach(tab => { $(`#tab-${tab}`).hidden = tab !== name; });
+      if (name === 'reports') renderReports();
+    }
+
+    function setConnection(connected) {
+      $('#header-dot').className = `status-dot ${connected ? (state?.run.busy ? 'busy' : 'ok') : 'fail'}`;
+      $('#header-status').textContent = connected ? (state?.run.busy ? 'Running' : 'Ready') : 'Disconnected';
+      $('#header-detail').textContent = state?.run.active || 'Local controller';
+    }
+
+    function selectScript(name, checked) {
+      if (checked) {
+        const script = state.scripts.find(item => item.name === name);
+        for (const otherName of [...selected]) {
+          const other = state.scripts.find(item => item.name === otherName);
+          const broadRuns = ['all', 'all:full', 'everything', 'everything:full'];
+          const broad = broadRuns.includes(name) || broadRuns.includes(otherName);
+          const groupSuite = name.endsWith(':all') && otherName.startsWith(`${name.split(':')[0]}:`)
+            || otherName.endsWith(':all') && name.startsWith(`${otherName.split(':')[0]}:`);
+          const typeSuite = name === 'test' && other?.kind === 'test' || otherName === 'test' && script?.kind === 'test'
+            || name === 'bench:all' && other?.kind === 'benchmark' || otherName === 'bench:all' && script?.kind === 'benchmark';
+          const alias = script?.aliasFor === otherName || other?.aliasFor === name;
+          if (broad || groupSuite || typeSuite || alias) selected.delete(otherName);
+        }
+        selected.add(name);
+      } else selected.delete(name);
+      renderCommands();
+    }
+
+    function renderCommands() {
+      if (!state) return;
+      const groups = new Map();
+      for (const script of state.scripts) {
+        if (kindFilter !== 'all' && script.kind !== kindFilter) continue;
+        if (searchFilter && !script.name.toLowerCase().includes(searchFilter)) continue;
+        if (!groups.has(script.group)) groups.set(script.group, []);
+        groups.get(script.group).push(script);
+      }
+      const order = ['suites', 'gpu', 'cpu', 'io', 'livestream', 'datasets', 'validation', 'harness', 'picasso'];
+      $('#commands').innerHTML = [...groups.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([group, scripts]) => `
+        <div class="command-group"><div class="group-name">${esc(groupLabel(group))}</div>${scripts.map(script => `
+          <label class="command-row">
+            <input type="checkbox" data-script="${esc(script.name)}" ${selected.has(script.name) ? 'checked' : ''} ${state.run.busy ? 'disabled' : ''}>
+            <span class="command-copy"><strong>${esc(script.label || script.name)}</strong>${script.label && script.label !== script.name ? `<small class="command-name">${esc(script.name)}</small>` : ''}${script.description ? `<small>${esc(script.description)}</small>` : ''}${datasetNote(script.datasets)}</span>
+            <span class="badges"><span class="badge">${esc(kindLabel(script.kind))}</span>${script.full ? '<span class="badge full">full workload</span>' : ''}${script.manual ? '<span class="badge manual">manual hardware</span>' : ''}</span>
+          </label>`).join('')}</div>`).join('') || '<div class="empty">No matching commands.</div>';
+      $$('[data-script]').forEach(input => input.addEventListener('change', () => selectScript(input.dataset.script, input.checked)));
+      $('#selection-count').textContent = `${selected.size} item${selected.size === 1 ? '' : 's'} selected`;
+      $('#run-selected').disabled = !selected.size || state.run.busy;
+      $('#clear-selection').disabled = !selected.size || state.run.busy;
+    }
+
+    function renderDiagnostics() {
+      const diagnostics = state?.diagnostics;
+      if (!diagnostics?.items?.length) {
+        $('#diagnostics').innerHTML = '<div class="empty">Checking...</div>';
+        return;
+      }
+      const items = [...diagnostics.items, { id: 'webgpu', label: 'WebGPU', ...state.gpuDiagnostic, optional: true }];
+      $('#diagnostics').innerHTML = items.map(item => `
+        <div class="diagnostic"><span class="status-dot ${item.ok === true ? 'ok' : item.ok === false && !item.optional ? 'fail' : ''}"></span>
+          <span><strong>${esc(item.label)}</strong><small>${esc(item.detail)}</small></span>
+          ${item.optional ? '<span class="badge">optional</span>' : ''}
+        </div>`).join('');
+      $('#refresh-diagnostics').disabled = diagnostics.busy || state.run.busy;
+      $('[data-setup="validation"]').disabled = state.run.busy || !diagnostics.items.find(item => item.id === 'python')?.ok;
+      $('[data-setup="javascript"]').disabled = state.run.busy;
+      $('#gpu-probe').disabled = state.run.busy || !diagnostics.items.find(item => item.id === 'playwright')?.ok;
+    }
+
+    function renderDatasets() {
+      const datasets = state?.datasets || [];
+      $('#dataset-count').textContent = `${datasets.filter(dataset => dataset.present).length} / ${datasets.length} ready · ${datasets.filter(dataset => dataset.downloadable).length} public downloads`;
+      $('#datasets').innerHTML = datasets.map(dataset => {
+        const prefix = `[download:${dataset.key}]`;
+        const progress = state.run.active === `data:download:${dataset.key}` ? [...state.run.log].reverse().find(line => line.startsWith(prefix)) : null;
+        const percent = progress?.match(/\| ([\d.]+)% \|/)?.[1];
+        const source = dataset.source
+          ? `<a class="button small" href="${esc(dataset.source)}" target="_blank" rel="noreferrer">Source</a>`
+          : '<button class="button small" disabled title="No public source is documented for this private fixture">Source</button>';
+        const download = dataset.downloadable
+          ? `<button class="button small" data-download="${esc(dataset.key)}" ${state.run.busy ? 'disabled' : ''} title="Download to ${esc(dataset.localPath)}">Download</button>`
+          : '<button class="button small" disabled title="No public download URL is documented for this private fixture">Download</button>';
+        const availability = dataset.present ? 'Ready at the expected path.'
+          : dataset.downloadable ? 'Not downloaded yet.'
+          : 'Private fixture: no public source or download URL is documented.';
+        return `<div class="dataset"><span class="status-dot ${dataset.present ? 'ok' : progress ? 'busy' : ''}"></span>
+          <span><strong>${esc(dataset.label)}</strong><small>${esc(dataset.localPath)}${dataset.bytes ? ` · ${formatBytes(dataset.bytes)}` : ''}</small><small>${esc(availability)}</small>${progress ? `<small>${esc(progress.slice(prefix.length).trim())}</small><progress max="100" value="${esc(percent || 0)}" aria-label="Download progress"></progress>` : ''}</span>
+          <span class="dataset-actions">${source}${download}</span></div>`;
+      }).join('');
+      $$('[data-download]').forEach(button => button.addEventListener('click', () => postAction('/api/download', { key: button.dataset.download })));
+    }
+
+    function renderRun() {
+      const run = state?.run || { commands: [], log: [] };
+      const commands = (run.commands || []).flatMap(command => command.children?.length ? command.children : [command]);
+      $('#run-total').textContent = commands.length;
+      $('#run-passed').textContent = countStatus(commands, 'pass');
+      $('#run-failed').textContent = countStatus(commands, 'fail');
+      $('#run-skipped').textContent = countStatus(commands, 'skip');
+      const started = run.startedAt ? new Date(run.startedAt).getTime() : 0;
+      const ended = run.endedAt ? new Date(run.endedAt).getTime() : Date.now();
+      $('#run-elapsed').textContent = started ? formatMs(ended - started) : '0s';
+      $('#cancel-run').disabled = !run.busy;
+      $('#run-table-wrap').innerHTML = commands.length ? `<table class="command-status"><thead><tr><th>Test or benchmark</th><th>Status</th><th>Duration</th></tr></thead><tbody>${commands.map(command => `<tr><td><span class="command-name">${esc(command.name)}</span>${datasetNote(command.datasets)}${command.reason ? `<small class="reason">${esc(command.reason)}</small>` : ''}</td><td><span class="pill ${esc(command.status)}">${esc(statusLabel(command.status))}</span></td><td>${formatMs(command.durationMs)}</td></tr>`).join('')}</tbody></table>` : '';
+      const log = (run.log || []).join('\n') || 'No command output yet.';
+      const node = $('#run-log');
+      const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 50;
+      node.textContent = log;
+      if (nearBottom) node.scrollTop = node.scrollHeight;
+    }
+
+    function availableRuns() {
+      if (state?.runs?.length) return state.runs;
+      return (state?.results || []).filter(result => result.type.endsWith('suite')).map(result => ({
+        id: `artifact:${result.name}`,
+        startedAt: result.modifiedAt,
+        endedAt: result.modifiedAt,
+        durationMs: result.summary.durationMs,
+        selection: [result.name],
+        commands: result.commands || [],
+        summary: {
+          total: result.summary.totalCommands || 0,
+          passed: result.summary.passed || 0,
+          failed: result.summary.failed || 0,
+          skipped: result.summary.skipped || 0,
+          cancelled: 0,
+        },
+      }));
+    }
+
+    function selectedSavedRun() {
+      const runs = availableRuns();
+      if (!runs.some(run => run.id === selectedRunId)) selectedRunId = runs[0]?.id || null;
+      return runs.find(run => run.id === selectedRunId) || null;
+    }
+
+    function expandedRunCommands(run) {
+      return (run?.commands || []).flatMap(command => command.children?.length
+        ? command.children.map(child => ({ ...child, parent: command.name }))
+        : [command]);
+    }
+
+    function selectedRunArtifacts(run = selectedSavedRun()) {
+      const owners = new Map();
+      for (const command of run?.commands || []) {
+        for (const item of [command, ...(command.children || [])]) {
+          for (const name of item.results || []) {
+            if (name === 'dashboard-runs.json') continue;
+            if (!owners.has(name)) owners.set(name, new Set());
+            owners.get(name).add(item.name);
+          }
+        }
+      }
+      const known = new Map((state?.results || []).map(result => [result.name, result]));
+      const ended = run?.endedAt ? new Date(run.endedAt).getTime() : Infinity;
+      return [...owners].map(([name, commands]) => {
+        const result = known.get(name);
+        const replaced = result?.modifiedAt && new Date(result.modifiedAt).getTime() > ended + 2000;
+        return {
+          ...(result || { name, type: name.endsWith('.html') ? 'report' : 'result', summary: {} }),
+          owners: [...commands],
+          available: Boolean(result) && !replaced,
+          replaced,
+        };
+      });
+    }
+
+    function selectSavedRun(id) {
+      selectedRunId = id;
+      selectedCommandIndex = null;
+      selectedResult = null;
+      selectedReport = null;
+      $('#result-type').textContent = 'Select a JSON result';
+      $('#result-detail').innerHTML = '<div class="empty">No result selected.</div>';
+      renderAnalytics();
+      renderResults();
+      renderReports();
+    }
+
+    function renderAnalytics() {
+      const runs = availableRuns();
+      const run = selectedSavedRun();
+      const commands = expandedRunCommands(run);
+      const summary = run?.summary || { total: 0, passed: 0, failed: 0, skipped: 0 };
+      const benchmarks = selectedRunArtifacts(run).filter(result => result.available && result.type === 'dataset-benchmark');
+      const latestBenchmarks = [...new Map(benchmarks.map(item => [`${item.summary.dataset}:${item.summary.gpuMode}`, item])).values()].slice(0, 12);
+      $('#analytics-run').innerHTML = runs.length ? runs.map(item => `<option value="${esc(item.id)}" ${item.id === selectedRunId ? 'selected' : ''}>${esc(formatDate(item.startedAt))} - ${esc(item.selection.join(', '))}</option>`).join('') : '<option>No saved runs</option>';
+      $('#analytics-run').disabled = !runs.length;
+      $('#analytics-run').onchange = event => selectSavedRun(event.target.value);
+      $('#analytics-run-time').textContent = run ? `${formatMs(run.durationMs)} / ${commands.length} results` : '';
+      const values = [
+        [summary.total ?? commands.length, 'Tests and benchmarks'],
+        [summary.passed ?? 0, 'Passed'],
+        [summary.failed ?? 0, 'Failed'],
+        [summary.skipped ?? 0, 'Skipped'],
+      ];
+      $('#analytics-kpis').innerHTML = values.map(([value, label]) => `<div class="kpi"><div class="value">${esc(value)}</div><div class="label">${esc(label)}</div></div>`).join('');
+
+      const statusValues = [
+        ['Passed', Number(summary.passed || 0), '#16805b'],
+        ['Failed', Number(summary.failed || 0), '#b13a3a'],
+        ['Skipped', Number(summary.skipped || 0), '#a86608'],
+      ];
+      const total = Math.max(1, statusValues.reduce((sum, item) => sum + item[1], 0));
+      let offset = 0;
+      const circles = statusValues.map(([, value, color]) => {
+        const length = value / total * 100;
+        const circle = `<circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="${length} ${100 - length}" stroke-dashoffset="${-offset}"/>`;
+        offset += length;
+        return circle;
+      }).join('');
+      $('#status-chart').innerHTML = `<div class="donut-wrap"><svg class="donut" viewBox="0 0 36 36" role="img" aria-label="Selected run status chart"><circle cx="18" cy="18" r="15.9" fill="none" stroke="#e9eeef" stroke-width="4"/>${circles}<text x="18" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="#172126">${commands.length}</text></svg><div class="legend">${statusValues.map(([label, value, color]) => `<div class="legend-row"><span class="legend-swatch" style="background:${color}"></span><span>${label}</span><strong>${value}</strong></div>`).join('')}</div></div>`;
+
+      const durations = commands.filter(command => command.durationMs != null).sort((a, b) => b.durationMs - a.durationMs).slice(0, 10);
+      const max = Math.max(1, ...durations.map(command => command.durationMs));
+      $('#duration-chart').innerHTML = durations.length ? `<div class="bar-chart">${durations.map(command => `<div class="bar-row"><span class="bar-label" title="${esc(command.name)}">${esc(command.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${Math.max(1, command.durationMs / max * 100)}%"></span></span><span class="bar-value">${formatMs(command.durationMs)}</span></div>`).join('')}</div>` : '<div class="empty">No command durations in this run.</div>';
+
+      const groups = new Map();
+      for (const command of commands) {
+        const group = command.group || command.name?.split(':')[0] || 'other';
+        if (!groups.has(group)) groups.set(group, []);
+        groups.get(group).push(command);
+      }
+      $('#group-table').innerHTML = groups.size ? `<table class="data"><thead><tr><th>Group</th><th>Total</th><th>Passed</th><th>Failed</th><th>Skipped</th><th>Duration</th></tr></thead><tbody>${[...groups].map(([group, items]) => `<tr><td>${esc(group)}</td><td>${items.length}</td><td>${countStatus(items, 'pass')}</td><td>${countStatus(items, 'fail')}</td><td>${countStatus(items, 'skip')}</td><td>${formatMs(items.reduce((sum, item) => sum + (item.durationMs || 0), 0))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No grouped results in this run.</div>';
+
+      $('#benchmark-table').innerHTML = latestBenchmarks.length ? `<table class="data"><thead><tr><th>Dataset</th><th>Mode</th><th>Locs</th><th>CPU</th><th>GPU</th><th>Fit speedup</th><th>Wall speedup</th><th>Verdict</th></tr></thead><tbody>${latestBenchmarks.map(item => { const s = item.summary; return `<tr><td>${esc(s.dataset)}</td><td>${esc(s.gpuMode || '-')}</td><td>${esc(s.nLocs ?? '-')}</td><td>${formatMs(s.cpuRunMs)}</td><td>${formatMs(s.gpuRunMs)}</td><td>${s.fitSpeedup == null ? '-' : `${Number(s.fitSpeedup).toFixed(2)}x`}</td><td>${s.wallSpeedup == null ? '-' : `${Number(s.wallSpeedup).toFixed(2)}x`}</td><td>${esc(s.verdict || '-')}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No real-data benchmark results yet.</div>';
+    }
+
+    function resultSummary(result) {
+      const s = result.summary || {};
+      if (result.type.endsWith('suite')) {
+        const classified = (s.passed || 0) + (s.failed || 0) + (s.skipped || 0);
+        return classified ? `${s.passed || 0} pass / ${s.failed || 0} fail / ${s.skipped || 0} skip` : `${s.totalCommands || 0} command${s.totalCommands === 1 ? '' : 's'} / no recorded verdict`;
+      }
+      if (result.type === 'dataset-benchmark') return [s.dataset, s.gpuMode, s.verdict].filter(Boolean).join(' / ');
+      if (result.type === 'validation') return [`${s.emitters ?? '-'} emitters`, `webSMLM ${s.webSMLM ?? '-'}`, `Picasso ${s.picasso ?? '-'}`].join(' / ');
+      if (result.type === 'report') return 'HTML report';
+      return s.error || s.keys || '';
+    }
+
+    function renderResults() {
+      const runs = availableRuns();
+      const run = selectedSavedRun();
+      const commands = expandedRunCommands(run);
+      if (selectedCommandIndex == null || selectedCommandIndex >= commands.length) selectedCommandIndex = commands.findIndex(command => command.status === 'fail');
+      if (selectedCommandIndex < 0 && commands.length) selectedCommandIndex = 0;
+
+      $('#run-history').innerHTML = runs.length ? `<table class="data"><thead><tr><th>Started</th><th>Selection</th><th>Total</th><th>Pass</th><th>Fail</th><th>Skip</th><th>Duration</th></tr></thead><tbody>${runs.map(item => `<tr data-run-id="${esc(item.id)}" class="${item.id === selectedRunId ? 'selected' : ''}"><td>${esc(formatDate(item.startedAt))}</td><td class="result-name">${esc(item.selection.join(', '))}</td><td>${item.summary.total}</td><td>${item.summary.passed}</td><td>${item.summary.failed}</td><td>${item.summary.skipped}</td><td>${formatMs(item.durationMs)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No dashboard runs saved yet.</div>';
+      $$('[data-run-id]').forEach(row => row.addEventListener('click', () => selectSavedRun(row.dataset.runId)));
+
+      $('#saved-run-title').textContent = run ? formatDate(run.startedAt) : 'Selected run';
+      $('#saved-run-summary').textContent = run ? `${commands.length} results` : '0 commands';
+      $('#saved-run-commands').innerHTML = commands.length ? `<table class="data"><thead><tr><th>Group</th><th>Test or benchmark</th><th>Type</th><th>Status</th><th>Duration</th><th>Artifacts</th></tr></thead><tbody>${commands.map((command, index) => `<tr data-command-index="${index}" class="${index === selectedCommandIndex ? 'selected' : ''}"><td>${esc(groupLabel(command.group || 'other'))}</td><td class="result-name">${esc(command.name)}${command.parent ? `<br><small>${esc(command.parent)}</small>` : ''}${datasetNote(command.datasets)}${command.reason ? `<small class="reason">${esc(command.reason)}</small>` : ''}</td><td>${esc(kindLabel(command.kind))}</td><td><span class="pill ${esc(command.status)}">${esc(statusLabel(command.status))}</span></td><td>${formatMs(command.durationMs)}</td><td>${command.results?.length || 0}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No command results in this run.</div>';
+      $$('[data-command-index]').forEach(row => row.addEventListener('click', () => { selectedCommandIndex = Number(row.dataset.commandIndex); renderResults(); }));
+      const command = commands[selectedCommandIndex];
+      $('#saved-log-status').textContent = command ? statusLabel(command.status) : 'Select a command';
+      $('#saved-command-log').textContent = command ? (command.log || []).join('\n') || 'This command produced no output.' : 'No command selected.';
+
+      const results = selectedRunArtifacts(run);
+      if (!results.some(result => result.name === selectedResult && result.available)) selectedResult = null;
+      $('#results-table').innerHTML = results.length ? `<table class="data"><thead><tr><th>File</th><th>Produced by</th><th>Type</th><th>Summary</th><th>Updated</th></tr></thead><tbody>${results.map(result => `<tr ${result.available ? `data-result="${esc(result.name)}"` : ''} class="${selectedResult === result.name ? 'selected' : ''}"><td class="result-name">${esc(result.name)}</td><td>${result.owners.map(esc).join('<br>')}</td><td><span class="badge">${esc(result.type)}</span></td><td>${esc(result.replaced ? 'Replaced by a newer run; use this run\'s timestamped JSON.' : result.available ? resultSummary(result) : 'File is no longer available.')}</td><td>${esc(formatDate(result.modifiedAt))}</td></tr>`).join('')}</tbody></table>` : `<div class="empty">${run ? 'This run produced status and logs, but no JSON or HTML artifacts.' : 'Select a run above.'}</div>`;
+      $$('[data-result]').forEach(row => row.addEventListener('click', () => openResult(row.dataset.result)));
+    }
+
+    function flatten(value, prefix = '', rows = [], depth = 0) {
+      if (rows.length >= 200) return rows;
+      if (value == null || typeof value !== 'object') rows.push([prefix || 'value', value]);
+      else if (Array.isArray(value)) {
+        if (depth >= 2 || value.length > 20) rows.push([prefix, `${value.length} items`]);
+        else value.forEach((item, index) => flatten(item, `${prefix}[${index}]`, rows, depth + 1));
+      } else {
+        for (const [key, item] of Object.entries(value)) {
+          const path = prefix ? `${prefix}.${key}` : key;
+          if (depth >= 2 && item && typeof item === 'object') rows.push([path, Array.isArray(item) ? `${item.length} items` : '{...}']);
+          else flatten(item, path, rows, depth + 1);
+          if (rows.length >= 200) break;
+        }
+      }
+      return rows;
+    }
+
+    async function openResult(name) {
+      const result = state.results.find(item => item.name === name);
+      if (result?.type === 'report') { selectedReport = name; setTab('reports'); return; }
+      selectedResult = name;
+      renderResults();
+      try {
+        const data = await api(`/api/result?file=${encodeURIComponent(name)}`);
+        const rows = flatten(data);
+        $('#result-type').textContent = result?.type || 'json';
+        $('#result-detail').innerHTML = `<table class="detail-table">${rows.map(([key, value]) => `<tr><th>${esc(key)}</th><td>${esc(value)}</td></tr>`).join('')}</table><details><summary>Raw JSON</summary><pre class="json">${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+      } catch (error) { toast(error.message, true); }
+    }
+
+    function renderReports() {
+      const runs = availableRuns();
+      const run = selectedSavedRun();
+      const reports = selectedRunArtifacts(run).filter(result => result.available && result.type === 'report');
+      $('#reports-run').innerHTML = runs.length ? runs.map(item => `<option value="${esc(item.id)}" ${item.id === selectedRunId ? 'selected' : ''}>${esc(formatDate(item.startedAt))} - ${esc(item.selection.join(', '))}</option>`).join('') : '<option>No saved runs</option>';
+      $('#reports-run').disabled = !runs.length;
+      $('#reports-run').onchange = event => selectSavedRun(event.target.value);
+      $('#reports-run-time').textContent = run ? `${formatMs(run.durationMs)} / ${reports.length} HTML report${reports.length === 1 ? '' : 's'}` : '';
+      if (!reports.some(report => report.name === selectedReport)) selectedReport = reports[0]?.name || null;
+      $('#report-list').innerHTML = reports.length ? reports.map(report => `<button class="button ${report.name === selectedReport ? 'active' : ''}" data-report="${esc(report.name)}"><strong>${esc(report.name)}</strong><small>${esc(report.owners.join(', '))}</small></button>`).join('') : '<div class="empty">This run did not produce an HTML report. Its status, logs, and JSON are under Results.</div>';
+      $$('[data-report]').forEach(button => button.addEventListener('click', () => openReport(button.dataset.report)));
+      if (selectedReport) openReport(selectedReport);
+      else {
+        $('#report-frame').hidden = true;
+        $('#report-frame').removeAttribute('src');
+        $('#report-empty').hidden = false;
+      }
+    }
+
+    function openReport(name) {
+      selectedReport = name;
+      const report = selectedRunArtifacts().find(result => result.name === name && result.available);
+      if (!report) return;
+      $$('[data-report]').forEach(button => button.classList.toggle('active', button.dataset.report === name));
+      $('#report-empty').hidden = true;
+      $('#report-frame').hidden = false;
+      const src = `/reports/${encodeURIComponent(name)}?v=${encodeURIComponent(report.modifiedAt || '')}`;
+      if ($('#report-frame').getAttribute('src') !== src) $('#report-frame').src = src;
+    }
+
+    function render() {
+      if (!state) return;
+      setConnection(true);
+      renderCommands();
+      renderDiagnostics();
+      renderDatasets();
+      renderRun();
+      renderAnalytics();
+      renderResults();
+      renderReports();
+    }
+
+    async function refreshState() {
+      try { state = await api('/api/state'); render(); }
+      catch (error) { setConnection(false); toast(error.message, true); }
+    }
+
+    async function postAction(path, body = {}) {
+      try { await api(path, { method: 'POST', body: JSON.stringify(body) }); await refreshState(); }
+      catch (error) { toast(error.message, true); }
+    }
+
+    $$('.tab').forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab)));
+    $$('.segmented button').forEach(button => button.addEventListener('click', () => { kindFilter = button.dataset.kind; $$('.segmented button').forEach(item => item.classList.toggle('active', item === button)); renderCommands(); }));
+    $('#command-search').addEventListener('input', event => { searchFilter = event.target.value.trim().toLowerCase(); renderCommands(); });
+    $('#clear-selection').addEventListener('click', () => { selected.clear(); renderCommands(); });
+    $('#select-all-suite').addEventListener('click', () => { selected.clear(); selected.add('all'); renderCommands(); });
+    $('#select-everything').addEventListener('click', () => { selected.clear(); selected.add('everything'); renderCommands(); });
+    $('#run-selected').addEventListener('click', () => postAction('/api/run', { scripts: [...selected] }));
+    $('#cancel-run').addEventListener('click', () => postAction('/api/cancel'));
+    $('#refresh-diagnostics').addEventListener('click', () => postAction('/api/diagnostics'));
+    $('#refresh-results').addEventListener('click', refreshState);
+    $('#gpu-probe').addEventListener('click', () => postAction('/api/gpu-probe'));
+    $$('[data-setup]').forEach(button => button.addEventListener('click', () => postAction('/api/setup', { kind: button.dataset.setup })));
+
+    const events = new EventSource(`/api/events?token=${encodeURIComponent(TOKEN)}`);
+    events.addEventListener('state', event => { state = JSON.parse(event.data); render(); });
+    events.addEventListener('log', event => {
+      if (!state) return;
+      const { lines } = JSON.parse(event.data);
+      state.run.log.push(...lines);
+      renderRun();
+      renderDatasets();
+    });
+    events.onerror = () => setConnection(false);
+    refreshState();
+    setInterval(refreshState, 15000);
+    setInterval(() => { if (state?.run.busy) renderRun(); }, 1000);
+  </script>
+</body>
+</html>

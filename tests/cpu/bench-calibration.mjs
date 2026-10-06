@@ -16,12 +16,12 @@
 // Skips (does not fail) if the file isn't present — real, git-ignored data.
 //
 // Usage: cd tests && npm install (once), then node bench-calibration.mjs
-import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
 import { writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
+import { DATASETS } from '../lib/datasets.mjs';
 
-const TARGET = await resolveDataFile('Z_CALIBRATION', join('19165061', 'Z calibration (step 10nm).tif'));
+const TARGET = await resolveDatasetFile('storm3d', 'calibration');
 if (!TARGET) { console.log('Skipping calibration benchmark.'); process.exit(0); }
 
 // The user's own already-validated interactive config (calibrationOnly, same
@@ -30,7 +30,8 @@ if (!TARGET) { console.log('Skipping calibration benchmark.'); process.exit(0); 
 const CONFIG = {
   calibrationOnly: true,
   calFirst: 20, calLast: 140, calStep: 10, calRef: 0, calFixedXY: false,
-  psf: 1.3, winr: 4, detFilter: 'wave', detection_wavelet_thr: 4, pxnm: 100,
+  psf: 1.3, winr: 4, detFilter: 'wave', detection_wavelet_thr: 4,
+  ...DATASETS.storm3d.parameters,
 };
 
 const { browser, page } = await launchPage();

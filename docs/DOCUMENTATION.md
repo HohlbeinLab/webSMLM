@@ -4659,6 +4659,25 @@ files it writes (see above). Good for "try several settings and compare
 timings" without installing anything; reach for the CLI instead for a
 single run, true headless operation, or CI.
 
+### Test and benchmark dashboard
+
+Run `npm --prefix tools run dashboard` from the repository root for the local
+visual test controller. It exposes the same package scripts as the command line,
+keeps every run's status, log, parameters, JSON artifacts, and HTML reports
+together, and diagnoses JavaScript, Chromium/WebGPU, Python/Picasso, and dataset
+requirements before a run. Dataset downloads and setup actions are always
+explicit; running a test never downloads data automatically.
+
+The validation set covers a fixed-seed physical regime matrix, independent
+synthetic truth, a matched webSMLM/Picasso fixed-seed simulation, and the
+published EPFL high/low-density truth. Reports separate accuracy against truth,
+pairwise tool agreement, and runtime. Live acquisition is reported by the
+webSMLM livestream benchmarks; Picasso is offline and is not presented as a
+realtime peer. See
+[`tests/README.md`](../tests/README.md) and
+[`tests/validation/README.md`](../tests/validation/README.md) for commands and
+the exact evidence limits.
+
 ---
 
 ## 9 · References & further reading

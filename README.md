@@ -131,6 +131,15 @@ Full reference: [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §8.
   fully headless — no browser window ever opens — and is the most reliable
   of the three. See each script's header comment for setup and usage.
 
+## Tests and benchmark dashboard
+
+Run `npm --prefix tools run dashboard` to open the local test dashboard. It can
+check requirements, run individual tests or predefined runs, download supported public
+datasets into `temp/`, stream logs, and inspect saved results and reports. The
+same commands remain available from `tools/package.json`; see
+[`tests/README.md`](tests/README.md) for setup and the short checklist for adding
+tests, benchmarks, result files, and datasets.
+
 ## Roadmap
 
 Past releases — including implementation detail and notable rejected

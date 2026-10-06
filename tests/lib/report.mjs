@@ -300,7 +300,13 @@ export function openInBrowser(filePath) {
   exec(cmd, err => { if (err) console.error(`  (could not auto-open report: ${err.message})`); });
 }
 
-export function writeResults(name, data) {
+// reportWriter: which *-report.mjs renderer builds the standalone report
+// below -- defaults to the GPU CPU-vs-GPU renderer (unchanged behavior for
+// every existing caller). tests/validation/cross-validate.mjs passes
+// writeCrossReport (tests/lib/cross-report.mjs) instead, so its own
+// Jaccard/RMSE/Bland-Altman report lands in picasso-report.html rather than
+// colliding with gpu-report.html's filenames.
+export function writeResults(name, data, { reportWriter = writeGpuReport, durationMs = 0 } = {}) {
   const dir = join(repoRoot, 'tests', 'results');
   mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -314,12 +320,12 @@ export function writeResults(name, data) {
   // writeResults(), so this is free.
   if (!process.env.WEBSMLM_TEST_SUITE) {
     try {
-      const now = new Date().toISOString();
+        const endedAt = new Date();
       const run = {
-        mode: 'single', startedAt: now, endedAt: now, durationMs: 0,
-        commands: [{ name, script: `${name}.mjs`, args: [], status: 'unknown', exitCode: null, durationMs: 0, resultFiles: [file] }],
+          mode: 'single', startedAt: new Date(endedAt.getTime() - durationMs).toISOString(), endedAt: endedAt.toISOString(), durationMs,
+          commands: [{ name, script: `${name}.mjs`, args: [], status: 'pass', exitCode: 0, durationMs, resultFiles: [file] }],
       };
-      const report = writeGpuReport({ run, resultFiles: [file] });
+      const report = reportWriter({ run, resultFiles: [file] });
       console.log(`\nAnalytics report: ${report.reportPath}`);
       openInBrowser(report.reportPath);
     } catch (err) {

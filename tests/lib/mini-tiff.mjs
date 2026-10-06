@@ -1,6 +1,6 @@
 // Minimal, dependency-free 16-bit grayscale uncompressed TIFF encoder —
 // vanilla Node, no library. Exists solely to feed the live-streaming
-// benches (tests/gpu/bench-livestream*.mjs) real TIFF bytes without shelling
+// benches (tests/livestream/bench-livestream*.mjs) real TIFF bytes without shelling
 // out to Python (the user explicitly asked for a vanilla-JS live-stream
 // test, not a tools/test_livestream_demo.py dependency). Only needs to be
 // decodable by UTIF.js (the decoder webSMLM.html already bundles), not a

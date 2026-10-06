@@ -25,18 +25,18 @@
 // Skips (does not fail) if the file isn't present — real, git-ignored data.
 //
 // Usage: cd tests && npm install (once), then node bench-3d-fit.mjs
-import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
 import { expectGpuUsed, printTable, writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
+import { DATASETS } from '../lib/datasets.mjs';
 
-const TARGET = await resolveDataFile('Z_CALIBRATION', join('19165061', 'Z calibration (step 10nm).tif'));
+const TARGET = await resolveDatasetFile('storm3d', 'calibration');
 if (!TARGET) { console.log('Skipping 3D fit benchmark.'); process.exit(0); }
 
 const BASE_CONFIG = {
   calFirst: 20, calLast: 140, calStep: 10, calRef: 0, calFixedXY: false,
-  psf: 1.3, winr: 4, detFilter: 'wave', detection_wavelet_thr: 4, pxnm: 100,
-  gain: 1, camoffset: 0,
+  psf: 1.3, winr: 4, detFilter: 'wave', detection_wavelet_thr: 4,
+  ...DATASETS.storm3d.parameters,
   fitFirstFrame: 20, fitLastFrame: 140,   // bounded to the calibrated range — every loc gets a meaningful z
   useGpu: true,   // deliberately on: proves GPU still doesn't engage for these methods (see expectGpuUsed below)
 };

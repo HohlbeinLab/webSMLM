@@ -46,12 +46,14 @@ const MOVIE_CASES = [
   ] : []),
 ];
 const DEFAULTS = { dens: 0.05, simbg: 0, simulation_psfInterp: 'cubic', simulation_cameraType: 'scmos',
-                   simulation_psfKernelWidth: 6000, simulation_seed: 11, simulation_psfZernikePreset: 'astigModerate', simulation_psfModel: 'zernike' };
+                   simulation_psfKernelWidth: 6000, simulation_seed: 11, simulation_structureType: 'uniform3D',
+                   simulation_psfZernikePreset: 'astigModerate', simulation_psfModel: 'zernike' };
 
 async function setParams(page, vals) {
   await page.evaluate(vals => {
     for (const [id, v] of Object.entries(vals)) {
-      const el = document.getElementById(id); if (!el) throw new Error('no element #' + id);
+      const el = document.getElementById(id);
+      if (!el) { paramOverrides[id] = v; continue; }
       if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
       el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change'));
     }
