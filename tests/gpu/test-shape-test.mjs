@@ -193,5 +193,54 @@ try {
   });
   assert.ok(io.header && io.n === (await page.evaluate(() => lastResult.locs.length)) && io.d < 5e-4 && io.cols.includes('llr'), 'llr: CSV column, reload and table column');
   console.log('  CSV/table: llr column written, reloaded to 3 decimals, listed in View data/filtering');
+  // ---- calibration on the simulator's own data: rejections vs the truth ----------------------
+  // The overall rate at a given density mixes a miscalibrated statistic with genuine neighbour
+  // contamination (the test is meant to reject those). So gate only what is density-independent:
+  // the rejection rate on ISOLATED emitters (no other true emitter within ISO_PX = 8 px that frame: a 9x9 window reaches 6.4 px at its corner plus PSF tails; measured 33% rejected at 4-6 px, 2% at 6-8 px, 0% beyond) and a
+  // dilute run; the realistic-density rate is reported beside the contamination it should track.
+  const audit = async () => {   // Localize with the test off (every fit + its llr), then on (kept + st)
+    const all = await localize('audit off', { useGpu: false, shape: false, workers: false });
+    const raw = await page.evaluate(() => {
+      const thr = paramValue('shapeTestThr'), gt = groundTruthByFrame(groundTruthEvents, stack.nFrames || stack.length || 1e9, 0, 1e9);
+      let iso = 0, isoRej = 0, nb = 0, matched = 0, win = 0;
+      for (const L of lastResult.locs) {
+        const g = (gt.get(L.frame) || []).filter(e => !e.haze); let best = null, bd = 2;
+        for (const e of g) { const d = Math.hypot(e.x - L.x, e.y - L.y); if (d < bd) { bd = d; best = e; } }
+        if (!best) continue; matched++;
+        const near = g.some(e => e !== best && Math.hypot(e.x - best.x, e.y - best.y) < 8), nbWin = g.some(e => e !== best && Math.abs(e.x - best.x) <= 4.5 && Math.abs(e.y - best.y) <= 4.5);
+        if (nbWin) win++; if (near) nb++; else { iso++; if (L.llr < thr) isoRej++; }
+      }
+      return { n: lastResult.locs.length, matched, iso, isoRej, win, rejTotal: lastResult.locs.filter(L => L.llr < thr).length };
+    });
+    const on = await localize('audit on', { useGpu: false, shape: true, workers: false });
+    const kept = await page.evaluate(() => { const v = lastResult.locs.map(L => L.llr).sort((a, b) => a - b); return v[v.length >> 1]; });
+    return { all, raw, on, kept };
+  };
+  const real = await audit();
+  const area = await page.evaluate(() => { const w = stack.width || stack.w, h = stack.height || stack.h, px = paramValue('pxnm') / 1000; return { um2: w * h * px * px, px }; });
+  const dense = real.raw;
+  assert.ok(dense.matched > 0.8 * dense.n, `audit: only ${dense.matched}/${dense.n} fits matched a true emitter within 2 px`);
+  assert.ok(dense.iso > 500, `audit: only ${dense.iso} isolated-emitter fits to judge the statistic`);
+  const isoRate = dense.isoRej / dense.iso;
+  assert.ok(isoRate < 0.03, `shape test rejects ${(100 * isoRate).toFixed(2)}% of fits on ISOLATED emitters (none within 8 px) (${dense.isoRej}/${dense.iso}); `
+    + `a calibrated statistic rejects < 3% (measured 0-0.6%), so the statistic itself has drifted`);
+  assert.equal(real.on.st.rejected, dense.rejTotal, 'rejected count equals fits whose llr is below the threshold');
+  assert.ok(real.kept > -0.6 && real.kept < -0.4, `median llr of kept fits ${real.kept.toFixed(3)} should sit near -0.5, in (-0.6, -0.4)`);
+  assert.equal(real.on.st.readNoiseVar, 0.25, `readNoiseVar ${real.on.st.readNoiseVar} should match the simulated camera's 0.5 e- read noise`);
+  const lam = real.all.n / 400 / area.um2, poisson = 100 * (1 - Math.exp(-lam * 81 * area.px * area.px)), rate = 100 * real.on.st.rejected / real.all.n, win = 100 * dense.win / dense.matched;
+  console.log(`  calibration (dens 0.3): isolated-emitter rejection ${(100 * isoRate).toFixed(2)}% (${dense.isoRej}/${dense.iso}); median kept llr ${real.kept.toFixed(3)}; readNoiseVar ${real.on.st.readNoiseVar.toFixed(2)}; `
+    + `overall rejection ${rate.toFixed(1)}% (reported, not gated) vs ${win.toFixed(1)}% of fits with a true neighbour in the 9x9 window (measured from the truth); Poisson expectation 1-exp(-lambda*A) = ${poisson.toFixed(1)}% (lambda ${lam.toFixed(2)}/um2 fitted, A 0.81 um2)`);
+
+  // dilute run: contamination negligible, so the OVERALL rate must be small too
+  await page.evaluate(() => {
+    for (const [k, v] of Object.entries({ frames: 150, dens: 0.03 })) { const el = $(k); el.value = v; el.dispatchEvent(new Event('change')); }
+  });
+  await page.evaluate(() => runSimulation());
+  const dil = await audit();
+  const dilRate = dil.on.st.rejected / dil.all.n;
+  assert.ok(dil.all.n > 200, `dilute run: only ${dil.all.n} fits to judge`);
+  assert.ok(dilRate < 0.03, `dilute run (dens 0.03): shape test rejects ${(100 * dilRate).toFixed(2)}% of ${dil.all.n} fits; neighbours are negligible, so < 3% expected`);
+  console.log(`  calibration (dens 0.03, 150 frames): overall rejection ${(100 * dilRate).toFixed(2)}% of ${dil.all.n} fits, isolated ${dil.raw.isoRej}/${dil.raw.iso}`);
+
   console.log('Shape test: PASS');
 } finally { await browser.close(); }

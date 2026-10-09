@@ -1,6 +1,6 @@
 # Experimental data
 
-Links to publicaly available SMLM stacks for benchmarking and validation. Locally added files are currently git-ignored — see [`.gitignore`](.gitignore).
+Links to publicly available SMLM stacks for benchmarking and validation. Locally added files are currently git-ignored — see [`.gitignore`](.gitignore).
 That is deliberate:
 
 - **This repository is public.** Committing a stack publishes it, along with any
@@ -11,6 +11,14 @@ That is deliberate:
   clone even if it is deleted in a later commit.
 
 The files are still fully usable locally — they are simply untracked.
+
+Every dataset below is registered in `tests/lib/datasets.mjs`. Publicly
+downloadable datasets appear in the local test dashboard
+(`npm --prefix tools run dashboard`). Public STORM,
+GATTA-PAINT, EPFL simulation/NPC, and sSMLM archives have one-click downloads with progress
+and ETA. Private fixtures remain available to local tests through their expected
+paths under `temp/`, but are omitted from the download dashboard; see
+[`tests/README.md`](../tests/README.md#real-data-datasets).
 
 
 ## Dataset I — DNA nanorulers
@@ -92,7 +100,8 @@ challenge, astigmatism (AS) modality, `MT0.N1` microtubule structure —
 (Sage et al., *Super-resolution fight club*, Nat. Methods 2019). Unlike the
 other stacks in this folder, these are **fully synthetic with known
 ground-truth emitter positions** (`positions.csv` / `activations.csv`,
-published alongside the LD/HD downloads on the site but not included here) —
+published alongside the LD/HD downloads). The dashboard downloader stores the
+movie and both CSV files together under `temp/EPFL-SMLM-2016` —
 the right fixture for validating fit *accuracy* against a known answer, not
 just self-consistency.
 
@@ -227,6 +236,29 @@ Private tags 65325–65329 (doubles, unidentified) and no ImageDescription, so n
 pixel size or frame time is read from the file. Loads through the streamed
 reader (`loadMultiIfdStreaming()`); at 1950 px height the default
 Magnification 10 exceeds the 16,384 px canvas limit, so use ≤ 8.
+
+## Dataset VII - Cas12a single-particle tracking and segmentation
+
+The public [`sptPALM-Python/experimental_data`](https://github.com/HohlbeinLab/sptPALM-Python/tree/main/experimental_data)
+folder contains two matched conditions from Olivi et al. (2024): **Scrambled**
+(no DNA target sites) and **Targeting** (target sites present). Each condition
+has two ThunderSTORM localization CSVs, a processed brightfield TIFF, its cell
+mask, and the segmentation table. The downloader also keeps the upstream
+README and parameter pickle, pinned to source revision
+`452da48a9e4400b75abd11178d74e45bad80ecfc`.
+
+Both conditions download into `temp/sptPALM-Python/experimental_data`. Their
+CPU benchmarks load both localization parts with the matched mask and exercise
+cell assignment plus SPT using the published data parameters: 119 nm pixels,
+10 ms frames, 35 nm localization error, 800 nm maximum step, zero-frame memory,
+and minimum track length 2.
+
+```sh
+npm --prefix tools run data:download:cas12a-targeting
+npm --prefix tools run data:download:cas12a-scrambled
+npm --prefix tools run bench:dataset:cas12a-targeting
+npm --prefix tools run bench:dataset:cas12a-scrambled
+```
 
 ## Useful properties to note for benchmarking
 

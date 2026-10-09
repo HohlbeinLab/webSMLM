@@ -14,15 +14,17 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
-import { writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { expectGpuUsed, writeResults } from '../lib/report.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
+import { DATASETS, parseGpuMode } from '../lib/datasets.mjs';
 
 const FULL = process.argv.includes('--full');
-const dir = await resolveDataFile('GATTA_PAINT_DIR', join('GATTA-PAINT-80R-RAW', 'GATTA-PAINT-80R-raw-tifs'));
+const GPU_MODE = parseGpuMode();
+const dir = await resolveDatasetFile('gatta80r', 'frames');
 if (!dir) { console.log('Skipping multi-file-load benchmark.'); process.exit(0); }
 
 const allFiles = readdirSync(dir).filter(f => /\.tif$/i.test(f)).sort();
-const N = FULL ? allFiles.length : Math.min(200, allFiles.length);
+const N = FULL ? allFiles.length : Math.min(500, allFiles.length);
 const paths = allFiles.slice(0, N).map(f => join(dir, f));
 console.log(`Loading ${paths.length} of ${allFiles.length} single-frame TIFFs from\n  ${dir}`
   + (FULL ? '' : ' (a bounded prefix; pass --full for all of them).'));
@@ -44,22 +46,33 @@ try {
   // that the frame count came out right. Default settings; not a
   // correctness gate against a reference (no ground truth for this real,
   // borrowed dataset), just "does the whole pipeline run without throwing".
-  const runOk = await page.evaluate(async () => {
-    let captured = null;
-    const orig = window.runCore;
-    window.runCore = async function (...args) { const r = await orig.apply(this, args); captured = r; return r; };
-    document.getElementById('runBtn').click();
-    const t0 = performance.now();
-    while (!captured) {
-      if (performance.now() - t0 > 120000) { window.runCore = orig; return { ok: false, why: 'Localize did not finish within 120s' }; }
-      await new Promise(r => setTimeout(r, 50));
-    }
-    window.runCore = orig;
-    return { ok: true, nLocs: (typeof lastResult !== 'undefined' && lastResult ? lastResult.locs.length : 0) };
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.multiple = true; input.id = 'benchSequenceInput';
+    input.hidden = true; document.body.append(input);
   });
-  check('Localize completes over the sequence-loaded stack', runOk.ok, runOk.ok ? `${runOk.nLocs} locs` : runOk.why);
+  await page.setInputFiles('#benchSequenceInput', paths);
+  const modes = GPU_MODE === 'both' ? ['cpu', 'gpu'] : [GPU_MODE];
+  const runs = [];
+  for (const mode of modes) {
+    const run = await page.evaluate(async ({ mode, parameters }) => {
+      const files = [...document.getElementById('benchSequenceInput').files];
+      const r = await window.webSMLM.analyze({
+        files, ...parameters, method: 'gaussmle', useGpu: mode === 'gpu',
+        fitFirstFrame: 1, fitLastFrame: files.length,
+      });
+      return { mode, ok: true, nLocs: r.locs.length, timings: r.timings, execution: r.execution, logText: r.logText };
+    }, { mode, parameters: DATASETS.gatta80r.parameters });
+    if (mode === 'gpu') expectGpuUsed(run.logText, true);
+    runs.push(run);
+    check(`${mode.toUpperCase()} fit receives real candidates`, run.ok && run.timings.nCand > 0,
+      `${run.timings.nCand} candidates, ${run.nLocs} accepted locs`);
+  }
 
-  const outFile = writeResults('bench-multi-file-load', { dir, nFiles: paths.length, nFilesTotal: allFiles.length, full: FULL, info, runOk });
+  const outFile = writeResults('bench-multi-file-load', {
+    dataset: 'gatta80r', gpuMode: GPU_MODE, parameters: DATASETS.gatta80r.parameters,
+    dir, nFiles: paths.length, nFilesTotal: allFiles.length, full: FULL, info, runs,
+  });
   console.log(`\nFull results written to ${outFile}`);
 } finally {
   await browser.close();

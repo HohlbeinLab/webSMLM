@@ -1,6 +1,6 @@
 // Minimal WebSocket server — vanilla Node (node:http + node:crypto only, no
 // `ws` package, nothing new in tools/package.json). Exists solely so
-// tests/gpu/bench-livestream-realtime.mjs can drive webSMLM.html's real
+// tests/livestream/bench-livestream-realtime.mjs can drive webSMLM.html's real
 // liveStreamWsConnect() wire protocol end-to-end without shelling out to
 // tools/test_livestream_demo.py's Python server (the user explicitly asked
 // for a vanilla-JS live-stream test). Plays the same "server the browser

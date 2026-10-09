@@ -85,14 +85,14 @@ what makes GUI and command-line use interchangeable.
   `effSliceMin = min(~1.5 GB, readBudget())` (so `memgb=0` streams everything).
   - **BigTIFF** (magic 43, UTIF can't read it) always takes `loadMultiIfdStreaming()`, which reads
     both formats (8-byte offsets/counts, 20-byte entries); frame strips must be contiguous (checked
-    on the first and last frame). Test: `tests/gpu/test-bigtiff.mjs`.
+    on the first and last frame). Test: `tests/io/test-bigtiff.mjs`.
   - **Rotate movie** (`rotateMovie`, 0/90/180/270° clockwise, in "Memory, rotation, GPU & streaming"):
     `makeRotatedStack()` wraps the loaded stack like the crop wrapper (getFrames() only, no cache,
     90/270 swap w/h). `rotateNewStack()` applies the setting to every new load/simulation
     (`unrotatedStack`/`rotatedStack`); `applyMovieRotation()` re-wraps the current movie, drops a crop
     and clears all results (`clearAnalysisOutputs()`, then `presentStack()`, both shared with
     `loadMovieFiles()`). `analyze()` rotates before its crop. Live-streamed chunks aren't rotated.
-    Test: `tests/gpu/test-rotate-movie.mjs`.
+    Test: `tests/io/test-rotate-movie.mjs`.
   - Multi-file selection (`loadTiffFilesAuto()`): first file has 1 frame → `loadTiffSequence()`
     (file per frame, natural-sorted); more → `makeConcatStack()` (one recording split by size). Files
     are filtered by magic bytes, not extension. The same path serves the file input, calibration and
@@ -260,7 +260,7 @@ what makes GUI and command-line use interchangeable.
     failure (or an empty overview) drops to the CPU sampler on `vp.local` (main thread). Otherwise the render worker keeps the packed locs
     (`vpInit`/`vpRegion` messages, `_rwVp`); no worker → main thread. Draw through `srDrawImage()`;
     export and line profile render their own region (`srViewportRegion()`). Tests:
-    `tests/gpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
+    `tests/cpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
     30000-px-wide panel with its zoomed patch) and `tests/gpu/test-viewport-gpu.mjs` (GPU sampler vs CPU sampler,
     resident chunks, the GPU-served panel).
   - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
@@ -405,7 +405,7 @@ what makes GUI and command-line use interchangeable.
     annulus estimate plus one refinement pass (`apertureBackgroundMinusFit()`) — removes the σ↑/bg↓
     photon spikes of a free-background fit. Rejected fits report 0 (NaN only for an edge gap). Width
     gate 2× σ; aperture cross-check `SMFRET_AP_SANITY_MULT`/`NSIGMA`. Tests:
-    `tests/gpu/test-smfret-anchored-bg.mjs`, `test-smfret-bearing-width.mjs`.
+    `tests/cpu/test-smfret-anchored-bg.mjs`, `test-smfret-bearing-width.mjs`.
   - GPU batching (`smfretExtractTracesGpu()`, ≥ 500 candidates, not for LS/aperture) checks for
     device loss around every dispatch and logs the accepted count.
   - **Apply drift correction**: runs the configured drift method (AIM: a silent Localize pass,
@@ -495,7 +495,7 @@ what makes GUI and command-line use interchangeable.
   headlessly. `checkTableSize()` uses `TABLE_FILTER_ROW_BYTES` (32). `clearTableState()` empties
   and closes both tables (data, filters, rows, `renderLocs`); every action that discards or
   replaces the locs calls it (load, rotation, crop, simulation, Localize, pairing, tracking, CSV/
-  headless load, streaming). Test: `tests/gpu/test-load-clears-state.mjs`. `commitSrCrop()` awaits the
+  headless load, streaming). Test: `tests/io/test-load-clears-state.mjs`. `commitSrCrop()` awaits the
   filtered render before zooming; the crop rectangle is drawn first, with a `tick()` so it paints.
 
 ## Simulation (MODULE: simulation — what "Simulate movie" does)
@@ -559,7 +559,7 @@ analysis-side label carry a "Simulated" prefix. The PSF phase-mask rows are hidd
    **Save sim. movie** (`saveSimulatedMovie()`): `simSaved` (set by Simulate movie / Calib. 3D stack,
    cleared by `clearSimGroundTruth()`) → `encodeTiff16()` (MODULE: export: uncompressed 16-bit, ImageJ
    description + resolution, BigTIFF past 4 GB) and `buildGroundTruthCsv()` (per emitter-frame via
-   `groundTruthByFrame()`, drift added). Test: `tests/gpu/test-save-sim-movie.mjs`. **Poisson∘Gamma has variance 2λ — that is the √2 excess noise**, not a fudge;
+   `groundTruthByFrame()`, drift added). Test: `tests/io/test-save-sim-movie.mjs`. **Poisson∘Gamma has variance 2λ — that is the √2 excess noise**, not a fudge;
    scale 1 keeps `simulation_gain` meaning photons/ADU.
 9. **Ground truth**: `groundTruthEvents` (per blink: x, y, z, times, photons, `moleculeId`, `haze`),
    `simTrueDrift` (nm), `groundTruthLocs` (non-haze blinks with a fixed 1 nm `lpx/lpy`, so View ground truth
@@ -629,7 +629,7 @@ control (geometry via settings JSON/`paramOverrides`); uses the seeded stream. M
 with `mtStartPosition()`, in a background worker (`buildStructureAsync()` →
 `buildMicrotubuleStructureAsync()`, `getCellFieldWorker()`: the block's `workerSource()` + those two
 functions; sites return as one transferred Float64Array and are rebuilt in chunks; identical sites,
-test `tests/gpu/test-cellfield-worker.mjs`; main-thread fallback), clipped to
+test `tests/cpu/test-cellfield-worker.mjs`; main-thread fallback), clipped to
 ±`simulation_zRange` around `simulation_mt_focusZ`, consuming nothing from the movie's `mulberry32`
 stream. `simulation_mt_seed` 0 (default) = random per movie (`resolveMtSeed()`, logged). `mtStartPosition()`
 gives each seed a fixed start: origin if a 3×3 probe of 2 µm sub-windows hits dyes in ≥5/9, else the
@@ -740,10 +740,24 @@ settings-JSON code).
 - Simulation: `tests/gpu/test-sim-gpu.mjs` (CPU/GPU agreement, noise statistics, PSF tail; the CPU
   half runs without WebGPU), `tests/gpu/bench-simulation.mjs`, a seeded pixel hash for the
   byte-identity rule, and `node tools/sync_cellfield.mjs --check`.
-- `tests/gpu/*.mjs` (Node + Playwright, installed via `tools/`; see `tests/README.md`): correctness
+- `tests/{gpu,cpu,io,livestream,harness,validation}/*.mjs` (Node + Playwright, installed via `tools/`; see `tests/README.md`): correctness
   tests (`test-*.mjs`, e.g. foundation, gpu-correctness, frame-cache-integrity, frc-gpu, smFRET) and
-  benchmarks (`bench-*.mjs`); `node tests/gpu/run-suite.mjs [--only=…]` or
-  `npm --prefix tools run gpu:all`. Run the relevant ones after touching fit/render/GPU/smFRET code.
+  benchmarks (`bench-*.mjs`); `node tests/run-suite.mjs [--only=…]` or
+  `npm --prefix tools run all`. Run the relevant ones after touching fit/render/GPU/smFRET code.
+- Test dashboard: `npm --prefix tools run dashboard`. It runs the same allowlisted
+  `tools/package.json` scripts, streams logs, and discovers JSON/HTML output in
+  `tests/results/`; it never downloads datasets as part of a normal test run.
+  `all` is the bounded automated roster, `all:full` uses larger workloads, and
+  `everything[:full]` adds the physical simulation regime matrix plus optional
+  independent, fixed-seed simulator, and EPFL Picasso validation. Downloads, setup, and
+  live hardware remain explicit. Missing data must be reported as a skip with
+  the dataset name and remediation, never as a successful measurement.
+- New test/benchmark: place `test-*.mjs` or `bench-*.mjs` in the matching test
+  group, reuse `tests/lib/`, write structured output with `writeResults()`, add a
+  focused package script, and add it to `tests/run-suite.mjs` only if it belongs
+  in aggregate runs. New real data belongs in `tests/lib/datasets.mjs`; include
+  complete `source` and `download` metadata only for a verified public download,
+  otherwise it remains a CLI-only private fixture. Never hardcode `temp/` paths.
 - Numeric additions: validate against synthetic ground truth (extracted functions in JXA are fine
   for small inputs; JXA is ~50–100× slower than V8).
 - Interactive/visual checks: Playwright (Chromium bundled; `npx playwright install webkit` for a

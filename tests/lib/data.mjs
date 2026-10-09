@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { repoRoot } from './launch.mjs';
+import { datasetFile } from './datasets.mjs';
 
 const cacheFile = join(repoRoot, 'tests', 'results', '.data-paths.json');
 
@@ -36,12 +37,14 @@ function writeCache(cache) {
 }
 
 // key: a short UPPER_SNAKE identifier (becomes WEBSMLM_TEST_DATA_<key> and
-// the cache entry name). defaultRelPath: the usual location under temp/, as
-// it would be joined with 'temp' (e.g. join('19165061','Aquired STORM.tif')).
+// the cache entry name). defaultRelPath: one path, or fallback paths, under temp/.
 // Returns the resolved absolute path, or null if nothing was found/given.
 export async function resolveDataFile(key, defaultRelPath) {
-  const defaultPath = join(repoRoot, 'temp', defaultRelPath);
-  if (existsSync(defaultPath)) return defaultPath;
+  const relativePaths = Array.isArray(defaultRelPath) ? defaultRelPath : [defaultRelPath];
+  const defaultPaths = relativePaths.map(relative => join(repoRoot, 'temp', relative));
+  const foundPath = defaultPaths.find(existsSync);
+  if (foundPath) return foundPath;
+  const defaultPath = defaultPaths.join('\n  ');
 
   const envVar = `WEBSMLM_TEST_DATA_${key}`;
   const envPath = process.env[envVar];
@@ -74,4 +77,9 @@ export async function resolveDataFile(key, defaultRelPath) {
     console.log(`Skipping — ${key} not found at:\n  ${defaultPath}\nSet ${envVar}=<path> to point at your own copy (see experimental_data/README.md).`);
   }
   return null;
+}
+
+export async function resolveDatasetFile(datasetKey, role) {
+  const { envKey, paths } = datasetFile(datasetKey, role);
+  return resolveDataFile(envKey, paths);
 }

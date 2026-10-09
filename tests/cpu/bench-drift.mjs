@@ -20,15 +20,14 @@
 // Skips (does not fail) if the file isn't present — real, git-ignored data.
 //
 // Usage: cd tests && npm install (once), then node bench-drift.mjs
-import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
 import { printTable, speedup, writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
 
 // Localizations only: drift never touches pixels, so the processed CSV is the
 // honest input here and avoids a multi-minute Localize just to reach the stage
 // under test.
-const TARGET = await resolveDataFile('LOCALIZATIONS_CSV', join('19165061', 'Processed localizations.csv'));
+const TARGET = await resolveDatasetFile('storm3d', 'localizations');
 if (!TARGET) { console.log('Skipping drift benchmark.'); process.exit(0); }
 
 // driftCore()'s own defaults: 100-frame segments, ±120 nm search, 15 nm bins.

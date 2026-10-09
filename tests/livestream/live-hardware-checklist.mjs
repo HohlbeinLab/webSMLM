@@ -6,7 +6,7 @@
 // a real connection actually arrived. Opt-in only
 // (run-suite.mjs --live-hardware) — never part of a default/unattended run.
 //
-// Usage: node tests/gpu/live-hardware-checklist.mjs [--timeout-s=N]
+// Usage: node tests/livestream/live-hardware-checklist.mjs [--timeout-s=N]
 import { launchPage } from '../lib/launch.mjs';
 import { writeResults } from '../lib/report.mjs';
 

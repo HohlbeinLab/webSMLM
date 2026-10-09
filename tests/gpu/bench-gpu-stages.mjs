@@ -21,17 +21,17 @@
 // Skips (does not fail) if the file isn't present — real, git-ignored data.
 //
 // Usage: cd tests && npm install (once), then node bench-gpu-stages.mjs [--full]
-import { join } from 'node:path';
 import { launchPage } from '../lib/launch.mjs';
 import { printTable, speedup, writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
+import { DATASETS } from '../lib/datasets.mjs';
 
 const FULL = process.argv.includes('--full');
-const TARGET = await resolveDataFile('STORM_STACK', join('19165061', 'Aquired STORM.tif'));
+const TARGET = await resolveDatasetFile('storm3d', 'stack');
 if (!TARGET) { console.log('Skipping stage benchmark.'); process.exit(0); }
 
 const BASE_CONFIG = {
-  pxnm: 100, method: 'gaussmle', psf: 1.3, winr: 4,
+  ...DATASETS.storm3d.parameters, method: 'gaussmle', psf: 1.3, winr: 4,
   detFilter: 'wave', detection_wavelet_thr: 2,
   fitFirstFrame: 1, fitLastFrame: FULL ? Infinity : 2000,
   // Post-processing on: FRC should route through the adaptive stage policy when

@@ -20,10 +20,10 @@
 // webSMLM.html).
 //
 // Usage: cd tests && npm install (once), then node bench-live-render.mjs
-import { join } from 'node:path';
 import { launchPage, checkGpu } from '../lib/launch.mjs';
 import { printTable, speedup, writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
+import { DATASETS } from '../lib/datasets.mjs';
 
 const N_ITERS = 40;
 const MAG = 10, RBLUR = 0.25;
@@ -209,13 +209,13 @@ try {
 
   let partB = null;
   console.log('\n=== Part B: reconstruction-render cost inside a real analyze() Run ===');
-  const TARGET = await resolveDataFile('STORM_STACK', join('19165061', 'Aquired STORM.tif'));
+  const TARGET = await resolveDatasetFile('storm3d', 'stack');
   if (!TARGET) {
     console.log('Skipping Part B.');
   } else {
     await page.setInputFiles('#analyzeFileInput', TARGET);
-    const runOne = useGpu => page.evaluate(async ({ useGpu, fileInputId }) => {
-      const config = { method: 'gaussmle', pxnm: 160, gain: 0.1248, camoffset: 100, fitFirstFrame: 1, fitLastFrame: 200, useGpu };
+    const runOne = useGpu => page.evaluate(async ({ useGpu, fileInputId, parameters }) => {
+      const config = { method: 'gaussmle', ...parameters, fitFirstFrame: 1, fitLastFrame: 200, useGpu };
       config.file = document.getElementById(fileInputId).files[0];
       let renderMs = null;
       const key = useGpu ? 'renderSuperResGpu' : 'renderSuperRes';
@@ -231,7 +231,7 @@ try {
       const r = await window.webSMLM.analyze(config);
       window[key] = orig;
       return { renderMs, runMs: r.timings.runMs, nLocs: r.locs.length };
-    }, { useGpu, fileInputId: 'analyzeFileInput' });
+    }, { useGpu, fileInputId: 'analyzeFileInput', parameters: DATASETS.storm3d.parameters });
 
     const cpuRun = await runOne(false);
     const gpuRun = gpu.available ? await runOne(true) : null;

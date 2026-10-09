@@ -13,12 +13,11 @@
 // Skips (does not fail) if the file isn't present — real, git-ignored data.
 //
 // Usage: cd tests && npm install (once), then node bench-detect.mjs
-import { join } from 'node:path';
 import { launchPage, checkGpu } from '../lib/launch.mjs';
 import { writeResults } from '../lib/report.mjs';
-import { resolveDataFile } from '../lib/data.mjs';
+import { resolveDatasetFile } from '../lib/data.mjs';
 
-const TARGET = await resolveDataFile('STORM_STACK', join('19165061', 'Aquired STORM.tif'));
+const TARGET = await resolveDatasetFile('storm3d', 'stack');
 if (!TARGET) { console.log('Skipping detect benchmark.'); process.exit(0); }
 
 const { browser, page } = await launchPage();
