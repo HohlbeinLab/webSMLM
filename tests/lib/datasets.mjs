@@ -72,9 +72,9 @@ export const DATASETS = Object.freeze({
     benchmark: 'bench-multi-file-load.mjs',
     scientificValidation: true,
     download: { type: 'zip', url: 'https://www.gattaquant.com/files/GATTA-PAINT-80R-RAW.zip' },
-    // Of the downloaded archive; null = the zip is not cached locally (only its extraction), so no value was computed.
-    sha256: null,
-    bytes: null,
+    // Of the downloaded archive (hashed from a streamed download; the server's file has been unchanged since 2014).
+    sha256: '17262a2fba440f292d54580d99a2109a1c665fcb58be1d62f5d5b0eeaf4383bd',
+    bytes: 445286085,
   },
   'epfl-as-beads': {
     label: 'EPFL 3D challenge astigmatism beads',
